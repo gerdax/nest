@@ -100,11 +100,11 @@ export function modulo(value, count) {
 }
 
 // An orbit has no seam: every physical card completes the same closed path.
-export function carouselPose(index, cursor, count, width, settings = DEFAULT_SETTINGS) {
+export function carouselPose(index, cursor, count, width, settings = DEFAULT_SETTINGS, peakRadius = null) {
   const angle = (index - cursor) * Math.PI * 2 / count;
   const front = Math.cos(angle);
   const phase = Math.sin(cursor * Math.PI) ** 2;
-  const radius = 18 + width * .28 * phase;
+  const radius = 18 + (peakRadius === null ? width * .28 : peakRadius - 18) * phase;
   return {
     x: count === 1 ? 0 : Math.sin(angle) * radius,
     y: (1 - front) * 7,

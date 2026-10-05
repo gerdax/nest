@@ -9,14 +9,33 @@
   user-select: none;
   -webkit-user-select: none;
   outline: none;
+  isolation: isolate;
+  transform-style: flat;
+}
+/* Each complete card has its own 3D context. Neighboring planes cannot cut
+   through it: the outer layers are ordered as whole, opaque cards. */
+.nest-card-layer {
+  position: absolute;
+  inset: 0;
   perspective: 1000px;
   perspective-origin: 50% 45%;
-  transform-style: preserve-3d;
+  transform-style: flat;
+  isolation: isolate;
+  pointer-events: none;
 }
 .nest-deck:focus-visible {
-  outline: 1px solid #b0ca8b;
-  outline-offset: 16px;
-  border-radius: 22px;
+  outline: none;
+}
+.nest-deck:focus-visible::after {
+  content: '';
+  position: absolute;
+  left: 44%;
+  right: 44%;
+  bottom: -18px;
+  height: 2px;
+  background: #b0ca8b;
+  z-index: 2000;
+  pointer-events: none;
 }
 .nest-card {
   position: absolute;
@@ -47,10 +66,6 @@
   position: absolute;
   inset: 0;
   background: linear-gradient(180deg, #0000 25%, #06090366 48%, #060903f5 100%);
-}
-.nest-underlay {
-  background-color: #171d10;
-  background-image: repeating-linear-gradient(135deg, #1b2214 0 1px, #11180c 1px 12px);
 }
 .nest-copy {
   font-family: NestLetter, monospace;

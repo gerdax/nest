@@ -46,11 +46,11 @@ Load `engine/card-deck.css` alongside your host styles. Give the mount a width, 
 
 Listen on the deck instance with `addEventListener`:
 
-- `reveal`: opening is accepted; animation may still be settling.
+- `reveal`: uncovering is accepted. Choices remain compressed until the cover clears their projected area, then expand.
 - `selection`: the selected action changes; use `detail.action` and `detail.index` to reflect the choice.
-- `close`: closing is accepted; animation may still be settling.
+- `close`: closing is accepted. Choices compress before the cover returns.
 - `commit`: a choice is accepted, with `{ contentId, action, index }`. Supply next content from the host.
-- `transitioncomplete`: settling has finished; `detail.transition` identifies `reveal`, `close`, `browse`, `cancel`, `settle`, or `commit`. Commit completes after the outgoing stack leaves and the exposed deck settles. Input is blocked while awaiting host content.
+- `transitioncomplete`: settling has finished; `detail.transition` identifies `reveal`, `close`, `browse`, `cancel`, `settle`, or `commit`. Reveal completes only when the fan is ready for browsing and commitment. Commit completes after the outgoing stack leaves and the exposed deck settles. Input is blocked while awaiting host content.
 
 The tuning panel exposes `stiffness`, `damping`, `mass`, `maxTilt`, `axisThreshold`, `distanceThreshold`, `flickVelocity`, `flickDistance`, `commitDuration`, `perspective`, `stackDepth`, `liftHeight`, `angularStiffness`, `angularDamping`, and `gravity`. Copy settings to reuse the resulting object in another host.
 
@@ -70,3 +70,16 @@ Position and angular states use damped springs. The pointer's grab location dete
 This is a constrained card UI simulation, not a collision or bending simulation. [Three.js CSS3DRenderer](https://threejs.org/docs/pages/CSS3DRenderer.html) would add a scene graph around the same DOM transform rendering; [Rapier](https://rapier.rs/docs/user_guides/javascript/rigid_bodies/) would be appropriate for free rigid bodies, collisions, and joints if the playground later needs tabletop behavior. Rendering and motion remain separate modules to allow such an extension.
 
 Defaults added for physical tuning: perspective 1000 px, stack depth 10 px, lift height 28 px, angular stiffness 180, angular damping 22, gravity 2200 px/s². `scatterDuration` was removed because choices now leave as one stack. Throw gravity is capped for the configured duration so the stack continues upward through its exit.
+
+
+## Deck presentation and versioning
+
+The closed choice set is centered and compressed behind the situation. There are no protruding choice edges and no generic backing/placeholder card. The renderer creates a next-situation background only when the host supplies actual content during commitment.
+
+`deck.state.phase` is `closed`, `revealing`, `choices`, `closing`, or `committing`. Browsing and committing are enabled only in `choices`. Closing preserves selection and collapses the fan before returning the cover. Reduced motion settles the same sequence immediately.
+
+Cards use independent flattened 3D containers, with explicit whole-card painter ordering, so tilted planes cannot cut through their neighbors. At carousel foreground handoffs, the orbit widens to maintain at least an 8 px projected gap before the foreground order changes. The compact fan at rest is unchanged.
+
+Regression preset from the reported screenshot: axisThreshold 27, distanceThreshold .21, flickVelocity 375, commitDuration 190, perspective 1100. This is used in verification, not as new defaults.
+
+The branch `codex/deck-reveal-fixes` preserves the existing repository history. Commit `4a48051` checkpoints the project before these fixes, including the original prototype archive. The following fix commit records the presentation changes independently.

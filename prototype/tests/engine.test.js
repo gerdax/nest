@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import {DEFAULT_SETTINGS,classifyAxis,qualifies,resistance,spring,springStep,settingsWith} from '../engine/motion.js';
 import {CardDeck} from '../engine/CardDeck.js';
 import * as renderer from '../engine/renderer.js';
+import {projectedBounds} from '../engine/geometry.js';
+import {readFileSync} from 'node:fs';
 class Element extends EventTarget{
  constructor(){super();this.attrs=new Map();this.style={};this.children=[];this.classList={add(){},remove(){}};this.captures=new Set();}
  setAttribute(k,v){this.attrs.set(k,v)} getAttribute(k){return this.attrs.get(k)??null} removeAttribute(k){this.attrs.delete(k)}
@@ -16,6 +18,7 @@ globalThis.matchMedia=()=>Object.assign(new EventTarget(),{matches:false});globa
 const fixture=n=>({id:`fixture${n}`,title:'Situation',text:'Placeholder',actions:Array.from({length:n},(_,i)=>({id:`a${i}`,label:`Action ${i}`}))});
 function deck(n=3){return new CardDeck(new Element(),{content:fixture(n)})}
 function settle(d){for(let i=0;i<300;i++){cancelAnimationFrame(d.frame);d.tick(performance.now()+i*16)}cancelAnimationFrame(d.frame);d.frame=0;}
+function ready(d){d.setOpen(true);settle(d);assert.equal(d.phase,'choices');assert.equal(d.fan.x,1);}
 function gesture(d,g){d.start();d.move(g);d.end(g);settle(d)}
 test('axis waits for threshold and locks to dominant direction',()=>{assert.equal(classifyAxis(4,4),null);assert.equal(classifyAxis(30,12),'x');assert.equal(classifyAxis(12,-30),'y')});
 test('distance and directional flick acceptance',()=>{assert.equal(qualifies(84,0,340),false);assert.equal(qualifies(85,0,340),true);assert.equal(qualifies(-25,-800,453),true);assert.equal(qualifies(-25,800,453),false);assert.equal(qualifies(23,900,453),false)});
@@ -53,9 +56,9 @@ test('close and reopen preserve the unbounded carousel cursor',()=>{
  const cursor=d.b.target,selected=d.index;assert.equal(cursor,-8);gesture(d,{axis:'y',x:0,y:130,vx:0,vy:0});assert.equal(d.open,false);
  assert.equal(d.b.target,cursor);gesture(d,{axis:'y',x:0,y:-130,vx:0,vy:0});assert.equal(d.index,selected);assert.equal(d.b.x,cursor);assert.equal(d.b.target,cursor);d.destroy();
 });
-test('grabbing settling motion keeps current position and cancellation restores target',()=>{const d=deck();d.setOpen(true);d.p.x=.45;d.start();assert.equal(d.drag.p,.45);d.move({axis:'y',x:0,y:10,vx:0,vy:0});assert.ok(Math.abs(d.p.x-.45)<.05);d.cancel();settle(d);assert.equal(d.p.x,1);d.destroy()});
-test('commit emits once, queues host content, then reveals next deck',()=>{for(let index=0;index<4;index++){const d=deck(4);d.setOpen(true);d.index=index;d.b.x=index;d.b.target=index;let commits=0;d.addEventListener('commit',e=>{commits++;assert.equal(e.detail.index,index);d.replaceContent(fixture(2))});d.commit();d.commit();assert.equal(d.busy,true);d.tick(d.commitMotion.start+1000);settle(d);assert.equal(commits,1);assert.equal(d.content.id,'fixture2');assert.equal(d.open,false);assert.equal(d.busy,false);assert.equal(d.cards.length,2);d.destroy()}});
-test('async host content keeps input blocked; reset cancels work',()=>{const d=deck();d.setOpen(true);d.commit();d.tick(d.commitMotion.start+1000);assert.equal(d.busy,true);assert.equal(d.start(),false);d.replaceContent(fixture(4));settle(d);assert.equal(d.busy,false);d.setOpen(true);d.commit();d.reset();assert.equal(d.busy,false);assert.equal(d.commitMotion,null);assert.equal(d.frame,0);assert.equal(d.cards.length,4);d.destroy()});
+test('grabbing settling motion keeps current position and cancellation restores target',()=>{const d=deck();d.p.x=.45;d.p.target=0;d.start();assert.equal(d.drag.p,.45);d.move({axis:'y',x:0,y:10,vx:0,vy:0});assert.ok(Math.abs(d.p.x-.45)<.05);d.cancel();settle(d);assert.equal(d.p.x,0);assert.equal(d.fan.x,0);d.destroy()});
+test('commit emits once, queues host content, then reveals next deck',()=>{for(let index=0;index<4;index++){const d=deck(4);ready(d);d.index=index;d.b.x=index;d.b.target=index;let commits=0;d.addEventListener('commit',e=>{commits++;assert.equal(e.detail.index,index);d.replaceContent(fixture(2))});d.commit();d.commit();assert.equal(d.busy,true);d.tick(d.commitMotion.start+1000);settle(d);assert.equal(commits,1);assert.equal(d.content.id,'fixture2');assert.equal(d.open,false);assert.equal(d.busy,false);assert.equal(d.cards.length,2);d.destroy()}});
+test('async host content keeps input blocked; reset cancels work',()=>{const d=deck();ready(d);d.commit();d.tick(d.commitMotion.start+1000);assert.equal(d.busy,true);assert.equal(d.start(),false);d.replaceContent(fixture(4));settle(d);assert.equal(d.busy,false);ready(d);d.commit();d.reset();assert.equal(d.busy,false);assert.equal(d.commitMotion,null);assert.equal(d.frame,0);assert.equal(d.cards.length,4);d.destroy()});
 test('replacement cancels dragging, reduced motion completes, destroy restores mount',()=>{const d=deck();d.start();d.replaceContent(fixture(2));assert.equal(d.drag,null);d.reduced=true;d.setOpen(true);d.schedule();assert.equal(d.p.x,1);d.destroy();assert.equal(d.mount.children.length,0);assert.equal(d.mount.getAttribute('role'),null);assert.equal(d.frame,0);assert.equal(d.input.active,null);d.updateSettings({mass:2});d.replaceContent(fixture(3));assert.equal(d.mount.children.length,0)});
 test('low mass, critical damping, and tuning extremes remain stable',()=>{
  for(const config of [{mass:.01},{mass:.25,stiffness:600,damping:80},{mass:3,stiffness:60,damping:5},{mass:1,stiffness:100,damping:20}]){
@@ -68,10 +71,10 @@ test('pointer capture, cancellation, and lost capture restore stable state',()=>
  pointer(d.mount,'pointerdown');pointer(d.mount,'pointermove',{clientY:180,timeStamp:150});pointer(d.mount,'lostpointercapture');settle(d);assert.equal(d.p.x,0);assert.equal(d.drag,null);d.destroy();pointer(d.mount,'pointerdown');assert.equal(d.input.active,null);
 });
 test('paused pointer release cannot use stale flick velocity',()=>{const d=deck();pointer(d.mount,'pointerdown');pointer(d.mount,'pointermove',{clientY:270,timeStamp:20});pointer(d.mount,'pointerup',{clientY:270,timeStamp:200});settle(d);assert.equal(d.open,false);d.destroy()});
-test('commit completion announces the new situation',()=>{const d=deck();d.addEventListener('commit',()=>d.replaceContent(fixture(2)));d.setOpen(true);d.commit();d.tick(d.commitMotion.start+1000);settle(d);assert.equal(d.live.textContent,'Situation');d.destroy()});
+test('commit completion announces the new situation',()=>{const d=deck();d.addEventListener('commit',()=>d.replaceContent(fixture(2)));ready(d);d.commit();d.tick(d.commitMotion.start+1000);settle(d);assert.equal(d.live.textContent,'Situation');d.destroy()});
 test('reduced motion commits without animation or stale status',()=>{const d=deck();d.reduced=true;d.addEventListener('commit',()=>d.replaceContent(fixture(2)));d.setOpen(true);d.schedule();d.commit();assert.equal(d.busy,false);assert.equal(d.content.id,'fixture2');assert.equal(d.live.textContent,'Situation');assert.equal(d.frame,0);d.destroy()});
 test('resize cancels an active drag without changing selection',()=>{const d=deck();d.setOpen(true);settle(d);d.index=1;d.b.x=d.b.target=1;pointer(d.mount,'pointerdown');pointer(d.mount,'pointermove',{clientX:130,timeStamp:30});d.resize.callback();assert.equal(d.index,1);assert.equal(d.drag,null);assert.equal(d.b.x,1);d.destroy()});
-test('tab suspension finishes queued commit and clears animation work',()=>{const d=deck();d.addEventListener('commit',()=>d.replaceContent(fixture(2)));d.setOpen(true);d.commit();document.hidden=true;document.dispatchEvent(new Event('visibilitychange'));assert.equal(d.busy,false);assert.equal(d.frame,0);assert.equal(d.content.id,'fixture2');document.hidden=false;d.destroy()});
+test('tab suspension finishes queued commit and clears animation work',()=>{const d=deck();d.addEventListener('commit',()=>d.replaceContent(fixture(2)));ready(d);d.commit();document.hidden=true;document.dispatchEvent(new Event('visibilitychange'));assert.equal(d.busy,false);assert.equal(d.frame,0);assert.equal(d.content.id,'fixture2');document.hidden=false;d.destroy()});
 
 function descendants(el){return [el,...el.children.flatMap(descendants)]}
 function textOf(el){return [el.textContent||'',...el.children.map(textOf)].join(' ')}
@@ -126,16 +129,125 @@ test('grab location changes angular targets and release springs back to rest',()
  }
  assert.ok(samples[0].some((target,i)=>Math.abs(target-samples[1][i])>.01),'different grab points must produce different rotation');
 });
-test('rapid keyboard commit keeps a partially lifted situation on its continuous upward path',()=>{
- const d=deck();const source=d.scene;d.addEventListener('commit',()=>d.replaceContent({...fixture(2),title:'Rapid next'}));
+test('rapid reveal input cannot commit or browse before choices are ready',()=>{
+ const d=deck();let commits=0;d.addEventListener('commit',()=>commits++);
  const press=name=>{const event=new Event('keydown',{cancelable:true});Object.defineProperty(event,'key',{value:name});d.mount.dispatchEvent(event)};
- press('ArrowUp');d.tick(performance.now());assert.ok(d.p.x>0&&d.p.x<1);
- const before=renderer.scenePose(d);press('ArrowUp');assert.ok(d.commitMotion);assert.equal(d.scene,source);
- const start=d.commitMotion.start,atRelease=renderer.scenePose(d,start);assert.ok(atRelease.visible);assert.equal(atRelease.y,before.y);
- const after=renderer.scenePose(d,start+40);assert.ok(after.visible);assert.ok(after.y<atRelease.y);assert.ok(descendants(d.mount).includes(source));
- d.render(start+40);assert.equal(source.style.visibility,'visible');assertOpaque(d);
- d.tick(start+1000);assert.equal(d.content.title,'Rapid next');assert.ok(renderer.scenePose(d).visible);assert.equal(Math.abs(renderer.scenePose(d).y),0);
- assert.equal(d.operation,'commit');assert.equal(d.busy,true);
- for(let i=0;i<d.cards.length;i++){assert.ok(renderer.cardPose(d,i).visible);assert.equal(d.cards[i].style.visibility,'visible');}
- settle(d);assert.equal(d.busy,false);assertOpaque(d);d.destroy();
+ press('ArrowUp');d.tick(performance.now());assert.equal(d.phase,'revealing');assert.ok(d.p.x>0&&d.p.x<1);assert.equal(d.fan.x,0);
+ const browse=d.b.target;press('ArrowUp');press('ArrowRight');d.commit();assert.equal(commits,0);assert.equal(d.commitMotion,null);assert.equal(d.b.target,browse);
+ settle(d);assert.equal(d.phase,'choices');assert.equal(d.fan.x,1);press('ArrowUp');assert.equal(commits,1);assert.equal(d.phase,'committing');assert.ok(d.commitMotion);d.destroy();
+});
+
+function footprint(d,pose){const {width,height}=d.mount.getBoundingClientRect();return projectedBounds(pose,width,height,d.settings.perspective)}
+test('closed decks contain exactly the actual scene and action cards in distinct layers',()=>{
+ for(const count of [2,3,4]){
+  const d=deck(count);assert.equal(d.phase,'closed');assert.equal(d.fan.x,0);assert.equal(d.underlay,null);
+  const articles=descendants(d.mount).filter(el=>(el.className||'').split(' ').includes('nest-card'));
+  assert.equal(articles.length,count+1);assert.ok(!textOf(d.mount).includes('NEST'));
+  assert.equal(d.cardLayers.length,count);assert.equal(new Set([...d.cardLayers,d.sceneLayer]).size,count+1);
+  for(let i=0;i<count;i++){assert.ok(d.cardLayers[i].className.includes('nest-card-layer'));assert.ok(d.cardLayers[i].children.includes(d.cards[i]));assert.ok(d.mount.children.includes(d.cardLayers[i]));}
+  assert.ok(d.sceneLayer.children.includes(d.scene));d.destroy();
+ }
+ const css=readFileSync(new URL('../engine/card-deck.css',import.meta.url),'utf8');
+ assert.ok(!css.includes('preserve-3d'),'card layers must flatten independently to allow whole-card painter ordering');
+});
+test('compressed actions stay centered and inside the projected source at tuning extremes',()=>{
+ for(const count of [2,3,4])for(const width of [249,340])for(const perspective of [650,1600])for(const maxTilt of [0,18])for(const stackDepth of [1,30]){
+  const d=deck(count);d.mount.getBoundingClientRect=()=>({left:0,top:0,width,height:width*4/3});d.updateSettings({perspective,maxTilt,stackDepth});
+  d.b.x=3.5;d.rotationX.x=maxTilt;d.rotationY.x=-maxTilt;d.rotationZ.x=maxTilt;
+  // Source at rest has no angular rotation; compressed choices suppress their
+  // angular spring response even if previous browsing left a nonzero cursor.
+  d.rotationX.x=d.rotationY.x=d.rotationZ.x=0;
+  const source=footprint(d,renderer.scenePose(d));
+  for(let i=0;i<count;i++){
+   const pose=renderer.cardPose(d,i);for(const key of ['x','y','rx','ry','rz'])assert.equal(Math.abs(pose[key]),0);
+   assert.ok(pose.z<renderer.scenePose(d).z);const bounds=footprint(d,pose);
+   assert.ok(bounds.left>=source.left&&bounds.right<=source.right&&bounds.top>=source.top&&bounds.bottom<=source.bottom);
+  }d.destroy();
+ }
+});
+test('partial reveal keeps choices compressed, then accepted reveal waits for projected clearance',()=>{
+ const d=deck();d.start();d.move({axis:'y',x:0,y:-60,vx:0,vy:0});assert.equal(d.fan.x,0);assert.equal(d.fan.target,0);assert.equal(d.phase,'closed');
+ d.end({axis:'y',x:0,y:-60,vx:0,vy:0});settle(d);assert.equal(d.open,false);assert.equal(d.fan.x,0);
+ d.setOpen(true);let sawExpansion=false;let time=performance.now();
+ for(let i=0;i<300;i++){
+  cancelAnimationFrame(d.frame);d.tick(time+i*16);
+  if(d.fan.target>0||d.fan.x>0){assert.ok(footprint(d,renderer.scenePose(d)).bottom<-8,'fan expansion starts only once source is clear');sawExpansion=true;}
+  if(d.phase==='choices')break;
+ }
+ assert.ok(sawExpansion);assert.equal(d.phase,'choices');assert.equal(d.fan.x,1);d.destroy();
+});
+test('closing compresses the fan before returning the source',()=>{
+ const d=deck();ready(d);const lifted=d.p.x;d.setOpen(false);assert.equal(d.phase,'closing');assert.equal(d.fan.target,0);
+ assert.equal(d.p.target,lifted);let time=performance.now();let sawCompression=false;
+ for(let i=0;i<300;i++){
+  cancelAnimationFrame(d.frame);d.tick(time+i*16);
+  if(d.fan.x>0){assert.equal(d.p.x,lifted);sawCompression=true;}
+  if(d.p.x<lifted)assert.equal(d.fan.x,0);
+  if(d.phase==='closed')break;
+ }
+ assert.ok(sawCompression);assert.equal(d.phase,'closed');assert.equal(d.p.x,0);assert.equal(d.fan.x,0);d.destroy();
+});
+test('crossover swaps whole-card foreground order only with projected horizontal clearance',()=>{
+ for(const count of [2,3,4])for(const width of [249,340])for(const perspective of [650,1000])for(const maxTilt of [6,18])for(const stackDepth of [10,30]){
+  const d=deck(count);d.mount.getBoundingClientRect=()=>({left:0,top:0,width,height:width*4/3});d.updateSettings({perspective,maxTilt,stackDepth});ready(d);
+  for(const rx of [-maxTilt,0,maxTilt])for(const ry of [-maxTilt,0,maxTilt])for(const rz of [-maxTilt,0,maxTilt]){
+   d.rotationX.x=rx;d.rotationY.x=ry;d.rotationZ.x=rz;
+   d.b.x=.5;const poses=[renderer.cardPose(d,0),renderer.cardPose(d,1)];const bounds=poses.map(pose=>footprint(d,pose));
+   const left=poses[0].x<poses[1].x?0:1,right=1-left;
+   assert.ok(bounds[right].left-bounds[left].right>=8-1e-7,`crossover gap count${count}, width${width}`);
+   d.b.x=.49999;d.render();const before=d.cardLayers.slice(0,2).map(layer=>Number(layer.style.zIndex));
+   d.b.x=.50001;d.render();const after=d.cardLayers.slice(0,2).map(layer=>Number(layer.style.zIndex));
+   assert.ok(before[0]>before[1]);assert.ok(after[1]>after[0]);
+  }d.destroy();
+ }
+});
+test('motion defaults are unchanged',()=>{
+ assert.equal(DEFAULT_SETTINGS.stiffness,280);assert.equal(DEFAULT_SETTINGS.damping,30);assert.equal(DEFAULT_SETTINGS.mass,1);assert.equal(DEFAULT_SETTINGS.maxTilt,6);
+ assert.equal(DEFAULT_SETTINGS.distanceThreshold,.25);assert.equal(DEFAULT_SETTINGS.flickVelocity,700);assert.equal(DEFAULT_SETTINGS.commitDuration,420);
+});
+
+test('reversing a closing drag raises the source before expanding choices again',()=>{
+ const d=deck();ready(d);d.start();
+ d.move({axis:'y',x:0,y:500,vx:0,vy:0});assert.equal(d.fan.x,0);assert.ok(footprint(d,renderer.scenePose(d)).bottom>0);
+ d.move({axis:'y',x:0,y:50,vx:0,vy:0});
+ const safelyReversed=d.fan.x===0||footprint(d,renderer.scenePose(d)).bottom<=-8;
+ d.cancel();d.destroy();
+ assert.ok(safelyReversed,'reverse drag expanded choices while the source still overlapped them');
+});
+
+test('resizing during fan expansion preserves projected source clearance',()=>{
+ const d=deck();d.updateSettings({stiffness:60,damping:80,mass:3});let width=249;d.mount.getBoundingClientRect=()=>({left:0,top:0,width,height:width*4/3});
+ d.setOpen(true);const time=performance.now();
+ for(let i=0;i<300&&d.fan.x===0;i++){cancelAnimationFrame(d.frame);d.tick(time+i*16);}
+ assert.ok(d.fan.x>0);width=340;d.resize.callback();
+ const safe=d.fan.x===0||footprint(d,renderer.scenePose(d)).bottom<=-8;
+ d.destroy();assert.ok(safe,'resize returned the source over already expanding choices');
+});
+
+test('a closing drag can reverse through zero into an upward commit',()=>{
+ const d=deck();ready(d);let commits=0;d.addEventListener('commit',()=>commits++);d.start();
+ d.move({axis:'y',x:0,y:500,vx:0,vy:0});assert.equal(d.fan.x,0);
+ d.move({axis:'y',x:0,y:0,vx:0,vy:0});assert.equal(d.fan.x,1);assert.ok(footprint(d,renderer.scenePose(d)).bottom<=-8);
+ const gesture={axis:'y',x:0,y:-130,vx:0,vy:0};d.move(gesture);d.end(gesture);
+ assert.equal(commits,1);assert.equal(d.phase,'committing');assert.equal(d.fan.x,1);assert.ok(d.commitMotion);d.destroy();
+});
+
+for(const count of [2,3,4])test(`${count} actions complete the captured preset reveal, browse, close, reopen and commit loop`,()=>{
+ const d=deck(count);assert.deepEqual(d.settings,DEFAULT_SETTINGS);d.updateSettings({axisThreshold:27,distanceThreshold:.21,flickVelocity:375,commitDuration:190,perspective:1100});let commits=0;
+ d.addEventListener('commit',()=>{commits++;d.replaceContent({...fixture(count),id:'next-preset',title:'Next preset situation'})});
+ gesture(d,{axis:'y',x:0,y:-130,vx:0,vy:0});assert.equal(d.phase,'choices');
+ for(let i=0;i<count+1;i++)key(d,'ArrowRight');for(let i=0;i<count+2;i++)key(d,'ArrowLeft');
+ assert.equal(d.b.target,-1);assert.equal(d.index,count-1);
+ key(d,'ArrowDown');assert.equal(d.phase,'closed');assert.equal(d.fan.x,0);
+ key(d,'ArrowUp');assert.equal(d.phase,'choices');assert.equal(d.index,count-1);
+ key(d,'ArrowUp');assert.equal(commits,1);assert.equal(d.busy,false);assert.equal(d.phase,'closed');assert.equal(d.content.id,'next-preset');assert.equal(d.underlay,null);assert.equal(d.live.textContent,'Next preset situation');d.destroy();
+});
+
+test('resizing while closing an unfinished reveal keeps the cover above the remaining fan',()=>{
+ const d=deck();d.updateSettings({stiffness:60,damping:80,mass:3});let width=249;d.mount.getBoundingClientRect=()=>({left:0,top:0,width,height:width*4/3});
+ d.setOpen(true);const time=performance.now();
+ for(let i=0;i<300&&d.fan.x===0;i++){cancelAnimationFrame(d.frame);d.tick(time+i*16);}
+ d.setOpen(false);assert.equal(d.phase,'closing');assert.ok(d.fan.x>0);width=340;d.resize.callback();
+ const safe=d.fan.x===0||footprint(d,renderer.scenePose(d)).bottom<=-8;d.destroy();
+ assert.ok(safe,'resizing brought the closing source back before the fan compressed');
 });

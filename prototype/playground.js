@@ -80,15 +80,18 @@ for (const [key, label, min, max, step, unit] of specs) {
 }
 
 deck.addEventListener('reveal', () => {
-  hint.textContent = 'Browse either way, endlessly. Lift up to take the action stack.';
-  status.textContent = 'Actions revealed.';
+  hint.textContent = 'Taking the cover off, then expanding the choices.';
+  status.textContent = 'Uncovering choices…';
 });
 deck.addEventListener('selection', event => {
   const selected = event.detail?.action;
   const label = selected?.label ?? actions[event.detail?.index]?.label;
   if (label) status.textContent = `${label} selected.`;
 });
-deck.addEventListener('close', () => ready('Card closed.'));
+deck.addEventListener('close', () => {
+  hint.textContent = 'Compressing the choices, then returning the cover.';
+  status.textContent = 'Returning cover…';
+});
 deck.addEventListener('commit', event => {
   status.textContent = `${event.detail.action.label} committed.`;
   studyIndex += 1;
@@ -99,6 +102,11 @@ deck.addEventListener('commit', event => {
 });
 deck.addEventListener('transitioncomplete', event => {
   if (event.detail.transition === 'commit') ready('Next study ready.');
+  if (event.detail.transition === 'close') ready('Cover returned.');
+  if (event.detail.transition === 'reveal') {
+    hint.textContent = 'Browse either way, endlessly. Lift up to take the action stack.';
+    status.textContent = 'Choices ready.';
+  }
 });
 
 fixture.addEventListener('change', () => {

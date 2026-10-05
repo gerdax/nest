@@ -1,4 +1,5 @@
-import { buildDeck, decorateCard, announceDeck, renderDeck, stageNextContent } from './renderer.js';
+import { projectedBounds } from './geometry.js';
+import { buildDeck, decorateCard, announceDeck, renderDeck, stageNextContent, scenePose } from './renderer.js';
 import { DEFAULT_SETTINGS, settingsWith, spring, springStep, qualifies, resistance, modulo, clamp } from './motion.js';
 import { PointerInput } from './PointerInput.js';
 export { DEFAULT_SETTINGS };
@@ -29,6 +30,9 @@ export class CardDeck extends EventTarget {
     this.busy = false;
     this.destroyed = false;
     this.pending = null;
+    this.phase = 'closed';
+    this.fan = spring();
+    this.sourceFloor = 0;
     this.p = spring();
     this.b = spring();
     this.l = spring();
@@ -81,6 +85,7 @@ export class CardDeck extends EventTarget {
         this.input.cancel();
         this.finishMotion();
       }
+      this.ensureCoverClearance();
       this.render();
     });
     this.resize.observe(mount);
@@ -93,7 +98,8 @@ export class CardDeck extends EventTarget {
       open: this.open,
       index: this.index,
       busy: this.busy,
-      contentId: this.content.id
+      contentId: this.content.id,
+      phase: this.phase
     };
   }
 
@@ -128,7 +134,7 @@ export class CardDeck extends EventTarget {
   }
 
   start(event) {
-    if (this.destroyed || this.busy) return false;
+    if (this.destroyed || this.busy || this.phase === 'closing') return false;
     this.mount.focus({ preventScroll: true });
     const bounds = this.mount.getBoundingClientRect();
     const grab = {
@@ -137,7 +143,7 @@ export class CardDeck extends EventTarget {
     };
     this.drag = {
       p: this.p.x, b: this.b.x, l: this.l.x,
-      open: this.open, index: this.index, cursor: this.b.target, grab, axis: null
+      open: this.open, ready: this.phase === 'choices', fan: this.fan.x, index: this.index, cursor: this.b.target, grab, axis: null
     };
     this.operation = null;
     this.p.v = this.b.v = this.l.v = 0;
@@ -148,15 +154,24 @@ export class CardDeck extends EventTarget {
     if (!this.drag || !gesture.axis) return;
     this.drag.axis = gesture.axis;
     const { width, height } = this.mount.getBoundingClientRect();
-    if (gesture.axis === 'x' && this.drag.open && this.cards.length > 1) {
+    if (gesture.axis === 'x' && this.drag.ready && this.cards.length > 1) {
       this.b.x = this.drag.b - gesture.x / (width * .62);
     }
     if (gesture.axis === 'y') {
-      if (!this.drag.open || gesture.y > 0) {
+      if (!this.drag.open) {
         this.p.x = resistance(this.drag.p - gesture.y / this.departureTravel(), 0, 1);
-        this.l.x = this.drag.l;
+      } else if (gesture.y > 0) {
+        const compressionDistance = height * .275;
+        this.fan.x = Math.max(0, this.drag.fan - gesture.y / compressionDistance);
+        this.fan.v = 0;
+        const returningDistance = Math.max(0, gesture.y - this.drag.fan * compressionDistance);
+        this.p.x = resistance(this.drag.p - returningDistance / this.departureTravel(), 0, 1);
+        if (returningDistance > 0) this.sourceFloor = 0;
       } else {
-        this.l.x = Math.max(0, this.drag.l - gesture.y / height);
+        this.fan.x = this.drag.fan;
+        this.fan.v = 0;
+        this.p.x = this.drag.p;
+        if (this.drag.ready) this.l.x = Math.max(0, this.drag.l - gesture.y / height);
       }
     }
     const max = this.settings.maxTilt;
@@ -180,7 +195,7 @@ export class CardDeck extends EventTarget {
     this.drag = null;
     const { width, height } = this.mount.getBoundingClientRect();
     this.releaseRotation(gesture);
-    if (gesture.axis === 'x' && drag.open) {
+    if (gesture.axis === 'x' && drag.ready) {
       const accepted = this.cards.length > 1 && qualifies(gesture.x, gesture.vx, width, this.settings);
       const steps = accepted ? Math.max(1, Math.round(Math.abs(gesture.x) / (width * .62))) : 0;
       this.b.target = drag.cursor + (gesture.x < 0 ? steps : -steps);
@@ -192,15 +207,15 @@ export class CardDeck extends EventTarget {
         this.emit('selection', { action: this.content.actions[this.index] });
       }
     } else if (gesture.axis === 'y') {
-      if (drag.open && gesture.y < 0 && qualifies(gesture.y, gesture.vy, height, this.settings)) {
+      if (drag.ready && gesture.y < 0 && qualifies(gesture.y, gesture.vy, height, this.settings)) {
         this.commit(gesture.vy);
         return;
       }
       const accepted = qualifies(gesture.y, gesture.vy, height, this.settings);
       this.setOpen(accepted ? gesture.y < 0 : drag.open);
-      this.p.v = -gesture.vy / this.departureTravel();
+      if (this.phase !== 'closing') this.p.v = -gesture.vy / this.departureTravel();
     }
-    this.p.target = this.open ? 1 : 0;
+    if (this.phase !== 'closing') this.p.target = this.open ? 1 : 0;
     this.l.target = 0;
     this.operation ||= 'settle';
     this.schedule();
@@ -212,18 +227,85 @@ export class CardDeck extends EventTarget {
     this.releaseRotation();
     this.p.target = this.open ? 1 : 0;
     this.l.target = 0;
-    this.operation = 'cancel';
+    if (this.open && this.fan.x !== 1) {
+      this.phase = 'revealing';
+      this.fan.target = 0;
+      this.operation = 'reveal';
+    } else {
+      this.operation = 'cancel';
+    }
     this.schedule();
   }
 
   setOpen(value) {
     const changed = this.open !== value;
     this.open = value;
-    this.p.target = value ? 1 : 0;
-    this.operation = value ? 'reveal' : 'close';
+    if (value) {
+      if (this.phase !== 'choices') {
+        this.phase = 'revealing';
+        this.p.target = 1;
+        this.fan.target = 0;
+        this.operation = 'reveal';
+      }
+    } else {
+      this.phase = 'closing';
+      this.fan.target = 0;
+      this.p.target = this.p.x;
+      this.p.v = 0;
+      this.operation = 'close';
+    }
     if (changed) {
       this.announce();
       this.emit(value ? 'reveal' : 'close');
+    }
+  }
+
+  coverCleared() {
+    const bounds = this.mount.getBoundingClientRect();
+    return projectedBounds(scenePose(this), Math.max(1, bounds.width), Math.max(1, bounds.height), this.settings.perspective).bottom <= -8;
+  }
+
+  ensureCoverClearance() {
+    if (this.drag || (!this.open && this.phase !== 'closing') || this.fan.x === 0 || this.coverCleared()) return;
+    let low = this.p.x, high = Math.max(1, low);
+    for (let i = 0; i < 20; i++) {
+      this.p.x = (low + high) / 2;
+      if (this.coverCleared()) high = this.p.x; else low = this.p.x;
+    }
+    this.p.x = high;
+    this.p.v = Math.max(0, this.p.v);
+    this.sourceFloor = Math.max(this.sourceFloor, high);
+    if (this.phase === 'closing') this.p.target = this.p.x;
+  }
+
+  atRest(state) {
+    return state.x === state.target && state.v === 0;
+  }
+
+  completePhase(phase, transition) {
+    this.phase = phase;
+    this.operation = null;
+    this.render();
+    this.emit('transitioncomplete', { transition });
+  }
+
+  advancePhases() {
+    if (this.drag || this.busy) return;
+    if (this.open && this.sourceFloor && this.p.x < this.sourceFloor) {
+      this.p.x = this.sourceFloor;
+      this.p.v = Math.max(0, this.p.v);
+    }
+    this.ensureCoverClearance();
+    if (this.phase === 'revealing') {
+      if (this.coverCleared()) {
+        if (!this.sourceFloor) this.sourceFloor = Math.min(1, this.p.x + 8 / this.departureTravel());
+        this.fan.target = 1;
+      }
+      if (this.fan.x === 1 && this.atRest(this.fan)) this.completePhase('choices', 'reveal');
+    } else if (this.phase === 'closing' && this.fan.x === 0 && this.atRest(this.fan)) {
+      this.sourceFloor = 0;
+      this.p.target = 0;
+      if (this.p.x === 0 && this.atRest(this.p)) this.completePhase('closed', 'close');
     }
   }
 
@@ -233,7 +315,7 @@ export class CardDeck extends EventTarget {
     e.preventDefault();
     if (this.busy || this.drag || e.repeat) return;
     if (key === 'ArrowUp') {
-      if (this.open) this.commit();else {
+      if (this.phase === 'choices') this.commit();else if (!this.open) {
         this.setOpen(true);
         this.schedule();
       }
@@ -242,7 +324,7 @@ export class CardDeck extends EventTarget {
       this.setOpen(false);
       this.schedule();
     }
-    if (this.open && ['ArrowLeft', 'ArrowRight'].includes(key)) {
+    if (this.phase === 'choices' && ['ArrowLeft', 'ArrowRight'].includes(key)) {
       const old = this.index;
       if (this.cards.length > 1) this.b.target += key === 'ArrowRight' ? 1 : -1;
       this.index = modulo(this.b.target, this.cards.length);
@@ -258,8 +340,9 @@ export class CardDeck extends EventTarget {
   }
 
   commit(pointerVelocity = 0) {
-    if (this.busy || !this.open) return;
+    if (this.busy || this.phase !== 'choices') return;
     this.busy = true;
+    this.phase = 'committing';
     this.operation = null;
     const duration = this.settings.commitDuration;
     const seconds = duration / 1000;
@@ -293,6 +376,9 @@ export class CardDeck extends EventTarget {
     this.open = false;
     this.index = 0;
     this.drag = null;
+    this.phase = 'closed';
+    this.fan = spring();
+    this.sourceFloor = 0;
     this.p = spring();
     this.b = spring();
     this.l = spring();
@@ -314,6 +400,7 @@ export class CardDeck extends EventTarget {
       this.n = spring(1);
       this.n.target = 0;
       this.operation = 'commit';
+      this.phase = 'committing';
       this.busy = true;
       this.render();
       this.schedule();
@@ -373,17 +460,20 @@ export class CardDeck extends EventTarget {
       if (angularMoving) this.schedule(); else this.last = 0;
       return;
     }
-    const moving = [this.p, this.b, this.l, this.n].map(s => springStep(s, dt, this.settings)).some(Boolean) || angularMoving;
+    for (const state of [this.p, this.b, this.l, this.n, this.fan]) springStep(state, dt, this.settings);
+    this.advancePhases();
+    const moving = [this.p, this.b, this.l, this.n, this.fan, this.rotationX, this.rotationY, this.rotationZ].some(state => !this.atRest(state));
     this.render();
     if (moving) {
       this.schedule();
     } else {
       this.last = 0;
-      if (this.operation) {
+      if (this.operation && !['revealing', 'closing'].includes(this.phase)) {
         const transition = this.operation;
         this.operation = null;
         if (transition === 'commit') {
           this.busy = false;
+          this.phase = 'closed';
           this.render();
         }
         this.emit('transitioncomplete', {
@@ -402,9 +492,13 @@ export class CardDeck extends EventTarget {
       this.completeCommit();
       return;
     }
-    for (const s of [this.p, this.b, this.l, this.n, this.rotationX, this.rotationY, this.rotationZ]) {
-      s.x = s.target;
-      s.v = 0;
+    // Two-phase reveal/close can create a new spring target after settling.
+    for (let pass = 0; pass < 3; pass++) {
+      for (const state of [this.p, this.b, this.l, this.n, this.fan, this.rotationX, this.rotationY, this.rotationZ]) {
+        state.x = state.target;
+        state.v = 0;
+      }
+      this.advancePhases();
     }
     this.render();
     if (this.operation) {
@@ -412,6 +506,7 @@ export class CardDeck extends EventTarget {
       this.operation = null;
       if (transition === 'commit') {
         this.busy = false;
+        this.phase = 'closed';
         this.render();
       }
       this.emit('transitioncomplete', {
