@@ -105,13 +105,17 @@ export function carouselPose(index, cursor, count, width, settings = DEFAULT_SET
   const front = Math.cos(angle);
   const phase = Math.sin(cursor * Math.PI) ** 2;
   const radius = 18 + (peakRadius === null ? width * .28 : peakRadius - 18) * phase;
+  // Two opposite points on a circular orbit align at rest. Give the rear
+  // card the same small fan as larger sets, reducing this offset geometrically
+  // during browsing so the existing crossover clearance stays unchanged.
+  const rearFan = count === 2 ? (1 - front) * .5 * (1 - phase) : 0;
   return {
-    x: count === 1 ? 0 : Math.sin(angle) * radius,
+    x: count === 1 ? 0 : Math.sin(angle) * radius + rearFan * 18,
     y: (1 - front) * 7,
     z: -(1 - front) * settings.stackDepth,
     rx: 0,
-    ry: -Math.sin(angle) * settings.maxTilt * .65,
-    rz: Math.sin(angle) * settings.maxTilt * .3,
+    ry: -(Math.sin(angle) + rearFan) * settings.maxTilt * .65,
+    rz: (Math.sin(angle) + rearFan) * settings.maxTilt * .3,
     front
   };
 }

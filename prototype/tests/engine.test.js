@@ -251,3 +251,19 @@ test('resizing while closing an unfinished reveal keeps the cover above the rema
  const safe=d.fan.x===0||footprint(d,renderer.scenePose(d)).bottom<=-8;d.destroy();
  assert.ok(safe,'resizing brought the closing source back before the fan compressed');
 });
+
+test('two choices form a visible idle fan after either action is selected',()=>{
+ const d=deck(2);
+ for(let i=0;i<2;i++){
+  const compressed=renderer.cardPose(d,i);assert.equal(compressed.x,0);assert.equal(compressed.rz,0);
+ }
+ ready(d);
+ for(const direction of ['ArrowRight','ArrowLeft','ArrowLeft','ArrowRight']){
+  key(d,direction);
+  const front=renderer.cardPose(d,d.index),rear=renderer.cardPose(d,1-d.index);
+  assert.ok(Math.abs(front.x)<1e-7);assert.ok(Math.abs(front.rz)<1e-7);
+  assert.ok(rear.x>=15,'rear choice must protrude sideways at rest');
+  assert.ok(rear.rz>1,'rear choice must have a visible fan angle');
+ }
+ d.destroy();
+});
