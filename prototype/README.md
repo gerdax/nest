@@ -92,3 +92,5 @@ Branch `codex/card-back-reveal` starts from the committed two-card idle fan (`af
 The front and reverse are two opaque faces in one physical card layer, with `backface-visibility` controlling which face is painted. The reverse uses a Nest pattern and emblem. It is never an extra choice or a placeholder in the browsing carousel. Newly supplied choices remain compressed and hidden during the turn, preventing their artwork from leaking through at the edge-on midpoint.
 
 The turn uses the existing rotational stiffness/damping and mass controls. Input remains blocked until the turn and depth settling finish; then the existing `transitioncomplete` commit event fires once. Reset restores a face-up situation; reduced motion and tab suspension immediately finish the reveal. The initial situation starts face up.
+
+The next card’s reverse is prepared on the first upward movement of the ready choice stack, before pointer release. This preview does not request future content, emit a commit, or begin the flip. Canceling or reversing the lift covers it again; commitment fills the same hidden front without replacing the visible reverse.

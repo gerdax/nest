@@ -1,5 +1,5 @@
 import { projectedBounds } from './geometry.js';
-import { buildDeck, decorateCard, announceDeck, renderDeck, stageNextContent, scenePose } from './renderer.js';
+import { buildDeck, decorateCard, announceDeck, renderDeck, stageNextContent, stageNextBack, scenePose } from './renderer.js';
 import { DEFAULT_SETTINGS, settingsWith, spring, springStep, qualifies, resistance, modulo, clamp } from './motion.js';
 import { PointerInput } from './PointerInput.js';
 export { DEFAULT_SETTINGS };
@@ -162,6 +162,7 @@ export class CardDeck extends EventTarget {
       if (!this.drag.open) {
         this.p.x = resistance(this.drag.p - gesture.y / this.departureTravel(), 0, 1);
       } else if (gesture.y > 0) {
+        this.l.x = this.drag.l;
         const compressionDistance = height * .275;
         this.fan.x = Math.max(0, this.drag.fan - gesture.y / compressionDistance);
         this.fan.v = 0;
@@ -172,7 +173,10 @@ export class CardDeck extends EventTarget {
         this.fan.x = this.drag.fan;
         this.fan.v = 0;
         this.p.x = this.drag.p;
-        if (this.drag.ready) this.l.x = Math.max(0, this.drag.l - gesture.y / height);
+        if (this.drag.ready) {
+          this.l.x = Math.max(0, this.drag.l - gesture.y / height);
+          if (this.l.x > 0) stageNextBack(this);
+        }
       }
     }
     const max = this.settings.maxTilt;

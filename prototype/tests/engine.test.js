@@ -364,3 +364,37 @@ test('reduced motion and hidden tabs finish the incoming flip face up immediatel
   document.hidden=false;d.destroy();
  }
 });
+
+test('the next reverse is exposed during a held upward gesture without committing',()=>{
+ for(const count of [2,3,4]){
+  const d=deck(count);ready(d);let commits=0;d.addEventListener('commit',()=>commits++);
+  pointer(d.mount,'pointerdown');pointer(d.mount,'pointermove',{clientY:220,timeStamp:100});
+  assert.ok(d.input.active);assert.ok(d.drag);assert.ok(d.l.x>0);
+  assert.ok(d.underlayBack);assert.equal(yaw(d.underlay),180);assert.equal(yaw(d.underlayBack),360);
+  assert.equal(d.underlayBack.style.visibility,'visible');assert.ok(textOf(d.underlayBack).includes('NEST'));
+  assert.equal(d.pending,null);assert.equal(d.busy,false);assert.equal(d.flip.x,0);assert.equal(d.content.id,`fixture${count}`);assert.equal(commits,0);
+  pointer(d.mount,'pointercancel');settle(d);
+  assert.equal(d.underlayBack.style.visibility,'hidden');assert.equal(d.phase,'choices');assert.equal(commits,0);assertOpaque(d);d.destroy();
+ }
+});
+test('an incomplete lift returns the stack over its preview without flipping or advancing',()=>{
+ const d=deck();ready(d);let commits=0;d.addEventListener('commit',()=>commits++);
+ pointer(d.mount,'pointerdown');pointer(d.mount,'pointermove',{clientY:260,timeStamp:100});
+ assert.equal(d.underlayBack.style.visibility,'visible');
+ pointer(d.mount,'pointerup',{clientY:260,timeStamp:250});
+ assert.equal(commits,0);assert.equal(d.flip.x,0);assert.equal(d.commitMotion,null);assert.equal(d.pending,null);
+ settle(d);assert.equal(d.l.x,0);assert.equal(d.underlayBack.style.visibility,'hidden');assert.equal(d.open,true);
+ key(d,'ArrowRight');assert.equal(d.underlayBack.style.visibility,'hidden');d.destroy();
+});
+test('accepting the lift reuses the already visible reverse without a release-time pop',()=>{
+ const d=deck();ready(d);let commits=0;
+ d.addEventListener('commit',()=>{commits++;d.replaceContent({...fixture(2),id:'from-preview',title:'Selected consequence'})});
+ pointer(d.mount,'pointerdown');pointer(d.mount,'pointermove',{clientY:150,timeStamp:100});
+ const reverse=d.underlayBack,layer=d.underlayLayer,transform=reverse.style.transform;
+ assert.equal(reverse.style.visibility,'visible');assert.equal(d.pending,null);
+ pointer(d.mount,'pointerup',{clientY:150,timeStamp:250});
+ assert.equal(commits,1);assert.equal(d.underlayBack,reverse);assert.equal(d.underlayLayer,layer);
+ assert.equal(reverse.style.transform,transform);assert.equal(reverse.style.visibility,'visible');assert.equal(d.pending.id,'from-preview');
+ const start=d.commitMotion.start;installCommitted(d,start);assert.equal(d.flip.x,1);settle(d);
+ assert.equal(d.flip.x,0);assert.equal(d.content.id,'from-preview');assert.equal(d.busy,false);assert.equal(commits,1);d.destroy();
+});

@@ -67,8 +67,9 @@ export function decorateCard(deck, element, image, title, text) {
   element.append(copy);
 }
 
-// The host's next situation is physically below the departing action cards.
-export function stageNextContent(deck, content) {
+// Prepare the physical reverse without requesting or choosing future content.
+// The host fills its hidden front only after the gesture commits.
+export function stageNextBack(deck) {
   if (!deck.underlay) {
     deck.underlay = document.createElement('article');
     deck.underlay.className = 'nest-card nest-next-situation';
@@ -77,6 +78,11 @@ export function stageNextContent(deck, content) {
     deck.underlayBack = backFace();
     deck.underlayLayer.append(deck.underlayBack);
   }
+}
+
+// The host's next situation is physically below the departing action cards.
+export function stageNextContent(deck, content) {
+  stageNextBack(deck);
   deck.underlay.replaceChildren();
   deck.underlay.style.backgroundImage = '';
   deck.decorate(deck.underlay, content.image, content.title, content.text);
@@ -156,7 +162,10 @@ function applyPose(deck, element, layer, pose, order, shadow = true) {
 export function renderDeck(deck, time = performance.now()) {
   if (!deck.scene) return;
   if (deck.underlay) {
-    const stagedPose = { x: 0, y: 0, z: -24, rx: 0, ry: 180, rz: 0, visible: true };
+    const stagedPose = {
+      x: 0, y: 0, z: -24, rx: 0, ry: 180, rz: 0,
+      visible: deck.busy || (deck.phase === 'choices' && deck.l.x > 0)
+    };
     applyPose(deck, deck.underlay, deck.underlayLayer, stagedPose, 0);
     applyPose(deck, deck.underlayBack, deck.underlayLayer, backPose(stagedPose), 0);
   }
