@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CardDeck } from '../engine/CardDeck.js';
-import { cardPose, scenePose } from '../engine/renderer.js';
+import { cardPose } from '../engine/renderer.js';
 import { projectedBounds } from '../engine/geometry.js';
 import { ScenarioController, CHEST_ITEM_IDS, createChestEntry, createChestContainer, createStudyContent } from '../demo/ScenarioController.js';
 
@@ -45,30 +45,6 @@ function descendants(node) { return [node, ...node.children.flatMap(descendants)
 function opaque(deck) { for (const node of descendants(deck.mount)) assert.equal(Object.hasOwn(node.style, 'opacity'), false); }
 function inputBlocked(deck) { const index = deck.index, cursor = deck.b.target; assert.equal(deck.start(), false); for (const name of ['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown']) key(deck, name); deck.commit(); assert.equal(deck.index, index); assert.equal(deck.b.target, cursor); assert.equal(deck.open, true); }
 function dispose(deck, host) { host?.destroy(); deck.destroy(); settle(); document.hidden = false; }
-
-test('a centered upward cover swipe has a small Z twist and cancellation restores it', () => {
-  const deck = make(3, fixture(3, 'choice'));
-  deck.start(); deck.move(gesture(-80));
-  for (let i = 0; i < 8; i++) step();
-  assert.ok(scenePose(deck).rz > .1 && scenePose(deck).rz <= 3);
-  deck.cancel(); settle(); assert.equal(scenePose(deck).rz, 0); dispose(deck);
-});
-
-for (const interaction of ['choice', 'container']) test(`${interaction} upward swipe twists through departure, keeps continuity and cancels to rest`, () => {
-  const deck = make(3, fixture(3, interaction)); ready(deck);
-  const initial = poses(deck);
-  deck.start(); deck.move(gesture(-60)); for (let i = 0; i < 8; i++) step();
-  assert.ok(poses(deck).get('item-0').rz > .1 && poses(deck).get('item-0').rz <= 3);
-  deck.cancel(); settle();
-  for (const [id, pose] of poses(deck)) samePose(pose, initial.get(id), 'canceled twist');
-  deck.start(); deck.move(gesture(-150)); for (let i = 0; i < 8; i++) step();
-  const held = poses(deck); deck.end(gesture(-150));
-  samePose(poses(deck).get('item-0'), held.get('item-0'), 'release retains rotation and position');
-  assert.equal(deck.rotationZ.target, 3); step(80);
-  assert.ok(poses(deck).get('item-0').rz > held.get('item-0').rz, 'twist continues into departure');
-  if (interaction === 'container') for (const id of ['item-1', 'item-2']) samePose(poses(deck).get(id), initial.get(id), 'stationary item');
-  dispose(deck);
-});
 
 for (let count = 1; count <= 4; count++) for (let index = 0; index < count; index++) {
   test(`container ${count}, selected ${index}: independent lift, offscreen removal and continuous survivor reflow`, () => {

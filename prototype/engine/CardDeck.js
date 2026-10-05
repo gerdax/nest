@@ -229,10 +229,7 @@ export class CardDeck extends EventTarget {
     const max = this.settings.maxTilt;
     this.rotationX.target = clamp(-gesture.y / height * max * 2, -max, max);
     this.rotationY.target = clamp(gesture.x / width * max * 2, -max, max);
-    const upward = gesture.axis === 'y' ? clamp(-gesture.y / (height * .35), 0, 1) : 0;
-    const twistDirection = this.drag.grab.x < -.1 ? -1 : 1;
-    const twist = Math.min(3, max * .5) * upward * twistDirection;
-    this.rotationZ.target = clamp(twist + (gesture.x * this.drag.grab.y - gesture.y * this.drag.grab.x) / height * max * 2, -max, max);
+    this.rotationZ.target = clamp((gesture.x * this.drag.grab.y - gesture.y * this.drag.grab.x) / height * max * 2, -max, max);
     this.render();
     this.schedule();
   }
@@ -444,7 +441,6 @@ export class CardDeck extends EventTarget {
     this.busy = true;
     this.phase = 'committing';
     this.operation = null;
-    this.departureRotation();
     this.commitMotion = this.departureMotion(pointerVelocity);
     this.emit('commit', { action: this.content.actions[this.index], index: this.index });
     this.schedule();
@@ -462,13 +458,6 @@ export class CardDeck extends EventTarget {
     };
   }
 
-  departureRotation() {
-    // Continue the small twist into the throw instead of straightening as
-    // soon as the pointer is released. Canceled lifts still spring to zero.
-    const direction = this.rotationZ.x < -.05 ? -1 : 1;
-    this.rotationZ.target = direction * Math.min(3, this.settings.maxTilt * .5);
-  }
-
   collect(pointerVelocity = 0) {
     if (this.busy || this.phase !== 'choices' || this.content.interaction !== 'container') return;
     const action = this.content.actions[this.index];
@@ -482,7 +471,6 @@ export class CardDeck extends EventTarget {
     this.busy = true;
     this.phase = 'collecting';
     this.operation = null;
-    this.departureRotation();
     const motion = { ...this.departureMotion(pointerVelocity), index: this.index, id: action.id };
     this.collectMotion = motion;
     this.emit('collect', { action, index: this.index });
