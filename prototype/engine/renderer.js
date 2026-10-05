@@ -178,19 +178,15 @@ export function cardPose(deck, index, time = performance.now()) {
   }
   const pose = carouselPose(index, cursor, deck.cards.length, width, deck.settings, orbitRadius(deck, width, height));
   const fan = clamp(deck.fan.x, 0, 1);
-  const exposure = clamp(deck.p.x, 0, 1);
   const rank = ((index - deck.index) % deck.cards.length + deck.cards.length) % deck.cards.length;
   const compressedZ = 4 - deck.n.x * 40 - rank * deck.settings.stackDepth;
-  const rotationWeight = Math.pow(Math.max(0, pose.front), 4);
-  const sharedX = deck.rotationX.x * (1 - exposure);
-  const sharedY = deck.rotationY.x * (1 - exposure);
-  const sharedZ = deck.rotationZ.x * (1 - exposure);
+  const rotationWeight = deck.rotationOwner === 'actions' ? Math.pow(Math.max(0, pose.front), 4) : 0;
   pose.x *= fan;
   pose.y *= fan;
   pose.z = compressedZ + fan * (pose.z - compressedZ);
-  pose.rx = sharedX + fan * (deck.rotationX.x * rotationWeight - sharedX);
-  pose.ry = sharedY + fan * (pose.ry + deck.rotationY.x * rotationWeight - sharedY);
-  pose.rz = sharedZ + fan * (pose.rz + deck.rotationZ.x * rotationWeight - sharedZ);
+  pose.rx = fan * deck.rotationX.x * rotationWeight;
+  pose.ry = fan * (pose.ry + deck.rotationY.x * rotationWeight);
+  pose.rz = fan * (pose.rz + deck.rotationZ.x * rotationWeight);
   if (deck.content.interaction !== 'container' || index === deck.index) {
     pose.y -= deck.l.x * bounds.height;
     pose.z += Math.min(deck.l.x * bounds.height * .1, deck.settings.liftHeight);

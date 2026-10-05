@@ -193,7 +193,7 @@ test('crossover swaps whole-card foreground order only with projected horizontal
  for(const count of [2,3,4])for(const width of [249,340])for(const perspective of [650,1000])for(const maxTilt of [6,18])for(const stackDepth of [10,30]){
   const d=deck(count);d.mount.getBoundingClientRect=()=>({left:0,top:0,width,height:width*4/3});d.updateSettings({perspective,maxTilt,stackDepth});ready(d);
   for(const rx of [-maxTilt,0,maxTilt])for(const ry of [-maxTilt,0,maxTilt])for(const rz of [-maxTilt,0,maxTilt]){
-   d.rotationX.x=rx;d.rotationY.x=ry;d.rotationZ.x=rz;
+   d.rotationOwner='actions';d.rotationX.x=rx;d.rotationY.x=ry;d.rotationZ.x=rz;
    d.b.x=.5;const poses=[renderer.cardPose(d,0),renderer.cardPose(d,1)];const bounds=poses.map(pose=>footprint(d,pose));
    const left=poses[0].x<poses[1].x?0:1,right=1-left;
    assert.ok(bounds[right].left-bounds[left].right>=8-1e-7,`crossover gap count${count}, width${width}`);

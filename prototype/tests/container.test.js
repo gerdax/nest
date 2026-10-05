@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CardDeck } from '../engine/CardDeck.js';
-import { cardPose } from '../engine/renderer.js';
+import { cardPose, scenePose } from '../engine/renderer.js';
 import { projectedBounds } from '../engine/geometry.js';
 import { ScenarioController, CHEST_ITEM_IDS, createChestEntry, createChestContainer, createStudyContent } from '../demo/ScenarioController.js';
 
@@ -45,6 +45,33 @@ function descendants(node) { return [node, ...node.children.flatMap(descendants)
 function opaque(deck) { for (const node of descendants(deck.mount)) assert.equal(Object.hasOwn(node.style, 'opacity'), false); }
 function inputBlocked(deck) { const index = deck.index, cursor = deck.b.target; assert.equal(deck.start(), false); for (const name of ['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown']) key(deck, name); deck.commit(); assert.equal(deck.index, index); assert.equal(deck.b.target, cursor); assert.equal(deck.open, true); }
 function dispose(deck, host) { host?.destroy(); deck.destroy(); settle(); document.hidden = false; }
+
+for (const count of [2, 3, 4]) test(`${count} underlying choices do not inherit a situation swipe's tilt or settling`, () => {
+  const deck = make(count, fixture(count, 'choice'));
+  const original = poses(deck);
+  deck.start({ clientX: 30, clientY: 60 }); deck.move(gesture(-60));
+  for (let i = 0; i < 8; i++) step();
+  assert.ok(Math.abs(scenePose(deck).rz) > .1, 'the grabbed situation still tilts');
+  for (const [id, pose] of poses(deck)) samePose(pose, original.get(id), 'choices stay fixed under a held cover');
+  deck.cancel(); settle();
+  deck.start({ clientX: 30, clientY: 60 }); deck.move(gesture(-150));
+  for (let i = 0; i < 8; i++) step();
+  deck.end(gesture(-150));
+  for (let i = 0; frames.size && i < 2000; i++) {
+    step();
+    const actual = poses(deck), rotations = [deck.rotationX, deck.rotationY, deck.rotationZ], angles = rotations.map(s => s.x);
+    rotations.forEach(s => { s.x = 0; }); const unaffected = poses(deck);
+    rotations.forEach((s, index) => { s.x = angles[index]; });
+    for (const [id, pose] of actual) samePose(pose, unaffected.get(id), 'fan expansion ignores the departing cover tilt');
+  }
+  assert.equal(deck.phase, 'choices');
+  deck.rotationX.x = 2; deck.rotationZ.x = -2;
+  const beforeGrab = poses(deck); deck.start({ clientX: 30, clientY: 60 }); deck.move(gesture(0));
+  for (const [id, pose] of poses(deck)) samePose(pose, beforeGrab.get(id), 'first action grab has no inherited tilt jump');
+  deck.move(gesture(-60)); for (let i = 0; i < 8; i++) step();
+  assert.ok(Math.abs(poses(deck).get('item-0').rz) > .1, 'direct action gestures still tilt the action');
+  deck.cancel(); settle(); dispose(deck);
+});
 
 for (let count = 1; count <= 4; count++) for (let index = 0; index < count; index++) {
   test(`container ${count}, selected ${index}: independent lift, offscreen removal and continuous survivor reflow`, () => {

@@ -55,6 +55,7 @@ export class CardDeck extends EventTarget {
     this.rotationX = spring();
     this.rotationY = spring();
     this.rotationZ = spring();
+    this.rotationOwner = 'situation';
     this.frame = 0;
     this.last = 0;
     this.operation = null;
@@ -168,6 +169,13 @@ export class CardDeck extends EventTarget {
       p: this.p.x, b: this.b.x, l: this.l.x, returnLift: this.returnLift.x,
       open: this.open, ready: this.phase === 'choices', fan: this.fan.x, index: this.index, cursor: this.b.target, grab, axis: null
     };
+    const rotationOwner = this.drag.ready ? 'actions' : 'situation';
+    if (rotationOwner === 'actions' && this.rotationOwner !== rotationOwner) {
+      // The choices never inherited the cover's tilt. Their first grab must
+      // start from their own resting orientation, including during settling.
+      for (const state of [this.rotationX, this.rotationY, this.rotationZ]) state.x = state.target = state.v = 0;
+    }
+    this.rotationOwner = rotationOwner;
     this.operation = null;
     this.p.v = this.b.v = this.l.v = 0;
     return true;
@@ -647,6 +655,7 @@ export class CardDeck extends EventTarget {
     this.rotationY = spring();
     this.rotationZ = spring();
     this.operation = this.open ? 'reveal' : null;
+    this.rotationOwner = 'situation';
     this.build(staged);
     this.render();
   }
