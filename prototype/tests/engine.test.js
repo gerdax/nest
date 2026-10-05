@@ -20,9 +20,9 @@ function deck(n=3){return new CardDeck(new Element(),{content:fixture(n)})}
 function settle(d){for(let i=0;i<300;i++){cancelAnimationFrame(d.frame);d.tick(performance.now()+i*16)}cancelAnimationFrame(d.frame);d.frame=0;}
 function ready(d){d.setOpen(true);settle(d);assert.equal(d.phase,'choices');assert.equal(d.fan.x,1);}
 function gesture(d,g){d.start();d.move(g);d.end(g);settle(d)}
-test('axis waits for threshold and locks to dominant direction',()=>{assert.equal(classifyAxis(4,4),null);assert.equal(classifyAxis(30,12),'x');assert.equal(classifyAxis(12,-30),'y')});
-test('distance and directional flick acceptance',()=>{assert.equal(qualifies(84,0,340),false);assert.equal(qualifies(85,0,340),true);assert.equal(qualifies(-25,-800,453),true);assert.equal(qualifies(-25,800,453),false);assert.equal(qualifies(23,900,453),false)});
-test('resistance and settings validation',()=>{assert.equal(resistance(-1,0,2),-.22);assert.equal(resistance(3,0,2),2.22);assert.equal(settingsWith({mass:-1,stiffness:NaN}).stiffness,280);assert.ok(settingsWith({mass:0}).mass>0)});
+test('axis waits for threshold and locks to dominant direction',()=>{assert.equal(classifyAxis(4,4),null);assert.equal(classifyAxis(34,12),'x');assert.equal(classifyAxis(12,-34),'y')});
+test('distance and directional flick acceptance',()=>{assert.equal(qualifies(47,0,340),false);assert.equal(qualifies(48,0,340),true);assert.equal(qualifies(-26,-800,453),true);assert.equal(qualifies(-26,800,453),false);assert.equal(qualifies(25,900,453),false)});
+test('resistance and settings validation',()=>{assert.equal(resistance(-1,0,2),-.22);assert.equal(resistance(3,0,2),2.22);assert.equal(settingsWith({mass:-1,stiffness:NaN}).stiffness,360);assert.ok(settingsWith({mass:0}).mass>0)});
 test('spring converges and long pauses stay finite',()=>{const s=spring(1);s.target=0;springStep(s,50,DEFAULT_SETTINGS);assert.ok(Number.isFinite(s.x));for(let i=0;i<300;i++)springStep(s,1/60,DEFAULT_SETTINGS);assert.equal(s.x,0);assert.equal(s.v,0)});
 test('partial reveal returns closed; full reveal emits once',()=>{const d=deck();let reveals=0;d.addEventListener('reveal',()=>reveals++);gesture(d,{axis:'y',x:0,y:-60,vx:0,vy:0});assert.equal(d.open,false);assert.equal(d.p.x,0);gesture(d,{axis:'y',x:0,y:-130,vx:0,vy:0});assert.equal(d.open,true);assert.equal(d.p.x,1);assert.equal(reveals,1);d.destroy()});
 function key(d,name){const event=new Event('keydown',{cancelable:true});Object.defineProperty(event,'key',{value:name});d.mount.dispatchEvent(event);settle(d)}
@@ -80,7 +80,7 @@ function descendants(el){return [el,...el.children.flatMap(descendants)]}
 function textOf(el){return [el.textContent||'',...el.children.map(textOf)].join(' ')}
 function assertOpaque(d){for(const el of descendants(d.mount))assert.ok(!Object.hasOwn(el.style,'opacity'),`${el.className||'element'} assigns opacity`)}
 test('physical motion defaults include depth, lift, angular springs and gravity',()=>{
- for(const [key,value]of Object.entries({perspective:1000,stackDepth:10,liftHeight:28,angularStiffness:180,angularDamping:22,gravity:2200}))assert.equal(DEFAULT_SETTINGS[key],value);
+ for(const [key,value]of Object.entries({perspective:1200,stackDepth:22,liftHeight:56,angularStiffness:350,angularDamping:65,gravity:800}))assert.equal(DEFAULT_SETTINGS[key],value);
  assert.ok(!Object.hasOwn(DEFAULT_SETTINGS,'scatterDuration'));
 });
 test('opening lifts the situation off preexisting action cards without fading',()=>{
@@ -95,7 +95,7 @@ test('opening lifts the situation off preexisting action cards without fading',(
 });
 test('commit moves all action cards upward together without sideways scatter',()=>{
  for(const count of [2,3,4]){
-  const d=deck(count);d.setOpen(true);settle(d);key(d,'ArrowLeft');d.commit();
+  const d=deck(count);d.updateSettings({choiceStaggerMs:0});d.setOpen(true);settle(d);key(d,'ArrowLeft');d.commit();
   const start=d.commitMotion.start;const before=d.cards.map((_,i)=>renderer.cardPose(d,i,start));const during=d.cards.map((_,i)=>renderer.cardPose(d,i,start+d.settings.commitDuration*.5));
   const displacement=during[0].y-before[0].y;assert.ok(displacement<0);
   for(let i=0;i<count;i++){
@@ -203,9 +203,9 @@ test('crossover swaps whole-card foreground order only with projected horizontal
   }d.destroy();
  }
 });
-test('motion defaults are unchanged',()=>{
- assert.equal(DEFAULT_SETTINGS.stiffness,280);assert.equal(DEFAULT_SETTINGS.damping,30);assert.equal(DEFAULT_SETTINGS.mass,1);assert.equal(DEFAULT_SETTINGS.maxTilt,6);
- assert.equal(DEFAULT_SETTINGS.distanceThreshold,.25);assert.equal(DEFAULT_SETTINGS.flickVelocity,700);assert.equal(DEFAULT_SETTINGS.commitDuration,420);
+test('motion defaults support deliberate gestures and quick settling',()=>{
+ assert.equal(DEFAULT_SETTINGS.stiffness,360);assert.equal(DEFAULT_SETTINGS.damping,56);assert.equal(DEFAULT_SETTINGS.mass,1.15);assert.equal(DEFAULT_SETTINGS.maxTilt,12);
+ assert.equal(DEFAULT_SETTINGS.distanceThreshold,.14);assert.equal(DEFAULT_SETTINGS.flickVelocity,325);assert.equal(DEFAULT_SETTINGS.commitDuration,210);
 });
 
 test('reversing a closing drag raises the source before expanding choices again',()=>{
@@ -271,11 +271,11 @@ test('two choices form a visible idle fan after either action is selected',()=>{
 });
 
 
-function yaw(element){return Number(element.style.transform.match(/rotateY\(([-\d.]+)deg\)/)[1])}
+function yaw(element){return [...element.style.transform.matchAll(/rotateY\(([-\d.]+)deg\)/g)].reduce((sum,match)=>sum+Number(match[1]),0)}
 function commitNext(d,next={...fixture(2),id:'flip-next',title:'Next face'}){
  d.addEventListener('commit',()=>d.replaceContent(next),{once:true});ready(d);d.commit();return d.commitMotion.start;
 }
-function installCommitted(d,start){cancelAnimationFrame(d.frame);d.tick(start+d.settings.commitDuration+1);}
+function installCommitted(d,start){cancelAnimationFrame(d.frame);d.tick(start+(d.commitMotion.duration+(d.cards.length-1)*d.settings.choiceStaggerMs)+1);}
 test('the next situation stages face down beneath departing choices without a placeholder',()=>{
  const d=deck();ready(d);
  assert.equal(d.underlay,null);assert.equal(d.underlayBack,null);assert.equal(d.flip.x,0);assert.equal(renderer.scenePose(d).ry,0);
@@ -299,7 +299,10 @@ test('incoming situation turns its two faces through back, edge and front with n
  assert.equal(d.flip.x,1);assert.equal(d.flip.target,0);assert.equal(d.n.x,1);assert.equal(d.n.target,0);
  assert.equal(d.underlay,null);assert.equal(d.underlayBack,null);assert.deepEqual(d.sceneLayer.children,[d.scene,d.sceneBack]);
  for(const [progress,angle]of [[1,180],[.5,90],[0,0],[1.2,180],[-.2,0]]){
-  d.flip.x=progress;d.render();assert.equal(renderer.scenePose(d).ry,angle);
+  d.flip.x=progress;d.render();const pose=renderer.scenePose(d);assert.equal(pose.turn,angle);assert.equal(pose.turnAxis,-3);
+  const back=renderer.backPose(pose);assert.equal(back.turn,pose.turn);assert.equal(back.face,180);
+  assert.ok(d.scene.style.transform.endsWith(`rotateZ(-3deg) rotateY(${angle}deg) rotateZ(3deg) rotateY(0deg)`));
+  assert.ok(d.sceneBack.style.transform.endsWith(`rotateZ(-3deg) rotateY(${angle}deg) rotateZ(3deg) rotateY(180deg)`));
   assert.equal(yaw(d.scene),angle);assert.equal(yaw(d.sceneBack),angle+180);
   assert.equal(d.scene.style.visibility,'visible');assert.equal(d.sceneBack.style.visibility,'visible');assertOpaque(d);
  }

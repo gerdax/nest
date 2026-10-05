@@ -60,7 +60,7 @@ Listen on the deck instance with `addEventListener`:
 - `collect`: a container item is accepted, with `{ contentId, action, index }`. Record removal immediately; the engine removes that item and reflows its remaining cards without advancing host content. The final item automatically closes the container.
 - `transitioncomplete`: settling has finished; `detail.transition` identifies `reveal`, `close`, `browse`, `cancel`, `settle`, `collect`, or `commit`. Container `collect` includes `remainingIds` and completes after removal and reflow; final collection then completes `close` after the prepared return choices settle. The close completion reports the return content ID, `open: true`, and `phase: 'choices'`. Reveal completes only when the fan is ready. With open presentation, commit completion follows direct fan expansion and settling. Input is blocked throughout collection, automatic opening, and awaiting host content.
 
-The tuning panel exposes `stiffness`, `damping`, `mass`, `maxTilt`, `axisThreshold`, `distanceThreshold`, `flickVelocity`, `flickDistance`, `commitDuration`, `perspective`, `stackDepth`, `liftHeight`, `angularStiffness`, `angularDamping`, `gravity`, `revealStartScale`, and `revealFullScaleAt`. Copy settings to reuse the resulting object in another host.
+The tuning panel exposes `stiffness`, `damping`, `mass`, `maxTilt`, `axisThreshold`, `distanceThreshold`, `flickVelocity`, `flickDistance`, `commitDuration`, `perspective`, `stackDepth`, `liftHeight`, `angularStiffness`, `angularDamping`, `gravity`, `revealStartScale`, `revealFullScaleAt`, `choiceStaggerMs`, `flipLeadMs`, and `flipAxisTilt`. Copy settings to reuse the resulting object in another host.
 
 The choice fixtures cycle through visual studies and two-, three-, and four-action layouts on every commit. `demo/ScenarioController.js` keeps chest scenario logic separate from the playground controls. It remembers remaining item IDs in memory, preloads them with `setActionPreview`, then opens the container with `replaceContent(container, { presentation: 'open' })`. When the container is ready, it supplies `setReturnContent(entry, { selectedId: remainingIds.size ? 'open' : 'leave' })`, and refreshes that return content immediately after every accepted collection. On close completion, the controller updates its mode and preview; the engine has already restored the open choices. Closing never shows The chest cover. The cover appears only on the initial entry or reset. This demo has no inventory, storage, or chapter editor.
 
@@ -77,7 +77,7 @@ Arrow Up reveals or commits; Left/Right browse; Down closes containers or conten
 
 The renderer uses native CSS 3D transforms with a perspective camera, depth separation, card-edge shading, and elevation-dependent shadows. Cards remain fully opaque throughout their movement. The next situation is present below the outgoing cards before they depart; there is no arrival from the bottom or fade-in.
 
-Position and angular states use damped springs. The pointer's grab location determines rotational torque, and release velocity contributes to rotational momentum and the shared upward throw. The carousel follows a continuous periodic orbit, including the two-card case, so neither direction reaches an end or jumps across a wrap seam. Choice cards share the same upward displacement during dragging and commitment. Containers lift only the selected item for collection.
+Position and angular states use damped springs. The pointer's grab location determines rotational torque, and release velocity contributes to rotational momentum and the shared upward throw. The carousel follows a continuous periodic orbit, including the two-card case, so neither direction reaches an end or jumps across a wrap seam. The selected choice tracks the pointer directly. Other choices sample its interpolated motion history with an 18 ms delay per physical position behind it (18 / 36 / 54 ms for four cards). The cascade continues through departure; zero `choiceStaggerMs` restores simultaneous movement. Canceling, reversing, and re-grabbing preserve current card poses, including when a former follower becomes selected during settling. Containers lift only the selected item for collection.
 
 The compressed choices receive at most 12% of the situation's gesture rotation, capped at 0.9 degrees per axis. This small friction response fades as the cover leaves and the fan opens. The choices do not translate with the cover or inherit its residual tilt on their first gesture.
 
@@ -85,7 +85,7 @@ Branch `codex/reveal-scale` adds a subtle approach effect: cards under an upward
 
 This is a constrained card UI simulation, not a collision or bending simulation. [Three.js CSS3DRenderer](https://threejs.org/docs/pages/CSS3DRenderer.html) would add a scene graph around the same DOM transform rendering; [Rapier](https://rapier.rs/docs/user_guides/javascript/rigid_bodies/) would be appropriate for free rigid bodies, collisions, and joints if the playground later needs tabletop behavior. Rendering and motion remain separate modules to allow such an extension.
 
-Defaults added for physical tuning: perspective 1000 px, stack depth 10 px, lift height 28 px, angular stiffness 180, angular damping 22, gravity 2200 px/s². `scatterDuration` was removed because choices now leave as one stack. Throw gravity is capped for the configured duration so the stack continues upward through its exit.
+Current defaults: positional spring 360 / 56 / 1.15 (stiffness / damping / mass), maximum tilt 12°, axis lock 34 px, commit distance 0.14, flick 325 px/s after 26 px, departure 210 ms, perspective 1200 px, depth 22 px, lift 56 px, angular spring 350 / 65, and gravity 800 px/s². Restore motion defaults and JSON export use these same engine values. `scatterDuration` was removed because choices now leave as one stack. Throw gravity is capped for the configured duration so the stack continues upward through its exit.
 
 
 ## Deck presentation and versioning
@@ -107,10 +107,25 @@ The branch `codex/deck-reveal-fixes` preserves the existing repository history. 
 
 ## Card-back reveal experiment
 
-Branch `codex/card-back-reveal` starts from the committed two-card idle fan (`af8f8ca`). For ordinary choice advancement, the real next situation is staged face down underneath the outgoing choice stack. Once the stack clears, the next card rotates around its vertical axis to reveal its artwork and text.
+Branch `codex/card-back-reveal` starts from the committed two-card idle fan (`af8f8ca`). For ordinary choice advancement, the real next situation is staged face down underneath the outgoing choice stack. With actual host content available, the next card aims to begin turning 30 ms before the leading card’s 210 ms departure ends. The complete outgoing stack must first clear the next card’s full swept turning area by 8 px; clearance takes precedence over the timing target. The staged turn runs while trailing choices finish departing, and adoption carries its current rotation and velocity into the new deck.
 
 The front and reverse are two opaque faces in one physical card layer, with `backface-visibility` controlling which face is painted. The reverse uses a Nest pattern and emblem. It is never an extra choice or a placeholder in the browsing carousel. Newly supplied choices remain compressed and hidden during the turn, preventing their artwork from leaking through at the edge-on midpoint.
 
 The turn uses the existing rotational stiffness/damping and mass controls. Input remains blocked until the turn and depth settling finish; then the existing `transitioncomplete` commit event fires once. Reset restores a face-up situation; reduced motion and tab suspension immediately finish the reveal. The initial situation starts face up.
 
 For ordinary choice advancement, the next card’s reverse is prepared on the first upward movement of the ready choice stack, before pointer release. Open previews use actual action cards and bypass this turn. This preview does not request future content, emit a commit, or begin the flip. Canceling or reversing the lift covers it again; commitment fills the same hidden front without replacing the visible reverse.
+
+
+## Motion-polish checkpoint
+
+Local tag `nest-reveal-scale-v1` preserves `82f5001`; branch `codex/motion-polish` begins there. Changes remain local.
+
+The actual front and reverse card planes share a physical turn around an axis tilted −3° from vertical, with its upper end leaning left. `flipAxisTilt` tunes that angle from −10° to 10°. Projected bounds and the conservative full-turn clearance envelope use the same transform as the renderer. Both faces have 1 px olive borders, a 45% inset highlight, and a 2 px bottom edge; their surfaces remain opaque.
+
+New live settings: `choiceStaggerMs` defaults to 18 (0–60 ms), `flipLeadMs` to 30 (0–100 ms), and `flipAxisTilt` to −3 (−10°–10°). The next host content can still arrive asynchronously; no turn starts without it, and the waiting status remains active. Input stays blocked until every departing choice leaves and the incoming presentation settles. The 95% reveal zoom still reaches full size at one-third exposure.
+
+The final container item completes collection as soon as its projected card clears the viewport by 8 px. With no survivors, there is no fan-compression or reflow wait: completion and close acceptance occur immediately, and prepared return cards descend on the next animation frame. Individual item collection keeps all other items stationary during lift and flight.
+
+Resizing during choreography finishes the transition safely at the new dimensions. Live camera, axis, tilt, depth, or lift edits during an already-started overlapping flip likewise settle that presentation, avoiding invalidation of its clearance envelope. Reduced motion and tab suspension finish active sequences immediately; reset and destroy clear movement history and pending animation work.
+
+Verification includes deterministic history interpolation, rank delays, cancel/re-grab ownership, early-flip clearance and adoption, immediate empty-container return, geometry, and existing engine/container regressions. Mouse and keyboard were inspected in Chrome and the in-app browser at desktop and narrow sizes. Physical touch-device behavior remains unverified.

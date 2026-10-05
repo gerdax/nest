@@ -1,5 +1,5 @@
-import { handoffRadius, projectedBounds } from './geometry.js?v=reveal-scale-1';
-import { carouselPose, clamp, departureDistance, revealScale } from './motion.js?v=reveal-scale-1';
+import { handoffRadius, projectedBounds } from './geometry.js?v=motion-polish-1';
+import { carouselPose, clamp, departureDistance, revealScale } from './motion.js?v=motion-polish-1';
 
 function layerFor(deck, card, className = '') {
   const layer = document.createElement('div');
@@ -24,7 +24,7 @@ function backFace() {
 }
 
 export function backPose(front) {
-  return { ...front, ry: front.ry + 180 };
+  return { ...front, face: (front.face || 0) + 180 };
 }
 
 export function stageActionDeck(deck, content, selectedIndex = 0, previous = null) {
@@ -141,7 +141,8 @@ export function scenePose(deck, time = performance.now()) {
   return {
     x: 0, y: -lift, z: 16 - deck.n.x * 40 + Math.min(Math.abs(lift) * 0.08, deck.settings.liftHeight),
     rx: deck.rotationX.x * (1 - clamp(deck.p.x, 0, 1)),
-    ry: deck.rotationY.x * (1 - clamp(deck.p.x, 0, 1)) + clamp(deck.flip.x, 0, 1) * 180,
+    ry: deck.rotationY.x * (1 - clamp(deck.p.x, 0, 1)),
+    turn: clamp(deck.flip.x, 0, 1) * 180, turnAxis: deck.settings.flipAxisTilt,
     rz: deck.rotationZ.x * (1 - clamp(deck.p.x, 0, 1)),
     visible: !deck.skipCover && !(deck.busy && !deck.commitMotion && deck.operation !== 'commit')
   };
@@ -194,10 +195,10 @@ export function cardPose(deck, index, time = performance.now()) {
   pose.ry = fan * (pose.ry + deck.rotationY.x * rotationWeight) + clamp(deck.rotationY.x * underlyingWeight, -.9, .9);
   pose.rz = fan * (pose.rz + deck.rotationZ.x * rotationWeight) + clamp(deck.rotationZ.x * underlyingWeight, -.9, .9);
   if (deck.content.interaction !== 'container' || index === deck.index) {
-    pose.y -= deck.l.x * bounds.height;
-    pose.z += Math.min(deck.l.x * bounds.height * .1, deck.settings.liftHeight);
+    const lift = deck.content.interaction === 'choice' ? deck.choiceLift(index, time) : deck.l.x * bounds.height;
+    pose.y -= lift;
+    pose.z += Math.min(lift * .1, deck.settings.liftHeight);
   }
-  if (deck.commitMotion) pose.y -= departureDistance(deck.commitMotion, time);
   pose.rx = clamp(pose.rx, -deck.settings.maxTilt, deck.settings.maxTilt);
   pose.ry = clamp(pose.ry, -deck.settings.maxTilt, deck.settings.maxTilt);
   pose.rz = clamp(pose.rz, -deck.settings.maxTilt, deck.settings.maxTilt);
@@ -211,13 +212,16 @@ export function cardPose(deck, index, time = performance.now()) {
 
 function applyPose(deck, element, layer, pose, order, shadow = true) {
   element.style.transform = `translate3d(${pose.x}px,${pose.y}px,${pose.z}px) rotateX(${pose.rx}deg) rotateY(${pose.ry}deg) rotateZ(${pose.rz}deg)`;
+  if (pose.turn !== undefined || pose.face) {
+    element.style.transform += ` rotateZ(${pose.turnAxis || 0}deg) rotateY(${pose.turn || 0}deg) rotateZ(${- (pose.turnAxis || 0)}deg) rotateY(${pose.face || 0}deg)`;
+  }
   if (pose.scale !== undefined && pose.scale !== 1) element.style.transform += ` scale(${pose.scale})`;
   element.style.visibility = pose.visible ? 'visible' : 'hidden';
   layer.style.zIndex = String(order);
   layer.style.perspective = `${deck.settings.perspective}px`;
   // Elevation changes the footprint of the shadow, never the card's opacity.
   const elevation = Math.max(0, pose.z + 24);
-  element.style.boxShadow = shadow ? `0 3px 0 #29301c, 0 ${8 + elevation * .16}px ${18 + elevation * .4}px #000b` : 'none';
+  element.style.boxShadow = shadow ? `0 2px 0 #29301c, 0 ${8 + elevation * .16}px ${18 + elevation * .4}px #000b` : 'none';
 }
 
 export function renderDeck(deck, time = performance.now()) {
@@ -234,7 +238,8 @@ export function renderDeck(deck, time = performance.now()) {
     || (deck.phase === 'choices' && deck.l.x > 0 && deck.forwardOwner === deck.content.actions[deck.index]?.id));
   if (deck.underlay) {
     const stagedPose = {
-      x: 0, y: 0, z: -24, rx: 0, ry: 180, rz: 0, scale: nextScale,
+      x: 0, y: 0, z: -24, rx: 0, ry: 0, rz: 0, scale: nextScale,
+      turn: deck.nextFlip.x * 180, turnAxis: deck.settings.flipAxisTilt,
       visible: (deck.phase === 'committing' || (deck.phase === 'choices' && deck.l.x > 0
         && deck.content.interaction === 'choice' && !deck.content.actions[deck.index]?.disabled))
         && !forwardActive
@@ -258,7 +263,7 @@ export function renderDeck(deck, time = performance.now()) {
     applyPose(deck, deck.cards[index], deck.cardLayers[index], poses[index], order, deck.fan.x > 0);
     if (deck.content.actions[index].faceDown) {
       applyPose(deck, deck.cards[index], deck.cardLayers[index], backPose(poses[index]), order, deck.fan.x > 0);
-      applyPose(deck, deck.cardBacks[index], deck.cardLayers[index], { ...poses[index], ry: poses[index].ry + 360 }, order, deck.fan.x > 0);
+      applyPose(deck, deck.cardBacks[index], deck.cardLayers[index], { ...poses[index], face: 360 }, order, deck.fan.x > 0);
     }
     deck.cards[index].setAttribute('aria-disabled', String(!!deck.content.actions[index].disabled));
     if (deck.content.actions[index].faceDown) deck.cards[index].setAttribute('aria-label', deck.content.actions[index].accessibleLabel || 'Unavailable choice');
@@ -275,7 +280,7 @@ function renderStagedActions(deck, bundle, baseOrder, visible, y = 0, z = -36, s
     const pose = { x: 0, y, z: z - rank * deck.settings.stackDepth, rx: 0, ry: 0, rz: 0, scale, visible };
     const order = baseOrder + bundle.cards.length - rank;
     applyPose(deck, card, bundle.cardLayers[index], bundle.content.actions[index].faceDown ? backPose(pose) : pose, order);
-    if (bundle.cardBacks[index]) applyPose(deck, bundle.cardBacks[index], bundle.cardLayers[index], { ...pose, ry: 360 }, order);
+    if (bundle.cardBacks[index]) applyPose(deck, bundle.cardBacks[index], bundle.cardLayers[index], { ...pose, face: 360 }, order);
     card.setAttribute('aria-hidden', 'true');
   });
 }

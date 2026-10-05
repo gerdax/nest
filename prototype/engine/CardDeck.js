@@ -1,7 +1,8 @@
-import { projectedBounds } from './geometry.js?v=reveal-scale-1';
-import { buildDeck, decorateCard, announceDeck, renderDeck, stageNextContent, stageNextBack, stageActionDeck, scenePose, cardPose } from './renderer.js?v=reveal-scale-1';
-import { DEFAULT_SETTINGS, settingsWith, spring, springStep, qualifies, resistance, modulo, clamp, carouselPose } from './motion.js?v=reveal-scale-1';
-import { PointerInput } from './PointerInput.js?v=reveal-scale-1';
+import { projectedBounds, turningBounds } from './geometry.js?v=motion-polish-1';
+import { buildDeck, decorateCard, announceDeck, renderDeck, stageNextContent, stageNextBack, stageActionDeck, scenePose, cardPose } from './renderer.js?v=motion-polish-1';
+import { MovementHistory } from './MovementHistory.js?v=motion-polish-1';
+import { DEFAULT_SETTINGS, settingsWith, spring, springStep, qualifies, resistance, modulo, clamp, carouselPose, departureDistance } from './motion.js?v=motion-polish-1';
+import { PointerInput } from './PointerInput.js?v=motion-polish-1';
 export { DEFAULT_SETTINGS };
 
 function validate(content) {
@@ -42,6 +43,9 @@ export class CardDeck extends EventTarget {
     this.l = spring();
     this.n = spring();
     this.flip = spring();
+    this.nextFlip = spring(1);
+    this.choiceHistory = null;
+    this.choiceRanks = new Map();
     this.returnLift = spring();
     this.returning = false;
     this.openingReturn = false;
@@ -103,10 +107,11 @@ export class CardDeck extends EventTarget {
       signal: this.abort.signal
     });
     this.resize = new ResizeObserver(() => {
-      if (this.drag) {
-        this.input.cancel();
-        this.finishMotion();
-      }
+      const wasDragging = !!this.drag;
+      if (wasDragging) this.input.cancel();
+      // A resize changes the departure distance and the entire turn envelope.
+      // Finish the active choreography before painting the new dimensions.
+      if (wasDragging || this.busy || this.openingCommit || this.openingReturn) this.finishMotion();
       this.ensureCoverClearance();
       this.render();
     });
@@ -157,6 +162,44 @@ export class CardDeck extends EventTarget {
     return { ...this.settings, stiffness: this.settings.angularStiffness, damping: this.settings.angularDamping };
   }
 
+  beginChoiceHistory(time = performance.now()) {
+    if (this.choiceHistory || this.content.interaction !== 'choice') return;
+    this.choiceHistory = new MovementHistory(time - .001, this.l.x);
+    const order = this.content.actions.map((action, i) => ({ id: action.id,
+      order: Number(this.cardLayers[i].style.zIndex) })).sort((a, b) => b.order - a.order);
+    const selected = this.content.actions[this.index]?.id;
+    order.sort((a, b) => (b.id === selected) - (a.id === selected));
+    this.choiceRanks = new Map(order.map((a, rank) => [a.id, rank]));
+  }
+
+  sampleChoices(time = performance.now()) {
+    if (this.choiceHistory && !this.commitMotion) this.choiceHistory.record(time, this.l.x);
+  }
+
+  choiceLift(index, time = performance.now()) {
+    const height = this.mount.getBoundingClientRect().height;
+    const delay = this.reduced ? 0 : (this.choiceRanks.get(this.content.actions[index]?.id) || 0) * this.settings.choiceStaggerMs;
+    const sampleTime = time - delay;
+    if (this.commitMotion && sampleTime >= this.commitMotion.start) {
+      return this.commitMotion.lift * height + departureDistance(this.commitMotion, sampleTime);
+    }
+    return (this.choiceHistory ? this.choiceHistory.at(sampleTime) : this.l.x) * height;
+  }
+
+  followersMoving(time) {
+    return !!this.choiceHistory && this.cards.some((_, i) => Math.abs(this.choiceLift(i, time) / this.mount.getBoundingClientRect().height - this.l.x) > .000001);
+  }
+
+  tryEarlyFlip(time) {
+    if (!this.pending || this.pendingPresentation !== 'closed' || !this.commitMotion || this.nextFlip.target === 0) return;
+    if (time < this.commitMotion.start + Math.max(0, this.commitMotion.duration - this.settings.flipLeadMs)) return;
+    const { width, height } = this.mount.getBoundingClientRect();
+    const area = turningBounds({ x: 0, y: 0, z: -24, turnAxis: this.settings.flipAxisTilt }, width, height, this.settings.perspective);
+    if (this.cards.every((_, i) => projectedBounds(cardPose(this, i, time), width, height, this.settings.perspective).bottom <= area.top - 8)) {
+      this.nextFlip.target = 0;
+    }
+  }
+
   start(event) {
     if (this.destroyed || this.busy || this.openingCommit || this.openingReturn || this.phase === 'closing') return false;
     this.mount.focus({ preventScroll: true });
@@ -165,6 +208,20 @@ export class CardDeck extends EventTarget {
       x: event ? clamp(((event.clientX - (bounds.left || 0)) / bounds.width - .5) * 2, -1, 1) : 0,
       y: event ? clamp(((event.clientY - (bounds.top || 0)) / bounds.height - .5) * 2, -1, 1) : 0
     };
+    if (this.phase === 'choices' && this.content.interaction === 'choice' && this.choiceHistory
+      && this.choiceRanks.get(this.content.actions[this.index]?.id) !== 0) {
+      // A browse can select a former follower while the canceled lift settles.
+      // Adopt its current height as the new leader, preserving every other
+      // card's current pose with spring offsets instead of snapping ranks.
+      const time = performance.now();
+      const poses = new Map(this.content.actions.map((a, i) => [a.id, cardPose(this, i, time)]));
+      const lift = this.choiceLift(this.index, time) / bounds.height;
+      this.choiceHistory = null;
+      this.choiceRanks.clear();
+      this.l.x = lift;
+      this.createReflow(poses);
+      this.beginChoiceHistory(time);
+    }
     this.drag = {
       p: this.p.x, b: this.b.x, l: this.l.x, returnLift: this.returnLift.x,
       open: this.open, ready: this.phase === 'choices', fan: this.fan.x, index: this.index, cursor: this.b.target, grab, axis: null
@@ -197,6 +254,7 @@ export class CardDeck extends EventTarget {
         if (!this.content.allowClose) {
           this.l.x = Math.max(0, this.drag.l - gesture.y / height);
           this.rotationX.target = this.rotationY.target = this.rotationZ.target = 0;
+          this.sampleChoices();
           this.render();
           this.schedule();
           return;
@@ -225,6 +283,7 @@ export class CardDeck extends EventTarget {
             this.liftStart = this.l.x;
             this.liftId = action.id;
           }
+          if (this.content.interaction === 'choice' && !action.disabled) this.beginChoiceHistory();
           this.l.x = action.disabled
             ? Math.min(24, this.drag.l * height + 24 * (1 - Math.exp(gesture.y / 90))) / height
             : Math.max(0, this.drag.l - gesture.y / height);
@@ -234,6 +293,7 @@ export class CardDeck extends EventTarget {
         }
       }
     }
+    this.sampleChoices();
     const max = this.settings.maxTilt;
     this.rotationX.target = clamp(-gesture.y / height * max * 2, -max, max);
     this.rotationY.target = clamp(gesture.x / width * max * 2, -max, max);
@@ -388,7 +448,7 @@ export class CardDeck extends EventTarget {
         // Bring the preceding choices down from above, even when the last
         // collectible has already departed and there is nothing to move out.
         this.returnLift.target = 1;
-        if (this.returnLift.x === this.returnLift.target && this.atRest(this.returnLift)) this.completeReturn();
+        if (this.returnLift.x === this.returnLift.target && this.atRest(this.returnLift)) { this.render(); this.completeReturn(); }
         return;
       }
       this.sourceFloor = 0;
@@ -446,6 +506,9 @@ export class CardDeck extends EventTarget {
       this.collect(pointerVelocity);
       return;
     }
+    this.beginChoiceHistory();
+    this.sampleChoices();
+    this.nextFlip = spring(1);
     this.busy = true;
     this.phase = 'committing';
     this.operation = null;
@@ -544,6 +607,12 @@ export class CardDeck extends EventTarget {
     this.reflowOrder = oldOrder;
     this.operation = 'collect';
     this.render();
+    if (!count) {
+      // No visible cards remain to compress. Completion and close acceptance
+      // happen now; return travel starts on the following animation frame.
+      this.fan = spring();
+      this.finishCollection();
+    }
   }
 
   finishCollection() {
@@ -556,7 +625,10 @@ export class CardDeck extends EventTarget {
     const content = this.content;
     this.render();
     this.emit('transitioncomplete', { transition: 'collect', remainingIds: this.content.actions.map(a => a.id) });
-    if (this.content === content && !this.cards.length && !this.destroyed) this.setOpen(false);
+    if (this.content === content && !this.cards.length && !this.destroyed) {
+      this.setOpen(false);
+      this.advancePhases();
+    }
   }
 
   setActionPreview(actionId, content, { presentation = 'open' } = {}) {
@@ -627,7 +699,7 @@ export class CardDeck extends EventTarget {
     }
   }
 
-  install(content, { faceDown = false, open = false, selectedId, staged = null, stagedDepth = staged ? 1 : 0 } = {}) {
+  install(content, { faceDown = false, open = false, selectedId, staged = null, stagedDepth = staged ? 1 : 0, flipState = null } = {}) {
     this.content = content;
     this.open = open && content.actions.length > 0;
     this.index = Math.max(0, content.actions.findIndex(a => a.id === selectedId));
@@ -640,7 +712,10 @@ export class CardDeck extends EventTarget {
     this.l = spring();
     this.n = spring(stagedDepth);
     this.n.target = 0;
-    this.flip = spring(faceDown ? 1 : 0);
+    this.flip = flipState ? { ...flipState } : spring(faceDown ? 1 : 0);
+    this.nextFlip = spring(1);
+    this.choiceHistory = null;
+    this.choiceRanks.clear();
     this.skipCover = open;
     this.returnLift = spring();
     this.returning = this.openingReturn = this.openingCommit = false;
@@ -676,7 +751,8 @@ export class CardDeck extends EventTarget {
         this.schedule();
         return;
       }
-      this.install(next, { faceDown: true });
+      const flipState = { ...this.nextFlip, target: 0 };
+      this.install(next, { faceDown: true, stagedDepth: 1, flipState });
       this.flip.target = 0;
       this.n = spring(1);
       this.n.target = 0;
@@ -694,6 +770,13 @@ export class CardDeck extends EventTarget {
   updateSettings(patch) {
     if (this.destroyed) return;
     this.settings = settingsWith(patch, this.settings);
+    // Live geometry edits can invalidate a turn that has already begun. Adopt
+    // safely rather than rotating into a departing card's newly projected area.
+    if (this.commitMotion && this.nextFlip.target === 0
+      && ['perspective', 'flipAxisTilt', 'maxTilt', 'stackDepth', 'liftHeight'].some(key => Number.isFinite(patch[key]))) {
+      this.finishMotion();
+      return;
+    }
     if (!this.drag) this.schedule();
   }
 
@@ -740,7 +823,10 @@ export class CardDeck extends EventTarget {
     const dt = this.last ? Math.min((t - this.last) / 1000, 0.05) : 1 / 60;
     this.last = t;
     if (this.collectMotion) {
-      if (t - this.collectMotion.start >= this.collectMotion.duration) {
+      const bounds = this.mount.getBoundingClientRect();
+      const lastCleared = this.cards.length === 1 && projectedBounds(cardPose(this, this.collectMotion.index, t),
+        bounds.width, bounds.height, this.settings.perspective).bottom + (bounds.top || 0) <= -8;
+      if (lastCleared || t - this.collectMotion.start >= this.collectMotion.duration) {
         this.completeCollection();
         this.last = 0;
       } else {
@@ -751,35 +837,44 @@ export class CardDeck extends EventTarget {
       return;
     }
     if (this.commitMotion) {
-      const duration = this.commitMotion.duration;
+      this.tryEarlyFlip(t);
+      const duration = this.commitMotion.duration + (this.cards.length - 1) * this.settings.choiceStaggerMs;
       if (t - this.commitMotion.start >= duration) {
         this.completeCommit();
         this.last = 0;
         return;
       }
-      for (const rotation of [this.rotationX, this.rotationY, this.rotationZ, this.flip]) springStep(rotation, dt, this.angularSettings());
+      for (const rotation of [this.rotationX, this.rotationY, this.rotationZ, this.nextFlip]) springStep(rotation, dt, this.angularSettings());
       this.render(t);
       this.schedule();
       return;
     }
     const angularMoving = [this.rotationX, this.rotationY, this.rotationZ, this.flip].map(rotation => springStep(rotation, dt, this.angularSettings())).some(Boolean);
     if (this.drag) {
-      this.render();
-      if (angularMoving) this.schedule(); else this.last = 0;
+      for (const offset of this.reflowOffsets.values()) for (const [field, state] of Object.entries(offset)) {
+        springStep(state, dt, field.startsWith('r') ? this.angularSettings() : this.settings);
+      }
+      this.sampleChoices(t);
+      this.render(t);
+      if (angularMoving || this.choiceHistory || this.reflowOffsets.size) this.schedule(); else this.last = 0;
       return;
     }
-    for (const state of [this.p, this.b, this.l, this.n, this.fan, this.returnLift]) springStep(state, dt, this.settings);
+    for (const state of [this.p, this.b, this.l, this.n, this.fan, this.returnLift]) {
+      springStep(state, dt, { ...this.settings, precision: [this.p, this.b, this.l, this.returnLift].includes(state) ? 1e-6 : .001 });
+    }
     for (const offset of this.reflowOffsets.values()) for (const [field, state] of Object.entries(offset)) {
       springStep(state, dt, field.startsWith('r') ? this.angularSettings() : this.settings);
     }
     if (this.liftPoses && this.atRest(this.l) && [this.rotationX, this.rotationY, this.rotationZ].every(s => this.atRest(s))) this.restoreLiftPoses();
+    this.sampleChoices(t);
     this.advancePhases();
     const moving = this.motionStates().some(state => !this.atRest(state));
-    this.render();
-    if (moving) {
+    this.render(t);
+    if (moving || this.followersMoving(t)) {
       this.schedule();
     } else {
       this.last = 0;
+      if (!this.drag && this.l.x === 0) { this.choiceHistory = null; this.choiceRanks.clear(); }
       if (this.operation && !['revealing', 'closing'].includes(this.phase)) {
         const transition = this.operation;
         if (transition === 'collect') {
@@ -805,7 +900,8 @@ export class CardDeck extends EventTarget {
     if (this.collectMotion) this.completeCollection();
     if (this.commitMotion) {
       this.completeCommit();
-      return;
+      cancelAnimationFrame(this.frame);
+      this.frame = 0;
     }
     // Collection, return travel, adoption, and fan expansion can each create
     // another spring target. Finish the whole chain on reduced motion or blur.
@@ -818,6 +914,8 @@ export class CardDeck extends EventTarget {
       if (this.operation === 'collect' && this.motionStates().every(s => this.atRest(s))) this.finishCollection();
       this.advancePhases();
     }
+    this.choiceHistory = null;
+    this.choiceRanks.clear();
     this.render();
     if (this.operation) {
       const transition = this.operation;
@@ -844,6 +942,8 @@ export class CardDeck extends EventTarget {
     this.frame = 0;
     this.collectMotion = this.commitMotion = this.drag = this.pending = this.liftPoses = null;
     this.reflowOffsets.clear();
+    this.choiceHistory = null;
+    this.choiceRanks.clear();
     this.forwardDeck = this.returnDeck = null;
     this.forwardOwner = this.returnContent = this.returnSelectedId = null;
     this.actionPreviews.clear();

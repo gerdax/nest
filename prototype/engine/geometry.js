@@ -11,19 +11,27 @@ function dimensions(width, height, perspective) {
 // translating and projecting around the mount's 50% 45% perspective origin.
 export function projectedBounds(pose, width, height, perspective) {
   dimensions(width, height, perspective);
-  const { x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, scale = 1 } = pose;
-  if (![x, y, z, rx, ry, rz, scale].every(Number.isFinite)) throw new RangeError('Pose must be finite');
+  const { x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, turn = 0, turnAxis = 0, face = 0, scale = 1 } = pose;
+  if (![x, y, z, rx, ry, rz, turn, turnAxis, face, scale].every(Number.isFinite)) throw new RangeError('Pose must be finite');
   const [ax, ay, az] = [rx, ry, rz].map(radians);
   const cx = Math.cos(ax), sx = Math.sin(ax);
   const cy = Math.cos(ay), sy = Math.sin(ay);
   const cz = Math.cos(az), sz = Math.sin(az);
+  const at = radians(turn), aa = radians(turnAxis), af = radians(face);
+  const ct = Math.cos(at), st = Math.sin(at), ca = Math.cos(aa), sa = Math.sin(aa);
+  const cf = Math.cos(af), sf = Math.sin(af);
   const bounds = { left: Infinity, right: -Infinity, top: Infinity, bottom: -Infinity };
   for (const localX of [-width / 2, width / 2]) {
     for (const localY of [-height / 2, height / 2]) {
-      const rotatedX = scale * (cz * localX - sz * localY);
-      const rotatedY = scale * (sz * localX + cz * localY);
-      const afterY = cy * rotatedX;
-      const depthY = -sy * rotatedX;
+      // CSS: Rx Ry Rz Rz(axis) Ry(turn) Rz(-axis) Ry(face) scale.
+      const faceX = scale * cf * localX, faceY = scale * localY, faceZ = -scale * sf * localX;
+      const axisX = ca * faceX + sa * faceY, axisY = -sa * faceX + ca * faceY;
+      const turnX = ct * axisX + st * faceZ, turnZ = -st * axisX + ct * faceZ;
+      const tiltedX = ca * turnX - sa * axisY, tiltedY = sa * turnX + ca * axisY;
+      const rotatedX = cz * tiltedX - sz * tiltedY;
+      const rotatedY = sz * tiltedX + cz * tiltedY;
+      const afterY = cy * rotatedX + sy * turnZ;
+      const depthY = -sy * rotatedX + cy * turnZ;
       const finalY = cx * rotatedY - sx * depthY;
       const finalZ = sx * rotatedY + cx * depthY + z;
       if (finalZ >= perspective) throw new RangeError('Card crosses the perspective camera plane');
@@ -37,6 +45,39 @@ export function projectedBounds(pose, width, height, perspective) {
     }
   }
   return bounds;
+}
+
+// Enclose the complete 0..180-degree turn in a cylinder around its local axis,
+// then rotate that cylinder with the card's shared pose. This keeps the radius
+// at the card's cross-axis half-width, instead of using its full diagonal.
+// The perspective interval includes all depths and both faces of that sweep.
+export function turningBounds(pose, width, height, perspective) {
+  dimensions(width, height, perspective);
+  const { x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, turnAxis = 0, scale = 1 } = pose;
+  if (![x, y, z, rx, ry, rz, turnAxis, scale, pose.turn ?? 0, pose.face ?? 0].every(Number.isFinite)) {
+    throw new RangeError('Pose must be finite');
+  }
+  const [ax, ay, az, aa] = [rx, ry, rz, turnAxis].map(radians);
+  const ca = Math.cos(aa), sa = Math.sin(aa);
+  const halfAxis = Math.abs(scale) * (Math.abs(sa) * width + Math.abs(ca) * height) / 2;
+  const radius = Math.abs(scale) * (Math.abs(ca) * width + Math.abs(sa) * height) / 2;
+  // Local axis (-sin(axis), cos(axis), 0); negative axis angles lean left at
+  // the upper endpoint. Apply Rz, then Ry, then Rx, as in projectedBounds.
+  const ux = -Math.sin(aa + az), uy = Math.cos(aa + az);
+  const vx = Math.cos(ay) * ux, vz = -Math.sin(ay) * ux;
+  const axis = [vx, Math.cos(ax) * uy - Math.sin(ax) * vz, Math.sin(ax) * uy + Math.cos(ax) * vz];
+  const [extentX, extentY, extentZ] = axis.map(component =>
+    Math.abs(component) * halfAxis + Math.sqrt(Math.max(0, 1 - component * component)) * radius);
+  if (z + extentZ >= perspective) throw new RangeError('Turn can cross the perspective camera plane');
+  const farFactor = perspective / (perspective - z + extentZ);
+  const nearFactor = perspective / (perspective - z - extentZ);
+  const interval = (center, extent, origin) => {
+    const low = center - extent, high = center + extent;
+    return [origin + low * (low < 0 ? nearFactor : farFactor), origin + high * (high > 0 ? nearFactor : farFactor)];
+  };
+  const [left, right] = interval(x, extentX, width / 2);
+  const [top, bottom] = interval(y + height * .05, extentY, height * .45);
+  return { left, right, top, bottom };
 }
 
 // Maximum a*cos(angle)+b*sin(angle) over the permitted absolute angle.

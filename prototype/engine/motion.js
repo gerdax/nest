@@ -1,23 +1,26 @@
 export const DEFAULT_SETTINGS = Object.freeze({
-  stiffness: 280,
-  damping: 30,
-  mass: 1,
-  maxTilt: 6,
-  axisThreshold: 10,
-  distanceThreshold: 0.25,
-  flickVelocity: 700,
-  flickDistance: 24,
-  commitDuration: 420,
-  perspective: 1000,
-  stackDepth: 10,
-  liftHeight: 28,
-  angularStiffness: 180,
-  angularDamping: 22,
-  gravity: 2200,
+  stiffness: 360,
+  damping: 56,
+  mass: 1.15,
+  maxTilt: 12,
+  axisThreshold: 34,
+  distanceThreshold: 0.14,
+  flickVelocity: 325,
+  flickDistance: 26,
+  commitDuration: 210,
+  perspective: 1200,
+  stackDepth: 22,
+  liftHeight: 56,
+  angularStiffness: 350,
+  angularDamping: 65,
+  gravity: 800,
   revealStartScale: .95,
-  revealFullScaleAt: 1 / 3
+  revealFullScaleAt: 1 / 3,
+  choiceStaggerMs: 18,
+  flipLeadMs: 30,
+  flipAxisTilt: -3
 });
-export function classifyAxis(x, y, threshold = 10) {
+export function classifyAxis(x, y, threshold = DEFAULT_SETTINGS.axisThreshold) {
   return Math.hypot(x, y) < threshold ? null : Math.abs(x) > Math.abs(y) ? 'x' : 'y';
 }
 
@@ -64,7 +67,8 @@ export function springStep(s, dt, c) {
   }
   s.x = s.target + e;
   s.v = v;
-  if (Math.abs(s.x - s.target) < 0.001 && Math.abs(s.v) < 0.01) {
+  const precision = c.precision ?? .001;
+  if (Math.abs(s.x - s.target) < precision && Math.abs(s.v) < precision * 10) {
     s.x = s.target;
     s.v = 0;
   }
@@ -85,8 +89,9 @@ export function settingsWith(patch = {}, base = DEFAULT_SETTINGS) {
   };
   for (const key of Object.keys(DEFAULT_SETTINGS)) {
     if (Number.isFinite(patch[key])) {
-      const min = ['maxTilt', 'liftHeight', 'gravity'].includes(key) ? 0 : key === 'distanceThreshold' ? 0.05 : key === 'perspective' ? 400 : 0.01;
-      result[key] = Math.max(min, patch[key]);
+      const min = ['maxTilt', 'liftHeight', 'gravity', 'choiceStaggerMs', 'flipLeadMs'].includes(key) ? 0 : key === 'distanceThreshold' ? 0.05 : key === 'perspective' ? 400 : key === 'flipAxisTilt' ? -10 : 0.01;
+      const max = key === 'choiceStaggerMs' ? 60 : key === 'flipLeadMs' ? 100 : key === 'flipAxisTilt' ? 10 : Infinity;
+      result[key] = clamp(patch[key], min, max);
       if (['revealStartScale', 'revealFullScaleAt'].includes(key)) result[key] = Math.min(1, result[key]);
     }
   }

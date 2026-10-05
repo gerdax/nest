@@ -1,4 +1,4 @@
-import { classifyAxis } from './motion.js?v=reveal-scale-1';
+import { classifyAxis } from './motion.js?v=motion-polish-1';
 
 export class PointerInput {
   constructor(element, callbacks, getSettings) {

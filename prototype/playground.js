@@ -1,6 +1,6 @@
-import { CardDeck, DEFAULT_SETTINGS } from './engine/CardDeck.js?v=reveal-scale-1';
+import { CardDeck, DEFAULT_SETTINGS } from './engine/CardDeck.js?v=motion-polish-1';
 
-import { ScenarioController, createStudyContent } from './demo/ScenarioController.js?v=reveal-scale-1';
+import { ScenarioController, createStudyContent } from './demo/ScenarioController.js?v=motion-polish-1';
 
 const specs = [
   ['stiffness', 'Spring stiffness', 60, 600, 5, ''],
@@ -19,7 +19,10 @@ const specs = [
   ['angularDamping', 'Rotational damping', 5, 80, 1, ''],
   ['gravity', 'Throw gravity', 0, 3000, 50, ' px/s²'],
   ['revealStartScale', 'Underlying start scale', .88, 1, .005, ' ×'],
-  ['revealFullScaleAt', 'Full size at exposure', .1, .65, .01, ' × card height'],
+  ['revealFullScaleAt', 'Full size at exposure', .1, .65, 'any', ' × card height'],
+  ['choiceStaggerMs', 'Choice stagger', 0, 60, 1, ' ms'],
+  ['flipLeadMs', 'Flip lead', 0, 100, 1, ' ms'],
+  ['flipAxisTilt', 'Flip axis tilt', -10, 10, 0.5, '°'],
 ];
 const mount = document.querySelector('#deck');
 const hint = document.querySelector('#hint');
