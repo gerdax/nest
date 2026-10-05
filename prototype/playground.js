@@ -94,6 +94,7 @@ deck.addEventListener('close', () => {
 });
 deck.addEventListener('commit', event => {
   status.textContent = `${event.detail.action.label} committed.`;
+  hint.textContent = 'Lifting the choices away, then turning the next card over.';
   studyIndex += 1;
   actionCount = actionCount === 4 ? 2 : actionCount + 1;
   fixture.value = String(actionCount);

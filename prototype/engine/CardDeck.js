@@ -37,6 +37,7 @@ export class CardDeck extends EventTarget {
     this.b = spring();
     this.l = spring();
     this.n = spring();
+    this.flip = spring();
     this.rotationX = spring();
     this.rotationY = spring();
     this.rotationZ = spring();
@@ -371,7 +372,7 @@ export class CardDeck extends EventTarget {
     this.install(next);
   }
 
-  install(content) {
+  install(content, { faceDown = false } = {}) {
     this.content = content;
     this.open = false;
     this.index = 0;
@@ -383,6 +384,7 @@ export class CardDeck extends EventTarget {
     this.b = spring();
     this.l = spring();
     this.n = spring();
+    this.flip = spring(faceDown ? 1 : 0);
     this.rotationX = spring();
     this.rotationY = spring();
     this.rotationZ = spring();
@@ -396,7 +398,8 @@ export class CardDeck extends EventTarget {
     if (this.pending) {
       const next = this.pending;
       this.pending = null;
-      this.install(next);
+      this.install(next, { faceDown: true });
+      this.flip.target = 0;
       this.n = spring(1);
       this.n.target = 0;
       this.operation = 'commit';
@@ -449,12 +452,12 @@ export class CardDeck extends EventTarget {
         this.last = 0;
         return;
       }
-      for (const rotation of [this.rotationX, this.rotationY, this.rotationZ]) springStep(rotation, dt, this.angularSettings());
+      for (const rotation of [this.rotationX, this.rotationY, this.rotationZ, this.flip]) springStep(rotation, dt, this.angularSettings());
       this.render(t);
       this.schedule();
       return;
     }
-    const angularMoving = [this.rotationX, this.rotationY, this.rotationZ].map(rotation => springStep(rotation, dt, this.angularSettings())).some(Boolean);
+    const angularMoving = [this.rotationX, this.rotationY, this.rotationZ, this.flip].map(rotation => springStep(rotation, dt, this.angularSettings())).some(Boolean);
     if (this.drag) {
       this.render();
       if (angularMoving) this.schedule(); else this.last = 0;
@@ -462,7 +465,7 @@ export class CardDeck extends EventTarget {
     }
     for (const state of [this.p, this.b, this.l, this.n, this.fan]) springStep(state, dt, this.settings);
     this.advancePhases();
-    const moving = [this.p, this.b, this.l, this.n, this.fan, this.rotationX, this.rotationY, this.rotationZ].some(state => !this.atRest(state));
+    const moving = [this.p, this.b, this.l, this.n, this.fan, this.rotationX, this.rotationY, this.rotationZ, this.flip].some(state => !this.atRest(state));
     this.render();
     if (moving) {
       this.schedule();
@@ -494,7 +497,7 @@ export class CardDeck extends EventTarget {
     }
     // Two-phase reveal/close can create a new spring target after settling.
     for (let pass = 0; pass < 3; pass++) {
-      for (const state of [this.p, this.b, this.l, this.n, this.fan, this.rotationX, this.rotationY, this.rotationZ]) {
+      for (const state of [this.p, this.b, this.l, this.n, this.fan, this.rotationX, this.rotationY, this.rotationZ, this.flip]) {
         state.x = state.target;
         state.v = 0;
       }

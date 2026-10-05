@@ -83,3 +83,12 @@ Cards use independent flattened 3D containers, with explicit whole-card painter 
 Regression preset from the reported screenshot: axisThreshold 27, distanceThreshold .21, flickVelocity 375, commitDuration 190, perspective 1100. This is used in verification, not as new defaults.
 
 The branch `codex/deck-reveal-fixes` preserves the existing repository history. Commit `4a48051` checkpoints the project before these fixes, including the original prototype archive. The following fix commit records the presentation changes independently.
+
+
+## Card-back reveal experiment
+
+Branch `codex/card-back-reveal` starts from the committed two-card idle fan (`af8f8ca`). After an action is committed, the real next situation is staged face down underneath the outgoing choice stack. Once the stack clears, the next card rotates around its vertical axis to reveal its artwork and text.
+
+The front and reverse are two opaque faces in one physical card layer, with `backface-visibility` controlling which face is painted. The reverse uses a Nest pattern and emblem. It is never an extra choice or a placeholder in the browsing carousel. Newly supplied choices remain compressed and hidden during the turn, preventing their artwork from leaking through at the edge-on midpoint.
+
+The turn uses the existing rotational stiffness/damping and mass controls. Input remains blocked until the turn and depth settling finish; then the existing `transitioncomplete` commit event fires once. Reset restores a face-up situation; reduced motion and tab suspension immediately finish the reveal. The initial situation starts face up.

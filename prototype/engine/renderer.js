@@ -9,10 +9,29 @@ function layerFor(deck, card, className = '') {
   return layer;
 }
 
+function backFace() {
+  const back = document.createElement('article');
+  back.className = 'nest-card nest-card-back';
+  back.setAttribute('aria-hidden', 'true');
+  const frame = document.createElement('div');
+  frame.className = 'nest-back-frame';
+  const mark = document.createElement('span');
+  mark.className = 'nest-back-mark';
+  mark.textContent = 'NEST';
+  frame.append(mark);
+  back.append(frame);
+  return back;
+}
+
+export function backPose(front) {
+  return { ...front, ry: front.ry + 180 };
+}
+
 export function buildDeck(deck) {
   deck.mount.replaceChildren();
   deck.underlay = null;
   deck.underlayLayer = null;
+  deck.underlayBack = null;
   deck.cardLayers = [];
   deck.cards = deck.content.actions.map((action, index) => {
     const card = document.createElement('article');
@@ -26,6 +45,8 @@ export function buildDeck(deck) {
   deck.scene.className = 'nest-card nest-situation';
   deck.decorate(deck.scene, deck.content.image, deck.content.title, deck.content.text);
   deck.sceneLayer = layerFor(deck, deck.scene);
+  deck.sceneBack = backFace();
+  deck.sceneLayer.append(deck.sceneBack);
   deck.live = document.createElement('span');
   deck.live.className = 'nest-live';
   deck.live.setAttribute('aria-live', 'polite');
@@ -53,6 +74,8 @@ export function stageNextContent(deck, content) {
     deck.underlay.className = 'nest-card nest-next-situation';
     deck.underlay.setAttribute('aria-hidden', 'true');
     deck.underlayLayer = layerFor(deck, deck.underlay);
+    deck.underlayBack = backFace();
+    deck.underlayLayer.append(deck.underlayBack);
   }
   deck.underlay.replaceChildren();
   deck.underlay.style.backgroundImage = '';
@@ -60,7 +83,7 @@ export function stageNextContent(deck, content) {
 }
 
 export function announceDeck(deck) {
-  const message = deck.busy ? (deck.pending || deck.operation === 'commit' ? 'Revealing next card…' : 'Waiting for next card…')
+  const message = deck.busy && deck.flip.x > 0 ? 'Turning next card…' : deck.busy ? (deck.pending || deck.operation === 'commit' ? 'Revealing next card…' : 'Waiting for next card…')
     : deck.phase === 'revealing' ? 'Uncovering choices…'
       : deck.phase === 'closing' ? 'Returning cover…'
       : deck.open ? `${deck.index + 1} of ${deck.cards.length}: ${deck.content.actions[deck.index].label}`
@@ -73,7 +96,7 @@ export function scenePose(deck, time = performance.now()) {
   return {
     x: 0, y: -lift, z: 16 - deck.n.x * 40 + Math.min(Math.abs(lift) * 0.08, deck.settings.liftHeight),
     rx: deck.rotationX.x * (1 - clamp(deck.p.x, 0, 1)),
-    ry: deck.rotationY.x * (1 - clamp(deck.p.x, 0, 1)),
+    ry: deck.rotationY.x * (1 - clamp(deck.p.x, 0, 1)) + clamp(deck.flip.x, 0, 1) * 180,
     rz: deck.rotationZ.x * (1 - clamp(deck.p.x, 0, 1)),
     visible: !(deck.busy && !deck.commitMotion && deck.operation !== 'commit')
   };
@@ -114,7 +137,8 @@ export function cardPose(deck, index, time = performance.now()) {
   pose.rx = clamp(pose.rx, -deck.settings.maxTilt, deck.settings.maxTilt);
   pose.ry = clamp(pose.ry, -deck.settings.maxTilt, deck.settings.maxTilt);
   pose.rz = clamp(pose.rz, -deck.settings.maxTilt, deck.settings.maxTilt);
-  pose.visible = !(deck.busy && !deck.commitMotion && deck.operation !== 'commit');
+  pose.visible = !(deck.busy && !deck.commitMotion && deck.operation !== 'commit')
+    && !(deck.busy && deck.operation === 'commit' && (deck.flip.x !== 0 || deck.flip.v !== 0));
   pose.rank = rank;
   return pose;
 }
@@ -131,9 +155,14 @@ function applyPose(deck, element, layer, pose, order, shadow = true) {
 
 export function renderDeck(deck, time = performance.now()) {
   if (!deck.scene) return;
-  if (deck.underlay) applyPose(deck, deck.underlay, deck.underlayLayer,
-    { x: 0, y: 0, z: -24, rx: 0, ry: 0, rz: 0, visible: true }, 0);
-  applyPose(deck, deck.scene, deck.sceneLayer, scenePose(deck, time), 1000);
+  if (deck.underlay) {
+    const stagedPose = { x: 0, y: 0, z: -24, rx: 0, ry: 180, rz: 0, visible: true };
+    applyPose(deck, deck.underlay, deck.underlayLayer, stagedPose, 0);
+    applyPose(deck, deck.underlayBack, deck.underlayLayer, backPose(stagedPose), 0);
+  }
+  const front = scenePose(deck, time);
+  applyPose(deck, deck.scene, deck.sceneLayer, front, 1000);
+  applyPose(deck, deck.sceneBack, deck.sceneLayer, backPose(front), 1000);
   deck.scene.setAttribute('aria-hidden', String(deck.open || deck.busy));
   const poses = deck.cards.map((_, index) => cardPose(deck, index, time));
   const painterOrder = poses.map((pose, index) => ({ index, depth: deck.fan.x === 0 ? -pose.rank : pose.front }));

@@ -142,7 +142,9 @@ test('closed decks contain exactly the actual scene and action cards in distinct
  for(const count of [2,3,4]){
   const d=deck(count);assert.equal(d.phase,'closed');assert.equal(d.fan.x,0);assert.equal(d.underlay,null);
   const articles=descendants(d.mount).filter(el=>(el.className||'').split(' ').includes('nest-card'));
-  assert.equal(articles.length,count+1);assert.ok(!textOf(d.mount).includes('NEST'));
+  assert.equal(articles.length,count+2);assert.ok(textOf(d.sceneBack).includes('NEST'));
+  assert.ok(d.sceneLayer.children.includes(d.sceneBack));assert.ok(d.sceneBack.className.includes('nest-card-back'));
+  assert.equal(descendants(d.mount).filter(el=>(el.className||'').split(' ').includes('nest-card-back')).length,1);
   assert.equal(d.cardLayers.length,count);assert.equal(new Set([...d.cardLayers,d.sceneLayer]).size,count+1);
   for(let i=0;i<count;i++){assert.ok(d.cardLayers[i].className.includes('nest-card-layer'));assert.ok(d.cardLayers[i].children.includes(d.cards[i]));assert.ok(d.mount.children.includes(d.cardLayers[i]));}
   assert.ok(d.sceneLayer.children.includes(d.scene));d.destroy();
@@ -266,4 +268,99 @@ test('two choices form a visible idle fan after either action is selected',()=>{
   assert.ok(rear.rz>1,'rear choice must have a visible fan angle');
  }
  d.destroy();
+});
+
+
+function yaw(element){return Number(element.style.transform.match(/rotateY\(([-\d.]+)deg\)/)[1])}
+function commitNext(d,next={...fixture(2),id:'flip-next',title:'Next face'}){
+ d.addEventListener('commit',()=>d.replaceContent(next),{once:true});ready(d);d.commit();return d.commitMotion.start;
+}
+function installCommitted(d,start){cancelAnimationFrame(d.frame);d.tick(start+d.settings.commitDuration+1);}
+test('the next situation stages face down beneath departing choices without a placeholder',()=>{
+ const d=deck();ready(d);
+ assert.equal(d.underlay,null);assert.equal(d.underlayBack,null);assert.equal(d.flip.x,0);assert.equal(renderer.scenePose(d).ry,0);
+ const outgoing=[...d.cards],source=d.scene;
+ d.addEventListener('commit',()=>d.replaceContent({...fixture(2),id:'staged',title:'Future front'}));d.commit();
+ assert.equal(d.content.id,'fixture3');assert.equal(d.scene,source);assert.equal(d.pending.id,'staged');
+ assert.deepEqual(d.underlayLayer.children,[d.underlay,d.underlayBack]);
+ assert.equal(yaw(d.underlay),180);assert.equal(yaw(d.underlayBack),360);
+ assert.equal(d.underlay.style.visibility,'visible');assert.equal(d.underlayBack.style.visibility,'visible');
+ assert.equal(d.underlay.getAttribute('aria-hidden'),'true');assert.equal(d.underlayBack.getAttribute('aria-hidden'),'true');
+ assert.ok(textOf(d.underlay).includes('Future front'));assert.ok(textOf(d.underlayBack).includes('NEST'));
+ for(const fraction of [0,.5,.99]){
+  const time=d.commitMotion.start+d.settings.commitDuration*fraction;d.render(time);
+  assert.equal(d.scene,source);assert.equal(yaw(d.underlay),180);assert.equal(yaw(d.underlayBack),360);
+  outgoing.forEach((card,index)=>{assert.ok(descendants(d.mount).includes(card));assert.ok(renderer.cardPose(d,index,time).visible)});
+ }
+ assertOpaque(d);d.destroy();
+});
+test('incoming situation turns its two faces through back, edge and front with no fading',()=>{
+ const d=deck();const start=commitNext(d);installCommitted(d,start);
+ assert.equal(d.flip.x,1);assert.equal(d.flip.target,0);assert.equal(d.n.x,1);assert.equal(d.n.target,0);
+ assert.equal(d.underlay,null);assert.equal(d.underlayBack,null);assert.deepEqual(d.sceneLayer.children,[d.scene,d.sceneBack]);
+ for(const [progress,angle]of [[1,180],[.5,90],[0,0],[1.2,180],[-.2,0]]){
+  d.flip.x=progress;d.render();assert.equal(renderer.scenePose(d).ry,angle);
+  assert.equal(yaw(d.scene),angle);assert.equal(yaw(d.sceneBack),angle+180);
+  assert.equal(d.scene.style.visibility,'visible');assert.equal(d.sceneBack.style.visibility,'visible');assertOpaque(d);
+ }
+ d.destroy();
+});
+test('future choices remain compressed and hidden until the incoming flip completes',()=>{
+ const d=deck(4);const start=commitNext(d,fixture(4));installCommitted(d,start);
+ for(const progress of [1,.5,.001]){
+  d.flip.x=progress;d.fan.x=0;d.render();
+  d.cards.forEach((card,index)=>{
+   const pose=renderer.cardPose(d,index);assert.equal(pose.visible,false);assert.equal(card.style.visibility,'hidden');
+   for(const field of ['x','y','rx','ry','rz'])assert.equal(Math.abs(pose[field]),0);
+   assert.equal(d.cardLayers[index].children.length,1);assert.equal(d.cardLayers[index].children[0],card);
+  });
+  assert.equal(descendants(d.mount).filter(el=>(el.className||'').split(' ').includes('nest-card-back')).length,1);
+ }
+ d.flip.x=0;d.flip.v=0;settle(d);assert.equal(d.busy,false);assert.equal(d.phase,'closed');
+ d.cards.forEach((card,index)=>{assert.ok(renderer.cardPose(d,index).visible);assert.equal(card.style.visibility,'visible')});d.destroy();
+});
+test('commit completion waits for both flip and depth, gates input and emits once',()=>{
+ const d=deck();let complete=0;d.addEventListener('transitioncomplete',event=>{if(event.detail.transition==='commit')complete++});
+ const start=commitNext(d);installCommitted(d,start);
+ function blocked(){
+  assert.equal(d.busy,true);assert.equal(d.start(),false);const cursor=d.b.target;
+  for(const name of ['ArrowUp','ArrowRight','ArrowLeft','ArrowDown']){const e=new Event('keydown',{cancelable:true});Object.defineProperty(e,'key',{value:name});d.mount.dispatchEvent(e)}
+  d.commit();assert.equal(d.open,false);assert.equal(d.b.target,cursor);assert.equal(d.commitMotion,null);assert.equal(complete,0);
+ }
+ blocked();d.n.x=d.n.target;d.n.v=0;d.tick(performance.now());blocked();
+ d.flip.x=d.flip.target;d.flip.v=0;d.n.x=1;d.tick(performance.now());blocked();
+ settle(d);assert.equal(d.busy,false);assert.equal(d.phase,'closed');assert.equal(complete,1);
+ d.tick(performance.now()+1000);d.finishMotion();assert.equal(complete,1);d.destroy();
+});
+test('incoming flip advances with the angular spring settings',()=>{
+ const d=deck();d.updateSettings({stiffness:600,damping:80,angularStiffness:60,angularDamping:5});
+ const start=commitNext(d);installCommitted(d,start);const expected=spring(1);expected.target=0;
+ springStep(expected,1/60,d.angularSettings());d.tick(performance.now());
+ assert.equal(d.flip.x,expected.x);assert.equal(d.flip.v,expected.v);d.destroy();
+});
+test('delayed host keeps the departed deck blocked before installing the next back face',()=>{
+ const d=deck();ready(d);let complete=0;d.addEventListener('transitioncomplete',e=>{if(e.detail.transition==='commit')complete++});
+ d.commit();installCommitted(d,d.commitMotion.start);assert.equal(d.busy,true);assert.equal(d.start(),false);assert.equal(d.underlay,null);assert.equal(complete,0);
+ d.replaceContent({...fixture(2),id:'delayed'});assert.equal(d.content.id,'delayed');assert.equal(d.flip.x,1);assert.equal(yaw(d.scene),180);assert.equal(d.busy,true);
+ settle(d);assert.equal(d.flip.x,0);assert.equal(d.n.x,0);assert.equal(complete,1);d.destroy();
+});
+test('reset and destroy cancel the incoming flip and remove its back face work',()=>{
+ for(const action of ['reset','destroy']){
+  const d=deck();const start=commitNext(d);installCommitted(d,start);let complete=0;
+  d.addEventListener('transitioncomplete',e=>{if(e.detail.transition==='commit')complete++});d[action]();
+  assert.equal(d.frame,0);assert.equal(complete,0);
+  if(action==='reset'){assert.equal(d.flip.x,0);assert.equal(d.flip.v,0);assert.equal(d.flip.target,0);assert.equal(d.busy,false);assert.equal(d.phase,'closed');assert.equal(yaw(d.scene),0);assert.equal(yaw(d.sceneBack),180);assert.equal(d.underlay,null);d.destroy()}
+  else {const stopped={...d.flip};assert.equal(d.mount.children.length,0);d.tick(performance.now()+1000);d.media.matches=true;d.media.dispatchEvent(new Event('change'));document.dispatchEvent(new Event('visibilitychange'));assert.deepEqual(d.flip,stopped);assert.equal(d.mount.children.length,0);assert.equal(complete,0)}
+ }
+});
+test('reduced motion and hidden tabs finish the incoming flip face up immediately',()=>{
+ for(const mode of ['reduced','hidden'])for(const moment of ['departure','flip']){
+  const d=deck();const start=commitNext(d);let complete=0;d.addEventListener('transitioncomplete',e=>{if(e.detail.transition==='commit')complete++});
+  if(moment==='flip')installCommitted(d,start);
+  if(mode==='reduced'){d.media.matches=true;d.media.dispatchEvent(new Event('change'))}
+  else {document.hidden=true;document.dispatchEvent(new Event('visibilitychange'))}
+  assert.equal(d.busy,false);assert.equal(d.flip.x,0);assert.equal(d.flip.v,0);assert.equal(d.n.x,0);assert.equal(d.frame,0);
+  assert.equal(yaw(d.scene),0);assert.equal(yaw(d.sceneBack),180);assert.equal(complete,1);assertOpaque(d);
+  document.hidden=false;d.destroy();
+ }
 });

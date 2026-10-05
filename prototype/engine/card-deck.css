@@ -103,3 +103,30 @@
 @media (prefers-reduced-motion: reduce) {
   .nest-card { will-change: auto; }
 }
+
+/* A real reverse face shares the situation's layer and motion. CSS hides
+   the face pointing away from the camera; no opacity animation is involved. */
+.nest-card-back {
+  background-color: #172010;
+  background-image: repeating-linear-gradient(135deg, #25321b 0 1px, #172010 1px 13px);
+  border-color: #64734a;
+}
+.nest-card-back::after {
+  background: radial-gradient(ellipse at center, #17201044, #070c05bb);
+}
+.nest-back-frame {
+  position: absolute;
+  inset: 18px;
+  border: 1px solid #627446;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  z-index: 1;
+}
+.nest-back-mark {
+  font-family: NestLetter, monospace;
+  color: #b8c89a;
+  font-size: clamp(22px, 6vw, 32px);
+  letter-spacing: .22em;
+  padding-left: .22em;
+}
