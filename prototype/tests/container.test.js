@@ -428,6 +428,38 @@ function traceReturn(deck, returned) {
   assert.ok(visibleFrames > 1); assert.ok(descendingFrames > 1, 'return visibly travels downward across multiple frames');
 }
 
+for (const count of [1, 2, 3]) test(`closing ${count} remaining items keeps them stationary under the descending decisions`, () => {
+  const deck = make(count); ready(deck);
+  deck.setReturnContent(createChestEntry(CHEST_ITEM_IDS), { selectedId: 'open' });
+  const items = [...deck.cards], returned = [...deck.returnDeck.cards];
+  deck.start(); deck.move(gesture(260));
+  assert.equal(deck.fan.x, 0);
+  const held = items.map(renderedPose);
+  held.forEach(pose => assert.equal(pose.y, 0, 'downward drag compresses without translating items'));
+  deck.end(gesture(260));
+  let framesUnderCover = 0;
+  while (frames.size && !deck.cards.includes(returned[0])) {
+    step();
+    if (!deck.cards.includes(returned[0])) {
+      items.forEach((card, i) => {
+        samePose(renderedPose(card), held[i], 'item stays fixed during return');
+        assert.equal(card.style.visibility, 'visible');
+      });
+      framesUnderCover++;
+    } else {
+      const bounds = deck.mount.getBoundingClientRect();
+      const cover = projectedBounds(renderedPose(returned[0]), bounds.width, bounds.height, deck.settings.perspective);
+      held.forEach(pose => {
+        const item = projectedBounds(pose, bounds.width, bounds.height, deck.settings.perspective);
+        for (const edge of ['left', 'top']) assert.ok(cover[edge] <= item[edge] + 1e-8, 'cover reaches item edge before removal');
+        for (const edge of ['right', 'bottom']) assert.ok(cover[edge] >= item[edge] - 1e-8, 'cover reaches item edge before removal');
+      });
+    }
+  }
+  assert.ok(framesUnderCover > 1); settle();
+  assert.equal(deck.content.actions[deck.index].id, 'open'); dispose(deck);
+});
+
 for (const input of ['keyboard', 'downward swipe']) test(`${input} container close lowers both return choices from above, adopts without a jump and gates input until settled`, () => {
   const { deck, host } = chest(); enterChest(deck);
   const returned = [...deck.returnDeck.cards], adopted = watchReturnAdoption(deck, returned);

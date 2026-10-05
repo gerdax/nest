@@ -586,10 +586,11 @@ export class CardDeck extends EventTarget {
 
   completeReturn() {
     const content = this.returnContent, staged = this.returnDeck, selectedId = this.returnSelectedId;
-    this.install(content, { open: true, staged, selectedId });
+    this.install(content, { open: true, staged, selectedId, stagedDepth: this.cards.length ? 0 : 1 });
     this.openingReturn = true;
     this.busy = false;
     this.operation = 'reveal';
+    this.advancePhases();
     this.render();
   }
 
@@ -618,7 +619,7 @@ export class CardDeck extends EventTarget {
     }
   }
 
-  install(content, { faceDown = false, open = false, selectedId, staged = null } = {}) {
+  install(content, { faceDown = false, open = false, selectedId, staged = null, stagedDepth = staged ? 1 : 0 } = {}) {
     this.content = content;
     this.open = open && content.actions.length > 0;
     this.index = Math.max(0, content.actions.findIndex(a => a.id === selectedId));
@@ -629,7 +630,7 @@ export class CardDeck extends EventTarget {
     this.p = spring(this.open ? 1 : 0);
     this.b = spring(this.index);
     this.l = spring();
-    this.n = spring(staged ? 1 : 0);
+    this.n = spring(stagedDepth);
     this.n.target = 0;
     this.flip = spring(faceDown ? 1 : 0);
     this.skipCover = open;

@@ -196,7 +196,6 @@ export function cardPose(deck, index, time = performance.now()) {
     pose.z += Math.min(deck.l.x * bounds.height * .1, deck.settings.liftHeight);
   }
   if (deck.commitMotion) pose.y -= departureDistance(deck.commitMotion, time);
-  pose.y += deck.returnLift.x * deck.departureTravel();
   pose.rx = clamp(pose.rx, -deck.settings.maxTilt, deck.settings.maxTilt);
   pose.ry = clamp(pose.ry, -deck.settings.maxTilt, deck.settings.maxTilt);
   pose.rz = clamp(pose.rz, -deck.settings.maxTilt, deck.settings.maxTilt);
@@ -236,7 +235,8 @@ export function renderDeck(deck, time = performance.now()) {
   renderStagedActions(deck, deck.returnDeck, 500,
     (deck.phase === 'closing' && deck.returning)
       || deck.returnLift.x > 0,
-    -(1 - clamp(deck.returnLift.x, 0, 1)) * deck.departureTravel());
+    -(1 - clamp(deck.returnLift.x, 0, 1)) * deck.departureTravel(),
+    deck.cards.length && (deck.returning || deck.returnLift.x > 0) ? 4 : -36);
   const front = scenePose(deck, time);
   applyPose(deck, deck.scene, deck.sceneLayer, front, 1000);
   applyPose(deck, deck.sceneBack, deck.sceneLayer, backPose(front), 1000);
@@ -259,11 +259,11 @@ export function renderDeck(deck, time = performance.now()) {
   announceDeck(deck);
 }
 
-function renderStagedActions(deck, bundle, baseOrder, visible, y = 0) {
+function renderStagedActions(deck, bundle, baseOrder, visible, y = 0, z = -36) {
   if (!bundle) return;
   bundle.cards.forEach((card, index) => {
     const rank = (index - bundle.selectedIndex + bundle.cards.length) % bundle.cards.length;
-    const pose = { x: 0, y, z: -36 - rank * deck.settings.stackDepth, rx: 0, ry: 0, rz: 0, visible };
+    const pose = { x: 0, y, z: z - rank * deck.settings.stackDepth, rx: 0, ry: 0, rz: 0, visible };
     const order = baseOrder + bundle.cards.length - rank;
     applyPose(deck, card, bundle.cardLayers[index], bundle.content.actions[index].faceDown ? backPose(pose) : pose, order);
     if (bundle.cardBacks[index]) applyPose(deck, bundle.cardBacks[index], bundle.cardLayers[index], { ...pose, ry: 360 }, order);

@@ -53,7 +53,7 @@ Listen on the deck instance with `addEventListener`:
 
 - `reveal`: uncovering is accepted. Choices remain compressed until the cover clears their projected area, then expand.
 - `selection`: the selected action changes; use `detail.action` and `detail.index` to reflect the choice.
-- `close`: closing is accepted. A container with return content compresses its items, moves them downward, and brings the open return choices back from above. Content without a prepared return uses its cover.
+- `close`: closing is accepted. A container with return content compresses its items in place and brings the open return choices down over them from above. The items stay underneath until covered. Content without a prepared return uses its cover.
 - `commit`: a choice is accepted, with `{ contentId, action, index }`. Supply next content from the host.
 - `collect`: a container item is accepted, with `{ contentId, action, index }`. Record removal immediately; the engine removes that item and reflows its remaining cards without advancing host content. The final item automatically closes the container.
 - `transitioncomplete`: settling has finished; `detail.transition` identifies `reveal`, `close`, `browse`, `cancel`, `settle`, `collect`, or `commit`. Container `collect` includes `remainingIds` and completes after removal and reflow; final collection then completes `close` after the prepared return choices settle. The close completion reports the return content ID, `open: true`, and `phase: 'choices'`. Reveal completes only when the fan is ready. With open presentation, commit completion follows direct fan expansion and settling. Input is blocked throughout collection, automatic opening, and awaiting host content.
