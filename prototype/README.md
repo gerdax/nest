@@ -77,6 +77,8 @@ The renderer uses native CSS 3D transforms with a perspective camera, depth sepa
 
 Position and angular states use damped springs. The pointer's grab location determines rotational torque, and release velocity contributes to rotational momentum and the shared upward throw. The carousel follows a continuous periodic orbit, including the two-card case, so neither direction reaches an end or jumps across a wrap seam. Choice cards share the same upward displacement during dragging and commitment. Containers lift only the selected item for collection.
 
+Upward swipes add a subtle Z-axis twist even when grabbed at the center. The baseline reaches about 3 degrees, respects Maximum tilt, and continues through departure; canceled lifts spring back. Grabbing left of center reverses the twist direction.
+
 This is a constrained card UI simulation, not a collision or bending simulation. [Three.js CSS3DRenderer](https://threejs.org/docs/pages/CSS3DRenderer.html) would add a scene graph around the same DOM transform rendering; [Rapier](https://rapier.rs/docs/user_guides/javascript/rigid_bodies/) would be appropriate for free rigid bodies, collisions, and joints if the playground later needs tabletop behavior. Rendering and motion remain separate modules to allow such an extension.
 
 Defaults added for physical tuning: perspective 1000 px, stack depth 10 px, lift height 28 px, angular stiffness 180, angular damping 22, gravity 2200 px/s². `scatterDuration` was removed because choices now leave as one stack. Throw gravity is capped for the configured duration so the stack continues upward through its exit.
