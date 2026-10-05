@@ -1,17 +1,7 @@
 import { CardDeck, DEFAULT_SETTINGS } from './engine/CardDeck.js';
 
-const art = '../pre_prototype/img/';
-const studies = [
-  { title: 'The corridor', text: 'A passage in low light.', image: 'corridor_02.png' },
-  { title: 'The surface', text: 'A fragment of the outside.', image: 'city.png' },
-  { title: 'The chamber', text: 'A quiet space, held open.', image: 'hall_01.png' },
-];
-const actions = [
-  { id: 'observe', label: 'Observe', image: 'goggles_01.png' },
-  { id: 'explore', label: 'Explore', image: 'flashlight.png' },
-  { id: 'collect', label: 'Collect', image: 'pack.png' },
-  { id: 'leave', label: 'Leave the chamber and return to the passage', image: 'escape.png' },
-];
+import { ScenarioController, createStudyContent } from './demo/ScenarioController.js';
+
 const specs = [
   ['stiffness', 'Spring stiffness', 60, 600, 5, ''],
   ['damping', 'Spring damping', 5, 80, 1, ''],
@@ -35,25 +25,49 @@ const status = document.querySelector('#status');
 const fixture = document.querySelector('#fixture');
 const controlRoot = document.querySelector('#settings-controls');
 let settings = { ...DEFAULT_SETTINGS };
-let actionCount = Number(fixture.value);
-let studyIndex = 0;
-
-function content() {
-  const study = studies[studyIndex % studies.length];
-  return {
-    id: `study-${studyIndex}-${actionCount}`,
-    ...study,
-    image: art + study.image,
-    actions: actions.slice(0, actionCount).map(action => ({ ...action, image: art + action.image })),
-  };
-}
-
-const deck = new CardDeck(mount, { content: content(), settings });
+const deck = new CardDeck(mount, { content: createStudyContent(0, 2), settings });
+let controller;
 
 function ready(message = 'Ready.') {
   hint.textContent = 'Lift the top card up to uncover actions. Drag down to return it.';
   status.textContent = message;
 }
+
+function browse(mode) {
+  hint.textContent = mode === 'container'
+    ? 'Browse items either way. Lift up to collect one. Drag down to close the chest.'
+    : 'Browse either way, endlessly. Lift up to take the selected action.';
+  status.textContent = mode === 'container' ? 'Items ready.' : 'Choices ready.';
+}
+
+function updateScenario({ reason, detail, mode, fixture: selectedFixture, content }) {
+  fixture.value = selectedFixture;
+  document.querySelector('#fixture-count').textContent = mode === 'container'
+    ? `${String(content.actions.length).padStart(2, '0')} items`
+    : `${String(content.actions.length).padStart(2, '0')} actions`;
+  if (reason === 'reset') ready(selectedFixture === 'chest' ? 'Chest fixture loaded.' : `${selectedFixture}-action fixture loaded.`);
+  if (reason === 'open') {
+    status.textContent = 'Opening chest…';
+    hint.textContent = 'Turning the chest over, then uncovering its items.';
+  }
+  if (reason === 'collect') {
+    status.textContent = `${detail.action.label} collected.`;
+    hint.textContent = 'Taking the item away, then arranging the remaining items.';
+  }
+  if (reason === 'advance') {
+    status.textContent = `${detail.action.label} committed.`;
+    hint.textContent = 'Lifting the choices away, then turning the next card over.';
+  }
+  if (reason === 'transitioncomplete') {
+    if (detail.transition === 'commit') {
+      if (mode === 'container') browse(mode);
+      else ready('Next study ready.');
+    }
+    if (detail.transition === 'close') ready('Cover returned.');
+    if (detail.transition === 'reveal' || (detail.transition === 'collect' && content.actions.length)) browse(mode);
+  }
+}
+controller = new ScenarioController(deck, { fixture: fixture.value, onChange: updateScenario });
 
 for (const [key, label, min, max, step, unit] of specs) {
   const row = document.createElement('div');
@@ -80,48 +94,25 @@ for (const [key, label, min, max, step, unit] of specs) {
 }
 
 deck.addEventListener('reveal', () => {
-  hint.textContent = 'Taking the cover off, then expanding the choices.';
-  status.textContent = 'Uncovering choices…';
+  const items = controller.mode === 'container';
+  hint.textContent = items ? 'Taking the cover off, then expanding the items.' : 'Taking the cover off, then expanding the choices.';
+  status.textContent = items ? 'Uncovering items…' : 'Uncovering choices…';
 });
 deck.addEventListener('selection', event => {
   const selected = event.detail?.action;
-  const label = selected?.label ?? actions[event.detail?.index]?.label;
-  if (label) status.textContent = `${label} selected.`;
-});
-deck.addEventListener('close', () => {
-  hint.textContent = 'Compressing the choices, then returning the cover.';
-  status.textContent = 'Returning cover…';
-});
-deck.addEventListener('commit', event => {
-  status.textContent = `${event.detail.action.label} committed.`;
-  hint.textContent = 'Lifting the choices away, then turning the next card over.';
-  studyIndex += 1;
-  actionCount = actionCount === 4 ? 2 : actionCount + 1;
-  fixture.value = String(actionCount);
-  document.querySelector('#fixture-count').textContent = `0${actionCount} actions`;
-  deck.replaceContent(content());
-});
-deck.addEventListener('transitioncomplete', event => {
-  if (event.detail.transition === 'commit') ready('Next study ready.');
-  if (event.detail.transition === 'close') ready('Cover returned.');
-  if (event.detail.transition === 'reveal') {
-    hint.textContent = 'Browse either way, endlessly. Lift up to take the action stack.';
-    status.textContent = 'Choices ready.';
+  if (selected?.disabled || selected?.faceDown) {
+    browse(controller.mode);
+  } else if (selected?.label) {
+    status.textContent = `${selected.label} selected.`;
   }
 });
-
-fixture.addEventListener('change', () => {
-  actionCount = Number(fixture.value);
-  studyIndex = 0;
-  deck.reset();
-  deck.replaceContent(content());
-  document.querySelector('#fixture-count').textContent = `0${actionCount} actions`;
-  ready(`${actionCount}-action fixture loaded.`);
+deck.addEventListener('close', () => {
+  hint.textContent = 'Compressing the cards, then returning the cover.';
+  status.textContent = 'Returning cover…';
 });
+fixture.addEventListener('change', () => controller.reset(fixture.value));
 document.querySelector('#reset').addEventListener('click', () => {
-  studyIndex = 0;
-  deck.reset();
-  deck.replaceContent(content());
+  controller.reset();
   ready('Deck reset.');
 });
 document.querySelector('#defaults').addEventListener('click', () => {
@@ -151,5 +142,8 @@ document.querySelector('#copy-settings').addEventListener('click', async () => {
 });
 
 window.addEventListener('pagehide', event => {
-  if (!event.persisted) deck.destroy();
+  if (!event.persisted) {
+    controller.destroy();
+    deck.destroy();
+  }
 });

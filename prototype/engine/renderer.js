@@ -33,12 +33,18 @@ export function buildDeck(deck) {
   deck.underlayLayer = null;
   deck.underlayBack = null;
   deck.cardLayers = [];
+  deck.cardBacks = [];
+  deck.cardTitles = [];
   deck.cards = deck.content.actions.map((action, index) => {
     const card = document.createElement('article');
     card.className = 'nest-card nest-action';
-    deck.decorate(card, action.image || deck.content.image,
-      `ACTION ${String(index + 1).padStart(2, '0')} / ${deck.content.actions.length}`, action.label);
-    deck.cardLayers.push(layerFor(deck, card));
+    deck.cardTitles.push(deck.decorate(card, action.image || deck.content.image,
+      `${deck.content.interaction === 'container' ? 'ITEM' : 'ACTION'} ${String(index + 1).padStart(2, '0')} / ${deck.content.actions.length}`, action.label));
+    const layer = layerFor(deck, card);
+    deck.cardLayers.push(layer);
+    const back = action.faceDown ? backFace() : null;
+    if (back) layer.append(back);
+    deck.cardBacks.push(back);
     return card;
   });
   deck.scene = document.createElement('article');
@@ -65,6 +71,7 @@ export function decorateCard(deck, element, image, title, text) {
   body.textContent = text || '';
   copy.append(heading, body);
   element.append(copy);
+  return heading;
 }
 
 // Prepare the physical reverse without requesting or choosing future content.
@@ -89,10 +96,12 @@ export function stageNextContent(deck, content) {
 }
 
 export function announceDeck(deck) {
-  const message = deck.busy && deck.flip.x > 0 ? 'Turning next card…' : deck.busy ? (deck.pending || deck.operation === 'commit' ? 'Revealing next card…' : 'Waiting for next card…')
+  const action = deck.content.actions[deck.index];
+  const message = deck.phase === 'collecting' ? 'Taking item…'
+    : deck.busy && deck.flip.x > 0 ? 'Turning next card…' : deck.busy ? (deck.pending || deck.operation === 'commit' ? 'Revealing next card…' : 'Waiting for next card…')
     : deck.phase === 'revealing' ? 'Uncovering choices…'
       : deck.phase === 'closing' ? 'Returning cover…'
-      : deck.open ? `${deck.index + 1} of ${deck.cards.length}: ${deck.content.actions[deck.index].label}`
+      : deck.open && action ? `${deck.index + 1} of ${deck.cards.length}: ${action.disabled ? 'Unavailable choice' : action.accessibleLabel || action.label}`
       : deck.content.title || 'Situation';
   if (deck.live && deck.live.textContent !== message) deck.live.textContent = message;
 }
@@ -122,6 +131,21 @@ export function cardPose(deck, index, time = performance.now()) {
   const bounds = deck.mount.getBoundingClientRect();
   const width = Math.max(1, bounds.width), height = Math.max(1, bounds.height);
   const cursor = deck.commitMotion ? deck.commitMotion.browse : deck.b.x;
+  const action = deck.content.actions[index];
+  const frozen = deck.liftPoses?.get(action.id);
+  if (frozen) {
+    const pose = { ...frozen };
+    if (action.id === deck.liftId) {
+      const lift = (deck.l.x - deck.liftStart) * bounds.height;
+      pose.y -= lift + (deck.collectMotion ? departureDistance(deck.collectMotion, time) : 0);
+      pose.z += Math.min(Math.max(0, lift) * .1, deck.settings.liftHeight);
+      pose.rx += deck.rotationX.x - deck.liftRotation.x;
+      pose.ry += deck.rotationY.x - deck.liftRotation.y;
+      pose.rz += deck.rotationZ.x - deck.liftRotation.z;
+      for (const field of ['rx', 'ry', 'rz']) pose[field] = clamp(pose[field], -deck.settings.maxTilt, deck.settings.maxTilt);
+    }
+    return pose;
+  }
   const pose = carouselPose(index, cursor, deck.cards.length, width, deck.settings, orbitRadius(deck, width, height));
   const fan = clamp(deck.fan.x, 0, 1);
   const exposure = clamp(deck.p.x, 0, 1);
@@ -137,15 +161,19 @@ export function cardPose(deck, index, time = performance.now()) {
   pose.rx = sharedX + fan * (deck.rotationX.x * rotationWeight - sharedX);
   pose.ry = sharedY + fan * (pose.ry + deck.rotationY.x * rotationWeight - sharedY);
   pose.rz = sharedZ + fan * (pose.rz + deck.rotationZ.x * rotationWeight - sharedZ);
-  pose.y -= deck.l.x * bounds.height;
-  pose.z += Math.min(deck.l.x * bounds.height * .1, deck.settings.liftHeight);
+  if (deck.content.interaction !== 'container' || index === deck.index) {
+    pose.y -= deck.l.x * bounds.height;
+    pose.z += Math.min(deck.l.x * bounds.height * .1, deck.settings.liftHeight);
+  }
   if (deck.commitMotion) pose.y -= departureDistance(deck.commitMotion, time);
   pose.rx = clamp(pose.rx, -deck.settings.maxTilt, deck.settings.maxTilt);
   pose.ry = clamp(pose.ry, -deck.settings.maxTilt, deck.settings.maxTilt);
   pose.rz = clamp(pose.rz, -deck.settings.maxTilt, deck.settings.maxTilt);
-  pose.visible = !(deck.busy && !deck.commitMotion && deck.operation !== 'commit')
+  pose.visible = !(deck.phase === 'committing' && deck.busy && !deck.commitMotion && deck.operation !== 'commit')
     && !(deck.busy && deck.operation === 'commit' && (deck.flip.x !== 0 || deck.flip.v !== 0));
   pose.rank = rank;
+  const offset = deck.reflowOffsets.get(action.id);
+  if (offset) for (const [field, state] of Object.entries(offset)) pose[field] += state.x;
   return pose;
 }
 
@@ -164,7 +192,8 @@ export function renderDeck(deck, time = performance.now()) {
   if (deck.underlay) {
     const stagedPose = {
       x: 0, y: 0, z: -24, rx: 0, ry: 180, rz: 0,
-      visible: deck.busy || (deck.phase === 'choices' && deck.l.x > 0)
+      visible: deck.phase === 'committing' || (deck.phase === 'choices' && deck.l.x > 0
+        && deck.content.interaction === 'choice' && !deck.content.actions[deck.index]?.disabled)
     };
     applyPose(deck, deck.underlay, deck.underlayLayer, stagedPose, 0);
     applyPose(deck, deck.underlayBack, deck.underlayLayer, backPose(stagedPose), 0);
@@ -177,7 +206,14 @@ export function renderDeck(deck, time = performance.now()) {
   const painterOrder = poses.map((pose, index) => ({ index, depth: deck.fan.x === 0 ? -pose.rank : pose.front }));
   painterOrder.sort((a, b) => a.depth - b.depth || b.index - a.index);
   painterOrder.forEach(({ index }, order) => {
-    applyPose(deck, deck.cards[index], deck.cardLayers[index], poses[index], 100 + order, deck.fan.x > 0);
+    order = deck.reflowOrder?.get(deck.content.actions[index].id) ?? 100 + order;
+    applyPose(deck, deck.cards[index], deck.cardLayers[index], poses[index], order, deck.fan.x > 0);
+    if (deck.content.actions[index].faceDown) {
+      applyPose(deck, deck.cards[index], deck.cardLayers[index], backPose(poses[index]), order, deck.fan.x > 0);
+      applyPose(deck, deck.cardBacks[index], deck.cardLayers[index], { ...poses[index], ry: poses[index].ry + 360 }, order, deck.fan.x > 0);
+    }
+    deck.cards[index].setAttribute('aria-disabled', String(!!deck.content.actions[index].disabled));
+    if (deck.content.actions[index].faceDown) deck.cards[index].setAttribute('aria-label', deck.content.actions[index].accessibleLabel || 'Unavailable choice');
     deck.cards[index].setAttribute('aria-hidden', String(deck.phase !== 'choices' || deck.busy || index !== deck.index));
   });
   announceDeck(deck);

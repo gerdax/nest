@@ -10,7 +10,7 @@ python3 -m http.server 8937 --bind 127.0.0.1
 
 Open <http://127.0.0.1:8937/prototype/>. Serve over HTTP; opening the HTML directly will not load modules reliably.
 
-Drag the situation upward off the deck to expose the actions underneath. Browse sideways in either direction; the carousel loops endlessly. Drag upward again to carry the entire action stack away, exposing the next situation beneath it. Drag downward to return the situation. Focus the card to use the arrow keys, Enter, and Escape. The playground offers two-, three-, and four-action fixtures, motion tuning, a deck reset, and settings export. If clipboard access is unavailable, settings appear in a selectable text field.
+Drag the situation upward off the deck to expose the actions underneath. Browse sideways in either direction; the carousel loops endlessly. Drag upward again to carry the entire action stack away, exposing the next situation beneath it. Drag downward to return the situation. Focus the card to use the arrow keys, Enter, and Escape. The playground offers two-, three-, and four-action fixtures, a chest with three collectible items, motion tuning, a deck reset, and settings export. In the chest fixture, choose Open to reveal the items immediately, collect each item separately, or close and reopen to revisit the remaining items. Go on advances to the next visual study. Collected items stay removed for this session until reset or fixture switching; after the last item, the chest closes and Open becomes a disabled reverse card. If clipboard access is unavailable, settings appear in a selectable text field.
 
 ## Engine API
 
@@ -21,6 +21,7 @@ const deck = new CardDeck(mount, {
   settings: { ...DEFAULT_SETTINGS },
   content: {
     id: 'card-id',
+    interaction: 'choice', // default; use 'container' to collect individual cards
     title: 'Card title',
     text: 'Card description',
     image: './image.png',
@@ -39,7 +40,7 @@ deck.addEventListener('commit', ({ detail }) => {
 
 Load `engine/card-deck.css` alongside your host styles. Give the mount a width, a 3:4 aspect ratio, and keyboard focusability (`tabindex="0"`). The engine handles card rendering, gestures, focused keyboard input, and transition choreography. The host owns content and the meaning of actions.
 
-- `replaceContent(content)` supplies the next card. A host can call it synchronously in `commit` or after asynchronously retrieving content; the engine stages that situation below the outgoing action stack, then settles its depth when the stack leaves.
+- `replaceContent(content, { presentation: 'open' })` supplies the next card and opens its fan automatically. During commitment, opening follows the next situation's flip; when idle, replacement opens the supplied cover directly. Without the option, replacement stays closed. A host can supply content synchronously in `commit` or asynchronously; it stages below the outgoing stack. Replacing content during collection cancels that collection's animation and completion event.
 - `updateSettings(partial)` changes motion settings without rebuilding the deck.
 - `reset()` returns the current deck to its initial interaction state.
 - `destroy()` releases listeners and engine resources when the host removes the deck.
@@ -50,11 +51,16 @@ Listen on the deck instance with `addEventListener`:
 - `selection`: the selected action changes; use `detail.action` and `detail.index` to reflect the choice.
 - `close`: closing is accepted. Choices compress before the cover returns.
 - `commit`: a choice is accepted, with `{ contentId, action, index }`. Supply next content from the host.
-- `transitioncomplete`: settling has finished; `detail.transition` identifies `reveal`, `close`, `browse`, `cancel`, `settle`, or `commit`. Reveal completes only when the fan is ready for browsing and commitment. Commit completes after the outgoing stack leaves and the exposed deck settles. Input is blocked while awaiting host content.
+- `collect`: a container item is accepted, with `{ contentId, action, index }`. Record removal immediately; the engine removes that item and reflows its remaining cards without advancing host content. The final item automatically closes the container.
+- `transitioncomplete`: settling has finished; `detail.transition` identifies `reveal`, `close`, `browse`, `cancel`, `settle`, `collect`, or `commit`. Container `collect` includes `remainingIds` and completes after removal and reflow; final collection then completes `close` after the cover returns. Reveal completes only when the fan is ready. With open presentation, commit completion follows automatic reveal and fan settling. Input is blocked throughout collection, automatic opening, and awaiting host content.
 
 The tuning panel exposes `stiffness`, `damping`, `mass`, `maxTilt`, `axisThreshold`, `distanceThreshold`, `flickVelocity`, `flickDistance`, `commitDuration`, `perspective`, `stackDepth`, `liftHeight`, `angularStiffness`, `angularDamping`, and `gravity`. Copy settings to reuse the resulting object in another host.
 
-The fixture host cycles through visual studies and two-, three-, and four-action layouts on every commit. It implements no inventory, branching narrative, persistence, or other game logic.
+The choice fixtures cycle through visual studies and two-, three-, and four-action layouts on every commit. `demo/ScenarioController.js` keeps chest scenario logic separate from the playground controls. It remembers remaining item IDs in memory, opens a `container` via `replaceContent(container, { presentation: 'open' })`, and restores the Open / Go on entry when `transitioncomplete` reports `close`. The container and entry share the same cover artwork and text, so restoration does not change the visible closed card. This demo has no inventory, storage, or chapter editor.
+
+Actions may set `disabled: true` and `faceDown: true` to make an unavailable action a browsable reverse that cannot commit. The empty chest keeps this reverse beside Go on; it has no visible label or empty-state caption. Supply `accessibleLabel` for a descriptive accessible name.
+
+The controller exports `ScenarioController`, `CHEST_ITEM_IDS`, `createStudyContent(index, count)`, `createChestEntry(remainingIds)`, and `createChestContainer(remainingIds)`. Construct it with `new ScenarioController(deck, { fixture: 'chest', onChange })`; `reset(fixture)` cancels deck motion and restores that fixture's session. `content`, `mode`, `fixture`, and `remainingIds` expose current host state; `destroy()` removes the controller's event listeners. `onChange` receives `{ reason, detail, mode, fixture, remainingIds, content }` for UI updates. The controller only requires the deck's event methods, `reset()`, and `replaceContent()`, so it can be tested with a fake deck.
 
 Run focused engine checks with `node --test prototype/tests/*.test.js` from the repository root.
 
@@ -65,7 +71,7 @@ Arrow Up reveals or commits; Left/Right browse; Down closes. Enter and Escape ar
 
 The renderer uses native CSS 3D transforms with a perspective camera, depth separation, card-edge shading, and elevation-dependent shadows. Cards remain fully opaque throughout their movement. The next situation is present below the outgoing cards before they depart; there is no arrival from the bottom or fade-in.
 
-Position and angular states use damped springs. The pointer's grab location determines rotational torque, and release velocity contributes to rotational momentum and the shared upward throw. The carousel follows a continuous periodic orbit, including the two-card case, so neither direction reaches an end or jumps across a wrap seam. All action cards share the same upward displacement during dragging and commitment.
+Position and angular states use damped springs. The pointer's grab location determines rotational torque, and release velocity contributes to rotational momentum and the shared upward throw. The carousel follows a continuous periodic orbit, including the two-card case, so neither direction reaches an end or jumps across a wrap seam. Choice cards share the same upward displacement during dragging and commitment. Containers lift only the selected item for collection.
 
 This is a constrained card UI simulation, not a collision or bending simulation. [Three.js CSS3DRenderer](https://threejs.org/docs/pages/CSS3DRenderer.html) would add a scene graph around the same DOM transform rendering; [Rapier](https://rapier.rs/docs/user_guides/javascript/rigid_bodies/) would be appropriate for free rigid bodies, collisions, and joints if the playground later needs tabletop behavior. Rendering and motion remain separate modules to allow such an extension.
 
@@ -74,11 +80,15 @@ Defaults added for physical tuning: perspective 1000 px, stack depth 10 px, lift
 
 ## Deck presentation and versioning
 
-The closed choice set is centered and compressed behind the situation. There are no protruding choice edges and no generic backing/placeholder card. The renderer creates a next-situation background only when the host supplies actual content during commitment.
+The closed choice set is centered and compressed behind the situation. There are no protruding choice edges or extra cards in the carousel. A choice lift prepares the next card's reverse before release; the host supplies its hidden front only after commitment. Container item lifts and disabled choices do not prepare another situation.
 
-`deck.state.phase` is `closed`, `revealing`, `choices`, `closing`, or `committing`. Browsing and committing are enabled only in `choices`. Closing preserves selection and collapses the fan before returning the cover. Reduced motion settles the same sequence immediately.
+`deck.state.phase` is `closed`, `revealing`, `choices`, `closing`, `committing`, or `collecting`. Browsing and committing are enabled only in `choices`. Closing preserves selection and collapses the fan before returning the cover. Reduced motion settles the same sequence immediately.
 
 Cards use independent flattened 3D containers, with explicit whole-card painter ordering, so tilted planes cannot cut through their neighbors. At carousel foreground handoffs, the orbit widens to maintain at least an 8 px projected gap before the foreground order changes. The compact fan at rest is unchanged.
+
+Container removal preserves the remaining card elements, layers, transforms, and ordering at the removal boundary. Spring offsets lead to the smaller fan. If survivors must exchange their order, they separate until their projected bounds have an 8 px gap, exchange order, and settle back. Item numbering updates to the remaining count. One item renders as a single card; the last item's departure automatically starts closure. Engine `reset()` resets motion for its current content; the demo controller's `reset()` also restores the complete chest contents.
+
+Branch `codex/container-interactions` starts at `78cfce9`. Verification covers deterministic engine and scenario checks plus mouse/keyboard inspection in Chrome and the in-app browser at desktop and narrow widths. Physical touch-device behavior remains unverified.
 
 Regression preset from the reported screenshot: axisThreshold 27, distanceThreshold .21, flickVelocity 375, commitDuration 190, perspective 1100. This is used in verification, not as new defaults.
 
