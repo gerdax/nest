@@ -46,13 +46,20 @@ function opaque(deck) { for (const node of descendants(deck.mount)) assert.equal
 function inputBlocked(deck) { const index = deck.index, cursor = deck.b.target; assert.equal(deck.start(), false); for (const name of ['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown']) key(deck, name); deck.commit(); assert.equal(deck.index, index); assert.equal(deck.b.target, cursor); assert.equal(deck.open, true); }
 function dispose(deck, host) { host?.destroy(); deck.destroy(); settle(); document.hidden = false; }
 
-for (const count of [2, 3, 4]) test(`${count} underlying choices do not inherit a situation swipe's tilt or settling`, () => {
+for (const count of [2, 3, 4]) test(`${count} underlying choices inherit only a small fraction of the situation's tilt`, () => {
   const deck = make(count, fixture(count, 'choice'));
   const original = poses(deck);
   deck.start({ clientX: 30, clientY: 60 }); deck.move(gesture(-60));
   for (let i = 0; i < 8; i++) step();
   assert.ok(Math.abs(scenePose(deck).rz) > .1, 'the grabbed situation still tilts');
-  for (const [id, pose] of poses(deck)) samePose(pose, original.get(id), 'choices stay fixed under a held cover');
+  for (const [id, pose] of poses(deck)) {
+    for (const field of ['x', 'y', 'z']) assert.equal(pose[field], original.get(id)[field], 'choices do not translate with the cover');
+    for (const field of ['rx', 'ry', 'rz']) {
+      assert.ok(Math.abs(pose[field]) <= .9);
+      assert.ok(Math.abs(pose[field]) <= Math.abs(scenePose(deck)[field]) * .12 + 1e-8, 'underlying tilt is at most 12% of the cover tilt');
+    }
+    assert.ok(Math.abs(pose.rz) > 0, 'a subtle friction response remains');
+  }
   deck.cancel(); settle();
   deck.start({ clientX: 30, clientY: 60 }); deck.move(gesture(-150));
   for (let i = 0; i < 8; i++) step();
@@ -62,7 +69,14 @@ for (const count of [2, 3, 4]) test(`${count} underlying choices do not inherit 
     const actual = poses(deck), rotations = [deck.rotationX, deck.rotationY, deck.rotationZ], angles = rotations.map(s => s.x);
     rotations.forEach(s => { s.x = 0; }); const unaffected = poses(deck);
     rotations.forEach((s, index) => { s.x = angles[index]; });
-    for (const [id, pose] of actual) samePose(pose, unaffected.get(id), 'fan expansion ignores the departing cover tilt');
+    for (const [id, pose] of actual) {
+      for (const field of ['x', 'y', 'z']) assert.equal(pose[field], unaffected.get(id)[field]);
+      for (const field of ['rx', 'ry', 'rz']) {
+        const transmitted = Math.abs(pose[field] - unaffected.get(id)[field]);
+        assert.ok(transmitted <= Math.abs(scenePose(deck)[field]) * .12 * (1 - Math.min(1, deck.fan.x)) + 1e-8, 'transmitted tilt fades during expansion');
+        assert.ok(transmitted <= .9 + 1e-8);
+      }
+    }
   }
   assert.equal(deck.phase, 'choices');
   deck.rotationX.x = 2; deck.rotationZ.x = -2;
@@ -71,6 +85,19 @@ for (const count of [2, 3, 4]) test(`${count} underlying choices do not inherit 
   deck.move(gesture(-60)); for (let i = 0; i < 8; i++) step();
   assert.ok(Math.abs(poses(deck).get('item-0').rz) > .1, 'direct action gestures still tilt the action');
   deck.cancel(); settle(); dispose(deck);
+});
+
+test('underlying tilt stays below one degree at maximum tuning and disappears after clearance', () => {
+  const deck = make(3, fixture(3, 'choice')); deck.updateSettings({ maxTilt: 18 });
+  deck.p.x = .25;
+  deck.rotationX.x = 18; deck.rotationY.x = -18; deck.rotationZ.x = 18;
+  for (const pose of poses(deck).values()) for (const field of ['rx', 'ry', 'rz']) {
+    assert.equal(Math.abs(pose[field]), .9);
+    assert.ok(Math.abs(pose[field]) < Math.abs(scenePose(deck)[field]));
+  }
+  deck.p.x = 1;
+  for (const pose of poses(deck).values()) for (const field of ['rx', 'ry', 'rz']) assert.equal(Math.abs(pose[field]), 0);
+  dispose(deck);
 });
 
 for (let count = 1; count <= 4; count++) for (let index = 0; index < count; index++) {

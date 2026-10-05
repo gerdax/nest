@@ -77,7 +77,7 @@ The renderer uses native CSS 3D transforms with a perspective camera, depth sepa
 
 Position and angular states use damped springs. The pointer's grab location determines rotational torque, and release velocity contributes to rotational momentum and the shared upward throw. The carousel follows a continuous periodic orbit, including the two-card case, so neither direction reaches an end or jumps across a wrap seam. Choice cards share the same upward displacement during dragging and commitment. Containers lift only the selected item for collection.
 
-The situation's gesture rotation applies only to that card. Its compressed choices stay still underneath and do not inherit residual tilt when the fan opens or receives its first gesture.
+The compressed choices receive at most 12% of the situation's gesture rotation, capped at 0.9 degrees per axis. This small friction response fades as the cover leaves and the fan opens. The choices do not translate with the cover or inherit its residual tilt on their first gesture.
 
 This is a constrained card UI simulation, not a collision or bending simulation. [Three.js CSS3DRenderer](https://threejs.org/docs/pages/CSS3DRenderer.html) would add a scene graph around the same DOM transform rendering; [Rapier](https://rapier.rs/docs/user_guides/javascript/rigid_bodies/) would be appropriate for free rigid bodies, collisions, and joints if the playground later needs tabletop behavior. Rendering and motion remain separate modules to allow such an extension.
 

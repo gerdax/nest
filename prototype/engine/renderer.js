@@ -181,12 +181,16 @@ export function cardPose(deck, index, time = performance.now()) {
   const rank = ((index - deck.index) % deck.cards.length + deck.cards.length) % deck.cards.length;
   const compressedZ = 4 - deck.n.x * 40 - rank * deck.settings.stackDepth;
   const rotationWeight = deck.rotationOwner === 'actions' ? Math.pow(Math.max(0, pose.front), 4) : 0;
+  // Friction can carry a tiny amount of the cover's tilt into the compressed
+  // cards. Keep it at 12% (and below one degree), fading out as the fan opens.
+  const underlyingWeight = deck.rotationOwner === 'situation'
+    ? .12 * (1 - clamp(deck.p.x, 0, 1)) * (1 - fan) : 0;
   pose.x *= fan;
   pose.y *= fan;
   pose.z = compressedZ + fan * (pose.z - compressedZ);
-  pose.rx = fan * deck.rotationX.x * rotationWeight;
-  pose.ry = fan * (pose.ry + deck.rotationY.x * rotationWeight);
-  pose.rz = fan * (pose.rz + deck.rotationZ.x * rotationWeight);
+  pose.rx = fan * deck.rotationX.x * rotationWeight + clamp(deck.rotationX.x * underlyingWeight, -.9, .9);
+  pose.ry = fan * (pose.ry + deck.rotationY.x * rotationWeight) + clamp(deck.rotationY.x * underlyingWeight, -.9, .9);
+  pose.rz = fan * (pose.rz + deck.rotationZ.x * rotationWeight) + clamp(deck.rotationZ.x * underlyingWeight, -.9, .9);
   if (deck.content.interaction !== 'container' || index === deck.index) {
     pose.y -= deck.l.x * bounds.height;
     pose.z += Math.min(deck.l.x * bounds.height * .1, deck.settings.liftHeight);
