@@ -13,7 +13,9 @@ export const DEFAULT_SETTINGS = Object.freeze({
   liftHeight: 28,
   angularStiffness: 180,
   angularDamping: 22,
-  gravity: 2200
+  gravity: 2200,
+  revealStartScale: .95,
+  revealFullScaleAt: 1 / 3
 });
 export function classifyAxis(x, y, threshold = 10) {
   return Math.hypot(x, y) < threshold ? null : Math.abs(x) > Math.abs(y) ? 'x' : 'y';
@@ -85,6 +87,7 @@ export function settingsWith(patch = {}, base = DEFAULT_SETTINGS) {
     if (Number.isFinite(patch[key])) {
       const min = ['maxTilt', 'liftHeight', 'gravity'].includes(key) ? 0 : key === 'distanceThreshold' ? 0.05 : key === 'perspective' ? 400 : 0.01;
       result[key] = Math.max(min, patch[key]);
+      if (['revealStartScale', 'revealFullScaleAt'].includes(key)) result[key] = Math.min(1, result[key]);
     }
   }
   return result;
@@ -93,6 +96,12 @@ export function settingsWith(patch = {}, base = DEFAULT_SETTINGS) {
 
 export function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
+}
+
+export function revealScale(exposedPixels, height, settings = DEFAULT_SETTINGS) {
+  const progress = clamp(exposedPixels / (Math.max(1, height) * settings.revealFullScaleAt), 0, 1);
+  const eased = progress * progress * (3 - 2 * progress);
+  return settings.revealStartScale + (1 - settings.revealStartScale) * eased;
 }
 
 export function modulo(value, count) {

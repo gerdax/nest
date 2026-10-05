@@ -1,7 +1,7 @@
-import { projectedBounds } from './geometry.js';
-import { buildDeck, decorateCard, announceDeck, renderDeck, stageNextContent, stageNextBack, stageActionDeck, scenePose, cardPose } from './renderer.js';
-import { DEFAULT_SETTINGS, settingsWith, spring, springStep, qualifies, resistance, modulo, clamp, carouselPose } from './motion.js';
-import { PointerInput } from './PointerInput.js';
+import { projectedBounds } from './geometry.js?v=reveal-scale-1';
+import { buildDeck, decorateCard, announceDeck, renderDeck, stageNextContent, stageNextBack, stageActionDeck, scenePose, cardPose } from './renderer.js?v=reveal-scale-1';
+import { DEFAULT_SETTINGS, settingsWith, spring, springStep, qualifies, resistance, modulo, clamp, carouselPose } from './motion.js?v=reveal-scale-1';
+import { PointerInput } from './PointerInput.js?v=reveal-scale-1';
 export { DEFAULT_SETTINGS };
 
 function validate(content) {

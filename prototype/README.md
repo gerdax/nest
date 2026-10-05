@@ -5,10 +5,12 @@ A standalone card interaction demo using native JavaScript modules and the exist
 From the repository root, run:
 
 ```sh
-python3 -m http.server 8937 --bind 127.0.0.1
+python3 prototype/serve.py
 ```
 
 Open <http://127.0.0.1:8937/prototype/>. Serve over HTTP; opening the HTML directly will not load modules reliably.
+
+The bundled development server serves the repository on localhost and disables caching, so a refresh picks up the complete current engine. This milestone versions its module URLs together to avoid older cached modules mixing with new exports. Use `--port 8938` for an alternative port.
 
 Drag the situation upward off the deck to expose the actions underneath. Browse sideways in either direction; the carousel loops endlessly. Drag upward again to carry the entire action stack away, exposing the next situation beneath it. Ordinary choices stay open once revealed; downward closing is disabled by default. Focus the card to use the arrow keys, Enter, and Escape. The playground offers two-, three-, and four-action fixtures, a chest with three collectible items, motion tuning, a deck reset, and settings export. In the chest fixture, choose Open to lift the choices away and uncover the item cards already underneath. Collect each item separately, or drag down to close the container and bring the Open / Go on choices back down from above, with Open selected. Reopening shows the remaining items. Go on advances to the next visual study. Collected items stay removed for this session until reset or fixture switching; after the last item, the single Go on choice returns from above. If clipboard access is unavailable, settings appear in a selectable text field.
 
@@ -58,7 +60,7 @@ Listen on the deck instance with `addEventListener`:
 - `collect`: a container item is accepted, with `{ contentId, action, index }`. Record removal immediately; the engine removes that item and reflows its remaining cards without advancing host content. The final item automatically closes the container.
 - `transitioncomplete`: settling has finished; `detail.transition` identifies `reveal`, `close`, `browse`, `cancel`, `settle`, `collect`, or `commit`. Container `collect` includes `remainingIds` and completes after removal and reflow; final collection then completes `close` after the prepared return choices settle. The close completion reports the return content ID, `open: true`, and `phase: 'choices'`. Reveal completes only when the fan is ready. With open presentation, commit completion follows direct fan expansion and settling. Input is blocked throughout collection, automatic opening, and awaiting host content.
 
-The tuning panel exposes `stiffness`, `damping`, `mass`, `maxTilt`, `axisThreshold`, `distanceThreshold`, `flickVelocity`, `flickDistance`, `commitDuration`, `perspective`, `stackDepth`, `liftHeight`, `angularStiffness`, `angularDamping`, and `gravity`. Copy settings to reuse the resulting object in another host.
+The tuning panel exposes `stiffness`, `damping`, `mass`, `maxTilt`, `axisThreshold`, `distanceThreshold`, `flickVelocity`, `flickDistance`, `commitDuration`, `perspective`, `stackDepth`, `liftHeight`, `angularStiffness`, `angularDamping`, `gravity`, `revealStartScale`, and `revealFullScaleAt`. Copy settings to reuse the resulting object in another host.
 
 The choice fixtures cycle through visual studies and two-, three-, and four-action layouts on every commit. `demo/ScenarioController.js` keeps chest scenario logic separate from the playground controls. It remembers remaining item IDs in memory, preloads them with `setActionPreview`, then opens the container with `replaceContent(container, { presentation: 'open' })`. When the container is ready, it supplies `setReturnContent(entry, { selectedId: remainingIds.size ? 'open' : 'leave' })`, and refreshes that return content immediately after every accepted collection. On close completion, the controller updates its mode and preview; the engine has already restored the open choices. Closing never shows The chest cover. The cover appears only on the initial entry or reset. This demo has no inventory, storage, or chapter editor.
 
@@ -78,6 +80,8 @@ The renderer uses native CSS 3D transforms with a perspective camera, depth sepa
 Position and angular states use damped springs. The pointer's grab location determines rotational torque, and release velocity contributes to rotational momentum and the shared upward throw. The carousel follows a continuous periodic orbit, including the two-card case, so neither direction reaches an end or jumps across a wrap seam. Choice cards share the same upward displacement during dragging and commitment. Containers lift only the selected item for collection.
 
 The compressed choices receive at most 12% of the situation's gesture rotation, capped at 0.9 degrees per axis. This small friction response fades as the cover leaves and the fan opens. The choices do not translate with the cover or inherit its residual tilt on their first gesture.
+
+Branch `codex/reveal-scale` adds a subtle approach effect: cards under an upward-moving situation or choice stack start at 95% scale and reach full size after the first third of their height is exposed. Smoothstep interpolation follows the actual projected edge of the cover, including tilt and depth, so reversing or canceling the swipe reverses the zoom continuously. `revealStartScale` and `revealFullScaleAt` tune these values live. Individual collection keeps the other items still; returning decisions from above keeps its existing scale. Reduced motion disables the additional zoom.
 
 This is a constrained card UI simulation, not a collision or bending simulation. [Three.js CSS3DRenderer](https://threejs.org/docs/pages/CSS3DRenderer.html) would add a scene graph around the same DOM transform rendering; [Rapier](https://rapier.rs/docs/user_guides/javascript/rigid_bodies/) would be appropriate for free rigid bodies, collisions, and joints if the playground later needs tabletop behavior. Rendering and motion remain separate modules to allow such an extension.
 

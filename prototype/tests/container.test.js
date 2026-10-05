@@ -40,11 +40,126 @@ function select(deck, index) { for (let i = 0; i < index; i++) key(deck, 'ArrowR
 const gesture = (y, vy = 0) => ({ axis: 'y', x: 0, y, vx: 0, vy });
 const fields = ['x', 'y', 'z', 'rx', 'ry', 'rz'];
 function poses(deck) { return new Map(deck.content.actions.map((action, i) => [action.id, cardPose(deck, i, now)])); }
-function samePose(actual, expected, message) { for (const field of fields) assert.ok(Math.abs(actual[field] - expected[field]) < 1e-8, `${message}: ${field} changed ${expected[field]} -> ${actual[field]}`); }
+function samePose(actual, expected, message) {
+  for (const field of fields) assert.ok(Math.abs(actual[field] - expected[field]) < 1e-8, `${message}: ${field} changed ${expected[field]} -> ${actual[field]}`);
+  assert.ok(Math.abs((actual.scale ?? 1) - (expected.scale ?? 1)) < 1e-8, `${message}: scale changed`);
+}
 function descendants(node) { return [node, ...node.children.flatMap(descendants)]; }
 function opaque(deck) { for (const node of descendants(deck.mount)) assert.equal(Object.hasOwn(node.style, 'opacity'), false); }
 function inputBlocked(deck) { const index = deck.index, cursor = deck.b.target; assert.equal(deck.start(), false); for (const name of ['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown']) key(deck, name); deck.commit(); assert.equal(deck.index, index); assert.equal(deck.b.target, cursor); assert.equal(deck.open, true); }
 function dispose(deck, host) { host?.destroy(); deck.destroy(); settle(); document.hidden = false; }
+
+function renderedScale(card) {
+  return Number(card.style.transform.match(/scale\(([\d.]+)\)/)?.[1] ?? 1);
+}
+
+test('a fully uncovered next reverse keeps its full scale while waiting for asynchronous content', () => {
+  const deck = make(2, fixture(2, 'choice')); ready(deck);
+  deck.start(); deck.move(gesture(-60));
+  assert.ok(renderedScale(deck.underlayBack) < 1);
+  deck.end(gesture(-60, -800));
+  const motion = deck.commitMotion; step(motion.start + motion.duration + 1 - now);
+  assert.equal(deck.busy, true); assert.equal(deck.commitMotion, null);
+  assert.equal(renderedScale(deck.underlayBack), 1);
+  deck.render(); assert.equal(renderedScale(deck.underlayBack), 1, 'waiting does not shrink the revealed card again');
+  deck.replaceContent(fixture(3, 'choice')); settle();
+  assert.equal(deck.busy, false); assert.equal(renderedScale(deck.scene), 1);
+  dispose(deck);
+});
+function exposure(deck, cover) {
+  const { width, height } = deck.mount.getBoundingClientRect();
+  return height - Math.max(...cover.map(pose => projectedBounds(pose, width, height, deck.settings.perspective).bottom));
+}
+// Position the real projected cover at a visible fraction; this also catches
+// implementations that use gesture distance while ignoring tilt/perspective.
+function positionAtExposure(deck, fraction, setLift, cover) {
+  const { height } = deck.mount.getBoundingClientRect();
+  let low = 0, high = 1;
+  for (let i = 0; i < 55; i++) {
+    const value = (low + high) / 2; setLift(value);
+    if (exposure(deck, cover()) < fraction * height) low = value; else high = value;
+  }
+  setLift(high); deck.render();
+}
+
+for (const count of [2, 3, 4]) test(`${count} choices zoom from 95% to full size within the first projected third of uncovering`, () => {
+  const deck = make(count, fixture(count, 'choice'));
+  deck.updateSettings({ maxTilt: 18 });
+  deck.rotationX.x = 18; deck.rotationY.x = -18; deck.rotationZ.x = 18;
+  deck.render();
+  for (const [id, pose] of poses(deck)) assert.equal(pose.scale, .95, `${id} starts slightly smaller`);
+  assert.equal(renderedScale(deck.scene), 1, 'the cover retains its normal size');
+  let previous = .95;
+  for (const fraction of [1 / 12, 1 / 6, 1 / 4, 1 / 3, .5]) {
+    positionAtExposure(deck, fraction, value => { deck.p.x = value; }, () => [scenePose(deck)]);
+    for (let i = 0; i < count; i++) {
+      const scale = cardPose(deck, i, now).scale;
+      assert.ok(scale >= previous - 1e-10 && scale <= 1, 'zoom increases without overshoot');
+      assert.equal(renderedScale(deck.cards[i]), scale, 'rendered cards use the physical pose scale');
+      if (fraction === 1 / 6) assert.ok(Math.abs(scale - .975) < 1e-8, 'halfway through the reveal zoom');
+      if (fraction >= 1 / 3) assert.equal(scale, 1, 'full size by one third of visible exposure');
+    }
+    previous = cardPose(deck, 0, now).scale;
+  }
+  dispose(deck);
+});
+
+for (const outcome of ['cancel', 'incomplete']) test(`${outcome} uncover reverses zoom and restores the closed scale`, () => {
+  const deck = make(3, fixture(3, 'choice')); deck.updateSettings({ maxTilt: 0 });
+  deck.start(); deck.move(gesture(-60));
+  let previous = cardPose(deck, 0, now).scale;
+  assert.ok(previous > .95 && previous < 1);
+  if (outcome === 'cancel') deck.cancel(); else deck.end(gesture(-60));
+  for (let i = 0; frames.size && i < 2000; i++) {
+    step(); const scale = cardPose(deck, 0, now).scale;
+    assert.ok(scale <= previous + 1e-10, 'returning cover smoothly reverses zoom'); previous = scale;
+  }
+  assert.equal(frames.size, 0); assert.equal(deck.phase, 'closed'); assert.equal(previous, .95);
+  dispose(deck);
+});
+
+for (const interruption of ['reset', 'replace']) test(`${interruption} during source uncover restores scale without stale motion`, () => {
+  const deck = make(3, fixture(3, 'choice')); deck.start(); deck.move(gesture(-60));
+  assert.ok(cardPose(deck, 0, now).scale > .95);
+  if (interruption === 'replace') deck.replaceContent(fixture(2, 'choice')); else deck.reset();
+  settle(); assert.equal(deck.frame, 0); assert.equal(deck.drag, null); assert.equal(deck.phase, 'closed');
+  for (const pose of poses(deck).values()) assert.equal(pose.scale, .95);
+  deck.cards.forEach(card => assert.equal(renderedScale(card), .95)); dispose(deck);
+});
+
+for (const mode of ['reduced', 'hidden']) test(`${mode} finishes source reveal at full size without remaining motion`, () => {
+  const deck = make(3, fixture(3, 'choice')); deck.setOpen(true); deck.schedule(); step();
+  assert.ok(cardPose(deck, 0, now).scale < 1);
+  if (mode === 'reduced') { deck.media.matches = true; deck.media.dispatchEvent(new Event('change')); }
+  else { document.hidden = true; document.dispatchEvent(new Event('visibilitychange')); }
+  assert.equal(deck.phase, 'choices'); assert.equal(deck.frame, 0);
+  for (const pose of poses(deck).values()) assert.equal(pose.scale, 1);
+  deck.cards.forEach(card => assert.equal(renderedScale(card), 1)); dispose(deck);
+});
+
+for (const count of [2, 3, 4]) for (const destination of ['back', 'items']) test(`${count} outgoing choices reveal ${destination === 'back' ? 'a back' : 'items'} at the same projected zoom`, () => {
+  const deck = make(count, fixture(count, 'choice')); ready(deck);
+  deck.updateSettings({ maxTilt: 18 });
+  if (destination === 'items') deck.setActionPreview('item-0', fixture(3), { presentation: 'open' });
+  deck.start(); deck.move(gesture(-1));
+  deck.rotationX.x = 18; deck.rotationY.x = -18; deck.rotationZ.x = 18;
+  const destinationCards = destination === 'items' ? deck.forwardDeck.cards : [deck.underlayBack];
+  deck.render(); destinationCards.forEach(card => assert.equal(renderedScale(card), .95));
+  let previous = .95;
+  for (const fraction of [1 / 12, 1 / 6, 1 / 4, 1 / 3, .5]) {
+    positionAtExposure(deck, fraction, value => { deck.l.x = value; }, () => [...poses(deck).values()]);
+    const scale = renderedScale(destinationCards[0]);
+    assert.ok(scale >= previous - 1e-10 && scale <= 1);
+    destinationCards.forEach(card => assert.equal(renderedScale(card), scale, 'all cards underneath share the same zoom'));
+    if (fraction === 1 / 6) assert.ok(Math.abs(scale - .975) < 1e-8);
+    if (fraction >= 1 / 3) assert.equal(scale, 1);
+    previous = scale;
+  }
+  deck.cancel(); settle();
+  destinationCards.forEach(card => assert.equal(renderedScale(card), .95, 'cancellation restores the staged scale'));
+  assert.equal(deck.phase, 'choices'); for (const pose of poses(deck).values()) assert.equal(pose.scale, 1);
+  dispose(deck);
+});
 
 for (const count of [2, 3, 4]) test(`${count} underlying choices inherit only a small fraction of the situation's tilt`, () => {
   const deck = make(count, fixture(count, 'choice'));
@@ -367,9 +482,11 @@ test('held Open reveals real preloaded items and adopts their same DOM and trans
   const motion = deck.commitMotion, adoption = motion.start + deck.settings.commitDuration;
   while (now + 16 < adoption) { step(); assert.equal(deck.flip.x, 0); assert.equal(deck.underlayBack, null); assert.ok(preloaded.every(card => card.style.visibility === 'visible')); opaque(deck); }
   step(adoption - .001 - now);
+  preloaded.forEach(card => assert.equal(renderedScale(card), 1, 'items reach full size before adoption'));
   const transforms = new Map(preloaded.map(card => [card, card.style.transform])); step(.002);
   assert.equal(deck.content.id, 'chest-items'); assert.deepEqual(new Set(deck.cards), new Set(preloaded));
   for (const card of preloaded) assert.equal(card.style.transform, transforms.get(card), 'adoption retains the physical item pose');
+  for (const pose of poses(deck).values()) assert.equal(pose.scale, 1, 'adopted items stay at full size');
   for (let i = 0; frames.size && i < 2000; i++) { step(); assert.equal(deck.flip.x, 0); assert.equal(deck.underlayBack, null); opaque(deck); }
   assert.equal(deck.phase, 'choices'); assert.equal(deck.scene.style.visibility, 'hidden'); dispose(deck, host);
 });
@@ -420,6 +537,7 @@ for (const mode of ['reduced', 'hidden']) for (const transition of ['open', 'man
   else { document.hidden = true; document.dispatchEvent(new Event('visibilitychange')); }
   assert.equal(deck.phase, 'choices'); assert.equal(deck.busy, false); assert.equal(deck.open, true);
   assert.equal(deck.frame, 0); assert.equal(deck.flip.x, 0); assert.equal(deck.scene.style.visibility, 'hidden'); assert.equal(complete, 1);
+  for (const pose of poses(deck).values()) assert.equal(pose.scale, 1, 'finished direct transitions have full-size cards');
   if (transition === 'open') { assert.equal(host.mode, 'container'); assert.equal(deck.content.id, 'chest-items'); }
   else { assert.equal(host.mode, 'entry'); assert.equal(deck.content.actions[deck.index].id, transition === 'empty-return' ? 'leave' : 'open'); assert.equal(deck.cards.length, transition === 'empty-return' ? 1 : 2); }
   deck.finishMotion(); assert.equal(complete, 1); opaque(deck); dispose(deck, host);
@@ -428,7 +546,7 @@ for (const mode of ['reduced', 'hidden']) for (const transition of ['open', 'man
 function renderedPose(card) {
   const values = [...card.style.transform.matchAll(/(-?[\d.]+)(?:px|deg)/g)].map(match => Number(match[1]));
   assert.equal(values.length, fields.length, 'article has a complete finite transform');
-  return Object.fromEntries(fields.map((field, i) => [field, values[i]]));
+  return { ...Object.fromEntries(fields.map((field, i) => [field, values[i]])), scale: renderedScale(card) };
 }
 function blockedDuringReturn(deck) {
   const snapshot = [deck.index, deck.b.target, deck.open, deck.content.id, deck.phase];
@@ -451,6 +569,7 @@ function watchReturnAdoption(deck, returned) {
 }
 function assertAbove(deck, card) {
   const bounds = deck.mount.getBoundingClientRect();
+  assert.equal(renderedScale(card), 1, 'returning decisions retain their normal size');
   assert.ok(projectedBounds(renderedPose(card), bounds.width, bounds.height, deck.settings.perspective).bottom < 0, 'return begins fully above the visible stage');
 }
 function traceReturn(deck, returned) {

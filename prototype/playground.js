@@ -1,6 +1,6 @@
-import { CardDeck, DEFAULT_SETTINGS } from './engine/CardDeck.js';
+import { CardDeck, DEFAULT_SETTINGS } from './engine/CardDeck.js?v=reveal-scale-1';
 
-import { ScenarioController, createStudyContent } from './demo/ScenarioController.js';
+import { ScenarioController, createStudyContent } from './demo/ScenarioController.js?v=reveal-scale-1';
 
 const specs = [
   ['stiffness', 'Spring stiffness', 60, 600, 5, ''],
@@ -18,6 +18,8 @@ const specs = [
   ['angularStiffness', 'Rotational stiffness', 60, 400, 5, ''],
   ['angularDamping', 'Rotational damping', 5, 80, 1, ''],
   ['gravity', 'Throw gravity', 0, 3000, 50, ' px/s²'],
+  ['revealStartScale', 'Underlying start scale', .88, 1, .005, ' ×'],
+  ['revealFullScaleAt', 'Full size at exposure', .1, .65, .01, ' × card height'],
 ];
 const mount = document.querySelector('#deck');
 const hint = document.querySelector('#hint');
@@ -83,12 +85,12 @@ for (const [key, label, min, max, step, unit] of specs) {
   const output = document.createElement('output');
   output.htmlFor = name.htmlFor;
   output.id = `value-${key}`;
-  output.textContent = settings[key] + unit;
+  output.textContent = Number(settings[key].toFixed(3)) + unit;
   const input = document.createElement('input');
   Object.assign(input, { type: 'range', id: name.htmlFor, min, max, step, value: settings[key] });
   input.addEventListener('input', () => {
     settings[key] = Number(input.value);
-    output.textContent = settings[key] + unit;
+    output.textContent = Number(settings[key].toFixed(3)) + unit;
     deck.updateSettings({ [key]: settings[key] });
   });
   labelRow.append(name, output);
@@ -125,7 +127,7 @@ document.querySelector('#defaults').addEventListener('click', () => {
   deck.updateSettings(settings);
   for (const [key, , , , , unit] of specs) {
     document.querySelector(`#setting-${key}`).value = settings[key];
-    document.querySelector(`#value-${key}`).textContent = settings[key] + unit;
+    document.querySelector(`#value-${key}`).textContent = Number(settings[key].toFixed(3)) + unit;
   }
   status.textContent = 'Motion defaults restored.';
 });

@@ -393,6 +393,8 @@ test('accepting the lift reuses the already visible reverse without a release-ti
  const reverse=d.underlayBack,layer=d.underlayLayer,transform=reverse.style.transform;
  assert.equal(reverse.style.visibility,'visible');assert.equal(d.pending,null);
  pointer(d.mount,'pointerup',{clientY:150,timeStamp:250});
+ // Compare the exact release boundary, before wall-clock time advances the throw.
+ d.render(d.commitMotion.start);
  assert.equal(commits,1);assert.equal(d.underlayBack,reverse);assert.equal(d.underlayLayer,layer);
  assert.equal(reverse.style.transform,transform);assert.equal(reverse.style.visibility,'visible');assert.equal(d.pending.id,'from-preview');
  const start=d.commitMotion.start;installCommitted(d,start);assert.equal(d.flip.x,1);settle(d);

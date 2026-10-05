@@ -1,5 +1,5 @@
-import { handoffRadius } from './geometry.js';
-import { carouselPose, clamp, departureDistance } from './motion.js';
+import { handoffRadius, projectedBounds } from './geometry.js?v=reveal-scale-1';
+import { carouselPose, clamp, departureDistance, revealScale } from './motion.js?v=reveal-scale-1';
 
 function layerFor(deck, card, className = '') {
   const layer = document.createElement('div');
@@ -180,6 +180,8 @@ export function cardPose(deck, index, time = performance.now()) {
   const fan = clamp(deck.fan.x, 0, 1);
   const rank = ((index - deck.index) % deck.cards.length + deck.cards.length) % deck.cards.length;
   const compressedZ = 4 - deck.n.x * 40 - rank * deck.settings.stackDepth;
+  pose.scale = deck.skipCover || deck.reduced ? 1
+    : revealScale(height - projectedBounds(scenePose(deck, time), width, height, deck.settings.perspective).bottom, height, deck.settings);
   const rotationWeight = deck.rotationOwner === 'actions' ? Math.pow(Math.max(0, pose.front), 4) : 0;
   // Friction can carry a tiny amount of the cover's tilt into the compressed
   // cards. Keep it at 12% (and below one degree), fading out as the fan opens.
@@ -209,6 +211,7 @@ export function cardPose(deck, index, time = performance.now()) {
 
 function applyPose(deck, element, layer, pose, order, shadow = true) {
   element.style.transform = `translate3d(${pose.x}px,${pose.y}px,${pose.z}px) rotateX(${pose.rx}deg) rotateY(${pose.ry}deg) rotateZ(${pose.rz}deg)`;
+  if (pose.scale !== undefined && pose.scale !== 1) element.style.transform += ` scale(${pose.scale})`;
   element.style.visibility = pose.visible ? 'visible' : 'hidden';
   layer.style.zIndex = String(order);
   layer.style.perspective = `${deck.settings.perspective}px`;
@@ -219,11 +222,19 @@ function applyPose(deck, element, layer, pose, order, shadow = true) {
 
 export function renderDeck(deck, time = performance.now()) {
   if (!deck.scene) return;
+  const front = scenePose(deck, time);
+  const poses = deck.cards.map((_, index) => cardPose(deck, index, time));
+  const bounds = deck.mount.getBoundingClientRect();
+  const width = Math.max(1, bounds.width), height = Math.max(1, bounds.height);
+  const cleared = deck.phase === 'committing' && !deck.commitMotion;
+  const coveredBottom = cleared ? 0 : poses.length
+    ? Math.max(...poses.map(pose => projectedBounds(pose, width, height, deck.settings.perspective).bottom)) : height;
+  const nextScale = deck.reduced ? 1 : revealScale(height - coveredBottom, height, deck.settings);
   const forwardActive = !!deck.forwardDeck && ((deck.phase === 'committing' && deck.pendingPresentation === 'open')
     || (deck.phase === 'choices' && deck.l.x > 0 && deck.forwardOwner === deck.content.actions[deck.index]?.id));
   if (deck.underlay) {
     const stagedPose = {
-      x: 0, y: 0, z: -24, rx: 0, ry: 180, rz: 0,
+      x: 0, y: 0, z: -24, rx: 0, ry: 180, rz: 0, scale: nextScale,
       visible: (deck.phase === 'committing' || (deck.phase === 'choices' && deck.l.x > 0
         && deck.content.interaction === 'choice' && !deck.content.actions[deck.index]?.disabled))
         && !forwardActive
@@ -231,17 +242,15 @@ export function renderDeck(deck, time = performance.now()) {
     applyPose(deck, deck.underlay, deck.underlayLayer, stagedPose, 0);
     applyPose(deck, deck.underlayBack, deck.underlayLayer, backPose(stagedPose), 0);
   }
-  renderStagedActions(deck, deck.forwardDeck, 20, forwardActive);
+  renderStagedActions(deck, deck.forwardDeck, 20, forwardActive, 0, -36, nextScale);
   renderStagedActions(deck, deck.returnDeck, 500,
     (deck.phase === 'closing' && deck.returning)
       || deck.returnLift.x > 0,
     -(1 - clamp(deck.returnLift.x, 0, 1)) * deck.departureTravel(),
     deck.cards.length && (deck.returning || deck.returnLift.x > 0) ? 4 : -36);
-  const front = scenePose(deck, time);
   applyPose(deck, deck.scene, deck.sceneLayer, front, 1000);
   applyPose(deck, deck.sceneBack, deck.sceneLayer, backPose(front), 1000);
   deck.scene.setAttribute('aria-hidden', String(deck.open || deck.busy));
-  const poses = deck.cards.map((_, index) => cardPose(deck, index, time));
   const painterOrder = poses.map((pose, index) => ({ index, depth: deck.fan.x === 0 ? -pose.rank : pose.front }));
   painterOrder.sort((a, b) => a.depth - b.depth || b.index - a.index);
   painterOrder.forEach(({ index }, order) => {
@@ -259,11 +268,11 @@ export function renderDeck(deck, time = performance.now()) {
   announceDeck(deck);
 }
 
-function renderStagedActions(deck, bundle, baseOrder, visible, y = 0, z = -36) {
+function renderStagedActions(deck, bundle, baseOrder, visible, y = 0, z = -36, scale = 1) {
   if (!bundle) return;
   bundle.cards.forEach((card, index) => {
     const rank = (index - bundle.selectedIndex + bundle.cards.length) % bundle.cards.length;
-    const pose = { x: 0, y, z: z - rank * deck.settings.stackDepth, rx: 0, ry: 0, rz: 0, visible };
+    const pose = { x: 0, y, z: z - rank * deck.settings.stackDepth, rx: 0, ry: 0, rz: 0, scale, visible };
     const order = baseOrder + bundle.cards.length - rank;
     applyPose(deck, card, bundle.cardLayers[index], bundle.content.actions[index].faceDown ? backPose(pose) : pose, order);
     if (bundle.cardBacks[index]) applyPose(deck, bundle.cardBacks[index], bundle.cardLayers[index], { ...pose, ry: 360 }, order);
