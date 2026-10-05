@@ -77,7 +77,7 @@ for (let count = 1; count <= 4; count++) for (let index = 0; index < count; inde
     }
     if (count > 1) inputBlocked(deck);
     settle(); assert.equal(accepted.length, 1); assert.equal(completed.length, 1);
-    assert.deepEqual(completed[0].remainingIds, [...originals.keys()].filter(id => id !== selectedId));
+    assert.deepEqual(new Set(completed[0].remainingIds), new Set([...originals.keys()].filter(id => id !== selectedId)));
     assert.equal(deck.busy, false); assert.equal(deck.phase, count === 1 ? 'closed' : 'choices'); opaque(deck); dispose(deck);
   });
 }
@@ -91,13 +91,14 @@ test('choice remains the default and invalid content/presentation are rejected',
 });
 function readyEmpty(deck) { deck.setOpen(true); deck.schedule(); settle(); assert.equal(deck.open, false); assert.equal(deck.phase, 'closed'); }
 
-test('open presentation commits through the physical flip and emits completion only with the ready container', () => {
+test('open presentation installs a ready fan directly without flipping or a source cover', () => {
   const deck = make(2, fixture(2, 'choice')); ready(deck); const events = [];
   deck.addEventListener('commit', () => deck.replaceContent(fixture(3), { presentation: 'open' }));
-  deck.addEventListener('transitioncomplete', e => { if (e.detail.transition === 'commit') events.push({ ...e.detail, fan: deck.fan.x, flip: deck.flip.x }); });
-  deck.commit(); const start = deck.commitMotion.start; step(start + deck.settings.commitDuration + 1 - now);
-  assert.equal(deck.content.interaction, 'container'); assert.equal(deck.flip.x, 1); assert.equal(deck.busy, true); assert.equal(deck.start(), false); assert.equal(events.length, 0);
-  settle(); assert.equal(deck.phase, 'choices'); assert.equal(deck.open, true); assert.equal(events.length, 1); assert.equal(events[0].fan, 1); assert.equal(events[0].flip, 0); dispose(deck);
+  deck.addEventListener('transitioncomplete', e => { if (e.detail.transition === 'commit') events.push(e.detail); });
+  deck.commit();
+  for (let i = 0; frames.size && i < 2000; i++) { step(); assert.equal(deck.flip.x, 0); assert.equal(deck.flip.target, 0); opaque(deck); }
+  assert.equal(deck.content.interaction, 'container'); assert.equal(deck.phase, 'choices'); assert.equal(deck.open, true); assert.equal(events.length, 1);
+  assert.equal(deck.scene.style.visibility, 'hidden'); dispose(deck);
 });
 
 for (const outcome of ['cancel', 'slow', 'reverse', 'flick']) test(`container gesture ${outcome} settles or accepts once`, () => {
@@ -111,8 +112,9 @@ for (const outcome of ['cancel', 'slow', 'reverse', 'flick']) test(`container ge
   if (outcome !== 'flick') for (const [id, pose] of poses(deck)) samePose(pose, original.get(id), 'canceled pose'); dispose(deck);
 });
 
-test('empty chest Open is face down and springs at most 24px without preview or acceptance', () => {
-  const deck = make(2, createChestEntry([])); ready(deck); const initial = poses(deck); let commits = 0, collects = 0;
+test('custom disabled face down action springs at most 24px without preview or acceptance', () => {
+  const disabled = { ...fixture(2, 'choice'), actions: [{ id: 'open', label: '', accessibleLabel: 'Open', disabled: true, faceDown: true }, { id: 'leave', label: 'Go on' }] };
+  const deck = make(2, disabled); ready(deck); const initial = poses(deck); let commits = 0, collects = 0;
   deck.addEventListener('commit', () => commits++); deck.addEventListener('collect', () => collects++);
   assert.ok(deck.cardBacks[0]); assert.equal(deck.cards[0].getAttribute('aria-disabled'), 'true');
   assert.equal(deck.cards[0].children[0].children[1].textContent, '');
@@ -162,23 +164,23 @@ test('resize and repeated collection preserve survivor identity through interrup
 
 function chest() { const deck = make(2, createStudyContent(0, 2)); const notices = []; const host = new ScenarioController(deck, { fixture: 'chest', onChange: detail => notices.push(detail) }); return { deck, host, notices }; }
 function enterChest(deck) { ready(deck); key(deck, 'ArrowUp'); settle(); assert.equal(deck.content.id, 'chest-items'); assert.equal(deck.phase, 'choices'); }
-test('host completes chest cycle, remembers acceptance, disables empty Open, advances and resets', () => {
+test('host completes chest cycle, remembers acceptance, returns only Go on, advances and resets', () => {
   const { deck, host, notices } = chest(); enterChest(deck); assert.equal(host.mode, 'container');
   const taken = [];
   while (deck.cards.length && deck.content.id === 'chest-items') {
     const id = deck.content.actions[deck.index].id; taken.push(id); deck.commit();
     assert.equal(host.remainingIds.has(id), false, 'host stores collection immediately on acceptance'); settle();
   }
-  assert.deepEqual(new Set(taken), new Set(CHEST_ITEM_IDS)); assert.equal(host.mode, 'entry'); assert.equal(deck.content.id, 'chest-entry'); assert.equal(deck.phase, 'closed');
-  ready(deck); key(deck, 'ArrowUp'); settle(); assert.equal(host.mode, 'entry'); assert.equal(deck.content.actions[0].disabled, true); assert.equal(deck.content.actions[0].faceDown, true);
-  key(deck, 'ArrowRight'); settle(); key(deck, 'ArrowUp'); settle(); assert.equal(host.mode, 'choice'); assert.equal(deck.content.id, 'study-0-2');
+  assert.deepEqual(new Set(taken), new Set(CHEST_ITEM_IDS)); assert.equal(host.mode, 'entry'); assert.equal(deck.content.id, 'chest-entry'); assert.equal(deck.phase, 'choices');
+  assert.deepEqual(deck.content.actions.map(a => a.id), ['leave']); assert.equal(deck.scene.style.visibility, 'hidden');
+  key(deck, 'ArrowUp'); settle(); assert.equal(host.mode, 'choice'); assert.equal(deck.content.id, 'study-0-2');
   host.reset('chest'); assert.deepEqual([...host.remainingIds], CHEST_ITEM_IDS); assert.equal(deck.content.id, 'chest-entry'); assert.equal(deck.phase, 'closed');
   assert.equal(notices.filter(n => n.reason === 'collect').length, 3); dispose(deck, host);
 });
 test('host partial collection close/reopen retains remaining IDs and original fixture cycles', () => {
   const { deck, host } = chest(); enterChest(deck); select(deck, 1); const removed = deck.content.actions[1].id; deck.commit(); settle();
   const remaining = CHEST_ITEM_IDS.filter(id => id !== removed); key(deck, 'ArrowDown'); settle(); assert.equal(host.mode, 'entry'); assert.deepEqual([...host.remainingIds], remaining);
-  enterChest(deck); assert.deepEqual(deck.content.actions.map(a => a.id), remaining); host.reset('chest'); assert.deepEqual([...host.remainingIds], CHEST_ITEM_IDS);
+  assert.equal(deck.phase, 'choices'); assert.equal(deck.content.actions[deck.index].id, 'leave'); key(deck, 'ArrowLeft'); settle(); key(deck, 'ArrowUp'); settle(); assert.equal(deck.content.id, 'chest-items'); assert.deepEqual(new Set(deck.content.actions.map(a => a.id)), new Set(remaining)); host.reset('chest'); assert.deepEqual([...host.remainingIds], CHEST_ITEM_IDS);
   for (const count of [2, 3, 4]) { host.reset(String(count)); assert.equal(deck.content.actions.length, count); ready(deck); key(deck, 'ArrowUp'); settle(); assert.equal(host.studyIndex, 1); assert.equal(deck.content.actions.length, count === 4 ? 2 : count + 1); assert.equal(deck.content.interaction, 'choice'); }
   host.destroy(); const snapshot = [...host.remainingIds]; deck.replaceContent(createChestContainer(CHEST_ITEM_IDS), { presentation: 'open' }); settle(); deck.commit(); settle(); assert.deepEqual([...host.remainingIds], snapshot); dispose(deck);
 });
@@ -227,13 +229,15 @@ const reflowPresets = [
   ['extreme', { maxTilt: 18, stackDepth: 30, perspective: 650 }],
 ];
 for (const [preset, settings] of reflowPresets) for (const width of [249, 340]) for (const count of [3, 4]) for (let selected = 0; selected < count; selected++) {
-  test(`${preset} ${width}px container ${count}, selected ${selected}: every reflow painter swap has 8px projected clearance`, () => {
+  test(`${preset} ${width}px container ${count}, selected ${selected}: survivors compact without painter swaps or horizontal reshuffling`, () => {
     const deck = make(count); deck.mount.getBoundingClientRect = () => ({ left: 0, top: 0, width, height: width * 4 / 3 }); deck.updateSettings(settings);
     ready(deck); select(deck, selected);
     if (preset === 'extreme') { deck.rotationX.x = 18; deck.rotationY.x = -18; deck.rotationZ.x = 18; deck.render(); }
     const original = new Map(deck.content.actions.map((a, i) => [a.id, deck.cards[i]]));
     const orderOf = () => new Map(deck.content.actions.map((a, i) => [a.id, Number(deck.cardLayers[i].style.zIndex)]));
     let oldOrder = orderOf(), swaps = 0, completed = 0;
+    const starting = poses(deck), samples = [];
+    const removedId = deck.content.actions[selected].id;
     deck.addEventListener('transitioncomplete', e => { if (e.detail.transition === 'collect') completed++; });
     deck.commit();
     try {
@@ -242,22 +246,148 @@ for (const [preset, settings] of reflowPresets) for (const width of [249, 340]) 
         for (let a = 0; a < ids.length; a++) for (let b = a + 1; b < ids.length; b++) {
           const one = ids[a], two = ids[b];
           if (Math.sign(oldOrder.get(one) - oldOrder.get(two)) !== Math.sign(nextOrder.get(one) - nextOrder.get(two))) {
-            const p = projectedBounds(sample.get(one), width, width * 4 / 3, deck.settings.perspective);
-            const q = projectedBounds(sample.get(two), width, width * 4 / 3, deck.settings.perspective);
-            assert.ok(Math.max(p.left - q.right, q.left - p.right) >= 8 - 1e-8, `unsafe swap frame ${frame}: ${one}/${two}`); swaps++;
+            swaps++;
           }
         }
         for (let i = 0; i < deck.cards.length; i++) {
           assert.equal(deck.cards[i], original.get(deck.content.actions[i].id)); assert.equal(deck.cards[i].style.visibility, 'visible');
           for (const field of fields) assert.ok(Number.isFinite(sample.get(deck.content.actions[i].id)[field]));
         }
-        opaque(deck); oldOrder = nextOrder;
+        samples.push(sample); opaque(deck); oldOrder = nextOrder;
       }
       assert.equal(frames.size, 0, 'collection and clearance reflow settle within 16 seconds');
       assert.equal(completed, 1); assert.equal(deck.busy, false); assert.equal(deck.phase, 'choices'); assert.equal(deck.cards.length, count - 1);
-      if (count === 4 || selected > 0) assert.ok(swaps > 0, 'exercise the actual whole-card handoff');
+      assert.equal(swaps, 0, 'relative survivor painter order never changes');
+      const rest = poses(deck), tolerance = preset === 'extreme' ? 18 : 10;
+      for (const sample of samples) for (const [id, pose] of sample) if (id !== removedId) {
+        const low = Math.min(starting.get(id).x, rest.get(id).x) - tolerance, high = Math.max(starting.get(id).x, rest.get(id).x) + tolerance;
+        assert.ok(pose.x >= low && pose.x <= high, `${id} leaves compacting corridor: ${pose.x}, expected ${low}..${high}`);
+      }
       const selectedOrder = Number(deck.cardLayers[deck.index].style.zIndex);
       assert.ok(deck.cardLayers.every(layer => Number(layer.style.zIndex) <= selectedOrder), 'survivor selection finishes in the foreground');
     } finally { dispose(deck); }
   });
 }
+
+test('collecting middle Flashlight leaves two original cards in a small fan without a shuffle', () => {
+  const deck = make(3, createChestContainer(CHEST_ITEM_IDS)); ready(deck); select(deck, 1);
+  const initial = poses(deck), originals = new Map(deck.content.actions.map((a, i) => [a.id, deck.cards[i]]));
+  const painter = new Map(deck.content.actions.map((a, i) => [a.id, Number(deck.cardLayers[i].style.zIndex)]));
+  const expectedFront = ['goggles', 'pack'].sort((a, b) => painter.get(b) - painter.get(a))[0];
+  deck.commit(); const samples = [];
+  for (let i = 0; frames.size && i < 2000; i++) {
+    step(); samples.push(poses(deck));
+    const survivors = deck.content.actions.map((a, i) => ({ id: a.id, layer: deck.cardLayers[i] })).filter(a => a.id !== 'flashlight');
+    assert.equal(Math.sign(Number(survivors[0].layer.style.zIndex) - Number(survivors[1].layer.style.zIndex)), Math.sign(painter.get(survivors[0].id) - painter.get(survivors[1].id)));
+  }
+  assert.equal(deck.cards.length, 2); assert.equal(deck.content.actions[deck.index].id, expectedFront);
+  const rest = poses(deck);
+  for (let i = 0; i < 2; i++) assert.equal(deck.cards[i], originals.get(deck.content.actions[i].id));
+  for (const sample of samples) for (const [id, pose] of sample) if (id !== 'flashlight') {
+    assert.ok(pose.x >= Math.min(initial.get(id).x, rest.get(id).x) - 10 && pose.x <= Math.max(initial.get(id).x, rest.get(id).x) + 10, `${id} shuffled away from its compact fan`);
+  }
+  assert.ok(Math.max(...[...rest.values()].map(pose => Math.abs(pose.x))) < 80); opaque(deck); dispose(deck);
+});
+
+test('partial and canceled container closes return to items; accepted close returns directly to Go on', () => {
+  const { deck, host } = chest(); enterChest(deck); const original = poses(deck), cards = [...deck.cards];
+  for (const canceled of [true, false]) {
+    deck.start(); deck.move(gesture(35)); if (canceled) deck.cancel(); else deck.end(gesture(35)); settle();
+    assert.equal(host.mode, 'container'); assert.equal(deck.phase, 'choices'); assert.deepEqual(deck.cards, cards);
+    for (const [id, pose] of poses(deck)) samePose(pose, original.get(id), 'returned items');
+  }
+  key(deck, 'ArrowDown'); settle(); assert.equal(host.mode, 'entry'); assert.equal(deck.phase, 'choices');
+  assert.deepEqual(new Set(deck.content.actions.map(a => a.id)), new Set(['open', 'leave']));
+  assert.equal(deck.content.actions[deck.index].id, 'leave'); assert.equal(deck.scene.style.visibility, 'hidden');
+  assert.equal(deck.flip.x, 0); assert.equal(deck.underlayBack, null); opaque(deck); dispose(deck, host);
+});
+
+test('held Open reveals real preloaded items and adopts their same DOM and transforms without a flip', () => {
+  const { deck, host } = chest(); ready(deck); const entries = [...deck.cards]; let commits = 0;
+  deck.addEventListener('commit', () => commits++);
+  deck.start(); deck.move(gesture(-150));
+  const preloaded = deck.forwardDeck.cards; assert.equal(preloaded.length, 3, 'actual item articles exist during the held swipe');
+  for (const card of preloaded) { assert.equal(card.style.visibility, 'visible'); assert.ok(Number(card.parentNode.style.zIndex) < Math.min(...entries.map(entry => Number(entry.parentNode.style.zIndex)))); }
+  assert.equal(deck.underlayBack, null); assert.equal(commits, 0); assert.equal(host.mode, 'entry'); assert.equal(deck.flip.x, 0);
+  deck.end(gesture(-150)); assert.equal(commits, 1);
+  const motion = deck.commitMotion, adoption = motion.start + deck.settings.commitDuration;
+  while (now + 16 < adoption) { step(); assert.equal(deck.flip.x, 0); assert.equal(deck.underlayBack, null); assert.ok(preloaded.every(card => card.style.visibility === 'visible')); opaque(deck); }
+  step(adoption - .001 - now);
+  const transforms = new Map(preloaded.map(card => [card, card.style.transform])); step(.002);
+  assert.equal(deck.content.id, 'chest-items'); assert.deepEqual(new Set(deck.cards), new Set(preloaded));
+  for (const card of preloaded) assert.equal(card.style.transform, transforms.get(card), 'adoption retains the physical item pose');
+  for (let i = 0; frames.size && i < 2000; i++) { step(); assert.equal(deck.flip.x, 0); assert.equal(deck.underlayBack, null); opaque(deck); }
+  assert.equal(deck.phase, 'choices'); assert.equal(deck.scene.style.visibility, 'hidden'); dispose(deck, host);
+});
+
+test('canceling held Open hides its item preview and preserves the host and entry fan', () => {
+  const { deck, host } = chest(); ready(deck); const entry = [...deck.cards]; let commits = 0; deck.addEventListener('commit', () => commits++);
+  deck.start(); deck.move(gesture(-150)); const items = deck.forwardDeck.cards; assert.equal(items.length, 3); assert.ok(items.every(card => card.style.visibility === 'visible')); deck.cancel(); settle();
+  assert.equal(commits, 0); assert.equal(host.mode, 'entry'); assert.equal(deck.content.id, 'chest-entry'); assert.deepEqual(deck.cards, entry);
+  assert.ok(items.every(card => card.style.visibility === 'hidden')); assert.equal(deck.underlayBack, null); assert.equal(deck.flip.x, 0); opaque(deck); dispose(deck, host);
+});
+
+for (const action of ['reset', 'replace', 'destroy']) test(`${action} discards staged Open destinations and stale gesture work`, () => {
+  const content = createChestEntry(CHEST_ITEM_IDS), deck = make(2, content); ready(deck);
+  deck.setActionPreview('open', createChestContainer(CHEST_ITEM_IDS), { presentation: 'open' });
+  let commits = 0; deck.addEventListener('commit', () => commits++);
+  deck.start(); deck.move(gesture(-150)); const items = deck.forwardDeck.cards; assert.equal(items.length, 3);
+  if (action === 'replace') deck.replaceContent(fixture(2, 'choice')); else deck[action]();
+  settle(); assert.equal(deck.frame, 0); assert.equal(deck.drag, null); assert.equal(commits, 0);
+  assert.ok(items.every(card => !descendants(deck.mount).includes(card)), 'staged articles are detached');
+  if (action === 'destroy') {
+    assert.equal(deck.mount.children.length, 0); key(deck, 'ArrowUp'); document.hidden = true; document.dispatchEvent(new Event('visibilitychange')); assert.equal(deck.frame, 0);
+  } else { assert.equal(deck.phase, 'closed'); assert.equal(deck.busy, false); }
+  dispose(deck);
+});
+
+for (const action of ['reset', 'replace', 'destroy']) test(`${action} clears a staged return deck and cannot later adopt it`, () => {
+  const deck = make(3, createChestContainer(CHEST_ITEM_IDS)); ready(deck);
+  deck.setReturnContent(createChestEntry(CHEST_ITEM_IDS), { selectedId: 'leave' });
+  const returned = [...deck.returnDeck.cards]; assert.equal(returned.length, 2);
+  let complete = 0; deck.addEventListener('transitioncomplete', event => { if (event.detail.transition === 'close') complete++; });
+  deck.setOpen(false); step();
+  if (action === 'replace') deck.replaceContent(fixture(2, 'choice')); else deck[action]();
+  settle(); assert.equal(complete, 0); assert.equal(deck.frame, 0); assert.equal(deck.returnDeck, null);
+  assert.ok(returned.every(card => !descendants(deck.mount).includes(card)));
+  if (action === 'destroy') assert.equal(deck.mount.children.length, 0);
+  else { assert.equal(deck.phase, 'closed'); assert.equal(deck.busy, false); }
+  dispose(deck);
+});
+
+for (const mode of ['reduced', 'hidden']) for (const transition of ['open', 'manual-return', 'empty-return']) test(`${mode} finishes direct ${transition} with one completion and no remaining motion`, () => {
+  const { deck, host } = chest(); ready(deck);
+  if (transition !== 'open') { key(deck, 'ArrowUp'); settle(); }
+  if (transition === 'empty-return') { deck.commit(); settle(); deck.commit(); settle(); assert.equal(deck.cards.length, 1); }
+  const kind = transition === 'open' ? 'commit' : 'close'; let complete = 0;
+  deck.addEventListener('transitioncomplete', event => { if (event.detail.transition === kind) complete++; });
+  if (transition === 'manual-return') { deck.setOpen(false); deck.schedule(); } else deck.commit();
+  if (mode === 'reduced') { deck.media.matches = true; deck.media.dispatchEvent(new Event('change')); }
+  else { document.hidden = true; document.dispatchEvent(new Event('visibilitychange')); }
+  assert.equal(deck.phase, 'choices'); assert.equal(deck.busy, false); assert.equal(deck.open, true);
+  assert.equal(deck.frame, 0); assert.equal(deck.flip.x, 0); assert.equal(deck.scene.style.visibility, 'hidden'); assert.equal(complete, 1);
+  if (transition === 'open') { assert.equal(host.mode, 'container'); assert.equal(deck.content.id, 'chest-items'); }
+  else { assert.equal(host.mode, 'entry'); assert.equal(deck.content.actions[deck.index].id, 'leave'); assert.equal(deck.cards.length, transition === 'empty-return' ? 1 : 2); }
+  deck.finishMotion(); assert.equal(complete, 1); opaque(deck); dispose(deck, host);
+});
+
+test('last collection keeps the staged Go on article visible at removal and adoption', () => {
+  const { deck, host } = chest(); enterChest(deck); deck.commit(); settle(); deck.commit(); settle();
+  deck.commit(); const goOn = deck.returnDeck.cards[0], layer = goOn.parentNode;
+  assert.equal(deck.returnDeck.content.actions[0].id, 'leave'); assert.equal(goOn.style.visibility, 'visible');
+  const motion = deck.collectMotion; step(motion.start + motion.duration - .001 - now);
+  const transform = goOn.style.transform; step(.002);
+  assert.equal(goOn.parentNode, layer); assert.equal(goOn.style.transform, transform); assert.equal(goOn.style.visibility, 'visible');
+  for (let i = 0; frames.size && i < 2000; i++) { step(); assert.ok(descendants(deck.mount).includes(goOn)); assert.equal(goOn.style.visibility, 'visible', `Go on hidden at frame ${i}, phase ${deck.phase}`); assert.equal(deck.scene.style.visibility, 'hidden'); assert.equal(deck.flip.x, 0); }
+  assert.equal(deck.phase, 'choices'); assert.equal(deck.cards[0], goOn); assert.equal(deck.content.actions[0].id, 'leave'); opaque(deck); dispose(deck, host);
+});
+
+test('Open keeps a canceled Go on reverse hidden throughout its direct reveal', () => {
+  const { deck, host } = chest(); ready(deck); key(deck, 'ArrowRight'); settle();
+  deck.start(); deck.move(gesture(-80)); assert.ok(deck.underlayBack); deck.cancel(); settle();
+  key(deck, 'ArrowLeft'); settle(); deck.start(); deck.move(gesture(-150));
+  assert.ok(!deck.underlayBack || deck.underlayBack.style.visibility === 'hidden'); deck.end(gesture(-150));
+  assert.ok(!deck.underlayBack || deck.underlayBack.style.visibility === 'hidden', 'stale reverse remains hidden at Open acceptance');
+  for (let i = 0; frames.size && i < 2000; i++) { step(); assert.ok(!deck.underlayBack || deck.underlayBack.style.visibility === 'hidden'); assert.equal(deck.flip.x, 0); }
+  assert.equal(deck.content.id, 'chest-items'); assert.equal(deck.phase, 'choices'); opaque(deck); dispose(deck, host);
+});

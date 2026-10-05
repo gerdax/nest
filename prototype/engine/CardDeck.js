@@ -1,6 +1,6 @@
-import { projectedBounds, handoffRadius } from './geometry.js';
-import { buildDeck, decorateCard, announceDeck, renderDeck, stageNextContent, stageNextBack, scenePose, cardPose } from './renderer.js';
-import { DEFAULT_SETTINGS, settingsWith, spring, springStep, qualifies, resistance, modulo, clamp } from './motion.js';
+import { projectedBounds } from './geometry.js';
+import { buildDeck, decorateCard, announceDeck, renderDeck, stageNextContent, stageNextBack, stageActionDeck, scenePose, cardPose } from './renderer.js';
+import { DEFAULT_SETTINGS, settingsWith, spring, springStep, qualifies, resistance, modulo, clamp, carouselPose } from './motion.js';
 import { PointerInput } from './PointerInput.js';
 export { DEFAULT_SETTINGS };
 
@@ -13,6 +13,7 @@ function validate(content) {
   return {
     ...content,
     interaction,
+    allowClose: content.allowClose ?? interaction === 'container',
     actions: content.actions.map(a => ({
       ...a
     }))
@@ -41,6 +42,16 @@ export class CardDeck extends EventTarget {
     this.l = spring();
     this.n = spring();
     this.flip = spring();
+    this.returnLift = spring();
+    this.returning = false;
+    this.openingReturn = false;
+    this.skipCover = false;
+    this.actionPreviews = new Map();
+    this.forwardDeck = null;
+    this.forwardOwner = null;
+    this.returnDeck = null;
+    this.returnContent = null;
+    this.returnSelectedId = null;
     this.rotationX = spring();
     this.rotationY = spring();
     this.rotationZ = spring();
@@ -51,11 +62,9 @@ export class CardDeck extends EventTarget {
     this.collectMotion = null;
     this.reflowOffsets = new Map();
     this.reflowOrder = null;
-    this.reflowSwaps = [];
     this.liftPoses = null;
     this.pendingPresentation = 'closed';
     this.openingCommit = false;
-    this.afterCommitOpen = false;
     this.drag = null;
     this.abort = new AbortController();
     this.original = {
@@ -109,7 +118,7 @@ export class CardDeck extends EventTarget {
     return {
       open: this.open,
       index: this.index,
-      busy: this.busy || this.openingCommit,
+      busy: this.busy || this.openingCommit || this.openingReturn,
       contentId: this.content.id,
       phase: this.phase,
       interaction: this.content.interaction,
@@ -126,8 +135,8 @@ export class CardDeck extends EventTarget {
     }));
   }
 
-  build() {
-    buildDeck(this);
+  build(staged = null) {
+    buildDeck(this, staged);
   }
 
   decorate(...args) {
@@ -148,7 +157,7 @@ export class CardDeck extends EventTarget {
   }
 
   start(event) {
-    if (this.destroyed || this.busy || this.openingCommit || this.phase === 'closing') return false;
+    if (this.destroyed || this.busy || this.openingCommit || this.openingReturn || this.phase === 'closing') return false;
     this.mount.focus({ preventScroll: true });
     const bounds = this.mount.getBoundingClientRect();
     const grab = {
@@ -156,7 +165,7 @@ export class CardDeck extends EventTarget {
       y: event ? clamp(((event.clientY - (bounds.top || 0)) / bounds.height - .5) * 2, -1, 1) : 0
     };
     this.drag = {
-      p: this.p.x, b: this.b.x, l: this.l.x,
+      p: this.p.x, b: this.b.x, l: this.l.x, returnLift: this.returnLift.x,
       open: this.open, ready: this.phase === 'choices', fan: this.fan.x, index: this.index, cursor: this.b.target, grab, axis: null
     };
     this.operation = null;
@@ -177,17 +186,29 @@ export class CardDeck extends EventTarget {
         this.p.x = resistance(this.drag.p - gesture.y / this.departureTravel(), 0, 1);
       } else if (gesture.y > 0) {
         this.restoreLiftPoses();
+        if (!this.content.allowClose) {
+          this.l.x = Math.max(0, this.drag.l - gesture.y / height);
+          this.rotationX.target = this.rotationY.target = this.rotationZ.target = 0;
+          this.render();
+          this.schedule();
+          return;
+        }
         this.l.x = this.drag.l;
         const compressionDistance = height * .275;
         this.fan.x = Math.max(0, this.drag.fan - gesture.y / compressionDistance);
         this.fan.v = 0;
         const returningDistance = Math.max(0, gesture.y - this.drag.fan * compressionDistance);
-        this.p.x = resistance(this.drag.p - returningDistance / this.departureTravel(), 0, 1);
-        if (returningDistance > 0) this.sourceFloor = 0;
+        if (this.returnDeck) {
+          this.returnLift.x = resistance(this.drag.returnLift + returningDistance / this.departureTravel(), 0, 1);
+        } else {
+          this.p.x = resistance(this.drag.p - returningDistance / this.departureTravel(), 0, 1);
+          if (returningDistance > 0) this.sourceFloor = 0;
+        }
       } else {
         this.fan.x = this.drag.fan;
         this.fan.v = 0;
         this.p.x = this.drag.p;
+        this.returnLift.x = this.drag.returnLift;
         if (this.drag.ready) {
           const action = this.content.actions[this.index];
           if ((this.content.interaction === 'container' || action.disabled) && !this.liftPoses) {
@@ -199,7 +220,9 @@ export class CardDeck extends EventTarget {
           this.l.x = action.disabled
             ? Math.min(24, this.drag.l * height + 24 * (1 - Math.exp(gesture.y / 90))) / height
             : Math.max(0, this.drag.l - gesture.y / height);
-          if (this.l.x > 0 && this.content.interaction === 'choice' && !action.disabled) stageNextBack(this);
+          if (this.l.x > 0 && this.content.interaction === 'choice' && !action.disabled) {
+            if (!this.prepareActionPreview(action.id)) stageNextBack(this);
+          }
         }
       }
     }
@@ -241,11 +264,12 @@ export class CardDeck extends EventTarget {
         return;
       }
       const accepted = qualifies(gesture.y, gesture.vy, height, this.settings);
-      this.setOpen(accepted ? gesture.y < 0 : drag.open);
-      if (this.phase !== 'closing') this.p.v = -gesture.vy / this.departureTravel();
+      this.setOpen(accepted && (gesture.y < 0 || this.content.allowClose) ? gesture.y < 0 : drag.open);
+      if (this.phase !== 'closing' && !drag.open) this.p.v = -gesture.vy / this.departureTravel();
     }
     if (this.phase !== 'closing') this.p.target = this.open ? 1 : 0;
     this.l.target = 0;
+    if (this.phase !== 'closing') this.returnLift.target = 0;
     this.operation ||= 'settle';
     this.schedule();
   }
@@ -256,6 +280,7 @@ export class CardDeck extends EventTarget {
     this.releaseRotation();
     this.p.target = this.open ? 1 : 0;
     this.l.target = 0;
+    this.returnLift.target = 0;
     if (this.open && this.fan.x !== 1) {
       this.phase = 'revealing';
       this.fan.target = 0;
@@ -267,6 +292,7 @@ export class CardDeck extends EventTarget {
   }
 
   setOpen(value) {
+    if (!value && this.open && !this.content.allowClose) return;
     if (value && !this.cards.length) return;
     const changed = this.open !== value;
     this.open = value;
@@ -278,6 +304,8 @@ export class CardDeck extends EventTarget {
         this.operation = 'reveal';
       }
     } else {
+      this.returning = !!this.returnDeck;
+      if (!this.returning) this.skipCover = false;
       this.phase = 'closing';
       this.fan.target = 0;
       this.p.target = this.p.x;
@@ -316,6 +344,11 @@ export class CardDeck extends EventTarget {
     this.phase = phase;
     this.operation = null;
     this.render();
+    if (transition === 'reveal' && this.openingReturn) {
+      this.openingReturn = false;
+      this.emit('transitioncomplete', { transition: 'close' });
+      return;
+    }
     this.emit('transitioncomplete', { transition });
     if (transition === 'reveal' && this.openingCommit) {
       this.openingCommit = false;
@@ -337,6 +370,11 @@ export class CardDeck extends EventTarget {
       }
       if (this.fan.x === 1 && this.atRest(this.fan)) this.completePhase('choices', 'reveal');
     } else if (this.phase === 'closing' && this.fan.x === 0 && this.atRest(this.fan)) {
+      if (this.returning) {
+        this.returnLift.target = this.cards.length ? 1 : 0;
+        if (this.returnLift.x === this.returnLift.target && this.atRest(this.returnLift)) this.completeReturn();
+        return;
+      }
       this.sourceFloor = 0;
       this.p.target = 0;
       if (this.p.x === 0 && this.atRest(this.p)) this.completePhase('closed', 'close');
@@ -347,7 +385,7 @@ export class CardDeck extends EventTarget {
     const key = e.key === 'Enter' ? 'ArrowUp' : e.key === 'Escape' ? 'ArrowDown' : e.key;
     if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key)) return;
     e.preventDefault();
-    if (this.busy || this.openingCommit || this.drag || e.repeat) return;
+    if (this.busy || this.openingCommit || this.openingReturn || this.drag || e.repeat) return;
     if (key === 'ArrowUp') {
       if (this.phase === 'choices') this.commit();else if (!this.open) {
         this.setOpen(true);
@@ -446,39 +484,6 @@ export class CardDeck extends EventTarget {
     }
   }
 
-  spreadReflow() {
-    const { width, height } = this.mount.getBoundingClientRect();
-    this.reflowSpacing = Math.max(this.reflowSpacing || 0, handoffRadius(2, width, height, this.settings) * 2);
-    const order = this.content.actions.map((a, i) => ({ id: a.id, index: i, pose: cardPose(this, i) }))
-      .sort((a, b) => a.pose.x - b.pose.x || a.index - b.index);
-    order.forEach(({ id, index }, position) => {
-      const offset = this.reflowOffsets.get(id);
-      const baseX = cardPose(this, index).x - offset.x.x;
-      offset.x.target = (position - (order.length - 1) / 2) * this.reflowSpacing - baseX;
-    });
-  }
-
-  advanceReflow() {
-    if (!this.reflowSwaps.length) return;
-    const { width, height } = this.mount.getBoundingClientRect();
-    const bounds = new Map(this.content.actions.map((a, i) => [a.id,
-      projectedBounds(cardPose(this, i), width, height, this.settings.perspective)]));
-    const clear = this.reflowSwaps.every(([one, two]) => {
-      const a = bounds.get(one), b = bounds.get(two);
-      return Math.max(b.left - a.right, a.left - b.right) >= 8;
-    });
-    if (clear) {
-      // Whole-card order changes only while the exchanging faces are apart.
-      this.reflowOrder = null;
-      this.reflowSwaps = [];
-      for (const offsets of this.reflowOffsets.values()) offsets.x.target = 0;
-    } else if (Array.from(this.reflowOffsets.values()).every(offset => Object.values(offset).every(s => this.atRest(s)))) {
-      // A resize or live perspective change can increase required clearance.
-      this.reflowSpacing *= 1.25;
-      this.spreadReflow();
-    }
-  }
-
   restoreLiftPoses() {
     if (!this.liftPoses) return;
     const poses = new Map(this.content.actions.map((a, i) => [a.id, cardPose(this, i)]));
@@ -492,33 +497,35 @@ export class CardDeck extends EventTarget {
     const motion = this.collectMotion;
     const poses = new Map(this.content.actions.map((a, i) => [a.id, cardPose(this, i)]));
     const oldOrder = new Map(this.content.actions.map((a, i) => [a.id, Number(this.cardLayers[i].style.zIndex)]));
-    this.collectMotion = null;
+    const survivors = this.content.actions.map((action, i) => ({ action, card: this.cards[i],
+      layer: this.cardLayers[i], back: this.cardBacks[i], title: this.cardTitles[i] }))
+      .filter((_, i) => i !== motion.index)
+      .sort((a, b) => oldOrder.get(b.action.id) - oldOrder.get(a.action.id));
     this.cardLayers[motion.index].remove();
-    this.cards.splice(motion.index, 1);
-    this.cardLayers.splice(motion.index, 1);
-    this.cardBacks.splice(motion.index, 1);
-    this.cardTitles.splice(motion.index, 1);
-    this.content = { ...this.content, actions: this.content.actions.filter(a => a.id !== motion.id) };
-    this.index = this.cards.length ? motion.index % this.cards.length : 0;
-    this.b = spring(this.index);
+    this.collectMotion = null;
+    // Preserve the physical order instead of asking survivors to exchange places.
+    // Assign smaller-orbit slots by painter rank; the existing top survivor stays top.
+    const count = survivors.length;
+    const slots = Array.from({ length: count }, (_, index) => ({ index,
+      front: carouselPose(index, 0, count, this.mount.getBoundingClientRect().width, this.settings).front }))
+      .sort((a, b) => b.front - a.front || a.index - b.index);
+    const arranged = [];
+    slots.forEach(({ index }, rank) => { arranged[index] = survivors[rank]; });
+    this.content = { ...this.content, actions: arranged.map(s => s.action) };
+    this.cards = arranged.map(s => s.card);
+    this.cardLayers = arranged.map(s => s.layer);
+    this.cardBacks = arranged.map(s => s.back);
+    this.cardTitles = arranged.map(s => s.title);
+    this.index = 0;
+    this.b = spring();
     this.l = spring();
     this.rotationX = spring();
     this.rotationY = spring();
     this.rotationZ = spring();
     this.liftPoses = null;
     this.createReflow(poses);
-    this.cardTitles.forEach((title, i) => { title.textContent = `ITEM ${String(i + 1).padStart(2, '0')} / ${this.cards.length}`; });
-    const targetOrder = this.content.actions.map((a, i) => ({ id: a.id, index: i, front: cardPose(this, i).front }))
-      .sort((a, b) => a.front - b.front || b.index - a.index);
-    const ranks = new Map(targetOrder.map((a, rank) => [a.id, rank]));
+    this.cardTitles.forEach((title, i) => { title.textContent = `ITEM ${String(i + 1).padStart(2, '0')} / ${count}`; });
     this.reflowOrder = oldOrder;
-    this.reflowSwaps = [];
-    this.reflowSpacing = 0;
-    for (let a = 0; a < targetOrder.length; a++) for (let b = a + 1; b < targetOrder.length; b++) {
-      const one = targetOrder[a].id, two = targetOrder[b].id;
-      if (Math.sign(oldOrder.get(one) - oldOrder.get(two)) !== Math.sign(ranks.get(one) - ranks.get(two))) this.reflowSwaps.push([one, two]);
-    }
-    if (this.reflowSwaps.length) this.spreadReflow();
     this.operation = 'collect';
     this.render();
   }
@@ -536,6 +543,48 @@ export class CardDeck extends EventTarget {
     if (this.content === content && !this.cards.length && !this.destroyed) this.setOpen(false);
   }
 
+  setActionPreview(actionId, content, { presentation = 'open' } = {}) {
+    if (this.destroyed) return;
+    if (presentation !== 'open') throw new TypeError('Action previews need open presentation');
+    if (!this.content.actions.some(a => a.id === actionId)) throw new TypeError('Unknown preview action');
+    this.actionPreviews.set(actionId, validate(content));
+    // Create the real cards ahead of the first gesture so artwork is ready
+    // before the lifting choice exposes any part of the deck underneath.
+    if (!this.forwardDeck || this.content.actions[this.index]?.id === actionId) {
+      this.prepareActionPreview(actionId);
+      this.render();
+    }
+  }
+
+  prepareActionPreview(actionId) {
+    const content = this.actionPreviews.get(actionId);
+    if (!content) return false;
+    if (this.forwardOwner === actionId && this.forwardDeck?.content === content) return true;
+    this.forwardOwner = actionId;
+    this.forwardDeck = stageActionDeck(this, content, 0, this.forwardDeck);
+    return true;
+  }
+
+  setReturnContent(content, { selectedId } = {}) {
+    if (this.destroyed) return;
+    const next = validate(content);
+    const selectedIndex = selectedId === undefined ? 0 : next.actions.findIndex(a => a.id === selectedId);
+    if (selectedIndex < 0) throw new TypeError('Unknown return selection');
+    this.returnContent = next;
+    this.returnSelectedId = next.actions[selectedIndex]?.id;
+    this.returnDeck = stageActionDeck(this, next, selectedIndex, this.returnDeck);
+    this.render();
+  }
+
+  completeReturn() {
+    const content = this.returnContent, staged = this.returnDeck, selectedId = this.returnSelectedId;
+    this.install(content, { open: true, staged, selectedId });
+    this.openingReturn = true;
+    this.busy = false;
+    this.operation = 'reveal';
+    this.render();
+  }
+
   replaceContent(content, { presentation = 'closed' } = {}) {
     if (this.destroyed) return;
     if (!['closed', 'open'].includes(presentation)) throw new TypeError('Unknown presentation');
@@ -543,42 +592,53 @@ export class CardDeck extends EventTarget {
     if (this.busy && this.phase === 'committing') {
       this.pending = next;
       this.pendingPresentation = presentation;
-      stageNextContent(this, next);
+      if (presentation === 'open') {
+        this.forwardDeck = stageActionDeck(this, next, 0, this.forwardDeck);
+      } else {
+        this.forwardDeck?.cardLayers.forEach(layer => layer.remove());
+        this.forwardDeck = null;
+        stageNextContent(this, next);
+      }
       this.render();
       if (!this.commitMotion) this.completeCommit();
       return;
     }
     this.reset();
-    this.install(next);
+    this.install(next, { open: presentation === 'open' });
     if (presentation === 'open') {
-      this.setOpen(true);
       this.schedule();
     }
   }
 
-  install(content, { faceDown = false } = {}) {
+  install(content, { faceDown = false, open = false, selectedId, staged = null } = {}) {
     this.content = content;
-    this.open = false;
-    this.index = 0;
+    this.open = open && content.actions.length > 0;
+    this.index = Math.max(0, content.actions.findIndex(a => a.id === selectedId));
     this.drag = null;
-    this.phase = 'closed';
+    this.phase = this.open ? 'revealing' : 'closed';
     this.fan = spring();
     this.sourceFloor = 0;
-    this.p = spring();
-    this.b = spring();
+    this.p = spring(this.open ? 1 : 0);
+    this.b = spring(this.index);
     this.l = spring();
-    this.n = spring();
+    this.n = spring(staged ? 1 : 0);
+    this.n.target = 0;
     this.flip = spring(faceDown ? 1 : 0);
+    this.skipCover = open;
+    this.returnLift = spring();
+    this.returning = this.openingReturn = this.openingCommit = false;
+    this.actionPreviews.clear();
+    this.forwardDeck = this.returnDeck = null;
+    this.forwardOwner = this.returnContent = this.returnSelectedId = null;
     this.reflowOffsets = new Map();
     this.liftPoses = null;
     this.reflowOrder = null;
-    this.reflowSwaps = [];
     this.cardBacks = [];
     this.rotationX = spring();
     this.rotationY = spring();
     this.rotationZ = spring();
-    this.operation = null;
-    this.build();
+    this.operation = this.open ? 'reveal' : null;
+    this.build(staged);
     this.render();
   }
 
@@ -588,12 +648,21 @@ export class CardDeck extends EventTarget {
       const next = this.pending;
       const presentation = this.pendingPresentation;
       this.pending = null;
+      if (presentation === 'open') {
+        const staged = this.forwardDeck;
+        this.install(next, { open: true, staged });
+        this.busy = false;
+        this.openingCommit = this.open;
+        if (!this.open) this.emit('transitioncomplete', { transition: 'commit' });
+        this.render();
+        this.schedule();
+        return;
+      }
       this.install(next, { faceDown: true });
       this.flip.target = 0;
       this.n = spring(1);
       this.n.target = 0;
       this.operation = 'commit';
-      this.afterCommitOpen = presentation === 'open';
       this.phase = 'committing';
       this.busy = true;
       this.render();
@@ -618,7 +687,7 @@ export class CardDeck extends EventTarget {
     this.last = 0;
     this.commitMotion = null;
     this.collectMotion = null;
-    this.afterCommitOpen = this.openingCommit = false;
+    this.openingCommit = false;
     this.pendingPresentation = 'closed';
     this.pending = null;
     this.busy = false;
@@ -635,7 +704,7 @@ export class CardDeck extends EventTarget {
   }
 
   motionStates() {
-    return [this.p, this.b, this.l, this.n, this.fan, this.rotationX, this.rotationY, this.rotationZ, this.flip,
+    return [this.p, this.b, this.l, this.n, this.fan, this.returnLift, this.rotationX, this.rotationY, this.rotationZ, this.flip,
       ...Array.from(this.reflowOffsets.values()).flatMap(offset => Object.values(offset))];
   }
 
@@ -643,14 +712,6 @@ export class CardDeck extends EventTarget {
     this.operation = null;
     this.busy = false;
     this.phase = 'closed';
-    if (this.afterCommitOpen) {
-      this.afterCommitOpen = false;
-      this.openingCommit = true;
-      this.setOpen(true);
-      // Empty containers have no fan to open, but still finish the transition.
-      if (!this.cards.length) this.openingCommit = false;
-      else { this.schedule(); return; }
-    }
     this.render();
     this.emit('transitioncomplete', { transition: 'commit' });
   }
@@ -689,11 +750,10 @@ export class CardDeck extends EventTarget {
       if (angularMoving) this.schedule(); else this.last = 0;
       return;
     }
-    for (const state of [this.p, this.b, this.l, this.n, this.fan]) springStep(state, dt, this.settings);
+    for (const state of [this.p, this.b, this.l, this.n, this.fan, this.returnLift]) springStep(state, dt, this.settings);
     for (const offset of this.reflowOffsets.values()) for (const [field, state] of Object.entries(offset)) {
       springStep(state, dt, field.startsWith('r') ? this.angularSettings() : this.settings);
     }
-    this.advanceReflow();
     if (this.liftPoses && this.atRest(this.l) && [this.rotationX, this.rotationY, this.rotationZ].every(s => this.atRest(s))) this.restoreLiftPoses();
     this.advancePhases();
     const moving = this.motionStates().some(state => !this.atRest(state));
@@ -736,7 +796,6 @@ export class CardDeck extends EventTarget {
         state.v = 0;
       }
       if (this.liftPoses) { this.restoreLiftPoses(); continue; }
-      this.advanceReflow();
       if (this.operation === 'collect' && this.motionStates().every(s => this.atRest(s))) this.finishCollection();
       this.advancePhases();
     }
@@ -766,6 +825,10 @@ export class CardDeck extends EventTarget {
     this.frame = 0;
     this.collectMotion = this.commitMotion = this.drag = this.pending = this.liftPoses = null;
     this.reflowOffsets.clear();
+    this.forwardDeck = this.returnDeck = null;
+    this.forwardOwner = this.returnContent = this.returnSelectedId = null;
+    this.actionPreviews.clear();
+    this.returning = this.openingReturn = this.openingCommit = false;
     this.mount.replaceChildren();
     this.mount.classList.remove('nest-deck');
     for (const [key, value] of Object.entries(this.original)) {

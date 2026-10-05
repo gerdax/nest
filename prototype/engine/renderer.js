@@ -27,26 +27,56 @@ export function backPose(front) {
   return { ...front, ry: front.ry + 180 };
 }
 
-export function buildDeck(deck) {
+export function stageActionDeck(deck, content, selectedIndex = 0, previous = null) {
+  const bundle = { content, selectedIndex, cards: [], cardLayers: [], cardBacks: [], cardTitles: [] };
+  const old = new Map(previous?.content.actions.map((a, i) => [a.id, i]) || []);
+  for (let i = 0; i < (previous?.cards.length || 0); i++) {
+    if (!content.actions.some(a => a.id === previous.content.actions[i].id)) previous.cardLayers[i].remove();
+  }
+  content.actions.forEach((action, index) => {
+    const oldIndex = old.get(action.id);
+    if (oldIndex !== undefined) {
+      const card = previous.cards[oldIndex], layer = previous.cardLayers[oldIndex];
+      const oldAction = previous.content.actions[oldIndex];
+      let title = previous.cardTitles[oldIndex], back = previous.cardBacks[oldIndex];
+      if (oldAction.label !== action.label || (oldAction.image || previous.content.image) !== (action.image || content.image)) {
+        card.replaceChildren();
+        card.style.backgroundImage = '';
+        title = deck.decorate(card, action.image || content.image, '', action.label);
+      }
+      if (action.faceDown && !back) { back = backFace(); layer.append(back); }
+      if (!action.faceDown && back) { back.remove(); back = null; }
+      bundle.cards.push(card);
+      bundle.cardLayers.push(layer);
+      bundle.cardBacks.push(back);
+      bundle.cardTitles.push(title);
+      return;
+    }
+    const card = document.createElement('article');
+    card.className = 'nest-card nest-action';
+    bundle.cardTitles.push(deck.decorate(card, action.image || content.image, '', action.label));
+    const layer = layerFor(deck, card);
+    bundle.cardLayers.push(layer);
+    const back = action.faceDown ? backFace() : null;
+    if (back) layer.append(back);
+    bundle.cardBacks.push(back);
+    bundle.cards.push(card);
+  });
+  bundle.cardTitles.forEach((title, i) => {
+    title.textContent = `${content.interaction === 'container' ? 'ITEM' : 'ACTION'} ${String(i + 1).padStart(2, '0')} / ${content.actions.length}`;
+  });
+  return bundle;
+}
+
+export function buildDeck(deck, staged = null) {
+  deck.mount.setAttribute('aria-label', `Interactive card deck. Arrow up reveals, chooses or collects; left and right browse.${deck.content.allowClose ? ' Down closes.' : ''}`);
   deck.mount.replaceChildren();
   deck.underlay = null;
   deck.underlayLayer = null;
   deck.underlayBack = null;
-  deck.cardLayers = [];
-  deck.cardBacks = [];
-  deck.cardTitles = [];
-  deck.cards = deck.content.actions.map((action, index) => {
-    const card = document.createElement('article');
-    card.className = 'nest-card nest-action';
-    deck.cardTitles.push(deck.decorate(card, action.image || deck.content.image,
-      `${deck.content.interaction === 'container' ? 'ITEM' : 'ACTION'} ${String(index + 1).padStart(2, '0')} / ${deck.content.actions.length}`, action.label));
-    const layer = layerFor(deck, card);
-    deck.cardLayers.push(layer);
-    const back = action.faceDown ? backFace() : null;
-    if (back) layer.append(back);
-    deck.cardBacks.push(back);
-    return card;
-  });
+  const bundle = staged || stageActionDeck(deck, deck.content, deck.index);
+  for (const field of ['cards', 'cardLayers', 'cardBacks', 'cardTitles']) deck[field] = bundle[field];
+  if (staged) deck.mount.append(...staged.cardLayers);
   deck.scene = document.createElement('article');
   deck.scene.className = 'nest-card nest-situation';
   deck.decorate(deck.scene, deck.content.image, deck.content.title, deck.content.text);
@@ -113,7 +143,7 @@ export function scenePose(deck, time = performance.now()) {
     rx: deck.rotationX.x * (1 - clamp(deck.p.x, 0, 1)),
     ry: deck.rotationY.x * (1 - clamp(deck.p.x, 0, 1)) + clamp(deck.flip.x, 0, 1) * 180,
     rz: deck.rotationZ.x * (1 - clamp(deck.p.x, 0, 1)),
-    visible: !(deck.busy && !deck.commitMotion && deck.operation !== 'commit')
+    visible: !deck.skipCover && !(deck.busy && !deck.commitMotion && deck.operation !== 'commit')
   };
 }
 
@@ -166,6 +196,7 @@ export function cardPose(deck, index, time = performance.now()) {
     pose.z += Math.min(deck.l.x * bounds.height * .1, deck.settings.liftHeight);
   }
   if (deck.commitMotion) pose.y -= departureDistance(deck.commitMotion, time);
+  pose.y += deck.returnLift.x * deck.departureTravel();
   pose.rx = clamp(pose.rx, -deck.settings.maxTilt, deck.settings.maxTilt);
   pose.ry = clamp(pose.ry, -deck.settings.maxTilt, deck.settings.maxTilt);
   pose.rz = clamp(pose.rz, -deck.settings.maxTilt, deck.settings.maxTilt);
@@ -189,15 +220,25 @@ function applyPose(deck, element, layer, pose, order, shadow = true) {
 
 export function renderDeck(deck, time = performance.now()) {
   if (!deck.scene) return;
+  const forwardActive = !!deck.forwardDeck && ((deck.phase === 'committing' && deck.pendingPresentation === 'open')
+    || (deck.phase === 'choices' && deck.l.x > 0 && deck.forwardOwner === deck.content.actions[deck.index]?.id));
   if (deck.underlay) {
     const stagedPose = {
       x: 0, y: 0, z: -24, rx: 0, ry: 180, rz: 0,
-      visible: deck.phase === 'committing' || (deck.phase === 'choices' && deck.l.x > 0
-        && deck.content.interaction === 'choice' && !deck.content.actions[deck.index]?.disabled)
+      visible: (deck.phase === 'committing' || (deck.phase === 'choices' && deck.l.x > 0
+        && deck.content.interaction === 'choice' && !deck.content.actions[deck.index]?.disabled))
+        && !forwardActive
     };
     applyPose(deck, deck.underlay, deck.underlayLayer, stagedPose, 0);
     applyPose(deck, deck.underlayBack, deck.underlayLayer, backPose(stagedPose), 0);
   }
+  renderStagedActions(deck, deck.forwardDeck, 20, forwardActive);
+  renderStagedActions(deck, deck.returnDeck, 10,
+    (deck.phase === 'closing' && deck.returning)
+      || deck.returnLift.x > 0
+      || (deck.content.interaction === 'container' && deck.cards.length === 0)
+      || (deck.content.interaction === 'container' && deck.cards.length <= 1
+        && (deck.l.x > 0 || !!deck.collectMotion || deck.operation === 'collect')));
   const front = scenePose(deck, time);
   applyPose(deck, deck.scene, deck.sceneLayer, front, 1000);
   applyPose(deck, deck.sceneBack, deck.sceneLayer, backPose(front), 1000);
@@ -214,7 +255,20 @@ export function renderDeck(deck, time = performance.now()) {
     }
     deck.cards[index].setAttribute('aria-disabled', String(!!deck.content.actions[index].disabled));
     if (deck.content.actions[index].faceDown) deck.cards[index].setAttribute('aria-label', deck.content.actions[index].accessibleLabel || 'Unavailable choice');
+    else deck.cards[index].removeAttribute('aria-label');
     deck.cards[index].setAttribute('aria-hidden', String(deck.phase !== 'choices' || deck.busy || index !== deck.index));
   });
   announceDeck(deck);
+}
+
+function renderStagedActions(deck, bundle, baseOrder, visible) {
+  if (!bundle) return;
+  bundle.cards.forEach((card, index) => {
+    const rank = (index - bundle.selectedIndex + bundle.cards.length) % bundle.cards.length;
+    const pose = { x: 0, y: 0, z: -36 - rank * deck.settings.stackDepth, rx: 0, ry: 0, rz: 0, visible };
+    const order = baseOrder + bundle.cards.length - rank;
+    applyPose(deck, card, bundle.cardLayers[index], bundle.content.actions[index].faceDown ? backPose(pose) : pose, order);
+    if (bundle.cardBacks[index]) applyPose(deck, bundle.cardBacks[index], bundle.cardLayers[index], { ...pose, ry: 360 }, order);
+    card.setAttribute('aria-hidden', 'true');
+  });
 }

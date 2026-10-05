@@ -29,7 +29,7 @@ const deck = new CardDeck(mount, { content: createStudyContent(0, 2), settings }
 let controller;
 
 function ready(message = 'Ready.') {
-  hint.textContent = 'Lift the top card up to uncover actions. Drag down to return it.';
+  hint.textContent = 'Lift the top card up to uncover actions.';
   status.textContent = message;
 }
 
@@ -48,7 +48,7 @@ function updateScenario({ reason, detail, mode, fixture: selectedFixture, conten
   if (reason === 'reset') ready(selectedFixture === 'chest' ? 'Chest fixture loaded.' : `${selectedFixture}-action fixture loaded.`);
   if (reason === 'open') {
     status.textContent = 'Opening chest…';
-    hint.textContent = 'Turning the chest over, then uncovering its items.';
+    hint.textContent = 'Lifting the choices away to uncover the items underneath.';
   }
   if (reason === 'collect') {
     status.textContent = `${detail.action.label} collected.`;
@@ -63,7 +63,10 @@ function updateScenario({ reason, detail, mode, fixture: selectedFixture, conten
       if (mode === 'container') browse(mode);
       else ready('Next study ready.');
     }
-    if (detail.transition === 'close') ready('Cover returned.');
+    if (detail.transition === 'close') {
+      browse(mode);
+      if (mode === 'entry') status.textContent = 'Go on selected.';
+    }
     if (detail.transition === 'reveal' || (detail.transition === 'collect' && content.actions.length)) browse(mode);
   }
 }
@@ -107,8 +110,10 @@ deck.addEventListener('selection', event => {
   }
 });
 deck.addEventListener('close', () => {
-  hint.textContent = 'Compressing the cards, then returning the cover.';
-  status.textContent = 'Returning cover…';
+  hint.textContent = controller.mode === 'container'
+    ? 'Closing the items and returning directly to the choices.'
+    : 'Compressing the cards, then returning the cover.';
+  status.textContent = controller.mode === 'container' ? 'Closing chest…' : 'Returning cover…';
 });
 fixture.addEventListener('change', () => controller.reset(fixture.value));
 document.querySelector('#reset').addEventListener('click', () => {

@@ -6,16 +6,16 @@ import * as renderer from '../engine/renderer.js';
 import {projectedBounds} from '../engine/geometry.js';
 import {readFileSync} from 'node:fs';
 class Element extends EventTarget{
- constructor(){super();this.attrs=new Map();this.style={};this.children=[];this.classList={add(){},remove(){}};this.captures=new Set();}
+ constructor(){super();this.attrs=new Map();this.style={};this.children=[];this.parentNode=null;this.classList={add(){},remove(){}};this.captures=new Set();}
  setAttribute(k,v){this.attrs.set(k,v)} getAttribute(k){return this.attrs.get(k)??null} removeAttribute(k){this.attrs.delete(k)}
- append(...els){this.children.push(...els)} replaceChildren(...els){this.children=els} focus(){} getBoundingClientRect(){return {left:0,top:0,width:340,height:453}}
+ append(...els){for(const el of els){el.remove();el.parentNode=this;this.children.push(el)}} remove(){if(this.parentNode){const children=this.parentNode.children;children.splice(children.indexOf(this),1);this.parentNode=null}} replaceChildren(...els){for(const el of [...this.children])el.remove();this.append(...els)} focus(){} getBoundingClientRect(){return {left:0,top:0,width:340,height:453}}
  setPointerCapture(id){this.captures.add(id)} hasPointerCapture(id){return this.captures.has(id)} releasePointerCapture(id){this.captures.delete(id)}
 }
 let frames=new Map(),serial=0;
 globalThis.requestAnimationFrame=fn=>{frames.set(++serial,fn);return serial};globalThis.cancelAnimationFrame=id=>frames.delete(id);
 globalThis.document=new Element();document.createElement=()=>new Element();document.hidden=false;
 globalThis.matchMedia=()=>Object.assign(new EventTarget(),{matches:false});globalThis.ResizeObserver=class{constructor(callback){this.callback=callback}observe(){}disconnect(){}};
-const fixture=n=>({id:`fixture${n}`,title:'Situation',text:'Placeholder',actions:Array.from({length:n},(_,i)=>({id:`a${i}`,label:`Action ${i}`}))});
+const fixture=n=>({id:`fixture${n}`,allowClose:true,title:'Situation',text:'Placeholder',actions:Array.from({length:n},(_,i)=>({id:`a${i}`,label:`Action ${i}`}))});
 function deck(n=3){return new CardDeck(new Element(),{content:fixture(n)})}
 function settle(d){for(let i=0;i<300;i++){cancelAnimationFrame(d.frame);d.tick(performance.now()+i*16)}cancelAnimationFrame(d.frame);d.frame=0;}
 function ready(d){d.setOpen(true);settle(d);assert.equal(d.phase,'choices');assert.equal(d.fan.x,1);}
@@ -397,4 +397,19 @@ test('accepting the lift reuses the already visible reverse without a release-ti
  assert.equal(reverse.style.transform,transform);assert.equal(reverse.style.visibility,'visible');assert.equal(d.pending.id,'from-preview');
  const start=d.commitMotion.start;installCommitted(d,start);assert.equal(d.flip.x,1);settle(d);
  assert.equal(d.flip.x,0);assert.equal(d.content.id,'from-preview');assert.equal(d.busy,false);assert.equal(commits,1);d.destroy();
+});
+
+
+test('choice fans reject closing by default and explicit allowClose restores the cover',()=>{
+ for(const close of ['drag','ArrowDown','Escape','api']){
+  const content=fixture(3);delete content.allowClose;
+  const d=new CardDeck(new Element(),{content});ready(d);const source=renderer.scenePose(d);const cards=d.cards.map((_,i)=>renderer.cardPose(d,i));
+  if(close==='drag'){const g={axis:'y',x:0,y:180,vx:0,vy:1000};d.start();d.move(g);assert.equal(d.fan.x,1);assert.equal(renderer.scenePose(d).y,source.y);d.end(g);settle(d)}
+  else if(close==='api'){d.setOpen(false);settle(d)}else key(d,close);
+  assert.equal(d.open,true);assert.equal(d.phase,'choices');assert.equal(d.fan.x,1);
+  assert.equal(renderer.scenePose(d).y,source.y);
+  for(let i=0;i<d.cards.length;i++)for(const field of ['x','y','z','rx','ry','rz'])assert.equal(renderer.cardPose(d,i)[field],cards[i][field]);
+  d.replaceContent({...content,allowClose:true});ready(d);d.setOpen(false);settle(d);
+  assert.equal(d.phase,'closed');assert.equal(d.fan.x,0);assert.equal(d.p.x,0);d.destroy();
+ }
 });

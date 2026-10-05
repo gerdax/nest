@@ -34,8 +34,8 @@ export function createChestEntry(remainingIds) {
   return {
     id: 'chest-entry', interaction: 'choice', ...chestCover,
     actions: [
-      { id: 'open', label: available ? 'Open' : '', accessibleLabel: 'Open chest',
-        image: art + 'box.png', disabled: !available, faceDown: !available },
+      ...(available ? [{ id: 'open', label: 'Open', accessibleLabel: 'Open chest',
+        image: art + 'box.png' }] : []),
       { id: 'leave', label: 'Go on', image: art + 'escape.png' },
     ],
   };
@@ -82,7 +82,18 @@ export class ScenarioController {
     this.mode = this.fixture === 'chest' ? 'entry' : 'choice';
     this.deck.reset();
     this.deck.replaceContent(this.content);
+    this.prepareEntryPreview();
     this.notify('reset');
+  }
+
+  prepareEntryPreview() {
+    if (this.mode === 'entry' && this.remainingIds.size) {
+      this.deck.setActionPreview('open', createChestContainer(this.remainingIds), { presentation: 'open' });
+    }
+  }
+
+  prepareReturnContent() {
+    this.deck.setReturnContent(createChestEntry(this.remainingIds), { selectedId: 'leave' });
   }
 
   handleCommit(detail) {
@@ -111,14 +122,19 @@ export class ScenarioController {
   handleCollect(detail) {
     if (this.mode !== 'container' || detail.contentId !== 'chest-items') return;
     if (!this.remainingIds.delete(detail.action?.id)) return;
-    // Remember acceptance immediately, before the removal animation completes.
+    // Remember acceptance and refresh the return choices before removal finishes.
+    this.prepareReturnContent();
     this.notify('collect', detail);
   }
 
   handleTransitionComplete(detail) {
     if (detail.transition === 'close' && this.mode === 'container') {
       this.mode = 'entry';
-      this.deck.replaceContent(this.content);
+      // The engine has already returned directly to the open entry choices.
+      this.prepareEntryPreview();
+    } else if (this.mode === 'container' &&
+      (detail.transition === 'commit' || detail.transition === 'reveal')) {
+      this.prepareReturnContent();
     }
     this.notify('transitioncomplete', detail);
   }
