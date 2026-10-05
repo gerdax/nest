@@ -5,7 +5,8 @@ class StoryManager {
         this.cardTypes = {
             'spatial': SpatialCard,
             'box': BoxCard,
-            'item': ItemCard
+            'item': ItemCard,
+            'story': BaseCard
         };
     }
 
@@ -38,6 +39,18 @@ class StoryManager {
     }
 
     getNextCard(currentCard, direction) {
+        const directNextCardId = direction === 'left'
+            ? currentCard.leftNextCardId
+            : currentCard.rightNextCardId;
+
+        if (directNextCardId) {
+            const directNextCard = this.passages.get(directNextCardId);
+            if (directNextCard) {
+                this.lastShownCardId = directNextCard.id;
+                return directNextCard;
+            }
+        }
+
         const possibleTypes = currentCard.getNextCardTypes(direction);
 
         // Special handling for box opening

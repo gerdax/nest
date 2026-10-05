@@ -93,4 +93,3 @@ async function initGame() {
 
 // Start the game
 initGame().catch(console.error);
-

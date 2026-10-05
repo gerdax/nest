@@ -8,6 +8,8 @@ class BaseCard {
         this.image = data.backgroundImage;
         this.leftChoice = data.leftChoiceText;
         this.rightChoice = data.rightChoiceText;
+        this.leftNextCardId = data.leftNextCardId;
+        this.rightNextCardId = data.rightNextCardId;
         this.rarity = data.rarity || 1; // Default to common (1) if not specified
         console.log(`Created: ${this.id}`);
     }

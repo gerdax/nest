@@ -1,0 +1,72 @@
+# Nest card motion playground
+
+A standalone card interaction demo using native JavaScript modules and the existing Nest artwork. No package installation or build step is required.
+
+From the repository root, run:
+
+```sh
+python3 -m http.server 8937 --bind 127.0.0.1
+```
+
+Open <http://127.0.0.1:8937/prototype/>. Serve over HTTP; opening the HTML directly will not load modules reliably.
+
+Drag the situation upward off the deck to expose the actions underneath. Browse sideways in either direction; the carousel loops endlessly. Drag upward again to carry the entire action stack away, exposing the next situation beneath it. Drag downward to return the situation. Focus the card to use the arrow keys, Enter, and Escape. The playground offers two-, three-, and four-action fixtures, motion tuning, a deck reset, and settings export. If clipboard access is unavailable, settings appear in a selectable text field.
+
+## Engine API
+
+```js
+import { CardDeck, DEFAULT_SETTINGS } from './engine/CardDeck.js';
+
+const deck = new CardDeck(mount, {
+  settings: { ...DEFAULT_SETTINGS },
+  content: {
+    id: 'card-id',
+    title: 'Card title',
+    text: 'Card description',
+    image: './image.png',
+    actions: [
+      { id: 'action-id', label: 'Action label', image: './optional-image.png' },
+      { id: 'other-id', label: 'Other action' },
+    ],
+  },
+});
+
+deck.addEventListener('commit', ({ detail }) => {
+  // detail: { contentId, action, index }
+  deck.replaceContent(nextContent);
+});
+```
+
+Load `engine/card-deck.css` alongside your host styles. Give the mount a width, a 3:4 aspect ratio, and keyboard focusability (`tabindex="0"`). The engine handles card rendering, gestures, focused keyboard input, and transition choreography. The host owns content and the meaning of actions.
+
+- `replaceContent(content)` supplies the next card. A host can call it synchronously in `commit` or after asynchronously retrieving content; the engine stages that situation below the outgoing action stack, then settles its depth when the stack leaves.
+- `updateSettings(partial)` changes motion settings without rebuilding the deck.
+- `reset()` returns the current deck to its initial interaction state.
+- `destroy()` releases listeners and engine resources when the host removes the deck.
+
+Listen on the deck instance with `addEventListener`:
+
+- `reveal`: opening is accepted; animation may still be settling.
+- `selection`: the selected action changes; use `detail.action` and `detail.index` to reflect the choice.
+- `close`: closing is accepted; animation may still be settling.
+- `commit`: a choice is accepted, with `{ contentId, action, index }`. Supply next content from the host.
+- `transitioncomplete`: settling has finished; `detail.transition` identifies `reveal`, `close`, `browse`, `cancel`, `settle`, or `commit`. Commit completes after the outgoing stack leaves and the exposed deck settles. Input is blocked while awaiting host content.
+
+The tuning panel exposes `stiffness`, `damping`, `mass`, `maxTilt`, `axisThreshold`, `distanceThreshold`, `flickVelocity`, `flickDistance`, `commitDuration`, `perspective`, `stackDepth`, `liftHeight`, `angularStiffness`, `angularDamping`, and `gravity`. Copy settings to reuse the resulting object in another host.
+
+The fixture host cycles through visual studies and two-, three-, and four-action layouts on every commit. It implements no inventory, branching narrative, persistence, or other game logic.
+
+Run focused engine checks with `node --test prototype/tests/*.test.js` from the repository root.
+
+Arrow Up reveals or commits; Left/Right browse; Down closes. Enter and Escape are aliases. The engine retains action selection on close/reopen. Motion is applied directly during drags and settles immediately when reduced motion is enabled. Reset cancels any pending commit, including queued content. Images resolve relative to the host document.
+
+
+## Physical motion model
+
+The renderer uses native CSS 3D transforms with a perspective camera, depth separation, card-edge shading, and elevation-dependent shadows. Cards remain fully opaque throughout their movement. The next situation is present below the outgoing cards before they depart; there is no arrival from the bottom or fade-in.
+
+Position and angular states use damped springs. The pointer's grab location determines rotational torque, and release velocity contributes to rotational momentum and the shared upward throw. The carousel follows a continuous periodic orbit, including the two-card case, so neither direction reaches an end or jumps across a wrap seam. All action cards share the same upward displacement during dragging and commitment.
+
+This is a constrained card UI simulation, not a collision or bending simulation. [Three.js CSS3DRenderer](https://threejs.org/docs/pages/CSS3DRenderer.html) would add a scene graph around the same DOM transform rendering; [Rapier](https://rapier.rs/docs/user_guides/javascript/rigid_bodies/) would be appropriate for free rigid bodies, collisions, and joints if the playground later needs tabletop behavior. Rendering and motion remain separate modules to allow such an extension.
+
+Defaults added for physical tuning: perspective 1000 px, stack depth 10 px, lift height 28 px, angular stiffness 180, angular damping 22, gravity 2200 px/s². `scatterDuration` was removed because choices now leave as one stack. Throw gravity is capped for the configured duration so the stack continues upward through its exit.
