@@ -180,7 +180,7 @@ test('host completes chest cycle, remembers acceptance, returns only Go on, adva
 test('host partial collection close/reopen retains remaining IDs and original fixture cycles', () => {
   const { deck, host } = chest(); enterChest(deck); select(deck, 1); const removed = deck.content.actions[1].id; deck.commit(); settle();
   const remaining = CHEST_ITEM_IDS.filter(id => id !== removed); key(deck, 'ArrowDown'); settle(); assert.equal(host.mode, 'entry'); assert.deepEqual([...host.remainingIds], remaining);
-  assert.equal(deck.phase, 'choices'); assert.equal(deck.content.actions[deck.index].id, 'leave'); key(deck, 'ArrowLeft'); settle(); key(deck, 'ArrowUp'); settle(); assert.equal(deck.content.id, 'chest-items'); assert.deepEqual(new Set(deck.content.actions.map(a => a.id)), new Set(remaining)); host.reset('chest'); assert.deepEqual([...host.remainingIds], CHEST_ITEM_IDS);
+  assert.equal(deck.phase, 'choices'); assert.equal(deck.content.actions[deck.index].id, 'open'); key(deck, 'ArrowUp'); settle(); assert.equal(deck.content.id, 'chest-items'); assert.deepEqual(new Set(deck.content.actions.map(a => a.id)), new Set(remaining)); host.reset('chest'); assert.deepEqual([...host.remainingIds], CHEST_ITEM_IDS);
   for (const count of [2, 3, 4]) { host.reset(String(count)); assert.equal(deck.content.actions.length, count); ready(deck); key(deck, 'ArrowUp'); settle(); assert.equal(host.studyIndex, 1); assert.equal(deck.content.actions.length, count === 4 ? 2 : count + 1); assert.equal(deck.content.interaction, 'choice'); }
   host.destroy(); const snapshot = [...host.remainingIds]; deck.replaceContent(createChestContainer(CHEST_ITEM_IDS), { presentation: 'open' }); settle(); deck.commit(); settle(); assert.deepEqual([...host.remainingIds], snapshot); dispose(deck);
 });
@@ -289,7 +289,7 @@ test('collecting middle Flashlight leaves two original cards in a small fan with
   assert.ok(Math.max(...[...rest.values()].map(pose => Math.abs(pose.x))) < 80); opaque(deck); dispose(deck);
 });
 
-test('partial and canceled container closes return to items; accepted close returns directly to Go on', () => {
+test('partial and canceled container closes return to items; accepted nonempty close selects Open', () => {
   const { deck, host } = chest(); enterChest(deck); const original = poses(deck), cards = [...deck.cards];
   for (const canceled of [true, false]) {
     deck.start(); deck.move(gesture(35)); if (canceled) deck.cancel(); else deck.end(gesture(35)); settle();
@@ -298,7 +298,7 @@ test('partial and canceled container closes return to items; accepted close retu
   }
   key(deck, 'ArrowDown'); settle(); assert.equal(host.mode, 'entry'); assert.equal(deck.phase, 'choices');
   assert.deepEqual(new Set(deck.content.actions.map(a => a.id)), new Set(['open', 'leave']));
-  assert.equal(deck.content.actions[deck.index].id, 'leave'); assert.equal(deck.scene.style.visibility, 'hidden');
+  assert.equal(deck.content.actions[deck.index].id, 'open'); assert.equal(deck.scene.style.visibility, 'hidden');
   assert.equal(deck.flip.x, 0); assert.equal(deck.underlayBack, null); opaque(deck); dispose(deck, host);
 });
 
@@ -343,7 +343,7 @@ for (const action of ['reset', 'replace', 'destroy']) test(`${action} discards s
 
 for (const action of ['reset', 'replace', 'destroy']) test(`${action} clears a staged return deck and cannot later adopt it`, () => {
   const deck = make(3, createChestContainer(CHEST_ITEM_IDS)); ready(deck);
-  deck.setReturnContent(createChestEntry(CHEST_ITEM_IDS), { selectedId: 'leave' });
+  deck.setReturnContent(createChestEntry(CHEST_ITEM_IDS), { selectedId: 'open' });
   const returned = [...deck.returnDeck.cards]; assert.equal(returned.length, 2);
   let complete = 0; deck.addEventListener('transitioncomplete', event => { if (event.detail.transition === 'close') complete++; });
   deck.setOpen(false); step();
@@ -367,19 +367,138 @@ for (const mode of ['reduced', 'hidden']) for (const transition of ['open', 'man
   assert.equal(deck.phase, 'choices'); assert.equal(deck.busy, false); assert.equal(deck.open, true);
   assert.equal(deck.frame, 0); assert.equal(deck.flip.x, 0); assert.equal(deck.scene.style.visibility, 'hidden'); assert.equal(complete, 1);
   if (transition === 'open') { assert.equal(host.mode, 'container'); assert.equal(deck.content.id, 'chest-items'); }
-  else { assert.equal(host.mode, 'entry'); assert.equal(deck.content.actions[deck.index].id, 'leave'); assert.equal(deck.cards.length, transition === 'empty-return' ? 1 : 2); }
+  else { assert.equal(host.mode, 'entry'); assert.equal(deck.content.actions[deck.index].id, transition === 'empty-return' ? 'leave' : 'open'); assert.equal(deck.cards.length, transition === 'empty-return' ? 1 : 2); }
   deck.finishMotion(); assert.equal(complete, 1); opaque(deck); dispose(deck, host);
 });
 
-test('last collection keeps the staged Go on article visible at removal and adoption', () => {
+function renderedPose(card) {
+  const values = [...card.style.transform.matchAll(/(-?[\d.]+)(?:px|deg)/g)].map(match => Number(match[1]));
+  assert.equal(values.length, fields.length, 'article has a complete finite transform');
+  return Object.fromEntries(fields.map((field, i) => [field, values[i]]));
+}
+function blockedDuringReturn(deck) {
+  const snapshot = [deck.index, deck.b.target, deck.open, deck.content.id, deck.phase];
+  assert.equal(deck.start(), false, 'returning cards cannot be grabbed');
+  for (const name of ['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown']) key(deck, name);
+  deck.commit();
+  assert.deepEqual([deck.index, deck.b.target, deck.open, deck.content.id, deck.phase], snapshot, 'returning cards ignore selection, commit and close inputs');
+}
+function watchReturnAdoption(deck, returned) {
+  let adopted = 0;
+  const completeReturn = deck.completeReturn;
+  deck.completeReturn = function () {
+    const before = returned.map(renderedPose);
+    completeReturn.call(this);
+    assert.deepEqual(new Set(this.cards), new Set(returned), 'return adopts the same staged articles');
+    returned.forEach((card, i) => samePose(renderedPose(card), before[i], 'return adoption'));
+    adopted++;
+  };
+  return () => adopted;
+}
+function assertAbove(deck, card) {
+  const bounds = deck.mount.getBoundingClientRect();
+  assert.ok(projectedBounds(renderedPose(card), bounds.width, bounds.height, deck.settings.perspective).bottom < 0, 'return begins fully above the visible stage');
+}
+function traceReturn(deck, returned) {
+  let visibleFrames = 0, descendingFrames = 0;
+  const previous = returned.map(renderedPose);
+  for (let frame = 0; frames.size && frame < 2000; frame++) {
+    if (deck.phase !== 'choices') blockedDuringReturn(deck);
+    step();
+    returned.forEach((card, i) => {
+      assert.ok(descendants(deck.mount).includes(card), 'staged article survives the whole return');
+      const pose = renderedPose(card);
+      for (const field of fields) assert.ok(Number.isFinite(pose[field]));
+      if (card.style.visibility === 'visible') {
+        visibleFrames++;
+        if (pose.y > previous[i].y + 1e-8) descendingFrames++;
+        // After adoption the fan may expand slightly upward; it must never
+        // expose a return card from underneath the stage.
+        if (!deck.cards.includes(card)) {
+          assert.ok(pose.y <= 1, 'return article stays above its resting plane until the fan opens');
+          assert.ok(pose.y >= previous[i].y - 1e-8, 'staged return travels downward continuously');
+          assert.ok(deck.cardLayers.every(layer => Number(layer.style.zIndex) < Number(card.parentNode.style.zIndex)), 'return enters above outgoing items in painter order');
+        }
+      }
+      previous[i] = pose;
+    });
+    assert.equal(deck.scene.style.visibility, 'hidden'); assert.equal(deck.flip.x, 0); opaque(deck);
+  }
+  assert.equal(frames.size, 0, 'return and destination fan settle');
+  assert.ok(visibleFrames > 1); assert.ok(descendingFrames > 1, 'return visibly travels downward across multiple frames');
+}
+
+for (const input of ['keyboard', 'downward swipe']) test(`${input} container close lowers both return choices from above, adopts without a jump and gates input until settled`, () => {
+  const { deck, host } = chest(); enterChest(deck);
+  const returned = [...deck.returnDeck.cards], adopted = watchReturnAdoption(deck, returned);
+  returned.forEach(card => assertAbove(deck, card));
+  if (input === 'keyboard') key(deck, 'ArrowDown');
+  else { deck.start(); deck.move(gesture(150)); deck.end(gesture(150)); }
+  deck.render(); assert.equal(deck.phase, 'closing');
+  returned.forEach(card => { assert.equal(card.style.visibility, 'visible'); if (input === 'keyboard') assertAbove(deck, card); else assert.ok(renderedPose(card).y < 0); });
+  traceReturn(deck, returned);
+  assert.equal(adopted(), 1); assert.equal(deck.phase, 'choices'); assert.equal(host.mode, 'entry');
+  assert.equal(deck.content.actions[deck.index].id, 'open'); assert.equal(deck.start(), true); deck.cancel(); settle();
+  dispose(deck, host);
+});
+
+test('canceling a held downward close sends its preview back above without adoption or changing the item fan', () => {
+  const { deck, host } = chest(); enterChest(deck);
+  const original = poses(deck), items = [...deck.cards], returned = [...deck.returnDeck.cards];
+  const adopted = watchReturnAdoption(deck, returned); let complete = 0;
+  deck.addEventListener('transitioncomplete', event => { if (event.detail.transition === 'close') complete++; });
+  returned.forEach(card => assertAbove(deck, card));
+  deck.start(); deck.move(gesture(150));
+  const held = returned.map(renderedPose);
+  returned.forEach((card, i) => { assert.equal(card.style.visibility, 'visible'); assert.ok(held[i].y > -deck.departureTravel()); assert.ok(held[i].y < 0); });
+  deck.cancel();
+  let upwardFrames = 0, previous = held;
+  for (let frame = 0; frames.size && frame < 2000; frame++) {
+    step(); const next = returned.map(renderedPose);
+    next.forEach((pose, i) => { if (pose.y < previous[i].y - 1e-8) upwardFrames++; assert.ok(pose.y < 0); });
+    previous = next;
+  }
+  assert.equal(frames.size, 0); assert.ok(upwardFrames > 1); assert.equal(adopted(), 0); assert.equal(complete, 0);
+  assert.equal(host.mode, 'container'); assert.equal(deck.phase, 'choices'); assert.deepEqual(deck.cards, items);
+  returned.forEach(card => { assert.equal(card.style.visibility, 'hidden'); assertAbove(deck, card); });
+  for (const [id, pose] of poses(deck)) samePose(pose, original.get(id), 'canceled manual close restores items');
+  opaque(deck); dispose(deck, host);
+});
+
+test('last collection waits offscreen before lowering only Go on from above and adopting without a jump', () => {
   const { deck, host } = chest(); enterChest(deck); deck.commit(); settle(); deck.commit(); settle();
   deck.commit(); const goOn = deck.returnDeck.cards[0], layer = goOn.parentNode;
-  assert.equal(deck.returnDeck.content.actions[0].id, 'leave'); assert.equal(goOn.style.visibility, 'visible');
-  const motion = deck.collectMotion; step(motion.start + motion.duration - .001 - now);
+  const adopted = watchReturnAdoption(deck, [goOn]);
+  assert.equal(deck.returnDeck.content.actions[0].id, 'leave'); assert.equal(goOn.style.visibility, 'hidden'); assertAbove(deck, goOn);
+  const motion = deck.collectMotion;
+  while (now + 16 < motion.start + motion.duration) {
+    step(); assert.equal(goOn.style.visibility, 'hidden', 'Go on stays offstage while the last item departs'); assertAbove(deck, goOn); inputBlocked(deck);
+  }
+  step(motion.start + motion.duration - .001 - now);
   const transform = goOn.style.transform; step(.002);
-  assert.equal(goOn.parentNode, layer); assert.equal(goOn.style.transform, transform); assert.equal(goOn.style.visibility, 'visible');
-  for (let i = 0; frames.size && i < 2000; i++) { step(); assert.ok(descendants(deck.mount).includes(goOn)); assert.equal(goOn.style.visibility, 'visible', `Go on hidden at frame ${i}, phase ${deck.phase}`); assert.equal(deck.scene.style.visibility, 'hidden'); assert.equal(deck.flip.x, 0); }
-  assert.equal(deck.phase, 'choices'); assert.equal(deck.cards[0], goOn); assert.equal(deck.content.actions[0].id, 'leave'); opaque(deck); dispose(deck, host);
+  assert.equal(goOn.parentNode, layer); assert.equal(goOn.style.transform, transform); assertAbove(deck, goOn);
+  for (let frame = 0; goOn.style.visibility !== 'visible' && frame < 10; frame++) { step(); assertAbove(deck, goOn); }
+  assert.equal(goOn.style.visibility, 'visible'); assert.equal(deck.phase, 'closing');
+  traceReturn(deck, [goOn]);
+  assert.equal(adopted(), 1); assert.equal(deck.phase, 'choices'); assert.equal(deck.cards[0], goOn);
+  assert.equal(deck.content.actions[0].id, 'leave'); assert.equal(deck.cards.length, 1); opaque(deck); dispose(deck, host);
+});
+
+for (const mode of ['reduced', 'hidden']) for (const empty of [false, true]) test(`${mode} during ${empty ? 'empty' : 'nonempty'} return descent finishes once and releases input`, () => {
+  const { deck, host } = chest(); enterChest(deck);
+  let completed = 0;
+  deck.addEventListener('transitioncomplete', event => { if (event.detail.transition === 'close') completed++; });
+  if (empty) { deck.commit(); settle(); deck.commit(); settle(); deck.commit(); }
+  else key(deck, 'ArrowDown');
+  for (let frame = 0; !(deck.returnLift.x > 0 && deck.returnLift.x < 1) && frames.size && frame < 2000; frame++) step();
+  assert.ok(deck.returnLift.x > 0 && deck.returnLift.x < 1, 'interruption occurs while return cards are descending');
+  blockedDuringReturn(deck);
+  if (mode === 'reduced') { deck.media.matches = true; deck.media.dispatchEvent(new Event('change')); }
+  else { document.hidden = true; document.dispatchEvent(new Event('visibilitychange')); }
+  assert.equal(completed, 1); assert.equal(deck.phase, 'choices'); assert.equal(deck.busy, false); assert.equal(deck.frame, 0);
+  assert.equal(deck.content.actions[deck.index].id, empty ? 'leave' : 'open');
+  deck.finishMotion(); assert.equal(completed, 1); assert.equal(deck.start(), true); deck.cancel(); settle();
+  opaque(deck); dispose(deck, host);
 });
 
 test('Open keeps a canceled Go on reverse hidden throughout its direct reveal', () => {

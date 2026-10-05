@@ -65,7 +65,7 @@ function updateScenario({ reason, detail, mode, fixture: selectedFixture, conten
     }
     if (detail.transition === 'close') {
       browse(mode);
-      if (mode === 'entry') status.textContent = 'Go on selected.';
+      if (mode === 'entry') status.textContent = `${content.actions[deck.state.index].label} selected.`;
     }
     if (detail.transition === 'reveal' || (detail.transition === 'collect' && content.actions.length)) browse(mode);
   }

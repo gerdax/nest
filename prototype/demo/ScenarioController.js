@@ -93,7 +93,9 @@ export class ScenarioController {
   }
 
   prepareReturnContent() {
-    this.deck.setReturnContent(createChestEntry(this.remainingIds), { selectedId: 'leave' });
+    this.deck.setReturnContent(createChestEntry(this.remainingIds), {
+      selectedId: this.remainingIds.size ? 'open' : 'leave'
+    });
   }
 
   handleCommit(detail) {

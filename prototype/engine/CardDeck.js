@@ -305,6 +305,12 @@ export class CardDeck extends EventTarget {
       }
     } else {
       this.returning = !!this.returnDeck;
+      if (this.returning) {
+        // Preserve the accepted drag's position while the item fan finishes
+        // compressing; the incoming choices must not retreat before arrival.
+        this.returnLift.target = this.returnLift.x;
+        this.returnLift.v = 0;
+      }
       if (!this.returning) this.skipCover = false;
       this.phase = 'closing';
       this.fan.target = 0;
@@ -371,7 +377,9 @@ export class CardDeck extends EventTarget {
       if (this.fan.x === 1 && this.atRest(this.fan)) this.completePhase('choices', 'reveal');
     } else if (this.phase === 'closing' && this.fan.x === 0 && this.atRest(this.fan)) {
       if (this.returning) {
-        this.returnLift.target = this.cards.length ? 1 : 0;
+        // Bring the preceding choices down from above, even when the last
+        // collectible has already departed and there is nothing to move out.
+        this.returnLift.target = 1;
         if (this.returnLift.x === this.returnLift.target && this.atRest(this.returnLift)) this.completeReturn();
         return;
       }
@@ -385,7 +393,7 @@ export class CardDeck extends EventTarget {
     const key = e.key === 'Enter' ? 'ArrowUp' : e.key === 'Escape' ? 'ArrowDown' : e.key;
     if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key)) return;
     e.preventDefault();
-    if (this.busy || this.openingCommit || this.openingReturn || this.drag || e.repeat) return;
+    if (this.busy || this.openingCommit || this.openingReturn || this.phase === 'closing' || this.drag || e.repeat) return;
     if (key === 'ArrowUp') {
       if (this.phase === 'choices') this.commit();else if (!this.open) {
         this.setOpen(true);
@@ -789,8 +797,9 @@ export class CardDeck extends EventTarget {
       this.completeCommit();
       return;
     }
-    // Two-phase reveal/close can create a new spring target after settling.
-    for (let pass = 0; pass < 4; pass++) {
+    // Collection, return travel, adoption, and fan expansion can each create
+    // another spring target. Finish the whole chain on reduced motion or blur.
+    for (let pass = 0; pass < 8; pass++) {
       for (const state of this.motionStates()) {
         state.x = state.target;
         state.v = 0;

@@ -233,12 +233,10 @@ export function renderDeck(deck, time = performance.now()) {
     applyPose(deck, deck.underlayBack, deck.underlayLayer, backPose(stagedPose), 0);
   }
   renderStagedActions(deck, deck.forwardDeck, 20, forwardActive);
-  renderStagedActions(deck, deck.returnDeck, 10,
+  renderStagedActions(deck, deck.returnDeck, 500,
     (deck.phase === 'closing' && deck.returning)
-      || deck.returnLift.x > 0
-      || (deck.content.interaction === 'container' && deck.cards.length === 0)
-      || (deck.content.interaction === 'container' && deck.cards.length <= 1
-        && (deck.l.x > 0 || !!deck.collectMotion || deck.operation === 'collect')));
+      || deck.returnLift.x > 0,
+    -(1 - clamp(deck.returnLift.x, 0, 1)) * deck.departureTravel());
   const front = scenePose(deck, time);
   applyPose(deck, deck.scene, deck.sceneLayer, front, 1000);
   applyPose(deck, deck.sceneBack, deck.sceneLayer, backPose(front), 1000);
@@ -261,11 +259,11 @@ export function renderDeck(deck, time = performance.now()) {
   announceDeck(deck);
 }
 
-function renderStagedActions(deck, bundle, baseOrder, visible) {
+function renderStagedActions(deck, bundle, baseOrder, visible, y = 0) {
   if (!bundle) return;
   bundle.cards.forEach((card, index) => {
     const rank = (index - bundle.selectedIndex + bundle.cards.length) % bundle.cards.length;
-    const pose = { x: 0, y: 0, z: -36 - rank * deck.settings.stackDepth, rx: 0, ry: 0, rz: 0, visible };
+    const pose = { x: 0, y, z: -36 - rank * deck.settings.stackDepth, rx: 0, ry: 0, rz: 0, visible };
     const order = baseOrder + bundle.cards.length - rank;
     applyPose(deck, card, bundle.cardLayers[index], bundle.content.actions[index].faceDown ? backPose(pose) : pose, order);
     if (bundle.cardBacks[index]) applyPose(deck, bundle.cardBacks[index], bundle.cardLayers[index], { ...pose, ry: 360 }, order);
