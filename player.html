@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>nest · chapter player</title>
+  <link rel="stylesheet" href="./engine/card-deck.css">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #0d120b; color: #dce5ce; font: 15px/1.5 system-ui, sans-serif; }
+    main { max-width: 620px; margin: auto; padding: 28px 24px 40px; }
+    header { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+    h1 { font-size: 28px; margin: 0; font-weight: 500; }
+    a { color: #c0d79e; }
+    .intro { color: #aab59e; }
+    .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 20px; }
+    button, .file-label { background: #24351e; border: 1px solid #687c58; color: #e3edda; border-radius: 8px; padding: 9px 14px; font: inherit; cursor: pointer; }
+    button:disabled { cursor: default; opacity: .45; }
+    button:focus-visible, .file-label:focus-within { outline: 2px solid #c3dd9c; outline-offset: 3px; }
+    .file-label input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+    #message { min-height: 24px; overflow-wrap: anywhere; }
+    #message.error { color: #ffbcab; }
+    #preview { border-top: 1px solid #33402b; margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <main>
+    <header><h1>nest / player</h1><a href="./editor.html">Open editor</a></header>
+    <p class="intro">Play a chapter from the editor, or open an exported chapter JSON file.</p>
+    <h2 id="chapter-name">Chapter</h2>
+    <div class="controls">
+      <label class="file-label">Open JSON<input id="import" type="file" accept=".json,application/json"></label>
+      <button id="play" type="button">Play</button>
+      <button id="restart" type="button">Restart</button>
+      <button id="stop" type="button">Stop</button>
+    </div>
+    <p id="message" role="status" aria-live="polite"></p>
+    <div id="preview"></div>
+  </main>
+  <script type="module">
+    import { Preview } from './editor/preview.js';
+    import { createStarterChapter, parseChapter } from './chapter/model.js';
+    import { loadChapter } from './editor/storage.js';
+
+    const message = document.querySelector('#message');
+    const title = document.querySelector('#chapter-name');
+    const restart = document.querySelector('#restart');
+    const stop = document.querySelector('#stop');
+    const stored = loadChapter();
+    let chapter = stored.chapter ?? createStarterChapter();
+    const preview = new Preview(document.querySelector('#preview'));
+    function report(text, error = false) {
+      message.textContent = text;
+      message.classList.toggle('error', error);
+    }
+    function play() {
+      try {
+        preview.play(chapter);
+        title.textContent = chapter.title || chapter.name || 'Chapter';
+        restart.disabled = false;
+        stop.disabled = false;
+        report('Chapter ready.');
+        return true;
+      } catch (error) { report(error.message, true); return false; }
+    }
+    document.querySelector('#play').addEventListener('click', play);
+    restart.addEventListener('click', play);
+    stop.addEventListener('click', () => {
+      preview.stop();
+      restart.disabled = false;
+      stop.disabled = true;
+      report('Stopped. Play or restart to begin again.');
+    });
+    document.querySelector('#import').addEventListener('change', async event => {
+      const file = event.target.files[0];
+      if (!file) return;
+      try {
+        const imported = parseChapter(await file.text());
+        chapter = imported;
+        if (play()) report(`Opened ${file.name}.`);
+      } catch (error) { report(`Could not open chapter: ${error.message}`, true); }
+      event.target.value = '';
+    });
+    play();
+    if (stored.error) report(`Saved chapter could not be loaded; playing the starter chapter. ${stored.error}`, true);
+    window.addEventListener('pagehide', () => preview.stop());
+  </script>
+</body>
+</html>
