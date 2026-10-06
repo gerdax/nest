@@ -26,9 +26,10 @@ const g=y=>({axis:'y',x:0,y,vx:0,vy:0});
 const near=(a,b,message)=>assert.ok(Math.abs(a-b)<1e-8,`${message}: ${a} != ${b}`);
 
 test('chosen defaults and signed/zero motion tuning are complete',()=>{
-  const expected={stiffness:360,damping:56,mass:1.15,maxTilt:12,axisThreshold:34,distanceThreshold:.14,flickVelocity:325,flickDistance:26,commitDuration:210,perspective:1200,stackDepth:22,liftHeight:56,angularStiffness:350,angularDamping:65,gravity:800,choiceStaggerMs:30,flipLeadMs:100,flipAxisTilt:-1,revealStartScale:.915,revealFullScaleAt:0.167054298371648};
+  const expected={stiffness:360,damping:56,mass:1.15,maxTilt:12,lidAngle:75,lidCloseDelay:100,axisThreshold:34,distanceThreshold:.14,flickVelocity:325,flickDistance:26,commitDuration:210,perspective:1200,stackDepth:22,liftHeight:56,angularStiffness:350,angularDamping:65,gravity:800,choiceStaggerMs:30,flipLeadMs:100,flipAxisTilt:-1,revealStartScale:.915,revealFullScaleAt:0.167054298371648};
   assert.deepEqual(DEFAULT_SETTINGS,expected);assert.deepEqual(JSON.parse(JSON.stringify(settingsWith())),expected);
   const settings=settingsWith({choiceStaggerMs:0,flipLeadMs:0,flipAxisTilt:-9});assert.equal(settings.choiceStaggerMs,0);assert.equal(settings.flipLeadMs,0);assert.equal(settings.flipAxisTilt,-9);
+  assert.equal(settingsWith({lidAngle:0}).lidAngle,0);assert.equal(settingsWith({lidAngle:100}).lidAngle,85);
 });
 test('movement samples interpolate and remain bounded after a long gesture',()=>{
   const h=new MovementHistory(0,0);h.record(20,20);near(h.at(9),9,'interpolation');assert.equal(h.at(-5),0);assert.equal(h.at(30),20);

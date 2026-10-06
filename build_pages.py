@@ -19,6 +19,7 @@ RUNTIME_FILES = (
     "engine/PointerInput.js",
     "engine/geometry.js",
     "engine/motion.js",
+    "engine/lid.js",
     "engine/MovementHistory.js",
     "engine/renderer.js",
     "engine/card-deck.css",

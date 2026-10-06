@@ -3,6 +3,8 @@ export const DEFAULT_SETTINGS = Object.freeze({
   damping: 56,
   mass: 1.15,
   maxTilt: 12,
+  lidAngle: 75,
+  lidCloseDelay: 100,
   axisThreshold: 34,
   distanceThreshold: 0.14,
   flickVelocity: 325,
@@ -89,8 +91,8 @@ export function settingsWith(patch = {}, base = DEFAULT_SETTINGS) {
   };
   for (const key of Object.keys(DEFAULT_SETTINGS)) {
     if (Number.isFinite(patch[key])) {
-      const min = ['maxTilt', 'liftHeight', 'gravity', 'choiceStaggerMs', 'flipLeadMs'].includes(key) ? 0 : key === 'distanceThreshold' ? 0.05 : key === 'perspective' ? 400 : key === 'flipAxisTilt' ? -10 : 0.01;
-      const max = key === 'choiceStaggerMs' ? 60 : key === 'flipLeadMs' ? 100 : key === 'flipAxisTilt' ? 10 : Infinity;
+      const min = ['lidCloseDelay', 'lidAngle', 'maxTilt', 'liftHeight', 'gravity', 'choiceStaggerMs', 'flipLeadMs'].includes(key) ? 0 : key === 'distanceThreshold' ? 0.05 : key === 'perspective' ? 400 : key === 'flipAxisTilt' ? -10 : 0.01;
+      const max = key === 'lidCloseDelay' ? 500 : key === 'lidAngle' ? 85 : key === 'choiceStaggerMs' ? 60 : key === 'flipLeadMs' ? 100 : key === 'flipAxisTilt' ? 10 : Infinity;
       result[key] = clamp(patch[key], min, max);
       if (['revealStartScale', 'revealFullScaleAt'].includes(key)) result[key] = Math.min(1, result[key]);
     }

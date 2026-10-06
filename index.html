@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#151610">
     <title>nest — Card motion playground</title>
-    <link rel="stylesheet" href="./playground.css?v=root-layout-1">
-    <link rel="stylesheet" href="./engine/card-deck.css?v=root-layout-1">
-    <script type="module" src="./playground.js?v=root-layout-1"></script>
+    <link rel="stylesheet" href="./playground.css?v=container-lid-7">
+    <link rel="stylesheet" href="./engine/card-deck.css?v=container-lid-7">
+    <script type="module" src="./playground.js?v=container-lid-7"></script>
   </head>
   <body>
     <div class="shell">
@@ -30,6 +30,7 @@
         <aside class="controls" aria-label="Playground controls">
           <div class="control-intro"><span class="eyebrow">Playground</span><h1>A card. <br>A gesture. <br>A choice.</h1><p>Explore the motion. Tune its response.</p></div>
           <div class="fixture-control"><label for="fixture">Scenario fixture</label><select id="fixture"><option value="2">Two actions</option><option value="3">Three actions</option><option value="4">Four actions</option><option value="chest">Chest with items</option></select></div>
+          <div class="fixture-control"><label><input id="lid-motion" type="checkbox" checked> Container lid motion</label></div>
           <div class="button-row"><button id="reset" type="button">Reset deck</button><button id="copy-settings" type="button">Copy settings ↗</button></div>
           <details class="tuning"><summary>Motion tuning <span>+</span></summary><div id="settings-controls"></div><button id="defaults" class="text-button" type="button">Restore motion defaults</button></details>
           <div id="copy-fallback" hidden><label for="settings-json">Select and copy these settings</label><textarea id="settings-json" readonly rows="12" spellcheck="false"></textarea></div>

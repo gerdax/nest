@@ -192,3 +192,21 @@ test('restart cancels a pending engine commit before replacing content', () => {
   assert.equal(deck.content.id, 'supplies:supply-sequence:box');
   assert.equal(controller.state.activeNodeId, 'supplies');
 });
+
+test('lid experiment opts only Open into hinged departure and closes the next situation after final collection', () => {
+  const { deck, controller } = setup({ startNode: 'supplies', lidMotion: true, rng: () => 0 });
+  assert.equal(deck.content.actions.find(a => a.id === 'open').transition, 'lid');
+  assert.equal(deck.content.actions.find(a => a.id === 'continue').transition, undefined);
+  assert.equal(deck.previews.get('open').lid, true);
+  deck.choose('open');
+  assert.equal(deck.content.lid, true);
+  deck.collect('flashlight');
+  deck.close();
+  assert.equal(deck.content.actions.find(a => a.id === 'open').transition, 'lid');
+  deck.choose('open');
+  deck.collect('goggles');
+  assert.equal(deck.presentation, 'lid');
+  assert.equal(deck.autoClose, false);
+  assert.equal(controller.state.activeNodeId, 'encounter');
+  assert.ok(deck.content.actions.every(action => action.transition === undefined));
+});

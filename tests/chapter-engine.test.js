@@ -57,8 +57,8 @@ test('real engine keyboard reaches every linear card and container before random
   dispose(deck, controller);
 });
 
-for (const reduced of [false, true]) test(`real engine partial/final collection advances correctly, reduced=${reduced}`, () => {
-  const { deck, controller } = fixture({ startNode: 'supplies' });
+for (const reduced of [false, true]) for (const lidMotion of [false, true]) test(`real engine partial/final collection advances correctly, reduced=${reduced}, lid=${lidMotion}`, () => {
+  const { deck, controller } = fixture({ startNode: 'supplies', lidMotion });
   deck.reduced = reduced;
   revealCommit(deck);
   key(deck, 'ArrowUp');
@@ -76,11 +76,11 @@ for (const reduced of [false, true]) test(`real engine partial/final collection 
   dispose(deck, controller);
 });
 
-for (const reduced of [false, true]) test(`real engine terminal collection suppresses empty automatic return, reduced=${reduced}`, () => {
+for (const reduced of [false, true]) for (const lidMotion of [false, true]) test(`real engine terminal collection suppresses empty automatic return, reduced=${reduced}, lid=${lidMotion}`, () => {
   const chapter = createStarterChapter();
   chapter.nodes.find(node => node.id === 'supplies').connections.next = null;
   const deck = new CardDeck(new Element(), { content: { id: 'placeholder', actions: [{ id: 'placeholder', label: 'Placeholder' }] } });
-  const controller = new ChapterController(deck, chapter, { startNode: 'supplies' });
+  const controller = new ChapterController(deck, chapter, { startNode: 'supplies', lidMotion });
   deck.reduced = reduced;
   revealCommit(deck);
   key(deck, 'ArrowUp'); key(deck, 'ArrowUp');

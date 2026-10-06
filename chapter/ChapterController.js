@@ -2,10 +2,11 @@ import { cloneChapter, selectPool, validateChapter } from './model.js';
 
 /** Adapts serializable chapter data to CardDeck's commit/collect choreography. */
 export class ChapterController {
-  constructor(deck, chapter, { startNode, onChange = () => {}, rng = Math.random } = {}) {
+  constructor(deck, chapter, { startNode, onChange = () => {}, rng = Math.random, lidMotion = false } = {}) {
     this.deck = deck;
     this.onChange = onChange;
     this.rng = rng;
+    this.lidMotion = lidMotion;
     this.destroyed = false;
     this.listeners = {
       commit: event => this.commit(event.detail),
@@ -45,6 +46,7 @@ export class ChapterController {
     this.collectedItems = [];
     this.remainingItems = new Map();
     this.completed = false;
+    this.nextPresentation = null;
     this.inContainer = false;
     this.pendingItem = null;
     this.enterNode(nodeId);
@@ -74,7 +76,7 @@ export class ChapterController {
     let actions;
     if (this.sequence.type === 'forked') actions = card.choices.map(choice => ({ ...choice }));
     else if (this.sequence.type === 'container') actions = [
-      { id: 'open', label: 'Open', image: card.image, disabled: this.remaining().length === 0 },
+      { id: 'open', label: 'Open', image: card.image, ...(this.lidMotion ? { transition: 'lid' } : {}), disabled: this.remaining().length === 0 },
       { id: 'continue', label: 'Leave it', image: card.image }
     ];
     else actions = [{ id: 'continue', label: 'Continue', image: card.image }];
@@ -84,7 +86,7 @@ export class ChapterController {
 
   itemContent() {
     return { id: `${this.node.id}:${this.sequence.id}:items`, title: this.card.title, text: this.card.text,
-      image: this.card.image, interaction: 'container', allowClose: true,
+      image: this.card.image, interaction: 'container', allowClose: true, lid: this.lidMotion,
       actions: this.remaining().map(item => ({ ...item })) };
   }
 
@@ -95,7 +97,8 @@ export class ChapterController {
   }
 
   showCard() {
-    this.deck.replaceContent(this.cardContent());
+    this.deck.replaceContent(this.cardContent(), { presentation: this.nextPresentation || 'closed' });
+    this.nextPresentation = null;
     this.configureContainer();
     this.notify();
   }
@@ -141,6 +144,7 @@ export class ChapterController {
       if (!this.remaining().length) {
         // Install the next content now; the engine's identity guard then suppresses automatic close.
         this.inContainer = false;
+        this.nextPresentation = this.lidMotion ? 'lid' : null;
         this.exit(this.sequence.exits[0]);
       } else {
         this.deck.setReturnContent(this.cardContent(), { selectedId: 'open' });
@@ -164,7 +168,8 @@ export class ChapterController {
     this.inContainer = false;
     this.deck.replaceContent({ id: 'chapter-complete', title: 'Chapter complete', text: 'Your expedition is complete.',
       image: this.card.image, interaction: 'choice', allowClose: false,
-      actions: [{ id: 'complete', label: 'Chapter complete', disabled: true }] });
+      actions: [{ id: 'complete', label: 'Chapter complete', disabled: true }] }, { presentation: this.nextPresentation || 'closed' });
+    this.nextPresentation = null;
     this.notify();
   }
 

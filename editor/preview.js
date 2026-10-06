@@ -11,6 +11,8 @@ export class Preview {
     root.innerHTML = `
       <style>
         .chapter-preview { color: #dce5ce; font: 14px/1.5 system-ui, sans-serif; }
+        .chapter-lid-toggle { display: flex; align-items: center; gap: 8px; }
+        .chapter-lid-toggle input { display: inline-block; width: auto; margin: 0; }
         .chapter-preview-stage { display: grid; place-items: center; min-height: 440px; padding: 50px 38px 30px; overflow: hidden; }
         .chapter-preview-deck { width: min(100%, 276px); aspect-ratio: 3 / 4; }
         .chapter-preview-status { overflow-wrap: anywhere; margin: 12px 0; }
@@ -22,12 +24,21 @@ export class Preview {
         @media (max-width: 420px) { .chapter-preview-stage { padding-inline: 22px; min-height: 390px; } .chapter-preview-deck { width: min(100%, 240px); } }
       </style>
       <section class="chapter-preview" aria-label="Chapter preview">
+        <label class="chapter-lid-toggle"><input type="checkbox" checked> Container lid motion</label>
+        <label class="chapter-lid-angle">Lid angle <output>75°</output><input type="range" min="0" max="85" value="75" aria-label="Lid angle"></label>
         <div class="chapter-preview-stage"><div class="chapter-preview-deck" tabindex="0"></div></div>
         <p class="chapter-preview-status" role="status" aria-live="polite">Preview stopped.</p>
         <p class="chapter-preview-hint">Lift up to open or choose. Browse left and right. Down closes a chest. Arrow keys work too.</p>
         <div><strong>Collected items</strong><ul class="chapter-preview-items"><li>None yet.</li></ul></div>
         <div class="chapter-preview-complete" hidden><strong>Chapter complete.</strong> <button type="button">Restart chapter</button></div>
       </section>`;
+    this.lidToggle = root.querySelector('.chapter-lid-toggle input');
+    this.lidToggle.addEventListener('change', () => { if (this.chapter) this.restart(); });
+    this.lidAngle = root.querySelector('.chapter-lid-angle input');
+    this.lidAngle.addEventListener('input', () => {
+      root.querySelector('.chapter-lid-angle output').textContent = `${this.lidAngle.value}°`;
+      this.deck?.updateSettings({ lidAngle: Number(this.lidAngle.value) });
+    });
     this.mount = root.querySelector('.chapter-preview-deck');
     this.status = root.querySelector('.chapter-preview-status');
     this.items = root.querySelector('.chapter-preview-items');
@@ -43,12 +54,12 @@ export class Preview {
     this.chapter = snapshot;
     this.startNode = startNode;
     try {
-      this.deck = new CardDeck(this.mount, { content: {
+      this.deck = new CardDeck(this.mount, { settings: { lidAngle: Number(this.lidAngle.value) }, content: {
         id: 'preview-loading', title: 'Loading chapter', text: '',
         actions: [{ id: 'wait', label: 'Loading', disabled: true }],
       } });
       this.controller = new ChapterController(this.deck, snapshot, {
-        startNode, onChange: state => this.update(state),
+        startNode, lidMotion: this.lidToggle.checked, onChange: state => this.update(state),
       });
       this.mount.focus({ preventScroll: true });
     } catch (error) {

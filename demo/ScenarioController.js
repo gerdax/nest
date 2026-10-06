@@ -29,31 +29,32 @@ export function createStudyContent(index, count) {
   };
 }
 
-export function createChestEntry(remainingIds) {
+export function createChestEntry(remainingIds, lidMotion = false) {
   const available = new Set(remainingIds).size > 0;
   return {
     id: 'chest-entry', interaction: 'choice', ...chestCover,
     actions: [
-      ...(available ? [{ id: 'open', label: 'Open', accessibleLabel: 'Open chest',
+      ...(available ? [{ id: 'open', label: 'Open', ...(lidMotion ? { transition: 'lid' } : {}), accessibleLabel: 'Open chest',
         image: art + 'box.png' }] : []),
       { id: 'leave', label: 'Go on', image: art + 'escape.png' },
     ],
   };
 }
 
-export function createChestContainer(remainingIds) {
+export function createChestContainer(remainingIds, lidMotion = false) {
   const remaining = new Set(remainingIds);
   return {
-    id: 'chest-items', interaction: 'container', ...chestCover,
+    id: 'chest-items', interaction: 'container', lid: lidMotion, ...chestCover,
     actions: chestItems.filter(item => remaining.has(item.id)).map(item => ({ ...item })),
   };
 }
 
 // Session-only fixture logic. The deck owns motion; this host owns narrative meaning.
 export class ScenarioController {
-  constructor(deck, { fixture = '2', onChange = () => {} } = {}) {
+  constructor(deck, { fixture = '2', onChange = () => {}, lidMotion = false } = {}) {
     this.deck = deck;
     this.onChange = onChange;
+    this.lidMotion = lidMotion;
     this.listeners = {
       commit: event => this.handleCommit(event.detail),
       collect: event => this.handleCollect(event.detail),
@@ -64,8 +65,8 @@ export class ScenarioController {
   }
 
   get content() {
-    if (this.mode === 'entry') return createChestEntry(this.remainingIds);
-    if (this.mode === 'container') return createChestContainer(this.remainingIds);
+    if (this.mode === 'entry') return createChestEntry(this.remainingIds, this.lidMotion);
+    if (this.mode === 'container') return createChestContainer(this.remainingIds, this.lidMotion);
     return createStudyContent(this.studyIndex, this.actionCount);
   }
 
@@ -88,12 +89,12 @@ export class ScenarioController {
 
   prepareEntryPreview() {
     if (this.mode === 'entry' && this.remainingIds.size) {
-      this.deck.setActionPreview('open', createChestContainer(this.remainingIds), { presentation: 'open' });
+      this.deck.setActionPreview('open', createChestContainer(this.remainingIds, this.lidMotion), { presentation: 'open' });
     }
   }
 
   prepareReturnContent() {
-    this.deck.setReturnContent(createChestEntry(this.remainingIds), {
+    this.deck.setReturnContent(createChestEntry(this.remainingIds, this.lidMotion), {
       selectedId: this.remainingIds.size ? 'open' : 'leave'
     });
   }
