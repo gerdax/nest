@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#151610">
+    <title>Nest — Card motion playground</title>
+    <link rel="stylesheet" href="./playground.css?v=input-readiness-3">
+    <link rel="stylesheet" href="./engine/card-deck.css?v=input-readiness-3">
+    <script type="module" src="./playground.js?v=input-readiness-3"></script>
+  </head>
+  <body>
+    <div class="shell">
+      <header class="masthead">
+        <a class="wordmark" href="./" aria-label="Nest playground home">NEST</a>
+        <p>Card motion playground <span class="edition">/ 01</span></p>
+      </header>
+      <main>
+        <section class="workspace" aria-label="Card interaction playground">
+          <div class="stage-heading"><span>Interaction study</span><span id="fixture-count">02 actions</span></div>
+          <div class="stage">
+            <div id="deck" tabindex="0" aria-label="Interactive card deck"></div>
+          </div>
+          <div class="stage-footer">
+            <p id="hint">Lift the top card up to uncover actions.</p>
+            <p id="status" role="status" aria-live="polite">Ready.</p>
+          </div>
+          <p class="keyboard-hint">Focus the card for keyboard controls: ↑ reveal / choose / collect · ← → select · Enter choose / collect · ↓ / Esc close container</p>
+        </section>
+        <aside class="controls" aria-label="Playground controls">
+          <div class="control-intro"><span class="eyebrow">Playground</span><h1>A card. <br>A gesture. <br>A choice.</h1><p>Explore the motion. Tune its response.</p></div>
+          <div class="fixture-control"><label for="fixture">Scenario fixture</label><select id="fixture"><option value="2">Two actions</option><option value="3">Three actions</option><option value="4">Four actions</option><option value="chest">Chest with items</option></select></div>
+          <div class="button-row"><button id="reset" type="button">Reset deck</button><button id="copy-settings" type="button">Copy settings ↗</button></div>
+          <details class="tuning"><summary>Motion tuning <span>+</span></summary><div id="settings-controls"></div><button id="defaults" class="text-button" type="button">Restore motion defaults</button></details>
+          <div id="copy-fallback" hidden><label for="settings-json">Select and copy these settings</label><textarea id="settings-json" readonly rows="12" spellcheck="false"></textarea></div>
+          <p class="control-note">Choices advance to the next visual study. The chest remembers collected items until reset.</p>
+        </aside>
+      </main>
+      <footer class="site-footer"><span>Nest / Motion system</span><span>3D motion · Pointer · Keyboard</span></footer>
+    </div>
+  </body>
+</html>
