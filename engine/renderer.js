@@ -1,5 +1,5 @@
-import { handoffRadius, projectedBounds } from './geometry.js?v=current-prototype-1';
-import { carouselPose, clamp, departureDistance, revealScale } from './motion.js?v=current-prototype-1';
+import { handoffRadius, projectedBounds } from './geometry.js?v=root-layout-1';
+import { carouselPose, clamp, departureDistance, revealScale } from './motion.js?v=root-layout-1';
 
 function layerFor(deck, card, className = '') {
   const layer = document.createElement('div');

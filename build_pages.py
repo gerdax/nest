@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage the small static site needed to publish the Nest playground."""
+"""Stage the small static site needed to publish the nest playground."""
 
 from __future__ import annotations
 
@@ -10,19 +10,19 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parent
 RUNTIME_FILES = (
-    "prototype/index.html",
-    "prototype/playground.css",
-    "prototype/playground.js",
-    "prototype/engine/CardDeck.js",
-    "prototype/engine/PointerInput.js",
-    "prototype/engine/geometry.js",
-    "prototype/engine/motion.js",
-    "prototype/engine/MovementHistory.js",
-    "prototype/engine/renderer.js",
-    "prototype/engine/card-deck.css",
-    "prototype/demo/ScenarioController.js",
+    "index.html",
+    "playground.css",
+    "playground.js",
+    "engine/CardDeck.js",
+    "engine/PointerInput.js",
+    "engine/geometry.js",
+    "engine/motion.js",
+    "engine/MovementHistory.js",
+    "engine/renderer.js",
+    "engine/card-deck.css",
+    "demo/ScenarioController.js",
 )
 IMPORT_RE = re.compile(r"(?:from\s*|import\s*)['\"]([^'\"]+)['\"]")
 URL_RE = re.compile(r"url\(\s*(['\"]?)(.*?)\1\s*\)", re.IGNORECASE)
@@ -76,7 +76,7 @@ def main() -> None:
         for match in ASSET_RE.finditer(content):
             filename = match.group(1)
             folder = "fonts" if filename.endswith(".ttf") else "img"
-            asset = ROOT / "prototype" / "assets" / folder / filename
+            asset = ROOT / "assets" / folder / filename
             if not asset.is_file():
                 fail(f"referenced demo asset is missing: {asset.relative_to(ROOT)}")
             assets.add(asset)
@@ -85,14 +85,6 @@ def main() -> None:
         copy_repo_file(relative.as_posix())
 
     (output / ".nojekyll").write_text("", encoding="utf-8")
-    (output / "index.html").write_text(
-        '<!doctype html>\n<html lang="en"><head><meta charset="utf-8">'
-        '<meta http-equiv="refresh" content="0; url=./prototype/">'
-        '<title>Nest</title></head><body><p><a href="./prototype/">Open the Nest card playground</a></p>'
-        '</body></html>\n',
-        encoding="utf-8",
-    )
-
     # Confirm every local static URL and module dependency resolves in the staged tree.
     missing: list[str] = []
     for staged in sorted(copied):
