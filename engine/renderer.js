@@ -1,5 +1,6 @@
-import { handoffRadius, projectedBounds } from './geometry.js?v=root-layout-1';
-import { carouselPose, clamp, departureDistance, revealScale } from './motion.js?v=root-layout-1';
+import { handoffRadius, projectedBounds } from './geometry.js?v=container-lid-11';
+import { carouselPose, clamp, departureDistance, revealScale } from './motion.js?v=container-lid-11';
+import { lidPose, openingLid, heldOpeningProgress } from './lid.js?v=container-lid-11';
 
 function layerFor(deck, card, className = '') {
   const layer = document.createElement('div');
@@ -138,7 +139,7 @@ export function announceDeck(deck) {
 
 export function scenePose(deck, time = performance.now()) {
   const lift = deck.p.x * deck.departureTravel() + (deck.commitMotion ? departureDistance(deck.commitMotion, time) : 0);
-  return {
+  const pose = {
     x: 0, y: -lift, z: 16 - deck.n.x * 40 + Math.min(Math.abs(lift) * 0.08, deck.settings.liftHeight),
     rx: deck.rotationX.x * (1 - clamp(deck.p.x, 0, 1)),
     ry: deck.rotationY.x * (1 - clamp(deck.p.x, 0, 1)),
@@ -146,6 +147,41 @@ export function scenePose(deck, time = performance.now()) {
     rz: deck.rotationZ.x * (1 - clamp(deck.p.x, 0, 1)),
     visible: !deck.skipCover && !(deck.busy && !deck.commitMotion && deck.operation !== 'commit')
   };
+  if (deck.lidArrival && !deck.reduced) {
+    return hingedPose(deck, pose, 1 - deck.lidArrival.x, deck.mount.getBoundingClientRect().height);
+  }
+  return pose;
+}
+
+// A lid swings toward the camera. Keep that hinge inside the camera plane
+// even on tall mounts or when a host selects a short perspective distance.
+function hingedPose(deck, pose, progress, height, openingTwist = false) {
+  const width = Math.max(1, deck.mount.getBoundingClientRect().width);
+  const measuredHeight = Math.max(1, height);
+  const camera = deck.settings.perspective - 12;
+  const make = angle => {
+    const result = lidPose(pose, progress, height, deck.departureTravel(), angle);
+    if (openingTwist) {
+      const t = clamp(progress / .45, 0, 1);
+      const amount = t * t * (3 - 2 * t) * Math.min(1, angle / 75);
+      result.ry -= 3 * amount;
+      result.rz += 2 * amount;
+    }
+    return result;
+  };
+  const safe = value => {
+    try { projectedBounds(value, width, measuredHeight, camera); return true; }
+    catch (error) { if (error instanceof RangeError && error.message.includes('camera plane')) return false; throw error; }
+  };
+  const requested = deck.settings.lidAngle;
+  const result = make(requested);
+  if (safe(result)) return result;
+  let low = 0, high = requested;
+  for (let i = 0; i < 12; i++) {
+    const angle = (low + high) / 2;
+    if (safe(make(angle))) low = angle; else high = angle;
+  }
+  return make(low);
 }
 
 function orbitRadius(deck, width, height) {
@@ -206,6 +242,29 @@ export function cardPose(deck, index, time = performance.now()) {
     && !(deck.busy && deck.operation === 'commit' && (deck.flip.x !== 0 || deck.flip.v !== 0));
   pose.rank = rank;
   const offset = deck.reflowOffsets.get(action.id);
+  if (openingLid(deck)) {
+    const startLift = (deck.commitMotion ? deck.commitMotion.lift : deck.l.x) * height;
+    const held = heldOpeningProgress(startLift, height);
+    const progress = deck.commitMotion
+      ? held + (1 - held) * clamp(departureDistance(deck.commitMotion, time)
+        / Math.max(120, deck.departureTravel() - startLift), 0, 1)
+      : held;
+    const compressed = clamp(progress / .18, 0, 1);
+    const lidRank = deck.choiceRanks.get(action.id) ?? rank;
+    const lidZ = 4 - deck.n.x * 40 - lidRank * deck.settings.stackDepth;
+    // All outgoing decisions share one rigid hinge; only their original fan
+    // offsets compress at the beginning. Ordinary actions retain their throw.
+    const flat = { ...pose,
+      x: pose.x * (1 - compressed),
+      y: (pose.y + deck.choiceLift(index, time)) * (1 - compressed),
+      z: pose.z * (1 - compressed) + lidZ * compressed,
+      rx: pose.rx * (1 - compressed), ry: pose.ry * (1 - compressed), rz: pose.rz * (1 - compressed) };
+    const hinged = hingedPose(deck, flat, progress, height, true);
+    // Offsets describe final physical coordinates, including a previous lid
+    // pose. Apply them after the hinge when a browse transfers lift ownership.
+    if (offset) for (const [field, state] of Object.entries(offset)) hinged[field] += state.x;
+    return hinged;
+  }
   if (offset) for (const [field, state] of Object.entries(offset)) pose[field] += state.x;
   return pose;
 }
@@ -252,7 +311,8 @@ export function renderDeck(deck, time = performance.now()) {
     (deck.phase === 'closing' && deck.returning)
       || deck.returnLift.x > 0,
     -(1 - clamp(deck.returnLift.x, 0, 1)) * deck.departureTravel(),
-    deck.cards.length && (deck.returning || deck.returnLift.x > 0) ? 4 : -36);
+    deck.cards.length && (deck.returning || deck.returnLift.x > 0) ? 4 : -36, 1,
+    deck.content.lid && !deck.reduced ? 1 - clamp(deck.returnLift.x, 0, 1) : null);
   applyPose(deck, deck.scene, deck.sceneLayer, front, 1000);
   applyPose(deck, deck.sceneBack, deck.sceneLayer, backPose(front), 1000);
   deck.scene.setAttribute('aria-hidden', String(deck.open || deck.busy));
@@ -273,11 +333,13 @@ export function renderDeck(deck, time = performance.now()) {
   announceDeck(deck);
 }
 
-function renderStagedActions(deck, bundle, baseOrder, visible, y = 0, z = -36, scale = 1) {
+function renderStagedActions(deck, bundle, baseOrder, visible, y = 0, z = -36, scale = 1, hingeProgress = null) {
   if (!bundle) return;
   bundle.cards.forEach((card, index) => {
     const rank = (index - bundle.selectedIndex + bundle.cards.length) % bundle.cards.length;
-    const pose = { x: 0, y, z: z - rank * deck.settings.stackDepth, rx: 0, ry: 0, rz: 0, scale, visible };
+    let pose = { x: 0, y, z: z - rank * deck.settings.stackDepth, rx: 0, ry: 0, rz: 0, scale, visible };
+    if (hingeProgress !== null) pose = hingedPose(deck, { ...pose, y: 0 }, hingeProgress,
+      deck.mount.getBoundingClientRect().height);
     const order = baseOrder + bundle.cards.length - rank;
     applyPose(deck, card, bundle.cardLayers[index], bundle.content.actions[index].faceDown ? backPose(pose) : pose, order);
     if (bundle.cardBacks[index]) applyPose(deck, bundle.cardBacks[index], bundle.cardLayers[index], { ...pose, face: 360 }, order);

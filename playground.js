@@ -1,12 +1,14 @@
-import { CardDeck, DEFAULT_SETTINGS } from './engine/CardDeck.js?v=root-layout-1';
+import { CardDeck, DEFAULT_SETTINGS } from './engine/CardDeck.js?v=container-lid-11';
 
-import { ScenarioController, createStudyContent } from './demo/ScenarioController.js?v=root-layout-1';
+import { ScenarioController, createStudyContent } from './demo/ScenarioController.js?v=container-lid-11';
 
 const specs = [
   ['stiffness', 'Spring stiffness', 60, 600, 5, ''],
   ['damping', 'Spring damping', 5, 80, 1, ''],
   ['mass', 'Spring mass', 0.25, 3, 0.05, ''],
   ['maxTilt', 'Maximum tilt', 0, 18, 0.5, '°'],
+  ['lidAngle', 'Container lid angle', 0, 85, 1, '°'],
+  ['lidCloseDelay', 'Empty container pause', 0, 500, 10, ' ms'],
   ['axisThreshold', 'Axis lock distance', 2, 40, 1, ' px'],
   ['distanceThreshold', 'Commit distance', 0.1, 0.6, 0.01, ' × card dimension'],
   ['flickVelocity', 'Flick velocity', 200, 1600, 25, ' px/s'],
@@ -28,6 +30,8 @@ const mount = document.querySelector('#deck');
 const hint = document.querySelector('#hint');
 const status = document.querySelector('#status');
 const fixture = document.querySelector('#fixture');
+const requestedFixture = new URLSearchParams(location.search).get('fixture');
+if (['2', '3', '4', 'chest'].includes(requestedFixture)) fixture.value = requestedFixture;
 const controlRoot = document.querySelector('#settings-controls');
 let settings = { ...DEFAULT_SETTINGS };
 const deck = new CardDeck(mount, { content: createStudyContent(0, 2), settings });
@@ -75,7 +79,7 @@ function updateScenario({ reason, detail, mode, fixture: selectedFixture, conten
     if (detail.transition === 'reveal' || (detail.transition === 'collect' && content.actions.length)) browse(mode);
   }
 }
-controller = new ScenarioController(deck, { fixture: fixture.value, onChange: updateScenario });
+controller = new ScenarioController(deck, { fixture: fixture.value, onChange: updateScenario, lidMotion: document.querySelector('#lid-motion').checked });
 
 for (const [key, label, min, max, step, unit] of specs) {
   const row = document.createElement('div');
@@ -156,4 +160,9 @@ window.addEventListener('pagehide', event => {
     controller.destroy();
     deck.destroy();
   }
+});
+
+document.querySelector('#lid-motion').addEventListener('change', event => {
+  controller.lidMotion = event.target.checked;
+  controller.reset(fixture.value);
 });
