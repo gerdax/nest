@@ -1,8 +1,8 @@
-import { projectedBounds, turningBounds } from './geometry.js?v=container-lid-7';
-import { buildDeck, decorateCard, announceDeck, renderDeck, stageNextContent, stageNextBack, stageActionDeck, scenePose, cardPose } from './renderer.js?v=container-lid-7';
-import { MovementHistory } from './MovementHistory.js?v=container-lid-7';
-import { DEFAULT_SETTINGS, settingsWith, spring, springStep, qualifies, resistance, modulo, clamp, carouselPose, departureDistance } from './motion.js?v=container-lid-7';
-import { PointerInput } from './PointerInput.js?v=container-lid-7';
+import { projectedBounds, turningBounds } from './geometry.js?v=container-lid-8';
+import { buildDeck, decorateCard, announceDeck, renderDeck, stageNextContent, stageNextBack, stageActionDeck, scenePose, cardPose } from './renderer.js?v=container-lid-8';
+import { MovementHistory } from './MovementHistory.js?v=container-lid-8';
+import { DEFAULT_SETTINGS, settingsWith, spring, springStep, qualifies, resistance, modulo, clamp, carouselPose, departureDistance } from './motion.js?v=container-lid-8';
+import { PointerInput } from './PointerInput.js?v=container-lid-8';
 export { DEFAULT_SETTINGS };
 
 function validate(content) {

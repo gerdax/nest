@@ -31,3 +31,5 @@ A downward container gesture brings the lid into the visible stage during the dr
 During manual closing the held gesture stops with the lid visibly ajar; full closure runs only after an accepted release. Automatic empty-container closing keeps its existing full motion and pause.
 
 Manual closing uses continuous soft resistance: longer drags keep moving the lid with diminishing response, approaching a slightly open position without hitting a hard stop. Releasing completes the closure.
+
+Checkpoint `d157745` preserves soft manual closing before matching the opening response. Held Open gestures now respond strongly at first and then move more slowly with continuous resistance; the source lid remains partly on stage until release. The accepted release continues from its current pose and finishes revealing the items.

@@ -335,3 +335,25 @@ test('manual closing response stays smooth and keeps moving with diminishing sen
   deck.move(gesture(100.1)); assert.ok(deck.returnLift.x > near && deck.returnLift.x - near < .001, 'no sudden stop or jump');
   deck.cancel(); settle(); dispose(deck, host);
 });
+
+test('held Open has a strong initial response then keeps opening slowly until release', () => {
+  const { deck, host } = chest(); deck.start();
+  deck.move(gesture(-40));
+  assert.ok(cardPose(deck, deck.index).rx > 15, 'initial short gesture opens the hinge noticeably');
+  let lastAngle = 0, lastSlope = Infinity;
+  const distances = [40, 80, 120, 200, 400, 700, 1000];
+  for (let i = 0; i < distances.length; i++) {
+    deck.move(gesture(-distances[i]));
+    const pose = cardPose(deck, deck.index);
+    assert.ok(pose.rx > lastAngle && pose.rx < 65, 'held gesture keeps opening but never completes the lid departure');
+    const slope = (pose.rx - lastAngle) / (distances[i] - (distances[i - 1] || 0));
+    assert.ok(slope > 0 && slope < lastSlope, 'opening response softens as the finger travels farther');
+    assert.ok(projectedBounds(pose, 340, 453, 1200).bottom > 0, 'lid is still partly in the scene');
+    lastAngle = pose.rx; lastSlope = slope;
+  }
+  assert.equal(host.mode, 'entry');
+  const before = poses(deck); deck.end(gesture(-1000));
+  for (const [id, pose] of poses(deck)) samePose(pose, before.get(id), 'release continues from the exact held pose');
+  settle(); assert.equal(host.mode, 'container'); assert.equal(deck.phase, 'choices');
+  dispose(deck, host);
+});

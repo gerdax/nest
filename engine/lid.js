@@ -1,4 +1,4 @@
-import { clamp } from './motion.js?v=container-lid-7';
+import { clamp } from './motion.js?v=container-lid-8';
 
 const ease = value => { const t = clamp(value, 0, 1); return t * t * (3 - 2 * t); };
 
@@ -30,4 +30,11 @@ export function openingLid(deck) {
     : deck.content.actions[deck.index];
   return !deck.reduced && deck.content.interaction === 'choice'
     && !owner?.disabled && owner?.transition === 'lid';
+}
+
+// Strong initial response, followed by a progressively softer held opening.
+// The lid stays on stage until the accepted release completes its departure.
+export function heldOpeningProgress(distance, height) {
+  const lift = Math.max(0, distance);
+  return .32 * lift / (lift + Math.max(1, height * .07));
 }

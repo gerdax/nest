@@ -1,6 +1,6 @@
-import { handoffRadius, projectedBounds } from './geometry.js?v=container-lid-7';
-import { carouselPose, clamp, departureDistance, revealScale } from './motion.js?v=container-lid-7';
-import { lidPose, openingLid } from './lid.js?v=container-lid-7';
+import { handoffRadius, projectedBounds } from './geometry.js?v=container-lid-8';
+import { carouselPose, clamp, departureDistance, revealScale } from './motion.js?v=container-lid-8';
+import { lidPose, openingLid, heldOpeningProgress } from './lid.js?v=container-lid-8';
 
 function layerFor(deck, card, className = '') {
   const layer = document.createElement('div');
@@ -234,9 +234,12 @@ export function cardPose(deck, index, time = performance.now()) {
   pose.rank = rank;
   const offset = deck.reflowOffsets.get(action.id);
   if (openingLid(deck)) {
-    const lift = (deck.commitMotion ? deck.commitMotion.lift : deck.l.x) * height
-      + (deck.commitMotion ? departureDistance(deck.commitMotion, time) : 0);
-    const progress = clamp(lift / deck.departureTravel(), 0, 1);
+    const startLift = (deck.commitMotion ? deck.commitMotion.lift : deck.l.x) * height;
+    const held = heldOpeningProgress(startLift, height);
+    const progress = deck.commitMotion
+      ? held + (1 - held) * clamp(departureDistance(deck.commitMotion, time)
+        / Math.max(120, deck.departureTravel() - startLift), 0, 1)
+      : held;
     const compressed = clamp(progress / .18, 0, 1);
     const lidRank = deck.choiceRanks.get(action.id) ?? rank;
     const lidZ = 4 - deck.n.x * 40 - lidRank * deck.settings.stackDepth;
