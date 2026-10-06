@@ -14,6 +14,16 @@ The bundled development server serves the repository on localhost and disables c
 
 Drag the situation upward off the deck to expose the actions underneath. Browse sideways in either direction; the carousel loops endlessly. Drag upward again to carry the entire action stack away, exposing the next situation beneath it. Ordinary choices stay open once revealed; downward closing is disabled by default. Focus the card to use the arrow keys, Enter, and Escape. The playground offers two-, three-, and four-action fixtures, a chest with three collectible items, motion tuning, a deck reset, and settings export. In the chest fixture, choose Open to lift the choices away and uncover the item cards already underneath. Collect each item separately, or drag down to close the container and bring the Open / Go on choices back down from above, with Open selected. Reopening shows the remaining items. Go on advances to the next visual study. Collected items stay removed for this session until reset or fixture switching; after the last item, the single Go on choice returns from above. If clipboard access is unavailable, settings appear in a selectable text field.
 
+## GitHub Pages
+
+To prepare a minimal static site, run this from the repository root with an empty or new output directory:
+
+```sh
+python3 prototype/build_pages.py /tmp/nest-pages
+```
+
+The output contains the root redirect, `.nojekyll`, the prototype runtime modules, and only the images and fonts referenced by the demo. For each update, stage into a fresh directory, review the files, then copy its contents into a separate checkout of `gh-pages`, preserving that checkout's `.git` directory. Commit and push the updated branch; do not force-push. GitHub Pages uses the `gh-pages` branch and `/ (root)` as its publishing source. Published playground: [Open Nest](https://gerdax.github.io/Nest/).
+
 ## Engine API
 
 ```js
@@ -77,11 +87,11 @@ Arrow Up reveals or commits; Left/Right browse; Down closes containers or conten
 
 The renderer uses native CSS 3D transforms with a perspective camera, depth separation, card-edge shading, and elevation-dependent shadows. Cards remain fully opaque throughout their movement. The next situation is present below the outgoing cards before they depart; there is no arrival from the bottom or fade-in.
 
-Position and angular states use damped springs. The pointer's grab location determines rotational torque, and release velocity contributes to rotational momentum and the shared upward throw. The carousel follows a continuous periodic orbit, including the two-card case, so neither direction reaches an end or jumps across a wrap seam. The selected choice tracks the pointer directly. Other choices sample its interpolated motion history with an 18 ms delay per physical position behind it (18 / 36 / 54 ms for four cards). The cascade continues through departure; zero `choiceStaggerMs` restores simultaneous movement. Canceling, reversing, and re-grabbing preserve current card poses, including when a former follower becomes selected during settling. Containers lift only the selected item for collection.
+Position and angular states use damped springs. The pointer's grab location determines rotational torque, and release velocity contributes to rotational momentum and the shared upward throw. The carousel follows a continuous periodic orbit, including the two-card case, so neither direction reaches an end or jumps across a wrap seam. The selected choice tracks the pointer directly. Other choices sample its interpolated motion history with a 30 ms delay per physical position behind it (30 / 60 / 90 ms for four cards). The cascade continues through departure; zero `choiceStaggerMs` restores simultaneous movement. Canceling, reversing, and re-grabbing preserve current card poses, including when a former follower becomes selected during settling. Containers lift only the selected item for collection.
 
 The compressed choices receive at most 12% of the situation's gesture rotation, capped at 0.9 degrees per axis. This small friction response fades as the cover leaves and the fan opens. The choices do not translate with the cover or inherit its residual tilt on their first gesture.
 
-Branch `codex/reveal-scale` adds a subtle approach effect: cards under an upward-moving situation or choice stack start at 95% scale and reach full size after the first third of their height is exposed. Smoothstep interpolation follows the actual projected edge of the cover, including tilt and depth, so reversing or canceling the swipe reverses the zoom continuously. `revealStartScale` and `revealFullScaleAt` tune these values live. Individual collection keeps the other items still; returning decisions from above keeps its existing scale. Reduced motion disables the additional zoom.
+Branch `codex/reveal-scale` adds a subtle approach effect: cards under an upward-moving situation or choice stack now start at 91.5% scale and reach full size after about 16.7% of their height is exposed. Smoothstep interpolation follows the actual projected edge of the cover, including tilt and depth, so reversing or canceling the swipe reverses the zoom continuously. `revealStartScale` and `revealFullScaleAt` tune these values live. Individual collection keeps the other items still; returning decisions from above keeps its existing scale. Reduced motion disables the additional zoom.
 
 This is a constrained card UI simulation, not a collision or bending simulation. [Three.js CSS3DRenderer](https://threejs.org/docs/pages/CSS3DRenderer.html) would add a scene graph around the same DOM transform rendering; [Rapier](https://rapier.rs/docs/user_guides/javascript/rigid_bodies/) would be appropriate for free rigid bodies, collisions, and joints if the playground later needs tabletop behavior. Rendering and motion remain separate modules to allow such an extension.
 
@@ -107,7 +117,7 @@ The branch `codex/deck-reveal-fixes` preserves the existing repository history. 
 
 ## Card-back reveal experiment
 
-Branch `codex/card-back-reveal` starts from the committed two-card idle fan (`af8f8ca`). For ordinary choice advancement, the real next situation is staged face down underneath the outgoing choice stack. With actual host content available, the next card aims to begin turning 30 ms before the leading card’s 210 ms departure ends. The complete outgoing stack must first clear the next card’s full swept turning area by 8 px; clearance takes precedence over the timing target. The staged turn runs while trailing choices finish departing, and adoption carries its current rotation and velocity into the new deck.
+Branch `codex/card-back-reveal` starts from the committed two-card idle fan (`af8f8ca`). For ordinary choice advancement, the real next situation is staged face down underneath the outgoing choice stack. With actual host content available, the next card aims to begin turning 100 ms before the leading card’s 210 ms departure ends. The complete outgoing stack must first clear the next card’s full swept turning area by 8 px; clearance takes precedence over the timing target. The staged turn runs while trailing choices finish departing, and adoption carries its current rotation and velocity into the new deck.
 
 The front and reverse are two opaque faces in one physical card layer, with `backface-visibility` controlling which face is painted. The reverse uses a Nest pattern and emblem. It is never an extra choice or a placeholder in the browsing carousel. Newly supplied choices remain compressed and hidden during the turn, preventing their artwork from leaking through at the edge-on midpoint.
 
@@ -118,14 +128,21 @@ For ordinary choice advancement, the next card’s reverse is prepared on the fi
 
 ## Motion-polish checkpoint
 
-Local tag `nest-reveal-scale-v1` preserves `82f5001`; branch `codex/motion-polish` begins there. Changes remain local.
+Local tag `nest-reveal-scale-v1` preserves `82f5001`; branch `codex/motion-polish` begins there. The source branch is published to GitHub; the staged static site is published from `gh-pages`.
 
-The actual front and reverse card planes share a physical turn around an axis tilted −3° from vertical, with its upper end leaning left. `flipAxisTilt` tunes that angle from −10° to 10°. Projected bounds and the conservative full-turn clearance envelope use the same transform as the renderer. Both faces have 1 px olive borders, a 45% inset highlight, and a 2 px bottom edge; their surfaces remain opaque.
+The actual front and reverse card planes share a physical turn around an axis tilted −1° from vertical, with its upper end leaning left. `flipAxisTilt` tunes that angle from −10° to 10°. Projected bounds and the conservative full-turn clearance envelope use the same transform as the renderer. Both faces have 1 px olive borders, a 45% inset highlight, and a 2 px bottom edge; their surfaces remain opaque.
 
-New live settings: `choiceStaggerMs` defaults to 18 (0–60 ms), `flipLeadMs` to 30 (0–100 ms), and `flipAxisTilt` to −3 (−10°–10°). The next host content can still arrive asynchronously; no turn starts without it, and the waiting status remains active. Input stays blocked until every departing choice leaves and the incoming presentation settles. The 95% reveal zoom still reaches full size at one-third exposure.
+New live settings: `choiceStaggerMs` defaults to 30 (0–60 ms), `flipLeadMs` to 100 (0–100 ms), and `flipAxisTilt` to −1 (−10°–10°). The next host content can still arrive asynchronously; no turn starts without it, and the waiting status remains active. Input stays blocked until every departing choice leaves and the incoming presentation settles. The reveal zoom starts at 91.5% scale and reaches full size at 0.167054298371648 of the card height exposed (about 16.7%).
 
 The final container item completes collection as soon as its projected card clears the viewport by 8 px. With no survivors, there is no fan-compression or reflow wait: completion and close acceptance occur immediately, and prepared return cards descend on the next animation frame. Individual item collection keeps all other items stationary during lift and flight.
 
 Resizing during choreography finishes the transition safely at the new dimensions. Live camera, axis, tilt, depth, or lift edits during an already-started overlapping flip likewise settle that presentation, avoiding invalidation of its clearance envelope. Reduced motion and tab suspension finish active sequences immediately; reset and destroy clear movement history and pending animation work.
 
 Verification includes deterministic history interpolation, rank delays, cancel/re-grab ownership, early-flip clearance and adoption, immediate empty-container return, geometry, and existing engine/container regressions. Mouse and keyboard were inspected in Chrome and the in-app browser at desktop and narrow sizes. Physical touch-device behavior remains unverified.
+
+
+## Input readiness
+
+Safe departure, turn, and return sequences still block gestures until the current presentation is ready. Springs now finish at visually negligible residuals measured in pixels or degrees, instead of keeping input locked during micro-pixel settling tails. The selected motion defaults are unchanged.
+
+An early pointer press stays captured while the deck prepares. If the player is still holding when it becomes ready, the engine admits a fresh drag from the pointer’s latest position, without requiring another press. Movement and velocity from before readiness are discarded; releasing or canceling before readiness never queues a choice or collection. An accepted reveal keeps expanding while that pointer waits, and an incomplete reveal remains immediately re-grabbable during its spring return. Keyboard presses during unsafe choreography remain ignored.
