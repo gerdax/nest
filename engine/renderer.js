@@ -1,6 +1,6 @@
-import { handoffRadius, projectedBounds } from './geometry.js?v=container-lid-8';
-import { carouselPose, clamp, departureDistance, revealScale } from './motion.js?v=container-lid-8';
-import { lidPose, openingLid, heldOpeningProgress } from './lid.js?v=container-lid-8';
+import { handoffRadius, projectedBounds } from './geometry.js?v=container-lid-11';
+import { carouselPose, clamp, departureDistance, revealScale } from './motion.js?v=container-lid-11';
+import { lidPose, openingLid, heldOpeningProgress } from './lid.js?v=container-lid-11';
 
 function layerFor(deck, card, className = '') {
   const layer = document.createElement('div');
@@ -155,11 +155,20 @@ export function scenePose(deck, time = performance.now()) {
 
 // A lid swings toward the camera. Keep that hinge inside the camera plane
 // even on tall mounts or when a host selects a short perspective distance.
-function hingedPose(deck, pose, progress, height) {
+function hingedPose(deck, pose, progress, height, openingTwist = false) {
   const width = Math.max(1, deck.mount.getBoundingClientRect().width);
   const measuredHeight = Math.max(1, height);
   const camera = deck.settings.perspective - 12;
-  const make = angle => lidPose(pose, progress, height, deck.departureTravel(), angle);
+  const make = angle => {
+    const result = lidPose(pose, progress, height, deck.departureTravel(), angle);
+    if (openingTwist) {
+      const t = clamp(progress / .45, 0, 1);
+      const amount = t * t * (3 - 2 * t) * Math.min(1, angle / 75);
+      result.ry -= 3 * amount;
+      result.rz += 2 * amount;
+    }
+    return result;
+  };
   const safe = value => {
     try { projectedBounds(value, width, measuredHeight, camera); return true; }
     catch (error) { if (error instanceof RangeError && error.message.includes('camera plane')) return false; throw error; }
@@ -250,7 +259,7 @@ export function cardPose(deck, index, time = performance.now()) {
       y: (pose.y + deck.choiceLift(index, time)) * (1 - compressed),
       z: pose.z * (1 - compressed) + lidZ * compressed,
       rx: pose.rx * (1 - compressed), ry: pose.ry * (1 - compressed), rz: pose.rz * (1 - compressed) };
-    const hinged = hingedPose(deck, flat, progress, height);
+    const hinged = hingedPose(deck, flat, progress, height, true);
     // Offsets describe final physical coordinates, including a previous lid
     // pose. Apply them after the hinge when a browse transfers lift ownership.
     if (offset) for (const [field, state] of Object.entries(offset)) hinged[field] += state.x;

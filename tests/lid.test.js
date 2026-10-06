@@ -357,3 +357,24 @@ test('held Open has a strong initial response then keeps opening slowly until re
   settle(); assert.equal(host.mode, 'container'); assert.equal(deck.phase, 'choices');
   dispose(deck, host);
 });
+
+test('Open adds only a tiny Y and Z twist, which reverses on cancel and stays out of items and closing', () => {
+  const { deck, host } = chest(); deck.start(); deck.move(gesture(-150));
+  const pose = cardPose(deck, deck.index);
+  assert.ok(pose.ry < 0 && pose.ry >= -3, 'small Y twist');
+  assert.ok(pose.rz > 0 && pose.rz <= 2, 'small asymmetric Z twist');
+  deck.move(gesture(-70));
+  assert.ok(cardPose(deck, deck.index).ry > pose.ry, 'twist reverses with the gesture');
+  deck.cancel(); settle();
+  assert.equal(cardPose(deck, deck.index).ry, 0);
+  assert.equal(cardPose(deck, deck.index).rz, 0);
+  deck.commit(); settle();
+  assert.equal(cardPose(deck, deck.index).ry, 0);
+  assert.equal(cardPose(deck, deck.index).rz, 0);
+  deck.start(); deck.move(gesture(40));
+  for (const card of deck.returnDeck.cards) {
+    assert.equal(renderedPose(card).ry, 0, 'return lid has no added Y twist');
+    assert.equal(renderedPose(card).rz, 0, 'return lid has no added Z twist');
+  }
+  deck.cancel(); settle(); dispose(deck, host);
+});

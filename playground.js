@@ -1,6 +1,6 @@
-import { CardDeck, DEFAULT_SETTINGS } from './engine/CardDeck.js?v=container-lid-8';
+import { CardDeck, DEFAULT_SETTINGS } from './engine/CardDeck.js?v=container-lid-11';
 
-import { ScenarioController, createStudyContent } from './demo/ScenarioController.js?v=container-lid-8';
+import { ScenarioController, createStudyContent } from './demo/ScenarioController.js?v=container-lid-11';
 
 const specs = [
   ['stiffness', 'Spring stiffness', 60, 600, 5, ''],

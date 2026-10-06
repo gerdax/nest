@@ -33,3 +33,5 @@ During manual closing the held gesture stops with the lid visibly ajar; full clo
 Manual closing uses continuous soft resistance: longer drags keep moving the lid with diminishing response, approaching a slightly open position without hitting a hard stop. Releasing completes the closure.
 
 Checkpoint `d157745` preserves soft manual closing before matching the opening response. Held Open gestures now respond strongly at first and then move more slowly with continuous resistance; the source lid remains partly on stage until release. The accepted release continues from its current pose and finishes revealing the items.
+
+Checkpoint `7f25921` preserves the matching soft opening and closing responses. Opening now adds a subtle asymmetric twist of up to -3 degrees on Y and +2 degrees on Z, gradually following the hinge. Closing and item collection keep their existing motion.
