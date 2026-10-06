@@ -1,6 +1,6 @@
 @font-face {
   font-family: NestLetter;
-  src: url('../../pre_prototype/assets/letter.ttf') format('truetype');
+  src: url('../assets/fonts/letter.ttf') format('truetype');
   font-display: swap;
 }
 .nest-deck {
