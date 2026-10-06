@@ -25,8 +25,8 @@ function make(n=4) { const d=new CardDeck(new Element(),{content:fixture(n)}); d
 const g=y=>({axis:'y',x:0,y,vx:0,vy:0});
 const near=(a,b,message)=>assert.ok(Math.abs(a-b)<1e-8,`${message}: ${a} != ${b}`);
 
-test('screenshot defaults and signed/zero motion tuning are complete',()=>{
-  const expected={stiffness:360,damping:56,mass:1.15,maxTilt:12,axisThreshold:34,distanceThreshold:.14,flickVelocity:325,flickDistance:26,commitDuration:210,perspective:1200,stackDepth:22,liftHeight:56,angularStiffness:350,angularDamping:65,gravity:800,choiceStaggerMs:18,flipLeadMs:30,flipAxisTilt:-3,revealStartScale:.95,revealFullScaleAt:1/3};
+test('chosen defaults and signed/zero motion tuning are complete',()=>{
+  const expected={stiffness:360,damping:56,mass:1.15,maxTilt:12,axisThreshold:34,distanceThreshold:.14,flickVelocity:325,flickDistance:26,commitDuration:210,perspective:1200,stackDepth:22,liftHeight:56,angularStiffness:350,angularDamping:65,gravity:800,choiceStaggerMs:30,flipLeadMs:100,flipAxisTilt:-1,revealStartScale:.915,revealFullScaleAt:0.167054298371648};
   assert.deepEqual(DEFAULT_SETTINGS,expected);assert.deepEqual(JSON.parse(JSON.stringify(settingsWith())),expected);
   const settings=settingsWith({choiceStaggerMs:0,flipLeadMs:0,flipAxisTilt:-9});assert.equal(settings.choiceStaggerMs,0);assert.equal(settings.flipLeadMs,0);assert.equal(settings.flipAxisTilt,-9);
 });
@@ -37,7 +37,7 @@ test('movement samples interpolate and remain bounded after a long gesture',()=>
 for(const count of [2,3,4]) test(`${count} choices follow at exact rank delays through gradual drag, reverse, cancel and re-grab`,()=>{
   const d=make(count);const rest=d.cards.map((_,i)=>cardPose(d,i,now));d.start();d.move(g(-1));const origin=now;
   for(let t=10;t<=140;t+=10) { step(10);d.move(g(-t)); }
-  for(let i=0;i<count;i++) { const rank=d.choiceRanks.get(d.content.actions[i].id);near(d.choiceLift(i,now),140-rank*18,'18ms per position');near(cardPose(d,i,now).y,rest[i].y-(140-rank*18),'physical pose'); }
+  for(let i=0;i<count;i++) { const rank=d.choiceRanks.get(d.content.actions[i].id);near(d.choiceLift(i,now),140-rank*30,'30ms per position');near(cardPose(d,i,now).y,rest[i].y-(140-rank*30),'physical pose'); }
   const before=d.cards.map((_,i)=>cardPose(d,i,now));d.cancel();
   d.cards.forEach((_,i)=>near(cardPose(d,i,now).y,before[i].y,'cancel boundary'));
   step(10); const settling=d.cards.map((_,i)=>cardPose(d,i,now));d.start();d.move(g(0));
@@ -45,7 +45,7 @@ for(const count of [2,3,4]) test(`${count} choices follow at exact rank delays t
   for(let t=0;t<100;t+=10) { step(10);d.move(g(-80+t)); }
   assert.ok(d.choiceHistory.samples.length>3);d.cancel();settle();assert.equal(d.l.x,0);assert.equal(d.choiceHistory,null);d.destroy();
 });
-for(const count of [2,3,4]) for(const stagger of [0,18]) test(`${count} keyboard choices continue ${stagger}ms stagger throughout departure`,()=>{
+for(const count of [2,3,4]) for(const stagger of [0,30]) test(`${count} keyboard choices continue ${stagger}ms stagger throughout departure`,()=>{
   const d=make(count);d.updateSettings({choiceStaggerMs:stagger});const rest=d.cards.map((_,i)=>cardPose(d,i,now));d.commit();const motion=d.commitMotion;
   for(const elapsed of [10,60,150,210])for(let i=0;i<count;i++) {
     const delay=d.choiceRanks.get(d.content.actions[i].id)*stagger;
@@ -56,7 +56,7 @@ for(const count of [2,3,4]) for(const stagger of [0,18]) test(`${count} keyboard
 });
 
 test('earlier flip waits for the full swept plane, then overlaps departure and carries position and velocity into adoption',()=>{
-  const d=make(4);d.mount.top=500;d.addEventListener('commit',()=>d.replaceContent(fixture(2,'next')));let complete=0;d.addEventListener('transitioncomplete',e=>{if(e.detail.transition==='commit')complete++;});
+  const d=make(4);d.updateSettings({choiceStaggerMs:18,flipLeadMs:30,flipAxisTilt:-3});d.mount.top=500;d.addEventListener('commit',()=>d.replaceContent(fixture(2,'next')));let complete=0;d.addEventListener('transitioncomplete',e=>{if(e.detail.transition==='commit')complete++;});
   d.commit();const start=now;step(179);assert.equal(d.nextFlip.target,1);step(1);assert.equal(d.nextFlip.target,0,JSON.stringify({poses:d.cards.map((_,i)=>projectedBounds(cardPose(d,i,now),340,453,1200)),area:turningBounds({z:-24,turnAxis:-3},340,453,1200),time:now-start}));assert.ok(d.commitMotion);assert.ok(d.nextFlip.x<1);
   const area=turningBounds({z:-24,turnAxis:-3},340,453,1200);
   d.cards.forEach((_,i)=>assert.ok(projectedBounds(cardPose(d,i,now),340,453,1200).bottom<=area.top-8));
@@ -85,12 +85,12 @@ test('a newly selected former follower becomes the direct leader without a pose 
   near(cardPose(d,d.index,now).y,leader.y-80,'new selection directly tracks pointer');d.cancel();settle();d.destroy();
 });
 for(const moment of ['before-turn','during-turn']) test(`resize ${moment} safely finishes choreography at the new dimensions`,()=>{
-  const d=make(4);d.mount.top=500;d.addEventListener('commit',()=>d.replaceContent(fixture(2,'resized')));d.commit();step(moment==='during-turn'?180:100);
+  const d=make(4);d.mount.top=500;d.addEventListener('commit',()=>d.replaceContent(fixture(2,'resized')));d.commit();step(moment==='during-turn'?240:100);
   if(moment==='during-turn')assert.equal(d.nextFlip.target,0);
   d.mount.getBoundingClientRect=()=>({left:0,top:500,width:680,height:906});d.resize.callback();
   assert.equal(d.content.id,'resized');assert.equal(d.commitMotion,null);assert.equal(d.busy,false);assert.equal(d.flip.x,0);assert.equal(d.frame,0);d.destroy();
 });
 test('live camera and axis edits during the overlapping turn adopt safely',()=>{
-  const d=make(4);d.mount.top=500;d.addEventListener('commit',()=>d.replaceContent(fixture(2,'tuned')));d.commit();step(180);assert.equal(d.nextFlip.target,0);
+  const d=make(4);d.mount.top=500;d.addEventListener('commit',()=>d.replaceContent(fixture(2,'tuned')));d.commit();step(240);assert.equal(d.nextFlip.target,0);
   d.updateSettings({flipAxisTilt:-10,perspective:650});assert.equal(d.content.id,'tuned');assert.equal(d.flip.x,0);assert.equal(d.settings.flipAxisTilt,-10);assert.equal(d.busy,false);d.destroy();
 });

@@ -1,4 +1,4 @@
-import { classifyAxis } from './motion.js?v=motion-polish-1';
+import { classifyAxis } from './motion.js?v=input-readiness-3';
 
 export class PointerInput {
   constructor(element, callbacks, getSettings) {
@@ -14,9 +14,11 @@ export class PointerInput {
 
   pointerdown(e) {
     if (this.active || !e.isPrimary || e.button !== 0) return;
-    if (this.callbacks.start(e) === false) return;
+    const waiting = this.callbacks.start(e) === false;
+    if (waiting && !this.callbacks.canWait?.()) return;
     this.active = {
       id: e.pointerId,
+      waiting, lastEvent: e,
       x: e.clientX,
       y: e.clientY,
       lastX: e.clientX,
@@ -33,6 +35,15 @@ export class PointerInput {
   pointermove(e) {
     const a = this.active;
     if (!a || a.id !== e.pointerId) return;
+    a.lastEvent = e;
+    if (a.waiting) {
+      a.lastX = e.clientX;
+      a.lastY = e.clientY;
+      a.time = e.timeStamp;
+      this.resume();
+      e.preventDefault();
+      return;
+    }
     const x = e.clientX - a.x,
       y = e.clientY - a.y;
     const dt = Math.max(1, e.timeStamp - a.time) / 1000;
@@ -58,7 +69,7 @@ export class PointerInput {
     // Do not turn a paused drag into a flick using an old move sample.
     const stale = e.timeStamp - a.time > 80;
     this.active = null;
-    this.callbacks.end({
+    if (!a.waiting) this.callbacks.end({
       x: e.clientX - a.x,
       y: e.clientY - a.y,
       axis: a.axis,
@@ -66,6 +77,21 @@ export class PointerInput {
       vy: stale ? 0 : a.vy
     });
     if (this.element.hasPointerCapture(e.pointerId)) this.element.releasePointerCapture(e.pointerId);
+  }
+
+  // An early press stays captured while choreography is unsafe. Admit only
+  // while the pointer is still down, using its latest position as a fresh
+  // origin. Pre-ready displacement and velocity must never become a choice.
+  resume() {
+    const a = this.active;
+    if (!a?.waiting || this.callbacks.start(a.lastEvent) === false) return false;
+    a.waiting = false;
+    a.x = a.lastX = a.lastEvent.clientX;
+    a.y = a.lastY = a.lastEvent.clientY;
+    a.time = Math.max(a.time, performance.now());
+    a.axis = null;
+    a.vx = a.vy = 0;
+    return true;
   }
 
   pointercancel(e) {
@@ -80,7 +106,7 @@ export class PointerInput {
     const a = this.active;
     this.active = null;
     if (a) {
-      this.callbacks.cancel();
+      if (!a.waiting) this.callbacks.cancel();
       if (this.element.hasPointerCapture(a.id)) this.element.releasePointerCapture(a.id);
     }
   }

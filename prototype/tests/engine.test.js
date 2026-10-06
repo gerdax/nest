@@ -299,10 +299,10 @@ test('incoming situation turns its two faces through back, edge and front with n
  assert.equal(d.flip.x,1);assert.equal(d.flip.target,0);assert.equal(d.n.x,1);assert.equal(d.n.target,0);
  assert.equal(d.underlay,null);assert.equal(d.underlayBack,null);assert.deepEqual(d.sceneLayer.children,[d.scene,d.sceneBack]);
  for(const [progress,angle]of [[1,180],[.5,90],[0,0],[1.2,180],[-.2,0]]){
-  d.flip.x=progress;d.render();const pose=renderer.scenePose(d);assert.equal(pose.turn,angle);assert.equal(pose.turnAxis,-3);
+  d.flip.x=progress;d.render();const pose=renderer.scenePose(d);assert.equal(pose.turn,angle);assert.equal(pose.turnAxis,DEFAULT_SETTINGS.flipAxisTilt);
   const back=renderer.backPose(pose);assert.equal(back.turn,pose.turn);assert.equal(back.face,180);
-  assert.ok(d.scene.style.transform.endsWith(`rotateZ(-3deg) rotateY(${angle}deg) rotateZ(3deg) rotateY(0deg)`));
-  assert.ok(d.sceneBack.style.transform.endsWith(`rotateZ(-3deg) rotateY(${angle}deg) rotateZ(3deg) rotateY(180deg)`));
+  assert.ok(d.scene.style.transform.endsWith(`rotateZ(${d.settings.flipAxisTilt}deg) rotateY(${angle}deg) rotateZ(${-d.settings.flipAxisTilt}deg) rotateY(0deg)`));
+  assert.ok(d.sceneBack.style.transform.endsWith(`rotateZ(${d.settings.flipAxisTilt}deg) rotateY(${angle}deg) rotateZ(${-d.settings.flipAxisTilt}deg) rotateY(180deg)`));
   assert.equal(yaw(d.scene),angle);assert.equal(yaw(d.sceneBack),angle+180);
   assert.equal(d.scene.style.visibility,'visible');assert.equal(d.sceneBack.style.visibility,'visible');assertOpaque(d);
  }

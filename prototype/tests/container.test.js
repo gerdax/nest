@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CardDeck } from '../engine/CardDeck.js';
+import { CardDeck, DEFAULT_SETTINGS } from '../engine/CardDeck.js';
 import { cardPose, scenePose } from '../engine/renderer.js';
 import { projectedBounds } from '../engine/geometry.js';
 import { ScenarioController, CHEST_ITEM_IDS, createChestEntry, createChestContainer, createStudyContent } from '../demo/ScenarioController.js';
@@ -95,22 +95,23 @@ function positionAtExposure(deck, fraction, setLift, cover) {
   setLift(high); deck.render();
 }
 
-for (const count of [2, 3, 4]) test(`${count} choices zoom from 95% to full size within the first projected third of uncovering`, () => {
+for (const count of [2, 3, 4]) test(`${count} choices zoom from the configured start scale to full size at the configured exposure`, () => {
   const deck = make(count, fixture(count, 'choice'));
   deck.updateSettings({ maxTilt: 18 });
   deck.rotationX.x = 18; deck.rotationY.x = -18; deck.rotationZ.x = 18;
   deck.render();
-  for (const [id, pose] of poses(deck)) assert.equal(pose.scale, .95, `${id} starts slightly smaller`);
+  for (const [id, pose] of poses(deck)) assert.equal(pose.scale, DEFAULT_SETTINGS.revealStartScale, `${id} starts slightly smaller`);
   assert.equal(renderedScale(deck.scene), 1, 'the cover retains its normal size');
-  let previous = .95;
-  for (const fraction of [1 / 12, 1 / 6, 1 / 4, 1 / 3, .5]) {
+  let previous = DEFAULT_SETTINGS.revealStartScale;
+  for (const progress of [.25, .5, .75, 1, 1.5]) {
+    const fraction = DEFAULT_SETTINGS.revealFullScaleAt * progress;
     positionAtExposure(deck, fraction, value => { deck.p.x = value; }, () => [scenePose(deck)]);
     for (let i = 0; i < count; i++) {
       const scale = cardPose(deck, i, now).scale;
       assert.ok(scale >= previous - 1e-10 && scale <= 1, 'zoom increases without overshoot');
       assert.equal(renderedScale(deck.cards[i]), scale, 'rendered cards use the physical pose scale');
-      if (fraction === 1 / 6) assert.ok(Math.abs(scale - .975) < 1e-8, 'halfway through the reveal zoom');
-      if (fraction >= 1 / 3) assert.equal(scale, 1, 'full size by one third of visible exposure');
+      if (progress === .5) assert.ok(Math.abs(scale - (1 + DEFAULT_SETTINGS.revealStartScale) / 2) < 1e-8, 'halfway through the reveal zoom');
+      if (progress >= 1) assert.equal(scale, 1, 'full size at the configured visible exposure');
     }
     previous = cardPose(deck, 0, now).scale;
   }
@@ -121,23 +122,23 @@ for (const outcome of ['cancel', 'incomplete']) test(`${outcome} uncover reverse
   const deck = make(3, fixture(3, 'choice')); deck.updateSettings({ maxTilt: 0 });
   deck.start(); deck.move(gesture(-60));
   let previous = cardPose(deck, 0, now).scale;
-  assert.ok(previous > .95 && previous < 1);
+  assert.ok(previous > DEFAULT_SETTINGS.revealStartScale && previous < 1);
   if (outcome === 'cancel') deck.cancel(); else deck.end(gesture(-60));
   for (let i = 0; frames.size && i < 2000; i++) {
     step(); const scale = cardPose(deck, 0, now).scale;
     assert.ok(scale <= previous + 1e-10, 'returning cover smoothly reverses zoom'); previous = scale;
   }
-  assert.equal(frames.size, 0); assert.equal(deck.phase, 'closed'); assert.equal(previous, .95);
+  assert.equal(frames.size, 0); assert.equal(deck.phase, 'closed'); assert.equal(previous, DEFAULT_SETTINGS.revealStartScale);
   dispose(deck);
 });
 
 for (const interruption of ['reset', 'replace']) test(`${interruption} during source uncover restores scale without stale motion`, () => {
   const deck = make(3, fixture(3, 'choice')); deck.start(); deck.move(gesture(-60));
-  assert.ok(cardPose(deck, 0, now).scale > .95);
+  assert.ok(cardPose(deck, 0, now).scale > DEFAULT_SETTINGS.revealStartScale);
   if (interruption === 'replace') deck.replaceContent(fixture(2, 'choice')); else deck.reset();
   settle(); assert.equal(deck.frame, 0); assert.equal(deck.drag, null); assert.equal(deck.phase, 'closed');
-  for (const pose of poses(deck).values()) assert.equal(pose.scale, .95);
-  deck.cards.forEach(card => assert.equal(renderedScale(card), .95)); dispose(deck);
+  for (const pose of poses(deck).values()) assert.equal(pose.scale, DEFAULT_SETTINGS.revealStartScale);
+  deck.cards.forEach(card => assert.equal(renderedScale(card), DEFAULT_SETTINGS.revealStartScale)); dispose(deck);
 });
 
 for (const mode of ['reduced', 'hidden']) test(`${mode} finishes source reveal at full size without remaining motion`, () => {
@@ -158,19 +159,20 @@ for (const count of [2, 3, 4]) for (const destination of ['back', 'items']) test
   deck.choiceHistory = null; // This geometry probe sets lift directly rather than replaying timed input.
   deck.rotationX.x = 18; deck.rotationY.x = -18; deck.rotationZ.x = 18;
   const destinationCards = destination === 'items' ? deck.forwardDeck.cards : [deck.underlayBack];
-  deck.render(); destinationCards.forEach(card => assert.equal(renderedScale(card), .95));
-  let previous = .95;
-  for (const fraction of [1 / 12, 1 / 6, 1 / 4, 1 / 3, .5]) {
+  deck.render(); destinationCards.forEach(card => assert.equal(renderedScale(card), DEFAULT_SETTINGS.revealStartScale));
+  let previous = DEFAULT_SETTINGS.revealStartScale;
+  for (const progress of [.25, .5, .75, 1, 1.5]) {
+    const fraction = DEFAULT_SETTINGS.revealFullScaleAt * progress;
     positionAtExposure(deck, fraction, value => { deck.l.x = value; }, () => [...poses(deck).values()]);
     const scale = renderedScale(destinationCards[0]);
     assert.ok(scale >= previous - 1e-10 && scale <= 1);
     destinationCards.forEach(card => assert.equal(renderedScale(card), scale, 'all cards underneath share the same zoom'));
-    if (fraction === 1 / 6) assert.ok(Math.abs(scale - .975) < 1e-8);
-    if (fraction >= 1 / 3) assert.equal(scale, 1);
+    if (progress === .5) assert.ok(Math.abs(scale - (1 + DEFAULT_SETTINGS.revealStartScale) / 2) < 1e-8);
+    if (progress >= 1) assert.equal(scale, 1);
     previous = scale;
   }
   deck.cancel(); settle();
-  destinationCards.forEach(card => assert.equal(renderedScale(card), .95, 'cancellation restores the staged scale'));
+  destinationCards.forEach(card => assert.equal(renderedScale(card), DEFAULT_SETTINGS.revealStartScale, 'cancellation restores the staged scale'));
   assert.equal(deck.phase, 'choices'); for (const pose of poses(deck).values()) assert.equal(pose.scale, 1);
   dispose(deck);
 });

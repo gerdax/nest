@@ -14,11 +14,11 @@ export const DEFAULT_SETTINGS = Object.freeze({
   angularStiffness: 350,
   angularDamping: 65,
   gravity: 800,
-  revealStartScale: .95,
-  revealFullScaleAt: 1 / 3,
-  choiceStaggerMs: 18,
-  flipLeadMs: 30,
-  flipAxisTilt: -3
+  revealStartScale: .915,
+  revealFullScaleAt: 0.167054298371648,
+  choiceStaggerMs: 30,
+  flipLeadMs: 100,
+  flipAxisTilt: -1
 });
 export function classifyAxis(x, y, threshold = DEFAULT_SETTINGS.axisThreshold) {
   return Math.hypot(x, y) < threshold ? null : Math.abs(x) > Math.abs(y) ? 'x' : 'y';

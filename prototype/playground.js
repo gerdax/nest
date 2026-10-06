@@ -1,6 +1,6 @@
-import { CardDeck, DEFAULT_SETTINGS } from './engine/CardDeck.js?v=motion-polish-1';
+import { CardDeck, DEFAULT_SETTINGS } from './engine/CardDeck.js?v=input-readiness-3';
 
-import { ScenarioController, createStudyContent } from './demo/ScenarioController.js?v=motion-polish-1';
+import { ScenarioController, createStudyContent } from './demo/ScenarioController.js?v=input-readiness-3';
 
 const specs = [
   ['stiffness', 'Spring stiffness', 60, 600, 5, ''],

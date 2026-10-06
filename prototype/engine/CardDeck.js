@@ -1,8 +1,8 @@
-import { projectedBounds, turningBounds } from './geometry.js?v=motion-polish-1';
-import { buildDeck, decorateCard, announceDeck, renderDeck, stageNextContent, stageNextBack, stageActionDeck, scenePose, cardPose } from './renderer.js?v=motion-polish-1';
-import { MovementHistory } from './MovementHistory.js?v=motion-polish-1';
-import { DEFAULT_SETTINGS, settingsWith, spring, springStep, qualifies, resistance, modulo, clamp, carouselPose, departureDistance } from './motion.js?v=motion-polish-1';
-import { PointerInput } from './PointerInput.js?v=motion-polish-1';
+import { projectedBounds, turningBounds } from './geometry.js?v=input-readiness-3';
+import { buildDeck, decorateCard, announceDeck, renderDeck, stageNextContent, stageNextBack, stageActionDeck, scenePose, cardPose } from './renderer.js?v=input-readiness-3';
+import { MovementHistory } from './MovementHistory.js?v=input-readiness-3';
+import { DEFAULT_SETTINGS, settingsWith, spring, springStep, qualifies, resistance, modulo, clamp, carouselPose, departureDistance } from './motion.js?v=input-readiness-3';
+import { PointerInput } from './PointerInput.js?v=input-readiness-3';
 export { DEFAULT_SETTINGS };
 
 function validate(content) {
@@ -91,6 +91,7 @@ export class CardDeck extends EventTarget {
     });
     this.input = new PointerInput(mount, {
       start: e => this.start(e),
+      canWait: () => !this.destroyed,
       move: g => this.move(g),
       end: g => this.end(g),
       cancel: () => this.cancel()
@@ -162,6 +163,22 @@ export class CardDeck extends EventTarget {
     return { ...this.settings, stiffness: this.settings.angularStiffness, damping: this.settings.angularDamping };
   }
 
+  stepAngular(state, dt) {
+    // These states use degrees, except flip, which represents half a turn.
+    const precision = state === this.flip || state === this.nextFlip ? 1 / 180 : .05;
+    return springStep(state, dt, { ...this.angularSettings(), precision });
+  }
+
+  stepPosition(state, dt) {
+    const { height } = this.mount.getBoundingClientRect();
+    // Stop at visually negligible residuals, rather than micro-pixel values
+    // that keep otherwise finished presentations locked for another second.
+    const precision = state === this.fan ? .01 : state === this.n ? .25 / 40
+      : state === this.p || state === this.returnLift ? .25 / this.departureTravel()
+        : state === this.l ? .25 / Math.max(1, height) : state === this.b ? 1e-6 : .25;
+    return springStep(state, dt, { ...this.settings, precision });
+  }
+
   beginChoiceHistory(time = performance.now()) {
     if (this.choiceHistory || this.content.interaction !== 'choice') return;
     this.choiceHistory = new MovementHistory(time - .001, this.l.x);
@@ -201,7 +218,7 @@ export class CardDeck extends EventTarget {
   }
 
   start(event) {
-    if (this.destroyed || this.busy || this.openingCommit || this.openingReturn || this.phase === 'closing') return false;
+    if (this.destroyed || this.busy || this.openingCommit || this.openingReturn || ['closing', 'revealing'].includes(this.phase)) return false;
     this.mount.focus({ preventScroll: true });
     const bounds = this.mount.getBoundingClientRect();
     const grab = {
@@ -360,6 +377,13 @@ export class CardDeck extends EventTarget {
   }
 
   setOpen(value) {
+    if (!value && !this.open && this.phase === 'closed') {
+      // An unaccepted uncover is still the same closed card. Its spring return
+      // can be re-grabbed immediately; it is not a blocking close sequence.
+      this.p.target = 0;
+      this.operation = 'settle';
+      return;
+    }
     if (!value && this.open && !this.content.allowClose) return;
     if (value && !this.cards.length) return;
     const changed = this.open !== value;
@@ -830,7 +854,7 @@ export class CardDeck extends EventTarget {
         this.completeCollection();
         this.last = 0;
       } else {
-        for (const rotation of [this.rotationX, this.rotationY, this.rotationZ]) springStep(rotation, dt, this.angularSettings());
+        for (const rotation of [this.rotationX, this.rotationY, this.rotationZ]) this.stepAngular(rotation, dt);
         this.render(t);
       }
       this.schedule();
@@ -844,15 +868,15 @@ export class CardDeck extends EventTarget {
         this.last = 0;
         return;
       }
-      for (const rotation of [this.rotationX, this.rotationY, this.rotationZ, this.nextFlip]) springStep(rotation, dt, this.angularSettings());
+      for (const rotation of [this.rotationX, this.rotationY, this.rotationZ, this.nextFlip]) this.stepAngular(rotation, dt);
       this.render(t);
       this.schedule();
       return;
     }
-    const angularMoving = [this.rotationX, this.rotationY, this.rotationZ, this.flip].map(rotation => springStep(rotation, dt, this.angularSettings())).some(Boolean);
+    const angularMoving = [this.rotationX, this.rotationY, this.rotationZ, this.flip].map(rotation => this.stepAngular(rotation, dt)).some(Boolean);
     if (this.drag) {
       for (const offset of this.reflowOffsets.values()) for (const [field, state] of Object.entries(offset)) {
-        springStep(state, dt, field.startsWith('r') ? this.angularSettings() : this.settings);
+        if (field.startsWith('r')) this.stepAngular(state, dt); else this.stepPosition(state, dt);
       }
       this.sampleChoices(t);
       this.render(t);
@@ -860,10 +884,10 @@ export class CardDeck extends EventTarget {
       return;
     }
     for (const state of [this.p, this.b, this.l, this.n, this.fan, this.returnLift]) {
-      springStep(state, dt, { ...this.settings, precision: [this.p, this.b, this.l, this.returnLift].includes(state) ? 1e-6 : .001 });
+      this.stepPosition(state, dt);
     }
     for (const offset of this.reflowOffsets.values()) for (const [field, state] of Object.entries(offset)) {
-      springStep(state, dt, field.startsWith('r') ? this.angularSettings() : this.settings);
+      if (field.startsWith('r')) this.stepAngular(state, dt); else this.stepPosition(state, dt);
     }
     if (this.liftPoses && this.atRest(this.l) && [this.rotationX, this.rotationY, this.rotationZ].every(s => this.atRest(s))) this.restoreLiftPoses();
     this.sampleChoices(t);
@@ -880,9 +904,10 @@ export class CardDeck extends EventTarget {
         if (transition === 'collect') {
           this.finishCollection();
           if (this.phase === 'closing') this.schedule();
+          this.input.resume();
           return;
         }
-        if (transition === 'commit') { this.finishCommitTransition(); return; }
+        if (transition === 'commit') { this.finishCommitTransition(); this.input.resume(); return; }
         this.operation = null;
         this.reflowOffsets.clear();
         this.emit('transitioncomplete', {
@@ -890,6 +915,7 @@ export class CardDeck extends EventTarget {
         });
       }
     }
+    this.input.resume();
   }
 
   finishMotion() {
@@ -919,13 +945,14 @@ export class CardDeck extends EventTarget {
     this.render();
     if (this.operation) {
       const transition = this.operation;
-      if (transition === 'commit') { this.finishCommitTransition(); return; }
+      if (transition === 'commit') { this.finishCommitTransition(); this.input.resume(); return; }
       this.operation = null;
       this.reflowOffsets.clear();
       this.emit('transitioncomplete', {
         transition
       });
     }
+    this.input.resume();
   }
 
   render(t) {
