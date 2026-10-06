@@ -128,7 +128,7 @@ For ordinary choice advancement, the next card’s reverse is prepared on the fi
 
 ## Motion-polish checkpoint
 
-Local tag `nest-reveal-scale-v1` preserves `82f5001`; branch `codex/motion-polish` begins there. The source branch is published to GitHub; the staged static site is published from `gh-pages`.
+Local tag `nest-reveal-scale-v1` preserves `82f5001`; branch `codex/motion-polish` begins there. The current source is published on `main`; the staged static site is published from `gh-pages`.
 
 The actual front and reverse card planes share a physical turn around an axis tilted −1° from vertical, with its upper end leaning left. `flipAxisTilt` tunes that angle from −10° to 10°. Projected bounds and the conservative full-turn clearance envelope use the same transform as the renderer. Both faces have 1 px olive borders, a 45% inset highlight, and a 2 px bottom edge; their surfaces remain opaque.
 
@@ -146,3 +146,7 @@ Verification includes deterministic history interpolation, rank delays, cancel/r
 Safe departure, turn, and return sequences still block gestures until the current presentation is ready. Springs now finish at visually negligible residuals measured in pixels or degrees, instead of keeping input locked during micro-pixel settling tails. The selected motion defaults are unchanged.
 
 An early pointer press stays captured while the deck prepares. If the player is still holding when it becomes ready, the engine admits a fresh drag from the pointer’s latest position, without requiring another press. Movement and velocity from before readiness are discarded; releasing or canceling before readiness never queues a choice or collection. An accepted reveal keeps expanding while that pointer waits, and an incomplete reveal remains immediately re-grabbable during its spring return. Keyboard presses during unsafe choreography remain ignored.
+
+## Project assets
+
+The current prototype owns its artwork in `assets/img` and fonts in `assets/fonts`. The original `pre_prototype` archive is excluded from the current Git tree and retained locally; previous versions remain recoverable from Git history.

@@ -1,4 +1,4 @@
-const art = '../pre_prototype/img/';
+const art = './assets/img/';
 const studies = [
   { title: 'The corridor', text: 'A passage in low light.', image: 'corridor_02.png' },
   { title: 'The surface', text: 'A fragment of the outside.', image: 'city.png' },

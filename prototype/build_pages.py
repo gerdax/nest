@@ -26,7 +26,7 @@ RUNTIME_FILES = (
 )
 IMPORT_RE = re.compile(r"(?:from\s*|import\s*)['\"]([^'\"]+)['\"]")
 URL_RE = re.compile(r"url\(\s*(['\"]?)(.*?)\1\s*\)", re.IGNORECASE)
-ASSET_RE = re.compile(r"(?:\.\./pre_prototype/(?:img|assets)/|\b)([\w.-]+\.(?:png|ttf))")
+ASSET_RE = re.compile(r"\b([\w.-]+\.(?:png|ttf))")
 
 
 def fail(message: str) -> None:
@@ -75,8 +75,8 @@ def main() -> None:
         content = source.read_text(encoding="utf-8")
         for match in ASSET_RE.finditer(content):
             filename = match.group(1)
-            folder = "assets" if filename.endswith(".ttf") else "img"
-            asset = ROOT / "pre_prototype" / folder / filename
+            folder = "fonts" if filename.endswith(".ttf") else "img"
+            asset = ROOT / "prototype" / "assets" / folder / filename
             if not asset.is_file():
                 fail(f"referenced demo asset is missing: {asset.relative_to(ROOT)}")
             assets.add(asset)
