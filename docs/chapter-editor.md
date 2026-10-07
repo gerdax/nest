@@ -23,3 +23,7 @@ The container flow uses no lid animation or Open / Leave selection. A single upw
 ## Previous checkpoints
 
 `e52dacd` preserves the first editor and player. `d157745`, `7f25921`, and `f9387f8` preserve the retired lid experiments and their publication. Their code can be recovered from Git history; the active prototype uses the direct item flow above.
+
+## Vertical grab camera experiment
+
+Checkpoint `60e2db4` preserves the direct item flow before this change. Confirmed vertical pointer gestures subtly lift the grabbed card toward the camera. Horizontal browsing and pointer down alone do not trigger it. Ordinary action stacks follow their existing stagger; container gestures affect only the selected item. The playground exposes `grabLift` for comparison, including zero to disable it.

@@ -11,6 +11,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   perspective: 1200,
   stackDepth: 22,
   liftHeight: 56,
+  grabLift: 24,
   angularStiffness: 350,
   angularDamping: 65,
   gravity: 800,
@@ -89,7 +90,7 @@ export function settingsWith(patch = {}, base = DEFAULT_SETTINGS) {
   };
   for (const key of Object.keys(DEFAULT_SETTINGS)) {
     if (Number.isFinite(patch[key])) {
-      const min = ['maxTilt', 'liftHeight', 'gravity', 'choiceStaggerMs', 'flipLeadMs'].includes(key) ? 0 : key === 'distanceThreshold' ? 0.05 : key === 'perspective' ? 400 : key === 'flipAxisTilt' ? -10 : 0.01;
+      const min = ['maxTilt', 'liftHeight', 'grabLift', 'gravity', 'choiceStaggerMs', 'flipLeadMs'].includes(key) ? 0 : key === 'distanceThreshold' ? 0.05 : key === 'perspective' ? 400 : key === 'flipAxisTilt' ? -10 : 0.01;
       const max = key === 'choiceStaggerMs' ? 60 : key === 'flipLeadMs' ? 100 : key === 'flipAxisTilt' ? 10 : Infinity;
       result[key] = clamp(patch[key], min, max);
       if (['revealStartScale', 'revealFullScaleAt'].includes(key)) result[key] = Math.min(1, result[key]);

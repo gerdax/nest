@@ -1,7 +1,7 @@
-import { CardDeck, DEFAULT_SETTINGS } from './engine/CardDeck.js?v=container-items-1';
+import { CardDeck, DEFAULT_SETTINGS } from './engine/CardDeck.js?v=grab-camera-1';
 
-import { ScenarioController, createStudyContent } from './demo/ScenarioController.js?v=container-items-1';
-import { InventoryStrip } from './demo/InventoryStrip.js?v=container-items-1';
+import { ScenarioController, createStudyContent } from './demo/ScenarioController.js?v=grab-camera-1';
+import { InventoryStrip } from './demo/InventoryStrip.js?v=grab-camera-1';
 
 const specs = [
   ['stiffness', 'Spring stiffness', 60, 600, 5, ''],
@@ -16,6 +16,7 @@ const specs = [
   ['perspective', 'Perspective distance', 650, 2000, 25, ' px'],
   ['stackDepth', 'Card depth separation', 4, 30, 1, ' px'],
   ['liftHeight', 'Lift off deck', 0, 60, 2, ' px'],
+  ['grabLift', 'Vertical grab camera lift', 0, 24, 1, ' px'],
   ['angularStiffness', 'Rotational stiffness', 60, 400, 5, ''],
   ['angularDamping', 'Rotational damping', 5, 80, 1, ''],
   ['gravity', 'Throw gravity', 0, 3000, 50, ' px/s²'],

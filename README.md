@@ -94,6 +94,12 @@ Reveal zoom starts at 91.5% and reaches full size after approximately 16.7% of t
 
 An early pointer press remains captured while the presentation is busy. If still held when ready, the engine begins a fresh gesture from the latest pointer position without replaying earlier movement. Releasing before readiness does not queue an action.
 
+## Vertical grab camera experiment
+
+Checkpoint `60e2db4` preserves direct container take/discard and inventory before this experiment. Once a pointer gesture is confirmed as vertical, the grabbed card approaches the camera slightly. Pointer down, movement below axis recognition, and horizontal carousel gestures do not trigger it. A situation lifts only its cover; containers lift only the selected item; ordinary action stacks follow the existing `choiceStaggerMs` cascade.
+
+`grabLift` defaults to 24 pixels, capped at two percent of the current perspective distance. Set it to zero in Motion tuning to compare without the effect. Canceling releases the pickup smoothly; an accepted departure keeps it until the incoming content takes over. Reduced motion omits this added animation. Keyboard commands retain their normal presentation.
+
 ## GitHub Pages
 
 ```sh

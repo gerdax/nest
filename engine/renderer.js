@@ -1,5 +1,5 @@
-import { handoffRadius, projectedBounds } from './geometry.js?v=container-items-1';
-import { carouselPose, clamp, departureDistance, revealScale } from './motion.js?v=container-items-1';
+import { handoffRadius, projectedBounds } from './geometry.js?v=grab-camera-1';
+import { carouselPose, clamp, departureDistance, revealScale } from './motion.js?v=grab-camera-1';
 
 function layerFor(deck, card, className = '') {
   const layer = document.createElement('div');
@@ -141,7 +141,7 @@ export function announceDeck(deck) {
 export function scenePose(deck, time = performance.now()) {
   const lift = deck.p.x * deck.departureTravel() + (deck.commitMotion ? departureDistance(deck.commitMotion, time) : 0);
   const pose = {
-    x: 0, y: -lift, z: 16 - deck.n.x * 40 + Math.min(Math.abs(lift) * 0.08, deck.settings.liftHeight),
+    x: 0, y: -lift, z: 16 - deck.n.x * 40 + deck.grabAmount() + Math.min(Math.abs(lift) * 0.08, deck.settings.liftHeight),
     rx: deck.rotationX.x * (1 - clamp(deck.p.x, 0, 1)),
     ry: deck.rotationY.x * (1 - clamp(deck.p.x, 0, 1)),
     turn: clamp(deck.flip.x, 0, 1) * 180, turnAxis: deck.settings.flipAxisTilt,
@@ -179,6 +179,7 @@ export function cardPose(deck, index, time = performance.now()) {
       pose.rz += deck.rotationZ.x - deck.liftRotation.z;
       for (const field of ['rx', 'ry', 'rz']) pose[field] = clamp(pose[field], -deck.settings.maxTilt, deck.settings.maxTilt);
     }
+    pose.z += deck.grabAmount(action.id);
     return pose;
   }
   const pose = carouselPose(index, cursor, deck.cards.length, width, deck.settings, orbitRadius(deck, width, height));
@@ -211,6 +212,7 @@ export function cardPose(deck, index, time = performance.now()) {
   pose.rank = rank;
   const offset = deck.reflowOffsets.get(action.id);
   if (offset) for (const [field, state] of Object.entries(offset)) pose[field] += state.x;
+  pose.z += deck.grabAmount(action.id);
   return pose;
 }
 
