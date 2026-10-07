@@ -72,14 +72,27 @@ export class ChapterController {
     return this.remainingItems.get(key);
   }
 
-  cardContent(destination = this) {
+  cardContent(destination = this, { preview = true } = {}) {
     const { card, sequence, node } = destination;
     let actions;
     if (sequence.type === 'forked') actions = card.choices.map(choice => ({ ...choice }));
     else if (sequence.type === 'container') actions = (this.remainingItems.get(this.containerKey(destination)) ?? sequence.items).map(item => ({ ...item }));
     else actions = [{ id: 'continue', label: 'Continue', image: card.image }];
-    return { id: `${node.id}:${sequence.id}:${card.id}`, title: card.title, text: card.text,
-      image: card.image, interaction: sequence.type === 'container' ? 'container' : 'choice', allowClose: false, actions };
+    let successor = sequence.type === 'linear' ? sequence.cards[sequence.cards.indexOf(card) + 1] : null;
+    let successorDestination = successor ? { node, sequence, card: successor } : null;
+    if (preview && sequence.type === 'linear' && !successor && !destination.queue?.length) {
+      const target = this.nodes.get(node.connections[node.type === 'random' ? 'next' : sequence.exits[0]]);
+      if (target?.type === 'static') {
+        const nextSequence = this.sequences.get(target.sequenceId);
+        successorDestination = { node: target, sequence: nextSequence, card: nextSequence.cards[0] };
+      }
+    }
+    const nextDeckPreview = preview && successorDestination ? {
+      content: this.cardContent(successorDestination, { preview: false }),
+      presentation: successorDestination.sequence.decisionOnly ? 'open' : 'closed'
+    } : null;
+    return { nextDeckPreview, nextCardPreview: successor ? { title: successor.title, text: successor.text, image: successor.image } : null, id: `${node.id}:${sequence.id}:${card.id}`, title: card.title, text: card.text,
+      image: card.image, showCardNumbers: !!sequence.showCardNumbers, directAdvance: sequence.type === 'linear', decisionOnly: !!sequence.decisionOnly, interaction: sequence.type === 'container' ? 'container' : 'choice', allowClose: false, actions };
   }
 
   endingContent() {
@@ -88,8 +101,8 @@ export class ChapterController {
       actions: [{ id: 'complete', label: 'Chapter complete', disabled: true }] };
   }
 
-  showCard() {
-    this.deck.replaceContent(this.cardContent());
+  showCard({ transition = 'flip' } = {}) {
+    this.deck.replaceContent(this.cardContent(), { presentation: this.sequence.decisionOnly ? 'open' : 'closed', transition });
     this.notify();
   }
 
@@ -121,10 +134,10 @@ export class ChapterController {
       const choice = this.card.choices.find(candidate => candidate.id === action.id);
       if (!choice) return;
       if (choice.target.startsWith('exit:')) this.exit(choice.target.slice(5));
-      else { this.card = this.sequence.cards.find(card => card.id === choice.target.slice(5)); this.showCard(); }
+      else { this.card = this.sequence.cards.find(card => card.id === choice.target.slice(5)); this.showCard({ transition: 'reveal' }); }
     } else {
       const index = this.sequence.cards.indexOf(this.card);
-      if (index + 1 < this.sequence.cards.length) { this.card = this.sequence.cards[index + 1]; this.showCard(); }
+      if (index + 1 < this.sequence.cards.length) { this.card = this.sequence.cards[index + 1]; this.showCard({ transition: 'reveal' }); }
       else this.exit(this.sequence.exits[0]);
     }
   }
@@ -136,7 +149,7 @@ export class ChapterController {
     this.pendingItem = { item: { ...item, sequenceId: this.sequence.id }, containerKey: this.containerKey(), transition, contentId: detail.contentId };
     if (detail.final) {
       this.stagedDestination = this.destination(this.sequence.exits[0]);
-      this.deck.replaceContent(this.stagedDestination.completed ? this.endingContent() : this.cardContent(this.stagedDestination));
+      this.deck.replaceContent(this.stagedDestination.completed ? this.endingContent() : this.cardContent(this.stagedDestination), { presentation: !this.stagedDestination.completed && this.stagedDestination.sequence.decisionOnly ? 'open' : 'closed', transition: 'flip' });
     }
   }
 
@@ -158,8 +171,9 @@ export class ChapterController {
   exit(name) {
     const destination = this.destination(name);
     const content = destination.completed ? this.endingContent() : this.cardContent(destination);
+    const transition = this.sequence.type === 'linear' ? 'reveal' : 'flip';
     this.adopt(destination);
-    this.deck.replaceContent(content);
+    this.deck.replaceContent(content, { presentation: !destination.completed && destination.sequence.decisionOnly ? 'open' : 'closed', transition });
   }
 
   destroy() {

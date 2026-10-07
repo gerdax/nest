@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CardDeck } from '../engine/CardDeck.js';
 import { ChapterController } from '../chapter/ChapterController.js';
-import { createStarterChapter } from '../chapter/model.js';
+import { createLegacyStarterChapter as createStarterChapter } from '../chapter/model.js';
 import { ScenarioController, CHEST_ITEM_IDS } from '../demo/ScenarioController.js';
 // Browser-shaped tree: collection must physically detach its layer, while the
 // remaining articles retain their identity and their original parent layers.
@@ -40,7 +40,7 @@ function fixture(options = {}) {
   return { deck, controller };
 }
 function dispose(deck, controller) { controller.destroy(); deck.destroy(); settle(); document.hidden = false; }
-function revealCommit(deck) { key(deck, 'ArrowUp'); assert.equal(deck.phase, 'choices'); key(deck, 'ArrowUp'); }
+function revealCommit(deck) { if (deck.content.directAdvance) { key(deck, 'ArrowUp'); return; } key(deck, 'ArrowUp'); assert.equal(deck.phase, 'choices'); key(deck, 'ArrowUp'); }
 
 test('real engine keyboard reaches every linear card and container before random encounter', () => {
   const { deck, controller } = fixture();
@@ -95,8 +95,7 @@ for (const reduced of [false, true]) for (const direction of ['ArrowDown', 'Arro
 
 test('real engine restart during a pending linear commit cancels stale destination', () => {
   const { deck, controller } = fixture();
-  key(deck, 'ArrowUp');
-  deck.commit();
+  deck.key({ key: 'ArrowUp', preventDefault() {} });
   assert.equal(deck.busy, true);
   controller.restart(undefined, 'supplies');
   settle();
@@ -187,4 +186,150 @@ for (const secondDirection of ['ArrowDown', 'ArrowUp']) test(`reused container t
   assert.equal(deck.busy, false);
   assert.equal(controller.state.collectedItems.length, secondDirection === 'ArrowDown' ? 2 : 1);
   dispose(deck, controller);
+});
+
+for (const reduced of [false, true]) test(`linear cover advances directly on one upward gesture, reduced=${reduced}`, () => {
+  const { deck, controller } = fixture();
+  deck.reduced = reduced;
+  deck.start();
+  deck.move({axis:'y', x:0, y:-120});
+  deck.end({axis:'y', x:0, y:-120, vx:0, vy:-500});
+  settle();
+  assert.equal(controller.state.cardId, 'hall');
+  assert.equal(deck.phase, 'closed');
+  assert.equal(deck.cards.every(card => card.style.visibility === 'hidden'), true);
+  dispose(deck, controller);
+});
+test('short linear cover gesture does not advance', () => {
+  const { deck, controller } = fixture();
+  const before = controller.state.cardId;
+  deck.start(); deck.move({axis:'y', x:0, y:-10});
+  deck.end({axis:'y', x:0, y:-10, vx:0, vy:0}); settle();
+  assert.equal(controller.state.cardId, before);
+  assert.equal(deck.phase, 'closed');
+  dispose(deck, controller);
+});
+
+for (const reduced of [false, true]) test(`decision-only entry and choice transition require no cover reveal, reduced=${reduced}`, async () => {
+  const { createStarterChapter: modern } = await import('../chapter/model.js');
+  const chapter = modern();
+  chapter.nodes.find(n => n.id === 'crossing').connections.explore = 'second';
+  chapter.nodes.push({id:'second',name:'Second decision',type:'static',x:0,y:0,sequenceId:'route-decision',connections:{explore:null,leave:null}});
+  const deck = new CardDeck(new Element(), {content:{id:'wait',actions:[{id:'wait',label:'Wait'}]}});
+  deck.reduced = reduced;
+  const controller = new ChapterController(deck, chapter, {startNode:'crossing'}); settle();
+  assert.equal(deck.phase, 'choices');
+  assert.equal(deck.open, true);
+  key(deck, 'ArrowUp');
+  assert.equal(controller.state.activeNodeId, 'second');
+  assert.equal(deck.phase, 'choices');
+  key(deck, 'ArrowRight'); key(deck, 'ArrowUp');
+  assert.equal(controller.state.completed, true);
+  dispose(deck, controller);
+});
+
+for (const reduced of [false, true]) test(`linear reveals face-up within its sequence and across node boundary, reduced=${reduced}`, () => {
+  const { deck, controller } = fixture();
+  deck.reduced = reduced;
+  deck.key({key:'ArrowUp',preventDefault(){}});
+  if (!reduced) {
+    assert.equal(deck.pendingTransition, 'reveal');
+    assert.equal(deck.nextFlip.x, 0);
+    assert.equal(deck.nextFlip.target, 0);
+    step();
+    assert.ok(deck.underlay.style.transform.includes('rotateY(0deg)'));
+    assert.ok(deck.underlayBack.style.transform.includes('rotateY(180deg)'));
+  }
+  settle();
+  assert.equal(controller.state.cardId, 'hall');
+  assert.equal(deck.flip.x, 0);
+  deck.key({key:'ArrowUp',preventDefault(){}});
+  if (!reduced) {
+    assert.equal(deck.pendingTransition, 'reveal');
+    assert.equal(deck.nextFlip.x, 0);
+    step();
+    assert.ok(deck.underlay.style.transform.includes('rotateY(0deg)'));
+  }
+  settle();
+  assert.equal(controller.state.activeNodeId, 'supplies');
+  dispose(deck, controller);
+});
+
+test('linear successor is prepared and visible face-up during an unaccepted drag', () => {
+  const { deck, controller } = fixture();
+  const before = controller.state.cardId;
+  assert.equal(deck.content.nextCardPreview.title, 'Inside the hall');
+  assert.equal(deck.underlay.children[0].children[0].textContent, 'Inside the hall');
+  assert.equal(deck.nextFlip.x, 0);
+  deck.start(); deck.move({axis:'y',x:0,y:-100});
+  step();
+  assert.equal(deck.busy, false);
+  assert.equal(deck.pending, null);
+  assert.equal(controller.state.cardId, before);
+  assert.equal(deck.underlay.style.visibility, 'visible');
+  assert.ok(deck.underlay.style.transform.includes('rotateY(0deg)'));
+  deck.cancel(); settle();
+  assert.equal(controller.state.cardId, before);
+  assert.equal(deck.underlay.style.visibility, 'hidden');
+  key(deck, 'ArrowUp');
+  assert.equal(deck.content.nextCardPreview, null);
+  deck.start(); deck.move({axis:'y',x:0,y:-100}); step();
+  assert.equal(deck.underlay.style.visibility, 'visible');
+  assert.ok(deck.underlay.style.transform.includes('rotateY(0deg)'));
+  deck.cancel(); settle();
+  dispose(deck, controller);
+});
+
+for (const reduced of [false, true]) test(`linear reveals decisions face-up; outgoing decision turns story and hides its successor, reduced=${reduced}`, async () => {
+  const { createStarterChapter: modern } = await import('../chapter/model.js');
+  const chapter = modern();
+  chapter.nodes.find(n=>n.id==='arrival').connections.next='crossing';
+  chapter.nodes.find(n=>n.id==='crossing').connections.explore='arrival-copy';
+  chapter.nodes.push({id:'arrival-copy',name:'Another story',type:'static',x:0,y:0,sequenceId:'arrival-sequence',connections:{next:null}});
+  const deck = new CardDeck(new Element(),{content:{id:'wait',actions:[{id:'wait',label:'Wait'}]}});
+  deck.reduced=reduced;
+  const controller=new ChapterController(deck,chapter);
+  key(deck,'ArrowUp');
+  deck.key({key:'ArrowUp',preventDefault(){}});
+  if (!reduced) {
+    assert.equal(deck.pending.decisionOnly,true);
+    assert.equal(deck.nextFlip.x,0);
+    assert.equal(deck.forwardDeck.cardBacks.every(Boolean),true);
+    assert.ok(deck.forwardDeck.cards[0].style.transform.includes('rotateY(0deg'));
+    for(let i=0;deck.commitMotion && i<2000;i++) step();
+    assert.equal(deck.content.decisionOnly,true);
+    assert.equal(deck.skipCover,true);
+    assert.equal(deck.scene.style.visibility,'hidden');
+    assert.equal(deck.cards[0].style.visibility,'visible');
+    assert.equal(deck.cardBacks[0].style.visibility,'visible');
+  }
+  settle(); assert.equal(deck.phase,'choices');
+  deck.key({key:'ArrowUp',preventDefault(){}});
+  if(!reduced){
+    for(let i=0;deck.commitMotion && i<2000;i++) step();
+    assert.equal(deck.content.directAdvance,true);
+    assert.equal(deck.operation,'commit');
+    assert.equal(deck.underlay.style.visibility,'hidden','successor must stay hidden behind incoming turning story');
+    assert.equal(deck.cards.every(c=>c.style.visibility==='hidden'),true);
+  }
+  settle();assert.equal(controller.state.activeNodeId,'arrival-copy');
+  assert.equal(deck.scene.style.visibility,'visible');
+  assert.equal(deck.underlay.style.visibility,'hidden');
+  dispose(deck,controller);
+});
+
+test('linear to decision preview is lying face-up during the held swipe', async () => {
+  const { createStarterChapter: modern } = await import('../chapter/model.js');
+  const chapter=modern();chapter.nodes.find(n=>n.id==='arrival').connections.next='crossing';
+  const deck=new CardDeck(new Element(),{content:{id:'wait',actions:[{id:'wait',label:'Wait'}]}});
+  const controller=new ChapterController(deck,chapter);
+  key(deck,'ArrowUp');
+  assert.equal(deck.content.nextDeckPreview.presentation,'open');
+  deck.start();deck.move({axis:'y',x:0,y:-100});step();
+  assert.equal(deck.forwardDeck.cards[0].style.visibility,'visible');
+  assert.ok(deck.forwardDeck.cards[0].style.transform.includes('rotateY(0deg'));
+  assert.equal(deck.underlay.style.visibility,'hidden');
+  deck.cancel();settle();
+  assert.equal(deck.forwardDeck.cards[0].style.visibility,'hidden');
+  dispose(deck,controller);
 });

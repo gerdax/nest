@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createStarterChapter } from '../chapter/model.js';
+import { createLegacyStarterChapter as createStarterChapter } from '../chapter/model.js';
 import { STORAGE_KEY, loadChapter, saveChapter } from '../editor/storage.js';
 
 function memoryStorage() {

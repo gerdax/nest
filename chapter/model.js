@@ -68,9 +68,11 @@ export function validateChapter(chapter) {
       if (!object(card) || !string(card.id)) { add(`Sequence ${seq.id} has a card without an ID.`); continue; }
       if (cardIds.has(card.id)) add(`Sequence ${seq.id} has duplicate card ID ${card.id}.`);
       cardIds.add(card.id);
-      if (!string(card.title) || typeof card.text !== 'string' || typeof card.image !== 'string') add(`Card ${card.id} needs title, text and image fields.`);
+      if (typeof card.title !== 'string' || typeof card.text !== 'string' || typeof card.image !== 'string') add(`Card ${card.id} needs title, text and image fields.`);
     }
     if (seq.type === 'forked') {
+      if (seq.decisionOnly && (seq.exits?.length !== cards[0]?.choices?.length || seq.exits?.some(id => !cards[0]?.choices?.some(c => c.id === id)))) add(`Decision ${seq.id} needs one output per choice.`);
+      if (seq.decisionOnly && cards.length !== 1) add(`Decision ${seq.id} needs exactly one choice set.`);
       for (const card of cards.filter(object)) {
         if (!Array.isArray(card.choices) || ![2, 3].includes(card.choices.length)) { add(`Forked card ${card.id} needs two or three choices.`); continue; }
         const choiceIds = new Set();
@@ -78,6 +80,7 @@ export function validateChapter(chapter) {
           if (!object(choice) || !string(choice.id) || !string(choice.label) || typeof choice.image !== 'string') { add(`Card ${card.id} has an invalid choice.`); continue; }
           if (choiceIds.has(choice.id)) add(`Card ${card.id} has duplicate choice ID ${choice.id}.`);
           choiceIds.add(choice.id);
+          if (seq.decisionOnly && choice.target !== `exit:${choice.id}`) add(`Choice ${choice.id} must use its own output.`);
           const target = choice.target;
           if (typeof target !== 'string' || !(target.startsWith('card:') && cardIds.has(target.slice(5)) || target.startsWith('exit:') && exits.has(target.slice(5)))) add(`Choice ${choice.id} has an invalid target.`);
         }
@@ -154,7 +157,7 @@ export function parseChapter(text, { allowDraft = false } = {}) {
   return chapter;
 }
 
-export function createStarterChapter() {
+export function createLegacyStarterChapter() {
   const card = (id, title, text, image) => ({ id, title, text, image: `./assets/img/${image}.png` });
   return {
     version: 1, name: 'First expedition', startNode: 'arrival',
@@ -170,4 +173,50 @@ export function createStarterChapter() {
       { id: 'quiet-sequence', name: 'A quiet passage', type: 'linear', cards: [card('passage', 'A quiet passage', 'You find a clear route out of the building.', 'corridor_02')], exits: ['next'] }
     ]
   };
+}
+
+/** Upgrade static legacy forks into separate decision nodes without losing routes.
+ * Legacy forks in random pools keep their v1 runner behavior for compatibility.
+ */
+export function upgradeDecisionNodes(chapter) {
+  const result = cloneChapter(chapter);
+  const unique = (base, values) => { let id = base, n = 2; while (values.has(id)) id = `${base}-${n++}`; values.add(id); return id; };
+  const nodeIds = new Set(result.nodes.map(n => n.id)), sequenceIds = new Set(result.sequences.map(s => s.id));
+  const originals = [...result.nodes];
+  for (const node of originals) {
+    const seq = result.sequences.find(s => s.id === node.sequenceId);
+    if (node.type !== 'static' || seq?.type !== 'forked' || seq.decisionOnly || !seq.cards.length) continue;
+    const routes = { ...node.connections };
+    const mapping = new Map(seq.cards.map((card, i) => [card.id, i === 0 ? node.id : unique(`${node.id}-${card.id}`, nodeIds)]));
+    seq.cards.forEach((card, i) => {
+      const id = unique(`${seq.id}-${card.id}-decision`, sequenceIds);
+      const choices = (card.choices || []).map(choice => ({ ...choice, target: `exit:${choice.id}` }));
+      const decision = { id, name: card.title || seq.name, type: 'forked', decisionOnly: true,
+        cards: [{ ...card, title: '', text: '', choices }], exits: choices.map(c => c.id) };
+      result.sequences.push(decision);
+      const connections = Object.fromEntries((card.choices || []).map(c => [c.id, c.target?.startsWith('card:') ? mapping.get(c.target.slice(5)) ?? null : routes[c.target?.slice(5)] ?? null]));
+      const target = i === 0 ? node : { ...node, id: mapping.get(card.id), name: card.title || `${node.name} ${i+1}`, x: node.x + i*260, y: node.y+220 };
+      target.sequenceId = id; target.connections = connections;
+      if (i) result.nodes.push(target);
+    });
+  }
+  result.sequences = result.sequences.filter(s => s.type !== 'forked' || s.decisionOnly || result.nodes.some(n => n.sequenceId === s.id || n.pool?.some(p => p.sequenceId === s.id)));
+  return result;
+}
+
+export function createStarterChapter() {
+  const chapter = createLegacyStarterChapter();
+  chapter.nodes[1].connections.next = 'crossing';
+  chapter.nodes.push({ id: 'crossing', name: 'Choose a route', type: 'static', x: 640, y: 100,
+    sequenceId: 'route-decision', connections: { explore: 'encounter', leave: null } });
+  chapter.nodes[2].x = 920;
+  chapter.nodes[2].pool = [{ sequenceId: 'quiet-sequence', weight: 1 }, { sequenceId: 'arrival-sequence', weight: 1 }];
+  chapter.nodes[2].connections = { next: null };
+  chapter.sequences = chapter.sequences.filter(s => s.id !== 'fork-sequence');
+  chapter.sequences.push({ id: 'route-decision', name: 'Choose a route', type: 'forked', decisionOnly: true,
+    cards: [{ id: 'route', title: '', text: '', image: '', choices: [
+      { id: 'explore', label: 'Explore the corridor', image: './assets/img/corridor_02.png', target: 'exit:explore' },
+      { id: 'leave', label: 'Leave the building', image: './assets/img/escape.png', target: 'exit:leave' }
+    ] }], exits: ['explore', 'leave'] });
+  return chapter;
 }

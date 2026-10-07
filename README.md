@@ -117,3 +117,5 @@ The current prototype owns its artwork in `assets/img` and fonts in `assets/font
 - `f9387f8`: asymmetric lid twist, published before the new item flow.
 
 The lid experiment and its controls have been removed from the active prototype.
+
+Fork nodes in the chapter editor now display choices directly. Each choice is an output connected to another chapter node. Linear cards advance with one swipe, and situation titles are optional.

@@ -84,6 +84,7 @@
   display: block;
   text-transform: uppercase;
 }
+.nest-card-title[hidden] { display: none; }
 .nest-copy p {
   font-size: clamp(16px, 4vw, 21px);
   line-height: 1.45;

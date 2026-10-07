@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cloneChapter, createStarterChapter, parseChapter, selectPool, validateChapter } from '../chapter/model.js';
+import { cloneChapter, createLegacyStarterChapter as createStarterChapter, parseChapter, selectPool, validateChapter } from '../chapter/model.js';
 import { ChapterController } from '../chapter/ChapterController.js';
 
 class FakeDeck extends EventTarget {
@@ -216,4 +216,40 @@ test('restart cancels pending final resolution and its staged destination', () =
   assert.equal(controller.stagedDestination, null);
   assert.deepEqual(controller.state.collectedItems, []);
   assert.equal(deck.content.actions.length, 2);
+});
+
+test('blank card titles are valid and survive JSON import', () => {
+  const chapter = createStarterChapter();
+  for (const seq of chapter.sequences) for (const card of seq.cards) card.title = '';
+  assert.deepEqual(validateChapter(chapter), []);
+  assert.deepEqual(parseChapter(JSON.stringify(chapter)), chapter);
+  chapter.sequences[0].cards[0].title = null;
+  assert.ok(validateChapter(chapter).length);
+});
+
+test('new decisions present open and route each output directly to a chapter node', async () => {
+  const { createStarterChapter: modern } = await import('../chapter/model.js');
+  const chapter = modern(); const deck = new FakeDeck();
+  const controller = new ChapterController(deck, chapter, { startNode: 'crossing', rng: () => 0 });
+  assert.equal(deck.presentation, 'open');
+  assert.deepEqual(deck.content.actions.map(a => a.id), ['explore', 'leave']);
+  deck.choose('explore');
+  assert.equal(controller.state.activeNodeId, 'encounter');
+  controller.restart(chapter, 'crossing'); deck.choose('leave');
+  assert.equal(controller.state.completed, true);
+  controller.destroy();
+});
+test('legacy static fork upgrade preserves internal and chapter routes', async () => {
+  const { upgradeDecisionNodes } = await import('../chapter/model.js');
+  const old = createStarterChapter();
+  old.nodes.push({id:'fork',name:'Fork',type:'static',sequenceId:'fork-sequence',x:0,y:0,connections:{next:null,escape:'supplies'}});
+  const upgraded = upgradeDecisionNodes(old);
+  assert.deepEqual(validateChapter(upgraded), []);
+  const root = upgraded.nodes.find(n => n.id === 'fork');
+  const branch = upgraded.nodes.find(n => n.id === root.connections.explore);
+  assert.equal(root.connections.leave, 'supplies');
+  assert.equal(branch.connections.escape, 'supplies');
+  assert.equal(upgraded.sequences.find(s => s.id === root.sequenceId).decisionOnly, true);
+  assert.deepEqual(upgradeDecisionNodes(upgraded), upgraded);
+  assert.equal(old.nodes.find(n => n.id === 'fork').sequenceId, 'fork-sequence');
 });

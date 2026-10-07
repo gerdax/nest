@@ -1,5 +1,5 @@
-import { handoffRadius, projectedBounds } from './geometry.js?v=grab-camera-1';
-import { carouselPose, clamp, departureDistance, revealScale } from './motion.js?v=grab-camera-1';
+import { handoffRadius, projectedBounds } from './geometry.js?v=optional-numbers-1';
+import { carouselPose, clamp, departureDistance, revealScale } from './motion.js?v=optional-numbers-1';
 
 function layerFor(deck, card, className = '') {
   const layer = document.createElement('div');
@@ -44,8 +44,8 @@ export function stageActionDeck(deck, content, selectedIndex = 0, previous = nul
         card.style.backgroundImage = '';
         title = deck.decorate(card, action.image || content.image, '', action.label);
       }
-      if (action.faceDown && !back) { back = backFace(); layer.append(back); }
-      if (!action.faceDown && back) { back.remove(); back = null; }
+      if ((action.faceDown || content.decisionOnly) && !back) { back = backFace(); layer.append(back); }
+      if (!action.faceDown && !content.decisionOnly && back) { back.remove(); back = null; }
       bundle.cards.push(card);
       bundle.cardLayers.push(layer);
       bundle.cardBacks.push(back);
@@ -57,13 +57,14 @@ export function stageActionDeck(deck, content, selectedIndex = 0, previous = nul
     bundle.cardTitles.push(deck.decorate(card, action.image || content.image, '', action.label));
     const layer = layerFor(deck, card);
     bundle.cardLayers.push(layer);
-    const back = action.faceDown ? backFace() : null;
+    const back = action.faceDown || content.decisionOnly ? backFace() : null;
     if (back) layer.append(back);
     bundle.cardBacks.push(back);
     bundle.cards.push(card);
   });
   bundle.cardTitles.forEach((title, i) => {
-    title.textContent = `${content.interaction === 'container' ? 'ITEM' : 'ACTION'} ${String(i + 1).padStart(2, '0')} / ${content.actions.length}`;
+    title.hidden = !content.showCardNumbers;
+    title.textContent = content.showCardNumbers ? `${content.interaction === 'container' ? 'ITEM' : 'ACTION'} ${String(i + 1).padStart(2, '0')} / ${content.actions.length}` : '';
   });
   return bundle;
 }
@@ -71,7 +72,7 @@ export function stageActionDeck(deck, content, selectedIndex = 0, previous = nul
 export function buildDeck(deck, staged = null) {
   deck.mount.setAttribute('aria-label', deck.content.interaction === 'container'
     ? 'Interactive container. Arrow up reveals or discards; down and Enter take items; left and right browse; Escape cancels.'
-    : `Interactive card deck. Arrow up reveals or chooses; left and right browse.${deck.content.allowClose ? ' Down closes.' : ''}`);
+    : deck.content.directAdvance ? 'Story card. Arrow up or Enter advances; Escape cancels a gesture.' : `Interactive card deck. Arrow up reveals or chooses; left and right browse.${deck.content.allowClose ? ' Down closes.' : ''}`);
   deck.mount.replaceChildren();
   deck.underlay = null;
   deck.underlayLayer = null;
@@ -208,7 +209,8 @@ export function cardPose(deck, index, time = performance.now()) {
   pose.ry = clamp(pose.ry, -deck.settings.maxTilt, deck.settings.maxTilt);
   pose.rz = clamp(pose.rz, -deck.settings.maxTilt, deck.settings.maxTilt);
   pose.visible = !(deck.phase === 'committing' && deck.busy && !deck.commitMotion && deck.operation !== 'commit')
-    && !(deck.busy && deck.operation === 'commit' && (deck.flip.x !== 0 || deck.flip.v !== 0));
+    && !(deck.busy && deck.operation === 'commit' && !deck.content.decisionOnly && (deck.flip.x !== 0 || deck.flip.v !== 0));
+  if (deck.content.decisionOnly) { pose.turn = deck.flip.x * 180; pose.turnAxis = deck.settings.flipAxisTilt; }
   pose.rank = rank;
   const offset = deck.reflowOffsets.get(action.id);
   if (offset) for (const [field, state] of Object.entries(offset)) pose[field] += state.x;
@@ -233,24 +235,24 @@ function applyPose(deck, element, layer, pose, order, shadow = true) {
 export function renderDeck(deck, time = performance.now()) {
   if (!deck.scene) return;
   const front = scenePose(deck, time);
-  const poses = deck.cards.map((_, index) => cardPose(deck, index, time));
+  const poses = deck.cards.map((_, index) => ({ ...cardPose(deck, index, time), ...(deck.content.directAdvance ? { visible: false } : {}) }));
   const bounds = deck.mount.getBoundingClientRect();
   const width = Math.max(1, bounds.width), height = Math.max(1, bounds.height);
   const cleared = deck.phase === 'committing' && !deck.commitMotion;
-  const coveredBottom = cleared ? 0 : poses.length
+  const coveredBottom = cleared ? 0 : deck.content.directAdvance ? projectedBounds(front, width, height, deck.settings.perspective).bottom : poses.length
     ? Math.max(...poses.map(pose => projectedBounds(pose, width, height, deck.settings.perspective).bottom)) : height;
   const resolution = deck.content.interaction === 'container' && deck.cards.length === 1;
   const movingDown = deck.collectMotion?.direction === 1 || (!deck.collectMotion && deck.l.x < 0);
   const exposure = resolution && movingDown && poses.length
     ? Math.max(0, projectedBounds(poses[0], width, height, deck.settings.perspective).top) : height - coveredBottom;
   const nextScale = deck.reduced ? 1 : revealScale(exposure, height, deck.settings);
-  const forwardActive = !!deck.forwardDeck && ((deck.phase === 'committing' && deck.pendingPresentation === 'open')
+  const forwardActive = !!deck.forwardDeck && ((deck.content.directAdvance && !deck.busy && deck.p.x > 0) || (deck.phase === 'committing' && deck.pendingPresentation === 'open')
     || (deck.phase === 'choices' && deck.l.x > 0 && deck.forwardOwner === deck.content.actions[deck.index]?.id));
   if (deck.underlay) {
     const stagedPose = {
       x: 0, y: 0, z: -24, rx: 0, ry: 0, rz: 0, scale: nextScale,
       turn: deck.nextFlip.x * 180, turnAxis: deck.settings.flipAxisTilt,
-      visible: (deck.phase === 'committing' || (deck.phase === 'collecting' && deck.collectMotion?.final)
+      visible: ((deck.content.directAdvance && deck.p.x > 0 && !deck.busy) || (deck.phase === 'committing' && (!!deck.commitMotion || deck.operation !== 'commit')) || (deck.phase === 'collecting' && deck.collectMotion?.final)
         || (deck.phase === 'choices' && (deck.content.interaction === 'container' ? resolution && deck.l.x !== 0 : deck.l.x > 0)
         && !deck.content.actions[deck.index]?.disabled))
         && !forwardActive
@@ -258,7 +260,7 @@ export function renderDeck(deck, time = performance.now()) {
     applyPose(deck, deck.underlay, deck.underlayLayer, stagedPose, 0);
     applyPose(deck, deck.underlayBack, deck.underlayLayer, backPose(stagedPose), 0);
   }
-  renderStagedActions(deck, deck.forwardDeck, 20, forwardActive, 0, -36, nextScale);
+  renderStagedActions(deck, deck.forwardDeck, 20, forwardActive, 0, -36, nextScale, deck.pending?.decisionOnly && deck.pendingTransition === 'flip' ? deck.nextFlip.x * 180 : 0);
   renderStagedActions(deck, deck.returnDeck, 500,
     (deck.phase === 'closing' && deck.returning)
       || deck.returnLift.x > 0,
@@ -276,6 +278,7 @@ export function renderDeck(deck, time = performance.now()) {
       applyPose(deck, deck.cards[index], deck.cardLayers[index], backPose(poses[index]), order, deck.fan.x > 0);
       applyPose(deck, deck.cardBacks[index], deck.cardLayers[index], { ...poses[index], face: 360 }, order, deck.fan.x > 0);
     }
+    if (deck.content.decisionOnly && deck.cardBacks[index]) applyPose(deck, deck.cardBacks[index], deck.cardLayers[index], backPose(poses[index]), order, deck.fan.x > 0);
     deck.cards[index].setAttribute('aria-disabled', String(!!deck.content.actions[index].disabled));
     if (deck.content.actions[index].faceDown) deck.cards[index].setAttribute('aria-label', deck.content.actions[index].accessibleLabel || 'Unavailable choice');
     else deck.cards[index].removeAttribute('aria-label');
@@ -284,14 +287,14 @@ export function renderDeck(deck, time = performance.now()) {
   announceDeck(deck);
 }
 
-function renderStagedActions(deck, bundle, baseOrder, visible, y = 0, z = -36, scale = 1) {
+function renderStagedActions(deck, bundle, baseOrder, visible, y = 0, z = -36, scale = 1, turn = 0) {
   if (!bundle) return;
   bundle.cards.forEach((card, index) => {
     const rank = (index - bundle.selectedIndex + bundle.cards.length) % bundle.cards.length;
-    const pose = { x: 0, y, z: z - rank * deck.settings.stackDepth, rx: 0, ry: 0, rz: 0, scale, visible };
+    const pose = { x: 0, y, z: z - rank * deck.settings.stackDepth, rx: 0, ry: 0, rz: 0, scale, visible, turn, turnAxis: deck.settings.flipAxisTilt };
     const order = baseOrder + bundle.cards.length - rank;
     applyPose(deck, card, bundle.cardLayers[index], bundle.content.actions[index].faceDown ? backPose(pose) : pose, order);
-    if (bundle.cardBacks[index]) applyPose(deck, bundle.cardBacks[index], bundle.cardLayers[index], { ...pose, face: 360 }, order);
+    if (bundle.cardBacks[index]) applyPose(deck, bundle.cardBacks[index], bundle.cardLayers[index], bundle.content.actions[index].faceDown ? { ...pose, face: 360 } : backPose(pose), order);
     card.setAttribute('aria-hidden', 'true');
   });
 }

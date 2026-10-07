@@ -24,7 +24,7 @@ export class Preview {
       <section class="chapter-preview" aria-label="Chapter preview">
         <div class="chapter-preview-stage"><div class="chapter-preview-deck" tabindex="0"></div></div>
         <p class="chapter-preview-status" role="status" aria-live="polite">Preview stopped.</p>
-        <p class="chapter-preview-hint">Up opens or discards an item. Down or Enter takes an item. Left / right browse. Escape cancels a gesture.</p>
+        <p class="chapter-preview-hint">Up advances story cards, reveals choices, or opens a container / discards an item. Down or Enter takes an item. Left / right browse. Escape cancels a gesture.</p>
         <section class="chapter-preview-inventory"></section>
         <div class="chapter-preview-complete" hidden><strong>Chapter complete.</strong> <button type="button">Restart chapter</button></div>
       </section>`;
@@ -71,7 +71,7 @@ export class Preview {
     const sequence = this.chapter?.sequences.find(sequence => sequence.id === state.sequenceId);
     const card = sequence?.cards.find(card => card.id === state.cardId);
     this.status.textContent = state.completed ? 'Chapter complete.'
-      : `Playing · ${sequence?.name ?? state.sequenceId ?? state.activeNodeId ?? ''}${card ? ` · ${card.title}` : ''}`;
+      : `Playing · ${sequence?.name ?? state.sequenceId ?? state.activeNodeId ?? ''}${card?.title ? ` · ${card.title}` : ''}`;
     this.complete.hidden = !state.completed;
     this.inventory.update(state.collectedItems ?? []);
     this.onChange(state);
