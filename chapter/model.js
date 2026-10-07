@@ -1,26 +1,12 @@
+import { validateStateConfig } from './state.js';
+import { nodeTypes, nodeType, nodeOutputs } from './nodeTypes.js';
+import { sequenceTypes, sequenceType } from './sequenceTypes.js';
 /** Chapter files contain only JSON data. Their IDs remain stable across editor changes. */
 export function cloneChapter(chapter) {
   return JSON.parse(JSON.stringify(chapter));
 }
 
-export function selectPool(pool, count = 1, rng = Math.random) {
-  const available = pool.map(entry => ({ ...entry }));
-  const selected = [];
-  const draws = Math.min(count, available.length);
-  for (let n = 0; n < draws; n++) {
-    const total = available.reduce((sum, entry) => sum + entry.weight, 0);
-    const draw = rng();
-    if (!Number.isFinite(draw) || draw < 0 || draw >= 1) throw new TypeError('Random source must return a number from 0 to less than 1');
-    let ticket = draw * total;
-    let index = available.length - 1;
-    for (let i = 0; i < available.length; i++) {
-      ticket -= available[i].weight;
-      if (ticket < 0) { index = i; break; }
-    }
-    selected.push(available.splice(index, 1)[0].sequenceId);
-  }
-  return selected;
-}
+export { selectPool } from './random.js';
 
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const string = value => typeof value === 'string' && value.trim().length > 0;
@@ -58,7 +44,7 @@ export function validateChapter(chapter) {
     if (sequenceMap.has(seq.id)) add(`Duplicate sequence ID: ${seq.id}.`);
     sequenceMap.set(seq.id, seq);
     if (!string(seq.name)) add(`Sequence ${seq.id} needs a name.`);
-    if (!['linear', 'forked', 'container'].includes(seq.type)) add(`Sequence ${seq.id} has an unknown type.`);
+    if (!Object.hasOwn(sequenceTypes, seq.type)) add(`Sequence ${seq.id} has an unknown type.`);
     if (!Array.isArray(seq.exits) || !seq.exits.length || seq.exits.some(exit => !string(exit)) || new Set(seq.exits).size !== seq.exits.length) add(`Sequence ${seq.id} needs unique named exits.`);
     const exits = new Set(Array.isArray(seq.exits) ? seq.exits : []);
     if (!Array.isArray(seq.cards) || !seq.cards.length) add(`Sequence ${seq.id} needs at least one card.`);
@@ -70,56 +56,23 @@ export function validateChapter(chapter) {
       cardIds.add(card.id);
       if (typeof card.title !== 'string' || typeof card.text !== 'string' || typeof card.image !== 'string') add(`Card ${card.id} needs title, text and image fields.`);
     }
-    if (seq.type === 'forked') {
-      if (seq.decisionOnly && (seq.exits?.length !== cards[0]?.choices?.length || seq.exits?.some(id => !cards[0]?.choices?.some(c => c.id === id)))) add(`Decision ${seq.id} needs one output per choice.`);
-      if (seq.decisionOnly && cards.length !== 1) add(`Decision ${seq.id} needs exactly one choice set.`);
-      for (const card of cards.filter(object)) {
-        if (!Array.isArray(card.choices) || ![2, 3].includes(card.choices.length)) { add(`Forked card ${card.id} needs two or three choices.`); continue; }
-        const choiceIds = new Set();
-        for (const choice of card.choices) {
-          if (!object(choice) || !string(choice.id) || !string(choice.label) || typeof choice.image !== 'string') { add(`Card ${card.id} has an invalid choice.`); continue; }
-          if (choiceIds.has(choice.id)) add(`Card ${card.id} has duplicate choice ID ${choice.id}.`);
-          choiceIds.add(choice.id);
-          if (seq.decisionOnly && choice.target !== `exit:${choice.id}`) add(`Choice ${choice.id} must use its own output.`);
-          const target = choice.target;
-          if (typeof target !== 'string' || !(target.startsWith('card:') && cardIds.has(target.slice(5)) || target.startsWith('exit:') && exits.has(target.slice(5)))) add(`Choice ${choice.id} has an invalid target.`);
-        }
-      }
-      if (hasCycle(cardIds, id => (Array.isArray(cards.find(card => card?.id === id)?.choices) ? cards.find(card => card?.id === id).choices : []).filter(choice => typeof choice?.target === 'string' && choice.target.startsWith('card:')).map(choice => choice.target.slice(5)))) add(`Sequence ${seq.id} has a card cycle.`);
-    }
-    if (seq.type === 'container') {
-      if (cards.length !== 1) add(`Container ${seq.id} needs exactly one intro card.`);
-      if (!Array.isArray(seq.items) || !seq.items.length) add(`Container ${seq.id} needs at least one item.`);
-      const itemIds = new Set();
-      for (const item of Array.isArray(seq.items) ? seq.items : []) {
-        if (!object(item) || !string(item.id) || !string(item.label) || typeof item.image !== 'string') { add(`Container ${seq.id} has an invalid item.`); continue; }
-        if (itemIds.has(item.id)) add(`Container ${seq.id} has duplicate item ID ${item.id}.`);
-        itemIds.add(item.id);
-      }
-    }
+    sequenceType(seq)?.validate(seq, { cards, cardIds, exits, add, hasCycle });
     if (seq.type !== 'forked' && (seq.exits?.length !== 1)) add(`Sequence ${seq.id} needs exactly one exit.`);
   }
   if (!nodeMap.has(chapter.startNode)) add('Start node must reference an existing node.');
   for (const node of nodeMap.values()) {
     if (!string(node.name)) add('Node needs a name.', node.id);
     if (!Number.isFinite(node.x) || !Number.isFinite(node.y)) add('Node position needs finite x and y values.', node.id);
-    let assigned = [];
-    if (node.type === 'static') {
-      assigned = [node.sequenceId];
-    } else if (node.type === 'random') {
-      if (!Array.isArray(node.pool) || !node.pool.length) add('Random node needs a sequence pool.', node.id);
-      const pool = Array.isArray(node.pool) ? node.pool : [];
-      assigned = pool.map(entry => entry?.sequenceId);
-      if (new Set(assigned).size !== assigned.length) add('Random pool must not repeat a sequence.', node.id);
-      if (pool.some(entry => !object(entry) || !Number.isFinite(entry.weight) || entry.weight <= 0)) add('Pool weights must be positive finite numbers.', node.id);
-      if (!Number.isInteger(node.count) || node.count < 1 || node.count > pool.length) add('Random count must be from 1 to the pool size.', node.id);
-    } else add('Node has an unknown type.', node.id);
+    const definition = nodeType(node);
+    const assigned = definition?.sequenceIds(node) || [];
+    if (!definition) add('Node has an unknown type.', node.id);
+    else definition.validate(node, message => add(message, node.id));
     if (!object(node.connections)) add('Node needs exit connections.', node.id);
     const connections = object(node.connections) ? node.connections : {};
     for (const id of assigned) {
       const seq = sequenceMap.get(id);
       if (!seq) { add(`Unknown sequence: ${id}.`, node.id); continue; }
-      for (const exit of node.type === 'random' ? ['next'] : (Array.isArray(seq.exits) ? seq.exits : [])) {
+      for (const exit of nodeOutputs(node, seq)) {
         if (!Object.hasOwn(connections, exit)) add(`Missing connection for exit ${exit}.`, node.id);
       }
     }
@@ -128,6 +81,7 @@ export function validateChapter(chapter) {
     }
   }
   if (hasCycle(new Set(nodeMap.keys()), id => Object.values(object(nodeMap.get(id).connections) ? nodeMap.get(id).connections : {}).filter(value => value !== null))) add('Chapter has a node cycle.');
+  errors.push(...validateStateConfig(chapter).map(message => ({message})));
   for (const error of errors) { if (!error.nodeId) { const seq = sequences.find(s => s?.id && error.message.includes(s.id)); if (seq) error.nodeId = nodes.find(n => n?.sequenceId === seq.id || n?.pool?.some(p => p.sequenceId === seq.id))?.id; } }
   return errors;
 }
@@ -137,19 +91,21 @@ export function parseChapter(text, { allowDraft = false } = {}) {
   if (allowDraft) {
     if (!object(chapter) || chapter.version !== 1 || typeof chapter.name !== 'string' || typeof chapter.startNode !== 'string' || !Array.isArray(chapter.nodes) || !Array.isArray(chapter.sequences)) throw new TypeError('Invalid chapter draft structure.');
     for (const node of chapter.nodes) {
-      if (!object(node) || !string(node.id) || typeof node.name !== 'string' || !['static', 'random'].includes(node.type) || !Number.isFinite(node.x) || !Number.isFinite(node.y) || !object(node.connections)) throw new TypeError('Invalid node draft structure.');
+      if (!object(node) || !string(node.id) || typeof node.name !== 'string' || !Object.hasOwn(nodeTypes, node.type) || !Number.isFinite(node.x) || !Number.isFinite(node.y) || !object(node.connections)) throw new TypeError('Invalid node draft structure.');
       if (Object.values(node.connections).some(target => target !== null && typeof target !== 'string')) throw new TypeError('Invalid connection draft structure.');
       if (node.type === 'static' && typeof node.sequenceId !== 'string') throw new TypeError('Invalid static node draft structure.');
       if (node.type === 'random' && (!Array.isArray(node.pool) || typeof node.count !== 'number' || node.pool.some(entry => !object(entry) || typeof entry.sequenceId !== 'string' || typeof entry.weight !== 'number'))) throw new TypeError('Invalid random node draft structure.');
     }
     for (const seq of chapter.sequences) {
-      if (!object(seq) || !string(seq.id) || typeof seq.name !== 'string' || !['linear', 'forked', 'container'].includes(seq.type) || !Array.isArray(seq.cards) || !Array.isArray(seq.exits) || seq.exits.some(exit => typeof exit !== 'string')) throw new TypeError('Invalid sequence draft structure.');
+      if (!object(seq) || !string(seq.id) || typeof seq.name !== 'string' || !Object.hasOwn(sequenceTypes, seq.type) || !Array.isArray(seq.cards) || !Array.isArray(seq.exits) || seq.exits.some(exit => typeof exit !== 'string')) throw new TypeError('Invalid sequence draft structure.');
       for (const card of seq.cards) {
         if (!object(card) || !string(card.id) || typeof card.title !== 'string' || typeof card.text !== 'string' || typeof card.image !== 'string') throw new TypeError('Invalid card draft structure.');
         if (card.choices !== undefined && (!Array.isArray(card.choices) || card.choices.some(choice => !object(choice) || typeof choice.id !== 'string' || typeof choice.label !== 'string' || typeof choice.image !== 'string' || typeof choice.target !== 'string'))) throw new TypeError('Invalid choice draft structure.');
       }
       if (seq.items !== undefined && (!Array.isArray(seq.items) || seq.items.some(item => !object(item) || typeof item.id !== 'string' || typeof item.label !== 'string' || typeof item.image !== 'string'))) throw new TypeError('Invalid item draft structure.');
     }
+    const stateErrors = validateStateConfig(chapter, { references: false });
+    if (stateErrors.length) throw new TypeError(stateErrors.join('\n'));
     return chapter;
   }
   const errors = validateChapter(chapter);

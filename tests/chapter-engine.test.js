@@ -76,7 +76,7 @@ for (const reduced of [false, true]) for (const directions of [['ArrowDown', 'Ar
   dispose(deck, controller);
 });
 
-for (const reduced of [false, true]) for (const direction of ['ArrowDown', 'ArrowUp']) test(`real engine final resolution stages terminal ending, reduced=${reduced}, direction=${direction}`, () => {
+for (const reduced of [false, true]) for (const direction of ['ArrowDown', 'ArrowUp']) test(`real engine final resolution ends without generated content, reduced=${reduced}, direction=${direction}`, () => {
   const chapter = createStarterChapter();
   chapter.nodes.find(node => node.id === 'supplies').connections.next = null;
   const deck = new CardDeck(new Element(), { content: { id: 'placeholder', actions: [{ id: 'placeholder', label: 'Placeholder' }] } });
@@ -86,8 +86,9 @@ for (const reduced of [false, true]) for (const direction of ['ArrowDown', 'Arro
   key(deck, direction); key(deck, direction);
   assert.equal(controller.state.completed, true);
   assert.equal(controller.state.collectedItems.length, direction === 'ArrowDown' ? 2 : 0);
-  assert.equal(deck.content.id, 'chapter-complete');
-  assert.equal(deck.phase, 'closed');
+  assert.notEqual(deck.content.id, 'chapter-complete');
+  assert.equal(deck.mount.children.length, 0);
+  assert.equal(deck.phase, 'ended');
   assert.equal(deck.returnContent, null);
   assert.equal(deck.open, false);
   dispose(deck, controller);
@@ -332,4 +333,28 @@ test('linear to decision preview is lying face-up during the held swipe', async 
   deck.cancel();settle();
   assert.equal(deck.forwardDeck.cards[0].style.visibility,'hidden');
   dispose(deck,controller);
+});
+
+test('state effects survive direct story choreography but canceled pointer gesture changes nothing', async () => {
+  const { createStarterChapter: modern }=await import('../chapter/model.js');
+  const c=modern();c.variables=[{id:'energy',type:'number',initial:1}];c.sequences[0].cards[0].effects=[{op:'add',key:'energy',value:2}];
+  const deck=new CardDeck(new Element(),{content:{id:'wait',actions:[{id:'wait',label:'Wait'}]}});
+  const controller=new ChapterController(deck,c);
+  deck.start();deck.move({axis:'y',x:0,y:-100});step();deck.cancel();settle();
+  assert.equal(controller.state.variables.energy,1);
+  key(deck,'ArrowUp');assert.equal(controller.state.variables.energy,3);
+  controller.restart();settle();assert.equal(controller.state.variables.energy,1);
+  dispose(deck,controller);
+});
+
+for (const reduced of [false,true]) test(`terminal linear swipe loads no card and restart restores it, reduced=${reduced}`,()=>{
+ const chapter=createStarterChapter();chapter.nodes[0].connections.next=null;
+ const deck=new CardDeck(new Element(),{content:{id:'wait',actions:[{id:'wait',label:'Wait'}]}});
+ deck.reduced=reduced;const controller=new ChapterController(deck,chapter);
+ key(deck,'ArrowUp');key(deck,'ArrowUp');
+ assert.equal(controller.state.completed,true);assert.equal(deck.phase,'ended');assert.equal(deck.pending,null);
+ assert.equal(deck.mount.children.length,0);assert.notEqual(deck.content.id,'chapter-complete');
+ key(deck,'ArrowUp');assert.equal(deck.mount.children.length,0);
+ controller.restart();settle();assert.equal(controller.state.completed,false);assert.equal(deck.phase,'closed');assert.ok(deck.mount.children.length);
+ dispose(deck,controller);
 });

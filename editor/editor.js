@@ -1,9 +1,12 @@
+import { renderVariables } from './stateFields.js';
+import { field, imageField, options, esc } from './fields.js';
+import { renderSequenceInspector } from './sequenceInspector.js';
+import { nodeType, nodeOutputs } from '../chapter/nodeTypes.js';
+import { createSequence, outputLabel } from '../chapter/sequenceTypes.js';
 import { createStarterChapter, validateChapter, parseChapter, cloneChapter, upgradeDecisionNodes } from '../chapter/model.js';
 import { Preview } from './preview.js';
 import { saveChapter, loadChapter } from './storage.js';
 const $ = s => document.querySelector(s);
-const assets=['box','escape','goggles_01','pack','flashlight','corridor_02','city','hall_01'];
-const esc = value => String(value ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const uid = prefix => `${prefix}-${crypto.randomUUID().slice(0,8)}`;
 const loaded=loadChapter(); let doc=upgradeDecisionNodes(loaded.chapter || createStarterChapter());
 let selected=doc.startNode, undo=[],redo=[],pending=null,view={x:60,y:60,z:1},previewStart;
@@ -12,11 +15,8 @@ function commit(fn){undo.push(cloneChapter(doc));if(undo.length>80)undo.shift();
 function persist(){const result=saveChapter(doc);$('#save-status').textContent=result.ok?'Saved in this browser':`Save failed: ${result.error}`;}
 function node(){return doc.nodes.find(n=>n.id===selected)}
 function sequence(){return doc.sequences.find(s=>s.id===node()?.sequenceId)}
-function options(values,current){return values.map(([v,t])=>`<option value="${esc(v)}" ${v===current?'selected':''}>${esc(t)}</option>`).join('')}
-function field(label,value,path,type='text'){return `<label class="field">${esc(label)}${type==='textarea'?`<textarea data-path="${path}">${esc(value)}</textarea>`:`<input type="${type}" data-path="${path}" value="${esc(value)}">`}</label>`}
-function imageField(value,path){return `${field('Image path',value,path)}<label class="field">Existing artwork<select data-path="${path}">${options([['','Choose artwork…'],...assets.map(a=>[`./assets/img/${a}.png`,a])],value)}</select></label>`}
-function exits(n){return n.type==='random'?['next']:doc.sequences.find(s=>s.id===n.sequenceId)?.exits || ['next']}
-function exitLabel(n, id){const s=doc.sequences.find(s=>s.id===n.sequenceId);return s?.decisionOnly ? s.cards[0]?.choices?.find(c=>c.id===id)?.label || id : id}
+function exits(n){return nodeOutputs(n, doc.sequences.find(s=>s.id===n.sequenceId))}
+function exitLabel(n, id){const s=doc.sequences.find(s=>s.id===n.sequenceId);return outputLabel(s,id)}
 function syncDecision(s){if(!s.decisionOnly)return;s.exits=s.cards[0].choices.map(c=>c.id);for(const n of doc.nodes.filter(n=>n.sequenceId===s.id))n.connections=Object.fromEntries(s.exits.map(id=>[id,n.connections[id] ?? null]));}
 function render(){
  if(!doc.nodes.some(n=>n.id===selected))selected=doc.startNode;
@@ -27,30 +27,51 @@ function render(){
 }
 function transform(){$('#world').style.transform=`translate(${view.x}px,${view.y}px) scale(${view.z})`}
 function edges(){ $('#edges').innerHTML=doc.nodes.flatMap(n=>exits(n).map((exit,i)=>{const t=doc.nodes.find(t=>t.id===n.connections[exit]);if(!t)return '';let x=n.x+220,y=n.y+104+i*29,tx=t.x,ty=t.y+40;return `<path d="M${x},${y} C${x+90},${y} ${tx-90},${ty} ${tx},${ty}"/>` })).join('') }
-function inspector(){const n=node();$('#selected-type').textContent=n?.type || '';if(!n){$('#inspector').innerHTML='<p>Select a node to edit it.</p>';return}
- let html=field('Node name',n.name,'node.name');
- if(n.type==='random'){
+function inspector(){const expanded=new Set([...$('#inspector').querySelectorAll('[data-state-section][open]')].map(el=>el.dataset.stateSection));const n=node();$('#selected-type').textContent=n?.type || '';if(!n){$('#inspector').innerHTML='<p>Select a node to edit it.</p>';return}
+ let html=renderVariables(doc)+field('Node name',n.name,'node.name');
+ if(nodeType(n).inspector==='pool'){
  html+=field('Number of selections',n.count,'node.count','number')+'<h3>Sequence pool</h3>'+n.pool.map((p,i)=>`<div class="entry"><label class="field">Sequence<select data-path="node.pool.${i}.sequenceId">${options(doc.sequences.map(s=>[s.id,s.name]),p.sequenceId)}</select></label>${field('Weight',p.weight,`node.pool.${i}.weight`,'number')}<button data-command="remove-pool" data-index="${i}">Remove</button></div>`).join('')+'<button data-command="add-pool">+ Pool sequence</button><p class="small">Selections do not repeat within this block. Every sequence exit returns here.</p>';
  }else{const s=sequence();if(!s){$('#inspector').innerHTML=html+'Missing sequence';return}
- html+=`<label class="field">Sequence<select data-path="node.sequenceId">${options(doc.sequences.map(s=>[s.id,s.name]),s.id)}</select></label>`+field('Sequence name',s.name,'sequence.name')+`<p class="small">${doc.nodes.filter(n=>n.sequenceId===s.id).length} static node(s) use this sequence. Changes apply to every reference and pool.</p>`;
- if(s.type==='forked' || s.type==='container')html+=`<label class="field"><input type="checkbox" data-path="sequence.showCardNumbers" ${s.showCardNumbers?'checked':''}>Show card numbering (Action / Item)</label>`;
- if(s.decisionOnly){
- html+='<h3>Decision choices</h3><p class="small">Choices appear immediately. Each choice has its own node output below.</p>'+(s.cards[0]?.choices || []).map((a,j)=>`<div class="entry">${field('Choice label',a.label,`sequence.cards.0.choices.${j}.label`)}${imageField(a.image,`sequence.cards.0.choices.${j}.image`)}<button data-command="remove-choice" data-index="0" data-choice="${j}">Remove choice</button></div>`).join('')+`<button data-command="add-choice" data-index="0" ${(s.cards[0]?.choices?.length || 0)>=3?'disabled':''}>+ Choice</button>`;
- }else{
- const targets=[...s.cards.map(c=>[`card:${c.id}`,`Card ${s.cards.indexOf(c)+1}: ${c.title || 'Untitled situation'}`]),...s.exits.map(e=>[`exit:${e}`,`Exit: ${e}`])];
- html+=s.cards.map((c,i)=>`<details class="entry" open><summary>${i+1}. ${esc(c.title || 'Untitled situation')}</summary>${field('Title (optional)',c.title,`sequence.cards.${i}.title`)}${field('Description',c.text,`sequence.cards.${i}.text`,'textarea')}${imageField(c.image,`sequence.cards.${i}.image`)}${s.type==='forked'?(c.choices||[]).map((a,j)=>`<div class="entry">${field('Choice label',a.label,`sequence.cards.${i}.choices.${j}.label`)}${imageField(a.image,`sequence.cards.${i}.choices.${j}.image`)}<label class="field">Destination<select data-path="sequence.cards.${i}.choices.${j}.target">${options(targets,a.target)}</select></label><button data-command="remove-choice" data-index="${i}" data-choice="${j}">Remove choice</button></div>`).join('')+`<button data-command="add-choice" data-index="${i}" ${(c.choices||[]).length>=3?'disabled':''}>+ Choice</button>`:''}${s.type!=='container'?`<div class="row"><button data-command="up-card" data-index="${i}" ${i===0?'disabled':''}>↑</button><button data-command="down-card" data-index="${i}" ${i===s.cards.length-1?'disabled':''}>↓</button><button data-command="remove-card" data-index="${i}">Remove card</button></div>`:''}</details>`).join('');
- if(s.type!=='container')html+='<button data-command="add-card">+ Card</button>';
- if(s.type==='container')html+='<h3>Items</h3>'+s.items.map((item,i)=>`<div class="entry">${field('Item name',item.label,`sequence.items.${i}.label`)}${imageField(item.image,`sequence.items.${i}.image`)}<button data-command="remove-item" data-index="${i}">Remove item</button></div>`).join('')+'<button data-command="add-item">+ Item</button><p class="small">Up discards an item; Down takes it. Resolve every item to continue. The last item reveals the next card back.</p>';
- html+='<h3>Sequence exits</h3>'+s.exits.map((e,i)=>`<div class="row"><input aria-label="Exit name" data-path="sequence.exits.${i}" value="${esc(e)}"><button data-command="remove-exit" data-index="${i}">×</button></div>`).join('')+(s.type==='forked'?'<button data-command="add-exit">+ Named exit</button>':'');
- }
+ html+=renderSequenceInspector(s,doc);
  }
  html+='<h3>Chapter connections</h3>'+exits(n).map(e=>`<label class="field">${esc(exitLabel(n,e))}<select data-connection="${esc(e)}">${options([['','End chapter'],...doc.nodes.filter(t=>t.id!==n.id).map(t=>[t.id,t.name])],n.connections[e] || '')}</select></label>`).join('');
- html+='<p class="small">An unconnected exit ends the chapter. Cycles and incomplete references block playback.</p>';$('#inspector').innerHTML=html;
+ html+='<p class="small">An unconnected exit ends the chapter. Cycles and incomplete references block playback.</p>';$('#inspector').innerHTML=html;for(const el of $('#inspector').querySelectorAll('[data-state-section]'))el.open=expanded.has(el.dataset.stateSection);
 }
-$('#inspector').addEventListener('change',e=>{const path=e.target.dataset.path,connection=e.target.dataset.connection;if(connection){commit(()=>node().connections[connection]=e.target.value || null);return}if(!path)return;const value=e.target.type==='checkbox'?e.target.checked:e.target.type==='number'?Number(e.target.value):e.target.value;commit(()=>{if(path.startsWith('sequence.exits.')){const seq=sequence(),index=Number(path.split('.').pop()),old=seq.exits[index];for(const card of seq.cards)for(const choice of card.choices || [])if(choice.target===`exit:${old}`)choice.target=`exit:${value}`;for(const ref of doc.nodes.filter(n=>n.sequenceId===seq.id)){ref.connections[value]=ref.connections[old] ?? null;delete ref.connections[old];}}const keys=path.split('.');let target=keys.shift()==='node'?node():sequence();while(keys.length>1)target=target[keys.shift()];target[keys[0]]=value;if(path==='node.sequenceId'){node().connections=Object.fromEntries(exits(node()).map(exit=>[exit,node().connections[exit] ?? null]));doc=upgradeDecisionNodes(doc);}})});
+$('#inspector').addEventListener('change',e=>{const path=e.target.dataset.path,connection=e.target.dataset.connection;if(connection){commit(()=>node().connections[connection]=e.target.value || null);return}if(!path)return;const value=e.target.dataset.valueType==='flag'?e.target.value==='true':e.target.type==='checkbox'?e.target.checked:e.target.type==='number'?Number(e.target.value):e.target.value;commit(()=>{if(path.startsWith('sequence.exits.')){const seq=sequence(),index=Number(path.split('.').pop()),old=seq.exits[index];for(const card of seq.cards)for(const choice of card.choices || [])if(choice.target===`exit:${old}`)choice.target=`exit:${value}`;for(const ref of doc.nodes.filter(n=>n.sequenceId===seq.id)){ref.connections[value]=ref.connections[old] ?? null;delete ref.connections[old];}}const keys=path.split('.');const root=keys.shift();let target=root==='chapter'?doc:root==='node'?node():sequence();while(keys.length>1)target=target[keys.shift()];target[keys[0]]=value;adjustRuleField(e.target);if(path==='node.sequenceId'){node().connections=Object.fromEntries(exits(node()).map(exit=>[exit,node().connections[exit] ?? null]));doc=upgradeDecisionNodes(doc);}})});
+
+function stateTarget(path){const keys=path.split('.'),root=keys.shift();let target=root==='chapter'?doc:root==='node'?node():sequence();for(const key of keys)target=target[key];return target;}
+function defaultVariable(){return doc.variables?.[0]}
+function variableRule(variable){return {source:'variable',key:variable.id,op:'eq',value:variable.initial};}
+function adjustRuleField(el){
+ if(el.dataset.variableType!==undefined){const v=doc.variables[Number(el.dataset.variableType)];v.initial=v.type==='flag'?false:0;}
+ const path=el.dataset.ruleSource||el.dataset.ruleKey;
+ if(path){const r=stateTarget(path);if(r.source==='inventory'){const first=doc.sequences.flatMap(s=>s.items||[])[0];if(el.dataset.ruleSource)r.key=first?.id||'';r.op='has';delete r.value;}
+ else{const v=el.dataset.ruleSource?defaultVariable():doc.variables?.find(v=>v.id===r.key);r.key=v?.id||'';r.op='eq';r.value=v?.initial??0;}}
+ if(el.dataset.effectKey){const r=stateTarget(el.dataset.effectKey),v=doc.variables?.find(v=>v.id===r.key);r.op='set';r.value=v?.initial??0;}
+}
+$('#inspector').addEventListener('click',e=>{
+ const b=e.target.closest('[data-state-command]');if(!b)return;
+ const createsFirst=b.dataset.stateCommand==='add-effect'&&!defaultVariable();
+ commit(()=>{const cmd=b.dataset.stateCommand,i=Number(b.dataset.index),target=b.dataset.statePath?stateTarget(b.dataset.statePath):null;
+ if(cmd==='add-variable'){doc.variables ||= [];let n=1;while(doc.variables.some(v=>v.id===`variable${n}`))n++;doc.variables.push({id:`variable${n}`,type:'flag',initial:false});}
+ if(cmd==='remove-variable')doc.variables.splice(i,1);
+ if(cmd==='add-condition'){target.conditions ||= [];const v=defaultVariable(),item=doc.sequences.flatMap(s=>s.items||[])[0];target.conditions.push(v?variableRule(v):{source:'inventory',key:item.id,op:'has'});}
+ if(cmd==='remove-condition')target.conditions.splice(i,1);
+ if(cmd==='add-effect'){if(!defaultVariable()){doc.variables=[{id:'variable1',type:'flag',initial:false}];}target.effects ||= [];const v=defaultVariable();target.effects.push({op:'set',key:v.id,value:v.initial});}
+ if(cmd==='remove-effect')target.effects.splice(i,1);
+ });
+ if(createsFirst){const panel=$('#inspector').querySelector('[data-state-section="variables"]');panel.open=true;panel.scrollIntoView({block:'nearest'});panel.querySelector('input').focus();}
+});
 function newCard(type){const id=uid('card');return {id,title:'',text:'Describe what happens.',image:'./assets/img/corridor_02.png',...(type==='forked'?{choices:[{id:uid('choice'),label:'Choice 1',image:'./assets/img/escape.png',target:'exit:next'},{id:uid('choice'),label:'Choice 2',image:'./assets/img/escape.png',target:'exit:next'}]}:{})}}
 $('#inspector').addEventListener('click',e=>{const b=e.target.closest('[data-command]');if(!b)return;const cmd=b.dataset.command,i=Number(b.dataset.index),j=Number(b.dataset.choice);commit(()=>{const s=sequence(),n=node();switch(cmd){case 'add-card':s.cards.push(newCard(s.type));break;case 'remove-card':s.cards.splice(i,1);break;case 'up-card':[s.cards[i-1],s.cards[i]]=[s.cards[i],s.cards[i-1]];break;case 'down-card':[s.cards[i+1],s.cards[i]]=[s.cards[i],s.cards[i+1]];break;case 'add-choice':{const id=uid('choice');s.cards[i].choices.push({id,label:'New choice',image:'./assets/img/escape.png',target:`exit:${s.decisionOnly ? id : s.exits[0] || 'next'}`});syncDecision(s);break;}case 'remove-choice':s.cards[i].choices.splice(j,1);syncDecision(s);break;case 'add-item':s.items.push({id:uid('item'),label:'New item',image:'./assets/img/pack.png'});break;case 'remove-item':s.items.splice(i,1);break;case 'add-exit':{const exit=`exit${s.exits.length+1}`;s.exits.push(exit);for(const ref of doc.nodes.filter(r=>r.sequenceId===s.id))ref.connections[exit]=null;}break;case 'remove-exit':{const old=s.exits.splice(i,1)[0];for(const ref of doc.nodes.filter(n=>n.sequenceId===s.id))delete ref.connections[old];break;}case 'add-pool':n.pool.push({sequenceId:doc.sequences[0]?.id || '',weight:1});break;case 'remove-pool':n.pool.splice(i,1);break}})});
-function add(type){commit(()=>{const id=uid('node'),position={x:(150-view.x)/view.z,y:(140-view.y)/view.z};let n={id,name:type==='random'?'Random encounters':`New ${type}`,type:type==='random'?'random':'static',...position,connections:{next:null}};if(type==='random'){n.pool=doc.sequences.length?[{sequenceId:doc.sequences[0].id,weight:1}]:[];n.count=1}else{const s={id:uid('sequence'),name:n.name,type,cards:[newCard(type)],exits:['next']};if(type==='forked'){s.decisionOnly=true;s.cards[0].text='';s.cards[0].image='';for(const c of s.cards[0].choices)c.target=`exit:${c.id}`;s.exits=s.cards[0].choices.map(c=>c.id);n.connections=Object.fromEntries(s.exits.map(id=>[id,null]));}if(type==='container')s.items=[{id:uid('item'),label:'Supplies',image:'./assets/img/pack.png'}];doc.sequences.push(s);n.sequenceId=s.id}doc.nodes.push(n);selected=id})}
+function add(type){commit(()=>{
+ const position={x:(150-view.x)/view.z,y:(140-view.y)/view.z};
+ const n={id:uid('node'),name:type==='random'?'Random encounters':`New ${type}`,type:type==='random'?'random':'static',...position,connections:{}};
+ if(type==='random'){n.pool=doc.sequences.length?[{sequenceId:doc.sequences[0].id,weight:1}]:[];n.count=1;}
+ else{const s=createSequence(type,uid,n.name);doc.sequences.push(s);n.sequenceId=s.id;}
+ n.connections=Object.fromEntries(exits(n).map(id=>[id,null]));
+ doc.nodes.push(n);selected=n.id;
+})}
 for(const b of document.querySelectorAll('[data-add]'))b.onclick=()=>add(b.dataset.add);
 $('#duplicate').onclick=()=>{if(!node())return;commit(()=>{const n=cloneChapter(node());n.id=uid('node');n.name+=' copy';n.x+=40;n.y+=40;if(n.type==='static'){const s=cloneChapter(sequence());s.id=uid('sequence');s.name+=' copy';doc.sequences.push(s);n.sequenceId=s.id}doc.nodes.push(n);selected=n.id})};
 $('#delete').onclick=()=>{if(!node())return;commit(()=>{doc.nodes=doc.nodes.filter(n=>n.id!==selected);for(const n of doc.nodes)for(const exit in n.connections)if(n.connections[exit]===selected)n.connections[exit]=null;if(doc.startNode===selected)doc.startNode=doc.nodes[0]?.id || '';selected=doc.nodes[0]?.id;pending=null})};

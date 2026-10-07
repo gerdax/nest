@@ -4,8 +4,10 @@ import { cloneChapter, validateChapter } from '../chapter/model.js';
 import { InventoryStrip } from '../demo/InventoryStrip.js';
 
 export class Preview {
-  constructor(root, { onChange = () => {}, onRestart, inventoryDock = false } = {}) {
+  constructor(root, { onChange = () => {}, onRestart, inventoryDock = false, deckSettings = {}, presentation } = {}) {
     this.root = root;
+    this.deckSettings = { ...deckSettings };
+    this.presentation = presentation;
     this.onChange = onChange;
     this.chapter = null;
     this.startNode = undefined;
@@ -25,11 +27,13 @@ export class Preview {
         <div class="chapter-preview-stage"><div class="chapter-preview-deck" tabindex="0"></div></div>
         <p class="chapter-preview-status" role="status" aria-live="polite">Preview stopped.</p>
         <p class="chapter-preview-hint">Up advances story cards, reveals choices, or opens a container / discards an item. Down or Enter takes an item. Left / right browse. Escape cancels a gesture.</p>
+        <details class="chapter-preview-state" hidden><summary>Run state</summary><pre></pre></details>
         <section class="chapter-preview-inventory"></section>
         <div class="chapter-preview-complete" hidden><strong>Chapter complete.</strong> <button type="button">Restart chapter</button></div>
       </section>`;
     this.mount = root.querySelector('.chapter-preview-deck');
     this.status = root.querySelector('.chapter-preview-status');
+    this.stateReadout = root.querySelector('.chapter-preview-state');
     const inventoryRoot = root.querySelector('.chapter-preview-inventory');
     if (inventoryDock) {
       inventoryRoot.classList.add('nest-inventory-dock');
@@ -48,12 +52,12 @@ export class Preview {
     this.chapter = snapshot;
     this.startNode = startNode;
     try {
-      this.deck = new CardDeck(this.mount, { content: {
+      this.deck = new CardDeck(this.mount, { settings: this.deckSettings, content: {
         id: 'preview-loading', title: 'Loading chapter', text: '',
         actions: [{ id: 'wait', label: 'Loading', disabled: true }],
       } });
       this.controller = new ChapterController(this.deck, snapshot, {
-        startNode, onChange: state => this.update(state),
+        startNode, ...(this.presentation ? { presentation: this.presentation } : {}), onChange: state => this.update(state),
       });
       this.mount.focus({ preventScroll: true });
     } catch (error) {
@@ -73,6 +77,8 @@ export class Preview {
     this.status.textContent = state.completed ? 'Chapter complete.'
       : `Playing · ${sequence?.name ?? state.sequenceId ?? state.activeNodeId ?? ''}${card?.title ? ` · ${card.title}` : ''}`;
     this.complete.hidden = !state.completed;
+    this.stateReadout.hidden = !Object.keys(state.variables || {}).length;
+    this.stateReadout.querySelector('pre').textContent = JSON.stringify(state.variables || {}, null, 2);
     this.inventory.update(state.collectedItems ?? []);
     this.onChange(state);
   }
@@ -85,6 +91,7 @@ export class Preview {
     this.state = null;
     this.mount.replaceChildren();
     this.status.textContent = 'Preview stopped.';
+    this.stateReadout.hidden = true;
     this.inventory.update([]);
     this.complete.hidden = true;
   }

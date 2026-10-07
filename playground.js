@@ -1,7 +1,7 @@
-import { CardDeck, DEFAULT_SETTINGS } from './engine/CardDeck.js?v=optional-numbers-1';
+import { CardDeck, DEFAULT_SETTINGS } from './engine/CardDeck.js?v=no-ending-card-1';
 
-import { ScenarioController, createStudyContent } from './demo/ScenarioController.js?v=optional-numbers-1';
-import { InventoryStrip } from './demo/InventoryStrip.js?v=optional-numbers-1';
+import { ScenarioController, createStudyContent } from './demo/ScenarioController.js?v=no-ending-card-1';
+import { InventoryStrip } from './demo/InventoryStrip.js?v=no-ending-card-1';
 
 const specs = [
   ['stiffness', 'Spring stiffness', 60, 600, 5, ''],

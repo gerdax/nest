@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="pl">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Nest — kości 3D</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,sans-serif;background:#1b2024;color:#efe0bf}body{margin:0 auto;max-width:1100px;padding:24px}a{color:#efe0bf}h1{font-size:1.7rem}p{line-height:1.5}form{display:flex;flex-wrap:wrap;gap:12px;align-items:end}label{display:grid;gap:6px}input,select,button{font:inherit;padding:10px;border:1px solid #68716e;border-radius:8px;background:#29312f;color:inherit}input{width:5rem}button{cursor:pointer}button:disabled{opacity:.5;cursor:wait}#tray{height:min(62vh,540px);min-height:280px;border:1px solid #68716e;border-radius:12px;margin-top:20px;background:radial-gradient(ellipse,#485044,#242c29);overflow:hidden}#result{min-height:2em;font-size:1.1rem}small{display:block;line-height:1.5;color:#b7b8ac}
+</style></head>
+<body><a href="index.html">← Nest</a><h1>Kości 3D</h1><p>Samodzielny komponent. Wynik zawiera wartości kości; zasady gry i interpretacja pozostają po stronie wywołującego.</p>
+<form id="controls"><label>Liczba kości<input id="count" type="number" value="2" min="1" max="30" required></label><label>Kość<select id="sides"><option value="4">d4</option><option value="6" selected>d6</option><option value="8">d8</option><option value="10">d10</option><option value="12">d12</option><option value="20">d20</option></select></label><button id="roll" type="submit">Rzuć</button><button id="clear" type="button">Wyczyść / anuluj</button></form>
+<div id="tray"></div><p id="result" role="status" aria-live="polite">Gotowe do rzutu.</p><small>Silnik: <a href="https://github.com/gerdax/onejournal">onejournal</a> / @3d-dice/dice-box 1.1.4. <a href="dice/vendor/dice-box/LICENSE">Licencja MIT</a>. Zasoby działają lokalnie, bez CDN.</small>
+<script type="module" src="dice/demo.js"></script></body></html>

@@ -119,3 +119,9 @@ The current prototype owns its artwork in `assets/img` and fonts in `assets/font
 The lid experiment and its controls have been removed from the active prototype.
 
 Fork nodes in the chapter editor now display choices directly. Each choice is an output connected to another chapter node. Linear cards advance with one swipe, and situation titles are optional.
+
+## Architecture and reusable capabilities
+
+See [architecture assumptions](docs/architecture.md) for node/sequence registries, independent presentation policy, motion tuning, appearance tokens and the pending inventory discussion. Try the isolated [3D dice tray](dice.html); [dice service documentation](docs/dice-service.md) describes its context-independent API and Onejournal provenance. Stage it for future hosting with `python3 build_pages.py /tmp/nest-pages-with-dice --include-dice`. No dice success rules or new node type are imposed.
+
+Run variables and conditional choices can be authored in the inspector. See [state authoring](docs/state-system.md) for available checks, effects and miniature artwork previews.

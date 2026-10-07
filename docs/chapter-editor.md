@@ -31,3 +31,5 @@ Checkpoint `60e2db4` preserves the direct item flow before this change. Confirme
 Decisions reached from Linear lie face-up underneath the departing story card. Decisions reached after a Fork or a cleared Container rotate their real choice stack from its reverse before enabling input. During an incoming story-card turn, its prepared successor remains hidden until that story card is dragged; this prevents a second card appearing behind the turn.
 
 Action/Item numbering is hidden by default. Enable “Show card numbering (Action / Item)” in a Fork or Container inspector to display it for that sequence. Choice and item labels remain visible.
+
+End chapter currently stops playback after the outgoing card leaves. It does not generate a completion card or load a new chapter. Completion/restart controls remain outside the deck. A chapter library and chapter-level destinations are deferred.

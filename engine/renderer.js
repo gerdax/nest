@@ -1,5 +1,5 @@
-import { handoffRadius, projectedBounds } from './geometry.js?v=optional-numbers-1';
-import { carouselPose, clamp, departureDistance, revealScale } from './motion.js?v=optional-numbers-1';
+import { handoffRadius, projectedBounds } from './geometry.js?v=no-ending-card-1';
+import { carouselPose, clamp, departureDistance, revealScale } from './motion.js?v=no-ending-card-1';
 
 function layerFor(deck, card, className = '') {
   const layer = document.createElement('div');
@@ -255,7 +255,7 @@ export function renderDeck(deck, time = performance.now()) {
       visible: ((deck.content.directAdvance && deck.p.x > 0 && !deck.busy) || (deck.phase === 'committing' && (!!deck.commitMotion || deck.operation !== 'commit')) || (deck.phase === 'collecting' && deck.collectMotion?.final)
         || (deck.phase === 'choices' && (deck.content.interaction === 'container' ? resolution && deck.l.x !== 0 : deck.l.x > 0)
         && !deck.content.actions[deck.index]?.disabled))
-        && !forwardActive
+        && !forwardActive && !deck.ending && !deck.content.noSuccessor
     };
     applyPose(deck, deck.underlay, deck.underlayLayer, stagedPose, 0);
     applyPose(deck, deck.underlayBack, deck.underlayLayer, backPose(stagedPose), 0);

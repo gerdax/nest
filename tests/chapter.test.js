@@ -16,6 +16,7 @@ class FakeDeck extends EventTarget {
     this.content = content;
     this.presentation = options.presentation ?? 'closed';
   }
+  endContent() { this.ending = true; }
   reset() { this.busy = false; this.pending = null; this.resolution = null; }
   choose(id) {
     const action = this.content.actions.find(action => action.id === id);
@@ -45,6 +46,7 @@ class FakeDeck extends EventTarget {
     else if (!final) this.busy = false;
   }
   finishFlip() {
+    if(this.ending){this.ending=false;this.busy=false;this.emit('transitioncomplete',{transition:'commit'});return;}
     assert.ok(this.pending, 'next front was supplied synchronously');
     this.content = this.pending;
     this.pending = null;
@@ -140,7 +142,8 @@ test('forked choices navigate explicit cards and named exits', () => {
   const { deck, controller } = setup({ startNode: 'encounter', rng: () => 0 });
   deck.choose('explore'); assert.equal(controller.state.cardId, 'exit');
   deck.choose('escape'); assert.equal(controller.state.completed, true);
-  assert.equal(deck.content.id, 'chapter-complete');
+  assert.notEqual(deck.content.id, 'chapter-complete');
+  assert.equal(deck.ending, true);
 });
 
 test('random executes its selected queue then uses next independent of sequence exit', () => {
@@ -156,12 +159,13 @@ test('random executes its selected queue then uses next independent of sequence 
   assert.equal(controller.state.activeNodeId, 'supplies');
 });
 
-test('terminal discard stages an ending and restart resets inventory', () => {
+test('terminal discard ends without a generated card and restart resets inventory', () => {
   const chapter = createStarterChapter(); chapter.nodes[1].connections.next = null;
   const deck = new FakeDeck(), states = [];
   const controller = new ChapterController(deck, chapter, { startNode: 'supplies', onChange: state => states.push(state) });
   deck.collect('flashlight'); deck.discard('goggles', false);
-  assert.equal(deck.pending.id, 'chapter-complete');
+  assert.equal(deck.pending, undefined);
+  assert.equal(deck.ending, true);
   assert.equal(controller.state.completed, false);
   deck.finishCollection();
   assert.equal(controller.state.completed, true);

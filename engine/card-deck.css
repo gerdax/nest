@@ -41,9 +41,9 @@
   position: absolute;
   inset: 0;
   box-sizing: border-box;
-  border: 1px solid #39432a;
-  border-radius: 20px;
-  background-color: #14190e;
+  border: 1px solid var(--card-border, #39432a);
+  border-radius: var(--card-radius, 20px);
+  background-color: var(--card-background, #14190e);
   background-size: cover;
   background-position: center;
   box-shadow: 0 2px 0 #29301c, 0 12px 30px #000b;
@@ -68,32 +68,32 @@
   background: linear-gradient(180deg, #0000 25%, #06090366 48%, #060903f5 100%);
 }
 .nest-copy {
-  font-family: NestLetter, monospace;
+  font-family: var(--card-font, NestLetter, monospace);
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 26px;
+  padding: var(--card-padding, 26px);
   z-index: 1;
-  color: #d2dfb6;
+  color: var(--card-text, #d2dfb6);
 }
 .nest-card-title {
   font-size: 10px;
   letter-spacing: .18em;
-  color: #a9bb86;
+  color: var(--card-title-color, #a9bb86);
   display: block;
   text-transform: uppercase;
 }
 .nest-card-title[hidden] { display: none; }
 .nest-copy p {
-  font-size: clamp(16px, 4vw, 21px);
+  font-size: var(--card-font-size, clamp(16px, 4vw, 21px));
   line-height: 1.45;
   margin: 12px 0 0;
   text-wrap: pretty;
   overflow-wrap: anywhere;
 }
 .nest-action .nest-copy { padding-bottom: 32px; }
-.nest-action { border-color: #607044; }
+.nest-action { border-color: var(--card-action-border, #607044); }
 .nest-live {
   position: absolute;
   width: 1px;
@@ -108,7 +108,7 @@
 /* A real reverse face shares the situation's layer and motion. CSS hides
    the face pointing away from the camera; no opacity animation is involved. */
 .nest-card-back {
-  background-color: #172010;
+  background-color: var(--card-back-background, #172010);
   background-image: repeating-linear-gradient(135deg, #25321b 0 1px, #172010 1px 13px);
   border-color: #64734a;
 }
@@ -125,7 +125,7 @@
   z-index: 1;
 }
 .nest-back-mark {
-  font-family: NestLetter, monospace;
+  font-family: var(--card-font, NestLetter, monospace);
   color: #b8c89a;
   font-size: clamp(22px, 6vw, 32px);
   letter-spacing: .22em;

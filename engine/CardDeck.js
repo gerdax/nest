@@ -1,8 +1,8 @@
-import { projectedBounds, turningBounds } from './geometry.js?v=optional-numbers-1';
-import { buildDeck, decorateCard, announceDeck, renderDeck, stageNextContent, stageNextBack, stageActionDeck, scenePose, cardPose } from './renderer.js?v=optional-numbers-1';
-import { MovementHistory } from './MovementHistory.js?v=optional-numbers-1';
-import { DEFAULT_SETTINGS, settingsWith, spring, springStep, qualifies, resistance, modulo, clamp, carouselPose, departureDistance } from './motion.js?v=optional-numbers-1';
-import { PointerInput } from './PointerInput.js?v=optional-numbers-1';
+import { projectedBounds, turningBounds } from './geometry.js?v=no-ending-card-1';
+import { buildDeck, decorateCard, announceDeck, renderDeck, stageNextContent, stageNextBack, stageActionDeck, scenePose, cardPose } from './renderer.js?v=no-ending-card-1';
+import { MovementHistory } from './MovementHistory.js?v=no-ending-card-1';
+import { DEFAULT_SETTINGS, settingsWith, spring, springStep, qualifies, resistance, modulo, clamp, carouselPose, departureDistance } from './motion.js?v=no-ending-card-1';
+import { PointerInput } from './PointerInput.js?v=no-ending-card-1';
 export { DEFAULT_SETTINGS };
 
 function validate(content) {
@@ -289,7 +289,7 @@ export class CardDeck extends EventTarget {
   }
 
   start(event) {
-    if (this.destroyed || this.busy || this.openingCommit || this.openingReturn || ['closing', 'revealing'].includes(this.phase)) return false;
+    if (this.destroyed || this.busy || this.openingCommit || this.openingReturn || ['closing', 'revealing', 'ended'].includes(this.phase)) return false;
     this.mount.focus({ preventScroll: true });
     const bounds = this.mount.getBoundingClientRect();
     const grab = {
@@ -569,7 +569,7 @@ export class CardDeck extends EventTarget {
       : e.key === 'Enter' ? 'ArrowUp' : e.key === 'Escape' ? 'ArrowDown' : e.key;
     if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key)) return;
     e.preventDefault();
-    if (this.busy || this.openingCommit || this.openingReturn || this.phase === 'closing' || this.drag || e.repeat) return;
+    if (this.phase === 'ended' || this.busy || this.openingCommit || this.openingReturn || this.phase === 'closing' || this.drag || e.repeat) return;
     if (key === 'ArrowUp') {
       if (this.content.directAdvance && !this.open) { this.commitCover(); return; }
       if (this.phase === 'choices') this.commit();else if (!this.open) {
@@ -823,6 +823,15 @@ export class CardDeck extends EventTarget {
     this.render();
   }
 
+  endContent() {
+    if (this.destroyed) return;
+    this.ending = true;
+    this.pending = null;
+    this.forwardDeck?.cardLayers.forEach(layer => layer.remove());
+    this.forwardDeck = null;
+    this.render();
+  }
+
   replaceContent(content, { presentation = 'closed', transition = 'flip' } = {}) {
     if (this.destroyed) return;
     if (!['closed', 'open'].includes(presentation)) throw new TypeError('Unknown presentation');
@@ -854,6 +863,7 @@ export class CardDeck extends EventTarget {
   install(content, { faceDown = false, open = false, selectedId, staged = null, stagedDepth = staged ? 1 : 0, flipState = null } = {}) {
     this.clearGrab();
     this.content = content;
+    this.ending = false;
     this.open = open && content.actions.length > 0;
     this.index = Math.max(0, content.actions.findIndex(a => a.id === selectedId));
     this.drag = null;
@@ -900,6 +910,14 @@ export class CardDeck extends EventTarget {
 
   completeCommit() {
     this.commitMotion = null;
+    if (this.ending) {
+      this.busy = false;
+      this.open = false;
+      this.phase = 'ended';
+      this.mount.replaceChildren();
+      this.emit('transitioncomplete', { transition: 'commit' });
+      return;
+    }
     if (this.pending) {
       const next = this.pending;
       const presentation = this.pendingPresentation;

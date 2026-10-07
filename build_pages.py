@@ -19,6 +19,7 @@ RUNTIME_FILES = (
     "engine/PointerInput.js",
     "engine/geometry.js",
     "engine/motion.js",
+    "engine/motionProfile.js",
     "engine/MovementHistory.js",
     "engine/renderer.js",
     "engine/card-deck.css",
@@ -46,6 +47,7 @@ def local_reference(value: str, base: Path) -> Path | None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path, help="new or empty directory to populate")
+    parser.add_argument("--include-dice", action="store_true", help="also stage the independent dice demo and licensed engine assets")
     args = parser.parse_args()
 
     output = args.output.expanduser().resolve()
@@ -86,16 +88,25 @@ def main() -> None:
         relative = source.relative_to(ROOT)
         copy_repo_file(relative.as_posix())
 
+    if args.include_dice:
+        for source in sorted((ROOT / "dice").rglob("*")):
+            if source.is_file():
+                copy_repo_file(source.relative_to(ROOT).as_posix())
+        copy_repo_file("dice.html")
+
     (output / ".nojekyll").write_text("", encoding="utf-8")
     # Confirm every local static URL and module dependency resolves in the staged tree.
     missing: list[str] = []
     for staged in sorted(copied):
         source = ROOT / staged.relative_to(output)
+        if "vendor" in staged.relative_to(output).parts:
+            continue  # Third-party bundles use dynamic worker/asset URLs; copied intact.
         if source.suffix not in {".html", ".css", ".js"}:
             continue
         content = staged.read_text(encoding="utf-8")
         refs = [m.group(1) for m in IMPORT_RE.finditer(content)]
-        refs.extend(m.group(2) for m in URL_RE.finditer(content))
+        if source.suffix == ".css":
+            refs.extend(m.group(2) for m in URL_RE.finditer(content))
         if source.suffix == ".html":
             refs.extend(re.findall(r"(?:src|href)=[\"']([^\"']+)[\"']", content))
         for ref in refs:
