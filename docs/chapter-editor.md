@@ -4,11 +4,11 @@ Run `python3 serve.py`, then open `http://127.0.0.1:8937/editor.html`. The origi
 
 Create Linear, Forked, Container, or Random nodes using the toolbar. Drag nodes to arrange them, drag the background to pan, and scroll to zoom. Set the selected node as the chapter start. Connect an exit by clicking its port and then a destination node, or use the connection selector in the inspector. Select End chapter to disconnect it.
 
-Static nodes reference reusable sequences. Their inspector edits cards, artwork, and exits. Linear cards play in list order. Forked cards offer two or three choices whose destinations are another card or a named exit. The first card is the entry; reorder cards to change it. Containers always need an item. Open reveals items, Down returns to Open / Leave with collected items removed, and the final item advances automatically.
+Static nodes reference reusable sequences. Their inspector edits cards, artwork, and exits. Linear cards play in list order. Forked cards offer two or three choices whose destinations are another card or a named exit. The first card is the entry; reorder cards to change it. Containers always need an item. One swipe up reveals items directly. Up discards an item and Down takes it into inventory. Every item must be resolved; the last item reveals and flips the next card.
 
 Random nodes choose a weighted pool without repeating a sequence within the block. Set a count no larger than the pool size. Every selected sequence exit returns to the random block; after all selections it follows its next connection. Duplicate static nodes receive an independent copy of their sequence; choosing an existing sequence creates a shared reference. Deleting a node retains its sequence for reuse in pools.
 
-Play chapter or Play selected opens the real card preview. Arrow Up reveals and commits, Left and Right browse, and Down closes a container. Restart begins with the current document, while in-progress playback uses a snapshot. Stop releases the preview. Collected items and chapter completion appear below it.
+Play chapter or Play selected opens the real card preview. Arrow Up reveals or chooses a normal action, and discards a container item. Down or Enter takes a container item. Left and Right browse; Escape cancels an active gesture. Restart begins with the current document, while in-progress playback uses a snapshot. Stop releases the preview. A temporary strip below the deck shows collected cards; chapter completion offers Restart. The strip is scrollable but cards cannot be used or inspected yet.
 
 Changes autosave in this browser, including incomplete drafts. Export JSON creates a portable chapter file. Import rejects invalid or incomplete files without replacing current work. The standalone player can import the same file. Errors must be corrected before playback; loops, broken references, empty containers, and invalid random settings are rejected. Undo and Redo apply to document edits; canvas pan and zoom are view settings.
 
@@ -16,22 +16,10 @@ The version 1 JSON format stores `name`, `startNode`, `nodes`, and `sequences`. 
 
 This local editor does not write repository files or publish chapters. Tags, conditional choices, uploads, lock-picking, and inventory rules are deferred. Verify changes with `npm test`; no dependency installation is needed.
 
-## Container lid experiment
+## Container inventory
 
-Checkpoint `e52dacd` preserves the first editor/player version before the experiment. The preview now has a Container lid motion toggle and a Lid angle slider. The toggle restarts the current preview; the angle updates live. The playground offers the same toggle and an angle slider under Motion tuning.
+The container flow uses no lid animation or Open / Leave selection. A single upward reveal shows its item cards. Resolve every item by discarding upward or taking downward; only taken cards are added to the bottom inventory. The last card reveals the reverse of the next situation, which flips after departure. Inventory lasts for this run, and restart or reload clears it. The chapter JSON remains version 1.
 
-Only choosing Open hinges the outgoing decision stack around its top edge while lifting it away. Individual item collection and ordinary choices retain their existing motion. Closing a partially collected container lowers the Open / Leave stack with the reverse hinge. The original chest demo also hinges its Go on return after the last item. Chapter playback instead automatically advances after the last item and closes the next situation into place with the same motion.
+## Previous checkpoints
 
-Hosts opt in with `transition: 'lid'` on the Open action and `lid: true` on the container content. `replaceContent(content, { presentation: 'lid' })` closes a new situation into place after final collection. `lidAngle` ranges from 0 to 85 degrees; reduced motion omits the hinge.
-
-The current motion tuning uses a 75 degree lid angle, up to 120 pixels of pickup that follows finger displacement linearly, and reaches full hinge at 45 percent of the opening travel. Empty containers pause for 100 milliseconds after the final item clears before the closing lid begins; manual closing has no extra pause. Motion tuning exposes the empty-container pause.
-
-A downward container gesture brings the lid into the visible stage during the drag while items are still compressing. Reversing or canceling the gesture sends the lid back without closing the container.
-
-During manual closing the held gesture stops with the lid visibly ajar; full closure runs only after an accepted release. Automatic empty-container closing keeps its existing full motion and pause.
-
-Manual closing uses continuous soft resistance: longer drags keep moving the lid with diminishing response, approaching a slightly open position without hitting a hard stop. Releasing completes the closure.
-
-Checkpoint `d157745` preserves soft manual closing before matching the opening response. Held Open gestures now respond strongly at first and then move more slowly with continuous resistance; the source lid remains partly on stage until release. The accepted release continues from its current pose and finishes revealing the items.
-
-Checkpoint `7f25921` preserves the matching soft opening and closing responses. Opening now adds a subtle asymmetric twist of up to -3 degrees on Y and +2 degrees on Z, gradually following the hinge. Closing and item collection keep their existing motion.
+`e52dacd` preserves the first editor and player. `d157745`, `7f25921`, and `f9387f8` preserve the retired lid experiments and their publication. Their code can be recovered from Git history; the active prototype uses the direct item flow above.

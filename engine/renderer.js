@@ -1,6 +1,5 @@
-import { handoffRadius, projectedBounds } from './geometry.js?v=container-lid-11';
-import { carouselPose, clamp, departureDistance, revealScale } from './motion.js?v=container-lid-11';
-import { lidPose, openingLid, heldOpeningProgress } from './lid.js?v=container-lid-11';
+import { handoffRadius, projectedBounds } from './geometry.js?v=container-items-1';
+import { carouselPose, clamp, departureDistance, revealScale } from './motion.js?v=container-items-1';
 
 function layerFor(deck, card, className = '') {
   const layer = document.createElement('div');
@@ -70,7 +69,9 @@ export function stageActionDeck(deck, content, selectedIndex = 0, previous = nul
 }
 
 export function buildDeck(deck, staged = null) {
-  deck.mount.setAttribute('aria-label', `Interactive card deck. Arrow up reveals, chooses or collects; left and right browse.${deck.content.allowClose ? ' Down closes.' : ''}`);
+  deck.mount.setAttribute('aria-label', deck.content.interaction === 'container'
+    ? 'Interactive container. Arrow up reveals or discards; down and Enter take items; left and right browse; Escape cancels.'
+    : `Interactive card deck. Arrow up reveals or chooses; left and right browse.${deck.content.allowClose ? ' Down closes.' : ''}`);
   deck.mount.replaceChildren();
   deck.underlay = null;
   deck.underlayLayer = null;
@@ -128,9 +129,9 @@ export function stageNextContent(deck, content) {
 
 export function announceDeck(deck) {
   const action = deck.content.actions[deck.index];
-  const message = deck.phase === 'collecting' ? 'Taking item…'
+  const message = deck.phase === 'collecting' ? (deck.collectMotion?.transition === 'discard' ? 'Discarding item…' : 'Taking item…')
     : deck.busy && deck.flip.x > 0 ? 'Turning next card…' : deck.busy ? (deck.pending || deck.operation === 'commit' ? 'Revealing next card…' : 'Waiting for next card…')
-    : deck.phase === 'revealing' ? 'Uncovering choices…'
+    : deck.phase === 'revealing' ? (deck.content.interaction === 'container' ? 'Uncovering items…' : 'Uncovering choices…')
       : deck.phase === 'closing' ? 'Returning cover…'
       : deck.open && action ? `${deck.index + 1} of ${deck.cards.length}: ${action.disabled ? 'Unavailable choice' : action.accessibleLabel || action.label}`
       : deck.content.title || 'Situation';
@@ -147,41 +148,7 @@ export function scenePose(deck, time = performance.now()) {
     rz: deck.rotationZ.x * (1 - clamp(deck.p.x, 0, 1)),
     visible: !deck.skipCover && !(deck.busy && !deck.commitMotion && deck.operation !== 'commit')
   };
-  if (deck.lidArrival && !deck.reduced) {
-    return hingedPose(deck, pose, 1 - deck.lidArrival.x, deck.mount.getBoundingClientRect().height);
-  }
   return pose;
-}
-
-// A lid swings toward the camera. Keep that hinge inside the camera plane
-// even on tall mounts or when a host selects a short perspective distance.
-function hingedPose(deck, pose, progress, height, openingTwist = false) {
-  const width = Math.max(1, deck.mount.getBoundingClientRect().width);
-  const measuredHeight = Math.max(1, height);
-  const camera = deck.settings.perspective - 12;
-  const make = angle => {
-    const result = lidPose(pose, progress, height, deck.departureTravel(), angle);
-    if (openingTwist) {
-      const t = clamp(progress / .45, 0, 1);
-      const amount = t * t * (3 - 2 * t) * Math.min(1, angle / 75);
-      result.ry -= 3 * amount;
-      result.rz += 2 * amount;
-    }
-    return result;
-  };
-  const safe = value => {
-    try { projectedBounds(value, width, measuredHeight, camera); return true; }
-    catch (error) { if (error instanceof RangeError && error.message.includes('camera plane')) return false; throw error; }
-  };
-  const requested = deck.settings.lidAngle;
-  const result = make(requested);
-  if (safe(result)) return result;
-  let low = 0, high = requested;
-  for (let i = 0; i < 12; i++) {
-    const angle = (low + high) / 2;
-    if (safe(make(angle))) low = angle; else high = angle;
-  }
-  return make(low);
 }
 
 function orbitRadius(deck, width, height) {
@@ -204,7 +171,8 @@ export function cardPose(deck, index, time = performance.now()) {
     const pose = { ...frozen };
     if (action.id === deck.liftId) {
       const lift = (deck.l.x - deck.liftStart) * bounds.height;
-      pose.y -= lift + (deck.collectMotion ? departureDistance(deck.collectMotion, time) : 0);
+      pose.y -= lift;
+      if (deck.collectMotion) pose.y += deck.collectMotion.direction * departureDistance(deck.collectMotion, time);
       pose.z += Math.min(Math.max(0, lift) * .1, deck.settings.liftHeight);
       pose.rx += deck.rotationX.x - deck.liftRotation.x;
       pose.ry += deck.rotationY.x - deck.liftRotation.y;
@@ -242,29 +210,6 @@ export function cardPose(deck, index, time = performance.now()) {
     && !(deck.busy && deck.operation === 'commit' && (deck.flip.x !== 0 || deck.flip.v !== 0));
   pose.rank = rank;
   const offset = deck.reflowOffsets.get(action.id);
-  if (openingLid(deck)) {
-    const startLift = (deck.commitMotion ? deck.commitMotion.lift : deck.l.x) * height;
-    const held = heldOpeningProgress(startLift, height);
-    const progress = deck.commitMotion
-      ? held + (1 - held) * clamp(departureDistance(deck.commitMotion, time)
-        / Math.max(120, deck.departureTravel() - startLift), 0, 1)
-      : held;
-    const compressed = clamp(progress / .18, 0, 1);
-    const lidRank = deck.choiceRanks.get(action.id) ?? rank;
-    const lidZ = 4 - deck.n.x * 40 - lidRank * deck.settings.stackDepth;
-    // All outgoing decisions share one rigid hinge; only their original fan
-    // offsets compress at the beginning. Ordinary actions retain their throw.
-    const flat = { ...pose,
-      x: pose.x * (1 - compressed),
-      y: (pose.y + deck.choiceLift(index, time)) * (1 - compressed),
-      z: pose.z * (1 - compressed) + lidZ * compressed,
-      rx: pose.rx * (1 - compressed), ry: pose.ry * (1 - compressed), rz: pose.rz * (1 - compressed) };
-    const hinged = hingedPose(deck, flat, progress, height, true);
-    // Offsets describe final physical coordinates, including a previous lid
-    // pose. Apply them after the hinge when a browse transfers lift ownership.
-    if (offset) for (const [field, state] of Object.entries(offset)) hinged[field] += state.x;
-    return hinged;
-  }
   if (offset) for (const [field, state] of Object.entries(offset)) pose[field] += state.x;
   return pose;
 }
@@ -292,15 +237,20 @@ export function renderDeck(deck, time = performance.now()) {
   const cleared = deck.phase === 'committing' && !deck.commitMotion;
   const coveredBottom = cleared ? 0 : poses.length
     ? Math.max(...poses.map(pose => projectedBounds(pose, width, height, deck.settings.perspective).bottom)) : height;
-  const nextScale = deck.reduced ? 1 : revealScale(height - coveredBottom, height, deck.settings);
+  const resolution = deck.content.interaction === 'container' && deck.cards.length === 1;
+  const movingDown = deck.collectMotion?.direction === 1 || (!deck.collectMotion && deck.l.x < 0);
+  const exposure = resolution && movingDown && poses.length
+    ? Math.max(0, projectedBounds(poses[0], width, height, deck.settings.perspective).top) : height - coveredBottom;
+  const nextScale = deck.reduced ? 1 : revealScale(exposure, height, deck.settings);
   const forwardActive = !!deck.forwardDeck && ((deck.phase === 'committing' && deck.pendingPresentation === 'open')
     || (deck.phase === 'choices' && deck.l.x > 0 && deck.forwardOwner === deck.content.actions[deck.index]?.id));
   if (deck.underlay) {
     const stagedPose = {
       x: 0, y: 0, z: -24, rx: 0, ry: 0, rz: 0, scale: nextScale,
       turn: deck.nextFlip.x * 180, turnAxis: deck.settings.flipAxisTilt,
-      visible: (deck.phase === 'committing' || (deck.phase === 'choices' && deck.l.x > 0
-        && deck.content.interaction === 'choice' && !deck.content.actions[deck.index]?.disabled))
+      visible: (deck.phase === 'committing' || (deck.phase === 'collecting' && deck.collectMotion?.final)
+        || (deck.phase === 'choices' && (deck.content.interaction === 'container' ? resolution && deck.l.x !== 0 : deck.l.x > 0)
+        && !deck.content.actions[deck.index]?.disabled))
         && !forwardActive
     };
     applyPose(deck, deck.underlay, deck.underlayLayer, stagedPose, 0);
@@ -311,8 +261,7 @@ export function renderDeck(deck, time = performance.now()) {
     (deck.phase === 'closing' && deck.returning)
       || deck.returnLift.x > 0,
     -(1 - clamp(deck.returnLift.x, 0, 1)) * deck.departureTravel(),
-    deck.cards.length && (deck.returning || deck.returnLift.x > 0) ? 4 : -36, 1,
-    deck.content.lid && !deck.reduced ? 1 - clamp(deck.returnLift.x, 0, 1) : null);
+    deck.cards.length && (deck.returning || deck.returnLift.x > 0) ? 4 : -36, 1);
   applyPose(deck, deck.scene, deck.sceneLayer, front, 1000);
   applyPose(deck, deck.sceneBack, deck.sceneLayer, backPose(front), 1000);
   deck.scene.setAttribute('aria-hidden', String(deck.open || deck.busy));
@@ -333,13 +282,11 @@ export function renderDeck(deck, time = performance.now()) {
   announceDeck(deck);
 }
 
-function renderStagedActions(deck, bundle, baseOrder, visible, y = 0, z = -36, scale = 1, hingeProgress = null) {
+function renderStagedActions(deck, bundle, baseOrder, visible, y = 0, z = -36, scale = 1) {
   if (!bundle) return;
   bundle.cards.forEach((card, index) => {
     const rank = (index - bundle.selectedIndex + bundle.cards.length) % bundle.cards.length;
-    let pose = { x: 0, y, z: z - rank * deck.settings.stackDepth, rx: 0, ry: 0, rz: 0, scale, visible };
-    if (hingeProgress !== null) pose = hingedPose(deck, { ...pose, y: 0 }, hingeProgress,
-      deck.mount.getBoundingClientRect().height);
+    const pose = { x: 0, y, z: z - rank * deck.settings.stackDepth, rx: 0, ry: 0, rz: 0, scale, visible };
     const order = baseOrder + bundle.cards.length - rank;
     applyPose(deck, card, bundle.cardLayers[index], bundle.content.actions[index].faceDown ? backPose(pose) : pose, order);
     if (bundle.cardBacks[index]) applyPose(deck, bundle.cardBacks[index], bundle.cardLayers[index], { ...pose, face: 360 }, order);

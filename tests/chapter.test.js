@@ -6,7 +6,6 @@ import { ChapterController } from '../chapter/ChapterController.js';
 class FakeDeck extends EventTarget {
   content = { id: 'placeholder', actions: [] };
   busy = false;
-  previews = new Map();
   emit(name, detail) {
     const event = new Event(name);
     event.detail = { contentId: this.content.id, ...detail };
@@ -16,41 +15,43 @@ class FakeDeck extends EventTarget {
     if (this.busy) { this.pending = content; return; }
     this.content = content;
     this.presentation = options.presentation ?? 'closed';
-    this.previews.clear();
   }
-  reset() { this.busy = false; this.pending = null; this.returnContent = null; this.previews.clear(); }
-  setActionPreview(id, content) {
-    assert.ok(this.content.actions.some(action => action.id === id));
-    this.previews.set(id, content);
-  }
-  setReturnContent(content, { selectedId }) { this.returnContent = content; this.selectedId = selectedId; }
+  reset() { this.busy = false; this.pending = null; this.resolution = null; }
   choose(id) {
     const action = this.content.actions.find(action => action.id === id);
     assert.ok(action && !action.disabled);
     this.busy = true;
     this.emit('commit', { action });
-    if (this.pending) { this.content = this.pending; this.pending = null; this.previews.clear(); }
+    if (this.pending) { this.content = this.pending; this.pending = null; }
     this.busy = false;
     this.emit('transitioncomplete', { transition: 'commit' });
   }
-  collect(id, finish = true) {
+  collect(id, finish = true) { this.resolve(id, 'collect', finish); }
+  discard(id, finish = true) { this.resolve(id, 'discard', finish); }
+  resolve(id, transition, finish) {
     const action = this.content.actions.find(action => action.id === id);
     assert.ok(action);
-    this.emit('collect', { action });
+    this.busy = true;
+    this.resolution = { transition, contentId: this.content.id, final: this.content.actions.length === 1 };
+    this.emit(transition, { action, final: this.resolution.final });
     this.content = { ...this.content, actions: this.content.actions.filter(action => action.id !== id) };
     if (finish) this.finishCollection();
   }
-  finishCollection() {
-    const content = this.content;
-    this.emit('transitioncomplete', { transition: 'collect', remainingIds: content.actions.map(action => action.id) });
-    this.autoClose = this.content === content && content.actions.length === 0;
+  finishCollection(adopt = true) {
+    const { transition, contentId, final } = this.resolution;
+    this.emit('transitioncomplete', { transition, contentId, remainingIds: this.content.actions.map(action => action.id) });
+    this.resolution = null;
+    if (final && adopt) this.finishFlip();
+    else if (!final) this.busy = false;
   }
-  close() {
-    this.content = this.returnContent;
-    this.returnContent = null;
-    this.previews.clear();
-    this.emit('transitioncomplete', { transition: 'close' });
+  finishFlip() {
+    assert.ok(this.pending, 'next front was supplied synchronously');
+    this.content = this.pending;
+    this.pending = null;
+    this.busy = false;
+    this.emit('transitioncomplete', { transition: 'commit' });
   }
+
 }
 
 function setup(options = {}) {
@@ -93,39 +94,46 @@ test('pool draws weighted sequences without replacement without mutating input',
   assert.throws(() => selectPool(pool, 1, () => 1), /Random source/);
 });
 
-test('linear card progression installs a container preview after commit adoption', () => {
+test('linear progression installs the direct container cover with all items', () => {
   const { deck, controller } = setup();
   assert.equal(controller.state.cardId, 'city');
-  assert.equal(deck.content.actions[0].label, 'Continue');
   deck.choose('continue');
   assert.equal(controller.state.cardId, 'hall');
   deck.choose('continue');
   assert.equal(controller.state.activeNodeId, 'supplies');
-  assert.equal(deck.previews.get('open').interaction, 'container');
+  assert.equal(deck.content.interaction, 'container');
+  assert.equal(deck.content.allowClose, false);
+  assert.deepEqual(deck.content.actions.map(item => item.id), ['flashlight', 'goggles']);
 });
 
-test('partial collection returns with Open selected and preserves remaining items', () => {
-  const { deck, controller } = setup(); supply(deck);
-  deck.choose('open');
-  assert.equal(deck.content.interaction, 'container');
+test('mixed item resolutions update remaining and inventory only at completion', () => {
+  const { deck, controller } = setup({ rng: () => 0 }); supply(deck);
   deck.collect('flashlight', false);
   assert.deepEqual(controller.state.collectedItems, []);
+  assert.equal(controller.remaining().length, 2);
   deck.finishCollection();
-  assert.equal(controller.state.collectedItems[0].id, 'flashlight');
-  assert.equal(deck.selectedId, 'open');
-  deck.close();
-  assert.equal(deck.previews.get('open').actions.length, 1);
-  deck.choose('open');
-  assert.equal(deck.content.actions[0].id, 'goggles');
-});
-
-test('collecting final item installs the next node before automatic close', () => {
-  const { deck, controller } = setup({ rng: () => 0 }); supply(deck);
-  deck.choose('open'); deck.collect('flashlight'); deck.collect('goggles');
+  assert.equal(controller.state.collectedItems[0].sequenceId, 'supply-sequence');
+  assert.equal(controller.remaining().length, 1);
+  deck.discard('goggles', false);
+  assert.equal(controller.state.activeNodeId, 'supplies');
+  assert.equal(deck.pending.title, 'A dark crossing');
+  deck.finishCollection(false);
+  assert.equal(controller.state.activeNodeId, 'supplies', 'node waits for the staged front to settle');
+  assert.equal(controller.remaining().length, 0);
+  assert.equal(controller.state.collectedItems.length, 1);
+  deck.finishFlip();
   assert.equal(controller.state.activeNodeId, 'encounter');
   assert.equal(controller.state.cardId, 'crossing');
+});
+
+test('taking every item carries the full inventory into the next node', () => {
+  const { deck, controller } = setup({ rng: () => 0 }); supply(deck);
+  deck.collect('flashlight'); deck.collect('goggles');
+  assert.equal(controller.state.activeNodeId, 'encounter');
   assert.equal(controller.state.collectedItems.length, 2);
-  assert.equal(deck.autoClose, false);
+  deck.choose('leave');
+  assert.equal(controller.state.completed, true);
+  assert.equal(controller.state.collectedItems.length, 2);
 });
 
 test('forked choices navigate explicit cards and named exits', () => {
@@ -148,26 +156,31 @@ test('random executes its selected queue then uses next independent of sequence 
   assert.equal(controller.state.activeNodeId, 'supplies');
 });
 
-test('terminal collection cancels automatic return and restart resets inventory', () => {
+test('terminal discard stages an ending and restart resets inventory', () => {
   const chapter = createStarterChapter(); chapter.nodes[1].connections.next = null;
   const deck = new FakeDeck(), states = [];
   const controller = new ChapterController(deck, chapter, { startNode: 'supplies', onChange: state => states.push(state) });
-  deck.choose('open'); deck.collect('flashlight'); deck.collect('goggles');
-  assert.equal(controller.state.completed, true); assert.equal(deck.autoClose, false);
+  deck.collect('flashlight'); deck.discard('goggles', false);
+  assert.equal(deck.pending.id, 'chapter-complete');
+  assert.equal(controller.state.completed, false);
+  deck.finishCollection();
+  assert.equal(controller.state.completed, true);
+  assert.equal(controller.state.collectedItems.length, 1);
   controller.restart();
   assert.equal(controller.state.activeNodeId, 'arrival');
   assert.equal(controller.state.completed, false); assert.deepEqual(controller.state.collectedItems, []);
   assert.ok(states.length > 3);
 });
 
-test('Leave it skips items; destroy detaches listeners and invalid replacement keeps chapter intact', () => {
+test('all discards leave inventory empty and destroy detaches resolution listeners', () => {
   const { deck, controller } = setup({ startNode: 'supplies', rng: () => 0 });
   assert.throws(() => controller.restart({}), /version/);
   assert.equal(controller.state.activeNodeId, 'supplies');
-  deck.choose('continue'); assert.equal(controller.state.activeNodeId, 'encounter');
+  deck.discard('flashlight'); deck.discard('goggles');
+  assert.equal(controller.state.activeNodeId, 'encounter');
+  assert.deepEqual(controller.state.collectedItems, []);
   controller.destroy(); deck.choose('leave');
   assert.equal(controller.state.completed, false);
-  assert.deepEqual(controller.state.collectedItems, []);
 });
 
 test('draft parsing permits incomplete graph work while strict imports reject it', () => {
@@ -193,20 +206,14 @@ test('restart cancels a pending engine commit before replacing content', () => {
   assert.equal(controller.state.activeNodeId, 'supplies');
 });
 
-test('lid experiment opts only Open into hinged departure and closes the next situation after final collection', () => {
-  const { deck, controller } = setup({ startNode: 'supplies', lidMotion: true, rng: () => 0 });
-  assert.equal(deck.content.actions.find(a => a.id === 'open').transition, 'lid');
-  assert.equal(deck.content.actions.find(a => a.id === 'continue').transition, undefined);
-  assert.equal(deck.previews.get('open').lid, true);
-  deck.choose('open');
-  assert.equal(deck.content.lid, true);
-  deck.collect('flashlight');
-  deck.close();
-  assert.equal(deck.content.actions.find(a => a.id === 'open').transition, 'lid');
-  deck.choose('open');
-  deck.collect('goggles');
-  assert.equal(deck.presentation, 'lid');
-  assert.equal(deck.autoClose, false);
-  assert.equal(controller.state.activeNodeId, 'encounter');
-  assert.ok(deck.content.actions.every(action => action.transition === undefined));
+test('restart cancels pending final resolution and its staged destination', () => {
+  const { deck, controller } = setup({ startNode: 'supplies' });
+  deck.collect('flashlight'); deck.collect('goggles', false);
+  assert.ok(deck.pending);
+  controller.restart(undefined, 'supplies');
+  assert.equal(deck.pending, null);
+  assert.equal(controller.pendingItem, null);
+  assert.equal(controller.stagedDestination, null);
+  assert.deepEqual(controller.state.collectedItems, []);
+  assert.equal(deck.content.actions.length, 2);
 });

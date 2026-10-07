@@ -15,40 +15,34 @@ Mermaid diagrams render in Markdown viewers that support Mermaid. The compact te
 
 **Status: Confirmed.**
 
-A container begins with a situation card describing the crate or other container. The player reveals the available action cards. Actions vary by container; Open and Leave it are the example below. Pick lock may be another action, but its resolution is still to be defined.
+A container begins with a situation card covering its item cards. One swipe up lifts this description and reveals the item carousel directly. There is no Open / Leave action selection and no lid effect.
 
 ```text
-[Container intro]
-  -> [Open] -> [Item] [Item] [Item] -> all items cleared -> [Next story or event]
-                 -> leave while items remain -> [Open] / [Leave it] selection
-  -> [Leave it] -> [Next story or event]
+[Container intro] -> swipe up -> [Item] [Item] [Item]
+  item swipe up -> discard -> remaining items
+  item swipe down -> take -> bottom inventory -> remaining items
+  last item leaves -> [Next card reverse] -> flip -> [Next story or event]
 ```
 
 ```mermaid
 flowchart TD
-    intro["Container intro / situation"] --> selection{"Open / Leave selection"}
-    selection --> open["Open"]
-    selection --> leave["Leave it"]
-    open --> items["Remaining item cards"]
-    items -->|Handle an item| cleared{"All items cleared?"}
-    items -->|Leave while items remain| selection
+    intro["Container intro / situation"] -->|Swipe up| items["Remaining item cards"]
+    items -->|Swipe up| discard["Discard selected item"]
+    items -->|Swipe down| take["Take selected item into inventory"]
+    discard --> cleared{"All items resolved?"}
+    take --> cleared
     cleared -->|No| items
-    cleared -->|Yes| next["Next story or event"]
-    leave --> next
+    cleared -->|Yes| back["Next card reverse"]
+    back -->|Flip| next["Next story or event"]
 ```
 
-The item-card node represents the container's collection of item cards, rather than an additional summary card. Each item is cleared when it is taken or dismissed. After the final item is cleared, the next story or event appears automatically. The player does not return to the container intro and does not need to choose Leave it afterward.
+Browse items with left or right gestures. Taking or discarding moves only the selected card. Every item must be resolved; there is no early exit from the opened container. A short or canceled gesture restores the item without changing inventory or container contents.
 
-Leaving from the intro skips the item sequence and continues immediately. Both branches share the same continuation destination; their state changes may affect later events.
+During the last item's departure, the next card's reverse is revealed underneath. It flips to the front only after the outgoing item clears its turning area. This applies both to taking downward and discarding upward. No empty container screen or extra Continue action is required.
 
-The player can leave the item view while items remain. This returns to the Open / Leave selection. Choosing Open resumes the remaining items; already cleared items stay cleared. Choosing Leave it continues to the next story or event.
+Only taken items appear in the temporary bottom inventory. The strip shows thumbnails, names, and a count, with horizontal scrolling. Using, equipping, and inspecting inventory cards are deferred. Inventory survives events in the current run and resets with restart or page reload.
 
-Containers always start with at least one item for now. Clearing the last item completes the sequence automatically, so an empty container view is never needed.
-
-### Open container decisions
-
-- How are multiple item cards presented and browsed?
-- What actions resolve Pick lock, and what happens on failure?
+Containers always start with at least one item. Lock-picking and resource conditions remain future design work.
 
 ## Situation and choice sequence
 
@@ -70,7 +64,7 @@ flowchart TD
     cb --> next
 ```
 
-Choices can add or remove state tags. Available choices may depend on tags or equipment. A container is a specialized version of this flow: its Open branch enters an item sequence instead of a single consequence card.
+Choices can add or remove state tags. Available choices may depend on tags or equipment. Containers use their own direct reveal and item-resolution flow above.
 
 ## Linked consequence sequence
 
@@ -142,4 +136,4 @@ For each new sequence, record:
 
 - [New Card Adventure prototype spec](NEW_Card%20Adventure%20%E2%80%94%20mechanizm%20gry%20_%20spec%20do%20prototypu.docx)
 - [Older Nest game design](OLD_Nest_%20Game%20Design%20Document.docx)
-- Container behavior confirmed in the design discussion: Open enters item cards; leaving the item view returns to Open / Leave; Leave it continues; clearing every item automatically continues; containers start with at least one item.
+- Container behavior confirmed in the design discussion: one swipe reveals items; up discards and down takes; all items must be resolved; the last item reveals the next reverse and flip; containers start with at least one item.

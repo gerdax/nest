@@ -1,14 +1,13 @@
-import { CardDeck, DEFAULT_SETTINGS } from './engine/CardDeck.js?v=container-lid-11';
+import { CardDeck, DEFAULT_SETTINGS } from './engine/CardDeck.js?v=container-items-1';
 
-import { ScenarioController, createStudyContent } from './demo/ScenarioController.js?v=container-lid-11';
+import { ScenarioController, createStudyContent } from './demo/ScenarioController.js?v=container-items-1';
+import { InventoryStrip } from './demo/InventoryStrip.js?v=container-items-1';
 
 const specs = [
   ['stiffness', 'Spring stiffness', 60, 600, 5, ''],
   ['damping', 'Spring damping', 5, 80, 1, ''],
   ['mass', 'Spring mass', 0.25, 3, 0.05, ''],
   ['maxTilt', 'Maximum tilt', 0, 18, 0.5, '°'],
-  ['lidAngle', 'Container lid angle', 0, 85, 1, '°'],
-  ['lidCloseDelay', 'Empty container pause', 0, 500, 10, ' ms'],
   ['axisThreshold', 'Axis lock distance', 2, 40, 1, ' px'],
   ['distanceThreshold', 'Commit distance', 0.1, 0.6, 0.01, ' × card dimension'],
   ['flickVelocity', 'Flick velocity', 200, 1600, 25, ' px/s'],
@@ -36,6 +35,7 @@ const controlRoot = document.querySelector('#settings-controls');
 let settings = { ...DEFAULT_SETTINGS };
 const deck = new CardDeck(mount, { content: createStudyContent(0, 2), settings });
 let controller;
+const inventory = new InventoryStrip(document.querySelector('#inventory'));
 
 function ready(message = 'Ready.') {
   hint.textContent = 'Lift the top card up to uncover actions.';
@@ -44,28 +44,36 @@ function ready(message = 'Ready.') {
 
 function browse(mode) {
   hint.textContent = mode === 'container'
-    ? 'Browse items either way. Lift up to collect one. Drag down to close the chest.'
+    ? 'Browse items left / right. Swipe up to discard; swipe down to take.'
     : 'Browse either way, endlessly. Lift up to take the selected action.';
   status.textContent = mode === 'container' ? 'Items ready.' : 'Choices ready.';
 }
 
-function updateScenario({ reason, detail, mode, fixture: selectedFixture, content }) {
+function updateScenario({ reason, detail, mode, fixture: selectedFixture, content, collectedItems = [] }) {
+  inventory.update(collectedItems);
   fixture.value = selectedFixture;
   document.querySelector('#fixture-count').textContent = mode === 'container'
     ? `${String(content.actions.length).padStart(2, '0')} items`
     : `${String(content.actions.length).padStart(2, '0')} actions`;
-  if (reason === 'reset') ready(selectedFixture === 'chest' ? 'Chest fixture loaded.' : `${selectedFixture}-action fixture loaded.`);
+  if (reason === 'reset') {
+    ready(selectedFixture === 'chest' ? 'Chest fixture loaded.' : `${selectedFixture}-action fixture loaded.`);
+    if (mode === 'container') hint.textContent = 'Swipe the container description up to reveal its items.';
+  }
   if (reason === 'open') {
     status.textContent = 'Opening chest…';
-    hint.textContent = 'Lifting the choices away to uncover the items underneath.';
+    hint.textContent = 'Lifting the container description to uncover its items.';
   }
-  if (reason === 'collect') {
-    status.textContent = `${detail.action.label} collected.`;
-    hint.textContent = 'Taking the item away, then arranging the remaining items.';
+  if (reason === 'collect' || reason === 'discard') {
+    status.textContent = reason === 'collect' ? `${detail.action.label} taken.` : `${detail.action.label} discarded.`;
+    hint.textContent = content.actions.length
+      ? 'Browse the remaining items. Up discards; down takes.'
+      : 'Revealing the next card and turning it over.';
   }
   if (reason === 'advance') {
-    status.textContent = `${detail.action.label} committed.`;
-    hint.textContent = 'Lifting the choices away, then turning the next card over.';
+    if (detail.action) {
+      status.textContent = `${detail.action.label} committed.`;
+      hint.textContent = 'Lifting the choices away, then turning the next card over.';
+    } else ready('Next event ready.');
   }
   if (reason === 'transitioncomplete') {
     if (detail.transition === 'commit') {
@@ -76,10 +84,10 @@ function updateScenario({ reason, detail, mode, fixture: selectedFixture, conten
       browse(mode);
       if (mode === 'entry') status.textContent = `${content.actions[deck.state.index].label} selected.`;
     }
-    if (detail.transition === 'reveal' || (detail.transition === 'collect' && content.actions.length)) browse(mode);
+    if (detail.transition === 'reveal' || (['collect', 'discard'].includes(detail.transition) && content.actions.length)) browse(mode);
   }
 }
-controller = new ScenarioController(deck, { fixture: fixture.value, onChange: updateScenario, lidMotion: document.querySelector('#lid-motion').checked });
+controller = new ScenarioController(deck, { fixture: fixture.value, onChange: updateScenario });
 
 for (const [key, label, min, max, step, unit] of specs) {
   const row = document.createElement('div');
@@ -110,6 +118,13 @@ deck.addEventListener('reveal', () => {
   hint.textContent = items ? 'Taking the cover off, then expanding the items.' : 'Taking the cover off, then expanding the choices.';
   status.textContent = items ? 'Uncovering items…' : 'Uncovering choices…';
 });
+for (const type of ['collect', 'discard']) {
+  deck.addEventListener(type, ({ detail }) => {
+    status.textContent = type === 'collect' ? `Taking ${detail.action.label}…` : `Discarding ${detail.action.label}…`;
+    hint.textContent = detail.final ? 'The last item reveals the next card back.'
+      : type === 'collect' ? 'Moving this card down toward your inventory.' : 'Discarding this card upward.';
+  });
+}
 deck.addEventListener('selection', event => {
   const selected = event.detail?.action;
   if (selected?.disabled || selected?.faceDown) {
@@ -160,9 +175,4 @@ window.addEventListener('pagehide', event => {
     controller.destroy();
     deck.destroy();
   }
-});
-
-document.querySelector('#lid-motion').addEventListener('change', event => {
-  controller.lidMotion = event.target.checked;
-  controller.reset(fixture.value);
 });

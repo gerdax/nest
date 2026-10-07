@@ -1,4 +1,4 @@
-import { classifyAxis } from './motion.js?v=container-lid-11';
+import { classifyAxis } from './motion.js?v=container-items-1';
 
 export class PointerInput {
   constructor(element, callbacks, getSettings) {

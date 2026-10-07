@@ -104,21 +104,22 @@ test('hold during collection resumes against survivors after exactly one complet
   const deck = make('container'); ready(deck); let accepts = 0, completes = 0;
   deck.addEventListener('collect', () => accepts++);
   deck.addEventListener('transitioncomplete', e => { if (e.detail.transition === 'collect') completes++; });
-  deck.commit(); hold(deck); admitted(deck);
+  deck.collect(); hold(deck); admitted(deck);
   assert.equal(deck.cards.length, 2); assert.equal(deck.drag.ready, true);
   assert.equal(accepts, 1); assert.equal(completes, 1); assert.equal(deck.l.x, 0);
   deck.input.pointerup(pointer(80)); settle();
   assert.equal(accepts, 1); assert.equal(completes, 1); dispose(deck);
 });
 
-test('hold during close return resumes against returned choices', () => {
-  const deck = make('container'); ready(deck); let completes = 0;
-  deck.setReturnContent(content('entry', 2));
-  deck.addEventListener('transitioncomplete', e => { if (e.detail.transition === 'close') completes++; });
-  deck.setOpen(false); deck.schedule(); hold(deck); admitted(deck);
-  assert.equal(deck.content.id, 'entry'); assert.equal(deck.phase, 'choices');
-  assert.equal(deck.drag.ready, true); assert.equal(completes, 1);
-  deck.input.pointerup(pointer(80)); settle(); assert.equal(completes, 1); dispose(deck);
+for (const resolution of ['collect', 'discard']) test(`hold during final ${resolution} resumes only after next flip`, () => {
+  const deck = new CardDeck(new Element(), { content: content('source', 1, 'container') }); ready(deck);
+  let completions = 0;
+  deck.addEventListener(resolution, () => deck.replaceContent(content('next')));
+  deck.addEventListener('transitioncomplete', e => { if (e.detail.transition === 'commit') completions++; });
+  deck[resolution](); hold(deck); admitted(deck);
+  assert.equal(deck.content.id, 'next'); assert.equal(deck.phase, 'closed');
+  assert.equal(deck.drag.ready, false); assert.equal(completions, 1);
+  deck.input.pointerup(pointer(80)); settle(); assert.equal(completions, 1); dispose(deck);
 });
 
 for (const ending of ['pointerup', 'pointercancel', 'lostpointercapture']) {

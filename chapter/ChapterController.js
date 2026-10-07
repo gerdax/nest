@@ -2,15 +2,15 @@ import { cloneChapter, selectPool, validateChapter } from './model.js';
 
 /** Adapts serializable chapter data to CardDeck's commit/collect choreography. */
 export class ChapterController {
-  constructor(deck, chapter, { startNode, onChange = () => {}, rng = Math.random, lidMotion = false } = {}) {
+  constructor(deck, chapter, { startNode, onChange = () => {}, rng = Math.random } = {}) {
     this.deck = deck;
     this.onChange = onChange;
     this.rng = rng;
-    this.lidMotion = lidMotion;
     this.destroyed = false;
     this.listeners = {
       commit: event => this.commit(event.detail),
-      collect: event => this.collect(event.detail),
+      collect: event => this.resolveItem(event.detail, 'collect'),
+      discard: event => this.resolveItem(event.detail, 'discard'),
       transitioncomplete: event => this.transitionComplete(event.detail)
     };
     // Validate before subscribing, so invalid imports leave no listeners behind.
@@ -46,8 +46,7 @@ export class ChapterController {
     this.collectedItems = [];
     this.remainingItems = new Map();
     this.completed = false;
-    this.nextPresentation = null;
-    this.inContainer = false;
+    this.stagedDestination = null;
     this.pendingItem = null;
     this.enterNode(nodeId);
   }
@@ -60,63 +59,65 @@ export class ChapterController {
 
   enterSequence(id) {
     this.sequence = this.sequences.get(id);
-    this.inContainer = false;
     this.pendingItem = null;
     this.card = this.sequence.cards[0];
     this.showCard();
   }
 
+  containerKey(destination = this) { return JSON.stringify([destination.node.id, destination.sequence.id]); }
+
   remaining() {
-    if (!this.remainingItems.has(this.sequence.id)) this.remainingItems.set(this.sequence.id, this.sequence.items.map(item => ({ ...item })));
-    return this.remainingItems.get(this.sequence.id);
+    const key = this.containerKey();
+    if (!this.remainingItems.has(key)) this.remainingItems.set(key, this.sequence.items.map(item => ({ ...item })));
+    return this.remainingItems.get(key);
   }
 
-  cardContent() {
-    const card = this.card;
+  cardContent(destination = this) {
+    const { card, sequence, node } = destination;
     let actions;
-    if (this.sequence.type === 'forked') actions = card.choices.map(choice => ({ ...choice }));
-    else if (this.sequence.type === 'container') actions = [
-      { id: 'open', label: 'Open', image: card.image, ...(this.lidMotion ? { transition: 'lid' } : {}), disabled: this.remaining().length === 0 },
-      { id: 'continue', label: 'Leave it', image: card.image }
-    ];
+    if (sequence.type === 'forked') actions = card.choices.map(choice => ({ ...choice }));
+    else if (sequence.type === 'container') actions = (this.remainingItems.get(this.containerKey(destination)) ?? sequence.items).map(item => ({ ...item }));
     else actions = [{ id: 'continue', label: 'Continue', image: card.image }];
-    return { id: `${this.node.id}:${this.sequence.id}:${card.id}`, title: card.title, text: card.text,
-      image: card.image, interaction: 'choice', allowClose: false, actions };
+    return { id: `${node.id}:${sequence.id}:${card.id}`, title: card.title, text: card.text,
+      image: card.image, interaction: sequence.type === 'container' ? 'container' : 'choice', allowClose: false, actions };
   }
 
-  itemContent() {
-    return { id: `${this.node.id}:${this.sequence.id}:items`, title: this.card.title, text: this.card.text,
-      image: this.card.image, interaction: 'container', allowClose: true, lid: this.lidMotion,
-      actions: this.remaining().map(item => ({ ...item })) };
-  }
-
-  configureContainer() {
-    if (this.sequence.type !== 'container' || this.inContainer || this.completed) return;
-    if (this.deck.content.id !== this.cardContent().id) return;
-    if (this.remaining().length) this.deck.setActionPreview('open', this.itemContent(), { presentation: 'open' });
+  endingContent() {
+    return { id: 'chapter-complete', title: 'Chapter complete', text: 'Your expedition is complete.',
+      image: this.card.image, interaction: 'choice', allowClose: false,
+      actions: [{ id: 'complete', label: 'Chapter complete', disabled: true }] };
   }
 
   showCard() {
-    this.deck.replaceContent(this.cardContent(), { presentation: this.nextPresentation || 'closed' });
-    this.nextPresentation = null;
-    this.configureContainer();
+    this.deck.replaceContent(this.cardContent());
+    this.notify();
+  }
+
+  // Resolve the next graph location without changing the currently presented event.
+  destination(name) {
+    let node = this.node;
+    let queue = [...this.queue];
+    if (!queue.length) {
+      const target = node.connections[node.type === 'random' ? 'next' : name];
+      if (target === null || target === undefined) return { completed: true };
+      node = this.nodes.get(target);
+      queue = node.type === 'random' ? selectPool(node.pool, node.count, this.rng) : [node.sequenceId];
+    }
+    const sequence = this.sequences.get(queue.shift());
+    return { node, sequence, card: sequence.cards[0], queue, completed: false };
+  }
+
+  adopt(destination) {
+    this.completed = destination.completed;
+    if (!this.completed) Object.assign(this, destination);
     this.notify();
   }
 
   commit(detail) {
-    if (this.destroyed || this.completed || this.inContainer || detail.contentId !== this.deck.content.id) return;
+    if (this.destroyed || this.completed || this.sequence.type === 'container' || detail.contentId !== this.deck.content.id) return;
     const action = detail.action;
     if (!action || !this.deck.content.actions.some(candidate => candidate.id === action.id && !candidate.disabled)) return;
-    if (this.sequence.type === 'container') {
-      if (action.id === 'open' && this.remaining().length) {
-        const returnContent = this.cardContent();
-        this.inContainer = true;
-        this.deck.replaceContent(this.itemContent(), { presentation: 'open' });
-        // replaceContent queues during commit; return content is installed after its transition completes.
-        this.containerReturn = returnContent;
-        this.notify();
-      } else if (action.id === 'continue') this.exit(this.sequence.exits[0]);
-    } else if (this.sequence.type === 'forked') {
+    if (this.sequence.type === 'forked') {
       const choice = this.card.choices.find(candidate => candidate.id === action.id);
       if (!choice) return;
       if (choice.target.startsWith('exit:')) this.exit(choice.target.slice(5));
@@ -128,49 +129,37 @@ export class ChapterController {
     }
   }
 
-  collect(detail) {
-    if (this.destroyed || this.completed || !this.inContainer || this.pendingItem || detail.contentId !== this.deck.content.id) return;
+  resolveItem(detail, transition) {
+    if (this.destroyed || this.completed || this.sequence.type !== 'container' || this.pendingItem || detail.contentId !== this.deck.content.id) return;
     const item = this.remaining().find(item => item.id === detail.action?.id);
-    if (item) this.pendingItem = { ...item, sequenceId: this.sequence.id };
+    if (!item) return;
+    this.pendingItem = { item: { ...item, sequenceId: this.sequence.id }, containerKey: this.containerKey(), transition, contentId: detail.contentId };
+    if (detail.final) {
+      this.stagedDestination = this.destination(this.sequence.exits[0]);
+      this.deck.replaceContent(this.stagedDestination.completed ? this.endingContent() : this.cardContent(this.stagedDestination));
+    }
   }
 
   transitionComplete(detail) {
-    if (this.destroyed || this.completed) return;
-    if (detail.transition === 'collect' && this.inContainer && this.pendingItem) {
-      const item = this.pendingItem;
+    if (this.destroyed) return;
+    if (this.pendingItem && detail.transition === this.pendingItem.transition && detail.contentId === this.pendingItem.contentId) {
+      const { item, transition, containerKey } = this.pendingItem;
       this.pendingItem = null;
-      this.remainingItems.set(this.sequence.id, this.remaining().filter(candidate => candidate.id !== item.id));
-      this.collectedItems.push(item);
-      if (!this.remaining().length) {
-        // Install the next content now; the engine's identity guard then suppresses automatic close.
-        this.inContainer = false;
-        this.nextPresentation = this.lidMotion ? 'lid' : null;
-        this.exit(this.sequence.exits[0]);
-      } else {
-        this.deck.setReturnContent(this.cardContent(), { selectedId: 'open' });
-        this.notify();
-      }
-    } else if (detail.transition === 'commit') {
-      if (this.inContainer) this.deck.setReturnContent(this.containerReturn, { selectedId: 'open' });
-      else this.configureContainer();
-    } else if (detail.transition === 'close' && this.inContainer) {
-      this.inContainer = false;
-      this.configureContainer();
+      this.remainingItems.set(containerKey, this.remaining().filter(candidate => candidate.id !== item.id));
+      if (transition === 'collect') this.collectedItems.push(item);
       this.notify();
+    } else if (detail.transition === 'commit' && this.stagedDestination) {
+      const destination = this.stagedDestination;
+      this.stagedDestination = null;
+      this.adopt(destination);
     }
   }
 
   exit(name) {
-    if (this.queue.length) { this.enterSequence(this.queue.shift()); return; }
-    const target = this.node.connections[this.node.type === 'random' ? 'next' : name];
-    if (target !== null && target !== undefined) { this.enterNode(target); return; }
-    this.completed = true;
-    this.inContainer = false;
-    this.deck.replaceContent({ id: 'chapter-complete', title: 'Chapter complete', text: 'Your expedition is complete.',
-      image: this.card.image, interaction: 'choice', allowClose: false,
-      actions: [{ id: 'complete', label: 'Chapter complete', disabled: true }] }, { presentation: this.nextPresentation || 'closed' });
-    this.nextPresentation = null;
-    this.notify();
+    const destination = this.destination(name);
+    const content = destination.completed ? this.endingContent() : this.cardContent(destination);
+    this.adopt(destination);
+    this.deck.replaceContent(content);
   }
 
   destroy() {

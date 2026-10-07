@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { CardDeck } from '../engine/CardDeck.js';
 import { ChapterController } from '../chapter/ChapterController.js';
 import { createStarterChapter } from '../chapter/model.js';
+import { ScenarioController, CHEST_ITEM_IDS } from '../demo/ScenarioController.js';
 // Browser-shaped tree: collection must physically detach its layer, while the
 // remaining articles retain their identity and their original parent layers.
 class Element extends EventTarget {
@@ -50,25 +51,24 @@ test('real engine keyboard reaches every linear card and container before random
   assert.equal(controller.state.activeNodeId, 'supplies');
   assert.equal(deck.content.title, 'A supply box');
   assert.equal(deck.phase, 'closed');
-  revealCommit(deck);
+  key(deck, 'ArrowUp');
   assert.equal(deck.content.interaction, 'container');
   assert.equal(deck.phase, 'choices');
-  assert.equal(deck.returnContent.actions[0].id, 'open');
+  assert.equal(deck.content.actions.length, 2);
   dispose(deck, controller);
 });
 
-for (const reduced of [false, true]) for (const lidMotion of [false, true]) test(`real engine partial/final collection advances correctly, reduced=${reduced}, lid=${lidMotion}`, () => {
-  const { deck, controller } = fixture({ startNode: 'supplies', lidMotion });
+for (const reduced of [false, true]) for (const directions of [['ArrowDown', 'ArrowDown'], ['ArrowDown', 'ArrowUp'], ['ArrowUp', 'ArrowUp']]) test(`real engine resolves each item then advances, reduced=${reduced}, directions=${directions}`, () => {
+  const { deck, controller } = fixture({ startNode: 'supplies' });
   deck.reduced = reduced;
-  revealCommit(deck);
   key(deck, 'ArrowUp');
-  assert.equal(controller.state.collectedItems.length, 1);
-  key(deck, 'ArrowDown');
-  assert.equal(deck.content.actions[deck.index].id, 'open');
-  key(deck, 'ArrowUp');
+  assert.equal(deck.phase, 'choices', 'one reveal presents container items');
+  key(deck, directions[0]);
+  assert.equal(controller.state.activeNodeId, 'supplies');
   assert.equal(deck.content.actions.length, 1);
-  key(deck, 'ArrowUp');
-  assert.equal(controller.state.collectedItems.length, 2);
+  assert.equal(controller.state.collectedItems.length, directions[0] === 'ArrowDown' ? 1 : 0);
+  key(deck, directions[1]);
+  assert.equal(controller.state.collectedItems.length, directions.filter(key => key === 'ArrowDown').length);
   assert.equal(controller.state.activeNodeId, 'encounter');
   assert.equal(deck.content.title, 'A dark crossing');
   assert.equal(deck.phase, 'closed');
@@ -76,16 +76,16 @@ for (const reduced of [false, true]) for (const lidMotion of [false, true]) test
   dispose(deck, controller);
 });
 
-for (const reduced of [false, true]) for (const lidMotion of [false, true]) test(`real engine terminal collection suppresses empty automatic return, reduced=${reduced}, lid=${lidMotion}`, () => {
+for (const reduced of [false, true]) for (const direction of ['ArrowDown', 'ArrowUp']) test(`real engine final resolution stages terminal ending, reduced=${reduced}, direction=${direction}`, () => {
   const chapter = createStarterChapter();
   chapter.nodes.find(node => node.id === 'supplies').connections.next = null;
   const deck = new CardDeck(new Element(), { content: { id: 'placeholder', actions: [{ id: 'placeholder', label: 'Placeholder' }] } });
-  const controller = new ChapterController(deck, chapter, { startNode: 'supplies', lidMotion });
+  const controller = new ChapterController(deck, chapter, { startNode: 'supplies' });
   deck.reduced = reduced;
-  revealCommit(deck);
-  key(deck, 'ArrowUp'); key(deck, 'ArrowUp');
+  key(deck, 'ArrowUp');
+  key(deck, direction); key(deck, direction);
   assert.equal(controller.state.completed, true);
-  assert.equal(controller.state.collectedItems.length, 2);
+  assert.equal(controller.state.collectedItems.length, direction === 'ArrowDown' ? 2 : 0);
   assert.equal(deck.content.id, 'chapter-complete');
   assert.equal(deck.phase, 'closed');
   assert.equal(deck.returnContent, null);
@@ -104,5 +104,87 @@ test('real engine restart during a pending linear commit cancels stale destinati
   assert.equal(controller.state.activeNodeId, 'supplies');
   assert.equal(deck.phase, 'closed');
   assert.equal(deck.pending, null);
+  dispose(deck, controller);
+});
+
+
+test('real engine final acceptance stages next content while live chapter state waits for flip', () => {
+  const { deck, controller } = fixture({ startNode: 'supplies' });
+  key(deck, 'ArrowUp');
+  key(deck, 'ArrowDown');
+  deck.collect();
+  assert.equal(controller.state.activeNodeId, 'supplies');
+  assert.equal(controller.state.collectedItems.length, 1);
+  assert.ok(deck.pending);
+  settle();
+  assert.equal(controller.state.activeNodeId, 'encounter');
+  assert.equal(controller.state.collectedItems.length, 2);
+  dispose(deck, controller);
+});
+
+test('real engine restart cancels inventory and destination during final departure', () => {
+  const { deck, controller } = fixture({ startNode: 'supplies' });
+  key(deck, 'ArrowUp'); key(deck, 'ArrowDown');
+  deck.collect();
+  assert.equal(deck.busy, true);
+  controller.restart(undefined, 'supplies');
+  settle();
+  assert.equal(deck.content.title, 'A supply box');
+  assert.equal(deck.content.actions.length, 2);
+  assert.equal(deck.phase, 'closed');
+  assert.deepEqual(controller.state.collectedItems, []);
+  assert.equal(controller.stagedDestination, null);
+  dispose(deck, controller);
+});
+
+
+test('scenario resolves the direct chest and carries only taken objects through later studies', () => {
+  const deck = new CardDeck(new Element(), { content: { id: 'placeholder', actions: [{ id: 'placeholder', label: 'Placeholder' }] } });
+  const notices = [];
+  const host = new ScenarioController(deck, { fixture: 'chest', onChange: state => notices.push(state) });
+  assert.equal(deck.content.interaction, 'container');
+  key(deck, 'ArrowUp');
+  const collectedId = deck.content.actions[deck.index].id;
+  deck.collect();
+  assert.equal(host.remainingIds.size, CHEST_ITEM_IDS.length);
+  assert.deepEqual(host.collectedItems, []);
+  settle();
+  assert.equal(host.remainingIds.size, CHEST_ITEM_IDS.length - 1);
+  assert.equal(host.collectedItems[0].id, collectedId);
+  assert.equal(host.collectedItems[0].sequenceId, 'chest');
+  assert.equal(notices.find(state => state.reason === 'collect').detail.action.label, host.collectedItems[0].label);
+  key(deck, 'ArrowUp');
+  deck.commit();
+  assert.equal(host.mode, 'container');
+  assert.equal(host.remainingIds.size, 1);
+  settle();
+  assert.equal(host.mode, 'choice');
+  assert.equal(host.remainingIds.size, 0);
+  assert.equal(host.collectedItems.length, 1);
+  assert.equal(deck.content.id, 'study-0-2');
+  revealCommit(deck);
+  assert.equal(host.collectedItems.length, 1);
+  host.reset('chest');
+  assert.deepEqual(host.collectedItems, []);
+  assert.deepEqual([...host.remainingIds], CHEST_ITEM_IDS);
+  dispose(deck, host);
+});
+
+for (const secondDirection of ['ArrowDown', 'ArrowUp']) test(`reused container templates have separate contents, second=${secondDirection}`, () => {
+  const chapter = createStarterChapter();
+  const supplies = chapter.nodes.find(node => node.id === 'supplies');
+  supplies.connections.next = 'again';
+  chapter.sequences.find(sequence => sequence.id === supplies.sequenceId).items.splice(1);
+  chapter.nodes.push({ id: 'again', name: 'Another supply box', type: 'static', x: 800, y: 300,
+    sequenceId: supplies.sequenceId, connections: { next: null } });
+  const deck = new CardDeck(new Element(), { content: { id: 'placeholder', actions: [{ id: 'wait', label: 'Wait' }] } });
+  const controller = new ChapterController(deck, chapter, { startNode: 'supplies' });
+  key(deck, 'ArrowUp'); key(deck, 'ArrowDown');
+  assert.equal(controller.state.activeNodeId, 'again');
+  assert.equal(deck.content.actions.length, 1, 'reused template represents a fresh container');
+  key(deck, 'ArrowUp'); key(deck, secondDirection);
+  assert.equal(controller.state.completed, true);
+  assert.equal(deck.busy, false);
+  assert.equal(controller.state.collectedItems.length, secondDirection === 'ArrowDown' ? 2 : 1);
   dispose(deck, controller);
 });

@@ -3,8 +3,6 @@ export const DEFAULT_SETTINGS = Object.freeze({
   damping: 56,
   mass: 1.15,
   maxTilt: 12,
-  lidAngle: 75,
-  lidCloseDelay: 100,
   axisThreshold: 34,
   distanceThreshold: 0.14,
   flickVelocity: 325,
@@ -91,8 +89,8 @@ export function settingsWith(patch = {}, base = DEFAULT_SETTINGS) {
   };
   for (const key of Object.keys(DEFAULT_SETTINGS)) {
     if (Number.isFinite(patch[key])) {
-      const min = ['lidCloseDelay', 'lidAngle', 'maxTilt', 'liftHeight', 'gravity', 'choiceStaggerMs', 'flipLeadMs'].includes(key) ? 0 : key === 'distanceThreshold' ? 0.05 : key === 'perspective' ? 400 : key === 'flipAxisTilt' ? -10 : 0.01;
-      const max = key === 'lidCloseDelay' ? 500 : key === 'lidAngle' ? 85 : key === 'choiceStaggerMs' ? 60 : key === 'flipLeadMs' ? 100 : key === 'flipAxisTilt' ? 10 : Infinity;
+      const min = ['maxTilt', 'liftHeight', 'gravity', 'choiceStaggerMs', 'flipLeadMs'].includes(key) ? 0 : key === 'distanceThreshold' ? 0.05 : key === 'perspective' ? 400 : key === 'flipAxisTilt' ? -10 : 0.01;
+      const max = key === 'choiceStaggerMs' ? 60 : key === 'flipLeadMs' ? 100 : key === 'flipAxisTilt' ? 10 : Infinity;
       result[key] = clamp(patch[key], min, max);
       if (['revealStartScale', 'revealFullScaleAt'].includes(key)) result[key] = Math.min(1, result[key]);
     }
@@ -138,6 +136,13 @@ export function carouselPose(index, cursor, count, width, settings = DEFAULT_SET
 
 // A shared upward throw with gravity. All choices retain their relative poses.
 export function departureDistance(motion, time) {
-  const seconds = clamp((time - motion.start) / 1000, 0, motion.duration / 1000);
-  return motion.velocity * seconds - .5 * motion.gravity * seconds * seconds;
+  const elapsed = Math.max(0, (time - motion.start) / 1000);
+  const duration = motion.duration / 1000;
+  const seconds = Math.min(elapsed, duration);
+  const distance = motion.velocity * seconds - .5 * motion.gravity * seconds * seconds;
+  // Individual items must clear their actual projected viewport edge.
+  // Continue at the terminal velocity if perspective requires extra travel.
+  return motion.continueFlight && elapsed > duration
+    ? distance + Math.max(1, motion.velocity - motion.gravity * duration) * (elapsed - duration)
+    : distance;
 }

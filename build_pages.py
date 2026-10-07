@@ -19,11 +19,12 @@ RUNTIME_FILES = (
     "engine/PointerInput.js",
     "engine/geometry.js",
     "engine/motion.js",
-    "engine/lid.js",
     "engine/MovementHistory.js",
     "engine/renderer.js",
     "engine/card-deck.css",
     "demo/ScenarioController.js",
+    "demo/InventoryStrip.js",
+    "demo/inventory.css",
 )
 IMPORT_RE = re.compile(r"(?:from\s*|import\s*)['\"]([^'\"]+)['\"]")
 URL_RE = re.compile(r"url\(\s*(['\"]?)(.*?)\1\s*\)", re.IGNORECASE)
