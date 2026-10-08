@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CardDeck } from '../engine/CardDeck.js';
+import { stageNextContent, stageActionDeck } from '../engine/renderer.js';
 import { ChapterController } from '../chapter/ChapterController.js';
 import { createLegacyStarterChapter as createStarterChapter } from '../chapter/model.js';
 import { ScenarioController, CHEST_ITEM_IDS } from '../demo/ScenarioController.js';
@@ -55,6 +56,65 @@ test('real engine keyboard reaches every linear card and container before random
   assert.equal(deck.content.interaction, 'container');
   assert.equal(deck.phase, 'choices');
   assert.equal(deck.content.actions.length, 2);
+  dispose(deck, controller);
+});
+
+test('story and successor cards render descriptions without displaying retained titles', () => {
+  const { deck, controller } = fixture();
+  deck.replaceContent({ ...deck.content, showCardNumbers: true });
+  for (const heading of deck.cardTitles) {
+    assert.equal(heading.hidden, true, 'legacy numbering flags have no visual effect');
+    assert.equal(heading.textContent, '');
+  }
+  assert.equal(deck.cards[0].children[0].children[1].textContent, 'Continue');
+  assert.equal(deck.content.title, 'The silent city', 'legacy title remains in content data');
+  const heading = deck.scene.children[0].children[0];
+  assert.equal(heading.textContent, '');
+  assert.equal(heading.hidden, true);
+  assert.equal(deck.scene.children[0].children[1].textContent, deck.content.text);
+  stageNextContent(deck, {title:'Old successor title',text:'Successor description',image:''});
+  assert.equal(deck.underlay.children[0].children[0].textContent, '');
+  assert.equal(deck.underlay.children[0].children[1].textContent, 'Successor description');
+  dispose(deck, controller);
+});
+
+test('image mirroring affects artwork only, including successor and reused action fronts', () => {
+  const chapter = createStarterChapter();
+  chapter.sequences[0].cards[0].flipImage = true;
+  chapter.sequences[0].cards[1].flipImage = true;
+  const deck = new CardDeck(new Element(), { content: { id:'wait', actions:[{id:'wait',label:'Wait'}] } });
+  const controller = new ChapterController(deck, chapter);
+  assert.equal(deck.scene.children[1].style.transform, 'scaleX(-1)');
+  assert.equal(deck.scene.children[0].style.transform, undefined, 'text is not mirrored');
+  assert.equal(deck.underlay.children[1].style.transform, 'scaleX(-1)');
+  const content = { id:'items', actions:[{id:'item',label:'Item',image:'item.png',flipImage:true}] };
+  const previous = stageActionDeck(deck, content);
+  assert.equal(previous.cards[0].children[1].style.transform, 'scaleX(-1)');
+  const next = stageActionDeck(deck, {...content,actions:[{...content.actions[0],flipImage:false}]},0,previous);
+  assert.equal(next.cards[0], previous.cards[0], 'reuses the physical card');
+  assert.equal(next.cards[0].children[1].style.transform, '');
+  assert.equal(next.cards[0].children[0].children[1].textContent, 'Item');
+  const fallback = stageActionDeck(deck, {image:'cover.png',flipImage:false,actions:[{id:'fallback',label:'Fallback',image:'',flipImage:true}]});
+  assert.equal(fallback.cards[0].children[1].style.transform, 'scaleX(-1)', 'the card controls mirroring even with fallback artwork');
+  dispose(deck, controller);
+});
+
+test('chapter image backs reach story, successor and decision cards; clearing restores the default', () => {
+  const chapter = createStarterChapter(); chapter.backImage = 'back.png';
+  const deck = new CardDeck(new Element(), {content:{id:'wait',actions:[{id:'wait',label:'Wait'}]}});
+  const controller = new ChapterController(deck, chapter);
+  assert.equal(deck.content.backImage, 'back.png');
+  assert.equal(deck.sceneBack.style.backgroundImage, 'url("back.png")');
+  assert.equal(deck.sceneBack.children.length, 0, 'custom image replaces the frame and mark');
+  assert.equal(deck.underlayBack.style.backgroundImage, 'url("back.png")');
+  stageNextContent(deck, {image:'front.png',text:'Future'});
+  assert.equal(deck.underlayBack.style.backgroundImage, 'url("back.png")', 'simple successor preview retains chapter back');
+  const content = {decisionOnly:true,backImage:'back.png',actions:[{id:'choice',label:'Choose'}]};
+  const previous = stageActionDeck(deck, content);
+  assert.equal(previous.cardBacks[0].style.backgroundImage, 'url("back.png")');
+  const next = stageActionDeck(deck, {...content,backImage:''},0,previous);
+  assert.equal(next.cardBacks[0].style.backgroundImage, '');
+  assert.equal(next.cardBacks[0].children[0].children[0].textContent, 'NEST');
   dispose(deck, controller);
 });
 
@@ -260,7 +320,8 @@ test('linear successor is prepared and visible face-up during an unaccepted drag
   const { deck, controller } = fixture();
   const before = controller.state.cardId;
   assert.equal(deck.content.nextCardPreview.title, 'Inside the hall');
-  assert.equal(deck.underlay.children[0].children[0].textContent, 'Inside the hall');
+  assert.equal(deck.underlay.children[0].children[0].textContent, '');
+  assert.equal(deck.underlay.children[0].children[1].textContent, 'A supply box waits beside the stairs.');
   assert.equal(deck.nextFlip.x, 0);
   deck.start(); deck.move({axis:'y',x:0,y:-100});
   step();

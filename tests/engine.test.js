@@ -110,7 +110,7 @@ test('host replacement stages the next situation while outgoing cards remain ons
  const next={...fixture(2),id:'next',title:'Next situation',text:'Already beneath the deck'};
  d.addEventListener('commit',()=>d.replaceContent(next));d.commit();
  assert.equal(d.pending.id,'next');assert.equal(d.content.id,'fixture3');assert.equal(d.scene,scene);
- assert.ok(textOf(d.mount).includes('Next situation'));for(const card of outgoing)assert.ok(descendants(d.mount).includes(card));
+ assert.ok(textOf(d.mount).includes(d.pending.text));assert.equal(textOf(d.underlay).includes('Next situation'),false);for(const card of outgoing)assert.ok(descendants(d.mount).includes(card));
  for(let i=0;i<outgoing.length;i++)assert.ok(renderer.cardPose(d,i,d.commitMotion.start).visible);
  assertOpaque(d);const underlayTransform=d.underlay.style.transform;d.tick(d.commitMotion.start+1000);assert.equal(d.content.id,'next');assert.equal(d.open,false);
  const installed=renderer.scenePose(d);assert.ok(installed.visible);assert.equal(Math.abs(installed.y),0);assert.ok(underlayTransform.startsWith(`translate3d(${installed.x}px,${installed.y}px,${installed.z}px)`),'installed scene matches the prepared underlay depth');
@@ -280,13 +280,13 @@ test('the next situation stages face down beneath departing choices without a pl
  const d=deck();ready(d);
  assert.equal(d.underlay,null);assert.equal(d.underlayBack,null);assert.equal(d.flip.x,0);assert.equal(renderer.scenePose(d).ry,0);
  const outgoing=[...d.cards],source=d.scene;
- d.addEventListener('commit',()=>d.replaceContent({...fixture(2),id:'staged',title:'Future front'}));d.commit();
+ d.addEventListener('commit',()=>d.replaceContent({...fixture(2),id:'staged',title:'Future front',text:'Future description'}));d.commit();
  assert.equal(d.content.id,'fixture3');assert.equal(d.scene,source);assert.equal(d.pending.id,'staged');
  assert.deepEqual(d.underlayLayer.children,[d.underlay,d.underlayBack]);
  assert.equal(yaw(d.underlay),180);assert.equal(yaw(d.underlayBack),360);
  assert.equal(d.underlay.style.visibility,'visible');assert.equal(d.underlayBack.style.visibility,'visible');
  assert.equal(d.underlay.getAttribute('aria-hidden'),'true');assert.equal(d.underlayBack.getAttribute('aria-hidden'),'true');
- assert.ok(textOf(d.underlay).includes('Future front'));assert.ok(textOf(d.underlayBack).includes('NEST'));
+ assert.ok(textOf(d.underlay).includes('Future description'));assert.equal(textOf(d.underlay).includes('Future front'),false);assert.ok(textOf(d.underlayBack).includes('NEST'));
  for(const fraction of [0,.5,.99]){
   const time=d.commitMotion.start+d.settings.commitDuration*fraction;d.render(time);
   assert.equal(d.scene,source);assert.equal(yaw(d.underlay),180);assert.equal(yaw(d.underlayBack),360);

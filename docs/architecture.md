@@ -11,8 +11,10 @@ JSON v1 remains the authoring format. Node instances own chapter connections; re
 - `chapter/model.js` owns shared JSON structure checks, reference integrity, cycle checks and legacy conversion. It dispatches type-specific validation through the registries.
 - `chapter/ChapterController.js` runs the graph, tracks container resolution and inventory, and translates semantic progression into presentation requests. It does not own dice physics, typography or spring tuning.
 - `editor/sequenceInspector.js` and `editor/fields.js` render editor controls independently of canvas/persistence code. A new behavior with new authoring fields still needs an inspector mode and its edit commands; the registry does not magically generate arbitrary custom UI.
+- `editor/DocumentHistory.js` owns isolated document transactions and bounded undo/redo. Edit callbacks mutate a private draft or return a replacement; failed edits leave history unchanged and no-op edits preserve redo. Intermediate drafts remain editable. Editor gestures work on detached documents and commit node moves through this same boundary; Escape, pointer cancellation and lost capture roll back. Selection, pending wires and viewport state remain UI concerns.
+- `editor/preview.js` owns each playback session. `stop()` releases the live deck/controller while allowing replay; `destroy()` also removes restart callbacks, releases shared dock styling and ends the preview's lifetime. Initial host callbacks may synchronously stop or destroy playback without retaining a controller.
 
-Legacy forks in random pools remain compatible with their old v1 semantics. New forks are immediate two/three-card decisions; each choice maps to a node output. Story descriptions belong in Linear nodes. Titles are optional and blank on new cards; Action/Item numbering is opt-in.
+Legacy forks in random pools remain compatible with their old v1 semantics. New forks are immediate two/three-card decisions; each choice maps to a node output. Story descriptions belong in Linear nodes. Titles are retained as legacy JSON metadata but omitted from gameplay and normal authoring; Action/Item numbering is not displayed; legacy numbering flags remain inert in saved JSON. The editor exposes one node name, descriptions/artwork and behavior labels. Reusable sequences remain internal content records; reuse controls are collapsed, shared uses are labeled, and duplication copies static content and random pool content independently.
 
 ## Presentation can change independently
 
@@ -25,6 +27,15 @@ Legacy forks in random pools remain compatible with their old v1 semantics. New 
 `engine/card-deck.css` exposes host-scoped appearance tokens: `--card-radius`, `--card-border`, `--card-background`, `--card-font`, `--card-padding`, `--card-text`, `--card-title-color`, `--card-font-size`, `--card-action-border`, and `--card-back-background`. Override them on a deck or its parent for another visual style. Defaults preserve the current appearance.
 
 Keep the existing choreography invariants when changing the feel: prepare successors before dragging, avoid ghost cards during incoming turns, use real projected clearance, block input during accepted transitions, cancel without changing game state, and honor reduced motion. Visual effects finish through completion events; gameplay commits once.
+
+### Playback event contract
+
+- `commit` accepts ordinary progression. Chapter rules apply its effects once; the controller supplies the requested successor presentation.
+- `collect` / `discard` accept an item gesture. They stage resolution; collected ownership and item effects apply only at the matching `transitioncomplete` event with the accepted content ID.
+- A final item completes its removal before the outgoing `commit` completion adopts the staged graph destination. That latter completion may carry the incoming content ID; do not assume every completion identifies the outgoing card.
+- `reset()` cancels pending motion and content, `finishMotion()` completes accepted work, and `destroy()` releases input, listeners and animation resources. Hosts release their controllers as well as the deck.
+
+These are integration boundaries, not a reason to add chapter rules inside the deck. See `tests/chapter-engine.test.js`, `tests/item-resolution.test.js` and `tests/state.test.js` before changing event timing.
 
 ## Dice are a context-independent capability
 

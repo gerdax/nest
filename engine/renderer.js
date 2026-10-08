@@ -1,6 +1,8 @@
 import { handoffRadius, projectedBounds } from './geometry.js?v=no-ending-card-1';
 import { carouselPose, clamp, departureDistance, revealScale } from './motion.js?v=no-ending-card-1';
 
+function flipped(action) { return !!action.flipImage; }
+
 function layerFor(deck, card, className = '') {
   const layer = document.createElement('div');
   layer.className = `nest-card-layer ${className}`.trim();
@@ -9,10 +11,11 @@ function layerFor(deck, card, className = '') {
   return layer;
 }
 
-function backFace() {
-  const back = document.createElement('article');
-  back.className = 'nest-card nest-card-back';
-  back.setAttribute('aria-hidden', 'true');
+function decorateBack(back, image = '') {
+  back.className = `nest-card nest-card-back${image ? ' nest-card-back-image' : ''}`;
+  back.style.backgroundImage = image ? `url(${JSON.stringify(image)})` : '';
+  back.replaceChildren();
+  if (image) return;
   const frame = document.createElement('div');
   frame.className = 'nest-back-frame';
   const mark = document.createElement('span');
@@ -20,6 +23,11 @@ function backFace() {
   mark.textContent = 'NEST';
   frame.append(mark);
   back.append(frame);
+}
+function backFace(image = '') {
+  const back = document.createElement('article');
+  back.setAttribute('aria-hidden', 'true');
+  decorateBack(back, image);
   return back;
 }
 
@@ -39,12 +47,13 @@ export function stageActionDeck(deck, content, selectedIndex = 0, previous = nul
       const card = previous.cards[oldIndex], layer = previous.cardLayers[oldIndex];
       const oldAction = previous.content.actions[oldIndex];
       let title = previous.cardTitles[oldIndex], back = previous.cardBacks[oldIndex];
-      if (oldAction.label !== action.label || (oldAction.image || previous.content.image) !== (action.image || content.image)) {
+      if (oldAction.label !== action.label || (oldAction.image || previous.content.image) !== (action.image || content.image) || flipped(oldAction) !== flipped(action)) {
         card.replaceChildren();
         card.style.backgroundImage = '';
-        title = deck.decorate(card, action.image || content.image, '', action.label);
+        title = deck.decorate(card, action.image || content.image, '', action.label, flipped(action));
       }
-      if ((action.faceDown || content.decisionOnly) && !back) { back = backFace(); layer.append(back); }
+      if (back && previous.content.backImage !== content.backImage) decorateBack(back, content.backImage);
+      if ((action.faceDown || content.decisionOnly) && !back) { back = backFace(content.backImage); layer.append(back); }
       if (!action.faceDown && !content.decisionOnly && back) { back.remove(); back = null; }
       bundle.cards.push(card);
       bundle.cardLayers.push(layer);
@@ -54,17 +63,17 @@ export function stageActionDeck(deck, content, selectedIndex = 0, previous = nul
     }
     const card = document.createElement('article');
     card.className = 'nest-card nest-action';
-    bundle.cardTitles.push(deck.decorate(card, action.image || content.image, '', action.label));
+    bundle.cardTitles.push(deck.decorate(card, action.image || content.image, '', action.label, flipped(action)));
     const layer = layerFor(deck, card);
     bundle.cardLayers.push(layer);
-    const back = action.faceDown || content.decisionOnly ? backFace() : null;
+    const back = action.faceDown || content.decisionOnly ? backFace(content.backImage) : null;
     if (back) layer.append(back);
     bundle.cardBacks.push(back);
     bundle.cards.push(card);
   });
-  bundle.cardTitles.forEach((title, i) => {
-    title.hidden = !content.showCardNumbers;
-    title.textContent = content.showCardNumbers ? `${content.interaction === 'container' ? 'ITEM' : 'ACTION'} ${String(i + 1).padStart(2, '0')} / ${content.actions.length}` : '';
+  bundle.cardTitles.forEach(title => {
+    title.hidden = true;
+    title.textContent = '';
   });
   return bundle;
 }
@@ -82,9 +91,9 @@ export function buildDeck(deck, staged = null) {
   if (staged) deck.mount.append(...staged.cardLayers);
   deck.scene = document.createElement('article');
   deck.scene.className = 'nest-card nest-situation';
-  deck.decorate(deck.scene, deck.content.image, deck.content.title, deck.content.text);
+  deck.decorate(deck.scene, deck.content.image, '', deck.content.text, deck.content.flipImage);
   deck.sceneLayer = layerFor(deck, deck.scene);
-  deck.sceneBack = backFace();
+  deck.sceneBack = backFace(deck.content.backImage);
   deck.sceneLayer.append(deck.sceneBack);
   deck.live = document.createElement('span');
   deck.live.className = 'nest-live';
@@ -93,17 +102,23 @@ export function buildDeck(deck, staged = null) {
   deck.announce();
 }
 
-export function decorateCard(deck, element, image, title, text) {
-  if (image) element.style.backgroundImage = `url(${JSON.stringify(image)})`;
+export function decorateCard(deck, element, image, title, text, flipImage = false) {
+  element.style.backgroundImage = '';
+  const artwork = document.createElement('div');
+  artwork.className = 'nest-artwork';
+  artwork.setAttribute('aria-hidden', 'true');
+  if (image) artwork.style.backgroundImage = `url(${JSON.stringify(image)})`;
+  artwork.style.transform = flipImage ? 'scaleX(-1)' : '';
   const copy = document.createElement('div');
   copy.className = 'nest-copy';
   const heading = document.createElement('span');
   heading.className = 'nest-card-title';
   heading.textContent = title || '';
+  heading.hidden = !title;
   const body = document.createElement('p');
   body.textContent = text || '';
   copy.append(heading, body);
-  element.append(copy);
+  element.append(copy, artwork);
   return heading;
 }
 
@@ -115,7 +130,7 @@ export function stageNextBack(deck) {
     deck.underlay.className = 'nest-card nest-next-situation';
     deck.underlay.setAttribute('aria-hidden', 'true');
     deck.underlayLayer = layerFor(deck, deck.underlay);
-    deck.underlayBack = backFace();
+    deck.underlayBack = backFace(deck.content.backImage);
     deck.underlayLayer.append(deck.underlayBack);
   }
 }
@@ -123,9 +138,10 @@ export function stageNextBack(deck) {
 // The host's next situation is physically below the departing action cards.
 export function stageNextContent(deck, content) {
   stageNextBack(deck);
+  decorateBack(deck.underlayBack, content.backImage ?? deck.content.backImage);
   deck.underlay.replaceChildren();
   deck.underlay.style.backgroundImage = '';
-  deck.decorate(deck.underlay, content.image, content.title, content.text);
+  deck.decorate(deck.underlay, content.image, '', content.text, content.flipImage);
 }
 
 export function announceDeck(deck) {

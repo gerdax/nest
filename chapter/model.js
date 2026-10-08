@@ -29,6 +29,7 @@ export function validateChapter(chapter) {
   if (!object(chapter)) return [{ message: 'Chapter must be an object.' }];
   if (chapter.version !== 1) add('Chapter version must be 1.');
   if (!string(chapter.name)) add('Chapter needs a name.');
+  if (chapter.backImage !== undefined && typeof chapter.backImage !== 'string') add('Card back image must be a string.');
   if (!Array.isArray(chapter.nodes) || !chapter.nodes.length) add('Chapter needs at least one node.');
   if (!Array.isArray(chapter.sequences) || !chapter.sequences.length) add('Chapter needs at least one sequence.');
   const nodes = Array.isArray(chapter.nodes) ? chapter.nodes : [];
@@ -55,6 +56,9 @@ export function validateChapter(chapter) {
       if (cardIds.has(card.id)) add(`Sequence ${seq.id} has duplicate card ID ${card.id}.`);
       cardIds.add(card.id);
       if (typeof card.title !== 'string' || typeof card.text !== 'string' || typeof card.image !== 'string') add(`Card ${card.id} needs title, text and image fields.`);
+    }
+    for (const artwork of [...cards, ...(Array.isArray(seq.items) ? seq.items : []), ...cards.flatMap(card => Array.isArray(card?.choices) ? card.choices : [])]) {
+      if (artwork?.flipImage !== undefined && typeof artwork.flipImage !== 'boolean') add(`Artwork ${artwork.id}: flipImage must be a boolean.`);
     }
     sequenceType(seq)?.validate(seq, { cards, cardIds, exits, add, hasCycle });
     if (seq.type !== 'forked' && (seq.exits?.length !== 1)) add(`Sequence ${seq.id} needs exactly one exit.`);
@@ -90,6 +94,7 @@ export function parseChapter(text, { allowDraft = false } = {}) {
   const chapter = JSON.parse(text);
   if (allowDraft) {
     if (!object(chapter) || chapter.version !== 1 || typeof chapter.name !== 'string' || typeof chapter.startNode !== 'string' || !Array.isArray(chapter.nodes) || !Array.isArray(chapter.sequences)) throw new TypeError('Invalid chapter draft structure.');
+    if (chapter.backImage !== undefined && typeof chapter.backImage !== 'string') throw new TypeError('Card back image must be a string.');
     for (const node of chapter.nodes) {
       if (!object(node) || !string(node.id) || typeof node.name !== 'string' || !Object.hasOwn(nodeTypes, node.type) || !Number.isFinite(node.x) || !Number.isFinite(node.y) || !object(node.connections)) throw new TypeError('Invalid node draft structure.');
       if (Object.values(node.connections).some(target => target !== null && typeof target !== 'string')) throw new TypeError('Invalid connection draft structure.');
@@ -103,6 +108,9 @@ export function parseChapter(text, { allowDraft = false } = {}) {
         if (card.choices !== undefined && (!Array.isArray(card.choices) || card.choices.some(choice => !object(choice) || typeof choice.id !== 'string' || typeof choice.label !== 'string' || typeof choice.image !== 'string' || typeof choice.target !== 'string'))) throw new TypeError('Invalid choice draft structure.');
       }
       if (seq.items !== undefined && (!Array.isArray(seq.items) || seq.items.some(item => !object(item) || typeof item.id !== 'string' || typeof item.label !== 'string' || typeof item.image !== 'string'))) throw new TypeError('Invalid item draft structure.');
+    }
+    for (const seq of chapter.sequences) for (const artwork of [...seq.cards, ...(seq.items || []), ...seq.cards.flatMap(card => card.choices || [])]) {
+      if (artwork.flipImage !== undefined && typeof artwork.flipImage !== 'boolean') throw new TypeError('Artwork flipImage must be a boolean.');
     }
     const stateErrors = validateStateConfig(chapter, { references: false });
     if (stateErrors.length) throw new TypeError(stateErrors.join('\n'));

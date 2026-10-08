@@ -26,3 +26,5 @@ Variable rules are structured data; no JavaScript is evaluated. Unknown variable
 Artwork controls now include a miniature image-and-copy card beside the editable path and existing-artwork picker. It updates when fields change. It previews composition, not gestures or conditional playback; use Play selected for those.
 
 When no variables exist, the Effects panel offers **Create variable & effect**. This creates a flag and its Set effect in one undoable edit, then opens Run variables so it can be named and configured.
+
+Run variable definitions are edited in Chapter settings → Run variables, separate from the selected node. Card, choice and item effects and conditions remain in the node inspector. Creating the first variable from an effect opens Chapter settings for naming it.

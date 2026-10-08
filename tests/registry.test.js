@@ -13,7 +13,11 @@ for(const type of Object.keys(sequenceTypes))test(`registry creates a playable $
  const chapter={version:1,name:'Test',startNode:'node',nodes:[node],sequences:[seq]};
  assert.deepEqual(validateChapter(chapter),[]);
  assert.deepEqual(nodeOutputs(node,seq),seq.exits);
- assert.ok(renderSequenceInspector(seq,chapter).includes('Sequence name'));
+ const inspector=renderSequenceInspector(seq,chapter);
+ assert.ok(inspector.includes('Reuse content (advanced)'));
+ assert.equal(inspector.includes('Sequence name'),false);
+ assert.equal(inspector.includes('Title (optional)'),false);
+ assert.equal(inspector.includes('showCardNumbers'),false);
  assert.equal(seq.cards[0].title,'');
  if(type==='forked')assert.equal(outputLabel(seq,seq.exits[0]),'Choice 1');
 });

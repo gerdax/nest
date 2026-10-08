@@ -3,9 +3,28 @@ import { ChapterController } from '../chapter/ChapterController.js';
 import { cloneChapter, validateChapter } from '../chapter/model.js';
 import { InventoryStrip } from '../demo/InventoryStrip.js';
 
+// Body-level styling is shared by all docked previews in a document.
+const dockOwners = new WeakMap();
+function acquireDock(body) {
+  let ownership = dockOwners.get(body);
+  if (!ownership) {
+    ownership = { count: 0, existing: body.classList.contains('has-inventory-dock') };
+    dockOwners.set(body, ownership);
+  }
+  ownership.count++;
+  body.classList.add('has-inventory-dock');
+  return () => {
+    if (--ownership.count === 0) {
+      if (!ownership.existing) body.classList.remove('has-inventory-dock');
+      dockOwners.delete(body);
+    }
+  };
+}
+
 export class Preview {
   constructor(root, { onChange = () => {}, onRestart, inventoryDock = false, deckSettings = {}, presentation } = {}) {
     this.root = root;
+    this.destroyed = false;
     this.deckSettings = { ...deckSettings };
     this.presentation = presentation;
     this.onChange = onChange;
@@ -37,14 +56,17 @@ export class Preview {
     const inventoryRoot = root.querySelector('.chapter-preview-inventory');
     if (inventoryDock) {
       inventoryRoot.classList.add('nest-inventory-dock');
-      document.body.classList.add('has-inventory-dock');
+      this.releaseDock = acquireDock(document.body);
     }
     this.inventory = new InventoryStrip(inventoryRoot);
     this.complete = root.querySelector('.chapter-preview-complete');
-    this.complete.querySelector('button').addEventListener('click', () => onRestart ? onRestart() : this.restart());
+    this.restartButton = this.complete.querySelector('button');
+    this.handleRestart = () => onRestart ? onRestart() : this.restart();
+    this.restartButton.addEventListener('click', this.handleRestart);
   }
 
   play(chapter, startNode) {
+    if (this.destroyed) throw new Error('Preview has been destroyed');
     const errors = validateChapter(chapter);
     if (errors.length) throw new Error(errors.map(error => error.message).join('\n'));
     const snapshot = cloneChapter(chapter);
@@ -56,9 +78,17 @@ export class Preview {
         id: 'preview-loading', title: 'Loading chapter', text: '',
         actions: [{ id: 'wait', label: 'Loading', disabled: true }],
       } });
-      this.controller = new ChapterController(this.deck, snapshot, {
+      const deck = this.deck;
+      const controller = new ChapterController(deck, snapshot, {
         startNode, ...(this.presentation ? { presentation: this.presentation } : {}), onChange: state => this.update(state),
       });
+      // The initial notification is synchronous. A host may stop, destroy,
+      // or start another preview before the constructor returns.
+      if (this.destroyed || this.deck !== deck) {
+        controller.destroy();
+        return;
+      }
+      this.controller = controller;
       this.mount.focus({ preventScroll: true });
     } catch (error) {
       this.stop();
@@ -67,15 +97,18 @@ export class Preview {
   }
 
   restart(chapter = this.chapter, startNode = this.startNode) {
+    if (this.destroyed) return;
     if (chapter) this.play(chapter, startNode);
   }
 
   update(state) {
+    if (this.destroyed) return;
     this.state = state;
     const sequence = this.chapter?.sequences.find(sequence => sequence.id === state.sequenceId);
-    const card = sequence?.cards.find(card => card.id === state.cardId);
+    const cardIndex = sequence?.cards.findIndex(card => card.id === state.cardId) ?? -1;
+    const node = this.chapter?.nodes.find(node => node.id === state.activeNodeId);
     this.status.textContent = state.completed ? 'Chapter complete.'
-      : `Playing · ${sequence?.name ?? state.sequenceId ?? state.activeNodeId ?? ''}${card?.title ? ` · ${card.title}` : ''}`;
+      : `Playing · ${node?.name ?? ''}${sequence?.cards.length > 1 && cardIndex >= 0 ? ` · Card ${cardIndex + 1}` : ''}`;
     this.complete.hidden = !state.completed;
     this.stateReadout.hidden = !Object.keys(state.variables || {}).length;
     this.stateReadout.querySelector('pre').textContent = JSON.stringify(state.variables || {}, null, 2);
@@ -84,6 +117,7 @@ export class Preview {
   }
 
   stop() {
+    if (this.destroyed) return;
     this.controller?.destroy();
     this.deck?.destroy();
     this.controller = null;
@@ -94,5 +128,17 @@ export class Preview {
     this.stateReadout.hidden = true;
     this.inventory.update([]);
     this.complete.hidden = true;
+  }
+
+  destroy() {
+    if (this.destroyed) return;
+    this.stop();
+    this.destroyed = true;
+    this.restartButton.removeEventListener('click', this.handleRestart);
+    this.releaseDock?.();
+    this.releaseDock = null;
+    this.chapter = null;
+    this.onChange = () => {};
+    this.root.replaceChildren();
   }
 }

@@ -8,7 +8,7 @@ export const sequenceTypes = Object.freeze({
   linear: Object.freeze({
     label: 'Linear', inspector: 'story', previewsSuccessor: true,
     create(uid) { return { cards: [card(uid)], exits: ['next'] }; },
-    actions({card}) { return [{id:'continue',label:'Continue',image:card.image}]; },
+    actions({card}) { return [{id:'continue',label:'Continue',image:card.image,flipImage:!!card.flipImage}]; },
     nextCard(sequence, current) { return sequence.cards[sequence.cards.indexOf(current)+1] ?? null; },
     resolve({sequence,card}) { const next=this.nextCard(sequence,card); return next ? {card:next} : {exit:sequence.exits[0]}; },
     validate() {}

@@ -131,3 +131,9 @@
   letter-spacing: .22em;
   padding-left: .22em;
 }
+
+/* Mirror only the artwork; copy and card choreography stay independent. */
+.nest-artwork { position: absolute; inset: 0; background-size: cover; background-position: center; z-index: 0; }
+.nest-card::after { z-index: 0; }
+
+.nest-card-back-image::after { background: none; }
