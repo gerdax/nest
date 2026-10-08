@@ -26,6 +26,8 @@ Legacy forks in random pools remain compatible with their old v1 semantics. New 
 
 `engine/card-deck.css` exposes host-scoped appearance tokens: `--card-radius`, `--card-border`, `--card-background`, `--card-font`, `--card-padding`, `--card-text`, `--card-title-color`, `--card-font-size`, `--card-action-border`, and `--card-back-background`. Override them on a deck or its parent for another visual style. Defaults preserve the current appearance.
 
+The card-stock appearance experiment follows checkpoint `aba4b44`. A masked gradient rim, shallow inset bevel and three layered edge shadows suggest thickness without changing card geometry or input. `--card-edge-highlight`, `--card-edge-shadow` and `--card-edge-strata` control the material. The renderer combines the edge strata with its elevation-dependent shadow on fronts, and retains the strata on reverse faces. This is a visual thickness effect, not extruded 3D geometry.
+
 Keep the existing choreography invariants when changing the feel: prepare successors before dragging, avoid ghost cards during incoming turns, use real projected clearance, block input during accepted transitions, cancel without changing game state, and honor reduced motion. Visual effects finish through completion events; gameplay commits once.
 
 ### Playback event contract

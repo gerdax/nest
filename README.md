@@ -108,6 +108,8 @@ python3 build_pages.py /tmp/nest-pages
 
 Use a new or empty staging directory outside the source assets. The output contains the root playground, `.nojekyll`, runtime modules, inventory UI, and referenced artwork/fonts. Copy it into a separate `gh-pages` checkout preserving `.git`, then commit and push normally. Do not force-push. The node editor and standalone player are local tools and are not part of this minimal playground staging.
 
+Add `--include-editor` to publish `/editor.html` and `/player.html` along with the chapter runtime and available card artwork. Image assets are included; layered PSD source files are kept out of the published site. Chapters saved in one browser do not transfer to another device: export JSON from the editor and use Open JSON in the mobile player.
+
 ## Previous checkpoints and assets
 
 The current prototype owns its artwork in `assets/img` and fonts in `assets/fonts`. Preserve source assets and original design documents. Previous versions remain recoverable from Git history.

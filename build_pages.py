@@ -27,7 +27,7 @@ RUNTIME_FILES = (
     "demo/InventoryStrip.js",
     "demo/inventory.css",
 )
-IMPORT_RE = re.compile(r"(?:from\s*|import\s*)['\"]([^'\"]+)['\"]")
+IMPORT_RE = re.compile(r"\b(?:from\s+|import\s+)['\"]([^'\"\r\n]+)['\"]")
 URL_RE = re.compile(r"url\(\s*(['\"]?)(.*?)\1\s*\)", re.IGNORECASE)
 ASSET_RE = re.compile(r"\b([\w.-]+\.(?:png|ttf))")
 
@@ -48,6 +48,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path, help="new or empty directory to populate")
     parser.add_argument("--include-dice", action="store_true", help="also stage the independent dice demo and licensed engine assets")
+    parser.add_argument("--include-editor", action="store_true", help="also stage the chapter editor, player and available card artwork")
     args = parser.parse_args()
 
     output = args.output.expanduser().resolve()
@@ -69,11 +70,16 @@ def main() -> None:
         copied.add(target)
         return target
 
-    for relative in RUNTIME_FILES:
+    runtime_files = list(RUNTIME_FILES)
+    if args.include_editor:
+        runtime_files.extend(("editor.html", "player.html"))
+        for folder in ("chapter", "editor"):
+            runtime_files.extend(source.relative_to(ROOT).as_posix() for source in sorted((ROOT / folder).rglob("*")) if source.is_file() and source.suffix in {".js", ".css"})
+    for relative in runtime_files:
         copy_repo_file(relative)
 
     # The CSS and demo refer to these files through repository-relative URLs.
-    text_sources = [ROOT / name for name in RUNTIME_FILES if name.endswith((".css", ".js", ".html"))]
+    text_sources = [ROOT / name for name in runtime_files if name.endswith((".css", ".js", ".html"))]
     assets: set[Path] = set()
     for source in text_sources:
         content = source.read_text(encoding="utf-8")
@@ -84,6 +90,10 @@ def main() -> None:
             if not asset.is_file():
                 fail(f"referenced demo asset is missing: {asset.relative_to(ROOT)}")
             assets.add(asset)
+    if args.include_editor:
+        # Chapter JSON selects artwork dynamically. Publish usable image assets,
+        # keeping layered source documents such as PSD files out of the site.
+        assets.update(source for source in (ROOT / "assets" / "img").rglob("*") if source.is_file() and source.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"})
     for source in sorted(assets):
         relative = source.relative_to(ROOT)
         copy_repo_file(relative.as_posix())
