@@ -41,6 +41,7 @@ export class InventoryStrip {
         image.src = item.image;
         image.alt = '';
         image.draggable = false;
+        if (item.flipImage) image.style.transform = 'scaleX(-1)';
         entry.append(image);
       }
       const label = document.createElement('span');

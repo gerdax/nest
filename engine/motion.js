@@ -1,26 +1,5 @@
-export const DEFAULT_SETTINGS = Object.freeze({
-  stiffness: 360,
-  damping: 56,
-  mass: 1.15,
-  maxTilt: 12,
-  axisThreshold: 34,
-  distanceThreshold: 0.14,
-  flickVelocity: 325,
-  flickDistance: 26,
-  commitDuration: 210,
-  perspective: 1200,
-  stackDepth: 22,
-  liftHeight: 56,
-  grabLift: 24,
-  angularStiffness: 350,
-  angularDamping: 65,
-  gravity: 800,
-  revealStartScale: .915,
-  revealFullScaleAt: 0.167054298371648,
-  choiceStaggerMs: 30,
-  flipLeadMs: 100,
-  flipAxisTilt: -1
-});
+import { DEFAULT_SETTINGS } from './motionProfile.js?v=no-ending-card-1';
+export { DEFAULT_SETTINGS };
 export function classifyAxis(x, y, threshold = DEFAULT_SETTINGS.axisThreshold) {
   return Math.hypot(x, y) < threshold ? null : Math.abs(x) > Math.abs(y) ? 'x' : 'y';
 }
