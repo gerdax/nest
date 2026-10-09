@@ -163,3 +163,23 @@
 .nest-card::after { z-index: 0; }
 
 .nest-card-back-image::after { background: none; }
+
+/* Typed content supplies headings and summaries; legacy narrative remains plain. */
+.nest-card[data-card-kind="item"] .nest-card-title,
+.nest-card[data-card-kind="action"] .nest-card-title {
+  font: 600 18px/1.2 system-ui, sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #e5efce;
+}
+.nest-copy p.nest-card-summary {
+  font: 13px/1.4 system-ui, sans-serif;
+  color: #c0d99b;
+  margin-top: 9px;
+  white-space: pre-line;
+}
+.nest-card[data-card-kind="item"] .nest-copy > p:not(.nest-card-summary),
+.nest-card[data-card-kind="action"] .nest-copy > p:not(.nest-card-summary) {
+  font-size: 15px;
+  line-height: 1.35;
+}

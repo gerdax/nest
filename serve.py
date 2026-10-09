@@ -3,9 +3,23 @@ import argparse
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import urlsplit
+
+from image_catalog import image_manifest_bytes
 
 
 class PlaygroundHandler(SimpleHTTPRequestHandler):
+    def send_head(self):
+        if urlsplit(self.path).path == "/assets/image-manifest.json":
+            from io import BytesIO
+            content = image_manifest_bytes(Path(self.directory))
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(content)))
+            self.end_headers()
+            return BytesIO(content)
+        return super().send_head()
+
     def end_headers(self):
         self.send_header("Cache-Control", "no-store")
         super().end_headers()

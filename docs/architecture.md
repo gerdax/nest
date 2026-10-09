@@ -1,28 +1,29 @@
 # Architecture and working assumptions
 
-These decisions record the October 7, 2026 discussion. Preserve current game behavior while allowing its presentation and independent capabilities to evolve.
+These working assumptions include the October 7 presentation discussion and implemented October 9 project-library mechanics. Preserve source documents and assets while evolving the runtime.
 
-## Chapter mechanics and extensions
+## Project mechanics and extensions
 
-JSON v1 remains the authoring format. Node instances own chapter connections; reusable sequences own their content. Static and Random are graph runners. Linear, Fork and Container are sequence behaviors.
+Project v2 (`kind: "nest-project"`) is the active authoring format. A project owns a Library, variables and chapters; nodes place shared definitions and own their connections. Narrative, Action and Item are explicit card kinds. Linear, Fork, Container and Random are graph behaviors. Null targets end the chapter; automatic chapter destinations and combat are deferred.
 
-- `chapter/nodeTypes.js` owns graph-runner selection, validation and outputs. Random sampling is pure in `chapter/random.js` and receives an injected random source.
-- `chapter/sequenceTypes.js` owns reusable sequence defaults, validation, action data, progression, and inspector mode. Add a sequence descriptor here instead of adding type conditionals throughout the controller and validator.
-- `chapter/model.js` owns shared JSON structure checks, reference integrity, cycle checks and legacy conversion. It dispatches type-specific validation through the registries.
-- `chapter/ChapterController.js` runs the graph, tracks container resolution and inventory, and translates semantic progression into presentation requests. It does not own dice physics, typography or spring tuning.
-- `editor/sequenceInspector.js` and `editor/fields.js` render editor controls independently of canvas/persistence code. A new behavior with new authoring fields still needs an inspector mode and its edit commands; the registry does not magically generate arbitrary custom UI.
-- `editor/DocumentHistory.js` owns isolated document transactions and bounded undo/redo. Edit callbacks mutate a private draft or return a replacement; failed edits leave history unchanged and no-op edits preserve redo. Intermediate drafts remain editable. Editor gestures work on detached documents and commit node moves through this same boundary; Escape, pointer cancellation and lost capture roll back. Selection, pending wires and viewport state remain UI concerns.
-- `editor/preview.js` owns each playback session. `stop()` releases the live deck/controller while allowing replay; `destroy()` also removes restart callbacks, releases shared dock styling and ends the preview's lifetime. Initial host callbacks may synchronously stop or destroy playback without retaining a controller.
+- `project/cards.js` owns card-kind descriptors, shared defaults, mechanical summaries and placement resolution. Definitions store name, optional heading, description and artwork. Placements store quantity, added conditions/effects and optional action mechanics overrides. Overrides replace the corresponding shared mechanics; placement conditions/effects then append. Artwork/content stay shared unless the author creates a variant.
+- `project/model.js` owns project validation, compilation, v1 migration and import/export remapping. Compilation resolves placements and chapter initial variable overrides into a detached runtime chapter. Exported `nest-chapter` packages include referenced definitions and their dependency closure plus project variables. Imported packages use collision-safe IDs and rewrite references together.
+- `project/state.js` owns pure condition evaluation and atomic transactions for bounded variables, costs, effects and quantity-bearing inventory. Inventory matches definition IDs and preserved legacy aliases; ownership stacks by definition.
+- `project/ProjectController.js` owns graph execution, session state, action checks and item/use timing. New Random nodes select one eligible weighted node destination and then follow its normal connections, with a fallback when no route is eligible. Checks belong to Actions, with Success/Failure outputs; the controller interprets dice results, never the dice physics service.
+- `project/storage.js` autosaves drafts under `nest.project.v2`. If absent, it reads and migrates `nest.chapter.v1` without removing the old key. A malformed v2 save is reported rather than silently replaced by a legacy save.
+- `studio/editor.js`, `GraphView.js`, `inspectors.js`, `forms.js` and `commands.js` separate Library/Chapter UI, graph interactions, structured authoring controls and edits. Library user links expose shared-edit scope; variant creation copies content while node duplication retains shared definition references.
+- `editor/DocumentHistory.js` remains the transaction/undo boundary. Failed edits leave the history unchanged; no-op edits preserve redo. Graph gestures edit detached copies and commit movement at completion; canceled gestures roll back. Selection and viewport remain UI concerns.
+- `studio/ProjectPreview.js` owns live deck/controller/dice lifetimes and result overlay. It validates and snapshots a project before compiling its selected chapter. Stop releases playback; destroy additionally removes host listeners and inventory UI. `studio/InventoryView.js` renders stacks, inspection and Use one, delegating all state mutation to the controller.
 
-Legacy forks in random pools remain compatible with their old v1 semantics. New forks are immediate two/three-card decisions; each choice maps to a node output. Story descriptions belong in Linear nodes. Titles are retained as legacy JSON metadata but omitted from gameplay and normal authoring; Action/Item numbering is not displayed; legacy numbering flags remain inert in saved JSON. The editor exposes one node name, descriptions/artwork and behavior labels. Reusable sequences remain internal content records; reuse controls are collapsed, shared uses are labeled, and duplication copies static content and random pool content independently.
+The `chapter/` and `editor/` v1 modules remain for compatibility and independent integrations. V1 migration prefixes variables with the chapter ID and assigns stable inventory aliases. Simple linear/container/decision-only nodes become placements; old random pools become `legacyPool` and complex internal forks become `legacySequence`. Legacy behavior is preserved rather than silently rewritten into new Random semantics. Shared definitions remain editable for migrated cards.
 
 ## Presentation can change independently
 
-`chapter/presentation.js` is an injectable policy. It maps semantic sequence behavior to entry presentation, within-sequence presentation and outgoing transitions. The current visual rule is **after the outgoing content**: Linear reveals face-up, Fork turns, and clearing Container turns. This includes chapter completion. Animation settings must never decide graph routing or inventory results.
+For v1 integrations, `chapter/presentation.js` is an injectable policy. It maps semantic sequence behavior to entry presentation, within-sequence presentation and outgoing transitions. The current visual rule is **after the outgoing content**: Linear reveals face-up, Fork turns, and clearing Container turns. This includes chapter completion. Animation settings must never decide graph routing or inventory results.
 
 `engine/CardDeck.js` owns gesture/choreography state; `engine/renderer.js` owns poses and physical staging; `engine/geometry.js` owns projection/clearance. They should remain independent of chapter types, dice success thresholds and game-specific stats. Content flags are renderer contracts, not imports from chapter registries.
 
-`engine/motionProfile.js` is the default motion tuning source. `CardDeck({ settings })` and `updateSettings()` override it. `Preview` accepts `deckSettings` and a `presentation` policy, so hosts can try another feel without editing mechanics or chapter JSON. No exaggerated preset is enabled by this cleanup.
+`engine/motionProfile.js` is the default motion tuning source. `CardDeck({ settings })` and `updateSettings()` override it. The legacy `Preview` accepts `deckSettings` and a `presentation` policy; `ProjectPreview` accepts `deckSettings`, so hosts can try another feel without editing mechanics or chapter JSON. No exaggerated preset is enabled by this cleanup.
 
 `engine/card-deck.css` exposes host-scoped appearance tokens: `--card-radius`, `--card-border`, `--card-background`, `--card-font`, `--card-padding`, `--card-text`, `--card-title-color`, `--card-font-size`, `--card-action-border`, and `--card-back-background`. Override them on a deck or its parent for another visual style. Defaults preserve the current appearance.
 
@@ -45,9 +46,11 @@ Reuse the actual solution from `gerdax/onejournal`, not a new homemade dice simu
 
 The standalone service and demo are documented in `docs/dice-service.md`. Keep vendor licenses and provenance. The capability must have explicit mount, asynchronous roll, clear/cancel and teardown behavior, including interruption before settling. Multiple contexts must not share hidden UI state.
 
-## Inventory: discussion pending
+## Run inventory and checks
 
-Inventory cards should be considered as another standalone capability usable from different contexts. The user requested discussion **after** this cleanup. Do not infer use-item rules, targets, consumption, persistence, equip slots or a redesigned inventory UI yet. The current collected-card strip and session behavior remain in place.
+Inventory is run-scoped and stacks quantities by Item definition. Collection and `onCollect` effects commit only after the accepted take departure completes; discard never grants ownership. Use one atomically consumes a copy and applies conditional use effects. Numeric bounds clamp effects, including use at a full resource value; the copy is consumed. Key items have inspection but no use action. Equip slots and combat remain deferred.
+
+Actions default to a `1d20` check with modifier 0 and target 10; a sum plus fixed/variable modifiers at least the target succeeds. The existing dice service runs in a host-owned overlay. Completed success and failure spend attempt costs and apply common/outcome effects. Cancellation, interruption and resolution errors change no state. Inventory use is blocked during the check. Routing, transaction validation and costs must succeed together before state is committed.
 
 ## Verification and scope
 
@@ -57,4 +60,4 @@ This work is local until publication is explicitly requested. No backend, collab
 
 ## Universal run-state layer
 
-`chapter/state.js` supplies initial values, pure condition evaluation, effects and state validation. Chapter execution owns the live values. The editor exposes flags, numbers and direct inventory checks through collapsible structured rules. See `docs/state-system.md` for timing and authoring scope. This is not a scripting language or a navigation/loop system.
+`project/state.js` supplies typed initial values, pure requirements and atomic bounded-variable/inventory transactions. Project variables provide shared definitions; each chapter may override its initial values. Compilation and playback own the live values. `chapter/state.js` remains for v1 integrations. See [state authoring](state-system.md) for supported conditions, costs, effects and timing. Neither layer evaluates scripts or permits graph loops.

@@ -47,10 +47,10 @@ export function stageActionDeck(deck, content, selectedIndex = 0, previous = nul
       const card = previous.cards[oldIndex], layer = previous.cardLayers[oldIndex];
       const oldAction = previous.content.actions[oldIndex];
       let title = previous.cardTitles[oldIndex], back = previous.cardBacks[oldIndex];
-      if (oldAction.label !== action.label || (oldAction.image || previous.content.image) !== (action.image || content.image) || flipped(oldAction) !== flipped(action)) {
+      if (oldAction.label !== action.label || oldAction.heading !== action.heading || oldAction.summary !== action.summary || oldAction.text !== action.text || oldAction.cardKind !== action.cardKind || (oldAction.image || previous.content.image) !== (action.image || content.image) || flipped(oldAction) !== flipped(action)) {
         card.replaceChildren();
         card.style.backgroundImage = '';
-        title = deck.decorate(card, action.image || content.image, '', action.label, flipped(action));
+        title = deck.decorate(card, action.image || content.image, action.heading || '', action.cardKind ? action.text || '' : action.label, flipped(action), action);
       }
       if (back && previous.content.backImage !== content.backImage) decorateBack(back, content.backImage);
       if ((action.faceDown || content.decisionOnly) && !back) { back = backFace(content.backImage); layer.append(back); }
@@ -63,7 +63,7 @@ export function stageActionDeck(deck, content, selectedIndex = 0, previous = nul
     }
     const card = document.createElement('article');
     card.className = 'nest-card nest-action';
-    bundle.cardTitles.push(deck.decorate(card, action.image || content.image, '', action.label, flipped(action)));
+    bundle.cardTitles.push(deck.decorate(card, action.image || content.image, action.heading || '', action.cardKind ? action.text || '' : action.label, flipped(action), action));
     const layer = layerFor(deck, card);
     bundle.cardLayers.push(layer);
     const back = action.faceDown || content.decisionOnly ? backFace(content.backImage) : null;
@@ -71,9 +71,9 @@ export function stageActionDeck(deck, content, selectedIndex = 0, previous = nul
     bundle.cardBacks.push(back);
     bundle.cards.push(card);
   });
-  bundle.cardTitles.forEach(title => {
-    title.hidden = true;
-    title.textContent = '';
+  bundle.cardTitles.forEach((title, index) => {
+    title.hidden = !content.actions[index].heading;
+    if (!content.actions[index].heading) title.textContent = '';
   });
   return bundle;
 }
@@ -91,7 +91,7 @@ export function buildDeck(deck, staged = null) {
   if (staged) deck.mount.append(...staged.cardLayers);
   deck.scene = document.createElement('article');
   deck.scene.className = 'nest-card nest-situation';
-  deck.decorate(deck.scene, deck.content.image, '', deck.content.text, deck.content.flipImage);
+  deck.decorate(deck.scene, deck.content.image, deck.content.heading || '', deck.content.text, deck.content.flipImage, deck.content);
   deck.sceneLayer = layerFor(deck, deck.scene);
   deck.sceneBack = backFace(deck.content.backImage);
   deck.sceneLayer.append(deck.sceneBack);
@@ -102,7 +102,7 @@ export function buildDeck(deck, staged = null) {
   deck.announce();
 }
 
-export function decorateCard(deck, element, image, title, text, flipImage = false) {
+export function decorateCard(deck, element, image, title, text, flipImage = false, presentation = {}) {
   element.style.backgroundImage = '';
   const artwork = document.createElement('div');
   artwork.className = 'nest-artwork';
@@ -111,13 +111,21 @@ export function decorateCard(deck, element, image, title, text, flipImage = fals
   artwork.style.transform = flipImage ? 'scaleX(-1)' : '';
   const copy = document.createElement('div');
   copy.className = 'nest-copy';
+  element.setAttribute('data-card-kind', presentation.cardKind || 'narrative');
   const heading = document.createElement('span');
   heading.className = 'nest-card-title';
   heading.textContent = title || '';
   heading.hidden = !title;
   const body = document.createElement('p');
   body.textContent = text || '';
-  copy.append(heading, body);
+  copy.append(heading);
+  if (presentation.summary) {
+    const summary = document.createElement('p');
+    summary.className = 'nest-card-summary';
+    summary.textContent = presentation.summary;
+    copy.append(summary);
+  }
+  copy.append(body);
   element.append(copy, artwork);
   return heading;
 }
@@ -141,7 +149,7 @@ export function stageNextContent(deck, content) {
   decorateBack(deck.underlayBack, content.backImage ?? deck.content.backImage);
   deck.underlay.replaceChildren();
   deck.underlay.style.backgroundImage = '';
-  deck.decorate(deck.underlay, content.image, '', content.text, content.flipImage);
+  deck.decorate(deck.underlay, content.image, content.heading || '', content.text, content.flipImage, content);
 }
 
 export function announceDeck(deck) {

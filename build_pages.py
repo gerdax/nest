@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage the chapter player, chapter editor and independent dice tool."""
+"""Stage the project player, project studio and independent dice tool."""
 
 from __future__ import annotations
 
@@ -8,6 +8,8 @@ import re
 import shutil
 from pathlib import Path
 from urllib.parse import urlsplit
+
+from image_catalog import image_files, image_manifest_bytes
 
 
 ROOT = Path(__file__).resolve().parent
@@ -48,7 +50,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path, help="new or empty directory to populate")
     parser.add_argument("--include-dice", action="store_true", help="compatibility flag; the dice tool is included by default")
-    parser.add_argument("--include-editor", action="store_true", help="compatibility flag; the chapter editor is included by default")
+    parser.add_argument("--include-editor", action="store_true", help="compatibility flag; the project studio is included by default")
     args = parser.parse_args()
 
     output = args.output.expanduser().resolve()
@@ -71,9 +73,9 @@ def main() -> None:
         return target
 
     runtime_files = list(RUNTIME_FILES)
-    # The player shares the chapter runtime and preview/storage modules with the
-    # editor, while its tuning UI stays independent of the authoring interface.
-    for folder in ("chapter", "player"):
+    # Include project/studio runtime and retained v1 chapter/editor dependencies.
+    # Motion tuning stays independent of the authoring interface.
+    for folder in ("chapter", "player", "project", "studio"):
         runtime_files.extend(source.relative_to(ROOT).as_posix() for source in sorted((ROOT / folder).rglob("*")) if source.is_file() and source.suffix in {".js", ".css"})
     runtime_files.append("editor.html")
     runtime_files.extend(source.relative_to(ROOT).as_posix() for source in sorted((ROOT / "editor").rglob("*")) if source.is_file() and source.suffix in {".js", ".css"})
@@ -95,10 +97,12 @@ def main() -> None:
             assets.add(asset)
     # Imported chapter JSON selects artwork dynamically even without the editor.
     # Publish usable images, keeping layered source documents out of the site.
-    assets.update(source for source in (ROOT / "assets" / "img").rglob("*") if source.is_file() and source.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"})
+    assets.update(image_files(ROOT))
     for source in sorted(assets):
         relative = source.relative_to(ROOT)
         copy_repo_file(relative.as_posix())
+
+    (output / "assets" / "image-manifest.json").write_bytes(image_manifest_bytes(ROOT))
 
     for source in sorted((ROOT / "dice").rglob("*")):
         if source.is_file():
