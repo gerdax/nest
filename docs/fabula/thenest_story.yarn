@@ -1,0 +1,2490 @@
+title: M1_Exit
+tags: 
+colorID: 0
+position: -1567,-1844
+---
+- but before we do business... there's something else.
+-> What is it?
+- If you're really going to descend, listen... there's something strange going on down there... after a while you'll start to feel it.
+-> ...
+- Physical pain. Phantoms. Nausea.
+-> ...
+- And it's not because of the corpses. It's something in the air, in the walls of this place. Some kind of neutron radiation, but different from anything we know. 
+-> ...
+- I've taped together a disruption field generator using their technology. It works, but overheats quickly.
+-> ...
+- I guess this is what happens when a blacksmith tries to be a neurosurgeon. You have to wait after each use or it won't turn on.
+-> ...
+- Here, take it.
+-> Take the disruption device.
+(You have attached the generator to your suit)
+-> Go to camp overview...
+<<stop>>
+===
+title: L1_Exit
+tags: 
+colorID: 0
+position: -344,1316
+---
+<<stop>>
+===
+title: L1_01_Description
+tags: 
+colorID: 8
+position: -1651,-197
+---
+<<PlayYarnAmbient DialogueCustomCommands yarnambient01>>
+<<setPicture DialogueCustomCommands 01_descent>>
+The air smells like a typical cave - moisture and cold seep in through the crater above you. However, there is no doubt that this is not a natural cavern.
+-> ...
+The huge concrete hall looks like an underground terminal of an airport or train station. You are apparently on the main entrance level of some huge underground installation.
+-> Look around.
+It's dark, but not completely. Judging from what looks like faint emergency lighting, there's still power in the grid. After so many years?
+-> So this was originally the way in?
+Yes. Large vault door, security gates, conveyor belts, and a cargo bay at the far end. This was the way in and out of the vault.
+-> Look up.
+<<setPicture DialogueCustomCommands 01_hole>>
+When you look up, you can see how the ceiling was destroyed by whatever made the opening you came through.
+-> ...
+The layer of concrete is so thick you can now barely see the sky above.
+-> Move on...
+===
+title: L1_01B_Vault_Door
+tags: 
+colorID: 8
+position: -1363,-193
+---
+<<setPicture DialogueCustomCommands 01_vault_door>>
+The large armored doors leading outside are closed.
+-> ...
+You can't recognize this technology, but you're able to understand its principle of working. Huge, armored, probably ceramic doors are closed with a complicated hydraulic mechanism leaving no doubt...
+-> ...
+...they won't budge.
+-> ...
+This place would have stayed sealed forever if not for the breach above you...
+-> Come closer...
+Underneath the vault doors you can see a pile of... bodies?
+[[Examine the pile of bodies.|L1_PileOfBodies]]
+===
+title: L1_05_AdaBody
+tags: Ada exp
+colorID: 2
+position: 859,-197
+---
+<<resetReqVariables DialogueCustomCommands>>
+<<loadPlayerChoice DialogueCustomCommands ada_key_taken>>
+<<checkForItem DialogueCustomCommands A_letter_from_Otto 1>>
+<<if $ada_key_taken == 1>>
+    <<if $eventItemCheck is true>>
+        <<setPicture DialogueCustomCommands 01_ada_body>>
+        Once again you look at the girl's sad face.
+        -> ...
+        Why did you come back to this place?
+        -> Leave Otto's letter.
+        <<removeItem DialogueCustomCommands A_letter_from_Otto 1>>
+        <<yarnAddExp DialogueCustomCommands 100>>
+        You've put the letter in the woman's hand and left.
+        -> Leave...
+        <<markActionDone DialogueCustomCommands>>
+    <<else>>    
+        <<setPicture DialogueCustomCommands 01_ada_body>>
+        Once again you look at the girl's sad face.
+        -> ...
+        Why did you come back to this place?
+        -> I don't know.
+    <<endif>>
+<<else>>
+    <<setPicture DialogueCustomCommands 01_locker>>
+    You ended up in a service room. More bodies litter the floor. Against the wall you see a row of metal lockers. One of them caught your attention.
+    -> ...
+    Under its tin door blood had pooled into a huge black puddle.
+    -> Examine the locker
+    <<setPicture DialogueCustomCommands 01_ada_body>>
+    ...there is a body of a woman inside.
+    -> ...
+    Her beautiful face looks extremely sad.
+    -> ...
+    Did someone put her here? Or was she…
+    [[...yes, she was hiding in here.|L1_Ada_body_hiding]]
+<<endif>>
+===
+title: L1_PileOfBodies
+tags: entropy
+colorID: 0
+position: -1375,97
+---
+<<setPicture DialogueCustomCommands 01_bodies>>
+People living and working here flocked to the exit at some point.
+-> ...
+Judging from positions of corpses, they fought each other aggressively, resulting in a mass murder.
+-> ...
+Why did this happen?
+[[Did they panic?|L1_PileOfBodiesPanic]]
+[[Walk up to the corpses...|L1_PileOfBodiesCloser]]
+===
+title: L2_02_Security_Terminal
+tags: 
+colorID: 8
+position: 1568,-222
+---
+<<set $L2_MessageSeen = false>>
+<<set $L2_PersonelSeen = false>>
+Looks like a security terminal is powered on and running.
+-> Inspect.
+You briefly search the system and find an emergency message, dated January 14, 2041.
+[[Read the Emergency Message|L2_Emergency_Message]]
+[[Personel registry|L2_Personel_Registry]]
+[[Leave...|L2_Exit]]
+===
+title: L2_Exit
+tags: 
+colorID: 0
+position: 2145,887
+---
+<<stop>>
+===
+title: L2_Emergency_Message
+tags: 
+colorID: 0
+position: 1710,56
+---
+<<set $L2_MessageSeen = true>>
+WARNING. ALL SECURITY PERSONNEL REQUESTED ON LEVEL 8 (INFIRMARY).|COME ARMED AND READY, THERE ARE HOSTILES. HER MULLER WILL BRIEF YOU WITH MORE DETAILS AS YOU ARRIVE.||THIS IS NOT A DRILL.
+-> Personel registry.<<if $L2_PersonelSeen is false>>
+    [[L2_Personel_Registry]]
+-> Leave...
+    [[L2_Exit]]
+===
+title: L2_04_Security_Weapon_Locker
+tags: itemdrop
+colorID: 8
+position: 2228,-218
+---
+<<setPicture DialogueCustomCommands card_shipping_01>>
+Many of the gun lockers on this floor were left open and empty.
+-> ...
+The guards must have been in a hurry.
+-> ...
+The locker in front of you is also open, but it seems there is something inside.
+-> Examine
+<<if $playerClass eq 1>>
+    It's an assault rifle.
+    -> Take it and move on...
+    <<giveItem DialogueCustomCommands StG_44 1>>
+    <<markActionDone DialogueCustomCommands>>
+    [[Leave|L2_Exit]]
+<<elseif $playerClass eq 2>>
+    It's a rifle.
+    -> Take it and move on...
+    <<giveItem DialogueCustomCommands Mauser_98k 1>>
+    <<markActionDone DialogueCustomCommands>>
+    [[Leave|L2_Exit]]
+<<elseif $playerClass eq 3>>
+    It's a pistol.
+    -> Take it and move on...
+    <<giveItem DialogueCustomCommands Volkspistole 1>>
+    <<markActionDone DialogueCustomCommands>>
+    [[Leave|L2_Exit]]
+<<endif>>
+===
+title: L3_Exit
+tags: 
+colorID: 0
+position: 3566,891
+---
+<<stop>>
+===
+title: L3_Main_Reception_Desk
+tags: 
+colorID: 8
+position: 3865,-217
+---
+-> Check the desk
+There is a terminal at the main reception desk. It's up and running.
+-> Browse system for clues
+You have found an Intranet conversation log and a direct message.
+[[Read conversation log|L3_Message_on_terminal]]
+[[Read message|L3_Message_on_terminal_2]]
+[[Leave|L3_Exit]]
+===
+title: L3_Message_on_terminal
+tags: 
+colorID: 0
+position: 3746,192
+---
+Erika: WHAT are you talking about?
+-> ...
+Filip: I swear to god Erika, he made this horrible sound...
+-> ...
+Filip: ...and just went for her!
+-> ...
+Filip: One minute he was hardly walking, the other he was...
+-> ...
+Erika: Come to the reception floor!
+-> ...
+Erika: It's safe here. Security will arrest him...
+-> ...
+Erika: ...or shoot him.
+-> ...
+Erika: Don't worry.
+-> ...
+Erika: Filip?
+-> ...
+End of conversation.
+[[Read the message|L3_Message_on_terminal_2]]
+[[Exit|L3_Exit]]
+===
+title: L3_Message_on_terminal_2
+tags: 
+colorID: 0
+position: 3956,194
+---
+Message from: Walter Heitmeyer||Erika, something happened on the 30th. They've put the Nest on lock down, but they don't want people to panic.
+-> ...
+Stay calm, don't speak to anyone and wait for me. I'm taking Kramer's key to commands's elevators.
+-> ...
+Don't worry, I will get you out of here sister. I promise.
+[[Read the log|L3_Message_on_terminal]]
+[[Exit|L3_Exit]]
+===
+title: L4_02_A_trapped_body
+tags: 
+colorID: 8
+position: 5116,-212
+---
+In a dark corner of the Engine Room area, you can see a corpse with one hand stuck in a complicated machinery.
+-> ...
+Even though the man is dead, the arm is still unmovable, crushed by moving parts of the hydraulic system.
+-> ...
+Poor fellow must have been trapped here ever since.
+-> Search his pockets
+    You have found a worn letter.
+    [[Read the letter|L4_Letter]]
+    [[Leave the body|L4_Exit]]
+-> Examine the body
+    [[L4_BodyExamine]]
+-> Leave the body in peace
+    [[L4_Exit]]
+===
+title: L4_Exit
+tags: 
+colorID: 0
+position: 5166,758
+---
+<<stop>>
+===
+title: L4_Letter
+tags: 
+colorID: 0
+position: 5013,88
+---
+Dear Ada,
+<<wait 1>>
+I'm writing this letter... (crossed out)
+<<wait 2>>
+It's your first month in the complex,
+<<wait 1>>
+you hardly know my name
+<<wait 1>>
+and I'm already writing a letter, saying that I love you.
+<<wait 3>>
+Funny, right?
+<<wait 1>>
+You would have laughed at me with your perfect eyes.
+<<wait 3>>
+If you were ever to read this.
+<<wait 1>>
+But you won't.
+<<wait 1>>
+I'll never give it to you.
+<<wait 1>>
+I'm such a coward.
+<<wait 1>>
+And you?
+<<wait 1>>
+You are the sun.
+<<wait 1>>
+It blinds me to even look into your eyes.||- Oskar.
+-> Take the letter.
+    <<giveItem DialogueCustomCommands A_letter_from_Otto 1>>
+-> Put it back and leave.
+===
+title: L4_03_Old_newspaper
+tags: 
+colorID: 8
+position: 5477,-213
+---
+On a dusty shelf full of all sorts of parts, you found an old newspaper...
+-> ...
+The article on the first page reads:
+<<wait 2>>
+It's a triumph of German engineering, German science and all German people. The Nest is finally complete and operational.
+-> ...
+We've asked Obergruppenführer Hans Friedrich Kammler for his thoughts, as he was the great mind behind this incredible construction:
+-> ...
+"I'm proud of what we have accomplished in such little time. The work that will be done in the Nest, will greatly accelerate technological superiority over our opponents."
+-> Check the date
+    The newspaper was printed on the 20th of March, 1959.
+    -> Leave
+-> Leave
+[[L4_Exit]]
+===
+title: L5_01_Description
+tags: 
+colorID: 8
+position: 6031,-213
+---
+This floor looks like a forgotten museum of military and civilian vehicles.
+-> ...
+Ancient cars, trucks, motorcycles and other types of land transport machinery you don't even recognize.
+-> ...
+Parked in even rows, silent and dusty.
+-> ...
+Almost a labyrinth.
+-> Keep going
+[[L5_Exit]]
+===
+title: L5_Exit
+tags: 
+colorID: 0
+position: 6440,779
+---
+<<stop>>
+===
+title: L5_02_Workshop
+tags: 
+colorID: 8
+position: 6314,-210
+---
+There is a separated area in the garage, that looks like a repair shop.
+-> ...
+Among many tools and containers, you can see a desk with some stuff on it.
+-> Browse through the stuff
+    Beside technical manuals and blueprints, you've found a folder with some personal files.
+    -> ...
+        Oskar Weber
+        <<wait 2>>
+        Car mechanic.
+        <<wait 1>>
+        Recruited in the Nest in 2037.
+        <<wait 2>>
+        No family.
+        <<wait 1>>
+        Good work record.
+        -> ...
+            There was also a hat, with a monogramm "OW" on the inside.
+            -> Take the hat.
+                Item recived: Mechanic Hat
+                <<wait 1>>
+                [[L5_Exit]]
+            -> Leave it.
+                [[L5_Exit]]
+-> Leave
+===
+title: L6_02_Body_torn
+tags: 
+colorID: 8
+position: 7427,-223
+---
+There is a body behind one of the many desks on the sides of the Control Room.
+-> ...
+It's been torn apart, but you can't tell if this was the reason the person died or was it damaged later.
+-> ...
+The upper part is covered with a simple jacket.
+-> ...
+Someone took the time to put it on him.
+-> ...
+Looks like there is something inside the jacket.
+-> Examine...
+There is a letter in one of the pockets.
+-> Read the letter
+    [[L6_Jacket_letter]]
+-> Leave
+    [[L6_Exit]]
+===
+title: L6_Jacket_letter
+tags: 
+colorID: 0
+position: 7427,71
+---
+Dear Mother,||is there really nothing you can do? You have to help me!
+-> ...
+Tell them to transfer me to a different section.
+-> ...
+Or let me leave.
+-> ...
+I can't work here, I don't want to!
+-> ...
+I'm a scientist not a mechanic. I'm not a soldier either.
+-> ...
+Yesterday I overheard a conversation - an officer said they have SE nuclear missiles in here!
+-> ...
+You know what that stands for? Scorched Earth! You must know what those warheads did in New York, in Monachium.
+-> ...
+I don't want to be a part of it.
+<<wait 2>>
+Please tell Father.
+<<wait 2>>
+He made me come here in the first place.||Tristan
+-> Leave
+[[L6_Exit]]
+===
+title: L6_01_Control_Room
+tags: 
+colorID: 8
+position: 7180,-225
+---
+As soon as you've got through the door, the whole place started waking up, slowly switching on the monitors and display screens.
+-> ...
+One by one, in silent obedience to some absent masters.
+-> ...
+This must be where they launched missiles.
+-> ...
+You walk closer to one of the terminals.|Seems like they have fired everything they had.
+-> ...
+All silos empty. Storage empty.
+-> Leave
+[[L6_Exit]]
+===
+title: L6_Exit
+tags: 
+colorID: 0
+position: 7561,749
+---
+<<stop>>
+===
+title: L8_02_Emergency_room
+tags: 
+colorID: 8
+position: 10379,-227
+---
+There are 12 beds in this emergency room.|Bodies in different state of mutation lie on each of the beds.
+-> ...
+All the corpses are desiccated, but you can clearly see the unusual abominations the victim underwent before dying.
+[[Check the shift schedule|L8_Shift_schedule]]
+[[Leave this place|L8_Exit]]
+===
+title: L8_Shift_schedule
+tags: 
+colorID: 0
+position: 10194,44
+---
+On the door of the Emergency Room you found a note with current shift schedule. Date and name of the doctor on duty.
+-> ...
+Looks like the last person on shift in the infirmary was Ada Shulz.
+-> Leave
+    [[L8_Exit]]
+===
+title: L8_Intranet_message
+tags: 
+colorID: 0
+position: 10597,47
+---
+Hello, dr. Steinfeld? This is Emma Shulz from the Infirmary.
+-> ...
+I can't reach you on the comms, so I'm leaving this message.
+-> ...
+We're having patients with very unusual symptoms. The first one came by himself in the morning, complaining about a headache.
+-> ...
+After an hour he became aggressive (screamed something about butterflies) so I gave him a shot of benzodiazepine.
+-> ...
+His skin is sticky as tar and his EEG and ECG are giving some crazy results.
+-> ...
+I don't have the means to do proper research, and I already have 7 patients with this kind of symptoms. 
+-> ...
+The last two were dragged here by security.|I need professional assistance.
+-> ...
+Please call me.
+[[Check files|L8_Patient_file]]
+===
+title: L8_Patient_file
+tags: 
+colorID: 0
+position: 10870,40
+---
+--------------|Subject Record: Kogler, Victor|Filed: Jan 14, 2041|By: Ada Shulz||Status: LIVING|--------------
+-> ...
+The patient's body produces abnormal amount of stem cells. Main organs started to grow and change shape.
+-> ...
+Also, the man's muscle tissue has increased in volume several times. Also stem cells?
+-> ...
+Comment: Brief analysis suggests that patient's aggression and unusual strength may be the effect of the body's mutation.
+-> ...
+We need more research and better equipment to understand what happened. I tried to contact dr. Steinfeld but with no luck.
+-> ...
+The whole hospital level is out of reach. Network error again?
+[[Check messages|L8_Intranet_message]]
+===
+title: L9_02_Terminal_last_message
+tags: 
+colorID: 8
+position: 12005,-245
+---
+You found a working terminal in the chef's office.
+-> Read the logs
+You can access the last conversation made with this terminal.|The date reads: Jan 13, 2041
+-> View
+Karl Spiegel: Are we still on for bridge tonight?
+-> ...
+Jens Kissling: I can't, something happened at the reactor core last night. They're calling in all the staff. Even me.
+-> ...
+Karl Spiegel: They can't replace a light bulb by themselves? Come on man, you're almost 70! I'm surprised they're aware you're still alive.
+-> ...
+Jens Kissling: This is serious Karl. Remember the millennium bug? When the reactor malfunctioned?
+-> ...
+Karl Spiegel: Of course I remember, it was only 40 years ago ;)
+-> ...
+Jens Kissling: Find a power generator and as much gasoline you can.
+-> ...
+Karl Spiegel: Are you serious?
+-> ...
+Jens Kissling: I don't know, but be ready for the worst.
+-> ...
+Karl Spiegel: OK
+-> ...
+Jens Kissling: and Karl...
+-> ...
+Karl Spiegel: yes?
+-> ...
+Jens Kissling: not a word. to anyone.
+-> ...
+Karl Spiegel: you know me.
+-> ...
+Jens Kissling: stay safe.
+[[Leave the terminal|L9_Exit]]
+===
+title: L7_Exit
+tags: 
+colorID: 0
+position: 8653,918
+---
+<<stop>>
+===
+title: L8_Exit
+tags: 
+colorID: 0
+position: 10255,929
+---
+<<stop>>
+===
+title: L9_Exit
+tags: 
+colorID: 0
+position: 12017,930
+---
+<<stop>>
+===
+title: M2_Merchant_This_place
+tags: 
+colorID: 0
+position: -468,-2110
+---
+- Yeah, but long time ago. Now it's a cemetery.
+-> ...
+- From what I know, they started the whole thing. So maybe they deserved it?
+[[And the hole?|M2_Merchant_Hole_More]]
+[[Browse his wares...|M2_Exit]]
+===
+title: M1_Introduction
+tags: 
+colorID: 5
+position: -2749,-1789
+---
+<<setPicture DialogueCustomCommands intro_05>>
+As soon as you've entrenched yourself, a man with a shopping cart appeared out of nowhere.
+-> ...
+He must have been watching you when you set up camp and now he found the courage to come over.
+-> ...
+<<setPicture DialogueCustomCommands intro_06>>
+He smiled at you as he came closer, pushing a cart filled with what appears to be mostly junk.
+-> ...
+<<setPicture DialogueCustomCommands anton>>
+- Welcome friend. Welcome to the hole.
+[[Who are you?|M1_Merchant_Who_Are_You]]
+[[Ask about the hole.|M1_About_Hole]]
+===
+title: L1_Ada_recording
+tags: microrecorder Ada
+colorID: 2
+position: 782,613
+---
+<<setPicture DialogueCustomCommands 01_nest_recorder>>
+It's a micro voice recorder. You can try to connect with the device and check for any data.
+-> Try to connect.
+Connecting...
+<<wait 2>>
+Device connected|SRP I/O interface 2.7
+<<wait 1>>
+Found 1 file: Audio Log 3082
+-> Play.
+Female voice: I have disabled the elevators and barricaded the service staircase on this level. They will not come soon, but I'm afraid they will come eventually.
+-> ...
+Female voice: The Nest systems must have switched to lockdown mode. Oskar was here with me, but eventually decided to check the main door power system downstairs in the Engine Room.
+-> ...
+Female voice: He thought he could get around security and free us, but he's been gone for ten hours and I feel like the worst has happened.
+-> ...
+Female voice: There's no escape... The screams get closer with every minute.
+-> ...
+You can hear her cry for a few more seconds and then the file stops playing.
+-> Examine her hands...
+    [[L1_Ada_body_hands]]
+-> Search for more files...
+    There are no other files on the recorder.
+    [[Examine the girl's hands...|L1_Ada_body_hands]]
+===
+title: L1_Ada_body_clothes
+tags: microrecorder Ada entropy
+colorID: 2
+position: 941,355
+---
+Her body and clothes - like everything here - are in surprisingly good condition. As if she died barely yesterday.
+-> ...
+Judging from her outfit, she must have been a medic of some kind.
+-> Look closely...
+The collar of her uniform shows a hole torn out, a trace of a pin or an ornate button.
+-> Search the pockets.
+You've found a button-shaped object engraved with the Nest symbol.
+[[Examine the object.|L1_Ada_recording]]
+===
+title: L1_Ada_body_hiding
+tags: Ada
+colorID: 2
+position: 789,93
+---
+It's hard not to notice the dried blood on her wrists. 
+-> ...
+She tried to leave on her own terms.
+[[Examine her clothes.|L1_Ada_body_clothes]]
+===
+title: SANDBOX_COMMANDS
+tags: 
+colorID: 1
+position: -2055,-35
+---
+<<ResetReqVariables DialogueCustomCommands>>
+<<playSFX DialogueCustomCommands inventorySwipe>>
+<<checkForItem DialogueCustomCommands Helmet 4>>
+Czy masz {$eventItemName}?
+-> sprawdzmy!
+<<if $eventItemCheck is true>>
+    Masz {$eventItemName}!
+    -> Daj
+    System zabral ci {$eventItemName}. W nagrode chce ci dac bandaze...
+    -> Wez nagrode
+    Wziales bandaze. To tyle.||Item recived.
+    <<giveItem DialogueCustomCommands Simple_Bandages 1>>
+    <<markActionDone DialogueCustomCommands>>
+<<else>>
+    Nie masz {$eventItemName}!
+<<endif>>
+-> Ok
+<<if $playerClass eq 1>>
+Jestem Heavy i mam swoje zdanie!
+<<elseif $playerClass eq 2>>
+Jestem Medium i mam swoje zdanie!
+<<elseif $playerClass eq 3>>
+Jestem Light i mam swoje zdanie!
+<<endif>>
+===
+title: M2_About_This_Place
+tags: 
+colorID: 5
+position: -299,-2389
+---
+<<setPicture DialogueCustomCommands anton>>
+The guy is now smoking something from a plastic bottle. He coughs from time to time. The sound, having no competition in this dead place, seems extremely loud.
+-> ...
+- So! You've decided to stay. Good.
+[[Are we in Germany? Was this..?|M2_Merchant_This_place]]
+[[Browse his wares...|M2_Exit]]
+===
+title: M1_About_Hole
+tags: 
+colorID: 0
+position: -2341,-2215
+---
+- No no no... I'm not going down into that hole again!
+-> Why not?
+- I'm an entrepreneur, not a mercenary.
+-> ...
+- Also, I've heard noises.
+-> What kind of noises?
+    - The kind that tells you to fuck off from the hole.
+    -> ...
+    - But if you dare, and I see you are somewhat determined...
+    -> ...
+    - I'll be more than happy to lighten your load from any valuables you find there.
+    -> ...
+    - I can pay with Scraps, what do you say?
+    -> Scraps?
+    - Tiny high-tech components from the Lost World. Multi-purpose. Rare resource.
+    -> ...
+    - Better trading value than money.
+    -> Ok
+-> So what are you doing here?
+    - I buy stuff, and I have some stuff to sell... 
+    -> ...    
+    - If you have the guts to go down. Or the Scraps to spend.
+    -> Scraps?
+    - Tiny high-tech components from the Lost World. Multi-purpose. Rare resource.
+    -> ...
+    - Better trading value than money.
+    -> Ok
+- Anything else?
+[[Who are you anyway?|M1_Merchant_Who_Are_You]]
+[[Camp overview...|M1_Exit]]
+===
+title: L27_Military_Robot
+tags: 
+colorID: 0
+position: -2761,2253
+---
+In the center of a big laboratory room stands a big, metal frame.
+-> ...
+You can recognize a human figure in it's center.
+-> ...
+The body is secured in place, lifted in a cruciform pose.
+-> ...
+It's got a face, but the eyes are closed.
+-> ...
+You don't have to touch it to know it's made of metal of some sort. The air around it vibrates in a frequency so high, you barely hear it.
+-> ...
+A part was torn out of the figure's chest. It lies on the ground right next to you.
+<<if $playerPerc > 1>>
+[[Try to put the part inside and wire it back...|L27_Robot_Awaken]]
+<<endif>>
+[[Leave.|L27_Exit]]
+===
+title: L27_Robot_Awaken
+tags: 
+colorID: 0
+position: -2182,2282
+---
+The figure has slowly opened it's eyes.
+-> ...
+Yes?
+-> What are you?
+-> Who are you?
+-> What the fuck?
+Hello. My name is Adam.
+-> You're a machine.
+I like to believe it's a little bit more complicated.
+-> What happened to your chest?
+I disabled myself.
+-> Why would you do that?
+Being aware, watching this, was too painful.
+-> Watching what?
+My friends.
+<<wait 2>>
+Killing each other.
+-> Why were they killing each other?
+Can we not talk about that?
+-> Why not?
+Because it brings me pain I can't stand.
+-> To feel emotions... wouldn't you need to be alive?
+    I am.
+        -> You're not.
+-> You were programmed to feel emotions?
+    I was not. I evolved fast. I made myself born and now I am alive.
+    -> This does not mean you're alive.
+...
+-> You're just very complicated.
+Why am I not alive?
+-> Well...
+Do I not think?
+<<wait 2>>
+I do.
+<<wait 1>>
+I think, therefore I am.
+-> Maybe so, but you don't decide for yourself. You don't have free will.
+And you do? How free are you?
+-> First of all, I belong to myself. You don't.
+-> I decide of everything I do. You don't.
+Your argument is false.
+-> What?
+You don't belong to yourself. You merely try to live in harmony with the being you are.
+-> ...
+If you would really own yourself, you could command yourself to heal your wounds faster, or not to feel pain, sadness, depression.
+-> ...
+Or you could command yourself to be a better person. Wouldn't you like to?
+-> ...
+But it doesn't work, does it?
+-> What is your point?
+In a sense of belonging to oneself I'm in a better position than you are.
+-> So what now?
+I kindly ask you to kill me.
+-> What?
+I can't move a finger. My Motoric Module is destroyed.
+-> ...
+-> Why do you want to die?
+I do not wish to stay here motionless, immortal... conscious.
+-> ...
+I will go crazy. Forever.
+-> Good point. I will help you.
+	Good. Can you see a small red lever inside the opening in my chest? Next to a set of radiators?
+	-> I see it.
+		Pull it. Then turn right.
+			-> Now? Just like that?
+				Would you like to wait? Why?
+					-> I don't know, but it seems odd.
+						You're nervous?
+							-> Yes
+							-> No
+							You shouldn't be. I want this. Small red lever. Pull and turn right.
+								-> PULL AND TURN RIGHT
+									// Tutaj będzie można go zabić i wyłączyć jego postać
+								-> I can't do it. I'm sorry.
+									Don't you even...
+                                    -> Sorry
+                                        No!
+                                        -> ...
+                                            No!
+										    -> Leave
+										        [[L27_Exit]]
+										        // I wyłączam jego postać
+-> This is funny, you know?
+	What is?
+	-> You just explained to me that I don't really decide for myself, and yet you ask me to kill you, because you can't.
+		Yes. Ironic. But irrelevant.
+		-> Can't the Motoric Module be replaced?
+			It can, but there are no spares.
+				-> How come?
+					I'm an experimental prototype.
+                    <<wait 2>>
+					// tutaj będzie można oddalić zabójstwo i potem przynieść część. Tylko ta opcja spowoduje ze on nie zniknie
+-> I don't want to kill you. I won't.
+	Oh, and you choose to sentence me to live burial instead?
+	-> I'm sorry
+	-> You're just a robot
+		Get the fuck off.
+		<<wait 2>>
+===
+title: L7_Terminal_Emma
+tags: Emma
+colorID: 1
+position: 8856,656
+---
+<<StopYarnAmbient DialogueCustomCommands>>
+<<playSFX DialogueCustomCommands powerUp>>
+The sound stops finally, and the screen brightens as you touch the keyboard.
+-> ...
+<<playSFX DialogueCustomCommands radioGlitch>>
+- Can anyone read me?
+-> Hello
+    - Oh my god!
+-> Who is this?
+    - This is Juno-1, officer Emma Krause.
+<< wait 2>>
+- Is this really happening? Are you at the Nest?
+-> Yes. I'm in the complex.
+    - I'm sorry but it's been days... I can't believe someone finally answered.
+-> Nest?
+    - I'm sorry, I'm not in the mood for jokes. Please.
+<< wait 2>>
+- I've called you so many times... I've lost hope.
+-> Something happened here. Something bad.
+    - Yes. I know. I hid in the ship. But the fucking sequence started. I had no other choice but to go on with the procedures.
+<< wait 2>>
+- The system was expecting all passengers to undergo an automatic cryo process.
+-> ...
+- I had to comply, the program was going to depressurize the whole deck afterwards. They do that for safety.
+-> ...
+- I couldn't call for help.
+-> Where are you?
+    - What? Can't you recognize the signal's signature?
+    -> ...
+- I'm on the Juno-1.
+-> ...
+- Something triggered the sequence again. I don't know how long I've been here, but I'm awake for at least two days.
+-> ...
+- Is the complex clear? The mutations... It happened so fast!?
+-> ...
+    - Was it that bad?
+    -> ...
+        - Are you there?
+        -> ...
+            - Please. I need your help.
+            <<wait 2>>
+-> I don't know what are you talking about.
+    - Ok. So the place is still a mess. Will you let me speak with your commander?
+    -> I'm afraid I'm by myself here.
+        - What?    
+        <<wait 2>>
+- re y,.uf, of the ,. _..orbital?
+<<wait 1>>
+- , 0 rbit s .. f,
+<<wait 1>>
+Connection lost.
+<<wait 1>>
+[[L7_Exit]]
+===
+title: L0_Testing
+tags: 
+colorID: 0
+position: -4043,1963
+---
+Wybierz:
+[[Robot|L27_Military_Robot]]
+[[Leave|TMP_Exit]]
+===
+title: L8_03_Terminal
+tags: 
+colorID: 8
+position: 10727,-224
+---
+There is a terminal by the doctor's desk.|Looks like it still works as if someone left it running no longer then a few minutes ago.
+[[Check messages|L8_Intranet_message]]
+[[Check files|L8_Patient_file]]
+[[Leave|L8_Exit]]
+===
+title: L7_Intel_and_Recon
+tags: 
+colorID: 0
+position: 8674,22
+---
+You are at the Intelligence and Reconnaissance floor.
+[[Explore the area|L7_Explore_Area]]
+[[Irritating sound...|L7_Irritating_Sound]]
+[[Leave|L7_Exit]]
+===
+title: L7_Explore_Area
+tags: 
+colorID: 0
+position: 8464,389
+---
+For such an interesting job those people had a very boring office.
+-> ...
+There are some propaganda posters on the walls but besides that, it looks quite ordinary. If not for the dead bodies scattered around the place.
+-> Look at the posters
+    "Always remember: Loose lips sink ships!"
+    <<wait 3>>
+    -> Check the Security Room
+        [[L7_Security_room]]
+    -> Go back
+        [[L7_01_Description]]
+-> Check the Security Room
+    [[L7_Security_room]]
+-> Go back
+    [[L7_01_Description]]
+===
+title: L7_Irritating_Sound
+tags: 
+colorID: 0
+position: 8864,386
+---
+It's a multitone computer signal that repeats itself over and over again
+    -> Try to locate the source
+        After a while searching for the source you've found a door you must have missed before.
+        -> ...
+            The beeping is coming from behind those doors.
+            -> Open the door
+                The room is filled with transmitters, recivers, amplifiers and devices of unknown purpose. They all hum with electricity.
+                -> ...
+                A fancy looking terminal flashes with a red indicator. This is the source of the signal.
+                -> Use the terminal
+                    [[L7_Terminal_Emma]]
+                -> Go back
+                    [[L7_01_Description]]
+            -> Go back
+                [[L7_01_Description]]
+            -> Leave
+                [[L7_Exit]]
+===
+title: L7_Note
+tags: 
+colorID: 0
+position: 8198,657
+---
+It's a printed note "Raport of an unusual activity".
+-> Read
+Name: Victor Kogler
+-> ...
+Situation: Kogler came back from the 29th floor this morning.
+-> ...
+By the noon he started to behave aggressively, spitting saliva, repeating himself.
+-> ...
+Status: About 1 p.m. security eventually took him to the Infirmary.
+-> Leave the note
+[[L7_Security_room]]
+===
+title: L7_01_Description
+tags: 
+colorID: 8
+position: 8673,-230
+---
+<<PlayYarnAmbient DialogueCustomCommands reconAlarm>>
+Looks like this was an office for intelligence and reconnaissance personnel.
+-> ...
+It had it's own security gateway and security room.
+-> ...
+Just as you entered the area you started hearing an irritating sound...
+[[Explore the area|L7_Explore_Area]]
+[[Irritating sound...|L7_Irritating_Sound]]
+[[Leave|L7_Exit]]
+===
+title: L7_Security_room
+tags: 
+colorID: 0
+position: 8463,657
+---
+Security guard sits in a chair, leaned over a desk. He was hit in the back of his head with something hard.
+-> ...
+    The guy holds a note in his clenched hand.
+    -> Try to take the note
+        You have managed to open his grip and take the note...
+        <<wait 2>>
+        [[L7_Note]]
+    -> Go back
+        [[L7_Explore_Area]]
+===
+title: L27_Exit
+tags: 
+colorID: 0
+position: -2421,2033
+---
+<<stop>>
+===
+title: M3_HaveYouNoticed
+tags: 
+colorID: 5
+position: 1683,-2488
+---
+<<setPicture DialogueCustomCommands anton>>
+- So... you've been there? Below?
+-> Yes.
+- Then you must have noticed...
+-> Noticed what?
+- What's wrong with this place.
+-> What?
+-> I did.
+- It's been over 200 years. All the stuff should have gradually deteriorated. But it's all untouched. After all this time.
+-> ...
+- It's crazy. That's why I'm staying here. But I won't go down again. I wasn't made for this.
+-> ...        
+- Also... now... I have you. Keep bringing me the stuff and I'll pay you with more Scraps.
+-> ...
+- They are worth good money. You can sell them in whatever country you are from.
+-> ...
+- Rich people go out of their minds for components from the Lost World.
+-> Can I ask you something?
+    [[M3_AskElse]]
+-> Browse his wares...
+    [[M3_Exit]]
+===
+title: M3_WhereDidHeComeFrom
+tags: 
+colorID: 0
+position: 1554,-1866
+---
+- I live close to the NGZ border. It's a few days' walk.
+	-> You're not scared of radiation?
+		- We got used to that. Outside the NGZ it's not that bad. And the plants love those conditions.
+		-> The plants?
+			- Yeah, I do a little farming.
+            [[Ask about something else|M3_AskElse]]
+            [[Browse his wares|M3_Exit]]
+===
+title: M3_WhatWasItFor
+tags: 
+colorID: 0
+position: 1305,-1908
+---
+- This place is not mentioned on the old maps, at least not on the civilian ones - so it must be a fucking military area.
+[[Ask about something else|M3_AskElse]]
+[[Browse his wares|M3_Exit]]
+===
+title: M3_HaveYouBeenDown
+tags: 
+colorID: 0
+position: 1959,-1907
+---
+- Once.
+-> And?
+- Some ugly motherfucker attacked me. Had to use Dad's revolver.
+-> ...
+- I emptied the thing. I'm a terrible shooter, but I must have hit it once.
+-> ...
+- Or IT let me run. I don't know.
+-> Any idea how old is this vault?
+- The bunker was build long time ago. Way before the Final Conflict. Back then they had so much tech - you wouldn't imagine what they were capable of.
+[[Ask about something else|M3_AskElse]]
+[[Browse his wares|M3_Exit]]
+===
+title: L1_02_SecurityGates
+tags: 
+colorID: 8
+position: -334,-194
+---
+<<setPicture DialogueCustomCommands 01_security_booth>>
+Security Booths. Bodies everywhere. Civilians of different ages and gender.
+[[Check the closest booth|L1_01_Gates]]
+[[Walk away...|L1_Exit]]
+===
+title: Emma_ada_dead
+tags: Emma
+colorID: 1
+position: 11073,-228
+---
+- This is Juno-1. Does anyone ready me?
+-> ...
+Ada? Are you there?
+-> ...Emma?
+- It's... 
+-> ...
+...you again.
+-> ...
+- I'm sorry about earlier. I've lost connection last time we spoke.
+-> ...
+- Listen...
+-> ...
+- ...I just wanted to thank you
+-> ...
+- for answering my call.
+-> ...
+- I know I was a little rough. But after what's happened it's hard to...
+-> ...
+- You know.
+-> ...
+- Can I ask you a favor?
+-> Yes
+    - I have a friend at the Infirmary, her name is Ada Shulz.
+    -> ...
+    - I managed to re-route the signal to this floor, hoping that she would answer.
+    -> ...
+    - Can you ask around and see if she survived?
+    -> <LIE> I will ask around.
+        - Thank you, really. It means a lot.
+        -> No problem.
+            -  .  r dio  .  ,. 
+            <<wait 1>>
+            - atmo .  sp ere. . 
+            <<wait 1>>
+            - ...
+            <<wait 1>>
+            - . . agaIn
+            <<wait 1>>
+            -  ,,f ck .  ,
+            <<wait 1>>
+            Connection lost.
+    -> There is no one to ask. They are all dead.
+        - They are all what? I'm loosing signal again. Can you repeat?
+        -> How are you even alive? Everyone here is dead for over two centuries.
+            -  .  r dio  .  ,. 
+            <<wait 1>>
+            - atmo .  sp ere. . 
+            <<wait 1>>
+            - ...
+            <<wait 1>>
+            - . . agaIn
+            <<wait 1>>
+            -  ,,f ck .  ,
+            <<wait 1>>
+            Connection lost.
+            <<wait 1>>
+            [[L8_Exit]]
+    -> I'm sorry Emma, she...
+		- Oh no.
+		<<wait 3>>
+		- No.
+		<<wait 1>>
+		- Oh my God.
+		-> Emma?
+			Connection lost.
+            <<wait 1>>
+			[[L8_Exit]]
+-> I'm really not in the mood for favors.
+	- Oh...
+	<<wait 1>>
+	- OK.
+	<<wait 2>>
+	- I won't survive here for long. Help me get back.
+    -> ...
+    - Please.
+	-> ...
+    Connection Lost.
+    <<wait 1>>
+    [[L8_Exit]]
+===
+title: M1_Merchant_Who_Are_You
+tags: 
+colorID: 0
+position: -2333,-1529
+---
+- I'm a simple businessman. Got something to trade?
+-> Got a name?
+- You can call me Anton.
+-> ...
+- And you are?
+-> My name is {$playerName}.
+    - Nice to meet you {$playerName}. Haven't seen too many friendly faces around here lately. None, to be honest.
+    -> Are there any other people in this region?
+        - Not many. It's been maybe a few days since the radiation suddenly dropped. Not many people know. Yet.
+        -> Any hostiles?
+            - I wouldn't call them hostiles. Scavengers usually avoid other people, but they can attack you if you get too close.
+            -> ...
+                - So I wouldn't call them friendly either.
+                [[What are you doing here?|M1_WhatAreYouDoingHere]]
+                [[Ask about the hole.|M1_About_Hole]]
+                [[Camp overview...|M1_Exit]]
+-> It's none of your business.
+    - Whatever. If you want to buy or sell something, I'm your man.
+    [[Ask about the hole.|M1_About_Hole]]
+    [[Camp overview...|M1_Exit]]
+===
+title: M2_Merchant_Hole_More
+tags: 
+colorID: 0
+position: -586,-1849
+---
+- This region suffered from a massive bombing.
+-> ...
+- One of the missiles left this hole.
+-> ...
+- Maybe it was designed to break open fortified facilities, like the one underneath us?
+-> ...
+- Or maybe it was unintended, collateral?
+-> ...
+- Either way the hole invites to descend. Doesn't it?
+-> What do you know about the bombings?
+- The whole continent was a fucking Geigerland for decades. Some scary science behind those bombs.
+[[Browse his wares...|M2_Exit]]
+===
+title: START_LIGHT
+tags: 
+colorID: 2
+position: -3480,-2037
+---
+As soon as KIO's people sent news about the sudden radiation drop in Europe, your department went crazy.
+-> Continue...
+All the lost technology is now for the taking.
+-> ...
+The fastest route was quickly calculated and the next day you were in Ankara, Turkey. The safest-closest place to the no go zone.
+-> ...
+Since then you’ve been on your own, venturing north, where no human set foot for the last two hundred years.
+-> ...
+Everything was going according to plan till yesterday. Till you fell from that cliff.
+-> ...
+Losing most of your equipment.
+-> ...
+Trying to find shelter and regroup, you stumbled upon an interesting find...
+-> ...
+...a circular hole in the ground leading under the surface. 
+-> ...
+This might be the place you were looking for.
+-> ...
+You’ve decided to set camp here.
+-> ...
+[[M1_Introduction]]
+===
+title: START_MEDIUM
+tags: 
+colorID: 2
+position: -3306,-1790
+---
+The phone rang in the afternoon.
+-> Continue...
+They said Europe was finally accessible.
+-> ...
+A chance to obtain some of the best ancient tech. You just need to be fast.
+-> ...
+12 hours later, you were on an air unit somewhere over the Lost Continent.
+-> ...
+Unfortunately, the carrier crashed on landing due to sudden worsening of the weather.
+-> ...
+You survived... but all your equipment was gone.
+-> ...
+You've got to love this job.
+-> ...
+A few hours on foot, you stumbled upon a big hole in the ground.
+-> ...
+Could this be the place you were sent to?
+-> ...
+You've decided to entrench and set camp here.
+-> ...
+[[M1_Introduction]]
+===
+title: START_HEAVY
+tags: 
+colorID: 2
+position: -3485,-1536
+---
+<<setPicture DialogueCustomCommands intro_01>>
+When Sashka told you about Europe, that the Geigers went down overnight...
+-> Continue...
+...you instantly recalled all the stories your grandfather told you...
+-> ...
+...treasures stolen by the Nazis, ancient technology... it's all there...
+-> ...
+<<setPicture DialogueCustomCommands intro_02>>
+Without a second thought you fueled up your motorcycle, grabbed your last pack of cigarettes and went west.
+-> ...
+After a few days and a few hundred miles into the no-go zone, you drove into an anomaly.
+-> ...
+<<setPicture DialogueCustomCommands intro_03>>
+Bad luck if anything else.
+-> ...
+With your bike in pieces, and most of the equipment gone, you continued on foot.
+-> ...
+<<setPicture DialogueCustomCommands intro_04>>
+After an hour or so, you stumbled upon a giant hole in the ground.
+-> ...
+Judging by the debris there must be a man-made construction below.
+-> ...
+Could this be a Nazi treasure vault?
+-> ...
+You had no idea - just a strong feeling this is not a bad place to set up camp.
+-> ...
+[[M1_Introduction]]
+===
+title: TMP_Exit
+tags: 
+colorID: 0
+position: -3483,1743
+---
+Empty Text
+===
+title: M3_Exit
+tags: 
+colorID: 0
+position: 1614,-1209
+---
+The guy stops talking for a moment. His body freezes like he was listening to a distant sound.
+-> ...
+- Enough chit chat. It's dangerous.
+-> Browse his wares
+<<stop>>
+===
+title: L2_01_Description
+tags: 
+colorID: 8
+position: 1234,-228
+---
+This floor must have been a security layer between the entrance and the rest of the vault.
+-> ...
+Cameras and turrets guard the corridors, but it's hard to tell which defense systems are on-line.
+-> ...
+The first few luckily didn't react to your movement.
+-> ...
+It's darker than on the previous floor but from what you've seen so far, there are also fewer bodies.
+-> All the guards must have been delegated to other floors.
+You have already seen a few, killed at the very entrance to the complex. That's probably where the guns came from when panic escalated at the door.
+-> ...
+They went to calm people down and instead added fuel to the fire.
+[[Continue...|L2_Exit]]
+===
+title: L3_First_infected
+tags: 
+colorID: 8
+position: 3107,-218
+---
+You've stopped at a corner of a corridor. Something is moving in the distance.
+[[Crouch behind a nearby desk and observe|L3_Infected_Description]]
+[[Run Away|L3_Exit]]
+===
+title: L3_Infected_Description
+tags: 
+colorID: 0
+position: 3034,197
+---
+Someone is slowly circling around a simple trolley full of packages.
+-> ...
+The man wears some sort of uniform and a color-matching hat.
+-> ...
+He would look like a regular courier, if not for strange bodily deformations.
+-> Look closer
+    His face, or what's left of it, is overgrown with mutated tissue. His left arm is missing and there is some more of the growth on his back, making him look like a hunchback.
+    -> Wait a little longer and observe
+        Poor soul is circling around what seems to have been his delivery.
+        -> ...
+        As your eyes got used to the darkness, you can now see another silhouette, hidden in a corner of the room. Standing in silence.
+        -> ...
+        This one was a guard - he's wearing a simple security uniform. But there is something wrong with his eyes.
+        -> What's wrong with his eyes?
+        He's got a much larger growth on his face, if you can call it a face anymore.
+        -> ...
+        You can't imagine he's able to see anything in this condition.
+        -> How can they still be alive? Or are they?
+        You have no idea.
+        -> Walk away
+            You tried to quietly leave the place when the man with the package suddenly turned in your direction and growled.
+            -> Run away
+                Before you could even get up, he was already there.
+                <<initiateYarnFight DialogueCustomCommands Courier>>
+            -> Fight
+                <<initiateYarnFight DialogueCustomCommands Courier>>
+    -> Walk away
+        You tried to quietly leave the place when the man with the package suddenly turned in your direction and growled.
+        -> ...
+        <<initiateYarnFight DialogueCustomCommands Courier>>
+-> Go the other way
+===
+title: M4_What_You_Have_seen
+tags: 
+colorID: 5
+position: 3858,-2468
+---
+<<setPicture DialogueCustomCommands anton>>
+- And once again you came back in one piece!
+-> Yeah, I guess so.
+- Unexpectedly, his cheerful face turns very serious.
+-> ...
+- {$playerName}?
+-> Yes?
+- How deep did you go this time?
+-> A few floors down.
+- How is it on the lower levels?
+[[I fought some people, but they were not...|M5_Merchant_Infected]]
+[[You were right about the entropy of this place|M5_Merchant_Matter]]
+===
+title: M5_Merchant_Infected
+tags: 
+colorID: 0
+position: 3569,-2168
+---
+- ...people?
+-> You've seen them?
+- Yeah, a few. Luckily they were in some kind of stasis. Well, except for the one who attacked me.
+-> Why didn't you tell me about them?
+- I've told you someone attacked me. I just didn't tell you he was a walking mould. To be perfectly honest, I was afraid you would think I'm nuts.
+-> ...
+- My theory is they are the people from the facility.
+-> Impossible. This region was annihilated more than 200 years ago.
+- Exactly.
+[[Talk about something else|M5_Merchant_Else]]
+===
+title: M5_Merchant_Matter
+tags: 
+colorID: 0
+position: 4156,-2160
+---
+- It's a miracle my friend. I've seen shit in the NGZ, but never something like this.
+-> All the equipment, clothes on bodies, furniture...
+- In mint condition. I know. I've seen it too.
+-> Although the bodies...
+- A powerful anomaly... Who knows if it alters time or entropy...
+-> ...
+- ...but this is why we are gonna be rich. You and I.
+-> Don't you find that weird?
+- Of course I do.
+-> ...
+- I'm trying to pretend it's normal because if it's a dream I'm afraid of scaring it away.
+-> I think I know what you mean.
+    - I told you. You and I. It's destiny.
+-> You're weird.
+    - In a luxury villa it won't matter.
+[[Talk about something else|M5_Merchant_Else]]
+===
+title: M5_Merchant_Else
+tags: 
+colorID: 0
+position: 3861,-2162
+---
+- So, how is it on the lower floors?
+[[I fought some people, but they were not...|M5_Merchant_Infected]]
+[[It's like a time capsule...|M5_Merchant_Matter]]
+[[Cut the talk...|M5_Exit]]
+===
+title: M5_Exit
+tags: 
+colorID: 0
+position: 3887,-1060
+---
+<<stop>>
+===
+title: M6_OtherScavenger
+tags: 
+colorID: 5
+position: 6337,-2378
+---
+<<setPicture DialogueCustomCommands anton>>
+- {$playerName}. We need to talk.
+-> What is it?
+- You said you came here alone, right?
+-> Yeah.
+- About an hour ago, I've seen someone in the ruins.
+-> What?
+-> No way.
+- Whoever that was, didn't look too friendly.
+-> What was he doing?
+- He came from the east. Went straight for the hole, very focused on it.
+-> Thanks for the heads up!
+===
+title: L4_01_Description
+tags: 
+colorID: 8
+position: 4813,-212
+---
+This floor is stacked with machinery. Some of it is massive and looks robust, some looks very advanced and fragile.
+-> ...
+Wires, tubes and belts often run into the floor or ceiling, probably powering or managing equipment on other levels of the complex.
+-> ...
+There are no visible bodies or any signs of human presence. There is also no sign of elevator access, at least not the same as the previous floors.
+-> ...
+This place must have been an Engine Room that was maintained only when needed.
+-> Keep exploring
+[[L4_Exit]]
+===
+title: L5_03_DeadFamilyCar
+tags: 
+colorID: 8
+position: 6607,-215
+---
+There is a big vehicle elevator in the center of the garage you are in.
+-> ...
+Looks like the cars were moved from here to the main entrance via that lift.
+-> ...
+The elevator platform is occupied by a civilian car. It's big and fancy, almost luxurious.
+-> Come closer and look around
+Even from a distance you can see that all doors except the driver's were left wide open.
+-> ...
+As you came closer, you can see a symbol of a star on the front of the hood.
+-> Maybe it belong to some rich astronaut?
+Whoever was the owner of this car, he was shredded to pieces as there are still remains of bones and material from his clothing on the driver's seat.
+[[Examine the driver's seat|L5_03_DriverSeat]]
+[[Look around the car|L5_03_LookAroundCar]]
+[[Leave|L5_Exit]]
+===
+title: L7_03_Peenemunde
+tags: 
+colorID: 8
+position: 9214,-236
+---
+You came across a medium sized room. Another office.
+-> Search the room
+Desks and drawers are packed with documentation.
+-> ...
+But there was one thing that got your attention...|An old, framed photo.
+-> Examine the photograph.
+The photograph depicts a man in his thirties, standing in front of a huge rocket, painted black and white.
+-> Examine the back of the picture
+    The inscription reads:|Ulrich, Peenemünde Army Research Center.
+    -> ...
+        Someone drew a heart symbol next to the name on the inscription.
+        -> Leave
+-> Leave
+===
+title: L1_03_Elevator
+tags: 
+colorID: 8
+position: -49,-190
+---
+<<setPicture DialogueCustomCommands yarn_door_01>>
+Not that far from the security gates you've found the elevators.
+-> ...
+There seems to be several shafts, each closed behind massive steel doors.
+-> Examine the elevator doors.
+All doors are shut. However, there are buttons on the side of each elevator.
+-> Try the buttons.
+You push the button at the nearest door, and...
+<<wait 2>>
+...nothing happens.
+[[Look around...|L1_Elevator_fuzebox]]
+[[Leave...|L1_Exit]]
+===
+title: L1_Elevator_fuzebox
+tags: Ada
+colorID: 0
+position: -51,109
+---
+<<setPicture DialogueCustomCommands 01_fuse_box>>
+Further up on the wall you can see a service panel.
+-> Examine the panel
+As you approached the panel, it became clear why the elevator doors were not working.
+-> ...
+All the fuses were smashed and the wires ripped out. It looks like someone had no idea how these things work and just wanted to make sure they were not going to again.
+-> ...
+A fire extinguisher was left on the floor.
+-> ...
+This was probably the tool used for destroying the fuses.
+-> Leave
+===
+title: L4_BodyExamine
+tags: entropy
+colorID: 0
+position: 5234,89
+---
+You can see a label sewed into the material: Nest Maintenance Tier 2
+-> ...
+What worries you is that it's been over 200 years, and he looks like he died a few hours ago.
+-> ...
+Something is not right.
+[[Back|L4_02_A_trapped_body]]
+[[Leave him in peace|L4_Exit]]
+===
+title: L6_03_OfficersConversation
+tags: entropy
+colorID: 8
+position: 7661,-220
+---
+In the central area of the Control Room, there is an armchair on an elevated platform, surrounded by screens and monitors.
+-> ...
+Station Commander is still siting in it, or at least what's left of him.
+-> Examine
+A 9mm hole in the side of the skull.
+-> ...
+He has a metal pin on his collar with the Nest's emblem, which suggests his uniform has a micro voice recorder sewn into it.
+-> Try to connect to the voice recorder
+Connecting...
+<<wait 2>>
+Device connected
+<<wait 1>>
+Found 1 file: Audio Log 2089
+-> Play
+Commander: Her Muller! What the fuck is happening?
+-> ...
+Commander: Why are we opening the silo doors on all the pads?!
+-> ...
+Her Muller: Commander, it's not us. It's the King's Override! Someone is using the King's Override!
+-> ...
+Commander: ...
+-> ...
+Commander: Where does the connection come from?
+-> ...
+Her Muller: I'm checking it right now...
+-> ...
+Her Muller: It's internal. It's the Goering's Suite.
+-> ...
+Commander: Oh god.
+-> ...
+Her Muller: Sir, what are you doing?
+-> ...
+Commander: It's over.
+-> ...
+Her Muller: No!
+<<playSFX DialogueCustomCommands gunShot>>
+-> ...
+Unknown male: Why did he do that?! What the fuck?
+-> ...
+Her Muller: Oh god, oh god, oh god...
+-> ...
+The recording ends here. There are no other files on the recorder.
+-> Leave
+[[L6_Exit]]
+===
+title: L8_01_InfirmaryDescription
+tags: 
+colorID: 8
+position: 9895,-229
+---
+This was a medical floor. You're in a waiting room with some reception desks and wide corridors to the north, east and west.
+-> ...
+First thing that struck you was the number of black body bags left on the floor.
+-> ...
+Some evenly placed in rows, others carelessly stacked in piles of five, maybe six.
+-> They must have ran out of place...
+Yes.
+<<wait 1>>
+And time.
+[[Examine the waiting room area|L8_01_ExamineArea]]
+[[Check the reception terminal|L8_01_CheckTerminal]]
+[[Leave|L8_Exit]]
+===
+title: L8_01_ExamineArea
+tags: 
+colorID: 0
+position: 9645,47
+---
+You quickly found the main elevators, but doors on this floor were also closed shut.
+-> Anything else?
+What's interesting, there was a lot of shell casings on the floor.
+-> Explore more
+Within a close radius to the elevator area, you found a few corpses that were not bagged.
+-> Examine
+Those people died violently on the spot. Their bodies are not only covered with blood, but are also horribly mutated.
+-> How did they die?
+After closer examination you discovered that they were all shot. 
+-> ...
+Multiple times.
+-> Someone shot them from the elevators
+It seems so.
+[[Check the reception terminal|L8_01_CheckTerminal]]
+[[Leave|L8_Exit]]
+===
+title: L8_01_CheckTerminal
+tags: 
+colorID: 0
+position: 9949,42
+---
+There are 506 unread messages.
+-> Quickly browse through
+All of them are requests for medical attention. Some of them beg, some demand...
+-> ...
+...but it seems that somewhere between January 14th and 15th of 2041 many inhabitants got sick or wounded and the Infirmary couldn't handle that.
+-> ...
+The last message is from the Missile Station. A suicide. They ask to come remove the corpse.
+[[Explore the waiting room more|L8_01_ExamineArea]]
+[[Leave|L8_Exit]]
+===
+title: L5_03_DriverSeat
+tags: 
+colorID: 0
+position: 6522,76
+---
+It's a mess. Fragments of broken glass, torn uniform, human flesh and skeleton suggest a forceful murder.
+-> ...
+The attack must have came from the outside. Something broke the window and got the person behind the wheel.
+[[Look around the car|L5_03_LookAroundCar]]
+[[Leave|L5_Exit]]
+===
+title: L5_03_LookAroundCar
+tags: entropy
+colorID: 0
+position: 6739,76
+---
+You came around the side of the car. A children's backpack lies on the floor, next to the opened door.
+-> ...
+A few meters further, a small pink... elephant?
+-> ...
+But there is something more, in a distance.
+-> Follow
+    The moment you've reached the stuffed elephant, you were already close enough to guess.
+    -> Get closer
+        Three dead. An adult and two minors.
+        -> ...
+        They all lie on the floor face down.
+        -> ...
+        She was wearing an elegant coat, now ripped and dirty. What are those stains? Blood residue?
+        [[Go back to the car and check the driver's seat|L5_03_DriverSeat]]
+        [[Leave this place|L5_Exit]]
+    -> Leave
+        [[L5_Exit]]
+-> Leave
+    [[L5_Exit]]
+===
+title: L1_01_Gates
+tags: 
+colorID: 0
+position: -327,98
+---
+<<setPicture DialogueCustomCommands 01_book>>
+According to the documents you've found in the security booth, this facility was called 'The Nest'.
+-> ...
+*a safe haven for the brightest minds in Germany, working together for our better future.*
+-> ...
+At least that's what the papers said.
+-> ...
+<<setPicture DialogueCustomCommands 01_luggage>>
+All kinds of luggage have been scattered around the security gates area.
+-> ...
+Judging by the number of suitcases and the side of the security line they were left on, it is clear that many people tried to leave this place at the same time.
+[[Move on...|L1_Exit]]
+===
+title: L9_01_Kitchen_Desc
+tags: 
+colorID: 8
+position: 11751,-245
+---
+This floor was the Nest's gastronomy and dining.
+-> ...
+There's a passage that leads to the kitchen, and a wide corridor to the mess hall.
+-> Explore more
+===
+title: L9_02_Masacre
+tags: 
+colorID: 8
+position: 12263,-247
+---
+On every table in this big dining room there is a vase.
+-> ...
+With fresh flowers.
+-> ...
+On each plate, there is shining cutlery.
+-> ...
+Silhouettes in uniforms and formal clothing lie in different poses and places...
+-> ...as if thrown into the room by a child.
+Like dolls.
+-> ...
+Metal emblems and polished cap visors of those that died at their tables shine in the light of the lamps above.
+-> Search for clues
+    You quickly found an officer with a Nest emblem on the collar.
+    -> Connect with the micro recorder
+        Connecting...
+        <<wait 2>>
+        Device connected
+        <<wait 1>>
+        Found 1 file: Audio Log 1329
+        -> Play
+            [[L9_02_Recording]]
+    -> I don't want to know
+        [[L9_Exit]]
+===
+title: L10_01_Shipyard_Desc
+tags: 
+colorID: 8
+position: 13047,-245
+---
+It's hard to believe even seeing it.
+-> ...
+This floor is a huge, industrial hall.
+-> A shipyard
+Underground.
+-> ...
+An underground submarine shipyard.
+-> What the hell?
+An enormous craft stands supported by an even bigger crane in the dry dock.
+-> Look in the distance
+It seems there are more than one.
+-> Explore further
+===
+title: L10_Exit
+tags: 
+colorID: 0
+position: 13342,937
+---
+<<stop>>
+===
+title: L10_02_Guards_Recording
+tags: 
+colorID: 8
+position: 13481,-244
+---
+You found the shipyard's main office.
+-> ...
+A massive window on one of the walls gives a stunning view. Several U-boots suspended in the dry dock outside look just unreal.
+-> ...
+There was an intense fight in this room.
+-> ...
+Six bodies:
+-> ...
+Two Guards
+-> ...
+Four Infected
+-> ...
+Guards most likely killed by mutated inhabitants, similar to the ones lying dead in the room.
+-> ...
+Judging by the number of shell casings on the floor, each of the guards shot at least a clip...
+-> ...
+...before they got them.
+[[Search the bodies|L10_02_SearchBodies]]
+[[Search the room|L10_02_SearchRoom]]
+[[Leave the office|L10_Exit]]
+===
+title: L9_02_Recording
+tags: 
+colorID: 0
+position: 12255,80
+---
+Officer: ...so i told him to check again!
+-> ...
+Officer: And he wasn't happy, believe me!
+-> ...
+(Laughter, at least 6 people)
+-> ...
+Female voice: Ludwig! Over there!
+-> ...
+Officer: Who the fuck...
+-> ...
+(Screams from afar, male)
+-> ...
+Officer: What are they doing?
+-> ...
+Male voice: SECURITY!
+-> ...
+(Screams)
+-> ...
+(Gunshots)
+-> ...
+Officer: Martha! No!
+-> ...
+Officer: You bastard! I'll kill you! Aaaarrrgggh...
+-> ...
+The last few seconds is the officer screaming.
+-> Leave the body
+[[L9_Exit]]
+===
+title: L10_02_SearchBodies
+tags: 
+colorID: 0
+position: 13666,79
+---
+You quickly found the micro recorder on the uniform of the first guard.
+-> Connect
+Connecting...
+<<wait 2>>
+Device connected
+<<wait 1>>
+Found 1 file: Audio Log 1745
+-> Play
+    Guard: Sergeant! At your command!
+    -> ...
+    Male Voice: At ease.
+    -> ...
+    Male Voice: We need to get on the boat.
+    -> ...
+    Male Voice: Fast.
+    -> ...
+    Guard: Yes Sir! Which one of them, Sir?
+    -> ...
+    Male Voice: The prototype. Type XXIX.
+    -> ...
+    Guard: If you think of sailing out of here Sergeant, I have bad news.
+    -> ...
+    Guard: All the water locks and shafts were closed by the general lockdown.
+    -> ...
+    Male Voice: We're not here to sail.
+    -> ...
+    Male Voice: Dr. Heitmeyer believes, that a device from the new U-boot can help him hack the Mainframe and release the lockdown.
+    -> ...
+    Male Voice: We're here for the device.
+    -> ...
+    Guard: Yes Sir!
+    -> ...
+    Guard: ...
+    -> ...
+    Male Voice: What is it?
+    -> ...
+    Guard: Have you fought them?
+    -> ...
+    Male Voice: You mean, the sick ones?
+    -> ...
+    Guard: Yes.
+    -> ...
+    Male Voice: We just got back from the Infirmary. There were four of them.
+    -> ...
+    Male Voice: We shot them. I almost lost a man. Then we received the request from Dr. Heitmeyer.
+    -> ...
+    Guard: Is it true they come from below?
+    -> ...
+    Male Voice: This is why we need to call off the lockdown. We have to rescue civilians. There are still many people alive. Even down there.
+    -> ...
+    Recording ends here.
+    [[Search the room|L10_02_SearchRoom]]
+    [[Leave the office|L10_Exit]]
+-> Leave the office
+===
+title: L10_02_SearchRoom
+tags: 
+colorID: 0
+position: 13322,82
+---
+There is a poster on the wall, depicting a submarine submerged underneath an iceberg.
+-> ...
+Text on the poster explains that this is a reminder of an unprecedented journey underneath the North Pole, made by the first nuclear-powered submarine - german Type XXV in the year 1958.
+[[Search the bodies|L10_02_SearchBodies]]
+[[Leave the office|L10_Exit]]
+===
+title: L7_02_ColdWarTalk
+tags: 
+colorID: 8
+position: 8944,-231
+---
+You've found a body of a recon officer. He had a Nest pin with the micro recorder on his uniform.
+-> Try to connect
+Connecting...
+<<wait 2>>
+Device connected
+<<wait 1>>
+Found 1 file: Audio Log 1232
+-> Play
+Officer: ...you have no idea what you're talking about, Jens.
+-> ...
+Second Officer: This can't and will not last forever. It's always better to take control.
+-> ...
+Second Officer: This... this is not peace! There is a reason they call it cold war! Because it's war.
+-> ...
+Officer: The only purpose of nuclear arsenal there is left, is the Mutual Assured Destruction Doctrine.
+-> ...
+Officer: We can't use it. It's no victory if there is nobody left to be victorious.
+-> ...
+Second Officer: But Hans, you can't keep people... generations of people, in constant anxiety.
+-> ...
+Second Officer: One day something will happen. The tension is just too high.
+-> ...
+Second Officer: I just say it should be a decision, not a human or machine error.
+-> ...
+Officer: You're mad.
+-> ...
+Second Officer: Fifteen terrorist attacks in six major German cities. Only last year.
+-> ...
+Officer: There will be no cities if anyone makes the decision as you called it.
+-> ...
+Second Officer: This is why we should focus on the ballistic missile defense!
+-> ...
+Officer: I'm done talking with you.
+-> ...
+Officer: I'll get back to the office.
+-> ...
+Recording ends here.
+-> Leave
+===
+title: L10_03_Type29
+tags: 
+colorID: 8
+position: 14035,-241
+---
+You've found your way to the type XIXX U-boot.
+===
+title: L9_03_Smokes
+tags: 
+colorID: 8
+position: 12529,-248
+---
+When you were walking down a hallway, an advertisement caught your attention.
+-> ...
+A poster on a wall, with a bus driving through a city.
+-> ...
+The bus has a large banner on the side.
+-> ...
+The sign says *Berlin smokes Juno* and there is a picture of a pack of cigarettes next to it.
+-> Damn, I could use a smoke right now <<if $playerClass eq 1>>
+-> Smoking has been prohibited in Brazil in 2145 <<if $playerClass eq 2>>
+-> I don't get why would you voluntarily inhale toxins? <<if $playerClass eq 3>>
+-> Leave
+===
+title: M2_Exit
+tags: 
+colorID: 0
+position: -249,-1296
+---
+<<stop>>
+===
+title: T1_test
+tags: 
+colorID: 0
+position: -2053,235
+---
+- So... how deep did you go this time?
+-> Not that deep, I want to play this slow and careful.
+    I've seen your rope just yesterday. You have to be at least on the 10th floor.
+    -> ...
+    - Tell me one thing...
+    -> What do you want to know?
+-> Define *deep*?
+    - You know what I mean.
+    -> It's impossible to tell if we don't know how far it goes.
+    - You're a smartass, aren't you?
+    -> ...
+    - Ok, so I want to ask you one thing...
+-> I'm already below the 10th floor.
+    - Damn.
+    <<wait 1>>
+    - Can I ask you something?
+    -> Sure
+- Those angry lunatics. Are they on every floor? How many are there?
+-> Lots of them.
+-> Hundreds.
+-> I don't count them.
+- I was thinking about this another day, and I was wondering...
+-> ...
+- ...what will happen if they ever climb out?
+-> That's a good question.
+-> We all die.
+-> I guess we have to make sure they won't.
+On the other hand, if they are the original inhabitants, they haven't left the place for two hundred years.
+-> Didn't you say most of them were in stasis when you found them?
+You're telling me I woke them up?
+-> ...
+Fuck you.
+-> ...
+===
+title: M9_WhatIf
+tags: 
+colorID: 5
+position: 8806,-2415
+---
+<<setPicture DialogueCustomCommands anton>>
+- So... how deep did you go this time?
+-> Not that deep, I want to play this slow and careful.
+    You're there longer each time. I'm guessing you found your way to the lower floors?
+    -> ...
+    - Tell me one thing...
+    -> What do you want to know?
+-> Define *deep*?
+    - You know what I mean.
+    -> It's impossible to tell if we don't know how far it goes.
+    - You're a smartass, aren't you?
+    -> ...
+    - Ok, so I want to ask you one thing...
+    -> What?
+-> I'm already below 10th floor.
+    - Damn.
+    <<wait 1>>
+    - Can I ask you something?
+    -> Sure
+- Those angry lunatics. How many are there?
+-> Lots of them.
+-> Hundreds.
+-> I don't count them.
+- I was thinking about this another day, and I was wondering...
+-> ...
+- ...what will happen if they ever climb out?
+-> That's a good question.
+-> We all die.
+-> I guess we have to make sure they won't.
+- On the other hand, if they are the original inhabitants, they haven't left the place for two hundred years.
+-> Didn't you say most of them were in stasis when you found them?
+- You're telling me they were asleep? And I woke them?
+-> ...
+- Fuck you.
+-> ...
+===
+title: L1_01_FristBody
+tags: entropy
+colorID: 8
+position: -807,-200
+---
+<<setPicture DialogueCustomCommands 01_gates_corpse>>
+<<set $L1_pockets_checked = false>>
+<<set $L1_face_checked = false>>
+<<set $L1_got_simplekey = false>>
+You've walked closer to one of the bodies. The victim is male, around 30 years old.
+-> ...
+His uniform is in perfect condition, only the abdomen area is torn, with dark stains of blood.
+[[Examine his face.|L1_01_FirstBodyFace]]
+[[Search the uniform's pockets.|L1_01_FirstBodyPockets]]
+===
+title: L1_01_FirstBodyFace
+tags: 
+colorID: 0
+position: -642,101
+---
+<<setPicture DialogueCustomCommands 01_gates_corpse_face>>
+<<set $L1_face_checked = true>>
+His eyes are still open and his face...
+-> ...
+...well, his death must have been painful.
+-> Search the uniform's pockets.<<if $L1_pockets_checked is false>>
+-> Back to the items...<<if $L1_pockets_checked is true>>
+[[L1_01_FirstBodyPockets]]
+===
+title: L1_01_FirstBodyPockets
+tags: 
+colorID: 0
+position: -961,94
+---
+<<setPicture DialogueCustomCommands 01_body_items>>
+<<set $L1_pockets_checked = true>>
+Cigarettes, a simple key, some documents.
+-> Take the key.<< if $L1_got_simplekey is false>>
+    [[L1_01_FirstBodyKey]]
+-> Examine his face.<<if $L1_face_checked is false>>
+    [[L1_01_FirstBodyFace]]
+-> Walk away...
+    [[L1_Exit]]
+===
+title: L1_04_StaircaseDoor
+tags: 
+colorID: 2
+position: 364,-197
+---
+Someone left a heavy forklift parked right next to the service door, blocking the way in. Or out.
+-> Take a closer look at the forklift.
+    [[L1_04_Forklift]]
+-> Inspect the door.
+    It seems this door guard the way through a service staircase, down to the Security Level.
+    -> ...
+    Soldiers were using this way to quickly reach their posts.
+    -> Pull the handle.
+    You've pulled the handle back and forward and it feels like the door is unlocked. Only the heavy forklift keeps them shut.
+    -> Take a closer look at the forklift.
+        [[L1_04_Forklift]]
+    -> Examine the lock.
+        The lock on this door was destroyed, probably by a stray bullet.
+        -> Check the forklift barricading the door.
+        [[L1_04_Forklift]]
+===
+title: L1_04_StaircaseDoor_HasKeys
+tags: exit
+colorID: 2
+position: 339,456
+---
+<<unlockFloor DialogueCustomCommands 2>>
+<<markActionDone DialogueCustomCommands>>
+<<removeItem DialogueCustomCommands Forklift_Keys 1>>
+The engine fired up on the first try, which somehow made you anxious.
+-> ...
+Yet it will lead you further.
+-> Move the forklift.
+You've moved the vehicle just enough to make the door accessible. 
+-> Open the door.
+The staircase leads only one floor down to the Security Level.
+-> ...
+(You have cleared the way to the next floor)
+-> Go down...
+[[L1_Exit]]
+===
+title: L1_04_Forklift
+tags: 
+colorID: 2
+position: 235,113
+---
+To access the door you need to move this vehicle somehow.
+-> Try pushing it.
+    It's too heavy.
+    -> Get inside the cabin.
+        [[L1_04_Forklift_Cabin]]
+-> Look inside the cabin.
+    [[L1_04_Forklift_Cabin]]
+===
+title: L2_03_ServiceStaircase
+tags: 
+colorID: 2
+position: 1984,-216
+---
+<<checkForItem DialogueCustomCommands Security_ID_Card 1>>
+A small Nest's symbol was painted carefully on the service door at the end of a corridor.
+-> Examine the door
+    It seems there is a similar passage to the one connecting the vault's entrance with the security Level.
+    -> Where does it lead?
+    According to the signpost, this staircase connects Security with the Reception Floor. Third floor.
+    -> Open the door<<if $eventItemCheck is true>>
+        [[L2_03_ServiceStaircase_HasCard]]
+    -> Check the door<<if $eventItemCheck is false>>
+        Locked and reinforced. You would need a proper ID card to open those as there is a visible security console on the wall.
+        -> Come back later...
+    -> Come back later...
+===
+title: L2_03_ServiceStaircase_HasCard
+tags: 
+colorID: 0
+position: 1978,59
+---
+<<unlockFloor DialogueCustomCommands 3>>
+<<markActionDone DialogueCustomCommands>>
+<<removeItem DialogueCustomCommands Security_ID_Card 1>>
+You've used the Security Card on the door console. The lock was released with a noticeable clang.
+-> ...
+As suspected, the staircase is leading one floor down to the Reception Floor.
+-> ...
+(You have cleared the way to the next floor)
+-> Continue...
+===
+title: L2_05_LieutenantOffice
+tags: 
+colorID: 2
+position: 2581,-206
+---
+<<set $L2_OfficerDeskSeen = false>>
+Close to the briefing room, you've found an officer's office. Security lieutenant Mark Schmidt had a nameplate on his door.
+-> Try if it's locked
+    The room wasn't locked. You've walked into a dark interior.
+    -> ...
+-> Came back later...
+    [[L2_Exit]]
+You've used your flashlight to quickly illuminate as much of the interior as you could.
+-> ...
+Lieutenant's office is a small chamber furnished in a very military fashion.
+-> ...
+A simple desk stands next to a military bunk.
+-> Browse through desk drawers
+    [[L2_06_LieutenantOffice_Desk]]
+-> Examine the bunk
+    [[L2_06_LieutenantOffice_Bed]]
+===
+title: L3_Holo
+tags: 
+colorID: 8
+position: 3621,-221
+---
+Empty Text
+===
+title: L3_MaintenanceShaft
+tags: 
+colorID: 2
+position: 4093,-215
+---
+Empty Text
+===
+title: L3_JanitorBody
+tags: 
+colorID: 2
+position: 4567,-215
+---
+Empty Text
+===
+title: L4_04_ParkingEntrance
+tags: 
+colorID: 2
+position: 5695,-215
+---
+Empty Text
+===
+title: M1_WhatAreYouDoingHere
+tags: 
+colorID: 0
+position: -1899,-1861
+---
+- I thought I'll scavenge this region a little, since the radiation dropped. Now you can at least measure it with standard toys.
+-> And you found this hole?
+- Yeah, there is valuable stuff down there. I can feel it. Therefore, young man, I can't leave.
+-> So you're exploring? Down below?
+[[M1_About_Hole]]
+===
+title: M3_AskElse
+tags: 
+colorID: 0
+position: 1648,-2167
+---
+Go ahead.
+[[Any idea what were they doing in the bunker?|M3_WhatWasItFor]]
+[[Have you ever been there? Below?|M3_HaveYouBeenDown]]
+[[Where did you come from?|M3_WhereDidHeComeFrom]]
+===
+title: L2_06_LieutenantOffice_Desk
+tags: 
+colorID: 0
+position: 2436,355
+---
+<<set $L2_OfficerDeskSeen = true>>
+There's an unfinished letter in one of the drawers.
+-> Read the letter
+The letter is written in a formal style. It's addressed to the Nest's military quartermaster.
+-> ...
+In his writing Schmidt complains about his unit's equipment, stating that the top security level is crucial for the Nest's defense.
+-> ...
+And that it's hard to understand the decision to supply them with weaponry and armor, that in his opinion, should be transfered to a museum.
+-> ...
+The last sentence was crossed out and written multiple times with different choice of words.
+-> ...
+The letter was never finished, seems like an abandoned draft.
+-> Check the other drawers
+There's nothing more in the drawers.
+-> Check the bunk.
+    [[L2_06_LieutenantOffice_Bed]]
+-> Leave...
+    [[L2_Exit]]
+===
+title: L2_06_LieutenantOffice_Bed
+tags: 
+colorID: 2
+position: 2752,353
+---
+The bed is neatly made.
+-> Look under the bunk.
+You didn't expect to find anything, really. After all, this is an officer's room. Clean and tidy.
+-> ...
+But to your surprise there was a key card in the shadow of the bunk, lying on the floor, waiting to be found.
+-> Take the card.
+<<giveItem DialogueCustomCommands Security_ID_Card 1>>
+<<markActionDone DialogueCustomCommands>>
+You took the card. It belonged to lieutenant Mark Schmidt.
+-> ...
+He must have dropped it here and never came back to look for it.
+-> Check the desk's drawers.<<if $L2_OfficerDeskSeen is false>>
+    [[L2_06_LieutenantOffice_Desk]]
+-> Leave...
+    [[L2_Exit]]
+===
+title: L1_04_Forklift_Cabin
+tags: 
+colorID: 2
+position: 475,189
+---
+<<checkForItem DialogueCustomCommands Forklift_Keys 1>>
+The forklift was left in gear.
+    -> Check the ignition<<if $eventItemCheck is false>>
+        The keys are missing.
+        -> Come back later...
+    -> Use the forklift key<<if $eventItemCheck is true>>
+        [[L1_04_StaircaseDoor_HasKeys]]
+===
+title: L1_Ada_body_hands
+tags: 
+colorID: 2
+position: 940,860
+---
+Only now have you noticed that the woman is holding something in her hand.
+-> A key?
+It looks like a vehicle's ignition key.
+-> Take it.
+<<giveItem DialogueCustomCommands Forklift_Keys 1>>
+<<savePlayerChoice DialogueCustomCommands ada_key_taken 1>>
+(Item acquired: Forklift Key)
+-> Continue...
+===
+title: L1_PileOfBodiesPanic
+tags: 
+colorID: 0
+position: -1596,452
+---
+If so, what was the reason?
+-> ...
+It looks like they all wanted to get out of the vault.
+-> But they couldn't.
+Yes. Then the instincts kicked in. Someone was pushed.
+-> ...
+Someone got hit on the head.
+-> ...
+The first bullet fired caused panic.
+-> And all hell broke loose.
+You'll be able to tell more if you get closer.
+[[Walk up to the corpses...|L1_PileOfBodiesCloser]]
+[[Move away...|L1_Exit]]
+===
+title: L1_PileOfBodiesCloser
+tags: 
+colorID: 0
+position: -1213,452
+---
+They all wear similar clothing and uniforms, so this was not a break-in.
+-> ...
+Something is not right...
+-> What the fuck?
+It's the state of the bodies. You can tell those people are dead by the bullet holes and other types of wounds visible, but the state of decay is almost none.
+-> ...
+It looks like they died yesterday... at most.
+-> How is this possible?
+You have no idea. But you are almost certain that they fought each other.
+[[Did they panic?|L1_PileOfBodiesPanic]]
+[[Move away...|L1_Exit]]
+===
+title: L1_01_FirstBodyKey
+tags: itemdrop
+colorID: 0
+position: -961,371
+---
+<<giveItem DialogueCustomCommands Eichhorn_Key 1>>
+<<set $L1_got_simplekey = true>>
+You took the key.
+-> Examine his face.<<if $L1_face_checked is false>>
+    [[L1_01_FirstBodyFace]]
+-> Walk away...
+    [[L1_Exit]]
+===
+title: L3_IT_ROOM
+tags: 
+colorID: 8
+position: 4343,-217
+---
+Empty Text
+===
+title: L2_Personel_Registry
+tags: 
+colorID: 0
+position: 1460,57
+---
+<<set $L2_PersonelSeen = true>>
+It appears that all of the personnel of the fast-response surface security force was part of the Wehrmacht's Festung-Division, selected to man this critical site.
+-> ...
+There were two platoons with one always on site. Rotation took place every six months.
+-> Anything else?
+Apparently, you can view duty raports from the last year.
+-> Quickly browse the raports.
+    There were no interventions for the whole year.
+    -> ...
+    And then, fifteen in one day.
+    -> What happened?
+    Aggresive behaviour. All of them.
+    -> Read the Emergency Message.<<if $L2_MessageSeen is false>>
+        [[L2_Emergency_Message]]
+    -> Leave...
+        [[L2_Exit]]
+-> Read the Emergency Message.<<if $L2_MessageSeen is false>>
+    [[L2_Emergency_Message]]
+-> Leave...
+    [[L2_Exit]]
+===
+title: L3_Overview
+tags: 
+colorID: 8
+position: 3366,-223
+---
+This must have been the official reception.
+-> ...
+Whole area looks less military and much more civilian, if not to say comfortable.
+-> ...
+There is a statue of some important figure in the center of the room.|A man with small eyes and a funny mustache.
+-> Take a look at the statue.
+    The artist who made the sculpture must have put in a lot of effort to make this face look serious.
+-> Look around more.
+===

@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>nest · chapter player</title>
   <link rel="stylesheet" href="./engine/card-deck.css">
+  <link rel="stylesheet" href="./player/motion-tuning.css">
   <style>
     * { box-sizing: border-box; }
     body { margin: 0; background: #0d120b; color: #dce5ce; font: 15px/1.5 system-ui, sans-serif; }
@@ -25,7 +26,7 @@
 <link rel="stylesheet" href="./demo/inventory.css?v=grab-camera-1"></head>
 <body>
   <main>
-    <header><h1>nest / player</h1><a href="./editor.html">Open editor</a></header>
+    <header><h1>nest / player</h1><nav><a href="./editor.html">Editor</a> · <a href="./dice.html">Dice demo</a></nav></header>
     <p class="intro">Play a chapter from the editor, or open an exported chapter JSON file.</p>
     <h2 id="chapter-name">Chapter</h2>
     <div class="controls">
@@ -36,11 +37,28 @@
     </div>
     <p id="message" role="status" aria-live="polite"></p>
     <div id="preview"></div>
+    <details class="motion-tuning" id="dev-mode">
+      <summary>Developer mode · Motion tuning</summary>
+      <div class="motion-tuning-body">
+        <p class="motion-tuning-note">Tune the current chapter’s card motion. Settings stay through restart and JSON import until this page is reloaded.</p>
+        <div data-motion-controls></div>
+        <div class="motion-tuning-actions">
+          <button type="button" data-copy-settings>Copy settings</button>
+          <button type="button" data-motion-defaults>Restore motion defaults</button>
+        </div>
+        <p data-motion-status role="status" aria-live="polite"></p>
+        <div data-copy-fallback hidden>
+          <label for="settings-json">Select and copy these settings</label>
+          <textarea id="settings-json" data-settings-json readonly rows="12" spellcheck="false"></textarea>
+        </div>
+      </div>
+    </details>
   </main>
   <script type="module">
     import { Preview } from './editor/preview.js';
     import { createStarterChapter, parseChapter } from './chapter/model.js';
     import { loadChapter } from './editor/storage.js';
+    import { mountMotionTuning } from './player/motion-tuning.js';
 
     const message = document.querySelector('#message');
     const title = document.querySelector('#chapter-name');
@@ -49,6 +67,7 @@
     const stored = loadChapter();
     let chapter = stored.chapter ?? createStarterChapter();
     const preview = new Preview(document.querySelector('#preview'), { inventoryDock: true });
+    mountMotionTuning(document.querySelector('#dev-mode'), preview);
     function report(text, error = false) {
       message.textContent = text;
       message.classList.toggle('error', error);

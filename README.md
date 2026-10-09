@@ -1,8 +1,8 @@
 # nest
 
-[Repository](https://github.com/gerdax/nest) · [Published playground](https://gerdax.github.io/nest/)
+[Repository](https://github.com/gerdax/nest) · [Published site](https://gerdax.github.io/nest/)
 
-A standalone card interaction prototype and chapter editor using native JavaScript modules and the existing Nest artwork. No package installation or application build is required. Local changes do not update the published playground until explicitly deployed.
+Three tools share native JavaScript modules and the existing Nest artwork: the chapter player, chapter node editor, and independent 3D dice tray. No package installation or application build is required. Local changes do not update the published site until explicitly deployed.
 
 ## Local development
 
@@ -12,9 +12,11 @@ python3 serve.py
 
 Open `http://127.0.0.1:8937/`; use `--port 8938` for an alternative port. Serve over HTTP so native modules load correctly. The server disables caching, and engine module URLs are versioned together.
 
-- `/?fixture=chest` starts the container fixture directly.
+- `/` redirects to `/player.html`, which plays the saved chapter or an imported JSON file.
 - `/editor.html` opens the chapter node editor.
-- `/player.html` plays chapter JSON from the editor or an imported file.
+- `/dice.html` opens the independent 3D dice tray.
+
+The player includes an expandable Motion tuning panel with its Copy settings action inside. Tuning applies to the chapter being played and stays available across Play, Restart, and JSON imports. There is no fixture selector; author scenarios in the editor and play their chapter JSON.
 
 Run verification with `npm test` or `node --test tests/*.test.js`.
 
@@ -24,7 +26,7 @@ Ordinary situation cards reveal choices with an upward swipe. Browse actions lef
 
 A container starts with its description covering the items. One swipe up reveals the item carousel directly; there is no Open / Leave choice or lid effect. Browse left or right, swipe up to discard the selected item, and swipe down to take it. Only the selected item moves, then the remaining cards rearrange smoothly. Every item must be resolved before continuing.
 
-Only taken items enter the temporary bottom inventory. The strip shows thumbnails, names, and a count and can be scrolled horizontally. It does not support inspecting, equipping, using, or discarding inventory cards. Taken items remain across events in the current run; restart, reset, fixture switching, or page reload clears the inventory.
+Only taken items enter the temporary bottom inventory. The strip shows thumbnails, names, and a count and can be scrolled horizontally. It does not support inspecting, equipping, using, or discarding inventory cards. Taken items remain across events in the current run; restart, reset, or page reload clears the inventory.
 
 The last item exposes the next card's reverse underneath its departure. Discarding upward reveals it from below; taking downward reveals it from above. The reverse flips only after the outgoing item clears the turning area. There is no empty-container screen or extra Continue action.
 
@@ -82,7 +84,7 @@ Events:
 
 Hosts supply final continuation synchronously on accepted `collect` or `discard`. During a held last-item gesture the physical reverse is already underneath, but no host state changes or flip occur before acceptance. Async content can remain staged while the engine waits.
 
-`demo/ScenarioController.js` implements the playground fixture. `chapter/ChapterController.js` runs chapter JSON v1. Both preserve collected items in session memory and distinguish discard from take. `demo/InventoryStrip.js` renders the shared temporary inventory; include `demo/inventory.css` in hosts using it.
+`chapter/ChapterController.js` runs chapter JSON v1, preserves collected items in session memory, and distinguishes discard from take. The original playground and `demo/ScenarioController.js` remain as source references; they are excluded from the active staged runtime. `demo/InventoryStrip.js` renders the shared temporary inventory; include `demo/inventory.css` in hosts using it.
 
 ## Motion model
 
@@ -98,7 +100,7 @@ An early pointer press remains captured while the presentation is busy. If still
 
 Checkpoint `60e2db4` preserves direct container take/discard and inventory before this experiment. Once a pointer gesture is confirmed as vertical, the grabbed card approaches the camera slightly. Pointer down, movement below axis recognition, and horizontal carousel gestures do not trigger it. A situation lifts only its cover; containers lift only the selected item; ordinary action stacks follow the existing `choiceStaggerMs` cascade.
 
-`grabLift` defaults to 24 pixels, capped at two percent of the current perspective distance. Set it to zero in Motion tuning to compare without the effect. Canceling releases the pickup smoothly; an accepted departure keeps it until the incoming content takes over. Reduced motion omits this added animation. Keyboard commands retain their normal presentation.
+`grabLift` defaults to 24 pixels, capped at two percent of the current perspective distance. Set it to zero in the player’s Motion tuning panel to compare without the effect. Canceling releases the pickup smoothly; an accepted departure keeps it until the incoming content takes over. Reduced motion omits this added animation. Keyboard commands retain their normal presentation.
 
 ## GitHub Pages
 
@@ -106,9 +108,9 @@ Checkpoint `60e2db4` preserves direct container take/discard and inventory befor
 python3 build_pages.py /tmp/nest-pages
 ```
 
-Use a new or empty staging directory outside the source assets. The output contains the root playground, `.nojekyll`, runtime modules, inventory UI, and referenced artwork/fonts. Copy it into a separate `gh-pages` checkout preserving `.git`, then commit and push normally. Do not force-push. The node editor and standalone player are local tools and are not part of this minimal playground staging.
+Use a new or empty staging directory outside the source assets. The output contains the root redirect, chapter player with motion tuning, `.nojekyll`, chapter and engine modules, shared preview/storage and inventory UI, all usable supplied image assets, and runtime fonts. Copy it into a separate `gh-pages` checkout preserving `.git`, then commit and push normally. Do not force-push. The node editor and dice tray are included, so navigation between all three tools works.
 
-Add `--include-editor` to publish `/editor.html` and `/player.html` along with the chapter runtime and available card artwork. Image assets are included; layered PSD source files are kept out of the published site. Chapters saved in one browser do not transfer to another device: export JSON from the editor and use Open JSON in the mobile player.
+`/editor.html` and its authoring modules, and `/dice.html` with its licensed engine assets, are included by default. `--include-editor` and `--include-dice` remain accepted compatibility flags. Layered PSD source files and the original playground runtime are kept out of the staged site. Chapters saved in one browser do not transfer to another device: export JSON from the editor and use Open JSON in the mobile player.
 
 ## Previous checkpoints and assets
 
@@ -124,6 +126,6 @@ Fork nodes in the chapter editor now display choices directly. Each choice is an
 
 ## Architecture and reusable capabilities
 
-See [architecture assumptions](docs/architecture.md) for node/sequence registries, independent presentation policy, motion tuning, appearance tokens and the pending inventory discussion. Try the isolated [3D dice tray](dice.html); [dice service documentation](docs/dice-service.md) describes its context-independent API and Onejournal provenance. Stage it for future hosting with `python3 build_pages.py /tmp/nest-pages-with-dice --include-dice`. No dice success rules or new node type are imposed.
+See [architecture assumptions](docs/architecture.md) for node/sequence registries, independent presentation policy, motion tuning, appearance tokens and the pending inventory discussion. Try the isolated [3D dice tray](dice.html); [dice service documentation](docs/dice-service.md) describes its context-independent API and Onejournal provenance. It is included in default static staging; `python3 build_pages.py /tmp/nest-pages-with-dice --include-dice` remains supported. No dice success rules or new node type are imposed.
 
 Run variables and conditional choices can be authored in the inspector. See [state authoring](docs/state-system.md) for available checks, effects and miniature artwork previews.

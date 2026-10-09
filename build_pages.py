@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage the small static site needed to publish the nest playground."""
+"""Stage the chapter player, chapter editor and independent dice tool."""
 
 from __future__ import annotations
 
@@ -13,8 +13,9 @@ from urllib.parse import urlsplit
 ROOT = Path(__file__).resolve().parent
 RUNTIME_FILES = (
     "index.html",
-    "playground.css",
-    "playground.js",
+    "player.html",
+    "editor/preview.js",
+    "editor/storage.js",
     "engine/CardDeck.js",
     "engine/PointerInput.js",
     "engine/geometry.js",
@@ -23,7 +24,6 @@ RUNTIME_FILES = (
     "engine/MovementHistory.js",
     "engine/renderer.js",
     "engine/card-deck.css",
-    "demo/ScenarioController.js",
     "demo/InventoryStrip.js",
     "demo/inventory.css",
 )
@@ -47,8 +47,8 @@ def local_reference(value: str, base: Path) -> Path | None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path, help="new or empty directory to populate")
-    parser.add_argument("--include-dice", action="store_true", help="also stage the independent dice demo and licensed engine assets")
-    parser.add_argument("--include-editor", action="store_true", help="also stage the chapter editor, player and available card artwork")
+    parser.add_argument("--include-dice", action="store_true", help="compatibility flag; the dice tool is included by default")
+    parser.add_argument("--include-editor", action="store_true", help="compatibility flag; the chapter editor is included by default")
     args = parser.parse_args()
 
     output = args.output.expanduser().resolve()
@@ -71,14 +71,17 @@ def main() -> None:
         return target
 
     runtime_files = list(RUNTIME_FILES)
-    if args.include_editor:
-        runtime_files.extend(("editor.html", "player.html"))
-        for folder in ("chapter", "editor"):
-            runtime_files.extend(source.relative_to(ROOT).as_posix() for source in sorted((ROOT / folder).rglob("*")) if source.is_file() and source.suffix in {".js", ".css"})
+    # The player shares the chapter runtime and preview/storage modules with the
+    # editor, while its tuning UI stays independent of the authoring interface.
+    for folder in ("chapter", "player"):
+        runtime_files.extend(source.relative_to(ROOT).as_posix() for source in sorted((ROOT / folder).rglob("*")) if source.is_file() and source.suffix in {".js", ".css"})
+    runtime_files.append("editor.html")
+    runtime_files.extend(source.relative_to(ROOT).as_posix() for source in sorted((ROOT / "editor").rglob("*")) if source.is_file() and source.suffix in {".js", ".css"})
+    runtime_files = list(dict.fromkeys(runtime_files))
     for relative in runtime_files:
         copy_repo_file(relative)
 
-    # The CSS and demo refer to these files through repository-relative URLs.
+    # Runtime CSS and modules refer to these files through repository-relative URLs.
     text_sources = [ROOT / name for name in runtime_files if name.endswith((".css", ".js", ".html"))]
     assets: set[Path] = set()
     for source in text_sources:
@@ -88,21 +91,19 @@ def main() -> None:
             folder = "fonts" if filename.endswith(".ttf") else "img"
             asset = ROOT / "assets" / folder / filename
             if not asset.is_file():
-                fail(f"referenced demo asset is missing: {asset.relative_to(ROOT)}")
+                fail(f"referenced runtime asset is missing: {asset.relative_to(ROOT)}")
             assets.add(asset)
-    if args.include_editor:
-        # Chapter JSON selects artwork dynamically. Publish usable image assets,
-        # keeping layered source documents such as PSD files out of the site.
-        assets.update(source for source in (ROOT / "assets" / "img").rglob("*") if source.is_file() and source.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"})
+    # Imported chapter JSON selects artwork dynamically even without the editor.
+    # Publish usable images, keeping layered source documents out of the site.
+    assets.update(source for source in (ROOT / "assets" / "img").rglob("*") if source.is_file() and source.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"})
     for source in sorted(assets):
         relative = source.relative_to(ROOT)
         copy_repo_file(relative.as_posix())
 
-    if args.include_dice:
-        for source in sorted((ROOT / "dice").rglob("*")):
-            if source.is_file():
-                copy_repo_file(source.relative_to(ROOT).as_posix())
-        copy_repo_file("dice.html")
+    for source in sorted((ROOT / "dice").rglob("*")):
+        if source.is_file():
+            copy_repo_file(source.relative_to(ROOT).as_posix())
+    copy_repo_file("dice.html")
 
     (output / ".nojekyll").write_text("", encoding="utf-8")
     # Confirm every local static URL and module dependency resolves in the staged tree.
@@ -135,7 +136,7 @@ def main() -> None:
     files = [p for p in output.rglob("*") if p.is_file()]
     total_size = sum(p.stat().st_size for p in files)
     print(f"Staged {len(files)} files ({total_size:,} bytes) in {output}")
-    print(f"Verified local HTML, module, CSS, image, and font references; copied {len(assets)} referenced assets.")
+    print(f"Verified local HTML, module and CSS references; copied {len(assets)} artwork/font assets.")
 
 
 if __name__ == "__main__":

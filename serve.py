@@ -1,4 +1,4 @@
-"""Serve the playground without caching modules between motion experiments."""
+"""Serve the player, chapter editor and dice tool without caching modules."""
 import argparse
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer

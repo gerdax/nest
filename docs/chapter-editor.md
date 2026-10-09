@@ -1,6 +1,6 @@
 # Chapter editor
 
-Run `python3 serve.py`, then open `http://127.0.0.1:8937/editor.html`. The original playground remains at `/`; the standalone chapter player is at `/player.html`.
+Run `python3 serve.py`, then open `http://127.0.0.1:8937/editor.html`. The root `/` redirects to the chapter player at `/player.html`; the independent dice tool is at `/dice.html`. The player includes an expandable Motion tuning panel, with Copy settings inside it. There is no fixture selector: use chapter JSON to create and play scenarios.
 
 Create Linear, Forked, Container, or Random nodes using the toolbar. Drag nodes to arrange them, drag the background to pan, and scroll to zoom. Set the selected node as the chapter start. Connect an exit by clicking its port and then a destination node, or use the connection selector in the inspector. Select End chapter to disconnect it.
 
@@ -16,7 +16,7 @@ Changes autosave in this browser, including incomplete drafts. Export JSON creat
 
 The version 1 JSON format stores `name`, `startNode`, `nodes`, and `sequences`. Nodes have stable IDs, canvas positions, static sequence references or random pools, and named `connections` mapping to node IDs or `null` for completion. Fork targets use `card:<id>` and `exit:<name>`. Image paths resolve against the page; use `./assets/img/...` for the supplied artwork.
 
-This local editor does not write repository files or publish chapters. Tags, conditional choices, uploads, lock-picking, and inventory rules are deferred. Verify changes with `npm test`; no dependency installation is needed.
+This local editor does not write repository files or publish chapters. Run variables and conditional choices are supported; see [state authoring](state-system.md). Tags, uploads, lock-picking, and inventory rules are deferred. Verify changes with `npm test`; no dependency installation is needed.
 
 ## Container inventory
 
@@ -28,7 +28,7 @@ The container flow uses no lid animation or Open / Leave selection. A single upw
 
 ## Vertical grab camera experiment
 
-Checkpoint `60e2db4` preserves the direct item flow before this change. Confirmed vertical pointer gestures subtly lift the grabbed card toward the camera. Horizontal browsing and pointer down alone do not trigger it. Ordinary action stacks follow their existing stagger; container gestures affect only the selected item. The playground exposes `grabLift` for comparison, including zero to disable it.
+Checkpoint `60e2db4` preserves the direct item flow before this change. Confirmed vertical pointer gestures subtly lift the grabbed card toward the camera. Horizontal browsing and pointer down alone do not trigger it. Ordinary action stacks follow their existing stagger; container gestures affect only the selected item. The player’s Motion tuning panel exposes `grabLift` for comparison, including zero to disable it. Tuning applies to the active chapter and remains available after Play, Restart, or importing another chapter.
 
 Decisions reached from Linear lie face-up underneath the departing story card. Decisions reached after a Fork or a cleared Container rotate their real choice stack from its reverse before enabling input. During an incoming story-card turn, its prepared successor remains hidden until that story card is dragged; this prevents a second card appearing behind the turn.
 
@@ -39,3 +39,9 @@ End chapter currently stops playback after the outgoing card leaves. It does not
 Each artwork control has a Flip image horizontally checkbox. It mirrors only that card’s image in the authoring preview, gameplay, successor preview and collected-item strip. Text remains upright; the source asset is unchanged. The optional boolean `flipImage` is saved with the card, choice or item and defaults to false for older chapters.
 
 Set Chapter settings → Card back image to use an image on every back in that chapter. Choose supplied artwork or enter a path such as `./assets/img/my-card-back.png`. Keep your image accessible at that path when sharing/exporting the chapter; JSON stores the path, not the image file. Clearing the path restores the default back. The setting is saved as the optional `backImage` string.
+
+## Static staging
+
+Run `python3 build_pages.py /tmp/nest-pages` with a new or empty output directory outside the source assets. The default site contains all three tools: the player with motion tuning, the chapter editor, and the independent dice tray. It includes shared preview/storage modules, chapter and engine runtime, inventory UI, all usable supplied image assets, and licensed dice engine assets. `--include-editor` and `--include-dice` remain accepted compatibility flags. Original playground source files and layered PSD assets are preserved in the repository and excluded from staging. Staging does not deploy the site.
+
+Browser storage is specific to the browser and origin. Export JSON from the editor and use Open JSON in the player when transferring a chapter to another device. JSON stores artwork paths, so externally referenced images must remain available at those paths.
