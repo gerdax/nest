@@ -21,3 +21,13 @@ header { flex-wrap:wrap; }
 /* Same face renderer, styles and nominal width as the chapter player. */
 .inspector-card-preview {position:relative;width:min(100%,276px);aspect-ratio:3/4;margin:24px auto;isolation:isolate;}
 @media(max-width:420px) {.inspector-card-preview {width:min(100%,240px);}}
+
+.preview-window {position:fixed;z-index:100;left:24px;top:100px;width:min(420px,calc(100vw - 16px));max-height:calc(100vh - 16px);display:flex;flex-direction:column;background:#11191c;border:1px solid #63786d;border-radius:10px;box-shadow:0 16px 48px #000a;overflow:hidden;}
+.preview-window-bar {display:flex;gap:8px;align-items:center;padding:8px;background:#263431;border-bottom:1px solid #46594f;flex-shrink:0;}
+.preview-window-handle {flex:1;text-align:left;cursor:grab;touch-action:none;user-select:none;border:0;background:transparent;font-weight:650;}
+.preview-window.dragging .preview-window-handle {cursor:grabbing;}
+.preview-window-body {min-height:0;overflow:auto;overscroll-behavior:contain;}
+.preview-window #preview {border-top:0;}
+.preview-window #preview .chapter-preview-deck {width:min(100%,276px);margin:16px auto;}
+.preview-window .chapter-preview-stage {padding-inline:28px;}
+@media(max-width:420px) {.preview-window #preview .chapter-preview-deck {width:min(100%,240px);}}

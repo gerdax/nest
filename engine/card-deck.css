@@ -41,9 +41,9 @@
   position: absolute;
   inset: 0;
   box-sizing: border-box;
-  border: 1px solid var(--card-border, #39432a);
+  border: 1px solid var(--card-border, #39432a80);
   border-radius: var(--card-radius, 20px);
-  background-color: var(--card-background, #14190e);
+  background-color: var(--card-background, #000);
   background-size: cover;
   background-position: center;
   /* Thin strata suggest matte card stock, with a tight contact shadow. */
@@ -60,6 +60,15 @@
   pointer-events: none;
   transform-origin: 50% 50%;
   backface-visibility: hidden;
+  isolation: isolate;
+}
+.nest-card-texture {
+  position: absolute;
+  inset: 0;
+  background: url('../assets/img/cardfront.png') center / 100% 100% no-repeat;
+  mix-blend-mode: lighten;
+  z-index: 3;
+  pointer-events: none;
 }
 .nest-card::before {
   content: '';
@@ -67,13 +76,13 @@
   inset: 0;
   border-radius: inherit;
   /* The masked ring lights only the rim, keeping artwork and copy clear. */
-  padding: 2px;
+  padding: 1px;
   background: linear-gradient(165deg,
-    var(--card-edge-highlight, #d5ceb08c) 0%,
-    #a9aa8647 18%,
-    #777d5826 42%,
-    #282c1ccc 72%,
-    var(--card-edge-shadow, #070b06e6) 100%);
+    var(--card-edge-highlight, #d5ceb047) 0%,
+    #a9aa8624 18%,
+    #777d5813 42%,
+    #282c1c66 72%,
+    var(--card-edge-shadow, #070b0673) 100%);
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
@@ -84,7 +93,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, #0000 25%, #06090366 48%, #060903f5 100%);
+  background: linear-gradient(180deg, #0000 25%, #0006 48%, #000000f5 100%);
 }
 .nest-copy {
   font-family: var(--card-font, NestLetter, monospace);
@@ -111,8 +120,7 @@
   text-wrap: pretty;
   overflow-wrap: anywhere;
 }
-.nest-action .nest-copy { padding-bottom: 32px; }
-.nest-action { border-color: var(--card-action-border, #607044); }
+.nest-action { border-color: var(--card-action-border, #60704480); }
 .nest-live {
   position: absolute;
   width: 1px;
@@ -127,17 +135,16 @@
 /* A real reverse face shares the situation's layer and motion. CSS hides
    the face pointing away from the camera; no opacity animation is involved. */
 .nest-card-back {
-  background-color: var(--card-back-background, #172010);
-  background-image: repeating-linear-gradient(135deg, #25321b 0 1px, #172010 1px 13px);
-  border-color: #64734a;
+  background-color: var(--card-back-background, #000);
+  border-color: #64734a80;
 }
 .nest-card-back::after {
-  background: radial-gradient(ellipse at center, #17201044, #070c05bb);
+  background: radial-gradient(ellipse at center, #0004, #000b);
 }
 .nest-back-frame {
   position: absolute;
   inset: 18px;
-  border: 1px solid #627446;
+  border: 1px solid #62744680;
   border-radius: 10px;
   display: grid;
   place-items: center;
@@ -165,21 +172,35 @@
 .nest-card-back-image::after { background: none; }
 
 /* Typed content supplies headings and summaries; legacy narrative remains plain. */
-.nest-card[data-card-kind="item"] .nest-card-title,
 .nest-card[data-card-kind="action"] .nest-card-title {
   font: 600 18px/1.2 system-ui, sans-serif;
   letter-spacing: 0;
   text-transform: none;
   color: #e5efce;
 }
+.nest-card[data-card-kind="item"] .nest-card-title {
+  font-family: var(--card-font, NestLetter, monospace);
+  font-size: var(--card-font-size, clamp(16px, 4vw, 21px));
+  font-weight: normal;
+  line-height: 1.45;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--card-text, #d2dfb6);
+  margin-top: 12px;
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+.nest-card[data-card-kind="item"] .nest-copy {
+  padding-bottom: var(--card-padding, 26px);
+}
+.nest-card[data-card-kind="item"] .nest-copy > p:empty { display: none; }
 .nest-copy p.nest-card-summary {
   font: 13px/1.4 system-ui, sans-serif;
   color: #c0d99b;
   margin-top: 9px;
   white-space: pre-line;
 }
-.nest-card[data-card-kind="item"] .nest-copy > p:not(.nest-card-summary),
-.nest-card[data-card-kind="action"] .nest-copy > p:not(.nest-card-summary) {
+.nest-card[data-card-kind="item"] .nest-copy > p:not(.nest-card-summary) {
   font-size: 15px;
   line-height: 1.35;
 }

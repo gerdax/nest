@@ -4,7 +4,7 @@ Project v2 defines variables once for all chapters. In **Project variables and c
 
 ## Requirements, costs and effects
 
-Rules are structured data; no JavaScript is evaluated. Variable conditions support equals, does not equal, at least and at most; flags support equality/inequality. Inventory conditions check owned/not owned or quantity at least/at most against item definitions or preserved migration aliases. All conditions must pass. Action placements choose whether unmet requirements hide the action or show it disabled. Costs also determine affordability. If no action is available, the author must supply a usable route; the runtime does not invent a destination.
+Rules are structured data; no JavaScript is evaluated. Variable conditions support equals, does not equal, at least and at most; flags support equality/inequality. Inventory conditions check owned/not owned against item definitions or preserved migration aliases. All conditions must pass. Action placements choose whether unmet requirements hide the action or show it disabled. Costs also determine affordability. If no action is available, the author must supply a usable route; the runtime does not invent a destination.
 
 Effects set/add variables or add/remove positive integer item quantities. Numeric values are clamped to their bounds; overflow and invalid item removal fail atomically. Narrative and direct-action effects apply once on accepted progression. Item `onCollect` effects apply once for the completed take, not once per copy and never on discard. Inventory is stacked by definition; aliases preserve old v1 checks. Placement conditions/effects append to shared rules, while local action overrides replace the corresponding shared mechanics before those additions.
 
@@ -29,10 +29,12 @@ An Item definition has `onCollect` effects. A collectible/key item has no `use` 
 }
 ```
 
-This is a Library definition; a container placement might be `{"id":"tonic-loot","definitionId":"tonic","quantity":2}`. Project variables must define `energy` as a number. `project/state.js` owns pure condition/transaction operations; `ProjectController` owns live state and timing; `studio/InventoryView.js` presents inspection/use without mutating state itself.
+This is a Library definition; a container placement might be `{"id":"tonic-loot","definitionId":"tonic"}`. Project variables must define `energy` as a number. `project/state.js` owns pure condition/transaction operations; `ProjectController` owns live state and timing; `studio/InventoryView.js` presents inspection/use without mutating state itself.
 
 ## Validation and compatibility
 
 Unknown variables/items, wrong types, out-of-bound initial values and invalid quantities block playback/import/export. Draft autosave retains incomplete references for repair. Removing definitions does not silently rewrite mechanics. Project variable names are display labels; stable IDs identify references.
 
-V1 chapters load through migration with prefixed variable IDs and stable inventory aliases. The retained `chapter/state.js` and chapter controller still support v1 integrations. V1 saves lack the new item-use interface and quantity mechanics until migrated. Equip slots, combat, arbitrary scripts and persistent cross-run state are deferred. Deterministic tests cover rule calculations and timing contracts; they do not establish editor/browser/device behavior.
+V1 chapters load through migration with prefixed variable IDs and stable inventory aliases. The retained `chapter/state.js` and chapter controller still support v1 integrations. V1 saves lack the new item-use interface until migrated. Equip slots, combat, arbitrary scripts and persistent cross-run state are deferred. Deterministic tests cover rule calculations and timing contracts; they do not establish editor/browser/device behavior.
+
+Item quantities are currently disabled: each collected card grants one owned item, repeated collection does not stack, and item effects/costs add or remove that ownership. Existing quantity fields are discarded on load/export; former inventory quantity comparisons become Owned/Missing requirements. Numeric resource amounts remain configurable.

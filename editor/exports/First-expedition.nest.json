@@ -1,0 +1,463 @@
+{
+  "version": 2,
+  "kind": "nest-project",
+  "id": "project-1",
+  "name": "First expedition",
+  "activeChapterId": "chapter-1",
+  "library": [
+    {
+      "id": "arrival",
+      "kind": "narrative",
+      "name": "arrival",
+      "heading": "",
+      "text": "Your expedition begins at the edge of the city.",
+      "image": "./assets/img/city.png",
+      "effects": []
+    },
+    {
+      "id": "flashlight",
+      "kind": "item",
+      "name": "Flashlight",
+      "heading": "",
+      "text": "",
+      "image": "./assets/img/flashlight.png",
+      "onCollect": []
+    },
+    {
+      "id": "explore",
+      "kind": "action",
+      "name": "Explore",
+      "heading": "",
+      "text": "Follow the corridor",
+      "image": "./assets/img/corridor_02.png",
+      "conditions": [],
+      "costs": [],
+      "effects": [],
+      "resolution": "direct",
+      "check": {
+        "pool": [
+          {
+            "sides": 20,
+            "count": 1
+          }
+        ],
+        "modifier": 0,
+        "target": 10
+      },
+      "successEffects": [],
+      "failureEffects": []
+    },
+    {
+      "id": "narrative-c0bbae86",
+      "kind": "narrative",
+      "name": "The box",
+      "heading": "",
+      "text": "You approach a curious looking box",
+      "image": "./assets/img/090a49aa-cc2d-454d-a93b-aeb16d134a7f.jpeg",
+      "effects": [],
+      "flipImage": false
+    },
+    {
+      "id": "item-c68ec941",
+      "kind": "item",
+      "name": "Flashlight variant",
+      "heading": "",
+      "text": "",
+      "image": "./assets/img/flashlight.png",
+      "onCollect": []
+    },
+    {
+      "id": "action-cd2227d2",
+      "kind": "action",
+      "name": "New action",
+      "heading": "",
+      "text": "",
+      "image": "",
+      "conditions": [],
+      "costs": [],
+      "effects": [],
+      "resolution": "direct",
+      "check": {
+        "pool": [
+          {
+            "sides": 20,
+            "count": 1
+          }
+        ],
+        "modifier": 0,
+        "target": 10
+      },
+      "successEffects": [],
+      "failureEffects": []
+    },
+    {
+      "id": "narrative-f89cb642",
+      "kind": "narrative",
+      "name": "pudelko",
+      "heading": "Pudełko nowe heading",
+      "text": "Natykasz się na zamknięte pudełko.",
+      "image": "./assets/img/box.png",
+      "effects": [],
+      "visibility": "local",
+      "showName": false
+    },
+    {
+      "id": "narrative-660fd0f3",
+      "kind": "narrative",
+      "name": "New narrative",
+      "heading": "",
+      "text": "",
+      "image": "",
+      "effects": [],
+      "visibility": "local"
+    },
+    {
+      "id": "action-2cc23f23",
+      "kind": "action",
+      "name": "Explore",
+      "heading": "",
+      "text": "Follow the corridor",
+      "image": "./assets/img/corridor_02.png",
+      "conditions": [],
+      "costs": [],
+      "effects": [],
+      "resolution": "direct",
+      "check": {
+        "pool": [
+          {
+            "sides": 20,
+            "count": 1
+          }
+        ],
+        "modifier": 0,
+        "target": 10
+      },
+      "successEffects": [],
+      "failureEffects": [],
+      "visibility": "local"
+    },
+    {
+      "id": "action-7aec19fc",
+      "kind": "action",
+      "name": "New action",
+      "heading": "",
+      "text": "",
+      "image": "",
+      "conditions": [],
+      "costs": [],
+      "effects": [],
+      "resolution": "direct",
+      "check": {
+        "pool": [
+          {
+            "sides": 20,
+            "count": 1
+          }
+        ],
+        "modifier": 0,
+        "target": 10
+      },
+      "successEffects": [],
+      "failureEffects": [],
+      "visibility": "local"
+    },
+    {
+      "id": "action-a546c7c1",
+      "kind": "action",
+      "name": "Test",
+      "heading": "",
+      "text": "Contains",
+      "image": "",
+      "conditions": [],
+      "costs": [],
+      "effects": [],
+      "resolution": "direct",
+      "check": {
+        "pool": [
+          {
+            "sides": 20,
+            "count": 1
+          }
+        ],
+        "modifier": 0,
+        "target": 10
+      },
+      "successEffects": [],
+      "failureEffects": [],
+      "visibility": "local"
+    },
+    {
+      "id": "item-a7665b05",
+      "kind": "item",
+      "name": "New item",
+      "heading": "",
+      "showName": false,
+      "text": "",
+      "image": "",
+      "onCollect": [],
+      "visibility": "local"
+    },
+    {
+      "id": "item-69531d6d",
+      "kind": "item",
+      "name": "Flashlight",
+      "heading": "",
+      "text": "Perception: +2",
+      "image": "./assets/img/flashlight.png",
+      "onCollect": [],
+      "visibility": "local",
+      "showName": true
+    },
+    {
+      "id": "item-c7fa9c3b",
+      "kind": "item",
+      "name": "New item",
+      "heading": "",
+      "showName": false,
+      "text": "",
+      "image": "",
+      "onCollect": [],
+      "visibility": "local"
+    },
+    {
+      "id": "narrative-73cae086",
+      "kind": "narrative",
+      "name": "New narrative",
+      "heading": "",
+      "showName": false,
+      "text": "",
+      "image": "",
+      "effects": [],
+      "visibility": "shared"
+    },
+    {
+      "id": "narrative-aa1fa4f5",
+      "kind": "narrative",
+      "name": "New story",
+      "heading": "",
+      "showName": false,
+      "text": "",
+      "image": "",
+      "effects": [],
+      "visibility": "local"
+    },
+    {
+      "id": "action-2e5941af",
+      "kind": "action",
+      "name": "New action",
+      "heading": "",
+      "showName": false,
+      "text": "",
+      "image": "",
+      "conditions": [],
+      "costs": [],
+      "effects": [],
+      "resolution": "direct",
+      "check": {
+        "pool": [
+          {
+            "sides": 20,
+            "count": 1
+          }
+        ],
+        "modifier": 0,
+        "target": 10
+      },
+      "successEffects": [],
+      "failureEffects": [],
+      "visibility": "local"
+    },
+    {
+      "id": "narrative-5f8d1339",
+      "kind": "narrative",
+      "name": "The box",
+      "heading": "",
+      "text": "You approach a curious looking box",
+      "image": "./assets/img/090a49aa-cc2d-454d-a93b-aeb16d134a7f.jpeg",
+      "effects": [],
+      "flipImage": false,
+      "visibility": "local",
+      "showName": false
+    },
+    {
+      "id": "item-6332975a",
+      "kind": "item",
+      "name": "Flashlight",
+      "heading": "",
+      "text": "",
+      "image": "./assets/img/flashlight.png",
+      "onCollect": [],
+      "visibility": "local"
+    },
+    {
+      "id": "item-59af8406",
+      "kind": "item",
+      "name": "Flashlight",
+      "heading": "",
+      "text": "",
+      "image": "./assets/img/flashlight.png",
+      "onCollect": [],
+      "visibility": "local"
+    },
+    {
+      "id": "action-4f013724",
+      "kind": "action",
+      "name": "Explore",
+      "heading": "",
+      "text": "Follow the corridor",
+      "image": "./assets/img/corridor_02.png",
+      "conditions": [],
+      "costs": [],
+      "effects": [],
+      "resolution": "direct",
+      "check": {
+        "pool": [
+          {
+            "sides": 20,
+            "count": 1
+          }
+        ],
+        "modifier": 0,
+        "target": 10
+      },
+      "successEffects": [],
+      "failureEffects": [],
+      "visibility": "local",
+      "showName": false
+    }
+  ],
+  "variables": [
+    {
+      "id": "energy",
+      "type": "number",
+      "initial": 3,
+      "min": 0,
+      "max": 10
+    }
+  ],
+  "chapters": [
+    {
+      "id": "chapter-1",
+      "name": "First expedition",
+      "startNode": "arrival",
+      "nodes": [
+        {
+          "id": "arrival",
+          "name": "Start",
+          "type": "linear",
+          "x": 22.185318398423085,
+          "y": 160.08808724447616,
+          "cards": [
+            {
+              "id": "arrival-card",
+              "definitionId": "arrival"
+            }
+          ],
+          "connections": {
+            "next": "supplies"
+          }
+        },
+        {
+          "id": "supplies",
+          "name": "Supplies",
+          "type": "container",
+          "x": 339.80688823861345,
+          "y": 182.13064854707562,
+          "intro": {
+            "id": "supply-intro",
+            "definitionId": "narrative-5f8d1339"
+          },
+          "items": [
+            {
+              "id": "supply-flashlight",
+              "definitionId": "item-69531d6d"
+            },
+            {
+              "id": "placement-7d28a7ed",
+              "definitionId": "flashlight"
+            }
+          ],
+          "connections": {
+            "next": "route"
+          },
+          "introEnabled": true
+        },
+        {
+          "id": "route",
+          "name": "Choose a route",
+          "type": "fork",
+          "x": 661.0720656529281,
+          "y": 157.59584583488308,
+          "choices": [
+            {
+              "id": "explore-choice",
+              "definitionId": "action-4f013724"
+            },
+            {
+              "id": "placement-de4f3e27",
+              "definitionId": "action-a546c7c1"
+            },
+            {
+              "id": "placement-457625f6",
+              "definitionId": "action-2e5941af"
+            }
+          ],
+          "connections": {
+            "explore-choice": "encounter",
+            "placement-de4f3e27": "encounter",
+            "placement-457625f6": "node-2f5bf7f6"
+          }
+        },
+        {
+          "id": "encounter",
+          "name": "Random encounter",
+          "type": "random",
+          "x": 931.884765625,
+          "y": 10.897875786105846,
+          "routes": [
+            {
+              "id": "quiet",
+              "target": "quiet-passage",
+              "weight": 1,
+              "conditions": []
+            }
+          ],
+          "fallback": "node-2f5bf7f6"
+        },
+        {
+          "id": "quiet-passage",
+          "name": "Quiet passage",
+          "type": "linear",
+          "x": 1271.7320128391236,
+          "y": 99.25927833695334,
+          "cards": [
+            {
+              "id": "placement-2d39de15",
+              "definitionId": "narrative-73cae086"
+            }
+          ],
+          "connections": {
+            "next": null
+          }
+        },
+        {
+          "id": "node-2f5bf7f6",
+          "name": "New linear",
+          "type": "linear",
+          "x": 966.7630270600146,
+          "y": 533.9299700766528,
+          "connections": {
+            "next": "quiet-passage"
+          },
+          "cards": [
+            {
+              "id": "placement-21166d91",
+              "definitionId": "narrative-aa1fa4f5"
+            }
+          ]
+        }
+      ],
+      "backImage": "./assets/img/cardback.png"
+    }
+  ]
+}

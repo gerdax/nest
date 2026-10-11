@@ -21,12 +21,12 @@ globalThis.matchMedia=()=>Object.assign(new EventTarget(),{matches:false}); glob
 const fixture=(n,id='choices')=>({id,actions:Array.from({length:n},(_,i)=>({id:`a${i}`,label:`Choice ${i}`}))});
 function step(ms=16) { now+=ms; const callbacks=[...frames.values()];frames.clear();callbacks.forEach(fn=>fn(now)); }
 function settle() { for(let i=0;frames.size && i<2500;i++)step();assert.equal(frames.size,0); }
-function make(n=4) { const d=new CardDeck(new Element(),{content:fixture(n)}); d.setOpen(true);d.schedule();settle();return d; }
+function make(n=4) { const d=new CardDeck(new Element(),{content:fixture(n),settings:{choiceStaggerMs:30,choiceFollowerRatio:1}}); d.setOpen(true);d.schedule();settle();return d; }
 const g=y=>({axis:'y',x:0,y,vx:0,vy:0});
 const near=(a,b,message)=>assert.ok(Math.abs(a-b)<1e-8,`${message}: ${a} != ${b}`);
 
 test('chosen defaults and signed/zero motion tuning are complete',()=>{
-  const expected={stiffness:360,damping:56,mass:1.15,maxTilt:12,axisThreshold:34,distanceThreshold:.14,flickVelocity:325,flickDistance:26,commitDuration:210,perspective:1200,stackDepth:22,liftHeight:56,grabLift:24,angularStiffness:350,angularDamping:65,gravity:800,choiceStaggerMs:30,flipLeadMs:100,flipAxisTilt:-1,revealStartScale:.915,revealFullScaleAt:0.167054298371648};
+  const expected={stiffness:440,damping:70,mass:1.15,maxTilt:12,axisThreshold:34,distanceThreshold:.14,flickVelocity:325,flickDistance:26,commitDuration:210,perspective:1200,stackDepth:22,liftHeight:56,grabLift:24,angularStiffness:350,angularDamping:65,gravity:800,choiceStaggerMs:0,choiceFollowerRatio:.7,flipLeadMs:100,flipAxisTilt:-1,revealStartScale:.915,revealFullScaleAt:0.167054298371648};
   assert.deepEqual(DEFAULT_SETTINGS,expected);assert.deepEqual(JSON.parse(JSON.stringify(settingsWith())),expected);
   const settings=settingsWith({choiceStaggerMs:0,flipLeadMs:0,flipAxisTilt:-9});assert.equal(settings.choiceStaggerMs,0);assert.equal(settings.flipLeadMs,0);assert.equal(settings.flipAxisTilt,-9);
 });
@@ -93,4 +93,33 @@ for(const moment of ['before-turn','during-turn']) test(`resize ${moment} safely
 test('live camera and axis edits during the overlapping turn adopt safely',()=>{
   const d=make(4);d.mount.top=500;d.addEventListener('commit',()=>d.replaceContent(fixture(2,'tuned')));d.commit();step(240);assert.equal(d.nextFlip.target,0);
   d.updateSettings({flipAxisTilt:-10,perspective:650});assert.equal(d.content.id,'tuned');assert.equal(d.flip.x,0);assert.equal(d.settings.flipAxisTilt,-10);assert.equal(d.busy,false);d.destroy();
+});
+
+
+for(const count of [1,2,3,5])test(`${count} choices spread drag distance from 100 percent to 70 percent`,()=>{
+ const d=make(count);d.updateSettings({choiceStaggerMs:0,choiceFollowerRatio:.7});const rest=d.cards.map((_,i)=>cardPose(d,i,now));
+ d.start();d.move(g(-100));
+ for(let i=0;i<count;i++){
+  const rank=d.choiceRanks.get(d.content.actions[i].id),ratio=count===1?1:1-.3*rank/(count-1);
+  near(d.choiceLift(i,now),100*ratio,'rank distance');near(cardPose(d,i,now).y,rest[i].y-100*ratio,'physical distance');
+ }
+ assert.equal(d.followersMoving(now),false,'distance difference is not unfinished motion');d.cancel();settle();assert.equal(d.frame,0);d.destroy();
+});
+test('partial-distance choice followers preserve commit continuity and completely clear the deck',()=>{
+ const d=make(4);d.updateSettings({choiceStaggerMs:0,choiceFollowerRatio:.7});d.start();d.move(g(-140));const before=d.cards.map((_,i)=>cardPose(d,i,now));
+ d.addEventListener('commit',()=>d.replaceContent(fixture(2,'ratio-next')));d.end({...g(-140),vy:-800});
+ d.cards.forEach((_,i)=>near(cardPose(d,i,now).y,before[i].y,'commit boundary'));settle();assert.equal(d.content.id,'ratio-next');assert.equal(d.busy,false);assert.equal(d.frame,0);d.destroy();
+});
+test('follower distance tuning clamps to zero through one',()=>{
+ assert.equal(settingsWith({choiceFollowerRatio:-1}).choiceFollowerRatio,0);assert.equal(settingsWith({choiceFollowerRatio:2}).choiceFollowerRatio,1);
+});
+
+
+test('fractional travel combines with rank delay and zero travel settles normally',()=>{
+ const d=make(3);d.updateSettings({choiceStaggerMs:30,choiceFollowerRatio:.7});d.start();d.move(g(-1));
+ for(let t=10;t<=140;t+=10){step(10);d.move(g(-t));}
+ for(let i=0;i<3;i++){const rank=d.choiceRanks.get(d.content.actions[i].id);near(d.choiceLift(i,now),(140-rank*30)*(1-.3*rank/2),'delayed fractional travel');}
+ d.cancel();settle();d.updateSettings({choiceStaggerMs:0,choiceFollowerRatio:0});d.start();d.move(g(-100));
+ for(let i=0;i<3;i++){const rank=d.choiceRanks.get(d.content.actions[i].id);near(d.choiceLift(i,now),100*(1-rank/2),'zero deepest travel');}
+ d.cancel();settle();assert.equal(d.frame,0);d.destroy();
 });

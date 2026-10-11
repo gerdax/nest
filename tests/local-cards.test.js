@@ -1,10 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createProject,compileChapter,exportChapter,importChapter,validateProject,parseProject} from '../project/model.js';
-import {createNode,replaceCard,promoteCard,synchronizeConnections,duplicateNode} from '../studio/commands.js';
+import {createNode,replaceCard,promoteCard,synchronizeConnections,duplicateNode,setCardSource} from '../studio/commands.js';
 import {nodeInspector} from '../studio/inspectors.js';
 import {saveProject,loadProject} from '../project/storage.js';
 import {DocumentHistory} from '../editor/DocumentHistory.js';
+
+test('Fork introductions retain local authoring, toggle data, export and independent duplication',()=>{
+ const project=createProject(),chapter=project.chapters[0],node=createNode(project,'fork');chapter.nodes.push(node);chapter.startNode=node.id;synchronizeConnections(project);
+ const intro=project.library.find(d=>d.id===node.intro.definitionId);intro.text='Before the choice';
+ assert.equal(intro.visibility,'local');assert.equal(node.introEnabled,true);assert.match(nodeInspector(project,chapter,node),/Fork introduction/);
+ node.introEnabled=false;assert.doesNotMatch(nodeInspector(project,chapter,node),new RegExp(`data-placement="${node.intro.id}"`));assert.equal(intro.text,'Before the choice');
+ node.introEnabled=true;assert.deepEqual(validateProject(project),[]);
+ const imported=importChapter(createProject(),exportChapter(project));const restored=imported.chapters.at(-1).nodes.find(n=>n.name===node.name);
+ assert.equal(restored.introEnabled,true);assert.equal(compileChapter(imported,imported.chapters.at(-1).id).nodes.find(n=>n.id===restored.id).intro.text,intro.text);
+ const copy=duplicateNode(project,node);assert.notEqual(copy.intro.definitionId,node.intro.definitionId);
+ node.intro.definitionId=node.choices[0].definitionId;assert.ok(validateProject(project).some(e=>e.message.includes('incompatible card kind')));
+});
 
 test('every native card slot starts local, edits inline, and promotes without changing identity',()=>{
  const project=createProject(),chapter=project.chapters[0];
@@ -25,9 +37,9 @@ test('every native card slot starts local, edits inline, and promotes without ch
 test('independent item copies get new identity, while promotion keeps inventory references',()=>{
  const project=createProject(),n=project.chapters[0].nodes.find(n=>n.type==='container'),p=n.items[0];
  const source=project.library.find(d=>d.id===p.definitionId);source.inventoryKey='old-alias';
- p.quantity=3;p.conditions=[{source:'variable',key:project.variables[0].id,op:'eq',value:project.variables[0].initial}];
+ p.conditions=[{source:'variable',key:project.variables[0].id,op:'eq',value:project.variables[0].initial}];
  const before=structuredClone(p),d=replaceCard(project,p,'item',{copy:true});
- assert.notEqual(d.id,source.id);assert.equal(d.inventoryKey,undefined);assert.equal(p.id,before.id);assert.equal(p.quantity,3);assert.deepEqual(p.conditions,before.conditions);
+ assert.notEqual(d.id,source.id);assert.equal(d.inventoryKey,undefined);assert.equal(p.id,before.id);assert.deepEqual(p.conditions,before.conditions);
  project.library.find(d=>d.kind==='action').costs=[{source:'inventory',key:d.id,amount:1}];
  promoteCard(project,p);assert.equal(project.library.find(d=>d.kind==='action').costs[0].key,d.id);
  d.name='Updated';assert.equal(compileChapter(project).nodes.find(c=>c.id===n.id).items[0].name,'Updated');
@@ -64,11 +76,22 @@ test('disabled intro panel retains data and existing saves default to shared and
 test('copies and duplicated nodes remap item self references and legacy inventory aliases',()=>{
  const project=createProject(),n=createNode(project,'container');project.chapters[0].nodes.push(n);
  const p=n.items[0],source=project.library.find(d=>d.id===p.definitionId);source.inventoryKey='self-alias';
- source.use={conditions:[{source:'inventory',key:source.id,op:'has'},{source:'inventory',key:'self-alias',op:'has'}],effects:[{op:'addItem',key:source.id,quantity:1}]};
+ source.use={conditions:[{source:'inventory',key:source.id,op:'has'},{source:'inventory',key:'self-alias',op:'has'}],effects:[{op:'addItem',key:source.id}]};
  const copy=replaceCard(project,p,'item',{copy:true});
  assert.ok(copy.use.conditions.every(c=>c.key===copy.id));assert.equal(copy.use.effects[0].key,copy.id);
  copy.inventoryKey='copied-alias';copy.use.conditions.push({source:'inventory',key:'copied-alias',op:'has'});
  const duplicated=duplicateNode(project,n),d=project.library.find(d=>d.id===duplicated.items[0].definitionId);
  assert.notEqual(d.id,copy.id);assert.ok(d.use.conditions.every(c=>c.key===d.id));assert.equal(d.use.effects[0].key,d.id);assert.equal(d.inventoryKey,undefined);
  d.name='Independent';assert.notEqual(copy.name,d.name);
+});
+
+
+test('Custom card source opens an independent same-type copy and library options stay compatible',()=>{
+ const project=createProject(),node=project.chapters[0].nodes.find(n=>n.type==='linear'),p=node.cards[0],original=project.library.find(d=>d.id===p.definitionId),id=p.id;
+ const sharedId=original.id;setCardSource(project,p,'');const local=project.library.find(d=>d.id===p.definitionId);
+ assert.equal(local.visibility,'local');assert.equal(local.kind,'narrative');assert.equal(local.text,original.text);assert.equal(p.id,id);
+ const count=project.library.length;setCardSource(project,p,'');assert.equal(project.library.length,count);
+ const html=nodeInspector(project,project.chapters[0],node);assert.match(html,/<option value="" selected>Custom card/);assert.match(html,/local-definition/);assert.doesNotMatch(html,/Choose library card/);
+ assert.throws(()=>setCardSource(project,p,'flashlight'),/same type/);assert.equal(p.definitionId,local.id);
+ setCardSource(project,p,sharedId);assert.equal(p.definitionId,original.id);assert.equal(p.id,id);
 });

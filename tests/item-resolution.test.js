@@ -190,3 +190,14 @@ for (const resolution of ['collect', 'discard']) test(`rapid browsing resolves a
   assert.equal(deck.cards.length, 1);
   dispose(deck); globalThis.innerHeight = savedHeight;
 });
+
+
+for(const transition of ['collect','discard'])for(const shown of [false,true])test(`surviving item keeps authored heading throughout ${transition}, shown=${shown}`,()=>{
+ const content=fixture(2);content.actions=content.actions.map((a,i)=>({...a,cardKind:'item',heading:shown?`Authored ${i}`:'',text:`Description ${i}`}));
+ const deck=make(2,content);ready(deck);deck[transition]();
+ const check=()=>deck.cardTitles.forEach((title,i)=>{
+  assert.equal(title.textContent,deck.content.actions[i].heading);assert.equal(title.hidden,!shown);assert.doesNotMatch(title.textContent,/ITEM \d+\s*\//);
+ });
+ check();for(let i=0;frames.size&&i<2000;i++){step();check();}
+ assert.equal(frames.size,0);assert.equal(deck.content.actions.length,1);check();dispose(deck);
+});

@@ -105,7 +105,7 @@ test('chapter image backs reach story, successor and decision cards; clearing re
   const controller = new ChapterController(deck, chapter);
   assert.equal(deck.content.backImage, 'back.png');
   assert.equal(deck.sceneBack.style.backgroundImage, 'url("back.png")');
-  assert.equal(deck.sceneBack.children.length, 0, 'custom image replaces the frame and mark');
+  assert.deepEqual(deck.sceneBack.children.map(child=>child.className), ['nest-card-texture'], 'custom image retains only the texture overlay');
   assert.equal(deck.underlayBack.style.backgroundImage, 'url("back.png")');
   stageNextContent(deck, {image:'front.png',text:'Future'});
   assert.equal(deck.underlayBack.style.backgroundImage, 'url("back.png")', 'simple successor preview retains chapter back');
@@ -114,7 +114,7 @@ test('chapter image backs reach story, successor and decision cards; clearing re
   assert.equal(previous.cardBacks[0].style.backgroundImage, 'url("back.png")');
   const next = stageActionDeck(deck, {...content,backImage:''},0,previous);
   assert.equal(next.cardBacks[0].style.backgroundImage, '');
-  assert.equal(next.cardBacks[0].children[0].children[0].textContent, 'NEST');
+  assert.equal(next.cardBacks[0].children.find(child=>child.className==='nest-back-frame').children[0].textContent, 'NEST');
   dispose(deck, controller);
 });
 

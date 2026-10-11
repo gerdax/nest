@@ -252,18 +252,24 @@ export class CardDeck extends EventTarget {
     if (this.choiceHistory && !this.commitMotion) this.choiceHistory.record(time, this.l.x);
   }
 
+  choiceTravelRatio(index) {
+    if(this.content.interaction !== 'choice' || !this.choiceHistory || this.cards.length < 2)return 1;
+    const rank=this.choiceRanks.get(this.content.actions[index]?.id) || 0;
+    return 1-(1-this.settings.choiceFollowerRatio)*rank/(this.cards.length-1);
+  }
+
   choiceLift(index, time = performance.now()) {
     const height = this.mount.getBoundingClientRect().height;
     const delay = this.reduced ? 0 : (this.choiceRanks.get(this.content.actions[index]?.id) || 0) * this.settings.choiceStaggerMs;
     const sampleTime = time - delay;
     if (this.commitMotion && sampleTime >= this.commitMotion.start) {
-      return this.commitMotion.lift * height + departureDistance(this.commitMotion, sampleTime);
+      return this.commitMotion.lift * height * this.choiceTravelRatio(index) + departureDistance(this.commitMotion, sampleTime);
     }
-    return (this.choiceHistory ? this.choiceHistory.at(sampleTime) : this.l.x) * height;
+    return (this.choiceHistory ? this.choiceHistory.at(sampleTime) : this.l.x) * height * this.choiceTravelRatio(index);
   }
 
   followersMoving(time) {
-    return !!this.choiceHistory && this.cards.some((_, i) => Math.abs(this.choiceLift(i, time) / this.mount.getBoundingClientRect().height - this.l.x) > .000001);
+    return !!this.choiceHistory && this.cards.some((_, i) => Math.abs(this.choiceLift(i, time) / this.mount.getBoundingClientRect().height - this.l.x*this.choiceTravelRatio(i)) > .000001);
   }
 
   tryEarlyFlip(time) {
@@ -284,8 +290,8 @@ export class CardDeck extends EventTarget {
     this.choiceHistory = null;
     this.choiceRanks.clear();
     this.l.x = lift;
-    this.createReflow(poses);
     this.beginChoiceHistory(time);
+    this.createReflow(poses);
   }
 
   start(event) {
@@ -643,7 +649,7 @@ export class CardDeck extends EventTarget {
   departureMotion(pointerVelocity) {
     const duration = this.settings.commitDuration;
     const seconds = duration / 1000;
-    const distance = Math.max(120, this.departureTravel() - this.l.x * this.mount.getBoundingClientRect().height);
+    const distance = Math.max(120, this.departureTravel() - this.l.x * this.mount.getBoundingClientRect().height * (this.content.interaction==='choice'&&this.cards.length>1?this.settings.choiceFollowerRatio:1));
     const gravity = Math.min(this.settings.gravity, distance / (seconds * seconds));
     return {
       start: performance.now(), duration, continueFlight: this.grabCards.size > 0,
@@ -755,7 +761,6 @@ export class CardDeck extends EventTarget {
     this.rotationZ = spring();
     this.liftPoses = null;
     this.createReflow(poses);
-    this.cardTitles.forEach((title, i) => { title.textContent = `ITEM ${String(i + 1).padStart(2, '0')} / ${count}`; });
     this.reflowOrder = oldOrder;
     this.operation = motion.transition;
     if (!count) {
@@ -832,7 +837,7 @@ export class CardDeck extends EventTarget {
     this.render();
   }
 
-  replaceContent(content, { presentation = 'closed', transition = 'flip' } = {}) {
+  replaceContent(content, { presentation = 'closed', transition = 'flip', animate = true } = {}) {
     if (this.destroyed) return;
     if (!['closed', 'open'].includes(presentation)) throw new TypeError('Unknown presentation');
     if (!['flip', 'reveal'].includes(transition)) throw new TypeError('Unknown content transition');
@@ -855,6 +860,12 @@ export class CardDeck extends EventTarget {
     }
     this.reset();
     this.install(next, { open: presentation === 'open' });
+    if (presentation === 'open' && !animate) {
+      this.fan = spring(1);
+      this.phase = 'choices';
+      this.operation = null;
+      this.render();
+    }
     if (presentation === 'open') {
       this.schedule();
     }
@@ -967,7 +978,7 @@ export class CardDeck extends EventTarget {
     // Live geometry edits can invalidate a turn that has already begun. Adopt
     // safely rather than rotating into a departing card's newly projected area.
     if (this.commitMotion && this.nextFlip.target === 0
-      && ['perspective', 'flipAxisTilt', 'maxTilt', 'stackDepth', 'liftHeight', 'grabLift'].some(key => Number.isFinite(patch[key]))) {
+      && ['perspective', 'flipAxisTilt', 'maxTilt', 'stackDepth', 'liftHeight', 'grabLift', 'choiceFollowerRatio'].some(key => Number.isFinite(patch[key]))) {
       this.finishMotion();
       return;
     }

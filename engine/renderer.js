@@ -3,6 +3,13 @@ import { carouselPose, clamp, departureDistance, revealScale } from './motion.js
 
 function flipped(action) { return !!action.flipImage; }
 
+function cardTexture() {
+  const texture = document.createElement('div');
+  texture.className = 'nest-card-texture';
+  texture.setAttribute('aria-hidden', 'true');
+  return texture;
+}
+
 function layerFor(deck, card, className = '') {
   const layer = document.createElement('div');
   layer.className = `nest-card-layer ${className}`.trim();
@@ -15,6 +22,7 @@ function decorateBack(back, image = '') {
   back.className = `nest-card nest-card-back${image ? ' nest-card-back-image' : ''}`;
   back.style.backgroundImage = image ? `url(${JSON.stringify(image)})` : '';
   back.replaceChildren();
+  back.append(cardTexture());
   if (image) return;
   const frame = document.createElement('div');
   frame.className = 'nest-back-frame';
@@ -126,7 +134,7 @@ export function decorateCard(deck, element, image, title, text, flipImage = fals
     copy.append(summary);
   }
   copy.append(body);
-  element.append(copy, artwork);
+  element.append(copy, artwork, cardTexture());
   return heading;
 }
 

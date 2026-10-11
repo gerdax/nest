@@ -10,7 +10,7 @@ export class ProjectPreview {
     this.root = root;
     this.onChange = onChange;
     this.deckSettings = { ...deckSettings };
-    this.root.innerHTML = '<section class="project-preview"><div class="chapter-preview-stage"><div class="chapter-preview-deck" tabindex="0"></div></div><p data-status role="status">Stopped.</p><p class="small">↑ advance / choose / discard · ↓ take item · ← → browse · Esc cancel gesture</p><details data-state hidden><summary>Run state</summary><pre></pre></details><section data-inventory></section><div class="check-overlay" hidden role="dialog" aria-modal="true" aria-label="Action check"><div class="check-panel"><h3>Resolving attempt</h3><div class="check-tray"></div><p data-result role="status"></p><button data-cancel type="button">Cancel attempt</button></div></div></section>';
+    this.root.innerHTML = '<section class="project-preview"><div class="chapter-preview-stage"><div class="chapter-preview-deck" tabindex="0"></div></div><p data-status role="status">Stopped.</p><details data-state hidden><summary>Run state</summary><pre></pre></details><section data-inventory></section><div class="check-overlay" hidden role="dialog" aria-modal="true" aria-label="Action check"><div class="check-panel"><h3>Resolving attempt</h3><div class="check-tray"></div><p data-result role="status"></p><button data-cancel type="button">Cancel attempt</button></div></div></section>';
     this.mount = root.querySelector('.chapter-preview-deck');
     this.status = root.querySelector('[data-status]');
     this.overlay = root.querySelector('.check-overlay');
@@ -48,7 +48,8 @@ export class ProjectPreview {
     if (state.checking || (this.errorMessage && this.errorNode !== state.activeNodeId)) this.errorMessage = null;
     this.state = state;
     const node = this.compiled?.nodes.find(node => node.id === state.activeNodeId);
-    this.status.textContent = this.errorMessage || (state.completed ? 'Chapter complete.' : state.checking ? 'Resolving attempt…' : `Playing · ${node?.name || ''}`);
+    const nodeType = { linear: 'Linear', fork: 'Fork', container: 'Container', random: 'Random', legacySequence: 'Legacy sequence', legacyPool: 'Legacy Random' }[node?.type] || node?.type || '';
+    this.status.textContent = this.errorMessage || (state.completed ? 'Chapter complete.' : state.checking ? 'Resolving attempt…' : `Playing · ${node?.name || ''} · ${nodeType}`);
     this.stateReadout.hidden = !Object.keys(state.variables || {}).length;
     this.stateReadout.querySelector('pre').textContent = JSON.stringify(state.variables || {}, null, 2);
     this.inventory.update(state.collectedItems || [], { busy: !state.idle, variables: this.compiled?.variables || [], values: state.variables, library: this.compiled?.library || [] });

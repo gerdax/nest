@@ -1,0 +1,6 @@
+/* Wide transparent paths make existing connections easy to grab. */
+#edges .edge-hit {stroke:transparent;stroke-width:16;pointer-events:stroke;cursor:crosshair;vector-effect:non-scaling-stroke;}
+#edges .edge-line {pointer-events:none;}
+#edges .edge-ghost {stroke:#b7e4d3;stroke-width:3;stroke-dasharray:6 4;pointer-events:none;}
+#canvas .node.connection-target {outline:3px solid #b7e4d3;box-shadow:0 0 16px #b7e4d355;}
+#canvas .port {cursor:crosshair;}

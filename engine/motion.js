@@ -69,8 +69,8 @@ export function settingsWith(patch = {}, base = DEFAULT_SETTINGS) {
   };
   for (const key of Object.keys(DEFAULT_SETTINGS)) {
     if (Number.isFinite(patch[key])) {
-      const min = ['maxTilt', 'liftHeight', 'grabLift', 'gravity', 'choiceStaggerMs', 'flipLeadMs'].includes(key) ? 0 : key === 'distanceThreshold' ? 0.05 : key === 'perspective' ? 400 : key === 'flipAxisTilt' ? -10 : 0.01;
-      const max = key === 'choiceStaggerMs' ? 60 : key === 'flipLeadMs' ? 100 : key === 'flipAxisTilt' ? 10 : Infinity;
+      const min = ['maxTilt', 'liftHeight', 'grabLift', 'gravity', 'choiceStaggerMs', 'choiceFollowerRatio', 'flipLeadMs'].includes(key) ? 0 : key === 'distanceThreshold' ? 0.05 : key === 'perspective' ? 400 : key === 'flipAxisTilt' ? -10 : 0.01;
+      const max = key === 'choiceFollowerRatio' ? 1 : key === 'choiceStaggerMs' ? 60 : key === 'flipLeadMs' ? 100 : key === 'flipAxisTilt' ? 10 : Infinity;
       result[key] = clamp(patch[key], min, max);
       if (['revealStartScale', 'revealFullScaleAt'].includes(key)) result[key] = Math.min(1, result[key]);
     }

@@ -1,14 +1,15 @@
 import { DocumentHistory } from '../editor/DocumentHistory.js';
-import { createDefinition } from '../project/cards.js';
+import { createDefinition, allowedCardKinds } from '../project/cards.js';
 import { createProject,createChapter,validateProject,parseProject,definitionUsers,exportChapter,importChapter } from '../project/model.js';
 import { loadProject,saveProject } from '../project/storage.js';
 import { GraphView } from './GraphView.js';
 import { ProjectPreview } from './ProjectPreview.js';
 import { definitionInspector,nodeInspector,variableInspector } from './inspectors.js';
 import { esc } from './forms.js';
+import { mountPreviewWindow } from './preview-window.js';
 import { renderCardPreviews } from './card-preview.js';
 import { bindImagePicker } from './image-picker.js';
-import { uid,createNode,makePlacement,replaceCard,promoteCard,duplicateNode,findPlacement,pathTarget,synchronizeConnections,customizeAction,newRule,normalizeRule } from './commands.js';
+import { uid,createNode,makePlacement,replaceCard,setCardSource,promoteCard,duplicateNode,findPlacement,pathTarget,synchronizeConnections,customizeAction,newRule,normalizeRule } from './commands.js';
 
 const $=s=>document.querySelector(s),loaded=loadProject();
 let project=loaded.project||createProject(),chapterId=project.activeChapterId,selected=project.chapters.find(c=>c.id===chapterId)?.startNode,definitionId=project.library.find(d=>d.visibility!=='local')?.id,mode='chapter';
@@ -17,6 +18,8 @@ const chapter=()=>project.chapters.find(c=>c.id===chapterId)||project.chapters[0
 const node=()=>chapter().nodes.find(n=>n.id===selected);
 const definition=()=>project.library.find(d=>d.id===definitionId);
 const preview=new ProjectPreview($('#preview'),{onChange:()=>renderGraph()});
+const previewWindow=mountPreviewWindow($('#preview-window'),{onClose:()=>preview.stop()});
+$('#show-preview').onclick=()=>previewWindow.show();
 const graph=new GraphView($('#canvas'),{
  onSelect:id=>{selected=id;renderInspector();renderGraph();},
  onConnect:(id,exit,target)=>edit(()=>setConnection(chapter().nodes.find(n=>n.id===id),exit,target)),
@@ -68,12 +71,13 @@ function scopeRoot(scope,element){
  if(scope==='placement')return findPlacement(node(),element.closest('[data-placement]')?.dataset.placement);
 }
 function changeField(event){const el=event.target,path=el.dataset.path,scope=el.dataset.scope;if(!path)return;
- if(path==='definitionId'&&!el.value){renderInspector();return;}
  edit(()=>{
   if(scope==='connection'){setConnection(node(),path,el.value||null);return;}
   if(scope==='initial-toggle'){chapter().initialValues||={};if(el.checked)chapter().initialValues={...chapter().initialValues,[path]:project.variables.find(v=>v.id===path).initial};else delete chapter().initialValues[path];return;}
   if(scope==='initial-value'){const variable=project.variables.find(v=>v.id===path);const value=variable.type==='flag'?el.value==='true':Number(el.value);chapter().initialValues={...(chapter().initialValues||{}),[path]:value};return;}
   const root=scopeRoot(scope,el);if(!root)return;
+  if(scope==='node'&&path==='introEnabled'&&el.checked&&root.type==='fork'&&!root.intro)root.intro=makePlacement(project,'narrative','Fork introduction');
+  if(scope==='placement'&&path==='definitionId'){setCardSource(project,root,el.value,{allowedKinds:allowedCardKinds(node().type,node().intro===root?'intro':node().type==='container'?'items':'cards')});return;}
   if(path==='itemBehaviour'){if(el.value==='consumable')root.use={effects:[],conditions:[]};else delete root.use;return;}
   const {parent,key}=pathTarget(root,path);let value=el.type==='checkbox'?el.checked:el.type==='number'||key==='sides'?Number(el.value):el.value;
   if((['value','initial'].includes(key)||path.startsWith('initialValues.'))&&['true','false'].includes(value))value=value==='true';
@@ -105,7 +109,7 @@ function command(event){const b=event.target.closest('[data-command]');if(!b)ret
   const n=node(),p=findPlacement(n||{},b.dataset.placement);
   if(cmd==='add-rule'){const root=scopeRoot(b.dataset.scope,b),{parent,key}=pathTarget(root,b.dataset.path);parent[key]||=[];parent[key].push(newRule(project,b.dataset.ruleKind));}
   if(cmd==='remove-rule'){const root=scopeRoot(b.dataset.scope,b),{parent,key}=pathTarget(root,b.dataset.path);parent[key].splice(Number(b.dataset.index),1);}
-  if(cmd==='new-card'||cmd==='local-copy')replaceCard(project,p,b.dataset.kind,{copy:cmd==='local-copy'});
+  if(cmd==='local-copy')replaceCard(project,p,b.dataset.kind,{copy:true});
   if(cmd==='promote-card')promoteCard(project,p);
   if(cmd==='add-placement')n[b.dataset.slot].push(makePlacement(project,b.dataset.kind));
   if(cmd==='remove-placement')for(const slot of ['cards','choices','items'])if(n[slot])n[slot]=n[slot].filter(c=>c.id!==p.id);
@@ -137,7 +141,7 @@ function download(value,name){const url=URL.createObjectURL(new Blob([JSON.strin
 $('#export-project').onclick=()=>{const errors=validateProject(project);if(errors.length){report('Fix validation errors before exporting.');return;}download(project,`${project.name.replace(/[^a-z0-9]+/gi,'-')}.nest.json`);};
 $('#export-chapter').onclick=()=>{const errors=validateProject(project);if(errors.length){report('Fix validation errors before exporting.');return;}download(exportChapter(project,chapterId),`${chapter().name.replace(/[^a-z0-9]+/gi,'-')}.chapter.json`);};
 $('#import').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{const text=await file.text(),raw=JSON.parse(text),incoming=parseProject(text);preview.stop();edit(()=>{project=raw.kind==='nest-project'?incoming:importChapter(project,raw);chapterId=project.activeChapterId;selected=chapter().startNode;});graph.fit();}catch(error){report(`Import rejected: ${error.message}`);}e.target.value='';};
-function play(startNode){try{preview.play(project,chapterId,startNode);report('Chapter ready.');}catch(error){report(error.message);}}
+function play(startNode){try{previewWindow.show();preview.play(project,chapterId,startNode);report('Chapter ready.');}catch(error){report(error.message);}}
 $('#play').onclick=()=>play();$('#play-node').onclick=()=>play(selected);$('#restart').onclick=()=>play();$('#stop').onclick=()=>preview.stop();
-window.addEventListener('pagehide',()=>preview.destroy());
+window.addEventListener('pagehide',()=>{previewWindow.destroy();preview.destroy();});
 render();graph.fit();if(loaded.error)report(loaded.error);else if(loaded.migrated)report('Legacy save loaded; original browser save preserved.');

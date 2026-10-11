@@ -21,6 +21,17 @@ export function replaceCard(project,placement,kind,{copy=false}={}) {
  if(copy){delete definition.inventoryKey;remapInventory(definition,new Map([[source.id,definition.id],...(source.inventoryKey?[[source.inventoryKey,definition.id]]:[])]));}
  project.library.push(definition);placement.definitionId=definition.id;delete placement.overrides;return definition;
 }
+export function setCardSource(project,placement,definitionId,{allowedKinds}={}) {
+ const source=project.library.find(d=>d.id===placement.definitionId);
+ if(!source)throw new Error('Card definition is missing.');
+ if(!definitionId){
+  if(source.visibility!=='local')replaceCard(project,placement,source.kind,{copy:true});
+  return;
+ }
+ const target=project.library.find(d=>d.id===definitionId);
+ if(!target||!(allowedKinds || [source.kind]).includes(target.kind)||target.visibility==='local')throw new Error('Choose a shared library card of the same type.');
+ placement.definitionId=definitionId;delete placement.overrides;
+}
 export function promoteCard(project,placement) {
  const definition=project.library.find(d=>d.id===placement.definitionId);
  definition.visibility='shared';return definition;
@@ -40,7 +51,7 @@ export function duplicateNode(project,source) {
 export function createNode(project,type,position={x:100,y:100}) {
  const node={id:uid('node'),name:`New ${type}`,type,...position,connections:{}};
  if(type==='linear')node.cards=[makePlacement(project,'narrative','New story')];
- if(type==='fork')node.choices=[makePlacement(project,'action','Choice 1'),makePlacement(project,'action','Choice 2')];
+ if(type==='fork'){node.introEnabled=true;node.intro=makePlacement(project,'narrative','Fork introduction');node.choices=[makePlacement(project,'action','Choice 1'),makePlacement(project,'action','Choice 2')];}
  if(type==='container'){node.introEnabled=true;node.intro=makePlacement(project,'narrative','Container introduction');node.items=[makePlacement(project,'item','New item')];}
  if(type==='random'){node.routes=[{id:uid('route'),name:'Route 1',target:null,weight:1,conditions:[]}];node.fallback=null;delete node.connections;}
  return node;
@@ -75,8 +86,8 @@ export function newRule(project,kind) {
 }
 export function normalizeRule(project,rule,leaf) {
  const item=project.library.find(d=>d.kind==='item'),variable=project.variables.find(v=>v.type==='number')||project.variables[0];
- if(leaf==='source') {rule.key=rule.source==='inventory'?item?.id||'':variable?.id||'';if('op'in rule){rule.op=rule.source==='inventory'?'has':'eq';if(rule.source==='inventory')delete rule.value;else rule.value=variable?.initial??0;}}
- if(leaf==='op'&&['addItem','removeItem'].includes(rule.op)){rule.key=item?.id||'';rule.quantity=1;delete rule.value;}
+ if(leaf==='source') {if(rule.source==='inventory'&&'amount'in rule)rule.amount=1;rule.key=rule.source==='inventory'?item?.id||'':variable?.id||'';if('op'in rule){rule.op=rule.source==='inventory'?'has':'eq';if(rule.source==='inventory')delete rule.value;else rule.value=variable?.initial??0;}}
+ if(leaf==='op'&&['addItem','removeItem'].includes(rule.op)){rule.key=item?.id||'';delete rule.quantity;delete rule.value;}
  if(leaf==='op'&&['set','add'].includes(rule.op)){rule.key=variable?.id||'';rule.value=variable?.type==='flag'?false:0;delete rule.quantity;}
  if(leaf==='key'&&rule.source!=='inventory'&&!['addItem','removeItem'].includes(rule.op)){const v=project.variables.find(v=>v.id===rule.key);rule.value=v?.type==='flag'?false:0;if(v?.type==='flag'&&!['eq','neq','set'].includes(rule.op))rule.op='eq';}
  if(leaf==='op'&&['gte','lte'].includes(rule.op)&&rule.source==='inventory')rule.value=1;

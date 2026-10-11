@@ -19,18 +19,18 @@ export function rules(project,list=[],path,scope,kind) {
    const inventory=rule.source==='inventory';
    const candidates=inventory?items:vars;
    if(rule.key&&!candidates.some(([id])=>id===rule.key))candidates.push([rule.key,rule.key]);
-   fields=select('Source',rule.source,[['variable','Variable'],['inventory','Inventory']],`${p}.source`,scope)+select('Requirement',rule.key,candidates,`${p}.key`,scope)+select('Comparison',rule.op,inventory?[['has','Owned'],['missing','Missing'],['gte','Quantity at least'],['lte','Quantity at most']]:[['eq','Equals'],['neq','Not equal'],['gte','At least'],['lte','At most']],`${p}.op`,scope);
+   fields=select('Source',rule.source,[['variable','Variable'],['inventory','Inventory']],`${p}.source`,scope)+select('Requirement',rule.key,candidates,`${p}.key`,scope)+select('Comparison',rule.op,inventory?[['has','Owned'],['missing','Missing']]:[['eq','Equals'],['neq','Not equal'],['gte','At least'],['lte','At most']],`${p}.op`,scope);
    if(!['has','missing'].includes(rule.op)) {
     const flag=project.variables.find(v=>v.id===rule.key)?.type==='flag';
     fields+=flag?select('Value',String(rule.value),[['true','True'],['false','False']],`${p}.value`,scope):field('Value',rule.value,`${p}.value`,scope,'number');
    }
   } else if(kind==='costs') {
-   fields=select('Spend',rule.source,[['variable','Resource'],['inventory','Item']],`${p}.source`,scope)+select('Resource or item',rule.key,rule.source==='inventory'?items:vars,`${p}.key`,scope)+field('Amount',rule.amount,`${p}.amount`,scope,'number');
+   fields=select('Spend',rule.source,[['variable','Resource'],['inventory','Item']],`${p}.source`,scope)+select('Resource or item',rule.key,rule.source==='inventory'?items:vars,`${p}.key`,scope)+(rule.source==='inventory'?'<p class="small">Consumes this item.</p>':field('Amount',rule.amount,`${p}.amount`,scope,'number'));
   } else {
    const inventory=['addItem','removeItem'].includes(rule.op);
    fields=select('Operation',rule.op,[['set','Set variable'],['add','Add to variable'],['addItem','Add item'],['removeItem','Remove item']],`${p}.op`,scope)+select('Target',rule.key,inventory?items:vars,`${p}.key`,scope);
    const flag=project.variables.find(v=>v.id===rule.key)?.type==='flag';
-   fields+=inventory?field('Quantity',rule.quantity,`${p}.quantity`,scope,'number'):flag?select('Value',String(rule.value),[['true','True'],['false','False']],`${p}.value`,scope):field('Value',rule.value,`${p}.value`,scope,'number');
+   fields+=inventory?'':flag?select('Value',String(rule.value),[['true','True'],['false','False']],`${p}.value`,scope):field('Value',rule.value,`${p}.value`,scope,'number');
   }
   return `<div class="entry">${fields}${button('Remove','remove-rule',extras(scope,path,kind)+` data-index="${i}"`)}</div>`;
  }).join('');

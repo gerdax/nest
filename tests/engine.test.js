@@ -22,7 +22,7 @@ function ready(d){d.setOpen(true);settle(d);assert.equal(d.phase,'choices');asse
 function gesture(d,g){d.start();d.move(g);d.end(g);settle(d)}
 test('axis waits for threshold and locks to dominant direction',()=>{assert.equal(classifyAxis(4,4),null);assert.equal(classifyAxis(34,12),'x');assert.equal(classifyAxis(12,-34),'y')});
 test('distance and directional flick acceptance',()=>{assert.equal(qualifies(47,0,340),false);assert.equal(qualifies(48,0,340),true);assert.equal(qualifies(-26,-800,453),true);assert.equal(qualifies(-26,800,453),false);assert.equal(qualifies(25,900,453),false)});
-test('resistance and settings validation',()=>{assert.equal(resistance(-1,0,2),-.22);assert.equal(resistance(3,0,2),2.22);assert.equal(settingsWith({mass:-1,stiffness:NaN}).stiffness,360);assert.ok(settingsWith({mass:0}).mass>0)});
+test('resistance and settings validation',()=>{assert.equal(resistance(-1,0,2),-.22);assert.equal(resistance(3,0,2),2.22);assert.equal(settingsWith({mass:-1,stiffness:NaN}).stiffness,440);assert.ok(settingsWith({mass:0}).mass>0)});
 test('spring converges and long pauses stay finite',()=>{const s=spring(1);s.target=0;springStep(s,50,DEFAULT_SETTINGS);assert.ok(Number.isFinite(s.x));for(let i=0;i<300;i++)springStep(s,1/60,DEFAULT_SETTINGS);assert.equal(s.x,0);assert.equal(s.v,0)});
 test('partial reveal returns closed; full reveal emits once',()=>{const d=deck();let reveals=0;d.addEventListener('reveal',()=>reveals++);gesture(d,{axis:'y',x:0,y:-60,vx:0,vy:0});assert.equal(d.open,false);assert.equal(d.p.x,0);gesture(d,{axis:'y',x:0,y:-130,vx:0,vy:0});assert.equal(d.open,true);assert.equal(d.p.x,1);assert.equal(reveals,1);d.destroy()});
 function key(d,name){const event=new Event('keydown',{cancelable:true});Object.defineProperty(event,'key',{value:name});d.mount.dispatchEvent(event);settle(d)}
@@ -204,7 +204,7 @@ test('crossover swaps whole-card foreground order only with projected horizontal
  }
 });
 test('motion defaults support deliberate gestures and quick settling',()=>{
- assert.equal(DEFAULT_SETTINGS.stiffness,360);assert.equal(DEFAULT_SETTINGS.damping,56);assert.equal(DEFAULT_SETTINGS.mass,1.15);assert.equal(DEFAULT_SETTINGS.maxTilt,12);
+ assert.equal(DEFAULT_SETTINGS.stiffness,440);assert.equal(DEFAULT_SETTINGS.damping,70);assert.equal(DEFAULT_SETTINGS.mass,1.15);assert.equal(DEFAULT_SETTINGS.maxTilt,12);
  assert.equal(DEFAULT_SETTINGS.distanceThreshold,.14);assert.equal(DEFAULT_SETTINGS.flickVelocity,325);assert.equal(DEFAULT_SETTINGS.commitDuration,210);
 });
 

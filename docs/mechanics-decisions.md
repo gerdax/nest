@@ -18,6 +18,6 @@ A cabinet can therefore offer Use key (Direct), Pick lock (Check with Success/Fa
 
 ## Shared cards, quantities and consumables — implemented
 
-The project Library contains explicit Narrative, Action and Item definitions shared across chapters. Placements own added rules, item quantity and chapter wiring. Project variables provide defaults and bounds; chapters may override their initial values. Inventory stacks by item definition and supports inspection. Collecting applies `onCollect` effects after take completion; consumable use removes one copy and applies use effects atomically. At full resource bounds the copy is still consumed and the result is clamped.
+The project Library contains explicit Narrative, Action and Item definitions shared across chapters. Placements own added rules, chapter wiring. Project variables provide defaults and bounds; chapters may override their initial values. Inventory tracks ownership by item definition and supports inspection. Collecting applies `onCollect` effects after take completion; consumable use removes the owned item and applies use effects atomically. At full resource bounds the copy is still consumed and the result is clamped.
 
 Combat, equipment, persistent cross-run inventory and automatic chapter destinations remain deferred. These features are not implied by Random routing, checks or consumables.

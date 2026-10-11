@@ -8,7 +8,7 @@ export class InventoryView {
     this.onUse = onUse;
     this.items = [];
     root.classList.add('nest-inventory');
-    root.innerHTML = '<div class="nest-inventory-heading"><strong>Inventory</strong><span data-count></span></div><ul class="nest-inventory-cards" aria-label="Inventory items"></ul><dialog class="item-dialog"><h3></h3><img alt=""><p data-summary></p><p data-description></p><p data-count-detail></p><div class="row"><button type="button" data-use>Use one</button><button type="button" data-close>Close</button></div><p data-feedback role="status"></p></dialog>';
+    root.innerHTML = '<div class="nest-inventory-heading"><strong>Inventory</strong><span data-count></span></div><ul class="nest-inventory-cards" aria-label="Inventory items"></ul><dialog class="item-dialog"><h3></h3><img alt=""><p data-summary></p><p data-description></p><div class="row"><button type="button" data-use>Use</button><button type="button" data-close>Close</button></div><p data-feedback role="status"></p></dialog>';
     this.dialog = root.querySelector('dialog');
     root.querySelector('[data-close]').onclick = () => this.dialog.close();
     root.querySelector('[data-use]').onclick = () => {
@@ -24,7 +24,7 @@ export class InventoryView {
     this.items = items;
     this.busy = busy;
     this.variables = variables; this.values = values; this.library = library;
-    this.root.querySelector('[data-count]').textContent = String(items.reduce((sum, item) => sum + (item.quantity ?? 1), 0));
+    this.root.querySelector('[data-count]').textContent = String(items.length);
     const list = this.root.querySelector('ul');
     list.replaceChildren();
     if (!items.length) {
@@ -39,13 +39,13 @@ export class InventoryView {
       const button = document.createElement('button');
       button.type = 'button';
       button.disabled = busy;
-      button.setAttribute('aria-label', `${item.name || item.label} · ${item.quantity ?? 1}`);
+      button.setAttribute('aria-label', item.name || item.label);
       if (item.image) {
         const image = document.createElement('img'); image.src = item.image; image.alt = ''; image.draggable = false;
         if (item.flipImage) image.style.transform = 'scaleX(-1)';
         button.append(image);
       }
-      const label = document.createElement('span'); label.textContent = `${item.name || item.label} ×${item.quantity ?? 1}`;
+      const label = document.createElement('span'); label.textContent = item.name || item.label;
       button.append(label); entry.append(button); list.append(entry);
       button.onclick = () => { this.selected = item.definitionId; this.showDetails(); this.dialog.showModal(); };
     }
@@ -59,7 +59,6 @@ export class InventoryView {
     image.style.transform = item.flipImage ? 'scaleX(-1)' : '';
     this.dialog.querySelector('[data-summary]').textContent = cardSummary(item, this.variables, this.library);
     this.dialog.querySelector('[data-description]').textContent = item.text || '';
-    this.dialog.querySelector('[data-count-detail]').textContent = `Quantity: ${item.quantity ?? 1}`;
     const use = this.dialog.querySelector('[data-use]'); use.hidden = !item.use; use.disabled = this.busy || !conditionsMet(item.use?.conditions, this.values, this.items);
     this.dialog.querySelector('[data-feedback]').textContent = '';
   }

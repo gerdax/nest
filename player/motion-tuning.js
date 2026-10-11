@@ -19,6 +19,7 @@ export const motionControls = [
   ['gravity', 'Throw gravity', 0, 3000, 50, ' px/s²'],
   ['revealStartScale', 'Underlying start scale', .88, 1, .005, ' ×'],
   ['revealFullScaleAt', 'Full size at exposure', .1, .65, 'any', ' × card height'],
+  ['choiceFollowerRatio', 'Deepest choice travel', 0, 1, .01, ' × selected distance'],
   ['choiceStaggerMs', 'Choice stagger', 0, 60, 1, ' ms'],
   ['flipLeadMs', 'Flip lead', 0, 100, 1, ' ms'],
   ['flipAxisTilt', 'Flip axis tilt', -10, 10, 0.5, '°'],

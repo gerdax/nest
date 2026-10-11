@@ -84,7 +84,7 @@ Events:
 
 Hosts supply final continuation synchronously on accepted `collect` or `discard`. During a held last-item gesture the physical reverse is already underneath, but no host state changes or flip occur before acceptance. Async content can remain staged while the engine waits.
 
-`project/ProjectController.js` runs compiled project v2 chapters, including action checks and quantity-bearing inventory. `chapter/ChapterController.js` remains available for legacy JSON v1 integrations. The original playground and `demo/ScenarioController.js` remain as source references; they are excluded from the active staged runtime. `demo/InventoryStrip.js` renders the shared temporary inventory; include `demo/inventory.css` in hosts using it.
+`project/ProjectController.js` runs compiled project v2 chapters, including action checks and single-item ownership inventory. `chapter/ChapterController.js` remains available for legacy JSON v1 integrations. The original playground and `demo/ScenarioController.js` remain as source references; they are excluded from the active staged runtime. `demo/InventoryStrip.js` renders the shared temporary inventory; include `demo/inventory.css` in hosts using it.
 
 ## Motion model
 
@@ -98,7 +98,7 @@ An early pointer press remains captured while the presentation is busy. If still
 
 ## Vertical grab camera experiment
 
-Checkpoint `60e2db4` preserves direct container take/discard and inventory before this experiment. Once a pointer gesture is confirmed as vertical, the grabbed card approaches the camera slightly. Pointer down, movement below axis recognition, and horizontal carousel gestures do not trigger it. A situation lifts only its cover; containers lift only the selected item; ordinary action stacks follow the existing `choiceStaggerMs` cascade.
+Checkpoint `60e2db4` preserves direct container take/discard and inventory before this experiment. Once a pointer gesture is confirmed as vertical, the grabbed card approaches the camera slightly. Pointer down, movement below axis recognition, and horizontal carousel gestures do not trigger it. A situation lifts only its cover; containers lift only the selected item; ordinary action stacks spread their vertical travel from 100% for the selected card to `choiceFollowerRatio` for the deepest card, evenly interpolated by painter rank. The default deepest travel is 70% and `choiceStaggerMs` is 0; the player exposes **Deepest choice travel** and **Choice stagger** independently. Accepted throws still carry every card fully out of view.
 
 `grabLift` defaults to 24 pixels, capped at two percent of the current perspective distance. Set it to zero in the player’s Motion tuning panel to compare without the effect. Canceling releases the pickup smoothly; an accepted departure keeps it until the incoming content takes over. Reduced motion omits this added animation. Keyboard commands retain their normal presentation.
 

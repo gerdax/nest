@@ -32,8 +32,9 @@ test('disabled intro opens eligible items directly and rejects reveal effects ac
 for(const introEnabled of [undefined,true])test(`enabled intro retains reveal behavior, introEnabled=${introEnabled}`,()=>{
   const node=box(introEnabled===undefined?{}:{introEnabled});const {deck,controller}=fixture([node,after]);
   assert.equal(deck.options.presentation,'closed');assert.equal(controller.state.variables.energy,0);
+  const content=deck.content;
   deck.emit('reveal');assert.equal(controller.state.variables.energy,1);assert.notEqual(controller.pendingIntro,null);
-  deck.emit('transitioncomplete',{transition:'reveal'});assert.equal(deck.options.presentation,'open');
+  deck.emit('transitioncomplete',{transition:'reveal'});assert.equal(deck.content,content,'unchanged items are not reinstalled');assert.equal(controller.pendingIntro,null);
   deck.emit('reveal');assert.equal(controller.state.variables.energy,1);controller.destroy();
 });
 
