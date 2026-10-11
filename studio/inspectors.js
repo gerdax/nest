@@ -1,6 +1,8 @@
 import { defaultCardStyles } from '../project/card-styles.js';
 import { cardKinds, resolvePlacement, cardSummary, allowedCardKinds, isStoryKind } from '../project/cards.js';
-import { definitionUsers, outputsForNode, labelForOutput } from '../project/model.js';
+import { outputsForNode, labelForOutput } from '../project/model.js';
+import { definitionReferences } from '../project/dependencies.js';
+import { nodeTypeDescriptor, nodeTypeLabel } from '../project/nodeTypes.js';
 import { field, select, checkbox, button, rules, actionFields, imageField, esc } from './forms.js';
 
 function artworkEditor(definition,scope) {
@@ -26,15 +28,18 @@ export function cardFields(project,definition,scope='definition',showPreview=tru
 }
 export function definitionInspector(project,definition) {
  if(!definition)return '<p>Select a definition in the Library.</p>';
- const users=definitionUsers(project,definition.id);
+ const users=definitionReferences(project,definition.id);
  let html=`<h2>${esc(cardKinds[definition.kind].label)}</h2><p class="small">Shared definition · ${users.length} uses. Changes apply everywhere this definition is referenced.</p>`+cardFields(project,definition);
- html+='<h3>Used in</h3>'+ (users.length?users.map(u=>`<p>${button(`${u.chapter.name} → ${u.node.name}`,'jump-use',`data-chapter="${esc(u.chapterId)}" data-node="${esc(u.nodeId)}"`)}</p>`).join(''):'<p class="small">Not placed yet.</p>');
+ html+='<h3>Used in</h3>'+ (users.length?users.map(u=>`<p>${u.sourceDefinition?
+  u.sourceDefinition.visibility==='local'?esc(`Local card: ${u.sourceDefinition.name} · gameplay rule`):button(`${u.sourceDefinition.name} · gameplay rule`,'edit-shared',`data-definition="${esc(u.sourceDefinition.id)}"`):
+  u.node?button(`${u.chapter.name} → ${u.node.name}${u.kind==='inventory'?' · gameplay rule':''}`,'jump-use',`data-chapter="${esc(u.chapterId)}" data-node="${esc(u.nodeId)}"`):esc(`${u.chapter.name} · gameplay rule`)}</p>`).join(''):'<p class="small">Not referenced yet.</p>');
  return html+button('Delete definition','delete-definition',users.length?'disabled':'');
 }
 export function placementInspector(project,p,kind,index,slot) {
  let card;try{card=resolvePlacement(project,p);}catch{}
  const definition=project.library.find(d=>d.id===p.definitionId),local=definition?.visibility==='local';
- const kinds=slot==='choices'?allowedCardKinds('fork',slot):slot==='items'?['item']:allowedCardKinds('linear',slot);
+ const nodeType=slot==='choices'?'fork':slot==='items'?'container':'linear';
+ const kinds=allowedCardKinds(nodeType,slot);
  kind=definition?.kind || kind;
  const defs=project.library.filter(d=>kinds.includes(d.kind)&&d.visibility!=='local').map(d=>[d.id,`${d.kind}: ${d.name}`]);
  let html=`<details class="entry" open data-placement="${esc(p.id)}"><summary><span class="card-type-label" data-card-type="${esc(kind)}">${esc(cardKinds[kind]?.label||kind)}</span>${esc(card?.name||'Missing definition')}</summary>`;
@@ -48,6 +53,7 @@ export function placementInspector(project,p,kind,index,slot) {
  if(kind!=='item')html+=rules(project,p.effects,'effects','placement','effects');
  html+=`<p class="small">${esc(cardSummary(card||{},project.variables,project.library))}</p>`;
  if(slot==='choices')html+=select('Unavailable choice',p.unavailable||'disabled',[['disabled','Show unavailable'],['hidden','Hide']], 'unavailable','placement');
+ if(slot==='cards'&&kind==='action')html+=select('Unavailable action',p.unavailable||'disabled',[['disabled','Show unavailable'],['hidden','Skip']], 'unavailable','placement');
  if(kind==='action') {
   html+=button(p.overrides?'Reset local settings':'Customize this action',p.overrides?'reset-overrides':'customize',attr);
   if(p.overrides)html+=actionFields(project,{...card,...p.overrides},'overrides.','placement');
@@ -66,17 +72,17 @@ function introductionControls(node) {
 export function nodeInspector(project,chapter,node) {
  if(!node)return '<p>Select a node.</p>';
  let html=field('Node name',node.name,'name','node');
- const cards=(list,kind,slot)=>list.map((p,i)=>placementInspector(project,p,kind,i,slot)).join('')+button(`Add ${kind}`,'add-placement',`data-slot="${slot}" data-kind="${kind}"`);
- if(node.type==='linear')html+=cards(node.cards,'event','cards')+button('Add caption','add-placement','data-slot="cards" data-kind="caption"');
- if(node.type==='fork'){
-  html+='<h3>Fork introduction</h3>'+introductionControls(node);
-  if(node.intro&&node.introEnabled!==false)html+=placementInspector(project,node.intro,'event',0,'intro');
-  html+='<h3>Choices</h3>'+cards(node.choices,'action','choices')+button('Add event','add-placement','data-slot="choices" data-kind="event"')+button('Add caption','add-placement','data-slot="choices" data-kind="caption"');
- }
- if(node.type==='container') {
-  html+='<h3>Container introduction</h3>'+introductionControls(node);
-  if(node.introEnabled!==false)html+=placementInspector(project,node.intro,'event',0,'intro');
-  html+='<h3>Items</h3>'+cards(node.items,'item','items');
+ const descriptor=nodeTypeDescriptor(node.type);
+ for(const [slot,kinds] of Object.entries(descriptor?.slots||{})) {
+  const kind=descriptor.defaultKinds[slot];
+  if(slot==='intro') {
+   html+=`<h3>${esc(nodeTypeLabel(node.type))} introduction</h3>`+introductionControls(node);
+   if(node.intro&&node.introEnabled!==false)html+=placementInspector(project,node.intro,kind,0,slot);
+  }else {
+   if(slot!=='cards')html+=`<h3>${esc(slot[0].toUpperCase()+slot.slice(1))}</h3>`;
+   html+=(node[slot]||[]).map((p,i)=>placementInspector(project,p,kind,i,slot)).join('');
+   html+=[kind,...kinds.filter(k=>k!==kind)].map(k=>button(`Add ${k}`,'add-placement',`data-slot="${esc(slot)}" data-kind="${esc(k)}"`)).join('');
+  }
  }
  if(node.type==='random') {
   html+='<p class="small">Select one eligible route, then follow its normal connections.</p>';

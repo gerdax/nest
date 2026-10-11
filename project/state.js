@@ -84,6 +84,3 @@ export function transact(values, inventory = [], { costs = [], effects = [] } = 
   for (const [key,value] of Object.entries(variables)) variables[key] = clamp(value,defs.get(key));
   return {variables,inventory:items};
 }
-export function applyEffects(values, effects = [], definitions = [], inventory = []) {
-  return transact(values,inventory,{effects},definitions).variables;
-}

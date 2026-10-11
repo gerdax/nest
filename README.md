@@ -26,7 +26,7 @@ Ordinary situation cards reveal choices with an upward swipe. Browse actions lef
 
 A container starts with its description covering the items. One swipe up reveals the item carousel directly; there is no Open / Leave choice or lid effect. Browse left or right, swipe up to discard the selected item, and swipe down to take it. Only the selected item moves, then the remaining cards rearrange smoothly. Every item must be resolved before continuing.
 
-Only taken items enter the run inventory. Items stack by shared definition and show their quantities; select an item to inspect it. Consumables offer Use one, which consumes one copy and applies its effects atomically. Use remains allowed at a resource maximum: the effect is clamped and the copy is consumed. Key items remain collectible without a Use action. Inventory resets on restart or reload; equipment and combat are deferred.
+Only taken items enter the run inventory. Each Item definition can be owned once; select an item to inspect it. Consumables offer Use, which removes ownership and applies effects atomically. Use remains allowed at a resource maximum: the effect is clamped and ownership is consumed. Key items remain collectible without a Use action. Inventory resets on restart or reload; equipment and combat are deferred.
 
 The last item exposes the next card's reverse underneath its departure. Discarding upward reveals it from below; taking downward reveals it from above. The reverse flips only after the outgoing item clears the turning area. There is no empty-container screen or extra Continue action.
 
@@ -122,10 +122,12 @@ The current prototype owns its artwork in `assets/img` and fonts in `assets/font
 
 The lid experiment and its controls have been removed from the active prototype.
 
-The studio Library stores shared Narrative, Action and Item definitions across chapters. Chapter nodes place those definitions and own their connections. Direct actions have one output; check actions have Success and Failure outputs. Linear cards advance with one swipe; visible narrative headings are optional. See [studio authoring](docs/chapter-editor.md) for reuse, local settings and v1 migration.
+The studio Library stores shared Event, Caption, Action and Item definitions across chapters. Chapter nodes place those definitions and own their connections. Direct actions have one output; check actions have Success and Failure outputs. Linear cards advance with one swipe; visible narrative headings are optional. See [studio authoring](docs/chapter-editor.md) for reuse, local settings and v1 migration.
 
 ## Architecture and reusable capabilities
 
 See [architecture assumptions](docs/architecture.md) for node/sequence registries, independent presentation policy, motion tuning, appearance tokens and the run inventory boundaries. Try the isolated [3D dice tray](dice.html); [dice service documentation](docs/dice-service.md) describes its context-independent API and Onejournal provenance. It is included in default static staging; `python3 build_pages.py /tmp/nest-pages-with-dice --include-dice` remains supported. The dice service returns results independently; action cards interpret them as checks without a separate Check node.
+
+Library usage counts and deletion checks include gameplay references as well as placed cards. **Clean unused local cards** removes only unused local definitions and can be undone; shared definitions and transitive dependencies are preserved.
 
 Run variables and conditional choices can be authored in the inspector. See [state authoring](docs/state-system.md) for available checks, effects and miniature artwork previews.

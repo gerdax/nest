@@ -1,5 +1,6 @@
 import { createDefinition, resolvePlacement } from '../project/cards.js';
 import { outputsForNode } from '../project/model.js';
+import { createNodeDefaults } from '../project/nodeTypes.js';
 export const uid = prefix => `${prefix}-${crypto.randomUUID().slice(0,8)}`;
 export function makeDefinition(project,kind,name) {
  const definition=createDefinition(kind,uid(kind));if(name)definition.name=name;project.library.push(definition);return definition;
@@ -66,11 +67,9 @@ export function duplicateNode(project,source) {
  return node;
 }
 export function createNode(project,type,position={x:100,y:100}) {
- const node={id:uid('node'),name:`New ${type}`,type,...position,connections:{}};
- if(type==='linear')node.cards=[makePlacement(project,'event')];
- if(type==='fork'){node.introEnabled=true;node.introOnce=false;node.intro=makePlacement(project,'event');node.choices=[makePlacement(project,'action'),makePlacement(project,'action')];}
- if(type==='container'){node.introEnabled=true;node.introOnce=false;node.intro=makePlacement(project,'event');node.items=[makePlacement(project,'item')];}
- if(type==='random'){node.routes=[{id:uid('route'),name:'Route 1',target:null,weight:1,conditions:[]}];node.fallback=null;delete node.connections;}
+ const defaults=createNodeDefaults(type,{makePlacement:kind=>makePlacement(project,kind),uid});
+ const node={id:uid('node'),name:`New ${type}`,type,...position,connections:{},...defaults};
+ if(type==='random')delete node.connections;
  return node;
 }
 export function placements(node){return [...(node.cards||[]),...(node.choices||[]),...(node.items||[]),...(node.intro?[node.intro]:[])];}

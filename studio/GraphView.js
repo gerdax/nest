@@ -1,5 +1,15 @@
 import { esc } from './forms.js';
 import { outputsForNode, labelForOutput } from '../project/model.js';
+import { nodeTypeLabel } from '../project/nodeTypes.js';
+
+function nodeSummary(node) {
+ if(node.type==='random')return `${node.routes.length} ${node.routes.length===1?'route':'routes'}`;
+ const slot={linear:'cards',fork:'choices',container:'items'}[node.type];
+ if(!slot)return 'Preserved legacy behaviour';
+ const intro=(node.type==='fork'||node.type==='container')&&node.intro&&node.introEnabled!==false?1:0;
+ const count=(node[slot]?.length??0)+intro;
+ return `${count} ${count===1?'card':'cards'}`;
+}
 
 /** Canvas interaction owns selection/pan, and emits completed document edits. */
 export class GraphView {
@@ -16,8 +26,11 @@ export class GraphView {
  }
  render(project,chapter,selected,active) {
   this.project=project;this.chapter=chapter;this.selected=selected;this.active=active;
+  this.nodesById=new Map(chapter.nodes.map(node=>[node.id,node]));
   if(this.pending&&!chapter.nodes.some(n=>n.id===this.pending.nodeId&&outputsForNode(project,n).includes(this.pending.exit)))this.pending=null;
-  this.root.querySelector('#nodes').innerHTML=chapter.nodes.map(n=>`<article class="node ${n.type} ${n.id===selected?'selected':''} ${n.id===active?'active':''}" data-id="${esc(n.id)}" style="left:${this.position(n).x}px;top:${this.position(n).y}px"><div class="node-heading"><span class="badge">${n.id===chapter.startNode?'START · ':''}${esc(n.type==='legacyPool'?'Legacy Random':n.type==='legacySequence'?'Legacy sequence':n.type)}</span>${esc(n.name)}</div><div class="node-body">${n.type==='random'?`${n.routes.length} routes`:n.type==='fork'?`${n.choices.length} actions`:n.type==='linear'?`${n.cards.length} cards`:n.type==='container'?`${n.items.length} items`:'Preserved legacy behaviour'}</div>${outputsForNode(project,n).map(exit=>`<button class="port ${this.pending?.nodeId===n.id&&this.pending.exit===exit?'pending':''}" data-exit="${esc(exit)}">${esc(labelForOutput(project,n,exit))} → ${esc(chapter.nodes.find(t=>t.id===this.target(n,exit))?.name||'End')}</button>`).join('')}</article>`).join('');
+  this.root.querySelector('#nodes').innerHTML=chapter.nodes.map(n=>`<article class="node ${n.type} ${n.id===selected?'selected':''} ${n.id===active?'active':''}" data-id="${esc(n.id)}" style="left:${this.position(n).x}px;top:${this.position(n).y}px"><div class="node-heading"><span class="badge">${n.id===chapter.startNode?'START · ':''}${esc(nodeTypeLabel(n.type))}</span>${esc(n.name)}</div><div class="node-body">${nodeSummary(n)}</div>${outputsForNode(project,n).map(exit=>`<button class="port ${this.pending?.nodeId===n.id&&this.pending.exit===exit?'pending':''}" data-exit="${esc(exit)}">${esc(labelForOutput(project,n,exit))} → ${esc(this.nodesById.get(this.target(n,exit))?.name||'End')}</button>`).join('')}</article>`).join('');
+  this.nodeElements=new Map([...this.root.querySelectorAll('.node')].map(el=>[el.dataset.id,el]));
+  this.portElements=new Map([...this.nodeElements].map(([id,el])=>[id,new Map([...el.querySelectorAll('.port')].map(port=>[port.dataset.exit,port]))]));
   this.transform();this.edges();
  }
  target(n,exit) {if(n.type==='random')return exit==='fallback'?n.fallback:n.routes.find(r=>r.id===exit)?.target;return n.connections?.[exit];}
@@ -25,22 +38,21 @@ export class GraphView {
  point(e) {const r=this.root.getBoundingClientRect();return {x:(e.clientX-r.left-this.view.x)/this.view.z,y:(e.clientY-r.top-this.view.y)/this.view.z};}
  wire(x,y,tx,ty) {return `M${x},${y} C${x+90},${y} ${tx-90},${ty} ${tx},${ty}`;}
  outputPoint(n,exit) {
-  const el=[...this.root.querySelectorAll('.node')].find(el=>el.dataset.id===n.id);
-  const port=el&&[...el.querySelectorAll('.port')].find(el=>el.dataset.exit===exit);
+  const port=this.portElements.get(n.id)?.get(exit);
   if(port){const r=port.getBoundingClientRect();if(r.width&&r.height)return this.point({clientX:r.right,clientY:r.top+r.height/2});}
   const pos=this.position(n);return {x:pos.x+220,y:pos.y+104+outputsForNode(this.project,n).indexOf(exit)*29};
  }
  edges() {
   const paths=this.chapter.nodes.flatMap(n=>outputsForNode(this.project,n).map(exit=>{
-   const t=this.chapter.nodes.find(t=>t.id===this.target(n,exit));if(!t)return '';
+   const t=this.nodesById.get(this.target(n,exit));if(!t)return '';
    const {x,y}=this.outputPoint(n,exit),to=this.position(t),path=this.wire(x,y,to.x,to.y+40);
    return `<path class="edge-line" d="${path}"/><path class="edge-hit" data-source="${esc(n.id)}" data-exit="${esc(exit)}" d="${path}"/>`;
   }));
-  const d=this.drag;if(d?.kind==='connect'&&d.moved){const n=this.chapter.nodes.find(n=>n.id===d.nodeId);if(n){const {x,y}=this.outputPoint(n,d.exit);paths.push(`<path class="edge-ghost" d="${this.wire(x,y,d.px,d.py)}"/>`);}}
+  const d=this.drag;if(d?.kind==='connect'&&d.moved){const n=this.nodesById.get(d.nodeId);if(n){const {x,y}=this.outputPoint(n,d.exit);paths.push(`<path class="edge-ghost" d="${this.wire(x,y,d.px,d.py)}"/>`);}}
   this.root.querySelector('#edges').innerHTML=paths.join('');
  }
  transform(){this.root.querySelector('#world').style.transform=`translate(${this.view.x}px,${this.view.y}px) scale(${this.view.z})`;}
- validTarget(id,source) {return (id!==source||this.chapter.allowCycles===true)&&this.chapter.nodes.some(n=>n.id===id);}
+ validTarget(id,source) {return (id!==source||this.chapter.allowCycles===true)&&this.nodesById.has(id);}
  dropTarget(e,source) {
   const r=this.root.getBoundingClientRect();
   if(e.clientX<r.left||e.clientX>=r.right||e.clientY<r.top||e.clientY>=r.bottom)return null;
@@ -59,7 +71,7 @@ export class GraphView {
    this.root.setPointerCapture(e.pointerId);this.root.focus({preventScroll:true});
    this.render(this.project,this.chapter,this.selected,this.active);e.preventDefault();return;
   }
-  if(el){const id=el.dataset.id;if(this.pending){const source=this.pending;this.pending=null;this.render(this.project,this.chapter,this.selected,this.active);if(this.validTarget(id,source.nodeId))this.onConnect(source.nodeId,source.exit,id);return;}this.onSelect(id);const n=this.chapter.nodes.find(n=>n.id===id);this.drag={kind:'node',id,x:e.clientX,y:e.clientY,ox:n.x,oy:n.y,px:n.x,py:n.y,pointer:e.pointerId};}
+  if(el){const id=el.dataset.id;if(this.pending){const source=this.pending;this.pending=null;this.render(this.project,this.chapter,this.selected,this.active);if(this.validTarget(id,source.nodeId))this.onConnect(source.nodeId,source.exit,id);return;}this.onSelect(id);const n=this.nodesById.get(id);this.drag={kind:'node',id,x:e.clientX,y:e.clientY,ox:n.x,oy:n.y,px:n.x,py:n.y,pointer:e.pointerId};}
   else{this.pending=null;this.drag={kind:'pan',x:e.clientX,y:e.clientY,ox:this.view.x,oy:this.view.y,pointer:e.pointerId};}
   this.root.setPointerCapture(e.pointerId);
  }
@@ -69,7 +81,7 @@ export class GraphView {
    d.moved ||= Math.hypot(e.clientX-d.x,e.clientY-d.y)>4;
    const p=this.point(e);d.px=p.x;d.py=p.y;this.hoverTarget(d.moved?this.dropTarget(e,d.nodeId):null);this.edges();
   }else if(d.kind==='pan'){this.view.x=d.ox+e.clientX-d.x;this.view.y=d.oy+e.clientY-d.y;this.transform();}
-  else{d.px=d.ox+(e.clientX-d.x)/this.view.z;d.py=d.oy+(e.clientY-d.y)/this.view.z;const el=[...this.root.querySelectorAll('.node')].find(el=>el.dataset.id===d.id);if(el){el.style.left=`${d.px}px`;el.style.top=`${d.py}px`;}this.edges();}
+  else{d.px=d.ox+(e.clientX-d.x)/this.view.z;d.py=d.oy+(e.clientY-d.y)/this.view.z;const el=this.nodeElements.get(d.id);if(el){el.style.left=`${d.px}px`;el.style.top=`${d.py}px`;}this.edges();}
  }
  up(e){
   const d=this.drag;if(!d||d.pointer!==e.pointerId)return;

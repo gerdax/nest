@@ -1,9 +1,10 @@
+import { nodeSlotCardKinds } from './nodeTypes.js';
 /** The library stores content; placements store chapter-specific behavior. */
 export const cardKinds = Object.freeze({
-  event: { label: 'Event', layout: 'card', validate: card => typeof card.text === 'string' ? [] : ['Event text must be a string.'], fields: ['name','text','image','effects'] },
-  caption: { label: 'Caption', layout: 'card', validate: card => typeof card.text === 'string' ? [] : ['Caption text must be a string.'], fields: ['name','text','effects'] },
-  action: { label: 'Action', layout: 'choice', validate: card => ['direct','check'].includes(card.resolution) ? [] : ['Action resolution must be direct or check.'], fields: ['name','text','image','conditions','costs','effects','resolution','check','successEffects','failureEffects'] },
-  item: { label: 'Item', layout: 'item', validate: card => Array.isArray(card.onCollect) ? [] : ['Item collection effects must be a list.'], fields: ['name','showName','text','image','onCollect','use'] }
+  event: { label: 'Event', validate: card => typeof card.text === 'string' ? [] : ['Event text must be a string.'] },
+  caption: { label: 'Caption', validate: card => typeof card.text === 'string' ? [] : ['Caption text must be a string.'] },
+  action: { label: 'Action', validate: card => ['direct','check'].includes(card.resolution) ? [] : ['Action resolution must be direct or check.'] },
+  item: { label: 'Item', validate: card => Array.isArray(card.onCollect) ? [] : ['Item collection effects must be a list.'] }
 });
 export const canonicalCardKind = kind => kind === 'narrative' ? 'event' : kind;
 export const isStoryKind = kind => ['event','caption'].includes(canonicalCardKind(kind));
@@ -48,7 +49,5 @@ export function cardSummary(card, variables = [], library = []) {
 
 /** Fork placements are branches regardless of whether their content is event or an action. */
 export function allowedCardKinds(nodeType,slot) {
- if(nodeType==='fork'&&slot!=='intro')return ['event','caption','action'];
- if(nodeType==='container'&&slot==='items')return ['item'];
- return ['event','caption'];
+ return nodeSlotCardKinds(nodeType,slot);
 }

@@ -2,7 +2,8 @@ import { applyCardStyles } from '../project/card-styles.js';
 import { artworkSettings, parseArtworkSettings } from './artwork-settings.js';
 import { DocumentHistory } from '../editor/DocumentHistory.js';
 import { createDefinition, allowedCardKinds } from '../project/cards.js';
-import { createProject,createChapter,validateProject,parseProject,definitionUsers,exportChapter,importChapter } from '../project/model.js';
+import { createProject,createChapter,validateProject,parseProject,exportChapter,importChapter } from '../project/model.js';
+import { definitionGraph, deleteDefinition, cleanupLocalDefinitions } from '../project/dependencies.js';
 import { loadProject,saveProject } from '../project/storage.js';
 import { GraphView } from './GraphView.js';
 import { ProjectPreview } from './ProjectPreview.js';
@@ -37,6 +38,7 @@ function edit(fn){
  catch(error){failure=error.message;}
  finally{project=history.document;}
  const saved=saveProject(project);render();report(failure|| (saved.ok?'Saved in this browser':`Save failed: ${saved.error}`));
+ return !failure && saved.ok;
 }
 function renderGraph(){if(mode==='chapter')graph.render(project,chapter(),selected,preview.state?.activeNodeId);}
 function renderInspector(){
@@ -56,7 +58,8 @@ function renderInspector(){
 }
 function renderLibrary(){
  const query=$('#library-search').value.toLowerCase();
- $('#library-list').innerHTML=project.library.filter(d=>d.visibility!=='local'&&`${d.name} ${d.kind}`.toLowerCase().includes(query)).map(d=>`<button type="button" data-definition="${esc(d.id)}" class="library-entry ${d.id===definitionId?'selected':''}"><strong>${esc(d.name)}</strong><span>${esc(d.kind)} · ${definitionUsers(project,d.id).length} uses</span></button>`).join('');
+ const dependencies=definitionGraph(project);
+ $('#library-list').innerHTML=project.library.filter(d=>d.visibility!=='local'&&`${d.name} ${d.kind}`.toLowerCase().includes(query)).map(d=>`<button type="button" data-definition="${esc(d.id)}" class="library-entry ${d.id===definitionId?'selected':''}"><strong>${esc(d.name)}</strong><span>${esc(d.kind)} · ${dependencies.users(d.id).length} uses</span></button>`).join('');
 }
 function render(){
  if(!project.chapters.some(c=>c.id===chapterId))chapterId=project.activeChapterId||project.chapters[0]?.id;
@@ -89,7 +92,6 @@ function changeField(event){const el=event.target,path=el.dataset.path,scope=el.
   if(el.type==='number'&&el.value===''){delete parent[key];return;}
   if(['imageScale','imageOffsetX','imageOffsetY'].includes(key))value=Math.max(key==='imageScale'?10:-100,Math.min(key==='imageScale'?400:100,value));
   parent[key]=value;
-  if(scope==='placement'&&key==='definitionId')delete root.overrides;
   if(key==='modifierVariable'&&!value)delete parent[key];
   if(key==='resolution'&&value==='check')parent.check||={pool:[{sides:20,count:1}],modifier:0,target:10};
   if(key==='type'&&['flag','number'].includes(value)){parent.initial=value==='flag'?false:0;delete parent.min;delete parent.max;}
@@ -150,12 +152,11 @@ function command(event){const b=event.target.closest('[data-command]');if(!b)ret
   if(cmd==='duplicate-placement')duplicatePlacement(project,n,p);
   if(cmd==='remove-placement')for(const slot of ['cards','choices','items'])if(n[slot])n[slot]=n[slot].filter(c=>c.id!==p.id);
   if(cmd==='move-placement')for(const slot of ['cards','choices','items'])if(n[slot]){const i=n[slot].findIndex(c=>c.id===p.id),j=i+Number(b.dataset.direction);if(i>=0&&j>=0&&j<n[slot].length)[n[slot][i],n[slot][j]]=[n[slot][j],n[slot][i]];}
-  if(cmd==='variant'){const source=project.library.find(d=>d.id===p.definitionId),copy={...structuredClone(source),id:uid(source.kind),name:`${source.name} variant`};project.library.push(copy);p.definitionId=copy.id;}
   if(cmd==='customize')customizeAction(project,p);
   if(cmd==='reset-overrides')delete p.overrides;
   if(cmd==='add-route')n.routes.push({id:uid('route'),name:`Route ${n.routes.length+1}`,target:null,weight:1,conditions:[]});
   if(cmd==='remove-route')n.routes.splice(Number(b.dataset.index),1);
-  if(cmd==='delete-definition'){if(definitionUsers(project,definitionId).length)throw new Error('Definition is still used.');project.library=project.library.filter(d=>d.id!==definitionId);definitionId=project.library.find(d=>d.visibility!=='local')?.id;}
+  if(cmd==='delete-definition'){deleteDefinition(project,definitionId);definitionId=project.library.find(d=>d.visibility!=='local')?.id;}
   if(cmd==='add-variable')project.variables.push({id:uid('variable'),name:'New variable',type:'number',initial:0});
   if(cmd==='remove-variable')project.variables.splice(Number(b.dataset.index),1);
  });
@@ -163,6 +164,10 @@ function command(event){const b=event.target.closest('[data-command]');if(!b)ret
 for(const root of [$('#inspector'),$('#settings')])root.addEventListener('click',command);
 $('#library-list').onclick=e=>{const b=e.target.closest('[data-definition]');if(b){definitionId=b.dataset.definition;renderLibrary();renderInspector();}};
 $('#library-search').oninput=renderLibrary;
+$('#cleanup-local').onclick=()=>{
+ let removed=0;
+ if(edit(()=>{removed=cleanupLocalDefinitions(project);}))report(removed?`Removed ${removed} unused local card${removed===1?'':'s'}. Undo restores them.`:'No unused local cards.');
+};
 $('#chapter-view').onclick=()=>{mode='chapter';render();};$('#library-view').onclick=()=>{mode='library';render();};
 $('#chapter-selector').onchange=e=>{preview.stop();chapterId=e.target.value;selected=project.chapters.find(c=>c.id===chapterId).startNode;edit(()=>{project.activeChapterId=chapterId;});graph.fit();};
 $('#add-chapter').onclick=()=>edit(()=>{const c=createChapter(uid('chapter'),`Chapter ${project.chapters.length+1}`),n=createNode(project,'linear');c.nodes.push(n);c.startNode=n.id;project.chapters.push(c);chapterId=c.id;selected=n.id;project.activeChapterId=c.id;});

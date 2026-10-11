@@ -1,5 +1,7 @@
-import { cardKinds, createDefinition, resolvePlacement, canonicalCardKind, isStoryKind } from './cards.js';
+import { cardKinds, createDefinition, resolvePlacement, canonicalCardKind, allowedCardKinds } from './cards.js';
 import { parseChapter } from '../chapter/model.js';
+import { definitionGraph } from './dependencies.js';
+import { nodeOutputs, nodeTypeDescriptor } from './nodeTypes.js';
 export const cloneProject = value => JSON.parse(JSON.stringify(value));
 const object = v => v !== null && typeof v === 'object' && !Array.isArray(v);
 const named = v => typeof v === 'string' && !!v.trim();
@@ -21,10 +23,7 @@ const list = value => Array.isArray(value) ? value : [];
 function placements(node) { return [...list(node.cards),...list(node.choices),...list(node.items),...(object(node.intro) ? [node.intro] : [])]; }
 function legacyArtwork(node) {return (object(node.sequence) ? [node.sequence] : list(node.sequences)).filter(object).flatMap(s=>[...list(s.cards),...list(s.items),...list(s.cards).filter(object).flatMap(c=>list(c.choices))]).filter(object);}
 export function outputsForNode(project,node) {
-  if(node.type==='fork') return list(node.choices).filter(object).flatMap(p=>{let card;try{card=resolvePlacement(project,p);}catch{} return card?.resolution==='check' ? [`${p.id}:success`,`${p.id}:failure`] : [p.id];});
-  if(node.type==='random') return [...list(node.routes).filter(object).map(r=>r.id),'fallback'];
-  if(node.type==='legacySequence' || node.type==='legacyPool') return Object.keys(node.connections || {});
-  return ['next'];
+  return nodeOutputs(node, placement => resolvePlacement(project, placement));
 }
 export function labelForOutput(project,node,output) {
   if(output==='next') return 'Next'; if(output==='fallback')return 'Fallback';
@@ -46,6 +45,8 @@ export function createVariant(project,placement,newId,{chapterId,nodeId}={}) {
 }
 
 export function compileChapter(project,chapterId=project.activeChapterId) {
+  // All resolved mechanics and normalization must operate on detached data.
+  project=cloneProject(project);
   const chapter=project.chapters.find(c=>c.id===chapterId);if(!chapter)throw new TypeError(`Unknown chapter: ${chapterId}`);
   const result=cloneProject(chapter);result.cardStyles=cloneProject(project.cardStyles||{}); result.library=project.library.map(d=>({...cloneProject(d),kind:canonicalCardKind(d.kind),definitionId:d.id,...(d.kind==='item'?{inventoryKey:d.inventoryKey ?? d.id}:{})})); result.variables=project.variables.map(v=>({...v,initial:chapter.initialValues?.[v.id] ?? v.initial}));
   for(const node of result.nodes) {
@@ -77,9 +78,8 @@ export function migrateChapter(v1) {
 }
 function walk(value,fn) {if(Array.isArray(value))value.forEach(v=>walk(v,fn));else if(object(value)){fn(value);Object.values(value).forEach(v=>walk(v,fn));}}
 export function exportChapter(project,id=project.activeChapterId) {
- const chapter=project.chapters.find(c=>c.id===id);if(!chapter)throw new TypeError('Unknown chapter.');const ids=new Set();
- const inspect=value=>walk(value,v=>{if(v.definitionId)ids.add(v.definitionId);if(v.key&&(v.source==='inventory'||['addItem','removeItem'].includes(v.op)))for(const d of project.library)if(d.id===v.key || d.inventoryKey===v.key)ids.add(d.id);});
- inspect(chapter);let before=-1;while(before!==ids.size){before=ids.size;for(const d of project.library.filter(d=>ids.has(d.id)))inspect(d);}
+ const chapter=project.chapters.find(c=>c.id===id);if(!chapter)throw new TypeError('Unknown chapter.');
+ const ids=definitionGraph(project).reachableFrom(chapter);
  const pkg=cloneProject({version:2,kind:'nest-chapter',library:project.library.filter(d=>ids.has(d.id)),variables:project.variables,cardStyles:project.cardStyles||{},chapter});
  for(const definition of pkg.library)definition.kind=canonicalCardKind(definition.kind);
  discardPlacementContext({chapters:[pkg.chapter]});return normalizeSingleItems(pkg);
@@ -125,13 +125,13 @@ export function validateProject(project,{allowDraft=false}={}) {
  for(const chapter of chapters){if(!object(chapter))continue;const cid=chapter.id;if(typeof chapter.name!=='string'||!Array.isArray(chapter.nodes)||typeof chapter.startNode!=='string'||chapter.backImage!==undefined&&typeof chapter.backImage!=='string'){add('Invalid chapter structure.',cid);continue;}const nodeIds=seen(chapter.nodes,'Node');if(!allowDraft&&!nodeIds.has(chapter.startNode))add('Start node must exist.',cid);
  if(chapter.allowCycles!==undefined&&typeof chapter.allowCycles!=='boolean')add('Invalid allow node cycles setting.',cid);
  if(chapter.initialValues!==undefined){if(!object(chapter.initialValues))add('Initial values must be an object.',cid);else for(const [key,value]of Object.entries(chapter.initialValues)){const v=vars.get(key);if(!validRef(key,vars)||v&&(typeof value!==(v.type==='flag'?'boolean':'number')||v.type==='number'&&(!Number.isFinite(value)||v.min!==undefined&&value<v.min||v.max!==undefined&&value>v.max)))add(`Invalid initial value: ${key}.`,cid);}}
- const edges=new Map();for(const node of chapter.nodes){if(!object(node))continue;const nid=node.id,label=`Node ${nid}`;if(typeof node.name!=='string'||!Number.isFinite(node.x)||!Number.isFinite(node.y)||!['linear','fork','container','random','legacySequence','legacyPool'].includes(node.type))add(`${label}: invalid node structure.`,cid,nid);
+ const edges=new Map();for(const node of chapter.nodes){if(!object(node))continue;const nid=node.id,label=`Node ${nid}`;if(typeof node.name!=='string'||!Number.isFinite(node.x)||!Number.isFinite(node.y)||!nodeTypeDescriptor(node.type))add(`${label}: invalid node structure.`,cid,nid);
  if(node.type==='linear'&&!Array.isArray(node.cards)||node.type==='fork'&&!Array.isArray(node.choices)||node.type==='container'&&(!Array.isArray(node.items)||!object(node.intro)))add(`${label}: missing placements.`,cid,nid);
  if(!allowDraft&&(node.type==='linear'&&!node.cards?.length||node.type==='fork'&&!node.choices?.length))add(`${label}: needs at least one placement.`,cid,nid);
  if(node.type==='fork'&&(node.intro!==undefined&&!object(node.intro)||node.introEnabled===true&&!object(node.intro)))add(`${label}: missing introduction.`,cid,nid);
  if(node.introOnce!==undefined&&typeof node.introOnce!=='boolean')add(`${label}: invalid show once toggle.`,cid,nid);
  if(node.introEnabled!==undefined&&typeof node.introEnabled!=='boolean')add(`${label}: invalid introduction toggle.`,cid,nid);
- const ps=placements(node),pids=new Set();for(const p of ps){if(!object(p)||!named(p.id)||typeof p.definitionId!=='string'){add(`${label}: invalid placement.`,cid,nid);continue;}if(pids.has(p.id))add(`${label}: duplicate placement ID.`,cid,nid);pids.add(p.id);if(!validRef(p.definitionId,definitions))add(`${label}: unknown definition ${p.definitionId}.`,cid,nid);if(p.unavailable!==undefined&&!['hidden','disabled'].includes(p.unavailable)||p.overrides!==undefined&&!object(p.overrides))add(`${label}: invalid placement options.`,cid,nid);inspectCard(p,label);if(object(p.overrides)){if(Object.keys(p.overrides).some(k=>!['conditions','costs','effects','resolution','check','successEffects','failureEffects'].includes(k)))add(`${label}: unsupported override.`,cid,nid);inspectCard(p.overrides,label);}const d=definitions.get(p.definitionId);if(d){if(node.type==='linear'&&!isStoryKind(d.kind)||node.type==='fork'&&(p===node.intro?!isStoryKind(d.kind):!['action','event','caption'].includes(canonicalCardKind(d.kind)))||node.type==='container'&&(p===node.intro?!isStoryKind(d.kind):d.kind!=='item'))add(`${label}: incompatible card kind.`,cid,nid);inspectCard(resolvePlacement(project,p),label);}}
+ const ps=placements(node),pids=new Set();for(const p of ps){if(!object(p)||!named(p.id)||typeof p.definitionId!=='string'){add(`${label}: invalid placement.`,cid,nid);continue;}if(pids.has(p.id))add(`${label}: duplicate placement ID.`,cid,nid);pids.add(p.id);if(!validRef(p.definitionId,definitions))add(`${label}: unknown definition ${p.definitionId}.`,cid,nid);if(p.unavailable!==undefined&&!['hidden','disabled'].includes(p.unavailable)||p.overrides!==undefined&&!object(p.overrides))add(`${label}: invalid placement options.`,cid,nid);inspectCard(p,label);if(object(p.overrides)){if(Object.keys(p.overrides).some(k=>!['conditions','costs','effects','resolution','check','successEffects','failureEffects'].includes(k)))add(`${label}: unsupported override.`,cid,nid);inspectCard(p.overrides,label);}const d=definitions.get(p.definitionId);if(d){if(['linear','fork','container'].includes(node.type)&&!allowedCardKinds(node.type,p===node.intro?'intro':list(node.choices).includes(p)?'choices':list(node.items).includes(p)?'items':'cards').includes(canonicalCardKind(d.kind)))add(`${label}: incompatible card kind.`,cid,nid);inspectCard(resolvePlacement(project,p),label);}}
  let targets=[];
  if(node.type==='random'){if(!Array.isArray(node.routes)){add(`${label}: routes must be a list.`,cid,nid);}else{const ids=new Set();for(const r of node.routes){if(!object(r)||!named(r.id)||ids.has(r.id)||!Number.isFinite(r.weight)||r.weight<=0||r.target!==null&&typeof r.target!=='string')add(`${label}: invalid random route.`,cid,nid);if(object(r)){ids.add(r.id);inspectConditions(r.conditions,label);targets.push(r.target);}}}if(node.fallback!==null&&typeof node.fallback!=='string')add(`${label}: invalid fallback.`,cid,nid);targets.push(node.fallback);}
  else {if(!object(node.connections))add(`${label}: connections must be an object.`,cid,nid);else {targets=Object.values(node.connections);for(const target of targets)if(target!==null&&typeof target!=='string')add(`${label}: invalid connection.`,cid,nid);if(!allowDraft)for(const output of outputsForNode(project,node))if(!Object.hasOwn(node.connections,output))add(`${label}: missing connection ${output}.`,cid,nid);}}
