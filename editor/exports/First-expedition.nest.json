@@ -7,21 +7,26 @@
   "library": [
     {
       "id": "arrival",
-      "kind": "narrative",
+      "kind": "event",
       "name": "arrival",
       "heading": "",
       "text": "Your expedition begins at the edge of the city.",
       "image": "./assets/img/city.png",
-      "effects": []
+      "effects": [],
+      "showName": true
     },
     {
       "id": "flashlight",
       "kind": "item",
       "name": "Flashlight",
       "heading": "",
-      "text": "",
-      "image": "./assets/img/flashlight.png",
-      "onCollect": []
+      "text": "A regular military flashlight,",
+      "image": "./assets/img/Gemini_Generated_Image_ptpu4wptpu4wptpu.jpeg",
+      "onCollect": [],
+      "showName": true,
+      "imageScale": 100,
+      "imageOffsetY": -17,
+      "imageOffsetX": -4
     },
     {
       "id": "explore",
@@ -49,22 +54,29 @@
     },
     {
       "id": "narrative-c0bbae86",
-      "kind": "narrative",
+      "kind": "event",
       "name": "The box",
       "heading": "",
-      "text": "You approach a curious looking box",
+      "text": "There's an open crate on the floor.",
       "image": "./assets/img/090a49aa-cc2d-454d-a93b-aeb16d134a7f.jpeg",
       "effects": [],
-      "flipImage": false
+      "flipImage": false,
+      "imageScale": 96,
+      "imageOffsetY": -12,
+      "imageOffsetX": -1
     },
     {
       "id": "item-c68ec941",
       "kind": "item",
-      "name": "Flashlight variant",
+      "name": "Visor upgrade",
       "heading": "",
-      "text": "",
-      "image": "./assets/img/flashlight.png",
-      "onCollect": []
+      "text": "Makes seeing in dark somehow easier",
+      "image": "./assets/img/Gemini_Generated_Image_od2lsiod2lsiod2l.jpeg",
+      "onCollect": [],
+      "imageScale": 88,
+      "imageOffsetX": -2,
+      "imageOffsetY": -15,
+      "showName": true
     },
     {
       "id": "action-cd2227d2",
@@ -92,7 +104,7 @@
     },
     {
       "id": "narrative-f89cb642",
-      "kind": "narrative",
+      "kind": "event",
       "name": "pudelko",
       "heading": "Pudełko nowe heading",
       "text": "Natykasz się na zamknięte pudełko.",
@@ -103,7 +115,7 @@
     },
     {
       "id": "narrative-660fd0f3",
-      "kind": "narrative",
+      "kind": "event",
       "name": "New narrative",
       "heading": "",
       "text": "",
@@ -221,7 +233,7 @@
     },
     {
       "id": "narrative-73cae086",
-      "kind": "narrative",
+      "kind": "event",
       "name": "New narrative",
       "heading": "",
       "showName": false,
@@ -232,7 +244,7 @@
     },
     {
       "id": "narrative-aa1fa4f5",
-      "kind": "narrative",
+      "kind": "event",
       "name": "New story",
       "heading": "",
       "showName": false,
@@ -269,7 +281,7 @@
     },
     {
       "id": "narrative-5f8d1339",
-      "kind": "narrative",
+      "kind": "event",
       "name": "The box",
       "heading": "",
       "text": "You approach a curious looking box",
@@ -324,6 +336,522 @@
       "failureEffects": [],
       "visibility": "local",
       "showName": false
+    },
+    {
+      "id": "narrative-e1720845",
+      "kind": "caption",
+      "name": "Intro",
+      "heading": "",
+      "text": "You wake up in darkness.",
+      "image": "./assets/img/Gemini_Generated_Image_fdoobofdoobofdoo.jpeg",
+      "effects": [],
+      "visibility": "local",
+      "imageScale": 85,
+      "flipImage": true,
+      "imageOffsetX": -8,
+      "showName": false
+    },
+    {
+      "id": "narrative-5ab5d753",
+      "kind": "caption",
+      "name": "",
+      "heading": "",
+      "showName": false,
+      "text": "Where are you?",
+      "image": "./assets/img/Gemini_Generated_Image_fdoobofdoobofdoo.jpeg",
+      "effects": [],
+      "visibility": "local",
+      "imageScale": 85,
+      "imageOffsetX": -8,
+      "imageOffsetY": 0,
+      "flipImage": true
+    },
+    {
+      "id": "narrative-e36b3f61",
+      "kind": "event",
+      "name": "In your head no memory, no clue.",
+      "heading": "",
+      "showName": false,
+      "text": "",
+      "image": "",
+      "effects": [],
+      "visibility": "local"
+    },
+    {
+      "id": "narrative-dc489ccb",
+      "kind": "event",
+      "name": "New narrative",
+      "heading": "",
+      "showName": false,
+      "text": "\"Get up, Lazarus!\"",
+      "image": "./assets/img/Gemini_Generated_Image_fdoobofdoobofdoo.jpeg",
+      "effects": [],
+      "visibility": "local",
+      "imageScale": 85,
+      "imageOffsetX": -8,
+      "imageOffsetY": 0,
+      "flipImage": true
+    },
+    {
+      "id": "narrative-f7fd1031",
+      "kind": "caption",
+      "name": "New narrative",
+      "heading": "",
+      "showName": false,
+      "text": "In your head no trace of memory, nothing.",
+      "image": "./assets/img/Gemini_Generated_Image_fdoobofdoobofdoo.jpeg",
+      "effects": [],
+      "visibility": "local",
+      "imageScale": 85,
+      "imageOffsetX": -8,
+      "imageOffsetY": 0,
+      "flipImage": true
+    },
+    {
+      "id": "narrative-08eb0570",
+      "kind": "caption",
+      "name": "New story",
+      "heading": "",
+      "showName": false,
+      "text": "You need to get out of this place.",
+      "image": "",
+      "effects": [],
+      "visibility": "local"
+    },
+    {
+      "id": "narrative-0d2994bb",
+      "kind": "event",
+      "name": "New narrative",
+      "heading": "",
+      "showName": false,
+      "text": "Your skin burns. That's why the bandages?",
+      "image": "./assets/img/Gemini_Generated_Image_du3040du3040du30.jpeg",
+      "effects": [],
+      "visibility": "local",
+      "flipImage": true
+    },
+    {
+      "id": "narrative-0b518e36",
+      "kind": "event",
+      "name": "Door found",
+      "heading": "",
+      "showName": false,
+      "text": "Luckily, there's a door!",
+      "image": "./assets/img/7554c938-21d3-4906-92ac-927f1e060d5a.jpeg",
+      "effects": [],
+      "visibility": "shared",
+      "imageScale": 85,
+      "imageOffsetY": -3
+    },
+    {
+      "id": "action-3cdf210d",
+      "kind": "action",
+      "name": "Leave it",
+      "heading": "",
+      "showName": true,
+      "text": "Leave it.",
+      "image": "./assets/img/ChatGPT%20Image%208%20Oct%202026%2C%2017_43_07.png",
+      "conditions": [],
+      "costs": [],
+      "effects": [],
+      "resolution": "direct",
+      "check": {
+        "pool": [
+          {
+            "sides": 20,
+            "count": 1
+          }
+        ],
+        "modifier": 0,
+        "target": 10
+      },
+      "successEffects": [],
+      "failureEffects": [],
+      "visibility": "local",
+      "imageScale": 89,
+      "imageOffsetY": -7
+    },
+    {
+      "id": "action-871734d5",
+      "kind": "action",
+      "name": "Open",
+      "heading": "",
+      "showName": true,
+      "text": "Open it.",
+      "image": "./assets/img/Gemini_Generated_Image_j82i4ej82i4ej82i.jpeg",
+      "conditions": [],
+      "costs": [],
+      "effects": [],
+      "resolution": "direct",
+      "check": {
+        "pool": [
+          {
+            "sides": 20,
+            "count": 1
+          }
+        ],
+        "modifier": 0,
+        "target": 10
+      },
+      "successEffects": [],
+      "failureEffects": [],
+      "visibility": "local",
+      "flipImage": false,
+      "imageScale": 88,
+      "imageOffsetY": -8,
+      "imageOffsetX": -2
+    },
+    {
+      "id": "narrative-6e3cb1dd",
+      "kind": "event",
+      "name": "Fork introduction",
+      "heading": "",
+      "showName": false,
+      "text": "",
+      "image": "",
+      "effects": [],
+      "visibility": "local"
+    },
+    {
+      "id": "narrative-a27240f2",
+      "kind": "event",
+      "name": "Sit and wait",
+      "heading": "",
+      "showName": false,
+      "text": "Great idea. You just sit and wait then...",
+      "image": "./assets/img/Gemini_Generated_Image_3kjcfd3kjcfd3kjc.jpeg",
+      "effects": [],
+      "visibility": "local",
+      "imageScale": 89,
+      "imageOffsetY": -14
+    },
+    {
+      "id": "narrative-666922dc",
+      "kind": "event",
+      "name": "New narrative",
+      "heading": "",
+      "showName": false,
+      "text": "Minutes pass..",
+      "image": "./assets/img/Gemini_Generated_Image_3kjcfd3kjcfd3kjc.jpeg",
+      "effects": [],
+      "visibility": "local"
+    },
+    {
+      "id": "narrative-0c52b208",
+      "kind": "event",
+      "name": "New narrative",
+      "heading": "",
+      "showName": false,
+      "text": "Hours..",
+      "image": "./assets/img/Gemini_Generated_Image_3kjcfd3kjcfd3kjc.jpeg",
+      "effects": [],
+      "visibility": "local",
+      "imageScale": 101
+    },
+    {
+      "id": "narrative-4b90fd8a",
+      "kind": "event",
+      "name": "New narrative",
+      "heading": "",
+      "showName": false,
+      "text": "Maybe trying the door wasn't such a bad idea?",
+      "image": "./assets/img/Gemini_Generated_Image_2ymwlf2ymwlf2ymw.jpeg",
+      "effects": [],
+      "visibility": "local"
+    },
+    {
+      "id": "narrative-da93c0c6",
+      "kind": "event",
+      "name": "wonder",
+      "heading": "",
+      "showName": false,
+      "text": "Maybe leaving the door wasn't such a good idea?",
+      "image": "./assets/img/wonder.jpg",
+      "effects": [],
+      "visibility": "local"
+    },
+    {
+      "id": "action-885f12e1",
+      "kind": "action",
+      "name": "Wait",
+      "heading": "",
+      "showName": false,
+      "text": "No, wait, maybe something happens.",
+      "image": "",
+      "conditions": [],
+      "costs": [],
+      "effects": [],
+      "resolution": "direct",
+      "check": {
+        "pool": [
+          {
+            "sides": 20,
+            "count": 1
+          }
+        ],
+        "modifier": 0,
+        "target": 10
+      },
+      "successEffects": [],
+      "failureEffects": [],
+      "visibility": "local"
+    },
+    {
+      "id": "action-37a6a42b",
+      "kind": "action",
+      "name": "Yeah",
+      "heading": "",
+      "showName": false,
+      "text": "Yeah, check out the door.",
+      "image": "",
+      "conditions": [],
+      "costs": [],
+      "effects": [],
+      "resolution": "direct",
+      "check": {
+        "pool": [
+          {
+            "sides": 20,
+            "count": 1
+          }
+        ],
+        "modifier": 0,
+        "target": 10
+      },
+      "successEffects": [],
+      "failureEffects": [],
+      "visibility": "local"
+    },
+    {
+      "id": "narrative-25c39634",
+      "kind": "event",
+      "name": "Free",
+      "heading": "",
+      "showName": false,
+      "text": "Run, Lazarus, you are free!",
+      "image": "./assets/img/Gemini_Generated_Image_%20(4).jpeg",
+      "effects": [],
+      "visibility": "local"
+    },
+    {
+      "id": "narrative-16a87edb",
+      "kind": "caption",
+      "name": "New narrative",
+      "heading": "",
+      "showName": false,
+      "text": "You carefully push the handle and open the door and step into an empty dark corridor.",
+      "image": "",
+      "effects": [],
+      "visibility": "local"
+    },
+    {
+      "id": "narrative-f482df55",
+      "kind": "event",
+      "name": "New narrative",
+      "heading": "",
+      "showName": false,
+      "text": "Behind it - a corridor. With a light at the end of it!",
+      "image": "",
+      "effects": [],
+      "visibility": "local"
+    },
+    {
+      "id": "narrative-4bd1a01e",
+      "kind": "event",
+      "name": "Touch",
+      "heading": "",
+      "showName": true,
+      "text": "Touch it.",
+      "image": "./assets/img/Gemini_Generated_Image_sc7yugsc7yugsc7yd.png",
+      "effects": [],
+      "visibility": "local",
+      "imageScale": 84,
+      "imageOffsetY": -4
+    },
+    {
+      "id": "narrative-13f74a29",
+      "kind": "event",
+      "name": "Container introduction",
+      "heading": "",
+      "showName": false,
+      "text": "",
+      "image": "",
+      "effects": [],
+      "visibility": "local"
+    },
+    {
+      "id": "item-5fbd8d57",
+      "kind": "item",
+      "name": "New item",
+      "heading": "",
+      "showName": false,
+      "text": "",
+      "image": "",
+      "onCollect": [],
+      "visibility": "local"
+    },
+    {
+      "id": "item-4a7e8da0",
+      "kind": "item",
+      "name": "Battery",
+      "heading": "",
+      "showName": true,
+      "text": "Universal battery, suits most appliances.",
+      "image": "./assets/img/Gemini_Generated_Image_e5hyye5hyye5hyye.jpeg",
+      "onCollect": [],
+      "imageOffsetY": -16,
+      "imageScale": 98,
+      "imageOffsetX": -4
+    },
+    {
+      "id": "narrative-af59a4c2",
+      "kind": "event",
+      "name": "Door found",
+      "heading": "",
+      "showName": false,
+      "text": "You approach a steel metal door",
+      "image": "./assets/img/7554c938-21d3-4906-92ac-927f1e060d5a.jpeg",
+      "effects": [],
+      "visibility": "local",
+      "imageScale": 85,
+      "imageOffsetY": -3
+    },
+    {
+      "id": "narrative-12024784",
+      "kind": "event",
+      "name": "Narrative",
+      "heading": "",
+      "showName": false,
+      "text": "",
+      "image": "",
+      "effects": [],
+      "visibility": "local"
+    },
+    {
+      "id": "action-14382714",
+      "kind": "action",
+      "name": "Action",
+      "heading": "",
+      "showName": true,
+      "text": "",
+      "image": "",
+      "conditions": [],
+      "costs": [],
+      "effects": [],
+      "resolution": "direct",
+      "check": {
+        "pool": [
+          {
+            "sides": 20,
+            "count": 1
+          }
+        ],
+        "modifier": 0,
+        "target": 10
+      },
+      "successEffects": [],
+      "failureEffects": [],
+      "visibility": "local"
+    },
+    {
+      "id": "item-f17980b3",
+      "kind": "item",
+      "name": "Mackrelas",
+      "heading": "",
+      "showName": true,
+      "text": "Already open, but suprisingly not rotten.",
+      "image": "./assets/img/Gemini_Generated_Image_2jy1or2jy1or2jy1.jpeg",
+      "onCollect": [],
+      "imageOffsetY": -13,
+      "imageOffsetX": -4
+    },
+    {
+      "id": "item-9d6d04a9",
+      "kind": "item",
+      "name": "Item",
+      "heading": "",
+      "showName": true,
+      "text": "",
+      "image": "",
+      "onCollect": [],
+      "visibility": "local"
+    },
+    {
+      "id": "item-c719bbda",
+      "kind": "item",
+      "name": "Item",
+      "heading": "",
+      "showName": true,
+      "text": "",
+      "image": "",
+      "onCollect": [],
+      "visibility": "local"
+    },
+    {
+      "id": "item-0f171051",
+      "kind": "item",
+      "name": "Item",
+      "heading": "",
+      "showName": true,
+      "text": "",
+      "image": "",
+      "onCollect": [],
+      "visibility": "local"
+    },
+    {
+      "id": "event-0339c450",
+      "kind": "event",
+      "name": "Event",
+      "showName": false,
+      "text": "",
+      "image": "",
+      "effects": [],
+      "visibility": "local"
+    },
+    {
+      "id": "caption-9d3981f7",
+      "kind": "caption",
+      "name": "try door",
+      "showName": false,
+      "text": "– Yeah... get back to the door.",
+      "image": "",
+      "effects": [],
+      "visibility": "local"
+    },
+    {
+      "id": "caption-f3ff7b19",
+      "kind": "caption",
+      "name": "wait more",
+      "showName": false,
+      "text": "– No, wait some more maybe something happens.",
+      "image": "",
+      "effects": [],
+      "visibility": "local"
+    },
+    {
+      "id": "event-14ebf16c",
+      "kind": "event",
+      "name": "Event",
+      "showName": false,
+      "text": "The steel is cold and lifeless.",
+      "image": "./assets/img/Gemini_Generated_Image_rdw0tlrdw0tlrdw0.jpeg",
+      "effects": [],
+      "visibility": "local"
+    },
+    {
+      "id": "event-c94e4361",
+      "kind": "event",
+      "name": "arrival",
+      "heading": "",
+      "text": "You sit and wait.",
+      "image": "./assets/img/Gemini_Generated_Image_3kjcfd3kjcfd3kjc.jpeg",
+      "effects": [],
+      "showName": false,
+      "visibility": "local",
+      "imageScale": 100,
+      "imageOffsetX": 0,
+      "imageOffsetY": 0,
+      "flipImage": false
     }
   ],
   "variables": [
@@ -345,119 +873,227 @@
           "id": "arrival",
           "name": "Start",
           "type": "linear",
-          "x": 22.185318398423085,
-          "y": 160.08808724447616,
+          "x": 183.1599941020836,
+          "y": 55.70045991546293,
           "cards": [
             {
               "id": "arrival-card",
-              "definitionId": "arrival"
+              "definitionId": "narrative-e1720845"
+            },
+            {
+              "id": "placement-7f3a6065",
+              "definitionId": "narrative-5ab5d753"
+            },
+            {
+              "id": "placement-a0b7ed91",
+              "definitionId": "narrative-f7fd1031"
+            },
+            {
+              "id": "placement-67596a8b",
+              "definitionId": "narrative-dc489ccb"
             }
           ],
           "connections": {
-            "next": "supplies"
+            "next": "node-ce99368d"
           }
         },
         {
-          "id": "supplies",
-          "name": "Supplies",
-          "type": "container",
-          "x": 339.80688823861345,
-          "y": 182.13064854707562,
+          "id": "node-ce99368d",
+          "name": "Get out",
+          "type": "linear",
+          "x": 607.5139166359077,
+          "y": -115.75549332940389,
+          "connections": {
+            "next": "node-b65c4230"
+          },
+          "cards": [
+            {
+              "id": "placement-02b332de",
+              "definitionId": "narrative-0d2994bb"
+            },
+            {
+              "id": "placement-a186f5e6",
+              "definitionId": "narrative-08eb0570"
+            }
+          ]
+        },
+        {
+          "id": "node-b65c4230",
+          "name": "The door",
+          "type": "fork",
+          "x": 894.3743168703979,
+          "y": -470.1824286620293,
+          "connections": {
+            "placement-3c031d98": "node-b65c4230",
+            "placement-d0ff990e": "node-fe02f5e4",
+            "placement-2e86f501": "node-ffe79362"
+          },
+          "choices": [
+            {
+              "id": "placement-3c031d98",
+              "definitionId": "action-871734d5"
+            },
+            {
+              "id": "placement-d0ff990e",
+              "definitionId": "action-3cdf210d"
+            },
+            {
+              "id": "placement-2e86f501",
+              "definitionId": "narrative-4bd1a01e"
+            }
+          ],
           "intro": {
-            "id": "supply-intro",
-            "definitionId": "narrative-5f8d1339"
+            "id": "placement-33c4a6b7",
+            "definitionId": "narrative-af59a4c2"
+          },
+          "introEnabled": true,
+          "introOnce": true
+        },
+        {
+          "id": "node-fe02f5e4",
+          "name": "Sit and wait",
+          "type": "linear",
+          "x": 1523.5419738002665,
+          "y": -753.516286655058,
+          "connections": {
+            "next": "node-195acd0b"
+          },
+          "cards": [
+            {
+              "id": "placement-48502491",
+              "definitionId": "event-c94e4361"
+            },
+            {
+              "id": "placement-11784828",
+              "definitionId": "narrative-666922dc"
+            },
+            {
+              "id": "placement-cb83682f",
+              "definitionId": "narrative-0c52b208"
+            }
+          ]
+        },
+        {
+          "id": "node-195acd0b",
+          "name": "New fork",
+          "type": "fork",
+          "x": 500.4633586984091,
+          "y": -494.92275821291287,
+          "connections": {
+            "placement-ea3713f1": "node-b65c4230",
+            "placement-f2216d97": "node-fe02f5e4"
+          },
+          "introEnabled": true,
+          "intro": {
+            "id": "placement-ef28e4f5",
+            "definitionId": "narrative-da93c0c6"
+          },
+          "choices": [
+            {
+              "id": "placement-ea3713f1",
+              "definitionId": "caption-9d3981f7"
+            },
+            {
+              "id": "placement-f2216d97",
+              "definitionId": "caption-f3ff7b19"
+            }
+          ]
+        },
+        {
+          "id": "node-3943e264",
+          "name": "New linear",
+          "type": "linear",
+          "x": 1689.6499615696366,
+          "y": -353.17029570702323,
+          "connections": {
+            "next": null
+          },
+          "cards": [
+            {
+              "id": "placement-d693cfb2",
+              "definitionId": "narrative-16a87edb"
+            },
+            {
+              "id": "placement-61487b90",
+              "definitionId": "narrative-f482df55"
+            },
+            {
+              "id": "placement-7f990636",
+              "definitionId": "narrative-25c39634"
+            }
+          ]
+        },
+        {
+          "id": "node-b0abb05d",
+          "name": "New container",
+          "type": "container",
+          "x": 1338.77629610312,
+          "y": -599.3732047080553,
+          "connections": {
+            "next": "node-3943e264"
+          },
+          "introEnabled": true,
+          "intro": {
+            "id": "placement-b89aee60",
+            "definitionId": "narrative-c0bbae86"
           },
           "items": [
             {
-              "id": "supply-flashlight",
-              "definitionId": "item-69531d6d"
-            },
-            {
-              "id": "placement-7d28a7ed",
+              "id": "placement-8037a09f",
               "definitionId": "flashlight"
-            }
-          ],
-          "connections": {
-            "next": "route"
-          },
-          "introEnabled": true
-        },
-        {
-          "id": "route",
-          "name": "Choose a route",
-          "type": "fork",
-          "x": 661.0720656529281,
-          "y": 157.59584583488308,
-          "choices": [
-            {
-              "id": "explore-choice",
-              "definitionId": "action-4f013724"
             },
             {
-              "id": "placement-de4f3e27",
-              "definitionId": "action-a546c7c1"
+              "id": "placement-b2456c48",
+              "definitionId": "item-c68ec941"
             },
             {
-              "id": "placement-457625f6",
-              "definitionId": "action-2e5941af"
-            }
-          ],
-          "connections": {
-            "explore-choice": "encounter",
-            "placement-de4f3e27": "encounter",
-            "placement-457625f6": "node-2f5bf7f6"
-          }
-        },
-        {
-          "id": "encounter",
-          "name": "Random encounter",
-          "type": "random",
-          "x": 931.884765625,
-          "y": 10.897875786105846,
-          "routes": [
+              "id": "placement-f7fa6c1d",
+              "definitionId": "item-4a7e8da0"
+            },
             {
-              "id": "quiet",
-              "target": "quiet-passage",
-              "weight": 1,
-              "conditions": []
+              "id": "placement-9758e4bc",
+              "definitionId": "item-f17980b3"
             }
-          ],
-          "fallback": "node-2f5bf7f6"
+          ]
         },
         {
-          "id": "quiet-passage",
-          "name": "Quiet passage",
-          "type": "linear",
-          "x": 1271.7320128391236,
-          "y": 99.25927833695334,
-          "cards": [
-            {
-              "id": "placement-2d39de15",
-              "definitionId": "narrative-73cae086"
-            }
-          ],
-          "connections": {
-            "next": null
-          }
-        },
-        {
-          "id": "node-2f5bf7f6",
+          "id": "node-fc4a2c9c",
           "name": "New linear",
           "type": "linear",
-          "x": 966.7630270600146,
-          "y": 533.9299700766528,
+          "x": 1605.0132258427527,
+          "y": -138.35651844104007,
           "connections": {
-            "next": "quiet-passage"
+            "next": null
           },
           "cards": [
             {
-              "id": "placement-21166d91",
-              "definitionId": "narrative-aa1fa4f5"
+              "id": "placement-4fa95bf8",
+              "definitionId": "event-0339c450"
+            }
+          ]
+        },
+        {
+          "id": "node-ffe79362",
+          "name": "New linear",
+          "type": "linear",
+          "x": 1263.56364752467,
+          "y": -366.8996789657561,
+          "connections": {
+            "next": "node-b65c4230"
+          },
+          "cards": [
+            {
+              "id": "placement-132d7347",
+              "definitionId": "event-14ebf16c"
             }
           ]
         }
       ],
-      "backImage": "./assets/img/cardback.png"
+      "backImage": "./assets/img/cardback.png",
+      "allowCycles": true
     }
-  ]
+  ],
+  "cardStyles": {
+    "big": 17
+  }
 }

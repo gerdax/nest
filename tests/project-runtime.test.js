@@ -216,3 +216,26 @@ test('automatic routing loops remain bounded when node cycles are allowed',()=>{
  const errors=[];const {controller}=fixture([{id:'random',type:'random',routes:[{id:'loop',target:'random',weight:1}],fallback:null}],{allowCycles:true},{onError:e=>errors.push(e)});
  assert.equal(controller.state.completed,true);assert.match(errors[0].message,/Automatic routing cycle/);controller.destroy();
 });
+
+for(const once of [true,false,undefined])test(`Fork introductions respect per-visit/once behavior, show once=${once}`,()=>{
+ const intro={...narrative('intro'),effects:[{op:'add',key:'energy',value:1}]};
+ const {deck,controller}=fixture([{id:'fork',type:'fork',intro,introEnabled:true,...(once===undefined?{}:{introOnce:once}),choices:[action('go')],connections:{go:'return'}},{id:'return',type:'linear',cards:[narrative('return')],connections:{next:'fork'}}],{variables:[{id:'energy',type:'number',initial:0}]});
+ deck.emit('reveal');deck.emit('transitioncomplete',{transition:'reveal'});assert.equal(controller.state.variables.energy,1);
+ controller.show({restore:true});assert.equal(deck.options.presentation,'open','refresh stays in same visit');deck.emit('reveal');assert.equal(controller.state.variables.energy,1);
+ deck.accept();deck.accept();assert.equal(deck.options.presentation,once===true?'open':'closed');deck.emit('reveal');deck.emit('transitioncomplete',{transition:'reveal'});assert.equal(controller.state.variables.energy,once===true?1:2);
+ controller.restart();assert.equal(deck.options.presentation,'closed');assert.equal(controller.state.variables.energy,0);controller.destroy();
+});
+for(const once of [true,false])test(`Container replay effects respect show once=${once} without respawning items`,()=>{
+ const {deck,controller}=fixture([{id:'box',type:'container',intro:{...narrative('intro'),effects:[{op:'add',key:'energy',value:1}]},introOnce:once,items:[{id:'item',kind:'item',definitionId:'item',name:'Item'}],connections:{next:'return'}},{id:'return',type:'linear',cards:[narrative('return')],connections:{next:'box'}}],{variables:[{id:'energy',type:'number',initial:0}]});
+ deck.emit('reveal');deck.emit('transitioncomplete',{transition:'reveal'});deck.take('item',true);deck.finish();assert.equal(controller.state.activeNodeId,'return');deck.accept();
+ if(!once){assert.equal(controller.state.activeNodeId,'box');assert.equal(deck.options.presentation,'closed');deck.emit('reveal');deck.emit('transitioncomplete',{transition:'reveal'});}
+ assert.equal(controller.state.variables.energy,once?1:2);assert.equal(controller.state.activeNodeId,'return');assert.equal(controller.state.collectedItems.length,1);controller.destroy();
+});
+
+test('container controller retains survivor stack and does not replay hint after removal',()=>{
+ const items=['one','two','three','four'].map(id=>({id,kind:'item',definitionId:id,name:id}));
+ const {deck,controller}=real([{id:'box',type:'container',intro:narrative('intro'),items,connections:{next:null}}]);
+ key(deck,'ArrowUp');const contentId=deck.content.id;assert.equal(deck.presentationBrowsePending,false);
+ key(deck,'ArrowDown');assert.equal(deck.cards.length,3);assert.equal(deck.content.id,contentId);assert.equal(deck.presentationBrowsePending,false);assert.equal(deck.presentationHint,null);
+ key(deck,'ArrowUp');assert.equal(deck.cards.length,2);assert.equal(deck.content.id,contentId);assert.equal(deck.presentationBrowsePending,false);assert.equal(deck.presentationHint,null);dispose(deck,controller);
+});

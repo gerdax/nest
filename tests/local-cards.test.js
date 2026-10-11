@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createProject,compileChapter,exportChapter,importChapter,validateProject,parseProject} from '../project/model.js';
-import {createNode,replaceCard,promoteCard,synchronizeConnections,duplicateNode,setCardSource} from '../studio/commands.js';
+import {createNode,replaceCard,promoteCard,synchronizeConnections,duplicateNode,duplicatePlacement,setCardSource} from '../studio/commands.js';
 import {nodeInspector} from '../studio/inspectors.js';
 import {saveProject,loadProject} from '../project/storage.js';
 import {DocumentHistory} from '../editor/DocumentHistory.js';
@@ -89,9 +89,31 @@ test('copies and duplicated nodes remap item self references and legacy inventor
 test('Custom card source opens an independent same-type copy and library options stay compatible',()=>{
  const project=createProject(),node=project.chapters[0].nodes.find(n=>n.type==='linear'),p=node.cards[0],original=project.library.find(d=>d.id===p.definitionId),id=p.id;
  const sharedId=original.id;setCardSource(project,p,'');const local=project.library.find(d=>d.id===p.definitionId);
- assert.equal(local.visibility,'local');assert.equal(local.kind,'narrative');assert.equal(local.text,original.text);assert.equal(p.id,id);
+ assert.equal(local.visibility,'local');assert.equal(local.kind,'event');assert.equal(local.text,original.text);assert.equal(p.id,id);
  const count=project.library.length;setCardSource(project,p,'');assert.equal(project.library.length,count);
  const html=nodeInspector(project,project.chapters[0],node);assert.match(html,/<option value="" selected>Custom card/);assert.match(html,/local-definition/);assert.doesNotMatch(html,/Choose library card/);
  assert.throws(()=>setCardSource(project,p,'flashlight'),/same type/);assert.equal(p.definitionId,local.id);
  setCardSource(project,p,sharedId);assert.equal(p.definitionId,original.id);assert.equal(p.id,id);
+});
+
+test('Show once defaults unchecked, disables with intro and survives chapter round trips',()=>{
+ const project=createProject(),chapter=project.chapters[0];
+ for(const type of ['fork','container']){
+  const node=createNode(project,type);chapter.nodes.push(node);assert.equal(node.introOnce,false);
+  const html=nodeInspector(project,chapter,node);assert.match(html,/Show once/);assert.match(html,/data-path="introOnce"\s+>/);
+  node.introOnce=true;node.introEnabled=false;assert.match(nodeInspector(project,chapter,node),/data-path="introOnce" checked disabled/);
+ }
+ synchronizeConnections(project);const restored=parseProject(JSON.stringify(exportChapter(project)));
+ for(const node of restored.chapters[0].nodes.filter(n=>n.name.startsWith('New '))){assert.equal(node.introOnce,true);assert.equal(node.introEnabled,false);}
+});
+
+test('Duplicate card inserts an independent local copy and retains shared references and Fork connectors',()=>{
+ const project=createProject(),local=createNode(project,'fork');
+ const source=local.choices[0],definition=project.library.find(d=>d.id===source.definitionId);definition.imageScale=160;source.conditions=[];
+ local.connections={[source.id]:'destination'};const copy=duplicatePlacement(project,local,source);
+ assert.equal(local.choices[1],copy);assert.notEqual(copy.id,source.id);assert.notEqual(copy.definitionId,source.definitionId);assert.equal(local.connections[copy.id],'destination');
+ const cloned=project.library.find(d=>d.id===copy.definitionId);assert.equal(cloned.imageScale,160);cloned.text='Only copy';assert.notEqual(definition.text,cloned.text);
+ const shared=project.chapters[0].nodes[0],original=shared.cards[0],reference=duplicatePlacement(project,shared,original);assert.equal(reference.definitionId,original.definitionId);assert.notEqual(reference.id,original.id);
+ definition.resolution='check';local.connections[`${source.id}:success`]='yes';local.connections[`${source.id}:failure`]='no';
+ const checked=duplicatePlacement(project,local,source);assert.equal(local.connections[`${checked.id}:success`],'yes');assert.equal(local.connections[`${checked.id}:failure`],'no');
 });

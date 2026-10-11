@@ -3,9 +3,10 @@ import assert from 'node:assert/strict';
 import {cardFace} from '../project/presentation.js';
 import {renderCardPreviews} from '../studio/card-preview.js';
 import {createProject,parseProject,compileChapter,exportChapter} from '../project/model.js';
-import {resolvePlacement} from '../project/cards.js';
+import {createDefinition,resolvePlacement} from '../project/cards.js';
+import {decorateCard} from '../engine/renderer.js';
 import {ProjectController} from '../project/ProjectController.js';
-import {nodeInspector} from '../studio/inspectors.js';
+import {cardFields,nodeInspector} from '../studio/inspectors.js';
 class Element {
  constructor(){this.style={};this.children=[];this.dataset={};this.attrs={};}
  append(...children){this.children.push(...children);}
@@ -45,16 +46,16 @@ test('old placement context is discarded on load and export without changing def
 });
 
 
-test('all card kinds hide names by default and opt in without hiding body or mechanics',()=>{
+test('only item names can appear on cards, including old showName settings',()=>{
  const project=createProject();
  for(const definition of project.library){
-  assert.equal(definition.showName,false);
-  const before=cardFace(definition,project.variables,project.library);assert.equal(before.heading,'');
-  definition.showName=true;assert.equal(cardFace(definition,project.variables,project.library).heading,definition.name);
+  assert.equal(definition.showName,definition.kind==='item');
+  const before=cardFace(definition,project.variables,project.library);assert.equal(before.heading,definition.kind==='item'?definition.name:'');
+  definition.showName=true;assert.equal(cardFace(definition,project.variables,project.library).heading,definition.kind==='item'?definition.name:'');
   definition.showName=false;const after=cardFace(definition,project.variables,project.library);assert.equal(after.heading,'');assert.equal(after.text,before.text);assert.equal(after.summary,before.summary);
   delete definition.showName;assert.equal(cardFace(definition).heading,'');
  }
- const d=project.library[0];d.showName=true;d.heading='Custom';assert.equal(cardFace(d).heading,'Custom');
+ const d=project.library[0];d.showName=true;d.heading='Custom';assert.equal(cardFace(d).heading,'');
  const loaded=parseProject(JSON.stringify(project));assert.equal(loaded.library[0].showName,true);
  d.showName='yes';assert.throws(()=>parseProject(JSON.stringify(project)),/invalid content/);
 });
@@ -66,7 +67,35 @@ test('name visibility reaches both narrative cover and action/item fronts during
   const d=project.library.find(d=>d.id===p.definitionId);
   for(const show of [false,true]){
    d.showName=show;const compiled=compileChapter(project);compiled.startNode=node.id;const deck=new Deck(),controller=new ProjectController(deck,compiled);
-   assert.equal(type==='fork'?deck.content.actions[0].heading:deck.content.heading,show?d.heading||d.name:'');controller.destroy();
+   assert.equal(type==='fork'?deck.content.actions[0].heading:deck.content.heading,'');controller.destroy();
   }
+ }
+});
+
+test('artwork scale and position survive export and match inline and playback faces',()=>{
+ const project=createProject(),node=project.chapters[0].nodes[0],definition=project.library.find(d=>d.id===node.cards[0].definitionId);
+ Object.assign(definition,{imageScale:150,imageOffsetX:-12,imageOffsetY:8,flipImage:true});
+ const restored=parseProject(JSON.stringify(exportChapter(project))),compiled=compileChapter(restored),card=compiled.nodes[0].cards[0];
+ assert.equal(card.imageScale,150);assert.equal(card.imageOffsetX,-12);assert.equal(card.imageOffsetY,8);
+ const mount=new Element();mount.dataset.previewPlacement=node.cards[0].id;renderCardPreviews({querySelectorAll:()=>[mount]},project,node);
+ assert.equal(mount.children[0].children[1].style.transform,'translate(-12%, 8%) scale(1.5) scaleX(-1)');
+ assert.equal(mount.children[0].children[0].style.transform,undefined);
+ const deck=new Deck(),controller=new ProjectController(deck,compileChapter(project));assert.equal(deck.content.imageScale,150);assert.equal(deck.content.imageOffsetX,-12);controller.destroy();
+ definition.visibility='local';assert.match(nodeInspector(project,project.chapters[0],node),/Image scale and position/);
+});
+
+
+test('typed fronts separate permanent type labels from item names and hide name controls elsewhere',()=>{
+ const project=createProject();
+ for(const kind of ['event','caption','action','item']) {
+  const definition=createDefinition(kind,kind);definition.showName=true;definition.name='Internal name';
+  const face=cardFace(definition),front=new Element();
+  decorateCard(null,front,'',face.heading,'',false,face);
+  const label=front.children.find(e=>e.className==='nest-card-type');
+  assert.equal(label?.textContent,['action','item'].includes(kind)?kind.toUpperCase():undefined);
+  assert.equal(front.children[0].children[0].textContent,kind==='item'?'Internal name':'');
+  const html=cardFields(project,definition);
+  assert.equal(html.includes('Show name on card'),kind==='item');
+  if(kind==='item') {definition.showName=false;assert.equal(cardFace(definition).heading,'');}
  }
 });

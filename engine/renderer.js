@@ -55,10 +55,10 @@ export function stageActionDeck(deck, content, selectedIndex = 0, previous = nul
       const card = previous.cards[oldIndex], layer = previous.cardLayers[oldIndex];
       const oldAction = previous.content.actions[oldIndex];
       let title = previous.cardTitles[oldIndex], back = previous.cardBacks[oldIndex];
-      if (oldAction.label !== action.label || oldAction.heading !== action.heading || oldAction.summary !== action.summary || oldAction.text !== action.text || oldAction.cardKind !== action.cardKind || (oldAction.image || previous.content.image) !== (action.image || content.image) || flipped(oldAction) !== flipped(action)) {
+      if (oldAction.label !== action.label || oldAction.heading !== action.heading || oldAction.summary !== action.summary || oldAction.text !== action.text || oldAction.cardKind !== action.cardKind || (oldAction.image ?? previous.content.image ?? '') !== (action.image ?? content.image ?? '') || flipped(oldAction) !== flipped(action) || ['imageScale','imageOffsetX','imageOffsetY'].some(key=>oldAction[key]!==action[key])) {
         card.replaceChildren();
         card.style.backgroundImage = '';
-        title = deck.decorate(card, action.image || content.image, action.heading || '', action.cardKind ? action.text || '' : action.label, flipped(action), action);
+        title = deck.decorate(card, action.image ?? content.image ?? '', action.heading || '', action.cardKind ? action.text || '' : action.label, flipped(action), action);
       }
       if (back && previous.content.backImage !== content.backImage) decorateBack(back, content.backImage);
       if ((action.faceDown || content.decisionOnly) && !back) { back = backFace(content.backImage); layer.append(back); }
@@ -71,7 +71,7 @@ export function stageActionDeck(deck, content, selectedIndex = 0, previous = nul
     }
     const card = document.createElement('article');
     card.className = 'nest-card nest-action';
-    bundle.cardTitles.push(deck.decorate(card, action.image || content.image, action.heading || '', action.cardKind ? action.text || '' : action.label, flipped(action), action));
+    bundle.cardTitles.push(deck.decorate(card, action.image ?? content.image ?? '', action.heading || '', action.cardKind ? action.text || '' : action.label, flipped(action), action));
     const layer = layerFor(deck, card);
     bundle.cardLayers.push(layer);
     const back = action.faceDown || content.decisionOnly ? backFace(content.backImage) : null;
@@ -80,8 +80,9 @@ export function stageActionDeck(deck, content, selectedIndex = 0, previous = nul
     bundle.cards.push(card);
   });
   bundle.cardTitles.forEach((title, index) => {
-    title.hidden = !content.actions[index].heading;
-    if (!content.actions[index].heading) title.textContent = '';
+    const action = content.actions[index];
+    title.hidden = !action.heading || ['event','narrative','caption','action'].includes(action.cardKind);
+    if (title.hidden) title.textContent = '';
   });
   return bundle;
 }
@@ -115,15 +116,22 @@ export function decorateCard(deck, element, image, title, text, flipImage = fals
   const artwork = document.createElement('div');
   artwork.className = 'nest-artwork';
   artwork.setAttribute('aria-hidden', 'true');
-  if (image) artwork.style.backgroundImage = `url(${JSON.stringify(image)})`;
-  artwork.style.transform = flipImage ? 'scaleX(-1)' : '';
+  const caption = presentation.cardKind === 'caption';
+  if (image && !caption) artwork.style.backgroundImage = `url(${JSON.stringify(image)})`;
+  const transforms = [];
+  const scale = presentation.imageScale ?? 100, x = presentation.imageOffsetX ?? 0, y = presentation.imageOffsetY ?? 0;
+  if (x || y) transforms.push(`translate(${x}%, ${y}%)`);
+  if (scale !== 100) transforms.push(`scale(${scale / 100})`);
+  if (flipImage) transforms.push('scaleX(-1)');
+  artwork.style.transform = caption ? '' : transforms.join(' ');
   const copy = document.createElement('div');
   copy.className = 'nest-copy';
   element.setAttribute('data-card-kind', presentation.cardKind || 'narrative');
   const heading = document.createElement('span');
   heading.className = 'nest-card-title';
-  heading.textContent = title || '';
-  heading.hidden = !title;
+  const visibleTitle = ['event','narrative','caption','action'].includes(presentation.cardKind) ? '' : title;
+  heading.textContent = visibleTitle || '';
+  heading.hidden = !visibleTitle;
   const body = document.createElement('p');
   body.textContent = text || '';
   copy.append(heading);
@@ -135,6 +143,12 @@ export function decorateCard(deck, element, image, title, text, flipImage = fals
   }
   copy.append(body);
   element.append(copy, artwork, cardTexture());
+  if (['action','item'].includes(presentation.cardKind)) {
+    const typeLabel = document.createElement('span');
+    typeLabel.className = 'nest-card-type';
+    typeLabel.textContent = presentation.cardKind.toUpperCase();
+    element.append(typeLabel);
+  }
   return heading;
 }
 

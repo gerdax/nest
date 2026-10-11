@@ -1,6 +1,6 @@
 import { initialValues, conditionsMet, affordCosts, transact, addInventory } from './state.js';
 import { cardBody, cardFace } from './presentation.js';
-import { cardSummary } from './cards.js';
+import { cardSummary, isStoryKind } from './cards.js';
 import { selectPool } from '../chapter/random.js';
 
 /** Playback only. CardDeck remains responsible for gestures and departure choreography. */
@@ -34,6 +34,7 @@ export class ProjectController {
   choices(location=this.location) {return location.sequence?.cards?.[location.index]?.choices ?? location.node.choices ?? [];}
   key(location=this.location) {return `${location.node.id}:${location.sequence?.id ?? ''}`;}
   introEnabled(location=this.location) {return location.node.type==='fork'?!!location.node.intro&&location.node.introEnabled!==false:location.node.type!=='container'||location.node.introEnabled!==false;}
+  introShown(location=this.location) {return location.introRevealed===true || location.node.introOnce===true&&this.revealedIntros.has(this.key(location));}
   items(location=this.location, values=this.variables, inventory=this.inventory, excluded=null) {
     const raw=this.remaining.get(this.key(location)) ?? location.sequence?.items ?? location.node.items ?? [];
     return raw.filter(i=>i.id!==excluded && conditionsMet(i.conditions,values,inventory));
@@ -70,7 +71,7 @@ export class ProjectController {
       const cards=location.sequence?.cards ?? location.node.cards ?? [];
       while(location.index<cards.length && !conditionsMet(cards[location.index].conditions,values,inventory))location={...location,index:location.index+1};
       if(location.index>=cards.length)return this.next(location,'next',values,inventory,visited,excluded,preview);
-    } else if(type==='container' && !this.items(location,values,inventory,excluded).length && !(location.node.type==='container'&&this.introEnabled(location)&&!this.revealedIntros.has(this.key(location))&&conditionsMet(this.card(location)?.conditions,values,inventory)&&this.card(location)?.effects?.length)) return this.next(location,'next',values,inventory,visited,excluded,preview);
+    } else if(type==='container' && !this.items(location,values,inventory,excluded).length && !(location.node.type==='container'&&this.introEnabled(location)&&!this.introShown(location)&&conditionsMet(this.card(location)?.conditions,values,inventory)&&this.card(location)?.effects?.length)) return this.next(location,'next',values,inventory,visited,excluded,preview);
     return location;
   }
   next(location,output='next',values=this.variables,inventory=this.inventory,visited=new Set(),excluded=null,preview=false) {
@@ -107,7 +108,7 @@ export class ProjectController {
     else if(container)actions=this.items(location,values,inventory,excludedItem).map(c=>this.action(c));
     else actions=[{id:'continue',label:'Continue',image:card?.image,flipImage:!!card?.flipImage}];
     if(!actions.length)actions=[{id:'unavailable',label:'No available choices',disabled:true}];
-    const payload={autoBrowse:fork||container,id:`${this.generation}:${++this.serial}`,backImage:this.compiled.backImage ?? '',title:card?.name ?? card?.title ?? '',heading:cardFace(card,this.compiled.variables,this.compiled.library).heading,text:this.body(card),cardKind:card?.kind ?? 'narrative',summary:card&&(card.kind??card.cardKind)!=='narrative'&&fork?cardSummary(card,this.compiled.variables,this.compiled.library):'',image:card?.image ?? '',flipImage:!!card?.flipImage,actions,directAdvance:!fork&&!container,decisionOnly:fork&&(location.sequence?!!location.sequence.decisionOnly:this.presentation(location,values,inventory)==='open'),interaction:container?'container':'choice',allowClose:false};
+    const payload={autoBrowse:fork||container,id:`${this.generation}:${++this.serial}`,backImage:this.compiled.backImage ?? '',title:card?.name ?? card?.title ?? '',heading:cardFace(card,this.compiled.variables,this.compiled.library).heading,text:this.body(card),cardKind:card?.kind ?? 'event',summary:card&&!isStoryKind(card.kind??card.cardKind)&&fork?cardSummary(card,this.compiled.variables,this.compiled.library):'',image:card?.image ?? '',imageScale:card?.imageScale??100,imageOffsetX:card?.imageOffsetX??0,imageOffsetY:card?.imageOffsetY??0,flipImage:!!card?.flipImage,actions,directAdvance:!fork&&!container,decisionOnly:fork&&(location.sequence?!!location.sequence.decisionOnly:this.presentation(location,values,inventory)==='open'),interaction:container?'container':'choice',allowClose:false};
     if(type==='linear'&&preview&&card) {
       try {
         const predicted=transact(values,inventory,{costs:card.costs,effects:card.effects},this.compiled.variables,this.compiled.library);
@@ -115,7 +116,7 @@ export class ProjectController {
         if(next&&!next.completed) {
           const nextContent=this.content(next,predicted.variables,predicted.inventory,false);
           payload.nextDeckPreview={content:nextContent,presentation:this.presentation(next,predicted.variables,predicted.inventory)};
-          if(this.type(next)==='linear')payload.nextCardPreview={title:nextContent.title,heading:nextContent.heading,text:nextContent.text,image:nextContent.image,flipImage:nextContent.flipImage,cardKind:nextContent.cardKind};
+          if(this.type(next)==='linear')payload.nextCardPreview={title:nextContent.title,heading:nextContent.heading,text:nextContent.text,image:nextContent.image,imageScale:nextContent.imageScale,imageOffsetX:nextContent.imageOffsetX,imageOffsetY:nextContent.imageOffsetY,flipImage:nextContent.flipImage,cardKind:nextContent.cardKind};
         }
       }catch { /* An invalid transaction must never leak a speculative successor. */ }
     }
@@ -123,28 +124,29 @@ export class ProjectController {
   }
   presentation(location=this.location,values=this.variables,inventory=this.inventory) {
     const type=this.type(location);
-    if(type==='fork')return this.introEnabled(location)&&!this.revealedIntros.has(this.key(location))&&conditionsMet(this.card(location)?.conditions,values,inventory)?'closed':'open';
+    if(type==='fork')return this.introEnabled(location)&&!this.introShown(location)&&conditionsMet(this.card(location)?.conditions,values,inventory)?'closed':'open';
     if(type==='forked')return location.sequence.decisionOnly?'open':'closed';
-    if(type==='container'&&(!this.introEnabled(location)||this.revealedIntros.has(this.key(location))||!conditionsMet(this.card(location)?.conditions,values,inventory)))return 'open';
+    if(type==='container'&&(!this.introEnabled(location)||this.introShown(location)||!conditionsMet(this.card(location)?.conditions,values,inventory)))return 'open';
     return 'closed';
   }
   reportBlocked(content=this.deck.content) {
     if(['fork','forked'].includes(this.type())&&this.presentation()==='open'&&!content.actions.some(a=>!a.disabled))this.error(new Error(`No available choices at ${this.location.node.name || this.location.node.id}. Check choice requirements and costs, use an eligible inventory item, or restart.`));
   }
-  show({transition='flip',restore=false,presentation,animate=true}={}) {
+  show({transition='flip',restore=false,presentation,animate=true,autoBrowse=true}={}) {
     if(this.completed){this.deck.endContent();if(!this.deck.busy)this.deck.completeCommit?.();this.notify();return;}
     if(restore)this.deck.reset();
-    if(this.type()==='container'&&!conditionsMet(this.card()?.conditions,this.variables,this.inventory))this.revealedIntros.add(this.key());
+    if(this.type()==='container'&&!conditionsMet(this.card()?.conditions,this.variables,this.inventory)){this.location.introRevealed=true;this.revealedIntros.add(this.key());}
     const content=this.content();
+    content.autoBrowse=content.autoBrowse&&autoBrowse;
     this.deck.replaceContent(content,{presentation:presentation ?? this.presentation(),transition,animate});this.reportBlocked(content);this.notify();
   }
   reveal(detail) {
-    if(this.destroyed||this.completed||this.checking||this.pendingItem||this.pendingIntro||!['container','fork'].includes(this.location.node.type)||!this.introEnabled()||detail.contentId!==this.deck.content.id||this.revealedIntros.has(this.key()))return;
+    if(this.destroyed||this.completed||this.checking||this.pendingItem||this.pendingIntro||!['container','fork'].includes(this.location.node.type)||!this.introEnabled()||detail.contentId!==this.deck.content.id||this.introShown())return;
     const intro=this.card();
     if(!conditionsMet(intro?.conditions,this.variables,this.inventory))return;
     try {
       const result=transact(this.variables,this.inventory,{effects:intro?.effects},this.compiled.variables,this.compiled.library);
-      this.revealedIntros.add(this.key());this.pendingIntro={contentId:detail.contentId};
+      this.location.introRevealed=true;this.revealedIntros.add(this.key());this.pendingIntro={contentId:detail.contentId};
       this.variables=result.variables;this.inventory=result.inventory;this.notify();
     }catch(error){this.error(error);this.show({restore:true});}
   }
@@ -198,7 +200,11 @@ export class ProjectController {
         const retainContainer=this.items(this.location,result.variables,result.inventory,item.id).length>0;
         this.stagedDestination=retainContainer?this.location:this.next(this.location,'next',result.variables,result.inventory,new Set(),item.id);
         if(this.stagedDestination.completed)this.deck.endContent();
-        else this.deck.replaceContent(this.content(this.stagedDestination,result.variables,result.inventory,true,retainContainer?item.id:null),{presentation:retainContainer?'open':this.presentation(this.stagedDestination,result.variables,result.inventory),transition:'flip'});
+        else {
+          const content=this.content(this.stagedDestination,result.variables,result.inventory,true,retainContainer?item.id:null);
+          if(retainContainer)content.autoBrowse=false;
+          this.deck.replaceContent(content,{presentation:retainContainer?'open':this.presentation(this.stagedDestination,result.variables,result.inventory),transition:'flip'});
+        }
       }
     }catch(error){this.pendingItem=null;this.stagedDestination=null;this.error(error);this.show({restore:true});}
   }
@@ -223,7 +229,10 @@ export class ProjectController {
       this.variables=pending.result.variables;this.inventory=pending.result.inventory;this.pendingItem=null;this.notify();
       if(!this.stagedDestination) {
         if(!this.items().length){this.adopt(this.next(this.location),false);this.show();}
-        else this.show({presentation:'open'});
+        else {
+          const visible=this.items().map(i=>i.id),shown=this.deck.content.actions.map(a=>a.id);
+          if(visible.length!==shown.length||visible.some(id=>!shown.includes(id)))this.show({presentation:'open',animate:false,autoBrowse:false});
+        }
       }
     }else if(detail.transition==='commit'&&this.stagedDestination){const destination=this.stagedDestination;this.stagedDestination=null;this.adopt(destination);if(!this.completed)this.reportBlocked();}
     else this.notify();

@@ -1,3 +1,5 @@
+import { applyCardStyles } from '../project/card-styles.js';
+import { artworkSettings, parseArtworkSettings } from './artwork-settings.js';
 import { DocumentHistory } from '../editor/DocumentHistory.js';
 import { createDefinition, allowedCardKinds } from '../project/cards.js';
 import { createProject,createChapter,validateProject,parseProject,definitionUsers,exportChapter,importChapter } from '../project/model.js';
@@ -9,9 +11,11 @@ import { esc } from './forms.js';
 import { mountPreviewWindow } from './preview-window.js';
 import { renderCardPreviews } from './card-preview.js';
 import { bindImagePicker } from './image-picker.js';
-import { uid,createNode,makePlacement,replaceCard,setCardSource,promoteCard,duplicateNode,findPlacement,pathTarget,synchronizeConnections,customizeAction,newRule,normalizeRule } from './commands.js';
+import { uid,createNode,makePlacement,replaceCard,setCardSource,promoteCard,duplicateNode,duplicatePlacement,findPlacement,pathTarget,synchronizeConnections,customizeAction,newRule,normalizeRule } from './commands.js';
 
 const $=s=>document.querySelector(s),loaded=loadProject();
+let copiedArtwork = null;
+const artworkClipboardKey = 'nest.artwork.clipboard';
 let project=loaded.project||createProject(),chapterId=project.activeChapterId,selected=project.chapters.find(c=>c.id===chapterId)?.startNode,definitionId=project.library.find(d=>d.visibility!=='local')?.id,mode='chapter';
 const history=new DocumentHistory(project);
 const chapter=()=>project.chapters.find(c=>c.id===chapterId)||project.chapters[0];
@@ -43,6 +47,7 @@ function renderInspector(){
  $('#settings').innerHTML=variableInspector(project,chapter());
  $('#inspector').innerHTML=mode==='library'?definitionInspector(project,definition()):nodeInspector(project,chapter(),node());
  renderCardPreviews($('#inspector'),project,node());
+ applyCardStyles(preview.mount,project.cardStyles);
  if(settingsOpen)$('#settings').querySelector('details').open=true;
  if(sameInspector)[...$('#inspector').querySelectorAll('details')].forEach((el,i)=>{el.open=expanded.includes(i);});
  $('#inspector').dataset.key=inspectorKey;
@@ -76,12 +81,13 @@ function changeField(event){const el=event.target,path=el.dataset.path,scope=el.
   if(scope==='initial-toggle'){chapter().initialValues||={};if(el.checked)chapter().initialValues={...chapter().initialValues,[path]:project.variables.find(v=>v.id===path).initial};else delete chapter().initialValues[path];return;}
   if(scope==='initial-value'){const variable=project.variables.find(v=>v.id===path);const value=variable.type==='flag'?el.value==='true':Number(el.value);chapter().initialValues={...(chapter().initialValues||{}),[path]:value};return;}
   const root=scopeRoot(scope,el);if(!root)return;
-  if(scope==='node'&&path==='introEnabled'&&el.checked&&root.type==='fork'&&!root.intro)root.intro=makePlacement(project,'narrative','Fork introduction');
+  if(scope==='node'&&path==='introEnabled'&&el.checked&&root.type==='fork'&&!root.intro)root.intro=makePlacement(project,'event');
   if(scope==='placement'&&path==='definitionId'){setCardSource(project,root,el.value,{allowedKinds:allowedCardKinds(node().type,node().intro===root?'intro':node().type==='container'?'items':'cards')});return;}
   if(path==='itemBehaviour'){if(el.value==='consumable')root.use={effects:[],conditions:[]};else delete root.use;return;}
-  const {parent,key}=pathTarget(root,path);let value=el.type==='checkbox'?el.checked:el.type==='number'||key==='sides'?Number(el.value):el.value;
+  const {parent,key}=pathTarget(root,path);let value=el.type==='checkbox'?el.checked:['number','range'].includes(el.type)||key==='sides'?Number(el.value):el.value;
   if((['value','initial'].includes(key)||path.startsWith('initialValues.'))&&['true','false'].includes(value))value=value==='true';
   if(el.type==='number'&&el.value===''){delete parent[key];return;}
+  if(['imageScale','imageOffsetX','imageOffsetY'].includes(key))value=Math.max(key==='imageScale'?10:-100,Math.min(key==='imageScale'?400:100,value));
   parent[key]=value;
   if(scope==='placement'&&key==='definitionId')delete root.overrides;
   if(key==='modifierVariable'&&!value)delete parent[key];
@@ -91,6 +97,20 @@ function changeField(event){const el=event.target,path=el.dataset.path,scope=el.
  });
 }
 for(const root of [$('#inspector'),$('#settings')])root.addEventListener('change',changeField);
+$('#settings').addEventListener('input',event=>{
+ const el=event.target;if(!el.matches('[data-card-style-slider]'))return;
+ el.closest('label').querySelector('output').textContent=`${el.value}px`;
+ const styles={...project.cardStyles,[el.dataset.path.split('.')[1]]:Number(el.value)};
+ renderCardPreviews($('#inspector'),{...project,cardStyles:styles},node());applyCardStyles(preview.mount,styles);
+});
+$('#inspector').addEventListener('input',event=>{
+ const el=event.target;if(!el.matches('[data-artwork-slider]'))return;
+ el.closest('label').querySelector('output').textContent=`${el.value}%`;
+ const source=scopeRoot(el.dataset.scope,el);if(!source)return;
+ const draft={...project,library:project.library.map(d=>d.id===source.id?{...d,[el.dataset.path]:Number(el.value)}:d)};
+ renderCardPreviews($('#inspector'),draft,node());
+});
+
 for(const root of [$('#inspector'),$('#settings')])bindImagePicker(root,{
  onSelect(scope,placementId,path,value){
   edit(()=>{
@@ -98,20 +118,36 @@ for(const root of [$('#inspector'),$('#settings')])bindImagePicker(root,{
    if(scope==='local-definition'){const p=findPlacement(node(),placementId);target=project.library.find(d=>d.id===p?.definitionId);}
    else target=scope==='chapter'?chapter():scope==='definition'?definition():null;
    if(!target)throw new Error('Select the card again before choosing its image.');
-   const {parent,key}=pathTarget(target,path);parent[key]=value;
+   const {parent,key}=pathTarget(target,path);if(['imageScale','imageOffsetX','imageOffsetY'].includes(key))value=Math.max(key==='imageScale'?10:-100,Math.min(key==='imageScale'?400:100,value));
+  parent[key]=value;
   });
  },onError:report
 });
 function command(event){const b=event.target.closest('[data-command]');if(!b)return;const cmd=b.dataset.command;
+ if(cmd==='copy-artwork'){
+  const card=scopeRoot(b.dataset.scope,b);if(!card)return;
+  copiedArtwork=artworkSettings(card);
+  try{localStorage.setItem(artworkClipboardKey,JSON.stringify(copiedArtwork));}catch{}
+  report('Image settings copied, including the path.');return;
+ }
+ if(cmd==='paste-artwork'){
+  const card=scopeRoot(b.dataset.scope,b);if(!card)return;
+  let settings=copiedArtwork;
+  try{const saved=localStorage.getItem(artworkClipboardKey);if(saved)settings=parseArtworkSettings(saved);}catch{}
+  if(!settings){report('Copy image settings from a card first.');return;}
+  const id=card.id;edit(()=>Object.assign(project.library.find(d=>d.id===id),settings));return;
+ }
  if(cmd==='edit-shared'){definitionId=b.dataset.definition;mode='library';render();return;}
  if(cmd==='jump-use'){chapterId=b.dataset.chapter;selected=b.dataset.node;mode='chapter';render();graph.fit();return;}
  edit(()=>{
   const n=node(),p=findPlacement(n||{},b.dataset.placement);
+  if(cmd==='reset-artwork'){const root=scopeRoot(b.dataset.scope,b);delete root.imageScale;delete root.imageOffsetX;delete root.imageOffsetY;}
   if(cmd==='add-rule'){const root=scopeRoot(b.dataset.scope,b),{parent,key}=pathTarget(root,b.dataset.path);parent[key]||=[];parent[key].push(newRule(project,b.dataset.ruleKind));}
   if(cmd==='remove-rule'){const root=scopeRoot(b.dataset.scope,b),{parent,key}=pathTarget(root,b.dataset.path);parent[key].splice(Number(b.dataset.index),1);}
   if(cmd==='local-copy')replaceCard(project,p,b.dataset.kind,{copy:true});
   if(cmd==='promote-card')promoteCard(project,p);
   if(cmd==='add-placement')n[b.dataset.slot].push(makePlacement(project,b.dataset.kind));
+  if(cmd==='duplicate-placement')duplicatePlacement(project,n,p);
   if(cmd==='remove-placement')for(const slot of ['cards','choices','items'])if(n[slot])n[slot]=n[slot].filter(c=>c.id!==p.id);
   if(cmd==='move-placement')for(const slot of ['cards','choices','items'])if(n[slot]){const i=n[slot].findIndex(c=>c.id===p.id),j=i+Number(b.dataset.direction);if(i>=0&&j>=0&&j<n[slot].length)[n[slot][i],n[slot][j]]=[n[slot][j],n[slot][i]];}
   if(cmd==='variant'){const source=project.library.find(d=>d.id===p.definitionId),copy={...structuredClone(source),id:uid(source.kind),name:`${source.name} variant`};project.library.push(copy);p.definitionId=copy.id;}

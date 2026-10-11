@@ -3,7 +3,7 @@ import { esc, options } from '../editor/fields.js';
 export { esc };
 export const field = (label,value,path,scope='definition',type='text') => `<label class="field">${esc(label)}${type==='textarea'?`<textarea data-scope="${esc(scope)}" data-path="${esc(path)}">${esc(value??'')}</textarea>`:`<input data-scope="${esc(scope)}" data-path="${esc(path)}" type="${type}" ${type==='number'?'step="any"':''} value="${esc(value??'')}">`}</label>`;
 export const select = (label,value,choices,path,scope='definition') => `<label class="field">${esc(label)}<select data-scope="${esc(scope)}" data-path="${esc(path)}">${options(choices,value)}</select></label>`;
-export const checkbox = (label,value,path,scope='definition') => `<label class="field check-field"><input type="checkbox" data-scope="${esc(scope)}" data-path="${esc(path)}" ${value?'checked':''}>${esc(label)}</label>`;
+export const checkbox = (label,value,path,scope='definition',disabled=false) => `<label class="field check-field"><input type="checkbox" data-scope="${esc(scope)}" data-path="${esc(path)}" ${value?'checked':''} ${disabled?'disabled':''}>${esc(label)}</label>`;
 export const button = (label,cmd,attrs='') => `<button type="button" data-command="${cmd}" ${attrs}>${esc(label)}</button>`;
 export const imageField=(label,value,path,scope='definition')=>field(label,value,path,scope)+`<button type="button" data-image-picker data-scope="${esc(scope)}" data-path="${esc(path)}">Choose image file</button>`;
 const extras=(scope,path,kind)=>`data-scope="${esc(scope)}" data-path="${esc(path)}" data-rule-kind="${kind}"`;

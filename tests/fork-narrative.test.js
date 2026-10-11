@@ -10,7 +10,7 @@ function setup(){const project=createProject(),node=project.chapters[0].nodes.fi
 
 test('Fork picker accepts narrative and action library cards and filters out items',()=>{
  const {project,node,p}=setup();const html=nodeInspector(project,project.chapters[0],node);
- assert.match(html,/narrative: Arrival/);assert.match(html,/action: Explore/);assert.doesNotMatch(html,/<option value="flashlight"/);assert.match(html,/Add narrative/);
+ assert.match(html,/event: Arrival/);assert.match(html,/action: Explore/);assert.doesNotMatch(html,/<option value="flashlight"/);assert.match(html,/Add event/);
  setCardSource(project,p,'arrival',{allowedKinds:allowedCardKinds('fork')});synchronizeConnections(project);assert.deepEqual(validateProject(project),[]);
  assert.throws(()=>setCardSource(project,p,'flashlight',{allowedKinds:allowedCardKinds('fork')}));
 });
@@ -28,12 +28,12 @@ test('mixed Fork resolves only selected Narrative effects and follows its branch
  const other=makePlacement(project,'action');node.choices.push(other);project.library.find(d=>d.id===other.definitionId).effects=[{op:'add',key:energy.id,value:20}];synchronizeConnections(project);
  node.connections[p.id]='quiet-passage';
  const deck=new Deck(),controller=new ProjectController(deck,compileChapter(project)),before=controller.state.variables[energy.id];
- assert.equal(deck.content.actions[0].cardKind,'narrative');assert.equal(deck.content.actions[1].cardKind,'action');assert.equal(controller.state.variables[energy.id],before);
+ assert.equal(deck.content.actions[0].cardKind,'event');assert.equal(deck.content.actions[1].cardKind,'action');assert.equal(controller.state.variables[energy.id],before);
  const contentId=deck.content.id;deck.emit('commit',{contentId,action:{id:p.id}});assert.equal(controller.state.variables[energy.id],Math.min(energy.max??Infinity,before+2));assert.equal(controller.state.activeNodeId,node.connections[p.id]);controller.destroy();
 });
 
 test('custom Narrative choices expose narrative fields and survive portable export',()=>{
- const {project,node}=setup();const p=makePlacement(project,'narrative');node.choices.push(p);synchronizeConnections(project);
+ const {project,node}=setup();const p=makePlacement(project,'event');node.choices.push(p);synchronizeConnections(project);
  const html=nodeInspector(project,project.chapters[0],node);assert.match(html,/local-definition/);assert.match(html,/Custom card/);
- const loaded=parseProject(JSON.stringify(exportChapter(project)));assert.deepEqual(validateProject(loaded),[]);assert.equal(compileChapter(loaded).nodes.find(n=>n.id===node.id).choices.at(-1).kind,'narrative');
+ const loaded=parseProject(JSON.stringify(exportChapter(project)));assert.deepEqual(validateProject(loaded),[]);assert.equal(compileChapter(loaded).nodes.find(n=>n.id===node.id).choices.at(-1).kind,'event');
 });

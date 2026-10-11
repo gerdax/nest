@@ -1,20 +1,24 @@
 /** The library stores content; placements store chapter-specific behavior. */
 export const cardKinds = Object.freeze({
-  narrative: { label: 'Narrative', layout: 'card', validate: card => typeof card.text === 'string' ? [] : ['Narrative text must be a string.'], fields: ['name','heading','showName','text','image','effects'] },
-  action: { label: 'Action', layout: 'choice', validate: card => ['direct','check'].includes(card.resolution) ? [] : ['Action resolution must be direct or check.'], fields: ['name','heading','showName','text','image','conditions','costs','effects','resolution','check','successEffects','failureEffects'] },
-  item: { label: 'Item', layout: 'item', validate: card => Array.isArray(card.onCollect) ? [] : ['Item collection effects must be a list.'], fields: ['name','heading','showName','text','image','onCollect','use'] }
+  event: { label: 'Event', layout: 'card', validate: card => typeof card.text === 'string' ? [] : ['Event text must be a string.'], fields: ['name','text','image','effects'] },
+  caption: { label: 'Caption', layout: 'card', validate: card => typeof card.text === 'string' ? [] : ['Caption text must be a string.'], fields: ['name','text','effects'] },
+  action: { label: 'Action', layout: 'choice', validate: card => ['direct','check'].includes(card.resolution) ? [] : ['Action resolution must be direct or check.'], fields: ['name','text','image','conditions','costs','effects','resolution','check','successEffects','failureEffects'] },
+  item: { label: 'Item', layout: 'item', validate: card => Array.isArray(card.onCollect) ? [] : ['Item collection effects must be a list.'], fields: ['name','showName','text','image','onCollect','use'] }
 });
+export const canonicalCardKind = kind => kind === 'narrative' ? 'event' : kind;
+export const isStoryKind = kind => ['event','caption'].includes(canonicalCardKind(kind));
 export function createDefinition(kind, id) {
+  kind = canonicalCardKind(kind);
   if (!Object.hasOwn(cardKinds, kind)) throw new TypeError(`Unknown card kind: ${kind}`);
-  const base = { id, kind, name: `New ${kind}`, heading: '', showName:false, text: '', image: '' };
-  if (kind === 'narrative') return { ...base, effects: [] };
+  const base = { id, kind, name: `New ${cardKinds[kind].label}`, showName:kind==='item', text: '', image: '' };
+  if (isStoryKind(kind)) return { ...base, effects: [] };
   if (kind === 'item') return { ...base, onCollect: [] };
   return { ...base, conditions: [], costs: [], effects: [], resolution: 'direct', check: {pool: [{sides:20,count:1}], modifier:0,target:10}, successEffects: [], failureEffects: [] };
 }
 export function resolvePlacement(project, placement) {
   const definition = project.library.find(d => d?.id === placement.definitionId);
   if (!definition) throw new TypeError(`Unknown definition: ${placement.definitionId}`);
-  const base = {...definition, ...placement.overrides};
+  const base = {...definition, ...placement.overrides, kind:canonicalCardKind(definition.kind)};
   return {...base, conditions:[...(base.conditions || []),...(placement.conditions || [])], effects:[...(base.effects || []),...(placement.effects || [])], id:placement.id, definitionId:definition.id, unavailable:placement.unavailable ?? 'disabled', inventoryKey:definition.inventoryKey ?? definition.id};
 }
 export function cardSummary(card, variables = [], library = []) {
@@ -42,9 +46,9 @@ export function cardSummary(card, variables = [], library = []) {
   return parts.join(' · ');
 }
 
-/** Fork placements are branches regardless of whether their content is narrative or an action. */
+/** Fork placements are branches regardless of whether their content is event or an action. */
 export function allowedCardKinds(nodeType,slot) {
- if(nodeType==='fork'&&slot!=='intro')return ['narrative','action'];
+ if(nodeType==='fork'&&slot!=='intro')return ['event','caption','action'];
  if(nodeType==='container'&&slot==='items')return ['item'];
- return ['narrative'];
+ return ['event','caption'];
 }

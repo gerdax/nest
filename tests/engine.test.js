@@ -468,3 +468,18 @@ for(const count of [2,3,4,7])test(`presentation hint fans ${count} cards in oppo
  }
  assert.equal(d.b.x,0);assert.equal(d.index,0);d.presentationHint=null;d.destroy();
 });
+
+test('artwork transforms reach successor and reused action fronts without moving text',()=>{
+ const d=deck(2),image={image:'art.png',imageScale:180,imageOffsetX:15,imageOffsetY:-7};
+ renderer.stageNextContent(d,{...image,text:'Next'});assert.equal(d.underlay.children[1].style.transform,'translate(15%, -7%) scale(1.8)');assert.equal(d.underlay.children[0].style.transform,undefined);
+ const initial={actions:[{id:'same',label:'Choice',image:'art.png'}]};const bundle=renderer.stageActionDeck(d,initial);
+ const updated=renderer.stageActionDeck(d,{actions:[{...initial.actions[0],...image}]},0,bundle);
+ assert.equal(updated.cards[0].children[1].style.transform,'translate(15%, -7%) scale(1.8)');d.destroy();
+});
+
+test('explicitly blank card artwork never inherits the introduction image, including reused cards',()=>{
+ const d=deck(2),content={image:'intro.png',actions:[{id:'blank',cardKind:'action',image:'',text:''},{id:'pictured',cardKind:'item',image:'item.png'}]};
+ const bundle=renderer.stageActionDeck(d,content);assert.equal(bundle.cards[0].children[1].style.backgroundImage,undefined);assert.equal(bundle.cards[1].children[1].style.backgroundImage,'url("item.png")');
+ const cleared=renderer.stageActionDeck(d,{...content,actions:content.actions.map(a=>({...a,image:''}))},0,bundle);
+ assert.equal(cleared.cards[1],bundle.cards[1]);assert.equal(cleared.cards[1].children[1].style.backgroundImage,undefined);d.destroy();
+});

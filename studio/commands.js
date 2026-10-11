@@ -36,6 +36,23 @@ export function promoteCard(project,placement) {
  const definition=project.library.find(d=>d.id===placement.definitionId);
  definition.visibility='shared';return definition;
 }
+export function duplicatePlacement(project,node,placement) {
+ const slot=['cards','choices','items'].find(key=>node[key]?.includes(placement));
+ if(!slot)throw new Error('This card slot cannot be duplicated.');
+ const copy={...structuredClone(placement),id:uid('placement')};
+ const source=project.library.find(d=>d.id===placement.definitionId);
+ if(source?.visibility==='local'){
+  const definition={...structuredClone(source),id:uid(source.kind),name:`${source.name} copy`};
+  delete definition.inventoryKey;
+  const ids=new Map([[source.id,definition.id],...(source.inventoryKey?[[source.inventoryKey,definition.id]]:[])]);
+  remapInventory(definition,ids);remapInventory(copy,ids);copy.definitionId=definition.id;project.library.push(definition);
+ }
+ node[slot].splice(node[slot].indexOf(placement)+1,0,copy);
+ if(slot==='choices')for(const output of outputsForNode(project,node).filter(exit=>exit===copy.id||exit.startsWith(`${copy.id}:`))){
+  const original=placement.id+output.slice(copy.id.length);node.connections[output]=node.connections[original]??null;
+ }
+ return copy;
+}
 export function duplicateNode(project,source) {
  const node=structuredClone(source);node.id=uid('node');node.name+=' copy';node.x+=40;node.y+=40;
  const copies=new Map(),ids=new Map();
@@ -50,9 +67,9 @@ export function duplicateNode(project,source) {
 }
 export function createNode(project,type,position={x:100,y:100}) {
  const node={id:uid('node'),name:`New ${type}`,type,...position,connections:{}};
- if(type==='linear')node.cards=[makePlacement(project,'narrative','New story')];
- if(type==='fork'){node.introEnabled=true;node.intro=makePlacement(project,'narrative','Fork introduction');node.choices=[makePlacement(project,'action','Choice 1'),makePlacement(project,'action','Choice 2')];}
- if(type==='container'){node.introEnabled=true;node.intro=makePlacement(project,'narrative','Container introduction');node.items=[makePlacement(project,'item','New item')];}
+ if(type==='linear')node.cards=[makePlacement(project,'event')];
+ if(type==='fork'){node.introEnabled=true;node.introOnce=false;node.intro=makePlacement(project,'event');node.choices=[makePlacement(project,'action'),makePlacement(project,'action')];}
+ if(type==='container'){node.introEnabled=true;node.introOnce=false;node.intro=makePlacement(project,'event');node.items=[makePlacement(project,'item')];}
  if(type==='random'){node.routes=[{id:uid('route'),name:'Route 1',target:null,weight:1,conditions:[]}];node.fallback=null;delete node.connections;}
  return node;
 }

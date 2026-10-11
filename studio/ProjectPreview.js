@@ -3,6 +3,7 @@ import { DiceService } from '../dice/DiceService.js';
 import { compileChapter, validateProject } from '../project/model.js';
 import { ProjectController } from '../project/ProjectController.js';
 import { InventoryView } from './InventoryView.js';
+import { applyCardStyles } from '../project/card-styles.js';
 
 /** Playback UI owns dice/inventory presentation, never chapter resolution rules. */
 export class ProjectPreview {
@@ -30,6 +31,7 @@ export class ProjectPreview {
     const issues = validateProject(project);
     if (issues.length) throw new Error(issues.map(issue => issue.message).join('\n'));
     const chapter = compileChapter(project, chapterId);
+    applyCardStyles(this.mount, chapter.cardStyles);
     if (startNode) chapter.startNode = startNode;
     this.stop();
     this.project = structuredClone(project); this.chapterId = chapterId; this.startNode = startNode; this.compiled = chapter;
