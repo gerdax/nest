@@ -30,6 +30,7 @@ export class CardDeck extends EventTarget {
     this.mount = mount;
     this.settings = settingsWith(settings);
     this.content = validate(content);
+    this.presentationBrowsePending = this.content.autoBrowse === true;
     this.index = 0;
     this.open = false;
     this.busy = false;
@@ -296,6 +297,7 @@ export class CardDeck extends EventTarget {
 
   start(event) {
     if (this.destroyed || this.busy || this.openingCommit || this.openingReturn || ['closing', 'revealing', 'ended'].includes(this.phase)) return false;
+    this.cancelPresentationHint();
     this.mount.focus({ preventScroll: true });
     const bounds = this.mount.getBoundingClientRect();
     const grab = {
@@ -535,6 +537,23 @@ export class CardDeck extends EventTarget {
       this.openingCommit = false;
       this.emit('transitioncomplete', { transition: 'commit' });
     }
+    if (transition === 'reveal') this.browsePresentedStack();
+  }
+
+  browsePresentedStack() {
+    if (!this.presentationBrowsePending || !['choices', 'revealing'].includes(this.phase) || this.busy || this.drag || this.destroyed) return;
+    this.presentationBrowsePending = false;
+    if (this.reduced || document.hidden || this.cards.length < 2) return;
+    const travel = spring(); travel.target = 1;
+    this.presentationHint = { travel, stage: 'out' };
+    this.operation = 'hint';
+    this.schedule();
+  }
+
+  cancelPresentationHint() {
+    if (!this.presentationHint) return;
+    this.presentationHint.travel.target = 0;
+    this.presentationHint.stage = 'return';
   }
 
   advancePhases() {
@@ -550,6 +569,7 @@ export class CardDeck extends EventTarget {
         if (!this.sourceFloor) this.sourceFloor = Math.min(1, this.p.x + 8 / this.departureTravel());
         this.fan.target = 1;
       }
+      if (this.fan.x >= .35 && this.cards.length > 1) this.browsePresentedStack();
       if (this.fan.x === 1 && this.atRest(this.fan)) this.completePhase('choices', 'reveal');
     } else if (this.phase === 'closing' && this.fan.x === 0 && this.atRest(this.fan)) {
       if (this.returning) {
@@ -576,6 +596,7 @@ export class CardDeck extends EventTarget {
     if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key)) return;
     e.preventDefault();
     if (this.phase === 'ended' || this.busy || this.openingCommit || this.openingReturn || this.phase === 'closing' || this.drag || e.repeat) return;
+    this.cancelPresentationHint();
     if (key === 'ArrowUp') {
       if (this.content.directAdvance && !this.open) { this.commitCover(); return; }
       if (this.phase === 'choices') this.commit();else if (!this.open) {
@@ -617,6 +638,7 @@ export class CardDeck extends EventTarget {
 
   commit(pointerVelocity = 0) {
     if (this.busy || this.phase !== 'choices') return;
+    this.cancelPresentationHint();
     if (this.content.actions[this.index]?.disabled) {
       if (!this.liftPoses) {
         this.liftPoses = new Map(this.content.actions.map((a, i) => [a.id, this.unpickedCardPose(i)]));
@@ -676,6 +698,7 @@ export class CardDeck extends EventTarget {
 
   resolveItem(transition, pointerVelocity = 0) {
     if (this.destroyed || this.busy || this.drag || this.phase !== 'choices' || this.content.interaction !== 'container') return;
+    this.cancelPresentationHint();
     const action = this.content.actions[this.index];
     if (!action || action.disabled) return;
     this.captureItemPose(action);
@@ -858,12 +881,19 @@ export class CardDeck extends EventTarget {
       if (!this.commitMotion && !this.collectMotion) this.completeCommit();
       return;
     }
+    const hintState = !animate && presentation === 'open' && this.content.autoBrowse && next.autoBrowse && this.cards.length > 1
+      ? { pending: this.presentationBrowsePending, hint: this.presentationHint, browse: { ...this.b } } : null;
     this.reset();
     this.install(next, { open: presentation === 'open' });
     if (presentation === 'open' && !animate) {
       this.fan = spring(1);
       this.phase = 'choices';
       this.operation = null;
+      if (hintState) {
+        this.presentationBrowsePending = hintState.pending;
+        this.presentationHint = hintState.hint;
+        this.b = hintState.browse;
+      }
       this.render();
     }
     if (presentation === 'open') {
@@ -874,6 +904,8 @@ export class CardDeck extends EventTarget {
   install(content, { faceDown = false, open = false, selectedId, staged = null, stagedDepth = staged ? 1 : 0, flipState = null } = {}) {
     this.clearGrab();
     this.content = content;
+    this.presentationHint = null;
+    this.presentationBrowsePending = content.autoBrowse === true;
     this.ending = false;
     this.open = open && content.actions.length > 0;
     this.index = Math.max(0, content.actions.findIndex(a => a.id === selectedId));
@@ -1012,6 +1044,7 @@ export class CardDeck extends EventTarget {
 
   motionStates() {
     return [this.p, this.b, this.l, this.n, this.fan, this.returnLift, this.rotationX, this.rotationY, this.rotationZ, this.flip,
+      ...(this.presentationHint ? [this.presentationHint.travel] : []),
       ...Array.from(this.reflowOffsets.values()).flatMap(offset => Object.values(offset))];
   }
 
@@ -1021,6 +1054,7 @@ export class CardDeck extends EventTarget {
     this.phase = this.open ? 'choices' : 'closed';
     this.render();
     this.emit('transitioncomplete', { transition: 'commit' });
+    this.browsePresentedStack();
   }
 
   tick(t) {
@@ -1075,6 +1109,15 @@ export class CardDeck extends EventTarget {
     for (const state of [this.p, this.b, this.l, this.n, this.fan, this.returnLift]) {
       this.stepPosition(state, dt);
     }
+    const hint = this.presentationHint;
+    if (hint) springStep(hint.travel, dt, { ...this.settings, stiffness: 260, damping: 40 });
+    if (hint?.stage === 'out' && hint.travel.x >= .92) {
+      hint.stage = 'hold';
+      hint.holdUntil = t + 140;
+    } else if (hint?.stage === 'hold' && t >= hint.holdUntil) {
+      hint.stage = 'return';
+      hint.travel.target = 0;
+    } else if (hint?.stage === 'return' && this.atRest(hint.travel)) this.presentationHint = null;
     for (const offset of this.reflowOffsets.values()) for (const [field, state] of Object.entries(offset)) {
       if (field.startsWith('r')) this.stepAngular(state, dt); else this.stepPosition(state, dt);
     }
@@ -1083,7 +1126,7 @@ export class CardDeck extends EventTarget {
     this.advancePhases();
     const moving = this.motionStates().some(state => !this.atRest(state));
     this.render(t);
-    if (grabMoving || moving || this.followersMoving(t)) {
+    if (grabMoving || moving || this.presentationHint || this.followersMoving(t)) {
       this.schedule();
     } else {
       this.last = 0;
@@ -1108,6 +1151,7 @@ export class CardDeck extends EventTarget {
   }
 
   finishMotion() {
+    this.cancelPresentationHint();
     cancelAnimationFrame(this.frame);
     this.frame = 0;
     this.last = 0;

@@ -232,6 +232,29 @@ export function cardPose(deck, index, time = performance.now()) {
   pose.rx = fan * deck.rotationX.x * rotationWeight + clamp(deck.rotationX.x * underlyingWeight, -.9, .9);
   pose.ry = fan * (pose.ry + deck.rotationY.x * rotationWeight) + clamp(deck.rotationY.x * underlyingWeight, -.9, .9);
   pose.rz = fan * (pose.rz + deck.rotationZ.x * rotationWeight) + clamp(deck.rotationZ.x * underlyingWeight, -.9, .9);
+  if (deck.presentationHint && deck.cards.length > 1) {
+    const progress = clamp(deck.presentationHint.travel.x, 0, 1);
+    const radius = handoffRadius(2, width, height, deck.settings);
+    const endpoints = [0, 1].map(i => {
+      const rest = carouselPose(i, 0, 2, width, deck.settings, radius);
+      const peek = carouselPose(i, .24 * progress, 2, width, deck.settings, radius);
+      return Object.fromEntries(['x', 'y', 'z', 'ry', 'rz'].map(field => [field, peek[field] - rest[field]]));
+    });
+    if (deck.cards.length === 2) {
+      const delta = endpoints[index === deck.index ? 0 : 1];
+      for (const field of ['x', 'y', 'z', 'ry', 'rz']) pose[field] += delta[field] * fan;
+    } else if (index === deck.index) {
+      pose.x -= width * .02 * progress * fan;
+      pose.rz -= .7 * progress * fan;
+    } else {
+      // Keep left-hand followers moving left and right-hand followers right.
+      // Additional followers interpolate between the familiar two-card motions.
+      const followers = deck.content.actions.map((_, i) => ({ i, x: carouselPose(i, deck.index, deck.cards.length, width, deck.settings).x }))
+        .filter(card => card.i !== deck.index).sort((a, b) => a.x - b.x || a.i - b.i);
+      const weight = followers.findIndex(card => card.i === index) / (followers.length - 1);
+      for (const field of ['x', 'ry', 'rz']) pose[field] += (endpoints[0][field] * (1 - weight) + endpoints[1][field] * weight) * fan;
+    }
+  }
   if (deck.content.interaction !== 'container' || index === deck.index) {
     const lift = deck.content.interaction === 'choice' ? deck.choiceLift(index, time) : deck.l.x * bounds.height;
     pose.y -= lift;

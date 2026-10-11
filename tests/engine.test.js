@@ -418,3 +418,53 @@ test('choice fans reject closing by default and explicit allowClose restores the
   assert.equal(d.phase,'closed');assert.equal(d.fan.x,0);assert.equal(d.p.x,0);d.destroy();
  }
 });
+
+for(const interaction of ['choice','container'])test(`presented ${interaction} stack peeks left and returns without accepting a card`,()=>{
+ const d=new CardDeck(new Element(),{content:{...fixture(3),interaction,autoBrowse:true}});let selections=0,accepts=0;
+ d.addEventListener('selection',()=>selections++);for(const event of ['commit','collect','discard'])d.addEventListener(event,()=>accepts++);
+ d.setOpen(true);assert.equal(d.b.target,0,'cue waits for unfolding');settle(d);
+ assert.equal(d.phase,'choices');assert.equal(d.b.x,0);assert.equal(d.index,0);assert.equal(selections,0);assert.equal(accepts,0);
+ settle(d);assert.equal(selections,0);if(interaction==='choice'){d.setOpen(false);settle(d);d.setOpen(true);settle(d);assert.equal(selections,0,'reopening does not replay cue');}
+ d.destroy();
+});
+for(const count of [1,3])test(`presentation browse skips reduced motion and single cards, count=${count}`,()=>{
+ for(const reduced of [false,true]){
+  const d=new CardDeck(new Element(),{content:{...fixture(count),autoBrowse:true}});d.reduced=reduced;d.setOpen(true);settle(d);
+  assert.equal(d.index,0);assert.equal(d.b.x,0);d.destroy();
+ }
+});
+test('automatic item browsing does not repeat when a collected stack reflows',()=>{
+ const d=new CardDeck(new Element(),{content:{...fixture(4),interaction:'container',autoBrowse:true}});let selections=0;d.addEventListener('selection',()=>selections++);
+ ready(d);assert.equal(selections,0);d.collect();settle(d);assert.equal(d.cards.length,3);assert.equal(selections,0);assert.equal(d.b.target,0);d.destroy();
+});
+
+test('decision stack arriving through a flip also receives its presentation browse',()=>{
+ const d=deck(2);ready(d);
+ d.addEventListener('commit',()=>d.replaceContent({...fixture(3),decisionOnly:true,autoBrowse:true},{presentation:'open'}));
+ d.commit();settle(d);settle(d);assert.equal(d.content.actions.length,3);assert.equal(d.phase,'choices');assert.equal(d.b.x,0);assert.equal(d.index,0);d.destroy();
+});
+
+test('stack hint overlaps unfolding and returns promptly without selection, and manual input takes over',()=>{
+ const d=new CardDeck(new Element(),{content:{...fixture(3),autoBrowse:true}});let max=0,selections=0,overlaps=false;
+ d.addEventListener('selection',()=>selections++);d.setOpen(true);
+ for(let i=0;i<600;i++){cancelAnimationFrame(d.frame);d.tick(performance.now()+i*16);const progress=d.presentationHint?.travel.x||0;max=Math.max(max,progress);if(progress>.01&&d.fan.x<1)overlaps=true;assert.equal(d.index,0);}
+ assert.ok(max>=.92&&max<=1);assert.equal(overlaps,true);assert.equal(d.b.x,0);assert.equal(selections,0);
+ d.presentationBrowsePending=true;d.browsePresentedStack();assert.equal(d.b.target,0);assert.equal(d.presentationHint.travel.target,1);d.key({key:'ArrowRight',preventDefault(){}});settle(d);
+ assert.equal(d.presentationHint,null);assert.equal(d.index,1);assert.equal(d.b.x,1);assert.equal(selections,1);d.destroy();
+});
+
+for(const count of [2,3,4,7])test(`presentation hint fans ${count} cards in opposite directions without selecting`,()=>{
+ const d=deck(count);ready(d);const baseline=d.cards.map((_,i)=>renderer.cardPose(d,i));
+ d.presentationHint={travel:spring(1),stage:'hold'};
+ const hinted=d.cards.map((_,i)=>renderer.cardPose(d,i));
+ const shifts=hinted.map((pose,i)=>pose.x-baseline[i].x);
+ assert.ok(shifts[d.index]<0,'top moves slightly left');
+ if(count===2){assert.ok(shifts[1]>0);assert.ok(Math.abs(shifts[0])>340*.02);}
+ else {
+  assert.ok(Math.abs(shifts[d.index]+340*.02)<1e-7);
+  const followers=shifts.filter((_,i)=>i!==d.index).sort((a,b)=>a-b);
+  assert.ok(followers[0]<shifts[d.index]);assert.ok(followers.at(-1)>0);
+  if(followers.length>2){const gap=(followers.at(-1)-followers[0])/(followers.length-1);for(let rank=0;rank<followers.length;rank++)assert.ok(Math.abs(followers[rank]-followers[0]-gap*rank)<1e-7);}
+ }
+ assert.equal(d.b.x,0);assert.equal(d.index,0);d.presentationHint=null;d.destroy();
+});
