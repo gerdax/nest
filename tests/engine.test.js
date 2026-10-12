@@ -497,3 +497,31 @@ test('explicitly blank card artwork never inherits the introduction image, inclu
  const cleared=renderer.stageActionDeck(d,{...content,actions:content.actions.map(a=>({...a,image:''}))},0,bundle);
  assert.equal(cleared.cards[1],bundle.cards[1]);assert.equal(cleared.cards[1].children[1].style.backgroundImage,undefined);d.destroy();
 });
+
+for(const mode of ['beat','caption','action','container','uncover'])test(`upward release distance increases while flicks stay unchanged: ${mode}`,()=>{
+ for(const [distance,velocity,accepted] of [[-80,0,false],[-99,0,false],[-100,0,true],[-26,-800,true],[-25,-800,false],[-26,800,false]]){
+  const content={...fixture(3),cardKind:mode==='caption'?'caption':'narrative',directAdvance:['beat','caption'].includes(mode),interaction:mode==='container'?'container':'choice',discardAll:mode==='container'};
+  const d=new CardDeck(new Element(),{content});
+  const open=['action','container'].includes(mode);if(open)ready(d);
+  let commits=0,reveals=0;
+  for(const name of ['commit','discard'])d.addEventListener(name,()=>{commits++;d.endContent();});
+  d.addEventListener('reveal',()=>reveals++);
+  const baseline=d.content.actions.map((_,i)=>renderer.cardPose(d,i));
+  gesture(d,{axis:'y',x:0,y:distance,vx:0,vy:velocity});
+  assert.equal(mode==='uncover'?reveals:commits,accepted?1:0,`${distance}px at ${velocity}px/s`);
+  if(!accepted){
+   assert.equal(d.open,open);assert.equal(d.l.x,0);assert.equal(d.busy,false);
+   if(!open)assert.equal(d.p.x,0);
+   for(let i=0;i<d.cards.length;i++)for(const field of ['x','y','rz'])assert.ok(Math.abs(renderer.cardPose(d,i)[field]-baseline[i][field])<1e-8,'early release returns to start');
+  }
+  d.destroy();
+ }
+});
+test('upward tuning leaves default downward and browsing acceptance unchanged',()=>{
+ const s=settingsWith({upwardDistanceThreshold:.3});
+ assert.equal(qualifies(-120,0,453,s,s.upwardDistanceThreshold),false);
+ assert.equal(qualifies(-140,0,453,s,s.upwardDistanceThreshold),true);
+ assert.equal(qualifies(70,0,453,s),true);
+ assert.equal(qualifies(48,0,340,s),true);
+ assert.equal(qualifies(-26,-800,453,s,s.upwardDistanceThreshold),true);
+});

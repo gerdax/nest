@@ -439,15 +439,16 @@ export class CardDeck extends EventTarget {
         this.emit('selection', { action: this.content.actions[this.index] });
       }
     } else if (gesture.axis === 'y') {
-      if (drag.ready && this.content.interaction === 'container' && qualifies(gesture.y, gesture.vy, height, this.settings)) {
+      const accepted = qualifies(gesture.y, gesture.vy, height, this.settings,
+        gesture.y < 0 ? this.settings.upwardDistanceThreshold : this.settings.distanceThreshold);
+      if (drag.ready && this.content.interaction === 'container' && accepted) {
         if (gesture.y > 0) this.collect(gesture.vy); else this.discard(gesture.vy);
         return;
       }
-      if (drag.ready && gesture.y < 0 && qualifies(gesture.y, gesture.vy, height, this.settings)) {
+      if (drag.ready && gesture.y < 0 && accepted) {
         this.commit(gesture.vy);
         return;
       }
-      const accepted = qualifies(gesture.y, gesture.vy, height, this.settings);
       if (!drag.open && this.content.directAdvance && accepted && gesture.y < 0) { this.commitCover(gesture.vy); return; }
       this.setOpen(accepted && (gesture.y < 0 || this.content.allowClose) ? gesture.y < 0 : drag.open);
       if (this.phase !== 'closing' && !drag.open) this.p.v = -gesture.vy / this.departureTravel();

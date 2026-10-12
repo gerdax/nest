@@ -4,8 +4,8 @@ export function classifyAxis(x, y, threshold = DEFAULT_SETTINGS.axisThreshold) {
   return Math.hypot(x, y) < threshold ? null : Math.abs(x) > Math.abs(y) ? 'x' : 'y';
 }
 
-export function qualifies(distance, velocity, dimension, settings = DEFAULT_SETTINGS) {
-  return Math.abs(distance) >= dimension * settings.distanceThreshold || (
+export function qualifies(distance, velocity, dimension, settings = DEFAULT_SETTINGS, distanceThreshold = settings.distanceThreshold) {
+  return Math.abs(distance) >= dimension * distanceThreshold || (
     Math.abs(distance) >= settings.flickDistance
     && Math.abs(velocity) >= settings.flickVelocity
     && Math.sign(distance) === Math.sign(velocity)
@@ -69,7 +69,7 @@ export function settingsWith(patch = {}, base = DEFAULT_SETTINGS) {
   };
   for (const key of Object.keys(DEFAULT_SETTINGS)) {
     if (Number.isFinite(patch[key])) {
-      const min = ['maxTilt', 'liftHeight', 'grabLift', 'gravity', 'choiceStaggerMs', 'choiceFollowerRatio', 'flipLeadMs'].includes(key) ? 0 : key === 'distanceThreshold' ? 0.05 : key === 'perspective' ? 400 : key === 'flipAxisTilt' ? -10 : 0.01;
+      const min = ['maxTilt', 'liftHeight', 'grabLift', 'gravity', 'choiceStaggerMs', 'choiceFollowerRatio', 'flipLeadMs'].includes(key) ? 0 : ['distanceThreshold', 'upwardDistanceThreshold'].includes(key) ? 0.05 : key === 'perspective' ? 400 : key === 'flipAxisTilt' ? -10 : 0.01;
       const max = key === 'choiceFollowerRatio' ? 1 : key === 'choiceStaggerMs' ? 60 : key === 'flipLeadMs' ? 100 : key === 'flipAxisTilt' ? 10 : Infinity;
       result[key] = clamp(patch[key], min, max);
       if (['revealStartScale', 'revealFullScaleAt'].includes(key)) result[key] = Math.min(1, result[key]);

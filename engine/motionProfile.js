@@ -6,6 +6,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   maxTilt: 12,
   axisThreshold: 34,
   distanceThreshold: 0.14,
+  upwardDistanceThreshold: 0.22,
   flickVelocity: 325,
   flickDistance: 26,
   commitDuration: 210,

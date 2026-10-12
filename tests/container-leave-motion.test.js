@@ -60,7 +60,7 @@ for (const index of [0, 2]) test(`up leaves the whole container with selected ${
     .sort((a, b) => b.order - a.order).filter(a => a.id !== `item-${index}`);
   assert.deepEqual(rankOrder.map(a => deck.choiceRanks.get(a.id)), [1, 2, 3]);
   const immediate = poses(deck);
-  assert.ok(immediate.get(`item-${index}`).y < initial.get(`item-${index}`).y - 149);
+  assert.ok(immediate.get(`item-${index}`).y < initial.get(`item-${index}`).y - 130);
   for (const item of rankOrder) samePose(immediate.get(item.id), initial.get(item.id), 'follower waits');
   step(deck.settings.choiceStaggerMs * 4);
   for (const [id, pose] of poses(deck)) assert.ok(pose.y < initial.get(id).y, 'every card follows upward');
@@ -175,7 +175,7 @@ for (const index of [0, 2]) test(`down-to-up reversal leaves untouched followers
   deck.move(gesture(-100));
   const after = poses(deck);
   assert.equal(deck.choiceRanks.get(`item-${index}`), 0);
-  assert.ok(after.get(`item-${index}`).y < initial.get(`item-${index}`).y - 99);
+  assert.ok(after.get(`item-${index}`).y < initial.get(`item-${index}`).y - 85);
   for (let i = 0; i < 3; i++) if (i !== index) samePose(after.get(`item-${i}`), before.get(`item-${i}`), 'reversal preserves untouched follower');
   step(100);
   for (let i = 0; i < 3; i++) if (i !== index) assert.ok(cardPose(deck, i).y < before.get(`item-${i}`).y, 'follower joins upward after delay');
@@ -192,8 +192,60 @@ for (const index of [0, 2]) for (const input of ['regrab', 'keyboard']) test(`re
   if (input === 'regrab') { deck.start(); deck.move(gesture(-1)); }
   else deck.discard();
   const after = poses(deck), selected = `item-${index}`;
-  assert.ok(Math.abs(after.get(selected).y - before.get(selected).y + (input === 'regrab' ? 1 : 0)) < 1e-8, 'leader follows only the new pointer displacement');
+  assert.ok(Math.abs(after.get(selected).y - before.get(selected).y + (input === 'regrab' ? 1 : 0)) < .01, 'leader follows only the new pointer displacement');
   for (let i = 0; i < 3; i++) if (i !== index) samePose(after.get(`item-${i}`), before.get(`item-${i}`), 'followers retain their pose');
   if (input === 'regrab') { deck.cancel(); settle(); }
   dispose(deck);
+});
+
+for(const count of [1,2,5])test(`discard scatter grows with upward travel and resets on cancel, items=${count}`,()=>{
+ const deck=make(count);ready(deck);const initial=poses(deck);
+ deck.start();deck.move(gesture(-60));step(250);const near=poses(deck);
+ deck.move(gesture(-180));step(250);const far=poses(deck);
+ for(const [id,pose] of far){
+  const base=initial.get(id),small=near.get(id);
+  assert.ok(Math.abs(pose.x-base.x)>Math.abs(small.x-base.x)+15,'horizontal scatter grows');
+  assert.ok(Math.abs(pose.rz-base.rz)>Math.abs(small.rz-base.rz)+3,'Z spin grows');
+  assert.ok(Math.abs(pose.rz-base.rz)>deck.settings.maxTilt,'discard spin exceeds pointer tilt');
+ }
+ deck.cancel();settle();
+ for(const [id,pose] of poses(deck))samePose(pose,initial.get(id),'cancel restores scatter');
+ deck.start();deck.move(gesture(180));
+ for(const [id,pose] of poses(deck)){assert.equal(pose.x,initial.get(id).x,'taking adds no scatter');assert.equal(pose.rz,initial.get(id).rz,'taking adds no spin');}
+ deck.cancel();settle();dispose(deck);
+});
+test('ordinary choice stacks do not gain container discard scatter',()=>{
+ const deck=make(4,fixture(4,'choice'));ready(deck);const initial=poses(deck);
+ deck.start();deck.move(gesture(-180));step(250);
+ for(const [id,pose] of poses(deck)){assert.equal(pose.x,initial.get(id).x);assert.equal(pose.rz,initial.get(id).rz);}
+ deck.cancel();settle();dispose(deck);
+});
+
+test('discard scatter has stable irregular directions and independent spin',()=>{
+ const deck=make(12);ready(deck);const initial=poses(deck);
+ deck.start();deck.move(gesture(-180));step(500);const first=poses(deck);
+ const shifts=[...first].map(([id,pose])=>pose.x-initial.get(id).x);
+ const spins=[...first].map(([id,pose])=>pose.rz-initial.get(id).rz);
+ assert.ok(shifts.some(x=>x<0)&&shifts.some(x=>x>0),'spread uses both directions');
+ assert.ok(shifts.some((x,i)=>i>0&&Math.sign(x)===Math.sign(shifts[i-1])),'directions do not alternate mechanically');
+ assert.ok(shifts.some((x,i)=>Math.sign(x)!==Math.sign(spins[i])),'spin is independent of sideways direction');
+ assert.ok(new Set(shifts.map(x=>Math.abs(x).toFixed(2))).size>8,'spread magnitudes vary');
+ for(const [id,pose] of poses(deck))samePose(pose,first.get(id),'held gesture stays stable');
+ deck.cancel();settle();deck.start();deck.move(gesture(-180));step(500);
+ for(const [id,pose] of poses(deck))samePose(pose,first.get(id),'same cards retain their scatter');
+ deck.cancel();settle();dispose(deck);
+});
+
+test('discard spin pivots below the card center with matching pose geometry',()=>{
+ const deck=make(1);ready(deck);const initial=cardPose(deck,0);
+ deck.start();deck.move(gesture(-150));step(250);
+ for(const state of [deck.rotationX,deck.rotationY,deck.rotationZ])state.x=state.v=state.target=0;
+ const pose=cardPose(deck,0);
+ const angle=(pose.rz-initial.rz)*Math.PI/180;
+ const pivot=deck.mount.getBoundingClientRect().height*.12;
+ const centerY=initial.y-deck.choiceLift(0);
+ assert.ok(Math.abs(pose.y-centerY-pivot*(1-Math.cos(angle)))<1e-8,'lower pivot translation matches rotation');
+ const fixedY=pose.y+pivot*Math.cos(angle);
+ assert.ok(Math.abs(fixedY-(centerY+pivot))<1e-8,'point below center stays on the vertical lift path');
+ deck.cancel();settle();samePose(cardPose(deck,0),initial,'pivot cancels cleanly');dispose(deck);
 });

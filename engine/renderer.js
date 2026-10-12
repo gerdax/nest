@@ -2,6 +2,16 @@ import { handoffRadius, projectedBounds } from './geometry.js?v=no-ending-card-1
 import { carouselPose, clamp, departureDistance, revealScale } from './motion.js?v=no-ending-card-1';
 import { applyArtworkColorize } from './artworkColorize.js';
 
+// Stable per-card variation: adjacent IDs should not produce a regular fan,
+// and repeated renders of a held gesture must never jitter.
+function discardVariation(id, channel) {
+  let seed = 2166136261;
+  for (const char of `${id}:${channel}`) seed = Math.imul(seed ^ char.charCodeAt(0), 16777619);
+  seed = Math.imul(seed ^ seed >>> 16, 0x7feb352d);
+  seed = Math.imul(seed ^ seed >>> 15, 0x846ca68b);
+  return ((seed ^ seed >>> 16) >>> 0) / 4294967296;
+}
+
 function flipped(action) { return !!action.flipImage; }
 
 function cardTexture() {
@@ -293,6 +303,34 @@ export function cardPose(deck, index, time = performance.now()) {
   pose.rx = clamp(pose.rx, -deck.settings.maxTilt, deck.settings.maxTilt);
   pose.ry = clamp(pose.ry, -deck.settings.maxTilt, deck.settings.maxTilt);
   pose.rz = clamp(pose.rz, -deck.settings.maxTilt, deck.settings.maxTilt);
+  if (deck.groupLeaveActive && deck.content.interaction === 'container') {
+    // Follow each card's delayed upward travel, including its return on cancel.
+    // Keep discard spin separate from the small pointer-tilt limit.
+    const travel = clamp(deck.choiceLift(index, time) / (height * .65), 0, 1);
+    const id = `${deck.content.id}:${action.id}`;
+    const sideways = discardVariation(id, 'side');
+    const spin = discardVariation(id, 'spin');
+    const curve = discardVariation(id, 'curve');
+    pose.x += (sideways < .5 ? -1 : 1) * width * .44
+      * (.45 + .55 * discardVariation(id, 'spread')) * travel ** (.85 + .35 * curve);
+    const discardSpin = (spin < .5 ? -1 : 1) * 36
+      * (.55 + .7 * discardVariation(id, 'rotation')) * travel ** (1.2 - .35 * curve);
+    // Rotate the discard motion around a point 12% of the card height below
+    // center. Bake the pivot translation into the pose so clearance geometry
+    // and captured/reflow poses use the same position as the CSS rendering.
+    const pivot = height * .12;
+    const angle = discardSpin * Math.PI / 180;
+    const base = pose.rz * Math.PI / 180;
+    const pivotX = pivot * Math.sin(angle), pivotY = pivot * (1 - Math.cos(angle));
+    const dx = Math.cos(base) * pivotX - Math.sin(base) * pivotY;
+    const dy = Math.sin(base) * pivotX + Math.cos(base) * pivotY;
+    const rx = pose.rx * Math.PI / 180, ry = pose.ry * Math.PI / 180;
+    const dz = -Math.sin(ry) * dx;
+    pose.x += Math.cos(ry) * dx;
+    pose.y += Math.cos(rx) * dy - Math.sin(rx) * dz;
+    pose.z += Math.sin(rx) * dy + Math.cos(rx) * dz;
+    pose.rz += discardSpin;
+  }
   pose.visible = !(deck.phase === 'committing' && deck.busy && !deck.commitMotion && deck.operation !== 'commit')
     && !(deck.busy && deck.operation === 'commit' && !deck.content.decisionOnly && (deck.flip.x !== 0 || deck.flip.v !== 0));
   if (deck.content.decisionOnly) { pose.turn = deck.flip.x * 180; pose.turnAxis = deck.settings.flipAxisTilt; }
