@@ -123,3 +123,24 @@ test('fractional travel combines with rank delay and zero travel settles normall
  for(let i=0;i<3;i++){const rank=d.choiceRanks.get(d.content.actions[i].id);near(d.choiceLift(i,now),100*(1-rank/2),'zero deepest travel');}
  d.cancel();settle();assert.equal(d.frame,0);d.destroy();
 });
+
+for(const count of [2,4])test(`fork followers stay nearer the upward leader without changing other decks, count=${count}`,()=>{
+ const decks=[make(count),make(count)];for(const d of decks)d.updateSettings({choiceStaggerMs:0,choiceFollowerRatio:.7});
+ decks[0].content={...decks[0].content,choiceFollowerRatio:.82};
+ const rest=decks.map(d=>d.cards.map((_,i)=>cardPose(d,i,now)));
+ for(const d of decks){d.start();d.move(g(-160));}
+ const selected=decks[0].index;
+ near(rest[0][selected].y-cardPose(decks[0],selected,now).y,160,'leader follows pointer exactly');
+ for(let i=0;i<count;i++)if(i!==selected){
+  const forkLift=rest[0][i].y-cardPose(decks[0],i,now).y;
+  const ordinaryLift=rest[1][i].y-cardPose(decks[1],i,now).y;
+  assert.ok(forkLift>ordinaryLift,'fork follower catches up more');assert.ok(forkLift<160,'follower remains behind leader');
+ }
+ const deepest=decks[0].content.actions.findIndex(a=>decks[0].choiceRanks.get(a.id)===count-1);
+ near(rest[0][deepest].y-cardPose(decks[0],deepest,now).y,131.2,'deepest fork card follows at 82 percent');
+ near(rest[1][deepest].y-cardPose(decks[1],deepest,now).y,112,'ordinary deck retains original travel');
+ for(const d of decks)d.cancel();settle();
+ for(let k=0;k<decks.length;k++){
+  const d=decks[k];for(let i=0;i<count;i++)near(cardPose(d,i,now).y,rest[k][i].y,'cancel restores start');d.destroy();
+ }
+});

@@ -120,6 +120,7 @@ export class ProjectController {
     else actions=[{id:'continue',label:'Continue',image:card?.image,flipImage:!!card?.flipImage}];
     if(!actions.length)actions=[{id:'unavailable',label:'No available choices',disabled:true}];
     const payload={autoBrowse:fork||container,id:`${this.generation}:${++this.serial}`,backImage:this.compiled.backImage ?? '',title:card?.name ?? card?.title ?? '',heading:cardFace(card,this.compiled.variables,this.compiled.library).heading,text:this.body(card),cardKind:card?.kind ?? 'event',summary:card&&!isStoryKind(card.kind??card.cardKind)&&fork?cardSummary(card,this.compiled.variables,this.compiled.library):'',image:card?.image ?? '',imageScale:card?.imageScale??100,imageOffsetX:card?.imageOffsetX??0,imageOffsetY:card?.imageOffsetY??0,flipImage:!!card?.flipImage,actions,directAdvance:!fork&&!container&&!linearFace,decisionOnly:linearFace||fork&&(location.sequence?!!location.sequence.decisionOnly:this.presentation(location,values,inventory)==='open'),interaction:container||linearItem?'container':'choice',discardAll:container,allowClose:false};
+    if(fork)payload.choiceFollowerRatio=.82;
     payload.flipItemsOnReveal=container&&this.presentation(location,values,inventory)==='closed';
     if(payload.directAdvance)payload.nextTransition='flip';
     if(type==='linear'&&preview&&card&&card.kind!=='item'&&card.resolution!=='check') {

@@ -269,10 +269,14 @@ export class CardDeck extends EventTarget {
     if (this.choiceHistory && !this.commitMotion) this.choiceHistory.record(time, this.l.x);
   }
 
+  get followerRatio() {
+    return Number.isFinite(this.content.choiceFollowerRatio) ? clamp(this.content.choiceFollowerRatio, 0, 1) : this.settings.choiceFollowerRatio;
+  }
+
   choiceTravelRatio(index) {
     if(!this.groupChoiceMotion || !this.choiceHistory || this.cards.length < 2)return 1;
     const rank=this.choiceRanks.get(this.content.actions[index]?.id) || 0;
-    return 1-(1-this.settings.choiceFollowerRatio)*rank/(this.cards.length-1);
+    return 1-(1-this.followerRatio)*rank/(this.cards.length-1);
   }
 
   choiceLift(index, time = performance.now()) {
@@ -721,7 +725,7 @@ export class CardDeck extends EventTarget {
   departureMotion(pointerVelocity) {
     const duration = this.settings.commitDuration;
     const seconds = duration / 1000;
-    const distance = Math.max(120, this.departureTravel() - this.l.x * this.mount.getBoundingClientRect().height * (this.groupChoiceMotion&&this.cards.length>1?this.settings.choiceFollowerRatio:1));
+    const distance = Math.max(120, this.departureTravel() - this.l.x * this.mount.getBoundingClientRect().height * (this.groupChoiceMotion&&this.cards.length>1?this.followerRatio:1));
     const gravity = Math.min(this.settings.gravity, distance / (seconds * seconds));
     return {
       start: performance.now(), duration, continueFlight: this.grabCards.size > 0,

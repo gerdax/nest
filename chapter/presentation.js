@@ -7,7 +7,7 @@ export const defaultPresentation = Object.freeze({
   within() { return 'reveal'; },
   content(sequence) {
     const mode={linear:'story',forked:'decision',container:'container'}[sequence.type];
-    return {directAdvance:mode==='story',decisionOnly:!!sequence.decisionOnly,
+    return {...(mode==='decision'?{choiceFollowerRatio:.82}:{}),directAdvance:mode==='story',decisionOnly:!!sequence.decisionOnly,
       interaction:mode==='container'?'container':'choice',flipItemsOnReveal:mode==='container',allowClose:false};
   }
 });

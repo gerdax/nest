@@ -296,3 +296,10 @@ test('restart during container intro departure cancels staged items and stale re
  controller.restart();settle();assert.equal(deck.phase,'closed');assert.equal(deck.pending,null);assert.equal(deck.commitTransition,'commit');assert.equal(controller.state.variables.energy,0);
  key(deck,'ArrowUp');assert.equal(deck.phase,'choices');assert.equal(controller.state.variables.energy,1);dispose(deck,controller);
 });
+
+test('only fork nodes request closer choice followers',()=>{
+ for(const type of ['fork','linear','container']){
+  const node=type==='fork'?{id:'node',type,choices:[action('one'),action('two')]}:type==='linear'?{id:'node',type,cards:[action('one')]}:{id:'node',type,introEnabled:false,items:[{id:'one',kind:'item',name:'One'}]};
+  const {deck,controller}=fixture([node]);assert.equal(deck.content.choiceFollowerRatio,type==='fork'?.82:undefined);controller.destroy();
+ }
+});
