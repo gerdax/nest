@@ -30,6 +30,7 @@ const flush=async()=>{for(let i=0;i<6;i++)await Promise.resolve();};
 
 test('contextual choices resolve item artwork and ownership while preserving Action mechanics and text',()=>{
   const project=fixture(),source=structuredClone(project),placement=door(project).choices[0];
+  placement.contextOverrideImage=true;
   placement.conditions=[{source:'variable',key:'energy',op:'gte',value:1}];
   const card=resolvePlacement(project,placement);
   assert.equal(card.kind,'action');assert.equal(card.name,'Pick the lock');assert.equal(card.text,'Work the lock with your lockpick.');
@@ -155,4 +156,47 @@ test('inventory use that advances a linear location stages the successor through
   controller.nodes.set(node.id,node);controller.inventory=addInventory([],compiled.library.find(d=>d.id==='potion'));
   controller.adopt(controller.locate(node.id),false);controller.show();const resets=deck.resets;
   assert.equal(controller.useItem('potion'),true);assert.equal(controller.state.activeNodeId,'door');assert.equal(deck.updates,undefined);assert.ok(deck.resets>resets);controller.destroy();
+});
+
+test('contextual action defaults to its own artwork and transforms, including a blank image',()=>{
+ const project=fixture(),placement=door(project).choices[0],definition=project.library.find(d=>d.id===placement.definitionId);
+ Object.assign(definition,{imageScale:80,imageOffsetX:-5,imageOffsetY:7,flipImage:false});
+ for(const value of [undefined,false]){
+  placement.contextOverrideImage=value;const card=resolvePlacement(project,placement);
+  assert.equal(card.image,definition.image);assert.equal(card.imageScale,80);assert.equal(card.imageOffsetX,-5);assert.equal(card.imageOffsetY,7);assert.equal(card.flipImage,false);
+  assert.equal(card.contextOverrideImage,false);assert.equal(card.contextItemId,'key');assert.equal(card.entrance,'bottom');
+ }
+ definition.image='';assert.equal(resolvePlacement(project,placement).image,'');
+ const compiled=compileChapter(project);assert.equal(compiled.nodes.find(n=>n.id==='door').choices[0].image,'');
+});
+
+test('Override img is per placement, reversible, and portable without changing shared definitions',()=>{
+ const project=fixture(),placement=door(project).choices[0],before=structuredClone(project.library);
+ placement.contextOverrideImage=true;
+ const copy={...structuredClone(placement),id:'second',contextOverrideImage:false};
+ door(project).choices.push(copy);door(project).connections.second=null;
+ assert.equal(resolvePlacement(project,placement).image,'./assets/img/flashlight.png');
+ assert.equal(resolvePlacement(project,copy).image,'./assets/img/corridor_02.png');
+ assert.deepEqual(project.library,before);
+ const parsed=parseProject(JSON.stringify(project));assert.equal(door(parsed).choices[0].contextOverrideImage,true);
+ const pkg=exportChapter(project),merged=importChapter(createProject(),pkg),chapter=merged.chapters.at(-1);
+ const imported=chapter.nodes.find(n=>n.id==='door').choices[0];assert.equal(imported.contextOverrideImage,true);
+ assert.equal(compileChapter(merged,chapter.id).nodes.find(n=>n.id==='door').choices[0].image,'./assets/img/flashlight.png');
+ placement.contextOverrideImage=false;assert.equal(resolvePlacement(project,placement).image,'./assets/img/corridor_02.png');
+});
+
+test('Override img checkbox is unchecked by default, below the explanation, and disabled without a linked item',()=>{
+ const project=fixture(),placement=door(project).choices[0];
+ let html=placementInspector(project,placement,'action',0,'choices');
+ const checkboxPattern=/<input[^>]*data-path="contextOverrideImage"[^>]*>/;
+ assert.match(html,/Override img/);assert.doesNotMatch(html.match(checkboxPattern)[0],/checked|disabled/);
+ assert.ok(html.indexOf('Appears only while')<html.indexOf('data-path="contextOverrideImage"'));
+ placement.contextOverrideImage=true;html=placementInspector(project,placement,'action',0,'choices');assert.match(html.match(checkboxPattern)[0],/checked/);
+ delete placement.contextItemId;delete placement.contextOverrideImage;
+ html=placementInspector(project,placement,'action',0,'choices');assert.match(html.match(checkboxPattern)[0],/disabled/);
+});
+
+test('Override img rejects malformed values and unsupported placement kinds',()=>{
+ for(const value of ['true',1,null]){const project=fixture();door(project).choices[0].contextOverrideImage=value;assert.ok(validateProject(project).some(e=>e.message.includes('Override img')));}
+ const project=fixture();door(project).choices[3].contextOverrideImage=true;assert.ok(validateProject(project).some(e=>e.message.includes('Override img')));
 });

@@ -25,8 +25,8 @@ export function resolvePlacement(project, placement) {
     const item = project.library.find(d => d.id === placement.contextItemId && d.kind === 'item');
     if (base.kind !== 'action' || !item) throw new TypeError('Contextual choice needs an Action and an Item definition.');
     const key = item.inventoryKey ?? item.id;
-    Object.assign(resolved, {contextItemId:item.id, contextInventoryKey:key, inventoryLabel:`Inventory · ${item.name}`, entrance:'bottom',
-      image:item.image ?? '', imageScale:item.imageScale ?? 100, imageOffsetX:item.imageOffsetX ?? 0,
+    Object.assign(resolved, {contextItemId:item.id, contextInventoryKey:key, inventoryLabel:`Inventory · ${item.name}`, entrance:'bottom', contextOverrideImage:placement.contextOverrideImage===true});
+    if (placement.contextOverrideImage === true) Object.assign(resolved, {image:item.image ?? '', imageScale:item.imageScale ?? 100, imageOffsetX:item.imageOffsetX ?? 0,
       imageOffsetY:item.imageOffsetY ?? 0, flipImage:!!item.flipImage});
     resolved.conditions.push({source:'inventory',key,op:'has'});
   }

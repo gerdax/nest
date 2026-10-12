@@ -39,7 +39,7 @@ test('custom Narrative choices expose narrative fields and survive portable expo
 });
 
 test('switching contextual Action to Beat clears its item link',()=>{
- const {project,node,p}=setup();p.contextItemId='flashlight';
+ const {project,node,p}=setup();p.contextItemId='flashlight';p.contextOverrideImage=true;
  setCardSource(project,p,'arrival',{allowedKinds:allowedCardKinds('fork')});
- assert.equal(p.contextItemId,undefined);synchronizeConnections(project);assert.deepEqual(validateProject(project),[]);
+ assert.equal(p.contextItemId,undefined);assert.equal(p.contextOverrideImage,undefined);synchronizeConnections(project);assert.deepEqual(validateProject(project),[]);
 });

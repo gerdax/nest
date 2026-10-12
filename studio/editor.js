@@ -104,6 +104,7 @@ function changeField(event){const el=event.target,path=el.dataset.path,scope=el.
   if(['imageScale','imageOffsetX','imageOffsetY'].includes(key))value=Math.max(key==='imageScale'?10:-100,Math.min(key==='imageScale'?400:100,value));
   parent[key]=value;
   if(['modifierVariable','contextItemId'].includes(key)&&!value)delete parent[key];
+  if(key==='contextItemId'&&!value)delete parent.contextOverrideImage;
   if(key==='resolution'&&value==='check')parent.check||={pool:[{sides:20,count:1}],modifier:0,target:10};
   if(key==='type'&&['flag','number'].includes(value)){parent.initial=value==='flag'?false:0;delete parent.min;delete parent.max;}
   if(['source','op','key'].includes(key))normalizeRule(project,parent,key);

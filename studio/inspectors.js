@@ -49,7 +49,7 @@ export function placementInspector(project,p,kind,index,slot) {
  else html+=`<div class="row">${button('Edit shared','edit-shared',`data-definition="${esc(p.definitionId)}" data-card-placement="${esc(p.id)}"`)}${button('Make local copy','local-copy',`${attr} data-kind="${kind}"`)}</div>`;
  // Placement fields use a dedicated scope and are selected by their stable ID.
  html+=`<div class="placement-fields" ${attr}>`;
- if(slot==='choices'&&kind==='action')html+=select('Inventory item',p.contextItemId||'',[['','None'],...project.library.filter(d=>d.kind==='item').map(d=>[d.id,d.name])],'contextItemId','placement')+'<p class="small">Appears only while the item is owned. Uses its artwork; this Action keeps its description, rules and outcomes.</p>';
+ if(slot==='choices'&&kind==='action')html+=select('Inventory item',p.contextItemId||'',[['','None'],...project.library.filter(d=>d.kind==='item').map(d=>[d.id,d.name])],'contextItemId','placement')+'<p class="small">Appears only while the item is owned. This Action keeps its own artwork, description, rules and outcomes.</p>'+checkbox('Override img',p.contextOverrideImage===true,'contextOverrideImage','placement',!p.contextItemId);
  html+=rules(project,p.conditions,'conditions','placement','conditions');
  if(kind!=='item')html+=rules(project,p.effects,'effects','placement','effects');
  html+=`<p class="small">${esc(cardSummary(card||{},project.variables,project.library))}</p>`;
