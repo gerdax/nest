@@ -261,7 +261,8 @@ export function cardPose(deck, index, time = performance.now()) {
   pose.rx = fan * deck.rotationX.x * rotationWeight + clamp(deck.rotationX.x * underlyingWeight, -.9, .9);
   pose.ry = fan * (pose.ry + deck.rotationY.x * rotationWeight) + clamp(deck.rotationY.x * underlyingWeight, -.9, .9);
   pose.rz = fan * (pose.rz + deck.rotationZ.x * rotationWeight) + clamp(deck.rotationZ.x * underlyingWeight, -.9, .9);
-  if (deck.presentationHint && deck.cards.length > 1) {
+  const presented = deck.presentationHint ? deck.content.actions.flatMap((action, i) => deck.entrances.get(action.id)?.startAt === null ? [] : [i]) : [];
+  if (deck.presentationHint && presented.length > 1 && presented.includes(index)) {
     const progress = clamp(deck.presentationHint.travel.x, 0, 1);
     const radius = handoffRadius(2, width, height, deck.settings);
     const endpoints = [0, 1].map(i => {
@@ -269,7 +270,7 @@ export function cardPose(deck, index, time = performance.now()) {
       const peek = carouselPose(i, .24 * progress, 2, width, deck.settings, radius);
       return Object.fromEntries(['x', 'y', 'z', 'ry', 'rz'].map(field => [field, peek[field] - rest[field]]));
     });
-    if (deck.cards.length === 2) {
+    if (presented.length === 2) {
       const delta = endpoints[index === deck.index ? 0 : 1];
       for (const field of ['x', 'y', 'z', 'ry', 'rz']) pose[field] += delta[field] * fan;
     } else if (index === deck.index) {
@@ -278,7 +279,7 @@ export function cardPose(deck, index, time = performance.now()) {
     } else {
       // Keep left-hand followers moving left and right-hand followers right.
       // Additional followers interpolate between the familiar two-card motions.
-      const followers = deck.content.actions.map((_, i) => ({ i, x: carouselPose(i, deck.index, deck.cards.length, width, deck.settings).x }))
+      const followers = presented.map(i => ({ i, x: carouselPose(i, deck.index, deck.cards.length, width, deck.settings).x }))
         .filter(card => card.i !== deck.index).sort((a, b) => a.x - b.x || a.i - b.i);
       const weight = followers.findIndex(card => card.i === index) / (followers.length - 1);
       for (const field of ['x', 'ry', 'rz']) pose[field] += (endpoints[0][field] * (1 - weight) + endpoints[1][field] * weight) * fan;
