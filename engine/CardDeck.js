@@ -24,9 +24,14 @@ function validate(content) {
 export class CardDeck extends EventTarget {
   constructor(mount, {
     content,
-    settings = {}
+    settings = {},
+    contextualPresentation = 'current'
   } = {}) {
     super();
+    if (!['current', 'shuffle'].includes(contextualPresentation)) throw new TypeError('Unknown contextual presentation');
+    this.contextualPresentation = contextualPresentation;
+    this.contextualFinalization = null;
+    this.presentationGeneration = 0;
     this.mount = mount;
     this.settings = settingsWith(settings);
     this.content = validate(content);
@@ -543,6 +548,8 @@ export class CardDeck extends EventTarget {
   }
 
   completePhase(phase, transition) {
+    const content = this.content;
+    const generation = this.presentationGeneration;
     this.phase = phase;
     this.operation = null;
     this.render();
@@ -552,14 +559,21 @@ export class CardDeck extends EventTarget {
       return;
     }
     this.emit('transitioncomplete', { transition });
-    if (transition === 'reveal' && this.openingCommit) {
+    if (this.destroyed || this.presentationGeneration !== generation) return;
+    // In-place reconciliation can begin from the reveal callback. Keep the
+    // pending commit until that presentation settles; install/reset starts a
+    // different generation and must suppress the old completion instead.
+    if (['reveal', 'actionschange'].includes(transition) && this.openingCommit && this.phase === 'choices' && !this.busy) {
       this.openingCommit = false;
       this.emit('transitioncomplete', { transition: 'commit' });
+      if (this.destroyed || this.presentationGeneration !== generation) return;
     }
+    if (this.content !== content || this.phase !== phase) return;
     if (transition === 'reveal') this.browsePresentedStack();
   }
 
   browsePresentedStack({ beforeEntrance = false } = {}) {
+    if (this.contextualPresentation === 'shuffle' && this.content.interaction === 'choice' && this.entrances.size) return;
     if (!this.presentationBrowsePending || (!beforeEntrance && (!['choices', 'revealing'].includes(this.phase) || this.busy)) || this.drag || this.destroyed) return;
     this.presentationBrowsePending = false;
     const presentedCount = this.content.actions.filter(action => this.entrances.get(action.id)?.startAt !== null).length;
@@ -939,6 +953,7 @@ export class CardDeck extends EventTarget {
   // Entrance hints affect presentation only. The complete action list remains
   // available to the controller throughout reveal and reconciliation.
   prepareEntrances(ids = this.content.actions.filter(a => a.entrance === 'bottom').map(a => a.id)) {
+    this.contextualFinalization = null;
     const distance = this.departureTravel();
     this.entrances = new Map(ids.map(id => [id, { travel: spring(distance), startAt: null, landed: false }]));
     this.entranceActiveId = null;
@@ -1009,11 +1024,42 @@ export class CardDeck extends EventTarget {
     this.entranceActiveId = this.entranceNextAt = this.entranceSelectedId = null;
     this.reflowOrder = null;
     this.reflowOffsets.clear();
-    this.busy = false;
     if (labels.length) this.entranceAnnouncement = `New choices: ${labels.join(', ')}. `;
+    if (labels.length && this.contextualPresentation === 'shuffle' && this.content.interaction === 'choice') {
+      this.contextualFinalization = { content, transition: transition || 'actionschange', selectedId };
+      if (this.index !== 0) {
+        // Equivalent carousel turns preserve the authored array and choose the
+        // shortest handoff back to the first editor action.
+        this.b.target = Math.round(this.b.x / this.cards.length) * this.cards.length;
+        this.index = 0;
+        this.phase = 'shuffling';
+        this.presentationBrowsePending = false;
+      } else {
+        this.browsePresentedStack({ beforeEntrance: true });
+      }
+      this.render();
+      this.advanceContextualFinalization();
+      return;
+    }
+    this.busy = false;
     this.completePhase('choices', transition || 'actionschange');
     if (lastId !== undefined && selectedId !== lastId && this.content === content && !this.destroyed && this.phase === 'choices' && !this.busy && this.content.actions[this.index]?.id === lastId) this.emit('selection', { action: this.content.actions[this.index] });
     if (transition !== 'reveal') this.browsePresentedStack();
+  }
+
+  advanceContextualFinalization() {
+    const finalization = this.contextualFinalization;
+    if (!finalization || !this.atRest(this.b) || this.presentationHint) return;
+    this.contextualFinalization = null;
+    this.busy = false;
+    // Normalize the equivalent cursor only after the physical handoff settles.
+    this.b = spring(0);
+    this.index = 0;
+    this.completePhase('choices', finalization.transition);
+    if (this.content === finalization.content && !this.destroyed && this.phase === 'choices' && !this.busy
+      && this.index === 0 && finalization.selectedId !== this.content.actions[0]?.id) {
+      this.emit('selection', { action: this.content.actions[0] });
+    }
   }
 
   updateActions(actions) {
@@ -1086,7 +1132,11 @@ export class CardDeck extends EventTarget {
       this.entrances.clear();
       this.entranceTransition = null;
       const top = this.content.actions.findLastIndex(action => action.entrance === 'bottom');
-      if (top >= 0) { this.index = top; this.b = spring(top); }
+      if (top >= 0) {
+        const index = this.contextualPresentation === 'shuffle' && this.content.interaction === 'choice' ? 0 : top;
+        this.index = index; this.b = spring(index);
+        if (index !== top) this.presentationBrowsePending = false;
+      }
       this.fan = spring(1);
       this.phase = 'choices';
       this.operation = null;
@@ -1103,6 +1153,7 @@ export class CardDeck extends EventTarget {
   }
 
   install(content, { faceDown = false, open = false, selectedId, staged = null, stagedDepth = staged ? 1 : 0, flipState = null } = {}) {
+    this.presentationGeneration++;
     this.clearGrab();
     this.groupLeaveActive = false;
     this.content = content;
@@ -1352,11 +1403,12 @@ export class CardDeck extends EventTarget {
     }
     if (this.liftPoses && this.atRest(this.l) && [this.rotationX, this.rotationY, this.rotationZ].every(s => this.atRest(s))) this.restoreLiftPoses();
     this.advanceEntrances(t);
+    this.advanceContextualFinalization();
     this.sampleChoices(t);
     this.advancePhases();
     const moving = this.motionStates().some(state => !this.atRest(state));
     this.render(t);
-    if (grabMoving || moving || this.entranceTransition || this.presentationHint || this.followersMoving(t)) {
+    if (grabMoving || moving || this.entranceTransition || this.contextualFinalization || this.presentationHint || this.followersMoving(t)) {
       this.schedule();
     } else {
       this.last = 0;
@@ -1418,6 +1470,8 @@ export class CardDeck extends EventTarget {
       if (this.liftPoses) { this.restoreLiftPoses(); continue; }
       if (['collect', 'discard'].includes(this.operation) && this.motionStates().every(s => this.atRest(s))) this.finishCollection();
       if (this.entranceTransition) this.finishEntrances();
+      this.advanceContextualFinalization();
+      if (this.destroyed) return;
       this.advancePhases();
     }
     this.choiceHistory = null;
@@ -1459,6 +1513,7 @@ export class CardDeck extends EventTarget {
     this.groupLeaveActive = false;
     this.reflowOffsets.clear();
     this.entrances.clear();
+    this.contextualFinalization = null;
     this.entranceTransition = null;
     this.entranceActiveId = this.entranceNextAt = this.entranceSelectedId = null;
     this.clearGrab();

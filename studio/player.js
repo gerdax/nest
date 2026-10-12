@@ -1,3 +1,4 @@
+import { mountContextualVariant } from './contextual-variant.js';
 import { ProjectPreview } from './ProjectPreview.js';
 import { createProject, parseProject } from '../project/model.js';
 import { loadProject } from '../project/storage.js';
@@ -7,6 +8,7 @@ const message=document.querySelector('#message'),title=document.querySelector('#
 const stored=loadProject();let project=stored.project??createProject();
 const preview=new ProjectPreview(document.querySelector('#preview'),{inventoryDock:true});
 mountMotionTuning(document.querySelector('#dev-mode'),preview);
+mountContextualVariant(document.querySelector('[data-contextual-variant]'),preview);
 function report(text,error=false){message.textContent=text;message.classList.toggle('error',error);}
 function listChapters(){selector.innerHTML='';for(const chapter of project.chapters){const option=document.createElement('option');option.value=chapter.id;option.textContent=chapter.name;option.selected=chapter.id===project.activeChapterId;selector.append(option);}}
 function play(){try{preview.play(project,selector.value);title.textContent=project.chapters.find(c=>c.id===selector.value)?.name||'Chapter';document.querySelector('#stop').disabled=false;report('Chapter ready.');return true;}catch(error){report(error.message,true);return false;}}

@@ -1,3 +1,4 @@
+import { mountContextualVariant } from './contextual-variant.js';
 import { applyCardStyles } from '../project/card-styles.js';
 import { artworkSettings, parseArtworkSettings } from './artwork-settings.js';
 import { DocumentHistory } from '../editor/DocumentHistory.js';
@@ -25,7 +26,8 @@ const chapter=()=>project.chapters.find(c=>c.id===chapterId)||project.chapters[0
 const node=()=>chapter().nodes.find(n=>n.id===selected);
 const definition=()=>project.library.find(d=>d.id===definitionId);
 const preview=new ProjectPreview($('#preview'),{onChange:()=>renderGraph(),onGoToCard:goToPreviewCard});
-const previewWindow=mountPreviewWindow($('#preview-window'),{onClose:()=>preview.stop()});
+mountContextualVariant($('[data-contextual-variant]'),preview);
+const previewWindow=mountPreviewWindow($('#preview-window'),{onClose:()=>preview.stop(),initialTop:()=>$('#node-tools').getBoundingClientRect().bottom+8});
 $('#show-preview').onclick=()=>previewWindow.show();
 const autoplay=mountAutoplay($('#autoplay'),{getSelected:()=>selected,onPlay:id=>play(id,{restore:false})});
 const graph=new GraphView($('#canvas'),{

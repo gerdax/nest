@@ -10,7 +10,7 @@ import { previewCardTarget } from './preview-card-target.js';
 
 /** Playback UI owns dice/inventory presentation, never chapter resolution rules. */
 export class ProjectPreview {
-  constructor(root, { onChange = () => {}, onGoToCard, inventoryDock = false, deckSettings = {} } = {}) {
+  constructor(root, { onChange = () => {}, onGoToCard, inventoryDock = false, deckSettings = {}, contextualPresentation = 'shuffle' } = {}) {
     this.root = root;
     this.destroyed = false;
     this.generation = 0;
@@ -18,6 +18,7 @@ export class ProjectPreview {
     this.onChange = onChange;
     this.onGoToCard = typeof onGoToCard === 'function' ? onGoToCard : null;
     this.deckSettings = { ...deckSettings };
+    this.contextualPresentation = contextualPresentation;
     this.root.innerHTML = '<section class="project-preview"><div class="chapter-preview-stage"><div class="chapter-preview-deck" tabindex="0"></div></div><div class="preview-status-row"><p data-status role="status">Stopped.</p></div><details data-state hidden><summary>Run state</summary><pre></pre></details><section data-inventory></section><div class="check-overlay" hidden role="dialog" aria-modal="true" aria-label="Action check"><div class="check-panel"><h3>Resolving attempt</h3><div class="check-tray"></div><p data-result role="status"></p><button data-cancel type="button">Cancel attempt</button></div></div></section>';
     this.mount = root.querySelector('.chapter-preview-deck');
     this.status = root.querySelector('[data-status]');
@@ -61,7 +62,7 @@ export class ProjectPreview {
     applyCardStyles(this.mount, chapter.cardStyles);
     this.project = structuredClone(project); this.chapterId = chapterId; this.startNode = startNode; this.compiled = chapter;
     try {
-      this.deck = new CardDeck(this.mount, { settings: this.deckSettings, content: { id:'project-loading',text:'',actions:[{id:'wait',label:'Loading',disabled:true}] } });
+      this.deck = new CardDeck(this.mount, { settings: this.deckSettings, contextualPresentation: this.contextualPresentation, content: { id:'project-loading',text:'',actions:[{id:'wait',label:'Loading',disabled:true}] } });
       const controller = new ProjectController(this.deck, chapter, {
         onChange: state => { if (active()) this.update(state); },
         onError: (error,state) => { if (!active()) return; this.hideDice(); this.errorNode = state?.activeNodeId; this.errorMessage = error.message || String(error); this.status.textContent = this.errorMessage; },

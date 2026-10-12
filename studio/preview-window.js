@@ -1,5 +1,5 @@
 /** Modeless preview host. Moving the window never touches the card gesture surface. */
-export function mountPreviewWindow(root,{onClose=()=>{}}={}) {
+export function mountPreviewWindow(root,{onClose=()=>{},initialTop=100}={}) {
  const handle=root.querySelector('[data-preview-drag]');
  const close=root.querySelector('[data-preview-close]');
  const toggle=root.querySelector('[data-preview-minimize]');
@@ -34,7 +34,7 @@ export function mountPreviewWindow(root,{onClose=()=>{}}={}) {
  const show=({restore:shouldRestore=true}={})=>{
   root.hidden=false;
   if(shouldRestore)restore();
-  if(!placed){position(window.innerWidth-root.getBoundingClientRect().width-24,100);placed=true;}
+  if(!placed){position(window.innerWidth-root.getBoundingClientRect().width-24,typeof initialTop==='function'?initialTop():initialTop);placed=true;}
   else clamp();
  };
  const cancel=()=>{

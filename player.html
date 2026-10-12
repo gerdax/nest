@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>nest · chapter player</title>
+  <title>nest · contextual shuffle experiment</title>
   <link rel="stylesheet" href="./engine/card-deck.css">
   <link rel="stylesheet" href="./player/motion-tuning.css">
   <link rel="stylesheet" href="./studio/preview.css">
@@ -25,10 +25,11 @@
     #preview { border-top: 1px solid #33402b; margin-top: 16px; }
   </style>
   <link rel="stylesheet" href="./player/player.css">
-<link rel="stylesheet" href="./demo/inventory.css?v=grab-camera-1"></head>
+<link rel="stylesheet" href="./demo/inventory.css?v=grab-camera-1"><link rel="stylesheet" href="./studio/contextual-variant.css"></head>
 <body>
   <main>
     <header><h1>nest / player</h1><nav><a href="./editor.html">Editor</a> · <a href="./dice.html">Dice demo</a></nav></header>
+    <div class="controls" data-contextual-variant><label>Contextual cards <select aria-label="Contextual card presentation"><option value="shuffle">Experiment: slide → editor order</option><option value="current">Current version</option></select></label> <a href="http://127.0.0.1:8938/player.html">Open original player ↗</a></div>
     <p class="intro">Play a saved project chapter, or open an exported project or chapter JSON file.</p>
     <div class="controls">
       <div class="chapter-picker"><label for="chapter-selector">Chapter</label><select id="chapter-selector"></select></div>

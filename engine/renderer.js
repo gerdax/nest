@@ -190,7 +190,7 @@ export function stageNextContent(deck, content) {
 
 export function announceDeck(deck) {
   const action = deck.content.actions[deck.index];
-  const message = deck.phase === 'inserting' ? (deck.entrances.size ? 'Adding inventory choices…' : 'Updating choices…') : deck.phase === 'collecting' ? (deck.collectMotion?.transition === 'discard' ? 'Discarding item…' : 'Taking item…')
+  const message = deck.phase === 'shuffling' ? 'Ordering choices…' : deck.phase === 'inserting' ? (deck.entrances.size ? 'Adding inventory choices…' : 'Updating choices…') : deck.phase === 'collecting' ? (deck.collectMotion?.transition === 'discard' ? 'Discarding item…' : 'Taking item…')
     : deck.commitMotion?.discardAll ? 'Leaving container and discarding remaining items…'
     : deck.busy && deck.flip.x > 0 ? 'Turning next card…' : deck.busy ? (deck.pending || deck.operation === 'commit' ? 'Revealing next card…' : 'Waiting for next card…')
     : deck.phase === 'revealing' ? (deck.content.interaction === 'container' ? 'Uncovering items…' : 'Uncovering choices…')
