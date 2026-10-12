@@ -43,6 +43,10 @@ function samePose(actual, expected, message) {
   for (const field of fields) assert.ok(Math.abs(actual[field] - expected[field]) < 1e-8, `${message}: ${field} changed ${expected[field]} -> ${actual[field]}`);
   assert.ok(Math.abs((actual.scale ?? 1) - (expected.scale ?? 1)) < 1e-8, `${message}: scale changed`);
 }
+function recededPose(actual, expected, message) {
+  samePose(actual, { ...expected, z: actual.z }, message);
+  assert.ok(actual.z < expected.z, `${message}: remaining card recedes only in depth`);
+}
 function descendants(node) { return [node, ...node.children.flatMap(descendants)]; }
 function opaque(deck) { for (const node of descendants(deck.mount)) assert.equal(Object.hasOwn(node.style, 'opacity'), false); }
 function inputBlocked(deck) { const index = deck.index, cursor = deck.b.target; assert.equal(deck.start(), false); for (const name of ['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown']) key(deck, name); deck.commit(); assert.equal(deck.index, index); assert.equal(deck.b.target, cursor); assert.equal(deck.open, true); }
@@ -79,8 +83,8 @@ test('down moves and takes only selected item, with survivors retaining identity
   const initial = poses(deck), items = [...deck.cards], collects = [];
   deck.addEventListener('collect', e => collects.push(e.detail));
   deck.start(); deck.move(gesture(150));
-  samePose(cardPose(deck, 0), initial.get('item-0'), 'first survivor');
-  samePose(cardPose(deck, 2), initial.get('item-2'), 'last survivor');
+  recededPose(cardPose(deck, 0), initial.get('item-0'), 'first survivor');
+  recededPose(cardPose(deck, 2), initial.get('item-2'), 'last survivor');
   deck.end(gesture(150)); settle();
   assert.deepEqual(deck.content.actions.map(a => a.id), ['item-0', 'item-2']);
   assert.deepEqual(new Set(deck.cards), new Set([items[0], items[2]]));
@@ -96,7 +100,7 @@ test('cancel returns the whole stack and reversing to down clears group poses', 
   for (const [id, pose] of poses(deck)) samePose(pose, initial.get(id), 'cancel restores');
   deck.start(); deck.move(gesture(-100)); step(250); deck.move(gesture(100));
   assert.equal(deck.groupChoiceMotion, false); assert.equal(deck.choiceHistory, null);
-  for (let i = 0; i < 4; i++) if (i !== 2) samePose(cardPose(deck, i), initial.get(`item-${i}`), 'down survivor');
+  for (let i = 0; i < 4; i++) if (i !== 2) recededPose(cardPose(deck, i), initial.get(`item-${i}`), 'down survivor');
   deck.cancel(); settle();
   for (const [id, pose] of poses(deck)) samePose(pose, initial.get(id), 'reverse cancel restores');
   dispose(deck);

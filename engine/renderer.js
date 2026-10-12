@@ -236,6 +236,16 @@ function orbitRadius(deck, width, height, count = deck.cards.length) {
   return deck.orbitRadius;
 }
 
+function takeProgress(deck, time, height, distanceRatio = .5) {
+  const selected = deck.content.actions.find(action => action.id === deck.liftId);
+  if (deck.content.interaction !== 'container' || !selected || selected.disabled) return 0;
+  let distance = (deck.liftStart - deck.l.x) * height;
+  if (deck.collectMotion) distance += deck.collectMotion.direction * departureDistance(deck.collectMotion, time);
+  const progress = clamp(distance / (height * distanceRatio), 0, 1);
+  // Shared ease-out for the item approaching and the stack retreating.
+  return 1 - (1 - progress) ** 3;
+}
+
 export function cardPose(deck, index, time = performance.now()) {
   const bounds = deck.mount.getBoundingClientRect();
   const width = Math.max(1, bounds.width), height = Math.max(1, bounds.height);
@@ -249,10 +259,13 @@ export function cardPose(deck, index, time = performance.now()) {
       pose.y -= lift;
       if (deck.collectMotion) pose.y += deck.collectMotion.direction * departureDistance(deck.collectMotion, time);
       pose.z += Math.min(Math.max(0, lift) * .1, deck.settings.liftHeight);
+      pose.z += Math.min(height * .25, deck.settings.perspective * .16) * takeProgress(deck, time, height);
       pose.rx += deck.rotationX.x - deck.liftRotation.x;
       pose.ry += deck.rotationY.x - deck.liftRotation.y;
       pose.rz += deck.rotationZ.x - deck.liftRotation.z;
       for (const field of ['rx', 'ry', 'rz']) pose[field] = clamp(pose[field], -deck.settings.maxTilt, deck.settings.maxTilt);
+    } else {
+      pose.z -= height * .4 * takeProgress(deck, time, height, .45);
     }
     pose.z += deck.grabAmount(action.id);
     return pose;

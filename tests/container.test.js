@@ -259,3 +259,62 @@ test('container intro flip previews item backs when constructed directly and ski
  deck.replaceContent(content,{presentation:'open',animate:false});settle();assert.equal(deck.content.flipItemsOnReveal,false);assert.equal(deck.phase,'choices');assert.equal(deck.cards[0].style.visibility,'visible');assert.equal(reveal,1);
  dispose(deck);
 });
+
+for(const selected of [0,2])test(`taking item ${selected} recedes remaining cards with ease-out depth and preserves pickup`,()=>{
+ const deck=make(3);ready(deck);select(deck,selected);const rest=poses(deck),depths=[];
+ deck.start();
+ for(const distance of [0,50,100,150]){
+  deck.move(gesture(distance));const current=poses(deck);
+  for(let i=0;i<3;i++){
+   const id=deck.content.actions[i].id,pose=current.get(id),base=rest.get(id);
+   if(i===selected){assert.equal(pose.y,base.y+distance);if(distance===0)assert.equal(pose.z,base.z+deck.grabAmount(id));else assert.ok(pose.z>base.z+deck.grabAmount(id),'leading card grows toward the viewer');}
+   else for(const field of ['x','y','rx','ry','rz'])assert.equal(pose[field],base[field],'remaining cards keep their alignment');
+  }
+  const follower=deck.content.actions.find((_,i)=>i!==selected).id;depths.push(rest.get(follower).z-current.get(follower).z);
+ }
+ assert.equal(depths[0],0);assert.ok(depths[1]>0);assert.ok(depths[2]>depths[1]);assert.ok(depths[3]>depths[2]);
+ assert.ok(depths[1]>depths[2]-depths[1]&&depths[2]-depths[1]>depths[3]-depths[2],'equal drag increments cause progressively gentler depth changes');
+ deck.move(gesture(450));const followerIndex=selected===0?1:0,id=deck.content.actions[followerIndex].id,pose=cardPose(deck,followerIndex);
+ assert.ok(rest.get(id).z-pose.z<deck.mount.getBoundingClientRect().height*.5,'retreat stays bounded even on a long drag');
+ const bounds=deck.mount.getBoundingClientRect(),before=projectedBounds(rest.get(id),bounds.width,bounds.height,deck.settings.perspective),after=projectedBounds(pose,bounds.width,bounds.height,deck.settings.perspective);
+ assert.ok(after.right-after.left<before.right-before.left,'real perspective makes remaining cards smaller');assert.ok((after.right-after.left)/(before.right-before.left)>.8,'zoom stays bounded');
+ deck.cancel();settle();for(const [id,pose]of poses(deck))samePose(pose,rest.get(id),'cancel restores depth');dispose(deck);
+});
+for(const release of ['cancel','early'])test(`${release} smoothly restores remaining-card depth after taking drag`,()=>{
+ const deck=make(3);ready(deck);const rest=poses(deck);let collects=0;deck.addEventListener('collect',()=>collects++);
+ deck.start();deck.move(gesture(release==='early'?50:150));let z=cardPose(deck,1).z;
+ if(release==='early')deck.end(gesture(50));else deck.cancel();
+ for(let i=0;frames.size&&i<2000;i++){step();const next=cardPose(deck,1).z;assert.ok(next>=z-1e-8,'depth returns without a jump away');z=next;}
+ assert.equal(frames.size,0);assert.equal(collects,0);for(const[id,pose]of poses(deck))samePose(pose,rest.get(id),'release restores start');dispose(deck);
+});
+test('take-depth effect stays continuous on release and regrab and excludes disabled items',()=>{
+ const deck=make(3);ready(deck);deck.start();deck.move(gesture(150));deck.cancel();step();const returning=poses(deck);
+ deck.start();deck.move(gesture(0));for(const[id,pose]of poses(deck))samePose(pose,returning.get(id),'regrab has no depth jump');
+ deck.move(gesture(100));const before=poses(deck);deck.end(gesture(100));for(let i=1;i<3;i++)samePose(cardPose(deck,i),before.get(deck.content.actions[i].id),'accepted release retains remaining depth');
+ settle();assert.equal(deck.cards.length,2);assert.equal(deck.phase,'choices');assert.equal(deck.liftPoses,null);dispose(deck);
+ const blocked=make(3);blocked.content.actions[0].disabled=true;ready(blocked);const rest=poses(blocked);blocked.start();blocked.move(gesture(150));
+ for(let i=1;i<3;i++)samePose(cardPose(blocked,i),rest.get(blocked.content.actions[i].id),'disabled item does not retreat others');blocked.cancel();settle();dispose(blocked);
+});
+
+test('taken card grows progressively with ease-out while retaining drag distance',()=>{
+ const deck=make(3);ready(deck);const baseline=cardPose(deck,0),bounds=deck.mount.getBoundingClientRect();
+ const initial=projectedBounds(baseline,bounds.width,bounds.height,deck.settings.perspective);const depths=[];
+ deck.start();for(const distance of [0,50,100,150]){deck.move(gesture(distance));const pose=cardPose(deck,0);assert.equal(pose.y,baseline.y+distance);depths.push(pose.z-baseline.z-deck.grabAmount(deck.content.actions[0].id));}
+ assert.equal(depths[0],0);assert.ok(depths[1]>0&&depths[2]>depths[1]&&depths[3]>depths[2]);assert.ok(depths[1]>depths[2]-depths[1]&&depths[2]-depths[1]>depths[3]-depths[2],'growth eases out');
+ deck.move(gesture(450));const enlarged=projectedBounds(cardPose(deck,0),bounds.width,bounds.height,deck.settings.perspective),ratio=(enlarged.right-enlarged.left)/(initial.right-initial.left);
+ assert.ok(ratio>1.05&&ratio<1.2,'card visibly grows without becoming excessive');
+ const held=cardPose(deck,0);deck.end(gesture(450));samePose(cardPose(deck,0),held,'growth persists through release without a pop');settle();assert.equal(deck.cards.length,2);assert.equal(deck.phase,'choices');dispose(deck);
+});
+test('early release returns the taken card to its original size',()=>{
+ const deck=make(3);ready(deck);const before=poses(deck);deck.start();deck.move(gesture(50));assert.ok(cardPose(deck,0).z>before.get('item-0').z);
+ deck.end(gesture(50));settle();for(const[id,pose]of poses(deck))samePose(pose,before.get(id),'early release restores both growth and retreat');dispose(deck);
+});
+
+test('remaining cards finish their shallower retreat before selected-item growth finishes',()=>{
+ const deck=make(3);ready(deck);const height=deck.mount.getBoundingClientRect().height,baseline=cardPose(deck,1);
+ deck.start();deck.move(gesture(height*.45));const remaining=cardPose(deck,1),selected=cardPose(deck,0);
+ assert.ok(baseline.z-remaining.z<height*.45,'remaining target is larger than the earlier retreat');
+ deck.move(gesture(height*.5));assert.equal(cardPose(deck,1).z,remaining.z,'remaining cards already reached their target at the shorter drag');
+ assert.ok(cardPose(deck,0).z>selected.z,'selected-item growth retains its original completion distance');
+ deck.cancel();settle();dispose(deck);
+});

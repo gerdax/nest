@@ -43,6 +43,10 @@ function samePose(actual, expected, message) {
   for (const field of fields) assert.ok(Math.abs(actual[field] - expected[field]) < 1e-8, `${message}: ${field} changed ${expected[field]} -> ${actual[field]}`);
   assert.ok(Math.abs((actual.scale ?? 1) - (expected.scale ?? 1)) < 1e-8, `${message}: scale changed`);
 }
+function recededPose(actual, expected, message) {
+  samePose(actual, { ...expected, z: actual.z }, message);
+  assert.ok(actual.z < expected.z, `${message}: take recedes remaining cards`);
+}
 function descendants(node) { return [node, ...node.children.flatMap(descendants)]; }
 function opaque(deck) { for (const node of descendants(deck.mount)) assert.equal(Object.hasOwn(node.style, 'opacity'), false); }
 function inputBlocked(deck) { const index = deck.index, cursor = deck.b.target; assert.equal(deck.start(), false); for (const name of ['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown']) key(deck, name); deck.commit(); assert.equal(deck.index, index); assert.equal(deck.b.target, cursor); assert.equal(deck.open, true); }
@@ -71,17 +75,18 @@ for (const resolution of ['collect', 'discard']) for (const count of [2, 3, 4]) 
     deck.addEventListener(resolution, e => accepts.push(e.detail));
     deck.addEventListener('transitioncomplete', e => { if (e.detail.transition === resolution) completes.push(e.detail); });
     const direction = resolution === 'collect' ? 1 : -1;
+    const survivorPose = resolution === 'collect' ? recededPose : samePose;
     deck.start(); deck.move(gesture(direction * 150));
     assert.ok(direction * (poses(deck).get(selected).y - initial.get(selected).y) >= 149);
-    for (const [id, pose] of poses(deck)) if (id !== selected) samePose(pose, initial.get(id), 'held survivor');
+    for (const [id, pose] of poses(deck)) if (id !== selected) survivorPose(pose, initial.get(id), 'held survivor');
     step(); step();
-    for (const [id, pose] of poses(deck)) if (id !== selected) samePose(pose, initial.get(id), 'held angular survivor');
+    for (const [id, pose] of poses(deck)) if (id !== selected) survivorPose(pose, initial.get(id), 'held angular survivor');
     deck.end(gesture(direction * 150));
     assert.equal(accepts.length, 1); assert.equal(accepts[0].action.id, selected); assert.equal(accepts[0].index, index); assert.equal(accepts[0].final, false);
     let before;
     while (deck.collectMotion) {
       inputBlocked(deck); before = poses(deck); step(1);
-      if (deck.collectMotion) for (const [id, pose] of poses(deck)) if (id !== selected) samePose(pose, initial.get(id), 'flight survivor');
+      if (deck.collectMotion) for (const [id, pose] of poses(deck)) if (id !== selected) survivorPose(pose, initial.get(id), 'flight survivor');
     }
     assert.equal(originals.get(selected).layer.parentNode, null); assert.equal(deck.cards.length, count - 1);
     for (const [id, pose] of poses(deck)) {

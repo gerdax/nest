@@ -628,7 +628,7 @@
       "name": "Free",
       "heading": "",
       "showName": false,
-      "text": "Run, Lazarus, you are free!",
+      "text": "Run, Lazarus, this may be it!",
       "image": "./assets/img/Gemini_Generated_Image_%20(4).jpeg",
       "effects": [],
       "visibility": "local"
@@ -646,11 +646,11 @@
     },
     {
       "id": "narrative-f482df55",
-      "kind": "event",
+      "kind": "caption",
       "name": "New narrative",
       "heading": "",
       "showName": false,
-      "text": "Behind it - a corridor. With a light at the end of it!",
+      "text": "You reach the door and see the liight behind it. Is it the way out?",
       "image": "",
       "effects": [],
       "visibility": "local"
@@ -852,6 +852,134 @@
       "imageOffsetX": 0,
       "imageOffsetY": 0,
       "flipImage": false
+    },
+    {
+      "id": "action-d5e985a8",
+      "kind": "action",
+      "name": "Touch it",
+      "showName": false,
+      "text": "Touch it.",
+      "image": "./assets/img/Gemini_Generated_Image_sc7yugsc7yugsc7yd.png",
+      "conditions": [],
+      "costs": [],
+      "effects": [],
+      "resolution": "direct",
+      "check": {
+        "pool": [
+          {
+            "sides": 20,
+            "count": 1
+          }
+        ],
+        "modifier": 0,
+        "target": 10
+      },
+      "successEffects": [],
+      "failureEffects": [],
+      "visibility": "local",
+      "imageScale": 84,
+      "imageOffsetX": 0,
+      "imageOffsetY": -4,
+      "flipImage": false
+    },
+    {
+      "id": "caption-bd920e3c",
+      "kind": "caption",
+      "name": "New narrative",
+      "heading": "",
+      "showName": false,
+      "text": "You carefully push the handle and open the door and step into an empty dark corridor.",
+      "image": "",
+      "effects": [],
+      "visibility": "local"
+    },
+    {
+      "id": "caption-17633c17",
+      "kind": "event",
+      "name": "New narrative",
+      "heading": "",
+      "showName": false,
+      "text": "There's another door at the end of the dark corridor. ",
+      "image": "./assets/img/Gemini_Generated_Image_otoworotoworotow.jpeg",
+      "effects": [],
+      "visibility": "local",
+      "imageOffsetY": -12,
+      "imageOffsetX": -4,
+      "flipImage": false
+    },
+    {
+      "id": "event-f3d27885",
+      "kind": "event",
+      "name": "Free",
+      "heading": "",
+      "showName": false,
+      "text": "Run, Lazarus, you are free!",
+      "image": "./assets/img/Gemini_Generated_Image_%20(4).jpeg",
+      "effects": [],
+      "visibility": "shared"
+    },
+    {
+      "id": "caption-757f4732",
+      "kind": "caption",
+      "name": "New Caption",
+      "showName": false,
+      "text": "",
+      "image": "",
+      "effects": [],
+      "visibility": "local"
+    },
+    {
+      "id": "action-3fbfdd27",
+      "kind": "action",
+      "name": "New Action",
+      "showName": false,
+      "text": "",
+      "image": "",
+      "conditions": [],
+      "costs": [],
+      "effects": [],
+      "resolution": "direct",
+      "check": {
+        "pool": [
+          {
+            "sides": 20,
+            "count": 1
+          }
+        ],
+        "modifier": 0,
+        "target": 10
+      },
+      "successEffects": [],
+      "failureEffects": [],
+      "visibility": "local"
+    },
+    {
+      "id": "action-d8295cbc",
+      "kind": "action",
+      "name": "Explore",
+      "heading": "",
+      "text": "Follow the corridor",
+      "image": "./assets/img/Gemini_Generated_Image_tpikwetpikwetpik.jpeg",
+      "conditions": [],
+      "costs": [],
+      "effects": [],
+      "resolution": "direct",
+      "check": {
+        "pool": [
+          {
+            "sides": 20,
+            "count": 1
+          }
+        ],
+        "modifier": 0,
+        "target": 10
+      },
+      "successEffects": [],
+      "failureEffects": [],
+      "visibility": "local",
+      "flipImage": true,
+      "imageOffsetY": -4,
+      "imageScale": 89
     }
   ],
   "variables": [
@@ -873,8 +1001,8 @@
           "id": "arrival",
           "name": "Start",
           "type": "linear",
-          "x": 183.1599941020836,
-          "y": 55.70045991546293,
+          "x": 106.99647756000033,
+          "y": -342.13786351203294,
           "cards": [
             {
               "id": "arrival-card",
@@ -901,8 +1029,8 @@
           "id": "node-ce99368d",
           "name": "Get out",
           "type": "linear",
-          "x": 607.5139166359077,
-          "y": -115.75549332940389,
+          "x": 457.8740337884069,
+          "y": -404.91068822748946,
           "connections": {
             "next": "node-b65c4230"
           },
@@ -921,12 +1049,12 @@
           "id": "node-b65c4230",
           "name": "The door",
           "type": "fork",
-          "x": 894.3743168703979,
-          "y": -470.1824286620293,
+          "x": 851.6218839581375,
+          "y": -379.92729251392393,
           "connections": {
-            "placement-3c031d98": "node-b65c4230",
+            "placement-3c031d98": "node-de440080",
             "placement-d0ff990e": "node-fe02f5e4",
-            "placement-2e86f501": "node-ffe79362"
+            "placement-4c34b270": "node-ffe79362"
           },
           "choices": [
             {
@@ -938,8 +1066,8 @@
               "definitionId": "action-3cdf210d"
             },
             {
-              "id": "placement-2e86f501",
-              "definitionId": "narrative-4bd1a01e"
+              "id": "placement-4c34b270",
+              "definitionId": "action-d5e985a8"
             }
           ],
           "intro": {
@@ -977,8 +1105,8 @@
           "id": "node-195acd0b",
           "name": "New fork",
           "type": "fork",
-          "x": 500.4633586984091,
-          "y": -494.92275821291287,
+          "x": 573.5110627095544,
+          "y": -644.5271322786004,
           "connections": {
             "placement-ea3713f1": "node-b65c4230",
             "placement-f2216d97": "node-fe02f5e4"
@@ -1003,16 +1131,12 @@
           "id": "node-3943e264",
           "name": "New linear",
           "type": "linear",
-          "x": 1689.6499615696366,
-          "y": -353.17029570702323,
+          "x": 1666.5022089510792,
+          "y": -349.1718650964922,
           "connections": {
             "next": null
           },
           "cards": [
-            {
-              "id": "placement-d693cfb2",
-              "definitionId": "narrative-16a87edb"
-            },
             {
               "id": "placement-61487b90",
               "definitionId": "narrative-f482df55"
@@ -1027,8 +1151,8 @@
           "id": "node-b0abb05d",
           "name": "New container",
           "type": "container",
-          "x": 1338.77629610312,
-          "y": -599.3732047080553,
+          "x": 1416.1089441896947,
+          "y": -519.070265841809,
           "connections": {
             "next": "node-3943e264"
           },
@@ -1057,27 +1181,11 @@
           ]
         },
         {
-          "id": "node-fc4a2c9c",
-          "name": "New linear",
-          "type": "linear",
-          "x": 1605.0132258427527,
-          "y": -138.35651844104007,
-          "connections": {
-            "next": null
-          },
-          "cards": [
-            {
-              "id": "placement-4fa95bf8",
-              "definitionId": "event-0339c450"
-            }
-          ]
-        },
-        {
           "id": "node-ffe79362",
           "name": "New linear",
           "type": "linear",
-          "x": 1263.56364752467,
-          "y": -366.8996789657561,
+          "x": 842.6486590261549,
+          "y": -87.84374996070062,
           "connections": {
             "next": "node-b65c4230"
           },
@@ -1085,6 +1193,30 @@
             {
               "id": "placement-132d7347",
               "definitionId": "event-14ebf16c"
+            }
+          ]
+        },
+        {
+          "id": "node-de440080",
+          "name": "New linear copy",
+          "type": "linear",
+          "x": 1178.06600314915,
+          "y": -365.27531493033007,
+          "connections": {
+            "next": "node-b0abb05d"
+          },
+          "cards": [
+            {
+              "id": "placement-d693cfb2",
+              "definitionId": "caption-bd920e3c"
+            },
+            {
+              "id": "placement-61487b90",
+              "definitionId": "caption-17633c17"
+            },
+            {
+              "id": "placement-da6040f2",
+              "definitionId": "action-d8295cbc"
             }
           ]
         }

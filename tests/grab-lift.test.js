@@ -84,7 +84,11 @@ for (const direction of [-1, 1]) test(`container pickup raises only selected ite
   for (let i = 0; i < 3; i++) {
     const z = cardPose(d, i).z, baseline = withoutPickup(d, () => cardPose(d, i).z);
     near(z - baseline, i === 1 ? 24 : 0, 'single additive pickup');
-    if (i !== 1) for (const field of ['x', 'y', 'z', 'rx', 'ry', 'rz']) near(cardPose(d, i)[field], rest[i][field], 'unselected card frozen');
+    if (i !== 1) {
+      for (const field of ['x', 'y', 'rx', 'ry', 'rz']) near(cardPose(d, i)[field], rest[i][field], 'unselected alignment stays frozen');
+      if (direction > 0) assert.ok(cardPose(d, i).z < rest[i].z, 'unselected card recedes on take');
+      else near(cardPose(d, i).z, rest[i].z, 'discard has no take recession');
+    }
   }
   const before = cardPose(d, 1); d.cancel(); near(cardPose(d, 1).z, before.z); step(20); const regrab = cardPose(d, 1); d.start(); d.move(g(0)); near(cardPose(d, 1).z, regrab.z);
   d.restoreLiftPoses(); near(cardPose(d, 1).z, regrab.z, 'restoring frozen poses does not add pickup twice');
