@@ -36,6 +36,22 @@ function environment() {
   globalThis.cancelAnimationFrame = () => {};
 }
 
+test('hidden autoplay playback can skip focus and inert preview ignores Escape',()=>{
+  environment();
+  const root=new Element(),preview=new ProjectPreview(root);
+  let focused=0,canceled=0,inert=true;
+  preview.mount.focus=()=>focused++;
+  root.closest=()=>inert?{}:null;
+  preview.play(createProject(),undefined,undefined,{focus:false});
+  assert.equal(focused,0);assert.ok(preview.controller);
+  preview.controller.cancelCheck=()=>canceled++;
+  preview.overlay.hidden=false;preview.cancelButton.disabled=false;
+  const escape=new Event('keydown',{cancelable:true});Object.defineProperty(escape,'key',{value:'Escape'});
+  document.dispatchEvent(escape);assert.equal(canceled,0);
+  inert=false;document.dispatchEvent(escape);assert.equal(canceled,1);
+  preview.play(createProject());assert.equal(focused,1);preview.destroy();
+});
+
 for (const action of ['stop', 'destroy']) test(`project initial callback can ${action} without reviving its controller`, () => {
   environment();
   const destroyed = [];
@@ -162,4 +178,57 @@ test('stopped result completion cannot close a newer result presentation', async
   preview.destroy();
   await preview.showResult({ total: 4, target: 2, success: true });
   await assert.rejects(preview.roll([{ sides: 6 }]), { name: 'AbortError' });
+});
+
+test('card link is optional, starts enabled after controller assignment, and resolves fresh on click', () => {
+  environment();
+  const standalone = new ProjectPreview(new Element());
+  assert.equal(standalone.goToCardButton, undefined); standalone.destroy();
+  const root = new Element(), targets = [], inserted = [];
+  root.querySelector('[data-status]').parentNode = { insertBefore: button => inserted.push(button) };
+  const preview = new ProjectPreview(root, { onGoToCard: target => targets.push(target) });
+  const button = preview.goToCardButton;
+  assert.equal(button.disabled, true); assert.deepEqual(inserted, [button]);
+  preview.play(createProject());
+  assert.equal(button.disabled, false);
+  button.onclick();
+  assert.deepEqual(targets[0], { chapterId: 'chapter-1', nodeId: 'arrival', placementId: 'arrival-card', definitionId: 'arrival' });
+  preview.deck.busy = true;
+  button.onclick();
+  assert.equal(targets.length, 1); assert.equal(button.disabled, true);
+  preview.stop(); assert.equal(button.disabled, true); button.onclick(); assert.equal(targets.length, 1);
+  preview.restart(); assert.equal(button.disabled, false);
+  preview.destroy(); assert.equal(button.onclick, null); assert.equal(preview.onGoToCard, null);
+});
+
+test('card link tracks deck selection and reveal transitions and removes obsolete listeners', () => {
+  environment();
+  const project = createProject();
+  const route = project.chapters[0].nodes.find(node => node.id === 'route');
+  route.choices.push({ id: 'second-choice', definitionId: 'explore' });
+  route.connections['second-choice'] = 'quiet-passage';
+  const targets = [], preview = new ProjectPreview(new Element(), { onGoToCard: target => targets.push(target) });
+  preview.play(project, 'chapter-1', 'route');
+  const oldDeck = preview.deck, oldListener = preview.cardLinkListener;
+  const removed = [], remove = oldDeck.removeEventListener.bind(oldDeck);
+  oldDeck.removeEventListener = (name, listener) => { if (listener === oldListener) removed.push(name); remove(name, listener); };
+  assert.equal(preview.goToCardButton.disabled, true);
+  oldDeck.completePhase('choices', 'reveal');
+  assert.equal(preview.goToCardButton.disabled, false);
+  oldDeck.index = 1; oldDeck.emit('selection', { action: oldDeck.content.actions[1] });
+  preview.goToCardButton.onclick();
+  assert.equal(targets[0].placementId, 'second-choice');
+  oldDeck.phase = 'closing'; oldDeck.emit('close');
+  assert.equal(preview.goToCardButton.disabled, true);
+  preview.play(project);
+  assert.deepEqual(removed.sort(), ['selection', 'reveal', 'close', 'commit', 'collect', 'discard', 'transitioncomplete'].sort());
+  assert.equal(preview.goToCardButton.disabled, false);
+  oldDeck.phase = 'collecting'; oldDeck.emit('collect'); oldListener();
+  assert.equal(preview.goToCardButton.disabled, false);
+  preview.goToCardButton.onclick(); assert.equal(targets[1].placementId, 'arrival-card');
+  preview.controller.checking = new AbortController();
+  preview.update(preview.controller.state);
+  assert.equal(preview.goToCardButton.disabled, true);
+  preview.goToCardButton.onclick(); assert.equal(targets.length, 2);
+  preview.destroy();
 });

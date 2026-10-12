@@ -10,6 +10,8 @@ import { ProjectPreview } from './ProjectPreview.js';
 import { definitionInspector,nodeInspector,variableInspector } from './inspectors.js';
 import { esc } from './forms.js';
 import { mountPreviewWindow } from './preview-window.js';
+import { mountAutoplay } from './autoplay.js';
+import { sourceCard, revealCardEntry } from './card-navigation.js';
 import { renderCardPreviews } from './card-preview.js';
 import { bindImagePicker } from './image-picker.js';
 import { uid,createNode,makePlacement,replaceCard,setCardSource,promoteCard,duplicateNode,duplicatePlacement,findPlacement,pathTarget,synchronizeConnections,customizeAction,newRule,normalizeRule } from './commands.js';
@@ -22,15 +24,24 @@ const history=new DocumentHistory(project);
 const chapter=()=>project.chapters.find(c=>c.id===chapterId)||project.chapters[0];
 const node=()=>chapter().nodes.find(n=>n.id===selected);
 const definition=()=>project.library.find(d=>d.id===definitionId);
-const preview=new ProjectPreview($('#preview'),{onChange:()=>renderGraph()});
+const preview=new ProjectPreview($('#preview'),{onChange:()=>renderGraph(),onGoToCard:goToPreviewCard});
 const previewWindow=mountPreviewWindow($('#preview-window'),{onClose:()=>preview.stop()});
 $('#show-preview').onclick=()=>previewWindow.show();
+const autoplay=mountAutoplay($('#autoplay'),{getSelected:()=>selected,onPlay:id=>play(id,{restore:false})});
 const graph=new GraphView($('#canvas'),{
- onSelect:id=>{selected=id;renderInspector();renderGraph();},
+ onSelect:id=>{selected=id;renderInspector();renderGraph();autoplay.select(id);},
  onConnect:(id,exit,target)=>edit(()=>setConnection(chapter().nodes.find(n=>n.id===id),exit,target)),
  onMove:(id,x,y)=>edit(()=>Object.assign(chapter().nodes.find(n=>n.id===id),{x,y})),
 });
 function report(text){$('#save-status').textContent=text;}
+function goToPreviewCard(target){
+ const source=sourceCard(project,target);
+ if(!source){report('This card was removed from the current project. Restart preview to use the latest version.');return;}
+ const changedChapter=chapterId!==source.chapter.id;
+ chapterId=source.chapter.id;selected=source.node.id;mode='chapter';
+ render();if(changedChapter)graph.fit();
+ if(!revealCardEntry($('#inspector'),target))report('This card is not currently shown in the inspector. Its introduction may have been disabled since playback started.');
+}
 function edit(fn){
  let failure;
  graph.cancel();
@@ -140,7 +151,7 @@ function command(event){const b=event.target.closest('[data-command]');if(!b)ret
   const id=card.id;edit(()=>Object.assign(project.library.find(d=>d.id===id),settings));return;
  }
  if(cmd==='edit-shared'){definitionId=b.dataset.definition;mode='library';render();return;}
- if(cmd==='jump-use'){chapterId=b.dataset.chapter;selected=b.dataset.node;mode='chapter';render();graph.fit();return;}
+ if(cmd==='jump-use'){chapterId=b.dataset.chapter;selected=b.dataset.node;mode='chapter';render();graph.fit();autoplay.select(selected);return;}
  edit(()=>{
   const n=node(),p=findPlacement(n||{},b.dataset.placement);
   if(cmd==='reset-artwork'){const root=scopeRoot(b.dataset.scope,b);delete root.imageScale;delete root.imageOffsetX;delete root.imageOffsetY;}
@@ -182,7 +193,7 @@ function download(value,name){const url=URL.createObjectURL(new Blob([JSON.strin
 $('#export-project').onclick=()=>{const errors=validateProject(project);if(errors.length){report('Fix validation errors before exporting.');return;}download(project,`${project.name.replace(/[^a-z0-9]+/gi,'-')}.nest.json`);};
 $('#export-chapter').onclick=()=>{const errors=validateProject(project);if(errors.length){report('Fix validation errors before exporting.');return;}download(exportChapter(project,chapterId),`${chapter().name.replace(/[^a-z0-9]+/gi,'-')}.chapter.json`);};
 $('#import').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{const text=await file.text(),raw=JSON.parse(text),incoming=parseProject(text);preview.stop();edit(()=>{project=raw.kind==='nest-project'?incoming:importChapter(project,raw);chapterId=project.activeChapterId;selected=chapter().startNode;});graph.fit();}catch(error){report(`Import rejected: ${error.message}`);}e.target.value='';};
-function play(startNode){try{previewWindow.show();preview.play(project,chapterId,startNode);report('Chapter ready.');}catch(error){report(error.message);}}
+function play(startNode,{restore=true}={}){try{previewWindow.show({restore});preview.play(project,chapterId,startNode,{focus:!previewWindow.minimized});report('Chapter ready.');return true;}catch(error){report(error.message);return false;}}
 $('#play').onclick=()=>play();$('#play-node').onclick=()=>play(selected);$('#restart').onclick=()=>play();$('#stop').onclick=()=>preview.stop();
-window.addEventListener('pagehide',()=>{previewWindow.destroy();preview.destroy();});
+window.addEventListener('pagehide',()=>{autoplay.destroy();previewWindow.destroy();preview.destroy();});
 render();graph.fit();if(loaded.error)report(loaded.error);else if(loaded.migrated)report('Legacy save loaded; original browser save preserved.');

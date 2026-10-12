@@ -9,8 +9,8 @@
   <link rel="stylesheet" href="./studio/preview.css">
   <style>
     * { box-sizing: border-box; }
-    body { margin: 0; background: #0d120b; color: #dce5ce; font: 15px/1.5 system-ui, sans-serif; }
-    main { max-width: 620px; margin: auto; padding: 28px 24px 40px; }
+    body { margin: 0; background: #000; color: #dce5ce; font: 15px/1.5 system-ui, sans-serif; }
+    main { max-width: 760px; margin: auto; padding: 28px 24px 40px; }
     header { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
     h1 { font-size: 28px; margin: 0; font-weight: 500; }
     a { color: #c0d79e; }
@@ -24,19 +24,20 @@
     #message.error { color: #ffbcab; }
     #preview { border-top: 1px solid #33402b; margin-top: 16px; }
   </style>
+  <link rel="stylesheet" href="./player/player.css">
 <link rel="stylesheet" href="./demo/inventory.css?v=grab-camera-1"></head>
 <body>
   <main>
     <header><h1>nest / player</h1><nav><a href="./editor.html">Editor</a> · <a href="./dice.html">Dice demo</a></nav></header>
     <p class="intro">Play a saved project chapter, or open an exported project or chapter JSON file.</p>
-    <label for="chapter-selector">Chapter</label><select id="chapter-selector" style="display:block;max-width:100%;margin-top:6px;padding:8px;background:#162014;color:#dce5ce;border:1px solid #687c58;border-radius:6px"></select>
-    <h2 id="chapter-name">Chapter</h2>
     <div class="controls">
+      <div class="chapter-picker"><label for="chapter-selector">Chapter</label><select id="chapter-selector"></select></div>
       <label class="file-label">Open JSON<input id="import" type="file" accept=".json,application/json"></label>
       <button id="play" type="button">Play</button>
       <button id="restart" type="button">Restart</button>
       <button id="stop" type="button">Stop</button>
     </div>
+    <h2 id="chapter-name">Chapter</h2>
     <p id="message" role="status" aria-live="polite"></p>
     <div id="preview"></div>
     <details class="motion-tuning" id="dev-mode">

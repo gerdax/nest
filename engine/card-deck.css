@@ -24,18 +24,9 @@
   pointer-events: none;
 }
 .nest-deck:focus-visible {
-  outline: none;
-}
-.nest-deck:focus-visible::after {
-  content: '';
-  position: absolute;
-  left: 44%;
-  right: 44%;
-  bottom: -18px;
-  height: 2px;
-  background: #b0ca8b;
-  z-index: 2000;
-  pointer-events: none;
+  outline: 1px solid #b0ca8b66;
+  outline-offset: 8px;
+  border-radius: var(--card-radius, 20px);
 }
 .nest-card {
   position: absolute;

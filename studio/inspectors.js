@@ -46,7 +46,7 @@ export function placementInspector(project,p,kind,index,slot) {
  const attr=`data-placement="${esc(p.id)}"`;
  html+=select('Card source',local?'':p.definitionId,[['','Custom card'],...defs],'definitionId','placement');
  if(local)html+=button('Add to library','promote-card',attr)+'<p class="small">Local card · edited only here.</p>'+cardFields(project,definition,'local-definition',false);
- else html+=`<div class="row">${button('Edit shared','edit-shared',`data-definition="${esc(p.definitionId)}"`)}${button('Make local copy','local-copy',`${attr} data-kind="${kind}"`)}</div>`;
+ else html+=`<div class="row">${button('Edit shared','edit-shared',`data-definition="${esc(p.definitionId)}" data-card-placement="${esc(p.id)}"`)}${button('Make local copy','local-copy',`${attr} data-kind="${kind}"`)}</div>`;
  // Placement fields use a dedicated scope and are selected by their stable ID.
  html+=`<div class="placement-fields" ${attr}>`;
  html+=rules(project,p.conditions,'conditions','placement','conditions');
@@ -91,7 +91,10 @@ export function nodeInspector(project,chapter,node) {
  if(node.type.startsWith('legacy')) {
   html+='<p class="small">Imported sequence behaviour is preserved. Replace this node deliberately to use the new mechanics.</p>';
   const sequences=node.sequence?[node.sequence]:node.sequences;
-  html+=(sequences||[]).map(s=>`<details class="entry"><summary>${esc(s.name||s.id)}</summary>${[...(s.cards||[]),...(s.items||[]),...(s.cards||[]).flatMap(c=>c.choices||[])].map(p=>button(project.library.find(d=>d.id===p.definitionId)?.name||p.id,'edit-shared',`data-definition="${esc(p.definitionId)}"`)).join(' ')}</details>`).join('');
+  html+=(sequences||[]).map(s=>{
+   const entries=[...(s.cards||[]).map(p=>({p,slot:'cards'})),...(s.items||[]).map(p=>({p,slot:'items'})),...(s.cards||[]).flatMap(c=>(c.choices||[]).map(p=>({p,slot:'choices',parent:c.id})))];
+   return `<details class="entry" data-sequence="${esc(s.id)}"><summary>${esc(s.name||s.id)}</summary>${entries.map(({p,slot,parent})=>button(project.library.find(d=>d.id===p.definitionId)?.name||p.id,'edit-shared',`data-definition="${esc(p.definitionId)}" data-card-placement="${esc(p.id)}" data-card-slot="${esc(slot)}" data-card-parent="${esc(parent||'')}"`)).join(' ')}</details>`;
+  }).join('');
   if(node.type==='legacyPool')html+=field('Legacy selections',node.count,'count','node','number');
  }
  html+='<h3>Connections</h3>'+outputsForNode(project,node).map(exit=>select(labelForOutput(project,node,exit),node.type==='random'?(exit==='fallback'?node.fallback:node.routes.find(r=>r.id===exit)?.target)||'':node.connections[exit]||'',[['','End chapter'],...chapter.nodes.filter(n=>chapter.allowCycles===true||n.id!==node.id).map(n=>[n.id,n.name])],exit,'connection')).join('');
