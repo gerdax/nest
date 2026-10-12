@@ -104,6 +104,9 @@ export class ProjectController {
   adopt(destination,notify=true) {this.completed=!!destination.completed;if(!this.completed)this.location=destination;if(notify)this.notify();}
   body(card) {return cardBody(card);}
   action(card) {const {context,...content}=card;const typed={...card,kind:card.kind ?? (this.type()==='container'?'item':'action')};return {...content,label:card.name ?? card.label ?? 'Continue',...cardFace(typed,this.compiled.variables,this.compiled.library)};}
+  linearTransition(location, destination, source=this.card(location)) {
+    return this.type(location)==='linear'&&!['action','item'].includes(source?.kind)&&destination&&!destination.completed&&this.key(location)===this.key(destination)&&destination.index>location.index?'reveal':'flip';
+  }
   content(location=this.location,values=this.variables,inventory=this.inventory,preview=true,excludedItem=null) {
     const type=this.type(location),card=this.card(location),fork=type==='fork'||type==='forked',container=type==='container',linearFace=type==='linear'&&['action','item'].includes(card?.kind),linearItem=linearFace&&card.kind==='item';
     let actions;
@@ -117,10 +120,12 @@ export class ProjectController {
     else actions=[{id:'continue',label:'Continue',image:card?.image,flipImage:!!card?.flipImage}];
     if(!actions.length)actions=[{id:'unavailable',label:'No available choices',disabled:true}];
     const payload={autoBrowse:fork||container,id:`${this.generation}:${++this.serial}`,backImage:this.compiled.backImage ?? '',title:card?.name ?? card?.title ?? '',heading:cardFace(card,this.compiled.variables,this.compiled.library).heading,text:this.body(card),cardKind:card?.kind ?? 'event',summary:card&&!isStoryKind(card.kind??card.cardKind)&&fork?cardSummary(card,this.compiled.variables,this.compiled.library):'',image:card?.image ?? '',imageScale:card?.imageScale??100,imageOffsetX:card?.imageOffsetX??0,imageOffsetY:card?.imageOffsetY??0,flipImage:!!card?.flipImage,actions,directAdvance:!fork&&!container&&!linearFace,decisionOnly:linearFace||fork&&(location.sequence?!!location.sequence.decisionOnly:this.presentation(location,values,inventory)==='open'),interaction:container||linearItem?'container':'choice',discardAll:container,allowClose:false};
+    if(payload.directAdvance)payload.nextTransition='flip';
     if(type==='linear'&&preview&&card&&card.kind!=='item'&&card.resolution!=='check') {
       try {
         const predicted=transact(values,inventory,{costs:card.costs,effects:card.effects},this.compiled.variables,this.compiled.library);
         const next=this.seek({...location,index:location.index+1},predicted.variables,predicted.inventory,new Set(),null,true);
+        payload.nextTransition=this.linearTransition(location,next,card);
         if(next&&!next.completed) {
           const nextContent=this.content(next,predicted.variables,predicted.inventory,false);
           payload.nextDeckPreview={content:nextContent,presentation:this.presentation(next,predicted.variables,predicted.inventory)};
@@ -170,7 +175,7 @@ export class ProjectController {
     if(source.resolution==='check'){this.runCheck(source);return;}
     try {
       const result=this.transaction(source);const destination=this.destination(source,undefined,result.variables,result.inventory);
-      this.variables=result.variables;this.inventory=result.inventory;const transition=this.type()==='linear'&&!['action','item'].includes(source.kind)?'reveal':'flip';
+      this.variables=result.variables;this.inventory=result.inventory;const transition=this.linearTransition(this.location,destination,source);
       this.adopt(destination,false);this.show({transition});
     }catch(error){this.error(error);this.show({restore:true});}
   }

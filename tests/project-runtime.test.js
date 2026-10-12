@@ -239,3 +239,34 @@ test('container controller retains survivor stack and does not replay hint after
  key(deck,'ArrowDown');assert.equal(deck.cards.length,3);assert.equal(deck.content.id,contentId);assert.equal(deck.presentationBrowsePending,false);assert.equal(deck.presentationHint,null);
  key(deck,'ArrowDown');assert.equal(deck.cards.length,2);assert.equal(deck.content.id,contentId);assert.equal(deck.presentationBrowsePending,false);assert.equal(deck.presentationHint,null);dispose(deck,controller);
 });
+
+for(const reduced of [false,true])test(`linear node exits stage a back and flip, while internal cards reveal, reduced=${reduced}`,()=>{
+ const {deck,controller}=real([{id:'a',type:'linear',cards:[narrative('first'),narrative('last')],connections:{next:'b'}},{id:'b',type:'linear',cards:[narrative('next')],connections:{}}]);
+ deck.reduced=reduced;
+ assert.equal(deck.content.nextTransition,'reveal');assert.equal(deck.nextFlip.x,0);
+ key(deck,'ArrowUp');assert.equal(controller.state.cardId,'last');
+ assert.equal(deck.content.nextTransition,'flip');assert.equal(deck.nextFlip.x,1);
+ deck.start();deck.move({axis:'y',x:0,y:-100});
+ assert.equal(deck.nextFlip.x,1);deck.cancel();settle();assert.equal(controller.state.cardId,'last');
+ deck.commitCover();
+ if(!reduced){assert.equal(deck.pendingTransition,'flip');assert.equal(deck.nextFlip.x,1);}
+ settle();assert.equal(controller.state.activeNodeId,'b');assert.equal(deck.flip.x,0);assert.equal(controller.state.idle,true);
+ dispose(deck,controller);
+});
+test('linear exits flip after condition skipping, random routing, and self-loop visits',()=>{
+ for(const target of ['b','random','a']) {
+  const {deck,controller}=fixture([{id:'a',type:'linear',cards:[narrative('first'),{...narrative('hidden'),conditions:[{source:'variable',key:'flag',op:'eq',value:true}]}],connections:{next:target}},{id:'random',type:'random',routes:[{id:'route',weight:1,target:'b'}]},{id:'b',type:'linear',cards:[narrative('next')]}],{variables:[{id:'flag',type:'flag',initial:false}]},{rng:()=>0});
+  assert.equal(deck.content.nextTransition,'flip');deck.accept();assert.equal(deck.options.transition,'flip');assert.equal(controller.state.cardId,target==='a'?'first':'next');controller.destroy();
+ }
+});
+
+for(const target of ['fork','container'])test(`linear exit turns a coverless ${target} successor`,()=>{
+ const next=target==='fork'?{id:'next',type:'fork',choices:[action('choice')]}:{id:'next',type:'container',introEnabled:false,items:[{id:'item',kind:'item',name:'Item'}]};
+ const {deck,controller}=real([{id:'a',type:'linear',cards:[narrative('last')],connections:{next:'next'}},next]);
+ assert.equal(deck.nextFlip.x,1);assert.equal(deck.forwardDeck.cardBacks.every(Boolean),true);
+ deck.start();deck.move({axis:'y',x:0,y:-100});assert.equal(deck.nextFlip.x,1);deck.cancel();settle();
+ deck.commitCover();assert.equal(deck.pendingTransition,'flip');assert.equal(deck.pending.decisionOnly,true);assert.equal(deck.nextFlip.x,1);
+ settle();assert.equal(controller.state.activeNodeId,'next');assert.equal(deck.phase,'choices');assert.equal(deck.flip.x,0);assert.equal(controller.state.idle,true);
+ if(target==='container'){key(deck,'ArrowDown');assert.equal(controller.state.collectedItems.length,1);assert.equal(controller.state.completed,true);}
+ dispose(deck,controller);
+});

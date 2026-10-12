@@ -651,7 +651,7 @@ export class CardDeck extends EventTarget {
 
   commitCover(pointerVelocity = 0) {
     if (this.busy || !this.content.directAdvance || this.phase !== 'closed') return;
-    this.nextFlip = spring(0);
+    this.nextFlip = spring(this.content.nextTransition === 'flip' ? 1 : 0);
     this.busy = true;
     this.phase = 'committing';
     this.operation = null;
@@ -1062,6 +1062,8 @@ export class CardDeck extends EventTarget {
     if (!['closed', 'open'].includes(presentation)) throw new TypeError('Unknown presentation');
     if (!['flip', 'reveal'].includes(transition)) throw new TypeError('Unknown content transition');
     const next = validate(content);
+    // A coverless successor still turns when a story leaves its node.
+    if (this.content.directAdvance && transition === 'flip' && presentation === 'open') next.decisionOnly = true;
     if (this.busy && (this.phase === 'committing' || (this.phase === 'collecting' && this.collectMotion?.final))) {
       this.pending = next;
       this.pendingPresentation = presentation;
@@ -1143,10 +1145,10 @@ export class CardDeck extends EventTarget {
     this.build(staged);
     if (this.content.directAdvance) {
       stageNextBack(this);
-      this.nextFlip = spring(0);
+      this.nextFlip = spring(this.content.nextTransition === 'flip' ? 1 : 0);
       const preview = this.content.nextDeckPreview;
       if (preview?.presentation === 'open') {
-        this.forwardDeck = stageActionDeck(this, preview.content);
+        this.forwardDeck = stageActionDeck(this, this.content.nextTransition === 'flip' ? { ...preview.content, decisionOnly: true } : preview.content);
       } else if (preview?.content || this.content.nextCardPreview) {
         stageNextContent(this, preview?.content || this.content.nextCardPreview);
       }

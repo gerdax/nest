@@ -3,7 +3,7 @@
  */
 export const defaultPresentation = Object.freeze({
   entry(sequence) { return sequence.decisionOnly ? 'open' : 'closed'; },
-  exit(sequence) { return sequence.type === 'linear' ? 'reveal' : 'flip'; },
+  exit() { return 'flip'; },
   within() { return 'reveal'; },
   content(sequence) {
     const mode={linear:'story',forked:'decision',container:'container'}[sequence.type];

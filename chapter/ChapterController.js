@@ -99,7 +99,7 @@ export class ChapterController {
       presentation: this.presentation.entry(successorDestination.sequence)
     } : null;
     const noSuccessor = sequence.type !== 'forked' && !successor && !(destination.queue ?? this.queue)?.length && !node.connections[connectionOutput(node, sequence.exits[0])];
-    return { backImage: this.chapter.backImage || '', noSuccessor, nextDeckPreview, nextCardPreview: successor ? { title: successor.title, text: successor.text, image: successor.image, flipImage: !!successor.flipImage } : null, id: `${node.id}:${sequence.id}:${card.id}`, title: card.title, text: card.text,
+    return { nextTransition: successor ? this.presentation.within(sequence) : this.presentation.exit(sequence), backImage: this.chapter.backImage || '', noSuccessor, nextDeckPreview, nextCardPreview: successor ? { title: successor.title, text: successor.text, image: successor.image, flipImage: !!successor.flipImage } : null, id: `${node.id}:${sequence.id}:${card.id}`, title: card.title, text: card.text,
       image: card.image, flipImage: !!card.flipImage, ...this.presentation.content(sequence), discardAll: sequence.type==='container', actions };
   }
 

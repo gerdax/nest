@@ -22,7 +22,7 @@ The `chapter/` and `editor/` v1 modules remain for compatibility and independent
 
 ## Presentation can change independently
 
-For v1 integrations, `chapter/presentation.js` is an injectable policy. It maps semantic sequence behavior to entry presentation, within-sequence presentation and outgoing transitions. The current visual rule is **after the outgoing content**: Linear reveals face-up, Fork turns, and clearing Container turns. This includes chapter completion. Animation settings must never decide graph routing or inventory results.
+For v1 integrations, `chapter/presentation.js` is an injectable policy. It maps semantic sequence behavior to entry presentation, within-sequence presentation and outgoing transitions. The current visual rule is **after the outgoing content**: Linear reveals face-up within its node and turns when leaving it; Fork turns, and clearing Container turns. This includes chapter completion. Animation settings must never decide graph routing or inventory results.
 
 `engine/CardDeck.js` owns gesture/choreography state; `engine/renderer.js` owns poses and physical staging; `engine/geometry.js` owns projection/clearance. They should remain independent of chapter types, dice success thresholds and game-specific stats. Content flags are renderer contracts, not imports from chapter registries.
 

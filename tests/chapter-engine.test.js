@@ -291,7 +291,7 @@ for (const reduced of [false, true]) test(`decision-only entry and choice transi
   dispose(deck, controller);
 });
 
-for (const reduced of [false, true]) test(`linear reveals face-up within its sequence and across node boundary, reduced=${reduced}`, () => {
+for (const reduced of [false, true]) test(`linear reveals face-up within its sequence and flips across node boundary, reduced=${reduced}`, () => {
   const { deck, controller } = fixture();
   deck.reduced = reduced;
   deck.key({key:'ArrowUp',preventDefault(){}});
@@ -308,17 +308,17 @@ for (const reduced of [false, true]) test(`linear reveals face-up within its seq
   assert.equal(deck.flip.x, 0);
   deck.key({key:'ArrowUp',preventDefault(){}});
   if (!reduced) {
-    assert.equal(deck.pendingTransition, 'reveal');
-    assert.equal(deck.nextFlip.x, 0);
+    assert.equal(deck.pendingTransition, 'flip');
+    assert.equal(deck.nextFlip.x, 1);
     step();
-    assert.ok(deck.underlay.style.transform.includes('rotateY(0deg)'));
+    assert.ok(deck.underlay.style.transform.includes('rotateY(180deg)'));
   }
   settle();
   assert.equal(controller.state.activeNodeId, 'supplies');
   dispose(deck, controller);
 });
 
-test('linear successor is prepared and visible face-up during an unaccepted drag', () => {
+test('linear successor preview is face-up within the node and face-down at its exit', () => {
   const { deck, controller } = fixture();
   const before = controller.state.cardId;
   assert.equal(deck.content.nextCardPreview.title, 'Inside the hall');
@@ -337,14 +337,15 @@ test('linear successor is prepared and visible face-up during an unaccepted drag
   assert.equal(deck.underlay.style.visibility, 'hidden');
   key(deck, 'ArrowUp');
   assert.equal(deck.content.nextCardPreview, null);
+  assert.equal(deck.nextFlip.x, 1);
   deck.start(); deck.move({axis:'y',x:0,y:-100}); step();
   assert.equal(deck.underlay.style.visibility, 'visible');
-  assert.ok(deck.underlay.style.transform.includes('rotateY(0deg)'));
+  assert.ok(deck.underlay.style.transform.includes('rotateY(180deg)'));
   deck.cancel(); settle();
   dispose(deck, controller);
 });
 
-for (const reduced of [false, true]) test(`linear reveals decisions face-up; outgoing decision turns story and hides its successor, reduced=${reduced}`, async () => {
+for (const reduced of [false, true]) test(`linear flips into decisions; outgoing decision turns story and hides its successor, reduced=${reduced}`, async () => {
   const { createStarterChapter: modern } = await import('../chapter/model.js');
   const chapter = modern();
   chapter.nodes.find(n=>n.id==='arrival').connections.next='crossing';
@@ -357,9 +358,9 @@ for (const reduced of [false, true]) test(`linear reveals decisions face-up; out
   deck.key({key:'ArrowUp',preventDefault(){}});
   if (!reduced) {
     assert.equal(deck.pending.decisionOnly,true);
-    assert.equal(deck.nextFlip.x,0);
+    assert.equal(deck.nextFlip.x,1);
     assert.equal(deck.forwardDeck.cardBacks.every(Boolean),true);
-    assert.ok(deck.forwardDeck.cards[0].style.transform.includes('rotateY(0deg'));
+    assert.ok(deck.forwardDeck.cards[0].style.transform.includes('rotateY(180deg'));
     for(let i=0;deck.commitMotion && i<2000;i++) step();
     assert.equal(deck.content.decisionOnly,true);
     assert.equal(deck.skipCover,true);
@@ -382,7 +383,7 @@ for (const reduced of [false, true]) test(`linear reveals decisions face-up; out
   dispose(deck,controller);
 });
 
-test('linear to decision preview is lying face-up during the held swipe', async () => {
+test('linear to decision preview shows its back during the held swipe', async () => {
   const { createStarterChapter: modern } = await import('../chapter/model.js');
   const chapter=modern();chapter.nodes.find(n=>n.id==='arrival').connections.next='crossing';
   const deck=new CardDeck(new Element(),{content:{id:'wait',actions:[{id:'wait',label:'Wait'}]}});
@@ -391,7 +392,7 @@ test('linear to decision preview is lying face-up during the held swipe', async 
   assert.equal(deck.content.nextDeckPreview.presentation,'open');
   deck.start();deck.move({axis:'y',x:0,y:-100});step();
   assert.equal(deck.forwardDeck.cards[0].style.visibility,'visible');
-  assert.ok(deck.forwardDeck.cards[0].style.transform.includes('rotateY(0deg'));
+  assert.ok(deck.forwardDeck.cards[0].style.transform.includes('rotateY(180deg'));
   assert.equal(deck.underlay.style.visibility,'hidden');
   deck.cancel();settle();
   assert.equal(deck.forwardDeck.cards[0].style.visibility,'hidden');

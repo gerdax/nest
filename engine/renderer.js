@@ -352,7 +352,9 @@ export function renderDeck(deck, time = performance.now()) {
     applyPose(deck, deck.underlay, deck.underlayLayer, stagedPose, 0);
     applyPose(deck, deck.underlayBack, deck.underlayLayer, backPose(stagedPose), 0);
   }
-  renderStagedActions(deck, deck.forwardDeck, 20, forwardActive, 0, -36, nextScale, deck.pending?.decisionOnly && deck.pendingTransition === 'flip' ? deck.nextFlip.x * 180 : 0, true);
+  const forwardTurns = deck.pending?.decisionOnly && deck.pendingTransition === 'flip'
+    || !deck.busy && deck.content.directAdvance && deck.content.nextTransition === 'flip' && deck.forwardDeck?.content.decisionOnly;
+  renderStagedActions(deck, deck.forwardDeck, 20, forwardActive, 0, -36, nextScale, forwardTurns ? deck.nextFlip.x * 180 : 0, true);
   renderStagedActions(deck, deck.returnDeck, 500,
     (deck.phase === 'closing' && deck.returning)
       || deck.returnLift.x > 0,
