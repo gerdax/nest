@@ -107,6 +107,7 @@ test('card artwork alone is filtered, preserving crop/flip and excluding caption
         { cardKind, imageScale: 150, imageOffsetX: -12, imageOffsetY: 8, summary: 'Summary' });
       const [copy, artwork, texture] = card.children;
       assert.equal(artwork.style.filter, 'url("#nest-artwork-colorize")');
+      assert.match(artwork.className, /nest-artwork-vignetted/);
       assert.equal(artwork.style.backgroundImage, 'url("original.png")');
       assert.equal(artwork.style.transform, 'translate(-12%, 8%) scale(1.5) scaleX(-1)');
       for (const unfiltered of [card, copy, ...copy.children, texture, ...card.children.slice(3)]) {
@@ -117,6 +118,7 @@ test('card artwork alone is filtered, preserving crop/flip and excluding caption
       const card = doc.createElement('article');
       decorateCard(null, card, image, 'Title', 'Text', true, { cardKind, imageScale: 150 });
       assert.equal(card.children[1].style.filter, undefined);
+      assert.doesNotMatch(card.children[1].className, /vignetted/);
       assert.equal(card.children[1].style.backgroundImage, undefined);
       if (cardKind === 'caption') assert.equal(card.children[1].style.transform, '');
     }

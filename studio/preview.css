@@ -5,7 +5,7 @@
 .nest-inventory-item button { position:relative;width:100%;min-height:82px;padding:0;border:0;background:transparent;color:inherit;text-align:left; }
 .item-dialog { max-width:360px;width:calc(100vw - 32px);border:1px solid #687c58;border-radius:12px;background:#162014;color:#e3edda;padding:20px; }
 .item-dialog::backdrop { background:#000b; }
-.item-dialog > img { width:100%;max-height:220px;object-fit:cover;border-radius:7px; }
+.item-dialog > .nest-image-vignette img { display:block;width:100%;max-height:220px;object-fit:cover; }
 .item-dialog [data-summary] { color:#c0d99b;white-space:pre-line; }
 .check-overlay { position:fixed;inset:0;z-index:5000;background:#000c;display:grid;place-items:center;padding:20px; }
 .check-overlay[hidden] { display:none; }

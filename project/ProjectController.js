@@ -36,6 +36,7 @@ export class ProjectController {
   introEnabled(location=this.location) {return location.node.type==='fork'?!!location.node.intro&&location.node.introEnabled!==false:location.node.type!=='container'||location.node.introEnabled!==false;}
   introShown(location=this.location) {return location.introRevealed===true || location.node.introOnce===true&&this.revealedIntros.has(this.key(location));}
   items(location=this.location, values=this.variables, inventory=this.inventory, excluded=null) {
+    if(excluded?.all&&excluded.key===this.key(location))return [];
     const raw=this.remaining.get(this.key(location)) ?? location.sequence?.items ?? location.node.items ?? [];
     return raw.filter(i=>i.id!==excluded && conditionsMet(i.conditions,values,inventory));
   }
@@ -114,7 +115,7 @@ export class ProjectController {
     else if(linearFace)actions=[{...this.action(card),disabled:!conditionsMet(card.conditions,values,inventory)||!affordCosts(values,inventory,card.kind==='action'?card.costs:[],this.compiled.variables)}];
     else actions=[{id:'continue',label:'Continue',image:card?.image,flipImage:!!card?.flipImage}];
     if(!actions.length)actions=[{id:'unavailable',label:'No available choices',disabled:true}];
-    const payload={autoBrowse:fork||container,id:`${this.generation}:${++this.serial}`,backImage:this.compiled.backImage ?? '',title:card?.name ?? card?.title ?? '',heading:cardFace(card,this.compiled.variables,this.compiled.library).heading,text:this.body(card),cardKind:card?.kind ?? 'event',summary:card&&!isStoryKind(card.kind??card.cardKind)&&fork?cardSummary(card,this.compiled.variables,this.compiled.library):'',image:card?.image ?? '',imageScale:card?.imageScale??100,imageOffsetX:card?.imageOffsetX??0,imageOffsetY:card?.imageOffsetY??0,flipImage:!!card?.flipImage,actions,directAdvance:!fork&&!container&&!linearFace,decisionOnly:linearFace||fork&&(location.sequence?!!location.sequence.decisionOnly:this.presentation(location,values,inventory)==='open'),interaction:container||linearItem?'container':'choice',allowClose:false};
+    const payload={autoBrowse:fork||container,id:`${this.generation}:${++this.serial}`,backImage:this.compiled.backImage ?? '',title:card?.name ?? card?.title ?? '',heading:cardFace(card,this.compiled.variables,this.compiled.library).heading,text:this.body(card),cardKind:card?.kind ?? 'event',summary:card&&!isStoryKind(card.kind??card.cardKind)&&fork?cardSummary(card,this.compiled.variables,this.compiled.library):'',image:card?.image ?? '',imageScale:card?.imageScale??100,imageOffsetX:card?.imageOffsetX??0,imageOffsetY:card?.imageOffsetY??0,flipImage:!!card?.flipImage,actions,directAdvance:!fork&&!container&&!linearFace,decisionOnly:linearFace||fork&&(location.sequence?!!location.sequence.decisionOnly:this.presentation(location,values,inventory)==='open'),interaction:container||linearItem?'container':'choice',discardAll:container,allowClose:false};
     if(type==='linear'&&preview&&card&&card.kind!=='item'&&card.resolution!=='check') {
       try {
         const predicted=transact(values,inventory,{costs:card.costs,effects:card.effects},this.compiled.variables,this.compiled.library);
@@ -197,6 +198,7 @@ export class ProjectController {
   cancelCheck() {if(!this.checking)return false;this.checking.abort();this.checking=null;++this.generation;this.show({restore:true});return true;}
   resolveItem(detail,transition) {
     const linearItem=this.type()==='linear'&&this.card()?.kind==='item';
+    const all=transition==='discard'&&detail.all===true&&!linearItem;
     if(this.destroyed||this.completed||this.checking||this.pendingItem||this.pendingIntro||(!linearItem&&this.type()!=='container')||detail.contentId!==this.deck.content.id)return;
     const item=linearItem?this.card():this.items().find(i=>i.id===detail.action?.id);
     if(!item||item.id!==detail.action?.id||!conditionsMet(item.conditions,this.variables,this.inventory))return;
@@ -204,10 +206,11 @@ export class ProjectController {
       const {context,...itemContent}=item;
       const inventory=transition==='collect'?addInventory(this.inventory,{...itemContent,text:this.body(item)}):this.inventory;
       const result=transact(this.variables,inventory,{effects:transition==='collect'?(item.onCollect??item.effects??[]):[]},this.compiled.variables,this.compiled.library);
-      this.pendingItem={item,key:this.key(),linearItem,transition,contentId:detail.contentId,result};
-      if(detail.final||linearItem) {
-        const retainContainer=!linearItem&&this.items(this.location,result.variables,result.inventory,item.id).length>0;
-        this.stagedDestination=linearItem?this.destination(item,undefined,result.variables,result.inventory):retainContainer?this.location:this.next(this.location,'next',result.variables,result.inventory,new Set(),item.id);
+      this.pendingItem={item,key:this.key(),linearItem,all,transition,contentId:detail.contentId,result};
+      if(detail.final||linearItem||all) {
+        const retainContainer=!linearItem&&!all&&this.items(this.location,result.variables,result.inventory,item.id).length>0;
+        const excluded=all?{key:this.key(),all:true}:item.id;
+        this.stagedDestination=linearItem?this.destination(item,undefined,result.variables,result.inventory):retainContainer?this.location:this.next(this.location,'next',result.variables,result.inventory,new Set(),excluded);
         if(this.stagedDestination.completed)this.deck.endContent();
         else {
           const content=this.content(this.stagedDestination,result.variables,result.inventory,true,retainContainer?item.id:null);
@@ -235,7 +238,7 @@ export class ProjectController {
     if(pending&&detail.transition===pending.transition&&detail.contentId===pending.contentId) {
       if(!pending.linearItem) {
         const raw=this.remaining.get(pending.key)??this.location.sequence?.items??this.location.node.items??[];
-        this.remaining.set(pending.key,raw.filter(i=>i.id!==pending.item.id));
+        this.remaining.set(pending.key,pending.all?[]:raw.filter(i=>i.id!==pending.item.id));
       }
       this.variables=pending.result.variables;this.inventory=pending.result.inventory;this.pendingItem=null;this.notify();
       if(!this.stagedDestination) {

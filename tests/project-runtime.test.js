@@ -237,5 +237,5 @@ test('container controller retains survivor stack and does not replay hint after
  const {deck,controller}=real([{id:'box',type:'container',intro:narrative('intro'),items,connections:{next:null}}]);
  key(deck,'ArrowUp');const contentId=deck.content.id;assert.equal(deck.presentationBrowsePending,false);
  key(deck,'ArrowDown');assert.equal(deck.cards.length,3);assert.equal(deck.content.id,contentId);assert.equal(deck.presentationBrowsePending,false);assert.equal(deck.presentationHint,null);
- key(deck,'ArrowUp');assert.equal(deck.cards.length,2);assert.equal(deck.content.id,contentId);assert.equal(deck.presentationBrowsePending,false);assert.equal(deck.presentationHint,null);dispose(deck,controller);
+ key(deck,'ArrowDown');assert.equal(deck.cards.length,2);assert.equal(deck.content.id,contentId);assert.equal(deck.presentationBrowsePending,false);assert.equal(deck.presentationHint,null);dispose(deck,controller);
 });

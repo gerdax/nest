@@ -1,7 +1,7 @@
 import { applyCardStyles } from '../project/card-styles.js';
 import { artworkSettings, parseArtworkSettings } from './artwork-settings.js';
 import { DocumentHistory } from '../editor/DocumentHistory.js';
-import { createDefinition, allowedCardKinds } from '../project/cards.js';
+import { createDefinition, allowedCardKinds, cardKinds } from '../project/cards.js';
 import { createProject,createChapter,validateProject,parseProject,exportChapter,importChapter } from '../project/model.js';
 import { definitionGraph, deleteDefinition, cleanupLocalDefinitions } from '../project/dependencies.js';
 import { loadProject,saveProject } from '../project/storage.js';
@@ -70,7 +70,7 @@ function renderInspector(){
 function renderLibrary(){
  const query=$('#library-search').value.toLowerCase();
  const dependencies=definitionGraph(project);
- $('#library-list').innerHTML=project.library.filter(d=>d.visibility!=='local'&&`${d.name} ${d.kind}`.toLowerCase().includes(query)).map(d=>`<button type="button" data-definition="${esc(d.id)}" class="library-entry ${d.id===definitionId?'selected':''}"><strong>${esc(d.name)}</strong><span>${esc(d.kind)} · ${dependencies.users(d.id).length} uses</span></button>`).join('');
+ $('#library-list').innerHTML=project.library.filter(d=>d.visibility!=='local'&&`${d.name} ${cardKinds[d.kind]?.label||d.kind} ${d.kind}`.toLowerCase().includes(query)).map(d=>`<button type="button" data-definition="${esc(d.id)}" class="library-entry ${d.id===definitionId?'selected':''}"><strong>${esc(d.name)}</strong><span>${esc(cardKinds[d.kind]?.label||d.kind)} · ${dependencies.users(d.id).length} uses</span></button>`).join('');
 }
 function render(){
  if(!project.chapters.some(c=>c.id===chapterId))chapterId=project.activeChapterId||project.chapters[0]?.id;

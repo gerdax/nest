@@ -449,8 +449,22 @@ test('stack hint overlaps unfolding and returns promptly without selection, and 
  d.addEventListener('selection',()=>selections++);d.setOpen(true);
  for(let i=0;i<600;i++){cancelAnimationFrame(d.frame);d.tick(performance.now()+i*16);const progress=d.presentationHint?.travel.x||0;max=Math.max(max,progress);if(progress>.01&&d.fan.x<1)overlaps=true;assert.equal(d.index,0);}
  assert.ok(max>=.92&&max<=1);assert.equal(overlaps,true);assert.equal(d.b.x,0);assert.equal(selections,0);
- d.presentationBrowsePending=true;d.browsePresentedStack();assert.equal(d.b.target,0);assert.equal(d.presentationHint.travel.target,1);d.key({key:'ArrowRight',preventDefault(){}});settle(d);
+ d.presentationBrowsePending=true;d.browsePresentedStack();assert.equal(d.b.target,0);assert.equal(d.presentationHint.travel.target,0);assert.equal(d.presentationHint.stage,'waiting');d.key({key:'ArrowRight',preventDefault(){}});settle(d);
  assert.equal(d.presentationHint,null);assert.equal(d.index,1);assert.equal(d.b.x,1);assert.equal(selections,1);d.destroy();
+});
+
+test('stack hint starts 100 ms later and holds its expansion for 220 ms',()=>{
+ const d=deck(3);ready(d);d.presentationBrowsePending=true;d.browsePresentedStack();
+ const tick=t=>{cancelAnimationFrame(d.frame);d.frame=0;d.tick(t);};
+ const start=performance.now();tick(start);
+ assert.equal(d.presentationHint.startAt,start+100);
+ tick(start+99);assert.equal(d.presentationHint.travel.x,0);assert.equal(d.presentationHint.stage,'waiting');
+ tick(start+100);assert.equal(d.presentationHint.stage,'out');assert.equal(d.presentationHint.travel.target,1);
+ let t=start+100;while(d.presentationHint.stage==='out'&&t<start+2000){t+=16;tick(t);}
+ assert.equal(d.presentationHint.stage,'hold');assert.equal(d.presentationHint.holdUntil,t+220);
+ tick(t+219);assert.equal(d.presentationHint.stage,'hold');
+ tick(t+220);assert.equal(d.presentationHint.stage,'return');assert.equal(d.presentationHint.travel.target,0);
+ assert.equal(d.index,0);d.destroy();
 });
 
 for(const count of [2,3,4,7])test(`presentation hint fans ${count} cards in opposite directions without selecting`,()=>{

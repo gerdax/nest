@@ -1,7 +1,7 @@
 import { nodeSlotCardKinds } from './nodeTypes.js';
 /** The library stores content; placements store chapter-specific behavior. */
 export const cardKinds = Object.freeze({
-  event: { label: 'Event', validate: card => typeof card.text === 'string' ? [] : ['Event text must be a string.'] },
+  event: { label: 'Beat', validate: card => typeof card.text === 'string' ? [] : ['Beat text must be a string.'] },
   caption: { label: 'Caption', validate: card => typeof card.text === 'string' ? [] : ['Caption text must be a string.'] },
   action: { label: 'Action', validate: card => ['direct','check'].includes(card.resolution) ? [] : ['Action resolution must be direct or check.'] },
   item: { label: 'Item', validate: card => Array.isArray(card.onCollect) ? [] : ['Item collection effects must be a list.'] }

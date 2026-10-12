@@ -9,7 +9,7 @@ export class InventoryView {
     this.onUse = onUse;
     this.items = [];
     root.classList.add('nest-inventory');
-    root.innerHTML = '<div class="nest-inventory-heading"><strong>Inventory</strong><span data-count></span></div><ul class="nest-inventory-cards" aria-label="Inventory items"></ul><dialog class="item-dialog"><h3></h3><img alt=""><p data-summary></p><p data-description></p><div class="row"><button type="button" data-use>Use</button><button type="button" data-close>Close</button></div><p data-feedback role="status"></p></dialog>';
+    root.innerHTML = '<div class="nest-inventory-heading"><strong>Inventory</strong><span data-count></span></div><ul class="nest-inventory-cards" aria-label="Inventory items"></ul><dialog class="item-dialog"><h3></h3><div class="nest-image-vignette" data-item-artwork><img alt=""></div><p data-summary></p><p data-description></p><div class="row"><button type="button" data-use>Use</button><button type="button" data-close>Close</button></div><p data-feedback role="status"></p></dialog>';
     this.dialog = root.querySelector('dialog');
     root.querySelector('[data-close]').onclick = () => this.dialog.close();
     root.querySelector('[data-use]').onclick = () => {
@@ -45,7 +45,8 @@ export class InventoryView {
         const image = document.createElement('img'); image.src = item.image; image.alt = ''; image.draggable = false;
         applyArtworkColorize(image);
         if (item.flipImage) image.style.transform = 'scaleX(-1)';
-        button.append(image);
+        const artwork = document.createElement('div'); artwork.className = 'nest-image-vignette';
+        artwork.append(image); button.append(artwork);
       }
       const label = document.createElement('span'); label.textContent = item.name || item.label;
       button.append(label); entry.append(button); list.append(entry);
@@ -58,6 +59,7 @@ export class InventoryView {
     if (!item) { if (this.dialog.open) this.dialog.close(); return; }
     this.dialog.querySelector('h3').textContent = item.name || item.label;
     const image = this.dialog.querySelector('img'); image.src = item.image || ''; image.hidden = !item.image;
+    this.dialog.querySelector('[data-item-artwork]').hidden = !item.image;
     applyArtworkColorize(image);
     image.style.transform = item.flipImage ? 'scaleX(-1)' : '';
     this.dialog.querySelector('[data-summary]').textContent = cardSummary(item, this.variables, this.library);

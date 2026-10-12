@@ -10,7 +10,7 @@ function setup(){const project=createProject(),node=project.chapters[0].nodes.fi
 
 test('Fork picker accepts narrative and action library cards and filters out items',()=>{
  const {project,node,p}=setup();const html=nodeInspector(project,project.chapters[0],node);
- assert.match(html,/event: Arrival/);assert.match(html,/action: Explore/);assert.doesNotMatch(html,/<option value="flashlight"/);assert.match(html,/Add event/);
+ assert.match(html,/Beat: Arrival/);assert.match(html,/Action: Explore/);assert.doesNotMatch(html,/<option value="flashlight"/);assert.match(html,/Add beat/);
  setCardSource(project,p,'arrival',{allowedKinds:allowedCardKinds('fork')});synchronizeConnections(project);assert.deepEqual(validateProject(project),[]);
  assert.throws(()=>setCardSource(project,p,'flashlight',{allowedKinds:allowedCardKinds('fork')}));
 });

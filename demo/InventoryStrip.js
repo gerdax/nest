@@ -45,7 +45,10 @@ export class InventoryStrip {
         image.draggable = false;
         applyArtworkColorize(image);
         if (item.flipImage) image.style.transform = 'scaleX(-1)';
-        entry.append(image);
+        const artwork = document.createElement('div');
+        artwork.className = 'nest-image-vignette';
+        artwork.append(image);
+        entry.append(artwork);
       }
       const label = document.createElement('span');
       label.textContent = item.label ?? item.title ?? item.id ?? String(item);

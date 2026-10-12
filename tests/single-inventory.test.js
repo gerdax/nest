@@ -79,7 +79,7 @@ test('inventory view displays owned item names, item count and a single Use acti
   const root=new Element(),dialog=new Element();
   root.nodes=Object.fromEntries(['[data-count]','ul','[data-close]','[data-use]','[data-feedback]'].map(key=>[key,new Element()]));
   root.nodes.dialog=dialog;
-  dialog.nodes=Object.fromEntries(['h3','img','[data-summary]','[data-description]'].map(key=>[key,new Element()]));
+  dialog.nodes=Object.fromEntries(['h3','img','[data-item-artwork]','[data-summary]','[data-description]'].map(key=>[key,new Element()]));
   dialog.nodes['[data-use]']=root.nodes['[data-use]'];
   dialog.nodes['[data-feedback]']=root.nodes['[data-feedback]'];
   const previousDocument=globalThis.document;
@@ -92,8 +92,8 @@ test('inventory view displays owned item names, item count and a single Use acti
     assert.equal(root.nodes['[data-count]'].textContent,'1');
     const button=root.nodes.ul.children[0].children[0];
     assert.equal(button.attributes['aria-label'],'Apple');
-    assert.equal(button.children[0].style.filter,'url("#nest-artwork-colorize")');
-    assert.equal(button.children[0].style.transform,'scaleX(-1)');
+    assert.equal(button.children[0].children[0].style.filter,'url("#nest-artwork-colorize")');
+    assert.equal(button.children[0].children[0].style.transform,'scaleX(-1)');
     assert.equal(button.children[1].textContent,'Apple');
     button.onclick();
     assert.equal(dialog.nodes.h3.textContent,'Apple');

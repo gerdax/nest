@@ -90,7 +90,9 @@ export function stageActionDeck(deck, content, selectedIndex = 0, previous = nul
 
 export function buildDeck(deck, staged = null) {
   deck.mount.setAttribute('aria-label', deck.content.interaction === 'container'
-    ? 'Interactive container. Arrow up reveals or discards; down and Enter take items; left and right browse; Escape cancels.'
+    ? (deck.content.discardAll === true
+      ? 'Interactive container. Arrow up reveals or leaves and discards remaining items; down and Enter take the selected item; left and right browse; Escape cancels.'
+      : 'Interactive container. Arrow up reveals or discards; down and Enter take items; left and right browse; Escape cancels.')
     : deck.content.directAdvance ? 'Story card. Arrow up or Enter advances; Escape cancels a gesture.' : `Interactive card deck. Arrow up reveals or chooses; left and right browse.${deck.content.allowClose ? ' Down closes.' : ''}`);
   deck.mount.replaceChildren();
   deck.underlay = null;
@@ -119,6 +121,7 @@ export function decorateCard(deck, element, image, title, text, flipImage = fals
   artwork.setAttribute('aria-hidden', 'true');
   const caption = presentation.cardKind === 'caption';
   if (image && !caption) {
+    artwork.className += ' nest-artwork-vignetted';
     artwork.style.backgroundImage = `url(${JSON.stringify(image)})`;
     applyArtworkColorize(artwork);
   }
@@ -181,6 +184,7 @@ export function stageNextContent(deck, content) {
 export function announceDeck(deck) {
   const action = deck.content.actions[deck.index];
   const message = deck.phase === 'collecting' ? (deck.collectMotion?.transition === 'discard' ? 'Discarding item…' : 'Taking item…')
+    : deck.commitMotion?.discardAll ? 'Leaving container and discarding remaining items…'
     : deck.busy && deck.flip.x > 0 ? 'Turning next card…' : deck.busy ? (deck.pending || deck.operation === 'commit' ? 'Revealing next card…' : 'Waiting for next card…')
     : deck.phase === 'revealing' ? (deck.content.interaction === 'container' ? 'Uncovering items…' : 'Uncovering choices…')
       : deck.phase === 'closing' ? 'Returning cover…'
@@ -273,8 +277,8 @@ export function cardPose(deck, index, time = performance.now()) {
       for (const field of ['x', 'ry', 'rz']) pose[field] += (endpoints[0][field] * (1 - weight) + endpoints[1][field] * weight) * fan;
     }
   }
-  if (deck.content.interaction !== 'container' || index === deck.index) {
-    const lift = deck.content.interaction === 'choice' ? deck.choiceLift(index, time) : deck.l.x * bounds.height;
+  if (deck.groupChoiceMotion || index === deck.index) {
+    const lift = deck.groupChoiceMotion ? deck.choiceLift(index, time) : deck.l.x * bounds.height;
     pose.y -= lift;
     pose.z += Math.min(lift * .1, deck.settings.liftHeight);
   }
@@ -328,7 +332,7 @@ export function renderDeck(deck, time = performance.now()) {
       x: 0, y: 0, z: -24, rx: 0, ry: 0, rz: 0, scale: nextScale,
       turn: deck.nextFlip.x * 180, turnAxis: deck.settings.flipAxisTilt,
       visible: ((deck.content.directAdvance && deck.p.x > 0 && !deck.busy) || (deck.phase === 'committing' && (!!deck.commitMotion || deck.operation !== 'commit')) || (deck.phase === 'collecting' && deck.collectMotion?.final)
-        || (deck.phase === 'choices' && (deck.content.interaction === 'container' ? resolution && deck.l.x !== 0 : deck.l.x > 0)
+        || (deck.phase === 'choices' && (deck.content.interaction === 'container' ? (resolution && deck.l.x !== 0) || (deck.groupLeaveActive && deck.l.x > 0) : deck.l.x > 0)
         && !deck.content.actions[deck.index]?.disabled))
         && !forwardActive && !deck.ending && !deck.content.noSuccessor
     };

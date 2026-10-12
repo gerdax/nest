@@ -9,7 +9,7 @@ test('Linear authors every card kind, accepts library sources and keeps one Next
  const project=createProject(),chapter=project.chapters[0],node=chapter.nodes[0];
  node.cards=['event','caption','action','item'].map(kind=>makePlacement(project,kind));
  const html=nodeInspector(project,chapter,node);
- for(const kind of ['event','caption','action','item'])assert.match(html,new RegExp(`Add ${kind}`));
+ for(const kind of ['event','caption','action','item'])assert.match(html,new RegExp(`Add ${kind==='event'?'beat':kind}`));
  assert.match(html,/Item behaviour/);assert.match(html,/Customize this action/);assert.match(html,/Unavailable action/);
  const shared=createDefinition('action','shared-check');project.library.push(shared);
  setCardSource(project,node.cards[2],shared.id,{allowedKinds:allowedCardKinds('linear','cards')});
@@ -27,7 +27,7 @@ test('Linear authors every card kind, accepts library sources and keeps one Next
 test('Forks still exclude items from authoring and validation',()=>{
  const project=createProject(),chapter=project.chapters[0],fork=chapter.nodes.find(n=>n.type==='fork');
  assert.deepEqual(allowedCardKinds('fork','choices'),['event','caption','action']);
- assert.doesNotMatch(nodeInspector(project,chapter,fork),/Add item|item: Flashlight/);
+ assert.doesNotMatch(nodeInspector(project,chapter,fork),/Add item|Item: Flashlight/);
  fork.choices.push({id:'item-choice',definitionId:'flashlight'});
  assert.ok(validateProject(project).some(error=>error.nodeId===fork.id&&error.message.includes('incompatible card kind')));
 });

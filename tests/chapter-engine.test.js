@@ -118,16 +118,18 @@ test('chapter image backs reach story, successor and decision cards; clearing re
   dispose(deck, controller);
 });
 
-for (const reduced of [false, true]) for (const directions of [['ArrowDown', 'ArrowDown'], ['ArrowDown', 'ArrowUp'], ['ArrowUp', 'ArrowUp']]) test(`real engine resolves each item then advances, reduced=${reduced}, directions=${directions}`, () => {
+for (const reduced of [false, true]) for (const directions of [['ArrowDown', 'ArrowDown'], ['ArrowDown', 'ArrowUp'], ['ArrowUp']]) test(`real engine collects selected items or leaves the remaining container, reduced=${reduced}, directions=${directions}`, () => {
   const { deck, controller } = fixture({ startNode: 'supplies' });
   deck.reduced = reduced;
   key(deck, 'ArrowUp');
   assert.equal(deck.phase, 'choices', 'one reveal presents container items');
   key(deck, directions[0]);
-  assert.equal(controller.state.activeNodeId, 'supplies');
-  assert.equal(deck.content.actions.length, 1);
-  assert.equal(controller.state.collectedItems.length, directions[0] === 'ArrowDown' ? 1 : 0);
-  key(deck, directions[1]);
+  if(directions[0]==='ArrowDown') {
+    assert.equal(controller.state.activeNodeId, 'supplies');
+    assert.equal(deck.content.actions.length, 1);
+    assert.equal(controller.state.collectedItems.length,1);
+    key(deck, directions[1]);
+  }
   assert.equal(controller.state.collectedItems.length, directions.filter(key => key === 'ArrowDown').length);
   assert.equal(controller.state.activeNodeId, 'encounter');
   assert.equal(deck.content.title, 'A dark crossing');

@@ -21,6 +21,6 @@ test('card text sizes compile, export, reload and import without overriding dest
 test('settings expose small/big/medium sliders and only new items show names by default',()=>{
  const project=createProject(),html=variableInspector(project,project.chapters[0]);
  for(const key of ['small','big','medium'])assert.ok(html.includes(`data-path="cardStyles.${key}"`));
- for(const kind of ['event','caption','action','item'])assert.equal(createDefinition(kind,kind).name,'New '+kind[0].toUpperCase()+kind.slice(1));
+ for(const kind of ['event','caption','action','item'])assert.equal(createDefinition(kind,kind).name,'New '+(kind==='event'?'Beat':kind[0].toUpperCase()+kind.slice(1)));
  assert.equal(createDefinition('item','item').showName,true);assert.equal(createDefinition('action','action').showName,false);assert.equal(createDefinition('event','story').showName,false);
 });
