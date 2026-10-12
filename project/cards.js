@@ -20,7 +20,17 @@ export function resolvePlacement(project, placement) {
   const definition = project.library.find(d => d?.id === placement.definitionId);
   if (!definition) throw new TypeError(`Unknown definition: ${placement.definitionId}`);
   const base = {...definition, ...placement.overrides, kind:canonicalCardKind(definition.kind)};
-  return {...base, conditions:[...(base.conditions || []),...(placement.conditions || [])], effects:[...(base.effects || []),...(placement.effects || [])], id:placement.id, definitionId:definition.id, unavailable:placement.unavailable ?? 'disabled', inventoryKey:definition.inventoryKey ?? definition.id};
+  const resolved = {...base, conditions:[...(base.conditions || []),...(placement.conditions || [])], effects:[...(base.effects || []),...(placement.effects || [])], id:placement.id, definitionId:definition.id, unavailable:placement.unavailable ?? 'disabled', inventoryKey:definition.inventoryKey ?? definition.id};
+  if (placement.contextItemId) {
+    const item = project.library.find(d => d.id === placement.contextItemId && d.kind === 'item');
+    if (base.kind !== 'action' || !item) throw new TypeError('Contextual choice needs an Action and an Item definition.');
+    const key = item.inventoryKey ?? item.id;
+    Object.assign(resolved, {contextItemId:item.id, contextInventoryKey:key, inventoryLabel:`Inventory · ${item.name}`, entrance:'bottom',
+      image:item.image ?? '', imageScale:item.imageScale ?? 100, imageOffsetX:item.imageOffsetX ?? 0,
+      imageOffsetY:item.imageOffsetY ?? 0, flipImage:!!item.flipImage});
+    resolved.conditions.push({source:'inventory',key,op:'has'});
+  }
+  return resolved;
 }
 export function cardSummary(card, variables = [], library = []) {
   const variable = key => variables.find(v => v.id === key);

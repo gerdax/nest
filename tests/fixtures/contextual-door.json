@@ -1,0 +1,207 @@
+{
+  "version": 2,
+  "kind": "nest-project",
+  "id": "contextual-door",
+  "name": "Contextual door choices",
+  "activeChapterId": "door-chapter",
+  "variables": [
+    {
+      "id": "energy",
+      "type": "number",
+      "initial": 2,
+      "min": 0,
+      "max": 6
+    }
+  ],
+  "library": [
+    {
+      "id": "door-intro",
+      "kind": "event",
+      "name": "Locked door",
+      "text": "Choose how to open the door.",
+      "image": "./assets/img/hall_01.png",
+      "effects": []
+    },
+    {
+      "id": "key",
+      "kind": "item",
+      "name": "Lockpick",
+      "text": "A tool for opening the lock.",
+      "image": "./assets/img/flashlight.png",
+      "inventoryKey": "old:key",
+      "imageScale": 140,
+      "imageOffsetX": 12,
+      "imageOffsetY": -8,
+      "flipImage": true,
+      "onCollect": []
+    },
+    {
+      "id": "pry",
+      "kind": "item",
+      "name": "Pry bar",
+      "text": "A useful tool.",
+      "image": "./assets/img/goggles_01.png",
+      "onCollect": []
+    },
+    {
+      "id": "potion",
+      "kind": "item",
+      "name": "Restorative",
+      "text": "Restores energy.",
+      "image": "./assets/img/pack.png",
+      "onCollect": [],
+      "use": {
+        "conditions": [],
+        "effects": [
+          {
+            "op": "add",
+            "key": "energy",
+            "value": 3
+          }
+        ]
+      }
+    },
+    {
+      "id": "unlock",
+      "kind": "action",
+      "name": "Pick the lock",
+      "text": "Work the lock with your lockpick.",
+      "image": "./assets/img/corridor_02.png",
+      "resolution": "direct",
+      "conditions": [],
+      "costs": [],
+      "effects": []
+    },
+    {
+      "id": "lever",
+      "kind": "action",
+      "name": "Lever the door",
+      "text": "Try the pry bar.",
+      "image": "./assets/img/corridor_02.png",
+      "resolution": "check",
+      "conditions": [],
+      "costs": [
+        {
+          "source": "variable",
+          "key": "energy",
+          "amount": 1
+        }
+      ],
+      "effects": [],
+      "check": {
+        "pool": [
+          {
+            "sides": 6,
+            "count": 1
+          }
+        ],
+        "modifier": 0,
+        "target": 4
+      },
+      "successEffects": [],
+      "failureEffects": []
+    },
+    {
+      "id": "force",
+      "kind": "action",
+      "name": "Open",
+      "text": "Push hard.",
+      "image": "",
+      "resolution": "direct",
+      "conditions": [
+        {
+          "source": "variable",
+          "key": "energy",
+          "op": "gte",
+          "value": 4
+        }
+      ],
+      "costs": [],
+      "effects": []
+    },
+    {
+      "id": "leave",
+      "kind": "event",
+      "name": "Leave",
+      "text": "Walk away.",
+      "image": "",
+      "effects": []
+    }
+  ],
+  "chapters": [
+    {
+      "id": "door-chapter",
+      "name": "Locked door",
+      "startNode": "supplies",
+      "nodes": [
+        {
+          "id": "supplies",
+          "name": "Supplies",
+          "type": "container",
+          "intro": {
+            "id": "supplies-intro",
+            "definitionId": "door-intro"
+          },
+          "introEnabled": false,
+          "items": [
+            {
+              "id": "take-key",
+              "definitionId": "key"
+            },
+            {
+              "id": "take-pry",
+              "definitionId": "pry"
+            },
+            {
+              "id": "take-potion",
+              "definitionId": "potion"
+            }
+          ],
+          "connections": {
+            "next": "door"
+          },
+          "x": 100,
+          "y": 100
+        },
+        {
+          "id": "door",
+          "name": "Door",
+          "type": "fork",
+          "intro": {
+            "id": "door-cover",
+            "definitionId": "door-intro"
+          },
+          "choices": [
+            {
+              "id": "key-choice",
+              "definitionId": "unlock",
+              "contextItemId": "key"
+            },
+            {
+              "id": "pry-choice",
+              "definitionId": "lever",
+              "contextItemId": "pry"
+            },
+            {
+              "id": "force-choice",
+              "definitionId": "force"
+            },
+            {
+              "id": "leave-choice",
+              "definitionId": "leave"
+            }
+          ],
+          "connections": {
+            "key-choice": null,
+            "pry-choice:success": null,
+            "pry-choice:failure": null,
+            "force-choice": null,
+            "leave-choice": null
+          },
+          "x": 400,
+          "y": 100
+        }
+      ]
+    }
+  ]
+}

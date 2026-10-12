@@ -6,6 +6,7 @@ export function cardFace(card, variables=[], library=[]) {
  const cardKind=canonicalCardKind(card?.kind ?? card?.cardKind ?? 'event');
  return {
   cardKind,
+  ...(card?.inventoryLabel?{inventoryLabel:card.inventoryLabel}:{}),
   heading:cardKind==='item'&&card?.showName===true?(card?.name ?? card?.label ?? 'Continue'):'',
   text:cardBody(card),
   summary:isStoryKind(cardKind)?'':cardSummary(card ?? {},variables,library),

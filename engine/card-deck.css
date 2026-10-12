@@ -226,3 +226,9 @@
   text-align:center;padding:var(--card-padding,26px);
 }
 .nest-card[data-card-kind="caption"] .nest-copy > p {margin:0;width:100%;}
+
+.nest-copy p.nest-card-inventory {
+  font-size: var(--card-small-size, 12px);
+  line-height: 1.2;
+  margin: 0 0 6px;
+}

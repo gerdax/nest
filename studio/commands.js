@@ -13,6 +13,7 @@ function remapInventory(value,ids) {
  if(Array.isArray(value))value.forEach(v=>remapInventory(v,ids));
  else if(value&&typeof value==='object'){
   if(value.key&&(value.source==='inventory'||['addItem','removeItem'].includes(value.op))&&ids.has(value.key))value.key=ids.get(value.key);
+  if(ids.has(value.contextItemId))value.contextItemId=ids.get(value.contextItemId);
   Object.values(value).forEach(v=>remapInventory(v,ids));
  }
 }
@@ -20,7 +21,7 @@ export function replaceCard(project,placement,kind,{copy=false}={}) {
  const source=project.library.find(d=>d.id===placement.definitionId);
  const definition=copy?{...structuredClone(source),...structuredClone(placement.overrides||{}),id:uid(kind),visibility:'local'}:{...createDefinition(kind,uid(kind)),visibility:'local'};
  if(copy){delete definition.inventoryKey;remapInventory(definition,new Map([[source.id,definition.id],...(source.inventoryKey?[[source.inventoryKey,definition.id]]:[])]));}
- project.library.push(definition);placement.definitionId=definition.id;delete placement.overrides;return definition;
+ project.library.push(definition);placement.definitionId=definition.id;delete placement.overrides;if(definition.kind!=='action')delete placement.contextItemId;return definition;
 }
 export function setCardSource(project,placement,definitionId,{allowedKinds}={}) {
  const source=project.library.find(d=>d.id===placement.definitionId);
@@ -31,7 +32,7 @@ export function setCardSource(project,placement,definitionId,{allowedKinds}={}) 
  }
  const target=project.library.find(d=>d.id===definitionId);
  if(!target||!(allowedKinds || [source.kind]).includes(target.kind)||target.visibility==='local')throw new Error('Choose a shared library card of the same type.');
- placement.definitionId=definitionId;delete placement.overrides;
+ placement.definitionId=definitionId;delete placement.overrides;if(target.kind!=='action')delete placement.contextItemId;
 }
 export function promoteCard(project,placement) {
  const definition=project.library.find(d=>d.id===placement.definitionId);

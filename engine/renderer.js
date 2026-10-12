@@ -44,7 +44,8 @@ export function backPose(front) {
   return { ...front, face: (front.face || 0) + 180 };
 }
 
-export function stageActionDeck(deck, content, selectedIndex = 0, previous = null) {
+export function stageActionDeck(deck, content, selectedIndex = null, previous = null) {
+  if (selectedIndex === null) selectedIndex = Math.max(0, content.actions.findIndex(a => a.entrance !== 'bottom'));
   const bundle = { content, selectedIndex, cards: [], cardLayers: [], cardBacks: [], cardTitles: [] };
   const old = new Map(previous?.content.actions.map((a, i) => [a.id, i]) || []);
   for (let i = 0; i < (previous?.cards.length || 0); i++) {
@@ -56,7 +57,7 @@ export function stageActionDeck(deck, content, selectedIndex = 0, previous = nul
       const card = previous.cards[oldIndex], layer = previous.cardLayers[oldIndex];
       const oldAction = previous.content.actions[oldIndex];
       let title = previous.cardTitles[oldIndex], back = previous.cardBacks[oldIndex];
-      if (oldAction.label !== action.label || oldAction.heading !== action.heading || oldAction.summary !== action.summary || oldAction.text !== action.text || oldAction.cardKind !== action.cardKind || (oldAction.image ?? previous.content.image ?? '') !== (action.image ?? content.image ?? '') || flipped(oldAction) !== flipped(action) || ['imageScale','imageOffsetX','imageOffsetY'].some(key=>oldAction[key]!==action[key])) {
+      if (oldAction.label !== action.label || oldAction.heading !== action.heading || oldAction.inventoryLabel !== action.inventoryLabel || oldAction.summary !== action.summary || oldAction.text !== action.text || oldAction.cardKind !== action.cardKind || (oldAction.image ?? previous.content.image ?? '') !== (action.image ?? content.image ?? '') || flipped(oldAction) !== flipped(action) || ['imageScale','imageOffsetX','imageOffsetY'].some(key=>oldAction[key]!==action[key])) {
         card.replaceChildren();
         card.style.backgroundImage = '';
         title = deck.decorate(card, action.image ?? content.image ?? '', action.heading || '', action.cardKind ? action.text || '' : action.label, flipped(action), action);
@@ -148,6 +149,12 @@ export function decorateCard(deck, element, image, title, text, flipImage = fals
     summary.textContent = presentation.summary;
     copy.append(summary);
   }
+  if (presentation.inventoryLabel) {
+    const source = document.createElement('p');
+    source.className = 'nest-card-inventory';
+    source.textContent = presentation.inventoryLabel;
+    copy.append(source);
+  }
   copy.append(body);
   element.append(copy, artwork, cardTexture());
   if (['action','item'].includes(presentation.cardKind)) {
@@ -183,12 +190,12 @@ export function stageNextContent(deck, content) {
 
 export function announceDeck(deck) {
   const action = deck.content.actions[deck.index];
-  const message = deck.phase === 'collecting' ? (deck.collectMotion?.transition === 'discard' ? 'Discarding item…' : 'Taking item…')
+  const message = deck.phase === 'inserting' ? (deck.entrances.size ? 'Adding inventory choices…' : 'Updating choices…') : deck.phase === 'collecting' ? (deck.collectMotion?.transition === 'discard' ? 'Discarding item…' : 'Taking item…')
     : deck.commitMotion?.discardAll ? 'Leaving container and discarding remaining items…'
     : deck.busy && deck.flip.x > 0 ? 'Turning next card…' : deck.busy ? (deck.pending || deck.operation === 'commit' ? 'Revealing next card…' : 'Waiting for next card…')
     : deck.phase === 'revealing' ? (deck.content.interaction === 'container' ? 'Uncovering items…' : 'Uncovering choices…')
       : deck.phase === 'closing' ? 'Returning cover…'
-      : deck.open && action ? `${deck.index + 1} of ${deck.cards.length}: ${action.disabled ? 'Unavailable choice' : action.accessibleLabel || action.label}`
+      : deck.open && action ? `${deck.entranceAnnouncement || ''}${deck.index + 1} of ${deck.cards.length}: ${action.disabled ? 'Unavailable choice' : action.accessibleLabel || action.label}`
       : deck.content.title || 'Situation';
   if (deck.live && deck.live.textContent !== message) deck.live.textContent = message;
 }
@@ -292,6 +299,11 @@ export function cardPose(deck, index, time = performance.now()) {
   const offset = deck.reflowOffsets.get(action.id);
   if (offset) for (const [field, state] of Object.entries(offset)) pose[field] += state.x;
   pose.z += deck.grabAmount(action.id);
+  const entrance = deck.entrances?.get(action.id);
+  if (entrance) {
+    pose.y += entrance.travel.x;
+    pose.visible &&= entrance.startAt !== null && time >= entrance.startAt;
+  }
   return pose;
 }
 
@@ -339,7 +351,7 @@ export function renderDeck(deck, time = performance.now()) {
     applyPose(deck, deck.underlay, deck.underlayLayer, stagedPose, 0);
     applyPose(deck, deck.underlayBack, deck.underlayLayer, backPose(stagedPose), 0);
   }
-  renderStagedActions(deck, deck.forwardDeck, 20, forwardActive, 0, -36, nextScale, deck.pending?.decisionOnly && deck.pendingTransition === 'flip' ? deck.nextFlip.x * 180 : 0);
+  renderStagedActions(deck, deck.forwardDeck, 20, forwardActive, 0, -36, nextScale, deck.pending?.decisionOnly && deck.pendingTransition === 'flip' ? deck.nextFlip.x * 180 : 0, true);
   renderStagedActions(deck, deck.returnDeck, 500,
     (deck.phase === 'closing' && deck.returning)
       || deck.returnLift.x > 0,
@@ -366,11 +378,11 @@ export function renderDeck(deck, time = performance.now()) {
   announceDeck(deck);
 }
 
-function renderStagedActions(deck, bundle, baseOrder, visible, y = 0, z = -36, scale = 1, turn = 0) {
+function renderStagedActions(deck, bundle, baseOrder, visible, y = 0, z = -36, scale = 1, turn = 0, suppressEntrances = false) {
   if (!bundle) return;
   bundle.cards.forEach((card, index) => {
     const rank = (index - bundle.selectedIndex + bundle.cards.length) % bundle.cards.length;
-    const pose = { x: 0, y, z: z - rank * deck.settings.stackDepth, rx: 0, ry: 0, rz: 0, scale, visible, turn, turnAxis: deck.settings.flipAxisTilt };
+    const pose = { x: 0, y, z: z - rank * deck.settings.stackDepth, rx: 0, ry: 0, rz: 0, scale, visible: visible && !(suppressEntrances && bundle.content.actions[index].entrance === 'bottom'), turn, turnAxis: deck.settings.flipAxisTilt };
     const order = baseOrder + bundle.cards.length - rank;
     applyPose(deck, card, bundle.cardLayers[index], bundle.content.actions[index].faceDown ? backPose(pose) : pose, order);
     if (bundle.cardBacks[index]) applyPose(deck, bundle.cardBacks[index], bundle.cardLayers[index], bundle.content.actions[index].faceDown ? { ...pose, face: 360 } : backPose(pose), order);

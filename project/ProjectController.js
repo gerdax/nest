@@ -13,7 +13,7 @@ export class ProjectController {
     for(const [name,listener] of Object.entries(this.listeners)) deck.addEventListener(name,listener);
     this.restart();
   }
-  get state() { return {activeNodeId:this.location?.node.id ?? null,cardId:this.card()?.id ?? null,variables:{...this.variables},collectedItems:this.inventory.map(i=>({...i})),completed:this.completed,checking:!!this.checking,idle:!this.completed&&!this.checking&&!this.pendingItem&&!this.pendingIntro&&!this.deck.busy&&!['revealing','closing','committing','collecting'].includes(this.deck.phase)}; }
+  get state() { return {activeNodeId:this.location?.node.id ?? null,cardId:this.card()?.id ?? null,variables:{...this.variables},collectedItems:this.inventory.map(i=>({...i})),completed:this.completed,checking:!!this.checking,idle:!this.completed&&!this.checking&&!this.pendingItem&&!this.pendingIntro&&!this.deck.busy&&!this.deck.drag&&!['revealing','closing','committing','collecting'].includes(this.deck.phase)}; }
   notify() {if(!this.destroyed)this.onChange(this.state);}
   error(error) {if(!this.destroyed)this.onError(error,this.state);}
   restart() {
@@ -108,6 +108,7 @@ export class ProjectController {
     const type=this.type(location),card=this.card(location),fork=type==='fork'||type==='forked',container=type==='container',linearFace=type==='linear'&&['action','item'].includes(card?.kind),linearItem=linearFace&&card.kind==='item';
     let actions;
     if(fork)actions=this.choices(location).flatMap(c=>{
+      if(c.contextItemId&&!conditionsMet([{source:'inventory',key:c.contextInventoryKey ?? c.contextItemId,op:'has'}],values,inventory))return [];
       const available=conditionsMet(c.conditions,values,inventory)&&affordCosts(values,inventory,c.costs,this.compiled.variables);
       return !available&&c.unavailable==='hidden'?[]:[{...this.action(c),disabled:!available}];
     });
@@ -228,7 +229,10 @@ export class ProjectController {
         if(this.type()==='container'&&!this.items().length){this.adopt(this.next(this.location),false);this.show();}
         else {
           const updated=this.content();
-          if(JSON.stringify(this.deck.content.actions)!==JSON.stringify(updated.actions))this.show({presentation:'open',animate:false});
+          if(JSON.stringify(this.deck.content.actions)!==JSON.stringify(updated.actions)) {
+            if(this.location.node.type==='fork'&&typeof this.deck.updateActions==='function'&&this.deck.updateActions(updated.actions)!==false){this.reportBlocked();this.notify();}
+            else this.show({presentation:'open',animate:false});
+          }
           else {this.reportBlocked();this.notify();}
         }
       }catch(error){this.error(error);this.notify();}
@@ -252,13 +256,19 @@ export class ProjectController {
     else this.notify();
   }
   useItem(definitionId) {
-    if(this.destroyed||this.completed||this.checking||this.pendingItem||this.pendingIntro||this.deck.busy||['revealing','closing','committing','collecting'].includes(this.deck.phase))return false;
+    if(this.destroyed||this.completed||this.checking||this.pendingItem||this.pendingIntro||this.deck.busy||this.deck.drag||['revealing','closing','committing','collecting'].includes(this.deck.phase))return false;
+    if(this.location.node.type==='fork'&&typeof this.deck.updateActions==='function'&&!['closed','choices'].includes(this.deck.phase))return false;
     const item=this.inventory.find(i=>i.definitionId===definitionId||i.inventoryKey===definitionId||i.id===definitionId);
     if(!item?.use||!conditionsMet(item.use.conditions,this.variables,this.inventory))return false;
     try {
       const result=transact(this.variables,this.inventory,{costs:[{source:'inventory',key:definitionId,amount:1}],effects:item.use.effects},this.compiled.variables,this.compiled.library);
       this.variables=result.variables;this.inventory=result.inventory;
-      this.adopt(this.seek(this.location),false);this.show({restore:true});return true;
+      const previous=this.location,destination=this.seek(this.location);
+      this.adopt(destination,false);
+      if(!this.completed&&previous.node.type==='fork'&&this.location.node===previous.node&&typeof this.deck.updateActions==='function'&&this.deck.updateActions(this.content().actions)!==false) {
+        this.reportBlocked();this.notify();
+      }else this.show({restore:true});
+      return true;
     }catch(error){this.error(error);return false;}
   }
   destroy() {if(this.destroyed)return;this.destroyed=true;++this.generation;this.checking?.abort();this.checking=null;for(const [name,listener]of Object.entries(this.listeners))this.deck.removeEventListener(name,listener);}

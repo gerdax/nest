@@ -10,7 +10,7 @@ function setup(){const project=createProject(),node=project.chapters[0].nodes.fi
 
 test('Fork picker accepts narrative and action library cards and filters out items',()=>{
  const {project,node,p}=setup();const html=nodeInspector(project,project.chapters[0],node);
- assert.match(html,/Beat: Arrival/);assert.match(html,/Action: Explore/);assert.doesNotMatch(html,/<option value="flashlight"/);assert.match(html,/Add beat/);
+ assert.match(html,/Beat: Arrival/);assert.match(html,/Action: Explore/);assert.doesNotMatch(html.match(/<select[^>]*data-path="definitionId"[^>]*>[\s\S]*?<\/select>/g).join(''),/<option value="flashlight"/);assert.match(html,/Add beat/);
  setCardSource(project,p,'arrival',{allowedKinds:allowedCardKinds('fork')});synchronizeConnections(project);assert.deepEqual(validateProject(project),[]);
  assert.throws(()=>setCardSource(project,p,'flashlight',{allowedKinds:allowedCardKinds('fork')}));
 });
@@ -36,4 +36,10 @@ test('custom Narrative choices expose narrative fields and survive portable expo
  const {project,node}=setup();const p=makePlacement(project,'event');node.choices.push(p);synchronizeConnections(project);
  const html=nodeInspector(project,project.chapters[0],node);assert.match(html,/local-definition/);assert.match(html,/Custom card/);
  const loaded=parseProject(JSON.stringify(exportChapter(project)));assert.deepEqual(validateProject(loaded),[]);assert.equal(compileChapter(loaded).nodes.find(n=>n.id===node.id).choices.at(-1).kind,'event');
+});
+
+test('switching contextual Action to Beat clears its item link',()=>{
+ const {project,node,p}=setup();p.contextItemId='flashlight';
+ setCardSource(project,p,'arrival',{allowedKinds:allowedCardKinds('fork')});
+ assert.equal(p.contextItemId,undefined);synchronizeConnections(project);assert.deepEqual(validateProject(project),[]);
 });

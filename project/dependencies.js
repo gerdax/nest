@@ -25,6 +25,9 @@ export function definitionGraph(project) {
       if (typeof entry.definitionId === 'string') references.push({
         ...context, definitionId: entry.definitionId, kind: 'placement', placement: entry, path,
       });
+      if (typeof entry.contextItemId === 'string' && entry.contextItemId) references.push({
+        ...context, definitionId: entry.contextItemId, kind: 'contextItem', placement: entry, path,
+      });
       if (typeof entry.key === 'string' && (entry.source === 'inventory' || ['addItem', 'removeItem'].includes(entry.op))) {
         for (const definitionId of itemKeys.get(entry.key) || []) references.push({
           ...context, definitionId, kind: 'inventory', rule: entry, path,
