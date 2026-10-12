@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ProjectController } from '../project/ProjectController.js';
 import { conditionsMet, transact, affordCosts } from '../project/state.js';
+import { createProject, validateProject, compileChapter } from '../project/model.js';
 class Deck extends EventTarget {
   reset(){this.busy=false;this.pending=null;}
   replaceContent(content,options){if(this.busy){this.pending=content;}else this.content=content;this.options=options;}
@@ -106,6 +107,36 @@ test('use-item failure is atomic and refresh can unlock a choice at variable max
  const use={effects:[{op:'add',key:'energy',value:2}]},apple={id:'apple',definitionId:'apple',kind:'item',use};
  const {deck,controller}=fixture([{id:'f',type:'fork',choices:[action('choose',{conditions:[{source:'inventory',key:'apple',op:'missing'}]})],connections:{}}],{variables:[{id:'energy',type:'number',initial:5,max:5}]});controller.inventory=[apple];controller.show();assert.equal(deck.content.actions[0].disabled,true);deck.busy=true;assert.equal(controller.useItem('apple'),false);deck.busy=false;assert.equal(controller.useItem('apple'),true);assert.equal(controller.state.variables.energy,5);assert.equal(controller.state.collectedItems.length,0);assert.equal(deck.content.actions[0].disabled,false);
  controller.inventory=[{...apple,use:{effects:[{op:'removeItem',key:'absent',quantity:1}]}}];assert.equal(controller.useItem('apple'),false);assert.equal(controller.state.collectedItems.length,1);controller.destroy();
+});
+test('use-item routing failure preserves the item, variables, location and presented card',()=>{
+ const project=createProject(),chapter=project.chapters[0];
+ project.variables=[{id:'visible',type:'flag',initial:true}];
+ project.library.find(d=>d.id==='arrival').conditions=[{source:'variable',key:'visible',op:'eq',value:true}];
+ const potion=project.library.find(d=>d.kind==='item');
+ potion.id='potion';potion.use={conditions:[],effects:[{op:'set',key:'visible',value:false}]};
+ chapter.nodes=[chapter.nodes[0]];chapter.nodes[0].connections.next=chapter.startNode;chapter.allowCycles=true;
+ assert.deepEqual(validateProject(project),[]);
+ const compiled=compileChapter(project),deck=new Deck(),errors=[];
+ const controller=new ProjectController(deck,compiled,{onError:(error,state)=>errors.push({error,state})});
+ controller.inventory=transact(controller.variables,[],{effects:[{op:'addItem',key:'potion'}]},compiled.variables,compiled.library).inventory;
+ const before=controller.state,location=controller.location,content=deck.content;
+ assert.equal(controller.useItem('potion'),false);
+ assert.equal(errors.length,1);assert.match(errors[0].error.message,/Automatic routing cycle/);
+ assert.deepEqual(controller.state,before);assert.deepEqual(errors[0].state,before);
+ assert.equal(controller.location,location);assert.equal(deck.content,content);
+ controller.destroy();
+});
+test('use-item routing evaluates the changed flag and consumed inventory before committing',()=>{
+ const condition=(key,value)=>({source:'variable',key,op:'eq',value});
+ const {controller}=fixture([{id:'story',type:'linear',cards:[
+  {...narrative('before'),conditions:[condition('visible',true)]},
+  {...narrative('after'),conditions:[condition('visible',false),{source:'inventory',key:'potion',op:'missing'}]}
+ ],connections:{next:null}}],{variables:[{id:'visible',type:'flag',initial:true}]});
+ controller.inventory=[{id:'potion',definitionId:'potion',kind:'item',use:{effects:[{op:'set',key:'visible',value:false}]}}];
+ assert.equal(controller.useItem('potion'),true);
+ assert.equal(controller.state.cardId,'after');assert.equal(controller.state.variables.visible,false);
+ assert.deepEqual(controller.state.collectedItems,[]);assert.equal(controller.state.completed,false);
+ controller.destroy();
 });
 test('legacy pool container completes queue after exact collection and skips empty linear',()=>{
  const sequences=[{id:'box',type:'container',cards:[narrative('intro')],items:[{id:'legacy-item',definitionId:'def',inventoryKey:'chapter:item',label:'Item',effects:[{op:'set',key:'taken',value:true}]}],exits:['other']},{id:'empty',type:'linear',cards:[],exits:['next']},{id:'story',type:'linear',cards:[narrative('queued')],exits:['next']}];

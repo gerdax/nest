@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CardDeck, DEFAULT_SETTINGS } from '../engine/CardDeck.js';
-import { cardPose, scenePose } from '../engine/renderer.js';
+import { cardPose, scenePose, renderDeck } from '../engine/renderer.js';
 import { projectedBounds } from '../engine/geometry.js';
 
 // Browser-shaped tree: collection must physically detach its layer, while the
@@ -46,6 +46,30 @@ function samePose(actual, expected, message) {
 function descendants(node) { return [node, ...node.children.flatMap(descendants)]; }
 function opaque(deck) { for (const node of descendants(deck.mount)) assert.equal(Object.hasOwn(node.style, 'opacity'), false); }
 function inputBlocked(deck) { const index = deck.index, cursor = deck.b.target; assert.equal(deck.start(), false); for (const name of ['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown']) key(deck, name); deck.commit(); assert.equal(deck.index, index); assert.equal(deck.b.target, cursor); assert.equal(deck.open, true); }
+
+for (const count of [3, 10, 30, 100]) test(`render shares one layout read and preserves standalone poses for ${count} cards`, () => {
+  const deck = make(count); ready(deck);
+  const originalBounds = deck.mount.getBoundingClientRect.bind(deck.mount);
+  let reads = 0, width = 340;
+  deck.mount.getBoundingClientRect = () => { reads++; return { ...originalBounds(), width }; };
+  for (const mode of ['carousel', 'hint', 'entrance', 'take', 'resize']) {
+    if (mode === 'hint') deck.presentationHint = { travel: { x: .6 } };
+    if (mode === 'entrance') deck.entrances.set('item-1', { startAt: null, travel: { x: 40 } });
+    if (mode === 'take') { deck.presentationHint = null; deck.start(); deck.move(gesture(80)); }
+    if (mode === 'resize') width = 420;
+    const expected = deck.cards.map((_, index) => cardPose(deck, index, now));
+    reads = 0;
+    renderDeck(deck, now);
+    assert.equal(reads, 1, `${mode} measures the mount once`);
+    expected.forEach((pose, index) => {
+      let transform = `translate3d(${pose.x}px,${pose.y}px,${pose.z}px) rotateX(${pose.rx}deg) rotateY(${pose.ry}deg) rotateZ(${pose.rz}deg)`;
+      if (pose.scale !== undefined && pose.scale !== 1) transform += ` scale(${pose.scale})`;
+      assert.equal(deck.cards[index].style.transform, transform, `${mode} card ${index}`);
+      assert.equal(deck.cards[index].style.visibility, pose.visible ? 'visible' : 'hidden');
+    });
+  }
+  deck.destroy(); frames.clear();
+});
 function dispose(deck, host) { host?.destroy(); deck.destroy(); settle(); document.hidden = false; }
 
 function collectionEnd(deck) {

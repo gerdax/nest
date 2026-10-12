@@ -10,7 +10,6 @@ const extras=(scope,path,kind)=>`data-scope="${esc(scope)}" data-path="${esc(pat
 export function rules(project,list=[],path,scope,kind) {
  const vars=project.variables.map(v=>[v.id,v.name||v.id]);
  const items=project.library.filter(d=>d.kind==='item').map(d=>[d.id,d.name]);
- const keys=kind==='effects'?[...vars,...items]:vars;
  let html=`<details class="state-panel"><summary>${kind[0].toUpperCase()+kind.slice(1)} · ${list.length}</summary>`;
  html+=list.map((rule,i)=>{
   const p=`${esc(path)}.${i}`;
@@ -25,7 +24,8 @@ export function rules(project,list=[],path,scope,kind) {
     fields+=flag?select('Value',String(rule.value),[['true','True'],['false','False']],`${p}.value`,scope):field('Value',rule.value,`${p}.value`,scope,'number');
    }
   } else if(kind==='costs') {
-   fields=select('Spend',rule.source,[['variable','Resource'],['inventory','Item']],`${p}.source`,scope)+select('Resource or item',rule.key,rule.source==='inventory'?items:vars,`${p}.key`,scope)+(rule.source==='inventory'?'<p class="small">Consumes this item.</p>':field('Amount',rule.amount,`${p}.amount`,scope,'number'));
+   const resources=project.variables.filter(variable=>variable.type==='number').map(variable=>[variable.id,variable.name||variable.id]);
+   fields=select('Spend',rule.source,[['variable','Resource'],['inventory','Item']],`${p}.source`,scope)+select('Resource or item',rule.key,rule.source==='inventory'?items:resources,`${p}.key`,scope)+(rule.source==='inventory'?'<p class="small">Consumes this item.</p>':field('Amount',rule.amount,`${p}.amount`,scope,'number'));
   } else {
    const inventory=['addItem','removeItem'].includes(rule.op);
    fields=select('Operation',rule.op,[['set','Set variable'],['add','Add to variable'],['addItem','Add item'],['removeItem','Remove item']],`${p}.op`,scope)+select('Target',rule.key,inventory?items:vars,`${p}.key`,scope);

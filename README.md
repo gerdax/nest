@@ -24,7 +24,7 @@ Run verification with `npm test` or `node --test tests/*.test.js`.
 
 Ordinary situation cards reveal choices with an upward swipe. Browse actions left or right, then swipe up to choose. The outgoing action stack exposes the next situation's reverse, which flips to its front. Ordinary choices stay open after reveal unless a host explicitly allows closing.
 
-A container starts with its description covering the items. One swipe up reveals the item carousel directly; there is no Open / Leave choice or lid effect. Browse left or right, swipe up to discard the selected item, and swipe down to take it. Only the selected item moves, then the remaining cards rearrange smoothly. Every item must be resolved before continuing.
+A container starts with its description covering the items. One swipe up reveals the item carousel directly. Browse left or right and swipe down to take the selected item; the remaining cards rearrange smoothly. Swipe up to leave the container and discard all remaining items, with the selected card leading the departing stack. Items already taken stay in inventory. Item cards in Linear sequences retain individual upward discard.
 
 Only taken items enter the run inventory. Each Item definition can be owned once; select an item to inspect it. Consumables offer Use, which removes ownership and applies effects atomically. Use remains allowed at a resource maximum: the effect is clamped and ownership is consumed. Key items remain collectible without a Use action. Inventory resets on restart or reload; equipment and combat are deferred.
 
@@ -32,7 +32,7 @@ The last item exposes the next card's reverse underneath its departure. Discardi
 
 Keyboard controls on the focused deck:
 
-- Up reveals, chooses an ordinary action, or discards a container item.
+- Up reveals, chooses an ordinary action, or leaves an open container and discards its remaining items.
 - Down and Enter take a container item. Enter chooses an ordinary action elsewhere.
 - Left / Right browse.
 - Escape cancels an active gesture and does not close an opened container.
@@ -49,7 +49,7 @@ import { CardDeck, DEFAULT_SETTINGS } from './engine/CardDeck.js';
 const deck = new CardDeck(mount, {
   settings: { ...DEFAULT_SETTINGS },
   content: {
-    id: 'crate', interaction: 'container', allowClose: false,
+    id: 'crate', interaction: 'container', discardAll: true, allowClose: false,
     title: 'Abandoned crate', text: 'Equipment lies inside.',
     image: './assets/img/box.png',
     actions: [
@@ -79,7 +79,7 @@ Events:
 - `reveal`: the situation uncover is accepted; items or choices expand after the cover clears.
 - `selection`: selected action or item changes.
 - `commit`: ordinary action accepted, with `{ contentId, action, index }`.
-- `collect` / `discard`: item gesture accepted, with `{ contentId, action, index, final }`.
+- `collect` / `discard`: item gesture accepted, with `{ contentId, action, index, final }`. With `discardAll: true`, leaving emits `discard` with `final: true`, `all: true` and `discardedIds`; its removal completion has `all: true` and empty `remainingIds`. Omit `discardAll` for individual upward discard in a standalone deck.
 - `transitioncomplete`: `collect` / `discard` confirms removal and supplies `remainingIds`. Record inventory only for completed `collect`. On the final item, a later `commit` completion confirms that the next situation's flip and adoption have settled.
 
 Hosts supply final continuation synchronously on accepted `collect` or `discard`. During a held last-item gesture the physical reverse is already underneath, but no host state changes or flip occur before acceptance. Async content can remain staged while the engine waits.

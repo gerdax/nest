@@ -170,8 +170,7 @@ export class CardDeck extends EventTarget {
     announceDeck(this);
   }
 
-  departureTravel() {
-    const bounds = this.mount.getBoundingClientRect();
+  departureTravel(bounds = this.mount.getBoundingClientRect()) {
     return bounds.height + Math.max(120, bounds.top || 0) + 80;
   }
 

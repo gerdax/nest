@@ -58,8 +58,9 @@ export function stageActionDeck(deck, content, selectedIndex = null, previous = 
   if (selectedIndex === null) selectedIndex = Math.max(0, content.actions.findIndex(a => a.entrance !== 'bottom'));
   const bundle = { content, selectedIndex, cards: [], cardLayers: [], cardBacks: [], cardTitles: [] };
   const old = new Map(previous?.content.actions.map((a, i) => [a.id, i]) || []);
+  const retained = new Set(content.actions.map(action => action.id));
   for (let i = 0; i < (previous?.cards.length || 0); i++) {
-    if (!content.actions.some(a => a.id === previous.content.actions[i].id)) previous.cardLayers[i].remove();
+    if (!retained.has(previous.content.actions[i].id)) previous.cardLayers[i].remove();
   }
   content.actions.forEach((action, index) => {
     const oldIndex = old.get(action.id);
@@ -213,8 +214,8 @@ export function announceDeck(deck) {
   if (deck.live && deck.live.textContent !== message) deck.live.textContent = message;
 }
 
-export function scenePose(deck, time = performance.now()) {
-  const lift = deck.p.x * deck.departureTravel() + (deck.commitMotion ? departureDistance(deck.commitMotion, time) : 0);
+export function scenePose(deck, time = performance.now(), travel = deck.departureTravel()) {
+  const lift = deck.p.x * travel + (deck.commitMotion ? departureDistance(deck.commitMotion, time) : 0);
   const pose = {
     x: 0, y: -lift, z: 16 - deck.n.x * 40 + deck.grabAmount() + Math.min(Math.abs(lift) * 0.08, deck.settings.liftHeight),
     rx: deck.rotationX.x * (1 - clamp(deck.p.x, 0, 1)),
@@ -236,8 +237,7 @@ function orbitRadius(deck, width, height, count = deck.cards.length) {
   return deck.orbitRadius;
 }
 
-function takeProgress(deck, time, height, distanceRatio = .5) {
-  const selected = deck.content.actions.find(action => action.id === deck.liftId);
+function takeProgress(deck, time, height, selected, distanceRatio = .5) {
   if (deck.content.interaction !== 'container' || !selected || selected.disabled) return 0;
   let distance = (deck.liftStart - deck.l.x) * height;
   if (deck.collectMotion) distance += deck.collectMotion.direction * departureDistance(deck.collectMotion, time);
@@ -246,9 +246,23 @@ function takeProgress(deck, time, height, distanceRatio = .5) {
   return 1 - (1 - progress) ** 3;
 }
 
-export function cardPose(deck, index, time = performance.now()) {
+// Share layout and slot indexes only within one synchronous render. Entrances,
+// settings and selection may change before the next frame or standalone query.
+function poseContext(deck, time) {
   const bounds = deck.mount.getBoundingClientRect();
   const width = Math.max(1, bounds.width), height = Math.max(1, bounds.height);
+  const travel = deck.departureTravel(bounds), front = scenePose(deck, time, travel);
+  const presented = deck.content.actions.flatMap((action, index) => deck.entrances.get(action.id)?.startAt === null ? [] : [index]);
+  const slots = new Map(presented.map((index, slot) => [index, slot]));
+  const count = Math.max(1, presented.length), selectedSlot = slots.get(deck.index) ?? 0;
+  const selected = deck.content.actions.find(action => action.id === deck.liftId);
+  const scale = deck.skipCover || deck.reduced ? 1
+    : revealScale(height - projectedBounds(front, width, height, deck.settings.perspective).bottom, height, deck.settings);
+  return { bounds, width, height, presented, slots, count, selectedSlot, selected, scale, travel, front };
+}
+
+export function cardPose(deck, index, time = performance.now(), context = poseContext(deck, time)) {
+  const { bounds, width, height, presented, slots, count, selectedSlot, selected, scale } = context;
   let cursor = deck.commitMotion ? deck.commitMotion.browse : deck.b.x;
   const action = deck.content.actions[index];
   const frozen = deck.liftPoses?.get(action.id);
@@ -259,30 +273,26 @@ export function cardPose(deck, index, time = performance.now()) {
       pose.y -= lift;
       if (deck.collectMotion) pose.y += deck.collectMotion.direction * departureDistance(deck.collectMotion, time);
       pose.z += Math.min(Math.max(0, lift) * .1, deck.settings.liftHeight);
-      pose.z += Math.min(height * .25, deck.settings.perspective * .16) * takeProgress(deck, time, height);
+      pose.z += Math.min(height * .25, deck.settings.perspective * .16) * takeProgress(deck, time, height, selected);
       pose.rx += deck.rotationX.x - deck.liftRotation.x;
       pose.ry += deck.rotationY.x - deck.liftRotation.y;
       pose.rz += deck.rotationZ.x - deck.liftRotation.z;
       for (const field of ['rx', 'ry', 'rz']) pose[field] = clamp(pose[field], -deck.settings.maxTilt, deck.settings.maxTilt);
     } else {
-      pose.z -= height * .4 * takeProgress(deck, time, height, .45);
+      pose.z -= height * .4 * takeProgress(deck, time, height, selected, .45);
     }
     pose.z += deck.grabAmount(action.id);
     return pose;
   }
   // Cards waiting below the deck do not occupy slots until their entrance starts.
-  const presented = deck.content.actions.flatMap((a, i) => deck.entrances.get(a.id)?.startAt === null ? [] : [i]);
-  const count = Math.max(1, presented.length);
-  const slot = Math.max(0, presented.indexOf(index));
-  const selectedSlot = Math.max(0, presented.indexOf(deck.index));
+  const slot = slots.get(index) ?? 0;
   if (count !== deck.cards.length) cursor = selectedSlot;
   const radius = orbitRadius(deck, width, height, count);
   const pose = carouselPose(slot, cursor, count, width, deck.settings, radius);
   const fan = clamp(deck.fan.x, 0, 1);
   const rank = ((slot - selectedSlot) % count + count) % count;
   const compressedZ = 4 - deck.n.x * 40 - rank * deck.settings.stackDepth;
-  pose.scale = deck.skipCover || deck.reduced ? 1
-    : revealScale(height - projectedBounds(scenePose(deck, time), width, height, deck.settings.perspective).bottom, height, deck.settings);
+  pose.scale = scale;
   const rotationWeight = deck.rotationOwner === 'actions' ? Math.pow(Math.max(0, pose.front), 4) : 0;
   // Friction can carry a tiny amount of the cover's tilt into the compressed
   // cards. Keep it at 12% (and below one degree), fading out as the fan opens.
@@ -294,10 +304,10 @@ export function cardPose(deck, index, time = performance.now()) {
   pose.rx = fan * deck.rotationX.x * rotationWeight + clamp(deck.rotationX.x * underlyingWeight, -.9, .9);
   pose.ry = fan * (pose.ry + deck.rotationY.x * rotationWeight) + clamp(deck.rotationY.x * underlyingWeight, -.9, .9);
   pose.rz = fan * (pose.rz + deck.rotationZ.x * rotationWeight) + clamp(deck.rotationZ.x * underlyingWeight, -.9, .9);
-  if (deck.presentationHint && presented.length > 1 && presented.includes(index)) {
+  if (deck.presentationHint && presented.length > 1 && slots.has(index)) {
     const progress = clamp(deck.presentationHint.travel.x, 0, 1);
     const radius = handoffRadius(2, width, height, deck.settings);
-    const endpoints = [0, 1].map(i => {
+    const endpoints = context.hintEndpoints ||= [0, 1].map(i => {
       const rest = carouselPose(i, 0, 2, width, deck.settings, radius);
       const peek = carouselPose(i, .24 * progress, 2, width, deck.settings, radius);
       return Object.fromEntries(['x', 'y', 'z', 'ry', 'rz'].map(field => [field, peek[field] - rest[field]]));
@@ -311,9 +321,12 @@ export function cardPose(deck, index, time = performance.now()) {
     } else {
       // Keep left-hand followers moving left and right-hand followers right.
       // Additional followers interpolate between the familiar two-card motions.
-      const followers = presented.map(i => ({ i, x: carouselPose(presented.indexOf(i), selectedSlot, count, width, deck.settings, radius).x }))
-        .filter(card => card.i !== deck.index).sort((a, b) => a.x - b.x || a.i - b.i);
-      const weight = followers.findIndex(card => card.i === index) / (followers.length - 1);
+      if (!context.hintWeights) {
+        const followers = presented.map((i, slot) => ({ i, x: carouselPose(slot, selectedSlot, count, width, deck.settings, radius).x }))
+          .filter(card => card.i !== deck.index).sort((a, b) => a.x - b.x || a.i - b.i);
+        context.hintWeights = new Map(followers.map((card, index) => [card.i, index / (followers.length - 1)]));
+      }
+      const weight = context.hintWeights.get(index);
       for (const field of ['x', 'ry', 'rz']) pose[field] += (endpoints[0][field] * (1 - weight) + endpoints[1][field] * weight) * fan;
     }
   }
@@ -386,10 +399,10 @@ function applyPose(deck, element, layer, pose, order, shadow = true) {
 
 export function renderDeck(deck, time = performance.now()) {
   if (!deck.scene) return;
-  const front = scenePose(deck, time);
-  const poses = deck.cards.map((_, index) => ({ ...cardPose(deck, index, time), ...(deck.coverDeparture || deck.content.flipItemsOnReveal ? { visible: false } : {}) }));
-  const bounds = deck.mount.getBoundingClientRect();
-  const width = Math.max(1, bounds.width), height = Math.max(1, bounds.height);
+  const context = poseContext(deck, time);
+  const { front } = context;
+  const poses = deck.cards.map((_, index) => ({ ...cardPose(deck, index, time, context), ...(deck.coverDeparture || deck.content.flipItemsOnReveal ? { visible: false } : {}) }));
+  const { width, height } = context;
   const cleared = deck.phase === 'committing' && !deck.commitMotion;
   const coveredBottom = cleared ? 0 : deck.coverDeparture || deck.content.flipItemsOnReveal ? projectedBounds(front, width, height, deck.settings.perspective).bottom : poses.length
     ? Math.max(...poses.map(pose => projectedBounds(pose, width, height, deck.settings.perspective).bottom)) : height;
@@ -418,7 +431,7 @@ export function renderDeck(deck, time = performance.now()) {
   renderStagedActions(deck, deck.returnDeck, 500,
     (deck.phase === 'closing' && deck.returning)
       || deck.returnLift.x > 0,
-    -(1 - clamp(deck.returnLift.x, 0, 1)) * deck.departureTravel(),
+    -(1 - clamp(deck.returnLift.x, 0, 1)) * context.travel,
     deck.cards.length && (deck.returning || deck.returnLift.x > 0) ? 4 : -36, 1);
   applyPose(deck, deck.scene, deck.sceneLayer, front, 1000);
   applyPose(deck, deck.sceneBack, deck.sceneLayer, backPose(front), 1000);
@@ -444,9 +457,10 @@ export function renderDeck(deck, time = performance.now()) {
 function renderStagedActions(deck, bundle, baseOrder, visible, y = 0, z = -36, scale = 1, turn = 0, suppressEntrances = false) {
   if (!bundle) return;
   const presented = bundle.content.actions.flatMap((action, i) => suppressEntrances && action.entrance === 'bottom' ? [] : [i]);
-  const count = Math.max(1, presented.length), selectedSlot = Math.max(0, presented.indexOf(bundle.selectedIndex));
+  const slots = new Map(presented.map((index, slot) => [index, slot]));
+  const count = Math.max(1, presented.length), selectedSlot = slots.get(bundle.selectedIndex) ?? 0;
   bundle.cards.forEach((card, index) => {
-    const rank = (Math.max(0, presented.indexOf(index)) - selectedSlot + count) % count;
+    const rank = ((slots.get(index) ?? 0) - selectedSlot + count) % count;
     const pose = { x: 0, y, z: z - rank * deck.settings.stackDepth, rx: 0, ry: 0, rz: 0, scale, visible: visible && !(suppressEntrances && bundle.content.actions[index].entrance === 'bottom'), turn, turnAxis: deck.settings.flipAxisTilt };
     const order = baseOrder + bundle.cards.length - rank;
     applyPose(deck, card, bundle.cardLayers[index], bundle.content.actions[index].faceDown ? backPose(pose) : pose, order);

@@ -274,8 +274,8 @@ export class ProjectController {
     if(!item?.use||!conditionsMet(item.use.conditions,this.variables,this.inventory))return false;
     try {
       const result=transact(this.variables,this.inventory,{costs:[{source:'inventory',key:definitionId,amount:1}],effects:item.use.effects},this.compiled.variables,this.compiled.library);
+      const previous=this.location,destination=this.seek(this.location,result.variables,result.inventory);
       this.variables=result.variables;this.inventory=result.inventory;
-      const previous=this.location,destination=this.seek(this.location);
       this.adopt(destination,false);
       if(!this.completed&&previous.node.type==='fork'&&this.location.node===previous.node&&typeof this.deck.updateActions==='function'&&this.deck.updateActions(this.content().actions)!==false) {
         this.reportBlocked();this.notify();

@@ -4,9 +4,10 @@ Run `python3 serve.py` and open `http://127.0.0.1:8937/editor.html`. The studio 
 
 ## Library and placements
 
-Project JSON v2 (`kind: "nest-project"`) owns a Library, project variables and chapters. The Library contains three explicit card kinds:
+Project JSON v2 (`kind: "nest-project"`) owns a Library, project variables and chapters. The Library contains four explicit card kinds:
 
 - **Narrative**: description, artwork, optional visible heading and effects. Linear nodes use narrative cards; Containers use one as their introduction.
+- **Caption**: text presented without artwork, for short passages in Linear sequences.
 - **Action**: name, description, artwork, requirements, costs, effects and Direct or Check resolution. Fork nodes place actions.
 - **Item**: name, description, artwork, collection effects and optional consumable use rules. Each Container item card grants one item. Repeated collection of the same definition does not stack.
 
@@ -20,7 +21,7 @@ Artwork is stored as a path, not embedded in JSON. **Choose image file** matches
 
 ## Chapter graph
 
-Choose a chapter or add one. Linear nodes place an ordered list of Narrative cards. Fork nodes show Narrative or Action choices directly. Narrative choices have a single branch exit and apply effects only when selected; Action choices may add requirements, costs and checks. The source picker lists both kinds, and **Add narrative** creates a custom Narrative choice. Containers have a **Show introduction** toggle (enabled by default). Disabling it retains the introduction and its settings, skips its effects, and opens directly onto items. With the introduction enabled, Containers reveal Item cards with one upward swipe and require every presented item to be taken downward or discarded upward. Drag an output connector or existing wire onto a destination node, or click an output and then its destination. Canceling or dropping onto empty space leaves the old connection intact. Connections can also be edited in the inspector; choose **End chapter** to store a `null` target. Completion stops the deck and leaves restart controls outside it. There is no automatic next-chapter destination.
+Choose a chapter or add one. Linear nodes place an ordered list of Beat, Caption, Action or Item cards. Fork nodes show Narrative or Action choices directly. Narrative choices have a single branch exit and apply effects only when selected; Action choices may add requirements, costs and checks. The source picker lists both kinds, and **Add narrative** creates a custom Narrative choice. Containers have a **Show introduction** toggle (enabled by default). Disabling it retains the introduction and its settings, skips its effects, and opens directly onto items. With the introduction enabled, Containers reveal Item cards with one upward swipe. Take selected items downward, or swipe upward to leave and discard all remaining items. Drag an output connector or existing wire onto a destination node, or click an output and then its destination. Canceling or dropping onto empty space leaves the old connection intact. Connections can also be edited in the inspector; choose **End chapter** to store a `null` target. Completion stops the deck and leaves restart controls outside it. There is no automatic next-chapter destination.
 
 A new Random node chooses one eligible, weighted destination on the canvas. Route conditions filter the candidates; the fallback handles no eligible route. Playback then follows the selected node's own connections. Random does not regain control or count repeated encounters. Imported `legacyPool` nodes keep the old weighted sequence-pool selection count and return behavior. Imported `legacySequence` nodes preserve old internal fork topology; their inspector exposes the shared definitions rather than rewriting their behavior.
 
@@ -28,9 +29,9 @@ Direct actions have one connector. Check actions have **Success** and **Failure*
 
 ## Inventory and playback
 
-**Play chapter** and **Play selected** use a snapshot. Stop releases the session; Restart begins a fresh run. Up advances/chooses or discards a container item; Down/Enter takes an item; Left/Right browse; Escape cancels a gesture or an active check. Canceled gestures change no state. Item ownership and collection effects commit only when the take departure completes. Discard applies no collection effects. The final item stages the next card using predicted post-collection state.
+**Play chapter** and **Play selected** use a snapshot. Stop releases the session; Restart begins a fresh run. Up advances/chooses or leaves an open container; Down/Enter takes an item; Left/Right browse; Escape cancels a gesture or an active check. Canceled gestures change no state. Item ownership and collection effects commit only when the take departure completes. Leaving discards the remaining items without collection effects and preserves items already owned. Item cards in Linear sequences discard individually. The final item stages the next card using predicted post-collection state.
 
-Inventory stacks shared definitions and shows quantities. Select a collected item to inspect it. A consumable's **Use one** consumes exactly one copy and applies its use effects atomically when its conditions pass. Using at a resource maximum still consumes the copy; bounds clamp the effect. Use is blocked during transitions, checks and after completion. Key/collectible items have no Use action. Inventory and variables reset on restart or reload; equipping and combat are deferred.
+Inventory owns each Item definition at most once. Select a collected item to inspect it. A consumable's **Use** removes ownership and applies its use effects atomically when its conditions and routing pass. Using at a resource maximum still consumes ownership; bounds clamp the effect. Use is blocked during transitions, checks and after completion. Key/collectible items have no Use action. Inventory and variables reset on restart or reload; equipping and combat are deferred.
 
 ## Saving, migration and files
 
