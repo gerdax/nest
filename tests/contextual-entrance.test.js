@@ -274,13 +274,13 @@ test('a new ordinary choice alongside an incoming contextual card gets a valid p
  settle();assert.equal(deck.content.actions[deck.index].id,'pick');dispose(deck);
 });
 
-test('ordinary choice hint completes before contextual entrance and never repeats afterward',()=>{
+test('ordinary choice hint hands off at fan rest before contextual entrance and never repeats afterward',()=>{
  const deck=make(4,choices([ordinary('open'),ordinary('leave'),contextual('pick'),contextual('key')]));
  deck.setOpen(true);deck.schedule();until(()=>!!deck.presentationHint);
  assert.equal(deck.entranceTransition,null);assert.equal(deck.content.actions[deck.index].id,'open');
  const phases=[];
  while(deck.presentationHint){phases.push(deck.presentationHint.stage);assert.ok([...deck.entrances.values()].every(entry=>entry.startAt===null));assert.equal(cardPose(deck,2).visible,false);step();}
- assert.ok(phases.includes('out'));assert.ok(phases.includes('hold'));assert.ok(phases.includes('return'));
+ assert.ok(phases.includes('out'));assert.ok(phases.includes('hold'));assert.equal(phases.includes('return'),false,'inventory handoff does not wait through the hint return');
  until(()=>deck.phase==='inserting');assert.equal(deck.presentationBrowsePending,false);
  while(deck.entranceTransition){assert.equal(deck.presentationHint,null);step();}
  settle();assert.equal(deck.content.actions[deck.index].id,'key');assert.equal(deck.presentationHint,null);dispose(deck);
@@ -354,4 +354,112 @@ test('first contextual card waits 200ms after the hint before starting its slide
  step(2);assert.equal(deck.entrances.get('pick').startAt,sequenceStart+200);
  assert.equal(deck.entranceNextAt,sequenceStart+200+120);
  settle();assert.equal(deck.content.actions[deck.index].id,'key');dispose(deck);
+});
+
+for(const ordinaryCount of [1,2,3])test(`pending inventory cards do not affect ${ordinaryCount} ordinary hint slots`,()=>{
+ const base=Array.from({length:ordinaryCount},(_,i)=>ordinary(`base-${i}`));
+ const incoming=[contextual('inventory-before'),base[0],contextual('inventory-middle'),...base.slice(1),contextual('inventory-after')];
+ const reference=make(ordinaryCount,choices(base)),deck=make(incoming.length,choices(incoming));
+ for(const d of [reference,deck]){
+  d.replaceContent(d.content,{presentation:'open'});d.fan.x=d.fan.target=1;
+  d.presentationHint={travel:{x:.8,v:0,target:.8},stage:'hold',holdUntil:now+100000};
+ }
+ for(let i=0;i<base.length;i++)samePose(cardPose(deck,incoming.findIndex(a=>a.id===base[i].id)),cardPose(reference,i),'pending cards excluded from hint geometry');
+ deck.presentationHint=null;reference.presentationHint=null;
+ const stable=new Map(base.map(a=>[a.id,cardPose(deck,incoming.findIndex(b=>b.id===a.id))]));
+ deck.beginEntrances('reveal');deck.startNextEntrance(now);
+ for(const a of base)samePose(cardPose(deck,incoming.findIndex(b=>b.id===a.id)),stable.get(a.id),'arrival reflows without jumping survivors');
+ dispose(reference);dispose(deck);
+});
+test('show-once fork repeats the same ordinary hint before inventory choices enter',()=>{
+ const ordinaryActions=[{id:'open',kind:'action',name:'Open'},{id:'leave',kind:'action',name:'Leave'}];
+ const itemAction={id:'use-key',kind:'action',name:'Use key',contextItemId:'key',entrance:'bottom'};
+ const nodes=[{id:'door',type:'fork',introOnce:true,intro:{id:'intro',kind:'narrative',text:'A door',effects:[{op:'addItem',key:'key'}]},choices:[...ordinaryActions,itemAction],connections:{open:'again',leave:'again','use-key':'again'}},{id:'again',type:'linear',cards:[{id:'return',kind:'narrative',text:'Return to the door'}],connections:{next:'door'}}];
+ const deck=make(1,choices([ordinary('loading')]));const controller=new ProjectController(deck,{startNode:'door',nodes,variables:[],library:[{id:'key',kind:'item',name:'Key'}]});
+ assert.equal(deck.content.actions.length,2);deck.setOpen(true);deck.schedule();until(()=>deck.presentationHint?.stage==='hold');
+ // Compare equivalent fan/hint progress, independent of cover vs flip timing.
+ deck.fan.x=1;deck.presentationHint.travel.x=.95;
+ const first=ordinaryActions.map(a=>cardPose(deck,deck.content.actions.findIndex(b=>b.id===a.id)));
+ settle();assert.equal(deck.content.actions.length,3);
+ while(deck.content.actions[deck.index].id!=='open'){key(deck,'ArrowRight');settle();}
+ key(deck,'ArrowUp');settle();assert.equal(controller.state.activeNodeId,'again');
+ key(deck,'ArrowUp');until(()=>deck.presentationHint?.stage==='hold');
+ assert.equal(controller.state.activeNodeId,'door');assert.equal(deck.skipCover,true);assert.equal(deck.entrances.get('use-key').startAt,null);
+ deck.fan.x=1;deck.presentationHint.travel.x=.95;
+ ordinaryActions.forEach((a,i)=>samePose(cardPose(deck,deck.content.actions.findIndex(b=>b.id===a.id)),first[i],'repeat visit matches intro hint'));
+ settle();assert.equal(deck.content.actions[deck.index].id,'use-key');assert.equal(deck.presentationHint,null);assert.equal(controller.state.idle,true);dispose(deck,controller);
+});
+
+for(const path of ['introduction','coverless-flip'])test(`${path} starts hint during fan opening and retains the 200ms inventory pause`,()=>{
+ const actions=[ordinary('open'),ordinary('leave'),contextual('pick'),contextual('key')];
+ const deck=make(path==='introduction'?4:1,choices(path==='introduction'?actions:[ordinary('old')]));
+ if(path==='introduction'){deck.setOpen(true);deck.schedule();}
+ else{ready(deck);deck.addEventListener('commit',()=>deck.replaceContent({...choices(actions),decisionOnly:true},{presentation:'open'}));deck.commit();}
+ until(()=>!!deck.presentationHint);
+ assert.ok(deck.fan.x>=.35&&deck.fan.x<1,'hint overlaps fan opening');
+ if(path==='coverless-flip'){
+  assert.equal(deck.commitMotion,null);assert.equal(deck.phase,'committing');assert.equal(deck.busy,true);
+  assert.ok(deck.flip.x>0&&deck.flip.x<=.5,'hint starts with visible fronts before the flip finishes');assert.equal(deck.start(),false);
+ }
+ assert.equal(deck.entranceTransition,null);assert.equal(deck.entrances.get('pick').startAt,null);
+ step();assert.equal(deck.presentationHint.startAt,now+100,'same initial hint pause');
+ while(deck.presentationHint){assert.equal(deck.entrances.get('pick').startAt,null);step();}
+ until(()=>deck.phase==='inserting');const start=now;
+ assert.equal(deck.entranceNextAt,start+200);
+ for(let i=0;i<12;i++)step(16);step(7);assert.equal(deck.entrances.get('pick').startAt,null);step(1);assert.equal(deck.entrances.get('pick').startAt,start+200);assert.equal(deck.flip.x,0,'flip finishes before first item moves');
+ settle();assert.equal(deck.content.actions[deck.index].id,'key');assert.equal(deck.presentationHint,null);assert.equal(deck.busy,false);dispose(deck);
+});
+
+test('inventory handoff preserves the current hint poses while starting its pause',()=>{
+ const deck=make(3,choices([ordinary('open'),ordinary('leave'),contextual('pick')]));deck.setOpen(true);deck.schedule();until(()=>deck.presentationHint?.stage==='hold');
+ const before=deck.content.actions.slice(0,2).map((_,i)=>cardPose(deck,i));
+ deck.handoffEntrances('reveal');
+ assert.equal(deck.presentationHint,null);assert.equal(deck.entranceNextAt,now+200);assert.equal(deck.entrances.get('pick').startAt,null);
+ before.forEach((pose,i)=>samePose(cardPose(deck,i),pose,'hint cutoff preserves pose'));
+ settle();assert.equal(deck.phase,'choices');assert.equal(deck.content.actions[deck.index].id,'pick');dispose(deck);
+});
+for(const variant of ['intro-adds-item','already-owned','intro-unlocks-action'])test(`natural first/repeat inventory handoff timing matches: ${variant}`,()=>{
+ const unlock=variant==='intro-unlocks-action';
+ const effects=variant==='intro-adds-item'?[{op:'addItem',key:'key'}]:unlock?[{op:'set',key:'flag',value:true}]:[];
+ const nodes=[{id:'door',type:'fork',introOnce:true,intro:{id:'intro',kind:'event',text:'A door',effects},choices:[{id:'open',kind:'action',name:'Open',...(unlock?{conditions:[{source:'variable',key:'flag',op:'eq',value:true}]}:{})},{id:'leave',kind:'action',name:'Leave'},{id:'use-key',kind:'action',name:'Use key',contextItemId:'key',entrance:'bottom'}],connections:{open:'again',leave:'again','use-key':'again'}},{id:'again',type:'linear',cards:[{id:'return',kind:'event',text:'Return'}],connections:{next:'door'}}];
+ const deck=make(1,choices([ordinary('loading')]));const controller=new ProjectController(deck,{startNode:'door',nodes,variables:[{id:'flag',type:'flag',initial:false}],library:[{id:'key',kind:'item',name:'Key'}]});
+ if(variant!=='intro-adds-item'){controller.inventory=[{id:'key',definitionId:'key',kind:'item',name:'Key'}];controller.show({restore:true});}
+ let reveals=0,revealCompletions=0,commitCompletions=0;deck.addEventListener('reveal',()=>reveals++);
+ deck.addEventListener('transitioncomplete',e=>{if(e.detail.transition==='reveal')revealCompletions++;if(e.detail.transition==='commit')commitCompletions++;});
+ const measure=()=>{
+  until(()=>!!deck.presentationHint);const hintAt=now;
+  until(()=>deck.phase==='inserting');const handoff=now;
+  assert.equal(deck.presentationHint,null);assert.equal(deck.fan.x,1);
+  assert.equal(deck.entranceNextAt,handoff+200,'same pause after the handoff');
+  for(let i=0;i<12;i++)step(16);step(7);assert.equal(deck.entrances.get('use-key').startAt,null);step(1);
+  const slideAt=deck.entrances.get('use-key').startAt;assert.equal(slideAt,handoff+200);assert.equal(deck.flip.x,0,'items never enter before flip completion');
+  return {hintToHandoff:handoff-hintAt,hintToSlide:slideAt-hintAt};
+ };
+ deck.setOpen(true);deck.schedule();const first=measure();settle();assert.equal(revealCompletions,1);
+ while(deck.content.actions[deck.index].id!=='open'){key(deck,'ArrowRight');settle();}
+ key(deck,'ArrowUp');settle();assert.equal(controller.state.activeNodeId,'again');key(deck,'ArrowUp');const repeat=measure();
+ assert.ok(first.hintToHandoff<800&&repeat.hintToHandoff<800,'neither visit waits for the full 1.5-second hint cycle');
+ assert.ok(Math.abs(repeat.hintToSlide-first.hintToSlide)<=64,`comparable opening cadence: ${JSON.stringify({first,repeat})}`);
+ settle();assert.equal(revealCompletions,1);assert.equal(commitCompletions,2,'one completion per actual node advance');assert.equal(reveals,1,'show-once intro accepted only once');assert.equal(deck.content.actions[deck.index].id,'use-key');assert.equal(controller.state.idle,true);dispose(deck,controller);
+});
+
+test('slow destination flip uses the existing entrance deadline and never hints after insertion',()=>{
+ const deck=make(1,choices([ordinary('old')]));ready(deck);deck.updateSettings({angularStiffness:60,angularDamping:80});
+ let completions=0;deck.addEventListener('transitioncomplete',e=>{if(e.detail.transition==='commit')completions++;});
+ deck.addEventListener('commit',()=>deck.replaceContent({...choices([ordinary('open'),ordinary('leave'),contextual('pick'),contextual('key')]),decisionOnly:true},{presentation:'open'}));
+ deck.commit();until(()=>deck.phase==='inserting');const deadline=deck.entranceNextAt;
+ assert.equal(deck.presentationBrowsePending,false,'pre-entry hint is consumed even if fronts emerge slowly');
+ until(()=>now>=deadline);assert.equal(deck.atRest(deck.flip),false);assert.equal(deck.entrances.get('pick').startAt,null);assert.equal(deck.start(),false);
+ while(!deck.atRest(deck.flip)){
+  step();if(!deck.atRest(deck.flip)){assert.equal(deck.entrances.get('pick').startAt,null);assert.equal(deck.entranceNextAt,deadline,'deadline is not restarted');}
+ }
+ assert.equal(deck.entrances.get('pick').startAt,now,'first item starts immediately when the flip finishes');assert.equal(deck.n.x,0);
+ settle();assert.equal(completions,1);assert.equal(deck.content.actions[deck.index].id,'key');assert.equal(deck.presentationHint,null);assert.equal(deck.presentationBrowsePending,false);assert.equal(deck.busy,false);dispose(deck);
+});
+
+test('intro-unlocked inventory after one ordinary action does not cause a late hint',()=>{
+ const nodes=[{id:'door',type:'fork',introOnce:true,intro:{id:'intro',kind:'event',text:'Door',effects:[{op:'addItem',key:'key'}]},choices:[{id:'open',kind:'action',name:'Open'},{id:'use-key',kind:'action',name:'Use key',contextItemId:'key',entrance:'bottom'}],connections:{}}];
+ const deck=make(1,choices([ordinary('loading')]));const controller=new ProjectController(deck,{startNode:'door',nodes,variables:[],library:[{id:'key',kind:'item',name:'Key'}]});
+ deck.setOpen(true);deck.schedule();until(()=>deck.phase==='inserting');assert.equal(deck.presentationHint,null);assert.equal(deck.presentationBrowsePending,false);
+ settle();assert.equal(deck.content.actions[deck.index].id,'use-key');assert.equal(deck.presentationHint,null);assert.equal(controller.state.idle,true);dispose(deck,controller);
 });

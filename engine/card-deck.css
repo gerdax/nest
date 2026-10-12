@@ -212,6 +212,7 @@
 }
 .nest-card[data-card-kind="item"] .nest-copy > p:not(.nest-card-summary) {
   font-size: var(--card-medium-size, 15px);
+  color: var(--card-medium-color, var(--card-text, #d2dfb6));
   line-height: 1.35;
 }
 
@@ -231,4 +232,19 @@
   font-size: var(--card-small-size, 12px);
   line-height: 1.2;
   margin: 0 0 6px;
+}
+
+/* Inventory actions read as action first, then supporting Medium-style text. */
+.nest-card[data-inventory-action="true"] .nest-copy p.nest-card-summary,
+.nest-card[data-inventory-action="true"] .nest-copy p.nest-card-inventory {
+  font-family: var(--card-font, NestLetter, monospace);
+  font-size: var(--card-medium-size, 15px);
+  font-weight: normal;
+  line-height: 1.35;
+  color: var(--card-medium-color, var(--card-text, #d2dfb6));
+  margin: 12px 0 0;
+}
+
+.nest-card[data-inventory-action="true"] .nest-copy p.nest-card-summary + p.nest-card-inventory {
+  margin-top: 0;
 }

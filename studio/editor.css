@@ -50,3 +50,7 @@ header { flex-wrap:wrap; }
 .card-name-heading { display:flex;align-items:center;justify-content:space-between;gap:12px;color:#a9b9b7; }
 .card-name-heading label.field { margin:0;font-size:12px; }
 .card-name-heading .check-field { display:flex;align-items:center;gap:6px; }
+
+.card-style-row {display:grid;grid-template-columns:minmax(0,1fr) 116px;gap:14px;align-items:end;}
+.card-style-row .field {min-width:0;}
+.card-style-color input {font-family:monospace;}

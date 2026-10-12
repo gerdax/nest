@@ -142,6 +142,8 @@ export function decorateCard(deck, element, image, title, text, flipImage = fals
   if (scale !== 100) transforms.push(`scale(${scale / 100})`);
   if (flipImage) transforms.push('scaleX(-1)');
   artwork.style.transform = caption ? '' : transforms.join(' ');
+  const inventoryAction = presentation.cardKind === 'action' && !!presentation.inventoryLabel;
+  element.setAttribute('data-inventory-action', String(inventoryAction));
   const copy = document.createElement('div');
   copy.className = 'nest-copy';
   element.setAttribute('data-card-kind', presentation.cardKind || 'narrative');
@@ -153,6 +155,7 @@ export function decorateCard(deck, element, image, title, text, flipImage = fals
   const body = document.createElement('p');
   body.textContent = text || '';
   copy.append(heading);
+  if (inventoryAction) copy.append(body);
   if (presentation.summary) {
     const summary = document.createElement('p');
     summary.className = 'nest-card-summary';
@@ -165,7 +168,7 @@ export function decorateCard(deck, element, image, title, text, flipImage = fals
     source.textContent = presentation.inventoryLabel;
     copy.append(source);
   }
-  copy.append(body);
+  if (!inventoryAction) copy.append(body);
   element.append(copy, artwork, cardTexture());
   if (['action','item'].includes(presentation.cardKind)) {
     const typeLabel = document.createElement('span');
@@ -223,12 +226,12 @@ export function scenePose(deck, time = performance.now()) {
   return pose;
 }
 
-function orbitRadius(deck, width, height) {
-  if (deck.cards.length < 2) return 18;
-  const key = [width, height, deck.cards.length, deck.settings.perspective, deck.settings.stackDepth, deck.settings.maxTilt].join(':');
+function orbitRadius(deck, width, height, count = deck.cards.length) {
+  if (count < 2) return 18;
+  const key = [width, height, count, deck.settings.perspective, deck.settings.stackDepth, deck.settings.maxTilt].join(':');
   if (deck.orbitKey !== key) {
     deck.orbitKey = key;
-    deck.orbitRadius = handoffRadius(deck.cards.length, width, height, deck.settings);
+    deck.orbitRadius = handoffRadius(count, width, height, deck.settings);
   }
   return deck.orbitRadius;
 }
@@ -236,7 +239,7 @@ function orbitRadius(deck, width, height) {
 export function cardPose(deck, index, time = performance.now()) {
   const bounds = deck.mount.getBoundingClientRect();
   const width = Math.max(1, bounds.width), height = Math.max(1, bounds.height);
-  const cursor = deck.commitMotion ? deck.commitMotion.browse : deck.b.x;
+  let cursor = deck.commitMotion ? deck.commitMotion.browse : deck.b.x;
   const action = deck.content.actions[index];
   const frozen = deck.liftPoses?.get(action.id);
   if (frozen) {
@@ -254,9 +257,16 @@ export function cardPose(deck, index, time = performance.now()) {
     pose.z += deck.grabAmount(action.id);
     return pose;
   }
-  const pose = carouselPose(index, cursor, deck.cards.length, width, deck.settings, orbitRadius(deck, width, height));
+  // Cards waiting below the deck do not occupy slots until their entrance starts.
+  const presented = deck.content.actions.flatMap((a, i) => deck.entrances.get(a.id)?.startAt === null ? [] : [i]);
+  const count = Math.max(1, presented.length);
+  const slot = Math.max(0, presented.indexOf(index));
+  const selectedSlot = Math.max(0, presented.indexOf(deck.index));
+  if (count !== deck.cards.length) cursor = selectedSlot;
+  const radius = orbitRadius(deck, width, height, count);
+  const pose = carouselPose(slot, cursor, count, width, deck.settings, radius);
   const fan = clamp(deck.fan.x, 0, 1);
-  const rank = ((index - deck.index) % deck.cards.length + deck.cards.length) % deck.cards.length;
+  const rank = ((slot - selectedSlot) % count + count) % count;
   const compressedZ = 4 - deck.n.x * 40 - rank * deck.settings.stackDepth;
   pose.scale = deck.skipCover || deck.reduced ? 1
     : revealScale(height - projectedBounds(scenePose(deck, time), width, height, deck.settings.perspective).bottom, height, deck.settings);
@@ -271,7 +281,6 @@ export function cardPose(deck, index, time = performance.now()) {
   pose.rx = fan * deck.rotationX.x * rotationWeight + clamp(deck.rotationX.x * underlyingWeight, -.9, .9);
   pose.ry = fan * (pose.ry + deck.rotationY.x * rotationWeight) + clamp(deck.rotationY.x * underlyingWeight, -.9, .9);
   pose.rz = fan * (pose.rz + deck.rotationZ.x * rotationWeight) + clamp(deck.rotationZ.x * underlyingWeight, -.9, .9);
-  const presented = deck.presentationHint ? deck.content.actions.flatMap((action, i) => deck.entrances.get(action.id)?.startAt === null ? [] : [i]) : [];
   if (deck.presentationHint && presented.length > 1 && presented.includes(index)) {
     const progress = clamp(deck.presentationHint.travel.x, 0, 1);
     const radius = handoffRadius(2, width, height, deck.settings);
@@ -289,7 +298,7 @@ export function cardPose(deck, index, time = performance.now()) {
     } else {
       // Keep left-hand followers moving left and right-hand followers right.
       // Additional followers interpolate between the familiar two-card motions.
-      const followers = presented.map(i => ({ i, x: carouselPose(i, deck.index, deck.cards.length, width, deck.settings).x }))
+      const followers = presented.map(i => ({ i, x: carouselPose(presented.indexOf(i), selectedSlot, count, width, deck.settings, radius).x }))
         .filter(card => card.i !== deck.index).sort((a, b) => a.x - b.x || a.i - b.i);
       const weight = followers.findIndex(card => card.i === index) / (followers.length - 1);
       for (const field of ['x', 'ry', 'rz']) pose[field] += (endpoints[0][field] * (1 - weight) + endpoints[1][field] * weight) * fan;
@@ -421,8 +430,10 @@ export function renderDeck(deck, time = performance.now()) {
 
 function renderStagedActions(deck, bundle, baseOrder, visible, y = 0, z = -36, scale = 1, turn = 0, suppressEntrances = false) {
   if (!bundle) return;
+  const presented = bundle.content.actions.flatMap((action, i) => suppressEntrances && action.entrance === 'bottom' ? [] : [i]);
+  const count = Math.max(1, presented.length), selectedSlot = Math.max(0, presented.indexOf(bundle.selectedIndex));
   bundle.cards.forEach((card, index) => {
-    const rank = (index - bundle.selectedIndex + bundle.cards.length) % bundle.cards.length;
+    const rank = (Math.max(0, presented.indexOf(index)) - selectedSlot + count) % count;
     const pose = { x: 0, y, z: z - rank * deck.settings.stackDepth, rx: 0, ry: 0, rz: 0, scale, visible: visible && !(suppressEntrances && bundle.content.actions[index].entrance === 'bottom'), turn, turnAxis: deck.settings.flipAxisTilt };
     const order = baseOrder + bundle.cards.length - rank;
     applyPose(deck, card, bundle.cardLayers[index], bundle.content.actions[index].faceDown ? backPose(pose) : pose, order);

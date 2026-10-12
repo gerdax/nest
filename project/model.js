@@ -2,6 +2,7 @@ import { cardKinds, createDefinition, resolvePlacement, canonicalCardKind, allow
 import { parseChapter } from '../chapter/model.js';
 import { definitionGraph } from './dependencies.js';
 import { nodeOutputs, nodeTypeDescriptor } from './nodeTypes.js';
+import { isCardColor } from './card-styles.js';
 export const cloneProject = value => JSON.parse(JSON.stringify(value));
 const object = v => v !== null && typeof v === 'object' && !Array.isArray(v);
 const named = v => typeof v === 'string' && !!v.trim();
@@ -106,7 +107,13 @@ export function validateProject(project,{allowDraft=false}={}) {
  const errors=[];const add=(message,chapterId,nodeId)=>errors.push({message,...(chapterId?{chapterId}:{}),...(nodeId?{nodeId}:{})});
  if(!object(project))return [{message:'Project must be an object.'}];
  if(project.version!==2 || project.kind!=='nest-project')add('Project needs version 2 and kind nest-project.');
- if(project.cardStyles!==undefined&&(!object(project.cardStyles)||Object.entries(project.cardStyles).some(([key,value])=>!['small','big','medium'].includes(key)||!Number.isFinite(value)||value<6||value>72)))add('Invalid card text style sizes.');
+ if(project.cardStyles!==undefined){
+  if(!object(project.cardStyles))add('Invalid card text style sizes.');
+  else for(const [key,value] of Object.entries(project.cardStyles)){
+   if(['smallColor','bigColor','mediumColor'].includes(key)){if(!isCardColor(value))add('Invalid card text style colors.');}
+   else if(!['small','big','medium'].includes(key)||!Number.isFinite(value)||value<6||value>72)add('Invalid card text style sizes.');
+  }
+ }
  if(!named(project.id)||!named(project.name))add('Project needs an ID and name.');
  for(const key of ['library','variables','chapters'])if(!Array.isArray(project[key]))add(`${key} must be a list.`);
  const library=Array.isArray(project.library)?project.library:[],variables=Array.isArray(project.variables)?project.variables:[],chapters=Array.isArray(project.chapters)?project.chapters:[];

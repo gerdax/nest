@@ -154,7 +154,7 @@ test('keyboard reveal, browse, and departure retain baseline depth without picku
 });
 
 test('closing an accepted uncover before clearance releases cover pickup', () => {
-  const d = make(); d.content.allowClose = true; d.start(); d.move(g(-110)); step(10); d.end(g(-110));
+  const d = make(); d.content.allowClose = true; d.start(); d.move(g(-150)); step(10); d.end(g(-150));
   assert.equal(d.phase, 'revealing'); assert.equal(d.grabCover.target, 24);
   key(d, 'ArrowDown'); assert.equal(d.phase, 'closing'); assert.equal(d.grabCover.target, 0);
   settle(); assert.equal(d.phase, 'closed'); assert.equal(d.grabAmount(), 0); dispose(d);

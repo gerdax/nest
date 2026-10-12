@@ -1,4 +1,4 @@
-import { applyCardStyles } from '../project/card-styles.js';
+import { applyCardStyles, parseCardColor } from '../project/card-styles.js';
 import { artworkSettings, parseArtworkSettings } from './artwork-settings.js';
 import { DocumentHistory } from '../editor/DocumentHistory.js';
 import { createDefinition, allowedCardKinds, cardKinds } from '../project/cards.js';
@@ -90,6 +90,11 @@ function scopeRoot(scope,element){
  if(scope==='placement')return findPlacement(node(),element.closest('[data-placement]')?.dataset.placement);
 }
 function changeField(event){const el=event.target,path=el.dataset.path,scope=el.dataset.scope;if(!path)return;
+ const colorField=el.matches('[data-card-style-color]');let color;
+ if(colorField){
+  try{color=el.value.trim()?parseCardColor(el.value):undefined;el.setCustomValidity('');}
+  catch{el.setCustomValidity('Enter a 3- or 6-digit hex color, such as #A9BB86.');el.reportValidity();return;}
+ }
  edit(()=>{
   if(scope==='connection'){setConnection(node(),path,el.value||null);return;}
   if(scope==='initial-toggle'){chapter().initialValues||={};if(el.checked)chapter().initialValues={...chapter().initialValues,[path]:project.variables.find(v=>v.id===path).initial};else delete chapter().initialValues[path];return;}
@@ -98,7 +103,9 @@ function changeField(event){const el=event.target,path=el.dataset.path,scope=el.
   if(scope==='node'&&path==='introEnabled'&&el.checked&&root.type==='fork'&&!root.intro)root.intro=makePlacement(project,'event');
   if(scope==='placement'&&path==='definitionId'){setCardSource(project,root,el.value,{allowedKinds:allowedCardKinds(node().type,node().intro===root?'intro':node().type==='container'?'items':'cards')});return;}
   if(path==='itemBehaviour'){if(el.value==='consumable')root.use={effects:[],conditions:[]};else delete root.use;return;}
-  const {parent,key}=pathTarget(root,path);let value=el.type==='checkbox'?el.checked:['number','range'].includes(el.type)||key==='sides'?Number(el.value):el.value;
+  const {parent,key}=pathTarget(root,path);
+  if(colorField){if(color===undefined)delete parent[key];else parent[key]=color;return;}
+  let value=el.type==='checkbox'?el.checked:['number','range'].includes(el.type)||key==='sides'?Number(el.value):el.value;
   if((['value','initial'].includes(key)||path.startsWith('initialValues.'))&&['true','false'].includes(value))value=value==='true';
   if(el.type==='number'&&el.value===''){delete parent[key];return;}
   if(['imageScale','imageOffsetX','imageOffsetY'].includes(key))value=Math.max(key==='imageScale'?10:-100,Math.min(key==='imageScale'?400:100,value));
@@ -112,9 +119,16 @@ function changeField(event){const el=event.target,path=el.dataset.path,scope=el.
 }
 for(const root of [$('#inspector'),$('#settings')])root.addEventListener('change',changeField);
 $('#settings').addEventListener('input',event=>{
- const el=event.target;if(!el.matches('[data-card-style-slider]'))return;
- el.closest('label').querySelector('output').textContent=`${el.value}px`;
- const styles={...project.cardStyles,[el.dataset.path.split('.')[1]]:Number(el.value)};
+ const el=event.target;
+ if(!el.matches('[data-card-style-slider],[data-card-style-color]'))return;
+ const styles={...project.cardStyles},key=el.dataset.path.split('.')[1];
+ if(el.matches('[data-card-style-color]')){
+  try{if(el.value.trim())styles[key]=parseCardColor(el.value);else delete styles[key];el.setCustomValidity('');}
+  catch{el.setCustomValidity('Enter a 3- or 6-digit hex color, such as #A9BB86.');return;}
+ }else{
+  el.closest('label').querySelector('output').textContent=`${el.value}px`;
+  styles[key]=Number(el.value);
+ }
  renderCardPreviews($('#inspector'),{...project,cardStyles:styles},node());applyCardStyles(preview.mount,styles);
 });
 $('#inspector').addEventListener('input',event=>{

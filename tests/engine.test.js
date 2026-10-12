@@ -24,7 +24,7 @@ test('axis waits for threshold and locks to dominant direction',()=>{assert.equa
 test('distance and directional flick acceptance',()=>{assert.equal(qualifies(47,0,340),false);assert.equal(qualifies(48,0,340),true);assert.equal(qualifies(-26,-800,453),true);assert.equal(qualifies(-26,800,453),false);assert.equal(qualifies(25,900,453),false)});
 test('resistance and settings validation',()=>{assert.equal(resistance(-1,0,2),-.22);assert.equal(resistance(3,0,2),2.22);assert.equal(settingsWith({mass:-1,stiffness:NaN}).stiffness,440);assert.ok(settingsWith({mass:0}).mass>0)});
 test('spring converges and long pauses stay finite',()=>{const s=spring(1);s.target=0;springStep(s,50,DEFAULT_SETTINGS);assert.ok(Number.isFinite(s.x));for(let i=0;i<300;i++)springStep(s,1/60,DEFAULT_SETTINGS);assert.equal(s.x,0);assert.equal(s.v,0)});
-test('partial reveal returns closed; full reveal emits once',()=>{const d=deck();let reveals=0;d.addEventListener('reveal',()=>reveals++);gesture(d,{axis:'y',x:0,y:-60,vx:0,vy:0});assert.equal(d.open,false);assert.equal(d.p.x,0);gesture(d,{axis:'y',x:0,y:-130,vx:0,vy:0});assert.equal(d.open,true);assert.equal(d.p.x,1);assert.equal(reveals,1);d.destroy()});
+test('partial reveal returns closed; full reveal emits once',()=>{const d=deck();let reveals=0;d.addEventListener('reveal',()=>reveals++);gesture(d,{axis:'y',x:0,y:-60,vx:0,vy:0});assert.equal(d.open,false);assert.equal(d.p.x,0);gesture(d,{axis:'y',x:0,y:-160,vx:0,vy:0});assert.equal(d.open,true);assert.equal(d.p.x,1);assert.equal(reveals,1);d.destroy()});
 function key(d,name){const event=new Event('keydown',{cancelable:true});Object.defineProperty(event,'key',{value:name});d.mount.dispatchEvent(event);settle(d)}
 const modulo=(value,n)=>((value%n)+n)%n;
 for(const count of [2,3,4]){
@@ -54,7 +54,7 @@ for(const count of [2,3,4]){
 test('close and reopen preserve the unbounded carousel cursor',()=>{
  const d=deck();d.setOpen(true);settle(d);for(let i=0;i<8;i++)key(d,'ArrowLeft');
  const cursor=d.b.target,selected=d.index;assert.equal(cursor,-8);gesture(d,{axis:'y',x:0,y:130,vx:0,vy:0});assert.equal(d.open,false);
- assert.equal(d.b.target,cursor);gesture(d,{axis:'y',x:0,y:-130,vx:0,vy:0});assert.equal(d.index,selected);assert.equal(d.b.x,cursor);assert.equal(d.b.target,cursor);d.destroy();
+ assert.equal(d.b.target,cursor);gesture(d,{axis:'y',x:0,y:-160,vx:0,vy:0});assert.equal(d.index,selected);assert.equal(d.b.x,cursor);assert.equal(d.b.target,cursor);d.destroy();
 });
 test('grabbing settling motion keeps current position and cancellation restores target',()=>{const d=deck();d.p.x=.45;d.p.target=0;d.start();assert.equal(d.drag.p,.45);d.move({axis:'y',x:0,y:10,vx:0,vy:0});assert.ok(Math.abs(d.p.x-.45)<.05);d.cancel();settle(d);assert.equal(d.p.x,0);assert.equal(d.fan.x,0);d.destroy()});
 test('commit emits once, queues host content, then reveals next deck',()=>{for(let index=0;index<4;index++){const d=deck(4);ready(d);d.index=index;d.b.x=index;d.b.target=index;let commits=0;d.addEventListener('commit',e=>{commits++;assert.equal(e.detail.index,index);d.replaceContent(fixture(2))});d.commit();d.commit();assert.equal(d.busy,true);d.tick(d.commitMotion.start+1000);settle(d);assert.equal(commits,1);assert.equal(d.content.id,'fixture2');assert.equal(d.open,false);assert.equal(d.busy,false);assert.equal(d.cards.length,2);d.destroy()}});
@@ -230,14 +230,14 @@ test('a closing drag can reverse through zero into an upward commit',()=>{
  const d=deck();ready(d);let commits=0;d.addEventListener('commit',()=>commits++);d.start();
  d.move({axis:'y',x:0,y:500,vx:0,vy:0});assert.equal(d.fan.x,0);
  d.move({axis:'y',x:0,y:0,vx:0,vy:0});assert.equal(d.fan.x,1);assert.ok(footprint(d,renderer.scenePose(d)).bottom<=-8);
- const gesture={axis:'y',x:0,y:-130,vx:0,vy:0};d.move(gesture);d.end(gesture);
+ const gesture={axis:'y',x:0,y:-160,vx:0,vy:0};d.move(gesture);d.end(gesture);
  assert.equal(commits,1);assert.equal(d.phase,'committing');assert.equal(d.fan.x,1);assert.ok(d.commitMotion);d.destroy();
 });
 
 for(const count of [2,3,4])test(`${count} actions complete the captured preset reveal, browse, close, reopen and commit loop`,()=>{
  const d=deck(count);assert.deepEqual(d.settings,DEFAULT_SETTINGS);d.updateSettings({axisThreshold:27,distanceThreshold:.21,flickVelocity:375,commitDuration:190,perspective:1100});let commits=0;
  d.addEventListener('commit',()=>{commits++;d.replaceContent({...fixture(count),id:'next-preset',title:'Next preset situation'})});
- gesture(d,{axis:'y',x:0,y:-130,vx:0,vy:0});assert.equal(d.phase,'choices');
+ gesture(d,{axis:'y',x:0,y:-160,vx:0,vy:0});assert.equal(d.phase,'choices');
  for(let i=0;i<count+1;i++)key(d,'ArrowRight');for(let i=0;i<count+2;i++)key(d,'ArrowLeft');
  assert.equal(d.b.target,-1);assert.equal(d.index,count-1);
  key(d,'ArrowDown');assert.equal(d.phase,'closed');assert.equal(d.fan.x,0);
@@ -499,7 +499,7 @@ test('explicitly blank card artwork never inherits the introduction image, inclu
 });
 
 for(const mode of ['beat','caption','action','container','uncover'])test(`upward release distance increases while flicks stay unchanged: ${mode}`,()=>{
- for(const [distance,velocity,accepted] of [[-80,0,false],[-99,0,false],[-100,0,true],[-26,-800,true],[-25,-800,false],[-26,800,false]]){
+ for(const [distance,velocity,accepted] of [[-80,0,false],[-100,0,false],[-149,0,false],[-150,0,true],[-26,-800,true],[-25,-800,false],[-26,800,false]]){
   const content={...fixture(3),cardKind:mode==='caption'?'caption':'narrative',directAdvance:['beat','caption'].includes(mode),interaction:mode==='container'?'container':'choice',discardAll:mode==='container'};
   const d=new CardDeck(new Element(),{content});
   const open=['action','container'].includes(mode);if(open)ready(d);

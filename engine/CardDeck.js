@@ -588,7 +588,21 @@ export class CardDeck extends EventTarget {
   }
 
   advancePhases() {
-    if (this.drag || this.busy) return;
+    if (this.drag) return;
+    if (this.busy) {
+      // Match intro reveals: hint as the ordinary fan opens, rather than
+      // adding a full flip-settling wait before the inventory entrance pause.
+      if (this.phase === 'committing' && this.operation === 'commit' && !this.commitMotion
+        && this.open && this.content.interaction === 'choice' && this.content.decisionOnly && this.entrances.size) {
+        if (this.fan.x >= .35 && this.flip.x <= .5) this.browsePresentedStack({ beforeEntrance: true });
+        if (this.fan.x === 1 && this.atRest(this.fan)) {
+          const transition = this.commitTransition;
+          this.commitTransition = 'commit';
+          this.handoffEntrances(transition);
+        }
+      }
+      return;
+    }
     if (this.open && this.sourceFloor && this.p.x < this.sourceFloor) {
       this.p.x = this.sourceFloor;
       this.p.v = Math.max(0, this.p.v);
@@ -603,7 +617,8 @@ export class CardDeck extends EventTarget {
       if (this.fan.x >= .35 && this.cards.length > 1) this.browsePresentedStack();
       if (this.fan.x === 1 && this.atRest(this.fan)) {
         if (this.entrances.size) {
-          if (!this.presentationHint) this.beginEntrances('reveal');
+          if (this.content.interaction === 'choice') this.handoffEntrances('reveal');
+          else if (!this.presentationHint) this.beginEntrances('reveal');
         }
         else this.completePhase('choices', 'reveal');
       }
@@ -977,6 +992,19 @@ export class CardDeck extends EventTarget {
     this.entranceAnnouncement = '';
   }
 
+  handoffEntrances(transition) {
+    this.presentationBrowsePending = false;
+    if (this.presentationHint) {
+      // Introduction reconciliation already uses this handoff: retain the
+      // current hint poses, then reflow them during the inventory entrance pause.
+      const poses = new Map(this.content.actions.flatMap((action, index) =>
+        this.entrances.get(action.id)?.startAt === null ? [] : [[action.id, cardPose(this, index)]]));
+      this.presentationHint = null;
+      this.createReflow(poses);
+    }
+    this.beginEntrances(transition);
+  }
+
   beginEntrances(transition) {
     this.entranceTransition = transition;
     this.phase = 'inserting';
@@ -1003,15 +1031,17 @@ export class CardDeck extends EventTarget {
     this.reflowOrder = order;
     this.index = this.content.actions.findIndex(action => action.id === id);
     this.b = spring(this.index);
-    this.createReflow(poses);
     entry.startAt = time;
+    this.createReflow(poses);
     entry.travel.target = 0;
     this.entranceActiveId = id;
     this.entranceNextAt = time + 120;
   }
 
   advanceEntrances(time) {
-    if (!this.entranceTransition) return;
+    // The fixed pause can overlap residual flip/depth motion, but an arriving
+    // card must wait for both to finish. Never restart the pause after they settle.
+    if (!this.entranceTransition || !this.atRest(this.flip) || !this.atRest(this.n)) return;
     const stackSettled = [...this.reflowOffsets.values()].every(offset => Object.values(offset).every(state => this.atRest(state)));
     for (const entry of this.entrances.values()) {
       if (entry.startAt !== null && this.atRest(entry.travel)) entry.landed = true;
@@ -1081,7 +1111,7 @@ export class CardDeck extends EventTarget {
     const oldIds = new Set(old.actions.map(a => a.id));
     this.prepareEntrances(actions.filter(a => a.entrance === 'bottom' && !oldIds.has(a.id)).map(a => a.id));
     this.createReflow(poses);
-    this.beginEntrances('actionschange');
+    this.handoffEntrances('actionschange');
     this.render();
     this.schedule();
   }
