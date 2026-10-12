@@ -83,18 +83,21 @@ test('inventory view displays owned item names, item count and a single Use acti
   dialog.nodes['[data-use]']=root.nodes['[data-use]'];
   dialog.nodes['[data-feedback]']=root.nodes['[data-feedback]'];
   const previousDocument=globalThis.document;
-  globalThis.document={createElement:()=>new Element()};
+  globalThis.document={createElement:()=>new Element(),body:new Element()};
   try {
     const view=new InventoryView(root);
     assert.match(root.innerHTML,/data-use>Use<\/button>/);
     assert.doesNotMatch(root.innerHTML,/data-count-detail|Use one/);
-    view.update([{...apple,definitionId:'apple',quantity:100,text:'Fresh.',use:{effects:[]}}]);
+    view.update([{...apple,definitionId:'apple',quantity:100,text:'Fresh.',image:'apple.png',flipImage:true,use:{effects:[]}}]);
     assert.equal(root.nodes['[data-count]'].textContent,'1');
     const button=root.nodes.ul.children[0].children[0];
     assert.equal(button.attributes['aria-label'],'Apple');
-    assert.equal(button.children[0].textContent,'Apple');
+    assert.equal(button.children[0].style.filter,'url("#nest-artwork-colorize")');
+    assert.equal(button.children[0].style.transform,'scaleX(-1)');
+    assert.equal(button.children[1].textContent,'Apple');
     button.onclick();
     assert.equal(dialog.nodes.h3.textContent,'Apple');
+    assert.equal(dialog.nodes.img.style.filter,'url("#nest-artwork-colorize")');
     assert.equal(dialog.nodes['[data-description]'].textContent,'Fresh.');
     assert.equal(dialog.nodes['[data-use]'].hidden,false);
     view.update([]);

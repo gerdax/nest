@@ -1,5 +1,6 @@
 import { handoffRadius, projectedBounds } from './geometry.js?v=no-ending-card-1';
 import { carouselPose, clamp, departureDistance, revealScale } from './motion.js?v=no-ending-card-1';
+import { applyArtworkColorize } from './artworkColorize.js';
 
 function flipped(action) { return !!action.flipImage; }
 
@@ -117,7 +118,10 @@ export function decorateCard(deck, element, image, title, text, flipImage = fals
   artwork.className = 'nest-artwork';
   artwork.setAttribute('aria-hidden', 'true');
   const caption = presentation.cardKind === 'caption';
-  if (image && !caption) artwork.style.backgroundImage = `url(${JSON.stringify(image)})`;
+  if (image && !caption) {
+    artwork.style.backgroundImage = `url(${JSON.stringify(image)})`;
+    applyArtworkColorize(artwork);
+  }
   const transforms = [];
   const scale = presentation.imageScale ?? 100, x = presentation.imageOffsetX ?? 0, y = presentation.imageOffsetY ?? 0;
   if (x || y) transforms.push(`translate(${x}%, ${y}%)`);

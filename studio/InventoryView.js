@@ -1,5 +1,6 @@
 import { conditionsMet } from '../project/state.js';
 import { cardSummary } from '../project/cards.js';
+import { applyArtworkColorize } from '../engine/artworkColorize.js';
 
 /** Inventory presentation; the controller alone mutates ownership and effects. */
 export class InventoryView {
@@ -42,6 +43,7 @@ export class InventoryView {
       button.setAttribute('aria-label', item.name || item.label);
       if (item.image) {
         const image = document.createElement('img'); image.src = item.image; image.alt = ''; image.draggable = false;
+        applyArtworkColorize(image);
         if (item.flipImage) image.style.transform = 'scaleX(-1)';
         button.append(image);
       }
@@ -56,6 +58,7 @@ export class InventoryView {
     if (!item) { if (this.dialog.open) this.dialog.close(); return; }
     this.dialog.querySelector('h3').textContent = item.name || item.label;
     const image = this.dialog.querySelector('img'); image.src = item.image || ''; image.hidden = !item.image;
+    applyArtworkColorize(image);
     image.style.transform = item.flipImage ? 'scaleX(-1)' : '';
     this.dialog.querySelector('[data-summary]').textContent = cardSummary(item, this.variables, this.library);
     this.dialog.querySelector('[data-description]').textContent = item.text || '';

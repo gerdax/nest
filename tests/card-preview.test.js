@@ -13,7 +13,7 @@ class Element {
  replaceChildren(...children){this.children=children;}
  setAttribute(k,v){this.attrs[k]=v;}
 }
-globalThis.document={createElement:()=>new Element()};
+globalThis.document={createElement:()=>new Element(),body:new Element()};
 class Deck extends EventTarget {reset(){}replaceContent(content){this.content=content;}endContent(){}}
 
 test('inspector preview and player use identical narrative heading/body/artwork, without context',()=>{
@@ -25,6 +25,7 @@ test('inspector preview and player use identical narrative heading/body/artwork,
  const deck=new Deck(),controller=new ProjectController(deck,compileChapter(project));
  assert.equal(copy.children[0].textContent,deck.content.heading);assert.equal(copy.children[1].textContent,deck.content.text);assert.equal(deck.content.text,'Desc');
  assert.equal(art.style.backgroundImage,`url(${JSON.stringify(deck.content.image)})`);assert.equal(art.style.transform,'scaleX(-1)');assert.equal(front.className,'nest-card nest-situation');
+ assert.equal(art.style.filter,'url("#nest-artwork-colorize")');assert.equal(copy.style.filter,undefined);
  assert.doesNotMatch(nodeInspector(project,project.chapters[0],node),/data-path="context"|mini-card/);controller.destroy();
 });
 
