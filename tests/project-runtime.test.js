@@ -270,3 +270,29 @@ for(const target of ['fork','container'])test(`linear exit turns a coverless ${t
  if(target==='container'){key(deck,'ArrowDown');assert.equal(controller.state.collectedItems.length,1);assert.equal(controller.state.completed,true);}
  dispose(deck,controller);
 });
+
+test('container introduction reuses the coverless flip entrance and keeps semantic reveal events',()=>{
+ const item=id=>({id,kind:'item',name:id});
+ const {deck,controller}=real([{id:'box',type:'container',intro:narrative('intro'),items:[item('one'),item('two')],connections:{}}]);
+ const originalId=deck.content.id;let accepted=0,completed=0,commits=0;
+ deck.addEventListener('reveal',()=>accepted++);deck.addEventListener('commit',()=>commits++);
+ deck.addEventListener('transitioncomplete',e=>{if(e.detail.transition==='reveal')completed++;});
+ deck.start();deck.move({axis:'y',x:0,y:-80,vx:0,vy:0});
+ assert.equal(deck.forwardDeck.cards[0].style.visibility,'visible');assert.ok(deck.forwardDeck.cards[0].style.transform.includes('rotateY(180deg)'));
+ deck.end({axis:'y',x:0,y:-80,vx:0,vy:0});settle();assert.equal(accepted,0);assert.equal(deck.phase,'closed');
+ deck.start();deck.move({axis:'y',x:0,y:-150,vx:0,vy:0});deck.end({axis:'y',x:0,y:-150,vx:0,vy:0});
+ assert.equal(deck.commitMotion.introduction,true);assert.equal(deck.pending.decisionOnly,true);assert.equal(deck.pendingTransition,'flip');
+ assert.equal(deck.pending.id,originalId);assert.equal(accepted,1);assert.equal(completed,0);assert.equal(commits,0);assert.equal(deck.start(),false);
+ for(let i=0;deck.commitMotion&&i<1000;i++){now+=16;const callbacks=[...frames.values()];frames.clear();callbacks.forEach(fn=>fn(now));}
+ assert.equal(deck.skipCover,true);assert.equal(deck.content.decisionOnly,true);assert.equal(deck.scene.style.visibility,'hidden');
+ assert.equal(deck.phase,'committing');assert.equal(deck.commitTransition,'reveal');assert.equal(deck.flip.target,0);assert.ok(deck.flip.x>0&&deck.flip.x<1);
+ assert.equal(deck.cardBacks.every(Boolean),true);assert.equal(completed,0);
+ settle();assert.equal(completed,1);assert.equal(commits,0);assert.equal(deck.flip.x,0);assert.equal(deck.phase,'choices');assert.equal(controller.state.idle,true);
+ key(deck,'ArrowDown');assert.equal(controller.state.collectedItems.length,1);dispose(deck,controller);
+});
+test('restart during container intro departure cancels staged items and stale reveal completion',()=>{
+ const {deck,controller}=real([{id:'box',type:'container',intro:{...narrative('intro'),effects:[{op:'add',key:'energy',value:1}]},items:[{id:'item',kind:'item',name:'Item'}]}],{variables:[{id:'energy',type:'number',initial:0}]});
+ deck.key({key:'ArrowUp',preventDefault(){}});assert.equal(deck.commitMotion.introduction,true);assert.equal(controller.state.variables.energy,1);
+ controller.restart();settle();assert.equal(deck.phase,'closed');assert.equal(deck.pending,null);assert.equal(deck.commitTransition,'commit');assert.equal(controller.state.variables.energy,0);
+ key(deck,'ArrowUp');assert.equal(deck.phase,'choices');assert.equal(controller.state.variables.energy,1);dispose(deck,controller);
+});

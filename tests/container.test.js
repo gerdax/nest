@@ -248,3 +248,14 @@ test('open presentation installs a ready fan directly without flipping or a sour
   assert.equal(deck.content.interaction, 'container'); assert.equal(deck.phase, 'choices'); assert.equal(deck.open, true); assert.equal(events.length, 1);
   assert.equal(deck.scene.style.visibility, 'hidden'); dispose(deck);
 });
+
+test('container intro flip previews item backs when constructed directly and skips coverless refreshes',()=>{
+ const content={...fixture(2),flipItemsOnReveal:true};const deck=make(2,content);
+ assert.ok(deck.forwardDeck);assert.equal(deck.forwardDeck.cardBacks.every(Boolean),true);
+ deck.start();deck.move(gesture(-80));assert.equal(deck.forwardDeck.cards[0].style.visibility,'visible');assert.ok(deck.forwardDeck.cards[0].style.transform.includes('rotateY(180deg)'));
+ deck.end(gesture(-80));settle();assert.equal(deck.phase,'closed');
+ let reveal=0;deck.addEventListener('transitioncomplete',e=>{if(e.detail.transition==='reveal')reveal++;});
+ key(deck,'ArrowUp');settle();assert.equal(deck.phase,'choices');assert.equal(deck.content.flipItemsOnReveal,false);assert.equal(deck.skipCover,true);assert.equal(deck.flip.x,0);assert.equal(reveal,1);
+ deck.replaceContent(content,{presentation:'open',animate:false});settle();assert.equal(deck.content.flipItemsOnReveal,false);assert.equal(deck.phase,'choices');assert.equal(deck.cards[0].style.visibility,'visible');assert.equal(reveal,1);
+ dispose(deck);
+});

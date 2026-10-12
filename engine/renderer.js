@@ -365,24 +365,24 @@ function applyPose(deck, element, layer, pose, order, shadow = true) {
 export function renderDeck(deck, time = performance.now()) {
   if (!deck.scene) return;
   const front = scenePose(deck, time);
-  const poses = deck.cards.map((_, index) => ({ ...cardPose(deck, index, time), ...(deck.content.directAdvance ? { visible: false } : {}) }));
+  const poses = deck.cards.map((_, index) => ({ ...cardPose(deck, index, time), ...(deck.coverDeparture || deck.content.flipItemsOnReveal ? { visible: false } : {}) }));
   const bounds = deck.mount.getBoundingClientRect();
   const width = Math.max(1, bounds.width), height = Math.max(1, bounds.height);
   const cleared = deck.phase === 'committing' && !deck.commitMotion;
-  const coveredBottom = cleared ? 0 : deck.content.directAdvance ? projectedBounds(front, width, height, deck.settings.perspective).bottom : poses.length
+  const coveredBottom = cleared ? 0 : deck.coverDeparture || deck.content.flipItemsOnReveal ? projectedBounds(front, width, height, deck.settings.perspective).bottom : poses.length
     ? Math.max(...poses.map(pose => projectedBounds(pose, width, height, deck.settings.perspective).bottom)) : height;
   const resolution = deck.content.interaction === 'container' && deck.cards.length === 1;
   const movingDown = deck.collectMotion?.direction === 1 || (!deck.collectMotion && deck.l.x < 0);
   const exposure = resolution && movingDown && poses.length
     ? Math.max(0, projectedBounds(poses[0], width, height, deck.settings.perspective).top) : height - coveredBottom;
   const nextScale = deck.reduced ? 1 : revealScale(exposure, height, deck.settings);
-  const forwardActive = !!deck.forwardDeck && ((deck.content.directAdvance && !deck.busy && deck.p.x > 0) || (deck.phase === 'committing' && deck.pendingPresentation === 'open')
+  const forwardActive = !!deck.forwardDeck && (((deck.content.directAdvance || deck.content.flipItemsOnReveal) && !deck.busy && deck.p.x > 0) || (deck.phase === 'committing' && deck.pendingPresentation === 'open')
     || (deck.phase === 'choices' && deck.l.x > 0 && deck.forwardOwner === deck.content.actions[deck.index]?.id));
   if (deck.underlay) {
     const stagedPose = {
       x: 0, y: 0, z: -24, rx: 0, ry: 0, rz: 0, scale: nextScale,
       turn: deck.nextFlip.x * 180, turnAxis: deck.settings.flipAxisTilt,
-      visible: ((deck.content.directAdvance && deck.p.x > 0 && !deck.busy) || (deck.phase === 'committing' && (!!deck.commitMotion || deck.operation !== 'commit')) || (deck.phase === 'collecting' && deck.collectMotion?.final)
+      visible: (((deck.content.directAdvance || deck.content.flipItemsOnReveal) && deck.p.x > 0 && !deck.busy) || (deck.phase === 'committing' && (!!deck.commitMotion || deck.operation !== 'commit')) || (deck.phase === 'collecting' && deck.collectMotion?.final)
         || (deck.phase === 'choices' && (deck.content.interaction === 'container' ? (resolution && deck.l.x !== 0) || (deck.groupLeaveActive && deck.l.x > 0) : deck.l.x > 0)
         && !deck.content.actions[deck.index]?.disabled))
         && !forwardActive && !deck.ending && !deck.content.noSuccessor
@@ -391,7 +391,7 @@ export function renderDeck(deck, time = performance.now()) {
     applyPose(deck, deck.underlayBack, deck.underlayLayer, backPose(stagedPose), 0);
   }
   const forwardTurns = deck.pending?.decisionOnly && deck.pendingTransition === 'flip'
-    || !deck.busy && deck.content.directAdvance && deck.content.nextTransition === 'flip' && deck.forwardDeck?.content.decisionOnly;
+    || !deck.busy && (deck.content.flipItemsOnReveal || deck.content.directAdvance && deck.content.nextTransition === 'flip') && deck.forwardDeck?.content.decisionOnly;
   renderStagedActions(deck, deck.forwardDeck, 20, forwardActive, 0, -36, nextScale, forwardTurns ? deck.nextFlip.x * 180 : 0, true);
   renderStagedActions(deck, deck.returnDeck, 500,
     (deck.phase === 'closing' && deck.returning)

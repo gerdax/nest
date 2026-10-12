@@ -8,6 +8,6 @@ export const defaultPresentation = Object.freeze({
   content(sequence) {
     const mode={linear:'story',forked:'decision',container:'container'}[sequence.type];
     return {directAdvance:mode==='story',decisionOnly:!!sequence.decisionOnly,
-      interaction:mode==='container'?'container':'choice',allowClose:false};
+      interaction:mode==='container'?'container':'choice',flipItemsOnReveal:mode==='container',allowClose:false};
   }
 });
