@@ -7,6 +7,7 @@ import { applyCardStyles } from '../project/card-styles.js';
 import { acquireDock } from '../editor/dockOwnership.js';
 import { nodeTypeLabel } from '../project/nodeTypes.js';
 import { previewCardTarget } from './preview-card-target.js';
+import { withPlayerResources } from '../project/resources.js';
 
 /** Playback UI owns dice/inventory presentation, never chapter resolution rules. */
 export class ProjectPreview {
@@ -18,9 +19,12 @@ export class ProjectPreview {
     this.onChange = onChange;
     this.onGoToCard = typeof onGoToCard === 'function' ? onGoToCard : null;
     this.deckSettings = { ...deckSettings };
-    this.root.innerHTML = '<section class="project-preview"><div class="chapter-preview-stage"><div class="chapter-preview-deck" tabindex="0"></div></div><div class="preview-status-row"><p data-status role="status">Stopped.</p></div><details data-state hidden><summary>Run state</summary><pre></pre></details><section data-inventory></section><div class="check-overlay" hidden role="dialog" aria-modal="true" aria-label="Action check"><div class="check-panel"><h3>Resolving attempt</h3><div class="check-tray"></div><p data-result role="status"></p><button data-cancel type="button">Cancel attempt</button></div></div></section>';
+    this.root.innerHTML = '<section class="project-preview"><div class="chapter-preview-stage"><div class="player-resources" data-resources hidden><span class="player-resource" data-health aria-label="Health"><img src="./assets/img/hud-health.png" alt=""><span data-health-value></span></span><span class="player-resource" data-energy aria-label="Energy"><span data-energy-value></span><img src="./assets/img/hud-energy.png" alt=""></span></div><div class="chapter-preview-deck" tabindex="0"></div></div><div class="preview-status-row"><p data-status role="status">Stopped.</p></div><details data-state hidden><summary>Run state</summary><pre></pre></details><section data-inventory></section><div class="check-overlay" hidden role="dialog" aria-modal="true" aria-label="Action check"><div class="check-panel"><h3>Resolving attempt</h3><div class="check-tray"></div><p data-result role="status"></p><button data-cancel type="button">Cancel attempt</button></div></div></section>';
     this.mount = root.querySelector('.chapter-preview-deck');
     this.status = root.querySelector('[data-status]');
+    this.resources = root.querySelector('[data-resources]');
+    this.healthValue = root.querySelector('[data-health-value]');
+    this.energyValue = root.querySelector('[data-energy-value]');
     if (this.onGoToCard) {
       this.goToCardButton = document.createElement('button');
       this.goToCardButton.type = 'button';
@@ -54,6 +58,7 @@ export class ProjectPreview {
     const issues = validateProject(project);
     if (issues.length) throw new Error(issues.map(issue => issue.message).join('\n'));
     const chapter = compileChapter(project, chapterId);
+    chapter.variables = withPlayerResources(chapter.variables);
     if (startNode) chapter.startNode = startNode;
     this.stop();
     const generation = this.generation;
@@ -88,6 +93,11 @@ export class ProjectPreview {
     if (this.destroyed) return;
     if (state.checking || (this.errorMessage && this.errorNode !== state.activeNodeId)) this.errorMessage = null;
     this.state = state;
+    this.resources.hidden = false;
+    this.healthValue.textContent = state.variables.health;
+    this.energyValue.textContent = state.variables.energy;
+    this.root.querySelector('[data-health]').setAttribute('aria-label', `Health ${state.variables.health} out of 10`);
+    this.root.querySelector('[data-energy]').setAttribute('aria-label', `Energy ${state.variables.energy} out of 99`);
     const node = this.compiled?.nodes.find(node => node.id === state.activeNodeId);
     const nodeType = nodeTypeLabel(node?.type) || '';
     this.status.textContent = this.errorMessage || (state.completed ? 'Chapter complete.' : state.checking ? 'Resolving attempt…' : `Playing · ${node?.name || ''} · ${nodeType}`);
@@ -148,6 +158,7 @@ export class ProjectPreview {
     controller?.destroy(); deck?.destroy();
     this.hideDice(); this.state = null; this.errorMessage = null; this.errorNode = null; this.compiled = null;
     this.mount.replaceChildren(); this.inventory.update([]); this.stateReadout.hidden = true;
+    this.resources.hidden = true;
     this.status.textContent = 'Stopped.';
     this.syncCardLink();
   }

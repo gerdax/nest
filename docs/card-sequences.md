@@ -85,7 +85,7 @@ flowchart TD
     director --> next["Next story or event"]
 ```
 
-The additional linked card is optional. The data model uses an explicit card ID to continue an authored sequence and `next: director` to resume procedural selection. Whether linked consequences count toward the encounter quota between story beats remains open.
+The additional linked card is optional. The data model uses an explicit card ID to continue an authored sequence and `next: director` to resume procedural selection. Whether linked consequences count toward the encounter quota between story vignettes remains open.
 
 ## Chapter progression sequence
 
@@ -94,8 +94,8 @@ The additional linked card is optional. The data model uses an explicit card ID 
 Each chapter combines mandatory authored moments with encounters selected from controlled pools. The Director checks the current chapter stage, tags, weights, previously seen cards, and encounter count.
 
 ```text
-[Start] -> Pool A encounters -> [Story beat A] -> Pool B encounters
-        -> [Story beat B] -> Pool C encounters -> [Climax] -> [Exit]
+[Start] -> Pool A encounters -> [Story vignette A] -> Pool B encounters
+        -> [Story vignette B] -> Pool C encounters -> [Climax] -> [Exit]
 ```
 
 ```mermaid
@@ -103,11 +103,11 @@ flowchart TD
     start["Start"] --> pa{"Select encounters from Pool A"}
     pa --> ea["Encounter sequence"]
     ea -->|More encounters due| pa
-    ea -->|Quota reached| ba["Story beat A"]
+    ea -->|Quota reached| ba["Story vignette A"]
     ba --> pb{"Select encounters from Pool B"}
     pb --> eb["Encounter sequence"]
     eb -->|More encounters due| pb
-    eb -->|Quota reached| bb["Story beat B"]
+    eb -->|Quota reached| bb["Story vignette B"]
     bb --> pc{"Select encounters from Pool C"}
     pc --> ec["Encounter sequence"]
     ec -->|More encounters due| pc

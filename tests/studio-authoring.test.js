@@ -46,7 +46,7 @@ test('legacy pool effects migrate exactly once and malformed mechanics are rejec
 test('switching an action to a check preserves its direct destination as success',()=>{
  const project=createProject(),node=project.chapters[0].nodes.find(n=>n.type==='fork'),placement=node.choices[0];
  const destination=node.connections[placement.id];customizeAction(project,placement);placement.overrides.resolution='check';synchronizeConnections(project);
- assert.equal(node.connections[`${placement.id}:success`],destination);assert.equal(node.connections[`${placement.id}:failure`],null);
+ assert.equal(node.connections[`${placement.id}:success`],destination);assert.equal(node.connections[`${placement.id}:failure`],false);
  placement.overrides.resolution='direct';synchronizeConnections(project);assert.equal(node.connections[placement.id],destination);
 });
 
@@ -68,7 +68,7 @@ test('selecting a flag for an Add effect authors a valid Set effect and conditio
  const condition=newRule(project,'conditions');condition.op='gte';condition.key='flag';
  normalizeRule(project,condition,'key');
  assert.deepEqual(condition,{source:'variable',key:'flag',op:'eq',value:false});
- const beat=project.library.find(d=>d.id==='arrival');beat.effects=[effect];beat.conditions=[condition];
+ const vignette=project.library.find(d=>d.id==='arrival');vignette.effects=[effect];vignette.conditions=[condition];
  assert.deepEqual(validateProject(project),[]);
  const compiled=compileChapter(project),card=compiled.nodes[0].cards[0],variables={energy:3,flag:false};
  assert.equal(conditionsMet(card.conditions,variables),true);
@@ -82,7 +82,7 @@ test('rule key normalization preserves inventory effect and condition operators'
  for(const rule of [...effects,...conditions]){
   const before=structuredClone(rule);normalizeRule(project,rule,'key');assert.deepEqual(rule,before);
  }
- const beat=project.library.find(d=>d.id==='arrival');beat.effects=effects;beat.conditions=conditions;
+ const vignette=project.library.find(d=>d.id==='arrival');vignette.effects=effects;vignette.conditions=conditions;
  assert.deepEqual(validateProject(project),[]);
 });
 

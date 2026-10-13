@@ -1,4 +1,4 @@
-.chapter-preview-stage { display:grid;place-items:center;min-height:440px;padding:50px 38px 30px;overflow:hidden; }
+.chapter-preview-stage { display:grid;place-items:center;min-height:440px;padding:24px 38px 30px;gap:22px;overflow:hidden; }
 .chapter-preview-deck { width:min(100%,276px);aspect-ratio:3/4; }
 .project-preview [data-status] { overflow-wrap:anywhere; }
 .project-preview [data-state] pre { white-space:pre-wrap; }
@@ -13,3 +13,10 @@
 .check-tray { height:300px;width:100%; }
 .check-panel h3 { font-size:18px; }
 @media(max-width:420px) { .chapter-preview-stage {padding-inline:22px;min-height:390px;} .chapter-preview-deck {width:min(100%,240px);} }
+
+@font-face {font-family:NestVitals;src:url('../assets/fonts/trotont.ttf') format('truetype');font-display:swap;}
+.player-resources {width:100%;display:flex;justify-content:space-between;align-items:center;color:#b6c99b;}
+.player-resources[hidden] {display:none;}
+.player-resource {display:flex;align-items:center;gap:5px;font:56px/1 NestVitals,monospace;font-variant-numeric:tabular-nums;}
+.player-resource img {width:24px;height:27px;object-fit:contain;}
+.player-resource[data-health] img {width:26px;height:23px;}

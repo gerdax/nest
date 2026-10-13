@@ -108,7 +108,7 @@ Checkpoint `60e2db4` preserves direct container take/discard and inventory befor
 python3 build_pages.py /tmp/nest-pages
 ```
 
-Use a new or empty staging directory outside the source assets. The output contains the root redirect, project player with motion tuning, `.nojekyll`, project/studio, retained chapter/editor and engine modules, shared preview/storage and inventory UI, all usable supplied image assets, and runtime fonts. Copy it into a separate `gh-pages` checkout preserving `.git`, then commit and push normally. Do not force-push. The node editor and dice tray are included, so navigation between all three tools works.
+Use a new or empty staging directory outside the source assets. The output contains the root redirect, project player with motion tuning, `.nojekyll`, project/studio, retained chapter/editor and engine modules, shared preview/storage and inventory UI, all usable supplied image assets, and runtime fonts. Copy it into a separate `gh-pages` checkout preserving `.git`, then commit and push normally. Do not force-push. The beat editor and dice tray are included, so navigation between all three tools works.
 
 `/editor.html` and its authoring modules, and `/dice.html` with its licensed engine assets, are included by default. `--include-editor` and `--include-dice` remain accepted compatibility flags. Layered PSD source files and the original playground runtime are kept out of the staged site. Projects saved in one browser do not transfer to another device: export a project or chapter JSON from the studio and use Open JSON in the player.
 
@@ -122,12 +122,12 @@ The current prototype owns its artwork in `assets/img` and fonts in `assets/font
 
 The lid experiment and its controls have been removed from the active prototype.
 
-The studio Library stores shared Event, Caption, Action and Item definitions across chapters. Chapter nodes place those definitions and own their connections. Direct actions have one output; check actions have Success and Failure outputs. Linear cards advance with one swipe; visible narrative headings are optional. See [studio authoring](docs/chapter-editor.md) for reuse, local settings and v1 migration.
+The studio Library stores shared Event, Caption, Action and Item definitions across chapters. Chapter beats place those definitions and own their connections. Direct actions have one output; check actions have Success and Failure outputs. Linear cards advance with one swipe; visible narrative headings are optional. See [studio authoring](docs/chapter-editor.md) for reuse, local settings and v1 migration.
 
 ## Architecture and reusable capabilities
 
-See [architecture assumptions](docs/architecture.md) for node/sequence registries, independent presentation policy, motion tuning, appearance tokens and the run inventory boundaries. Try the isolated [3D dice tray](dice.html); [dice service documentation](docs/dice-service.md) describes its context-independent API and Onejournal provenance. It is included in default static staging; `python3 build_pages.py /tmp/nest-pages-with-dice --include-dice` remains supported. The dice service returns results independently; action cards interpret them as checks without a separate Check node.
+See [architecture assumptions](docs/architecture.md) for node/sequence registries, independent presentation policy, motion tuning, appearance tokens and the run inventory boundaries. Try the isolated [3D dice tray](dice.html); [dice service documentation](docs/dice-service.md) describes its context-independent API and Onejournal provenance. It is included in default static staging; `python3 build_pages.py /tmp/nest-pages-with-dice --include-dice` remains supported. The dice service returns results independently; action cards interpret them as checks without a separate Check beat.
 
 Library usage counts and deletion checks include gameplay references as well as placed cards. **Clean unused local cards** removes only unused local definitions and can be undone; shared definitions and transitive dependencies are preserved.
 
-Run variables and conditional choices can be authored in the inspector. See [state authoring](docs/state-system.md) for available checks, effects and miniature artwork previews.
+Run variables and conditional choices can be authored in the beat panel. See [state authoring](docs/state-system.md) for available checks, effects and miniature artwork previews.

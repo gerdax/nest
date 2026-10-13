@@ -10,12 +10,12 @@ const introduction = makePlacement => ({introEnabled:true, introOnce:false, intr
 
 export const nodeTypes = Object.freeze({
  linear: Object.freeze({
-  label:'Linear', slots:Object.freeze({cards:linearKinds}), outputs:nextOutput,
+  label:'Linear', iconPath:'M3 12H21', slots:Object.freeze({cards:linearKinds}), outputs:nextOutput,
   defaultKinds:Object.freeze({cards:'event'}),
   create:({makePlacement}) => ({cards:[makePlacement('event')]})
  }),
  fork: Object.freeze({
-  label:'Fork', slots:Object.freeze({intro:storyKinds, choices:branchKinds}),
+  label:'Fork', iconPath:'M3 12H10L14 7H21M10 12L14 17H21', slots:Object.freeze({intro:storyKinds, choices:branchKinds}),
   defaultKinds:Object.freeze({intro:'event',choices:'action'}),
   outputs:(node,resolve) => objects(node.choices).flatMap(p => {
    let card;try { card=resolve?.(p); } catch {}
@@ -24,13 +24,13 @@ export const nodeTypes = Object.freeze({
   create:({makePlacement}) => ({...introduction(makePlacement),choices:[makePlacement('action'),makePlacement('action')]})
  }),
  container: Object.freeze({
-  label:'Container', slots:Object.freeze({intro:storyKinds, items:itemKinds}), outputs:nextOutput,
+  label:'Container', iconPath:'M6 6H18V18H6Z', slots:Object.freeze({intro:storyKinds, items:itemKinds}), outputs:nextOutput,
   defaultKinds:Object.freeze({intro:'event',items:'item'}),
   create:({makePlacement}) => ({...introduction(makePlacement),items:[makePlacement('item')]})
  }),
  random: Object.freeze({
   label:'Random', slots:Object.freeze({}), outputs:node => [...objects(node.routes).map(r=>r.id),'fallback'],
-  create:({uid}) => ({routes:[{id:uid('route'),name:'Route 1',target:null,weight:1,conditions:[]}],fallback:null})
+  create:({uid}) => ({routes:[{id:uid('route'),name:'Route 1',target:false,weight:1,conditions:[]}],fallback:false})
  }),
  legacySequence: Object.freeze({label:'Legacy sequence', slots:Object.freeze({}), outputs:legacyOutputs}),
  legacyPool: Object.freeze({label:'Legacy Random', slots:Object.freeze({}), outputs:legacyOutputs})

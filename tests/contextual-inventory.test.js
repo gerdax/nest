@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { cardFace } from '../project/presentation.js';
-import { resolvePlacement } from '../project/cards.js';
+import { resolvePlacement, cardSummary } from '../project/cards.js';
 import { compileChapter, createProject, validateProject, parseProject, exportChapter, importChapter } from '../project/model.js';
 import { definitionReferences, deleteDefinition, cleanupLocalDefinitions } from '../project/dependencies.js';
 import { ProjectController } from '../project/ProjectController.js';
@@ -123,7 +123,7 @@ test('context item dependencies export transitively, remap collisions and protec
 
 test('editor explicitly offers None and items only for Action choice placements',()=>{
   const project=fixture(),choice=door(project).choices[0],html=placementInspector(project,choice,'action',0,'choices');
-  assert.match(html,/Inventory item/);assert.match(html,/data-path="contextItemId"/);assert.match(html,/<option value=""\s*>None<\/option>/);assert.match(html,/<option value="key" selected>Lockpick<\/option>/);
+  assert.match(html,/Inventory trigger/);assert.match(html,/data-path="contextItemId"/);assert.match(html,/<option value=""\s*>None<\/option>/);assert.match(html,/<option value="key" selected>Lockpick<\/option>/);
   const selector=html.match(/<select[^>]*data-path="contextItemId"[^>]*>(.*?)<\/select>/s)[1];assert.doesNotMatch(selector,/value="unlock"|value="door-intro"/);
   assert.doesNotMatch(placementInspector(project,{id:'linear',definitionId:'unlock'},'action',0,'cards'),/data-path="contextItemId"/);
   assert.doesNotMatch(placementInspector(project,door(project).choices[3],'event',3,'choices'),/data-path="contextItemId"/);
@@ -185,18 +185,27 @@ test('Override img is per placement, reversible, and portable without changing s
  placement.contextOverrideImage=false;assert.equal(resolvePlacement(project,placement).image,'./assets/img/corridor_02.png');
 });
 
-test('Override img checkbox is unchecked by default, below the explanation, and disabled without a linked item',()=>{
+test('Action placement panel omits the image override checkbox',()=>{
  const project=fixture(),placement=door(project).choices[0];
- let html=placementInspector(project,placement,'action',0,'choices');
- const checkboxPattern=/<input[^>]*data-path="contextOverrideImage"[^>]*>/;
- assert.match(html,/Override img/);assert.doesNotMatch(html.match(checkboxPattern)[0],/checked|disabled/);
- assert.ok(html.indexOf('Appears only while')<html.indexOf('data-path="contextOverrideImage"'));
- placement.contextOverrideImage=true;html=placementInspector(project,placement,'action',0,'choices');assert.match(html.match(checkboxPattern)[0],/checked/);
- delete placement.contextItemId;delete placement.contextOverrideImage;
- html=placementInspector(project,placement,'action',0,'choices');assert.match(html.match(checkboxPattern)[0],/disabled/);
+ for(const value of [undefined,true,false]){
+  placement.contextOverrideImage=value;
+  const html=placementInspector(project,placement,'action',0,'choices');
+  assert.doesNotMatch(html,/Override img|data-path="contextOverrideImage"/);
+  assert.match(html,/Inventory trigger/);
+ }
 });
 
 test('Override img rejects malformed values and unsupported placement kinds',()=>{
  for(const value of ['true',1,null]){const project=fixture();door(project).choices[0].contextOverrideImage=value;assert.ok(validateProject(project).some(e=>e.message.includes('Override img')));}
  const project=fixture();door(project).choices[3].contextOverrideImage=true;assert.ok(validateProject(project).some(e=>e.message.includes('Override img')));
+});
+
+
+test('inventory trigger summary is separate from explicit ownership requirements',()=>{
+ const project=fixture(),placement=door(project).choices[0];
+ let summary=cardSummary(resolvePlacement(project,placement),project.variables,project.library);
+ assert.match(summary,/Triggered by: Lockpick/);assert.doesNotMatch(summary,/Requires: Own Lockpick/);
+ placement.conditions=[{source:'inventory',key:'key',op:'has'}];
+ summary=cardSummary(resolvePlacement(project,placement),project.variables,project.library);
+ assert.match(summary,/Triggered by: Lockpick/);assert.match(summary,/Requires: Own Lockpick/);
 });

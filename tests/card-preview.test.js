@@ -101,11 +101,11 @@ test('typed fronts separate permanent type labels from item names and hide name 
  }
 });
 
-test('inventory action description precedes requirements and inventory source',()=>{
+test('all action descriptions precede requirements and inventory source',()=>{
  const front=new Element();decorateCard(null,front,'','','Pick the lock',false,{cardKind:'action',summary:'Requires: Own Lockpick',inventoryLabel:'Inventory · Lockpick'});
  assert.equal(front.attrs['data-inventory-action'],'true');
  assert.deepEqual(front.children[0].children.map(el=>el.textContent),['','Pick the lock','Requires: Own Lockpick','Inventory · Lockpick']);
  front.replaceChildren();decorateCard(null,front,'','','Choose a route',false,{cardKind:'action',summary:'Requires: Energy'});
  assert.equal(front.attrs['data-inventory-action'],'false','reused ordinary actions clear contextual styling');
- assert.deepEqual(front.children[0].children.map(el=>el.textContent),['','Requires: Energy','Choose a route']);
+ assert.deepEqual(front.children[0].children.map(el=>el.textContent),['','Choose a route','Requires: Energy']);
 });

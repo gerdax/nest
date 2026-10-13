@@ -6,7 +6,7 @@ Project v2 defines variables once for all chapters. In **Project variables and c
 
 Rules are structured data; no JavaScript is evaluated. Variable conditions support equals, does not equal, at least and at most; flags support equality/inequality. Inventory conditions check owned/not owned against item definitions or preserved migration aliases. All conditions must pass. Action placements choose whether unmet requirements hide the action or show it disabled. Costs also determine affordability. If no action is available, the author must supply a usable route; the runtime does not invent a destination.
 
-Effects set/add variables or add/remove positive integer item quantities. Numeric values are clamped to their bounds; overflow and invalid item removal fail atomically. Narrative and direct-action effects apply once on accepted progression. Item `onCollect` effects apply once for the completed take, not once per copy and never on discard. Inventory is stacked by definition; aliases preserve old v1 checks. Placement conditions/effects append to shared rules, while local action overrides replace the corresponding shared mechanics before those additions.
+Conditions check state without changing it or spending resources. Effects set/add variables or add/remove item ownership. Numeric values are clamped to their bounds; overflow and invalid item removal fail atomically. Narrative and direct-action effects apply once on accepted progression. Item `onCollect` effects apply once for the completed take and never on discard. Each item definition can be owned once; aliases preserve old v1 checks. Action placements use source rules or one complete customized rule set. Existing additional Action conditions/effects are folded into customized rules for shared cards or into the source for Custom cards on load. Other card types retain placement conditions/effects appended to shared rules.
 
 A check action defaults to `1d20 + 0 ≥ 10`. It sums the dice, fixed modifier and optional numeric variable modifier. Common effects and Success/Failure effects commit with costs after the completed roll/result and valid routing. Both success and failure spend attempt costs. Cancel, interruption or error spends nothing and applies no effects. Direct actions spend costs and apply common effects in the same atomic transaction. Dice physics remains independent of this interpretation.
 
@@ -14,7 +14,16 @@ New Random routes filter their weighted destinations using conditions. Narrative
 
 ## Items and consumables
 
-An Item definition has `onCollect` effects. A collectible/key item has no `use` field. A consumable adds `use.conditions` and `use.effects`; **Use one** atomically removes one copy and applies those effects. Conditions or transaction failure leave ownership and values unchanged. At a variable maximum, use still consumes a copy and clamps the effect. There is no automatic refusal because the resource is full. Inventory use is unavailable during card transitions, checks or after completion.
+The item inspector separates rules by when they apply:
+
+- **Appearance conditions** belong to a placement (the item instance in a story beat). All must pass for the item to appear at that location. They do not restrict inventory use after collection.
+- **On collect effects** belong to the source definition (`onCollect`). Taking the item grants ownership automatically and applies these additional effects; discarding it applies none.
+- **Use requirements** belong to a consumable's source definition (`use.conditions`). All must pass to use the owned item from inventory.
+- **On use effects** belong to a consumable's source definition (`use.effects`). Using it removes ownership and applies these effects atomically.
+
+For example, two placements can reference the same potion source. One appears only when a chest is opened; another appears only when a merchant is met. Both share the potion's collection effects, use requirements and use effects. Editing the shared source changes all its placements; editing appearance conditions changes only that placement.
+
+A collectible/key item has no `use` field. A consumable adds `use.conditions` and `use.effects`. Unmet use requirements or transaction failure leave ownership and values unchanged. At a variable maximum, use still consumes the item and clamps the effect. There is no automatic refusal because the resource is full. Inventory use is unavailable during card transitions, checks or after completion.
 
 ```json
 {

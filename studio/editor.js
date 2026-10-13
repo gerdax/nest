@@ -1,8 +1,10 @@
 import { applyCardStyles, parseCardColor } from '../project/card-styles.js';
+import { nodeTypeLabel } from '../project/nodeTypes.js';
 import { artworkSettings, parseArtworkSettings } from './artwork-settings.js';
 import { DocumentHistory } from '../editor/DocumentHistory.js';
-import { createDefinition, allowedCardKinds, cardKinds } from '../project/cards.js';
-import { createProject,createChapter,validateProject,parseProject,exportChapter,importChapter } from '../project/model.js';
+import { LocalCardDrafts } from './local-card-drafts.js';
+import { createDefinition, allowedCardKinds, cardKinds, cardEditorTint } from '../project/cards.js';
+import { createProject,createChapter,validateProject,parseProject,exportChapter,importChapter,discardPlacementContext } from '../project/model.js';
 import { definitionGraph, deleteDefinition, cleanupLocalDefinitions } from '../project/dependencies.js';
 import { loadProject,saveProject } from '../project/storage.js';
 import { GraphView } from './GraphView.js';
@@ -14,13 +16,14 @@ import { mountAutoplay } from './autoplay.js';
 import { sourceCard, revealCardEntry } from './card-navigation.js';
 import { renderCardPreviews } from './card-preview.js';
 import { bindImagePicker } from './image-picker.js';
-import { uid,createNode,makePlacement,replaceCard,setCardSource,promoteCard,duplicateNode,duplicatePlacement,findPlacement,pathTarget,synchronizeConnections,customizeAction,newRule,normalizeRule } from './commands.js';
+import { uid,createNode,makePlacement,promoteCard,duplicateNode,duplicatePlacement,findPlacement,pathTarget,synchronizeConnections,customizeAction,newRule,normalizeRule } from './commands.js';
 
 const $=s=>document.querySelector(s),loaded=loadProject();
 let copiedArtwork = null;
 const artworkClipboardKey = 'nest.artwork.clipboard';
 let project=loaded.project||createProject(),chapterId=project.activeChapterId,selected=project.chapters.find(c=>c.id===chapterId)?.startNode,definitionId=project.library.find(d=>d.visibility!=='local')?.id,mode='chapter';
 const history=new DocumentHistory(project);
+const localDrafts=new LocalCardDrafts();
 const chapter=()=>project.chapters.find(c=>c.id===chapterId)||project.chapters[0];
 const node=()=>chapter().nodes.find(n=>n.id===selected);
 const definition=()=>project.library.find(d=>d.id===definitionId);
@@ -29,7 +32,12 @@ const previewWindow=mountPreviewWindow($('#preview-window'),{onClose:()=>preview
 $('#show-preview').onclick=()=>previewWindow.show();
 const autoplay=mountAutoplay($('#autoplay'),{getSelected:()=>selected,onPlay:id=>play(id,{restore:false})});
 const graph=new GraphView($('#canvas'),{
- onSelect:id=>{selected=id;renderInspector();renderGraph();autoplay.select(id);},
+ onSelect:id=>{selected=id;renderInspector({collapseCards:true});renderGraph();autoplay.select(id);},
+ onOpenCard:(id,target,exit)=>{
+  selected=id;mode='chapter';renderInspector({collapseCards:true});renderGraph();
+  if(target)revealCardEntry($('#inspector'),target);
+  else {const field=[...$('#inspector').querySelectorAll('[data-scope="connection"]')].find(el=>el.dataset.path===exit);field?.scrollIntoView({block:'center'});field?.focus({preventScroll:true});}
+ },
  onConnect:(id,exit,target)=>edit(()=>setConnection(chapter().nodes.find(n=>n.id===id),exit,target)),
  onMove:(id,x,y)=>edit(()=>Object.assign(chapter().nodes.find(n=>n.id===id),{x,y})),
 });
@@ -40,19 +48,20 @@ function goToPreviewCard(target){
  const changedChapter=chapterId!==source.chapter.id;
  chapterId=source.chapter.id;selected=source.node.id;mode='chapter';
  render();if(changedChapter)graph.fit();
- if(!revealCardEntry($('#inspector'),target))report('This card is not currently shown in the inspector. Its introduction may have been disabled since playback started.');
+ if(!revealCardEntry($('#inspector'),target))report('This card is not currently shown in the panel. Its introduction may have been disabled since playback started.');
 }
 function edit(fn){
  let failure;
  graph.cancel();
- try{history.transact(draft=>{project=draft;fn();synchronizeConnections(project);return project;});}
- catch(error){failure=error.message;}
+ try{history.transact(draft=>{project=draft;fn();discardPlacementContext(project);synchronizeConnections(project);return project;});}
+ catch(error){failure=error.message;localDrafts.reset();}
  finally{project=history.document;}
  const saved=saveProject(project);render();report(failure|| (saved.ok?'Saved in this browser':`Save failed: ${saved.error}`));
  return !failure && saved.ok;
 }
 function renderGraph(){if(mode==='chapter')graph.render(project,chapter(),selected,preview.state?.activeNodeId);}
-function renderInspector(){
+function renderInspector({collapseCards=false}={}){
+ localDrafts.setContext(chapterId,selected);
  const settingsOpen=$('#settings').querySelector('details')?.open;
  const inspectorKey=`${mode}:${mode==='library'?definitionId:selected}`;
  const sameInspector=$('#inspector').dataset.key===inspectorKey;
@@ -63,14 +72,15 @@ function renderInspector(){
  applyCardStyles(preview.mount,project.cardStyles);
  if(settingsOpen)$('#settings').querySelector('details').open=true;
  if(sameInspector)[...$('#inspector').querySelectorAll('details')].forEach((el,i)=>{el.open=expanded.includes(i);});
+ if(collapseCards)for(const entry of $('#inspector').querySelectorAll('details[data-placement],details[data-sequence]')){entry.open=false;entry.classList.remove('card-navigation-target');}
  $('#inspector').dataset.key=inspectorKey;
  if(!sameInspector)document.querySelector('aside').scrollTop=0;
- $('#selected-type').textContent=mode==='library'?'Shared definition':node()?.type||'';
+ $('#panel-title').textContent=mode==='library'?(cardKinds[definition()?.kind]?.label||'Library'):nodeTypeLabel(node()?.type)||'Beat';
 }
 function renderLibrary(){
  const query=$('#library-search').value.toLowerCase();
  const dependencies=definitionGraph(project);
- $('#library-list').innerHTML=project.library.filter(d=>d.visibility!=='local'&&`${d.name} ${cardKinds[d.kind]?.label||d.kind} ${d.kind}`.toLowerCase().includes(query)).map(d=>`<button type="button" data-definition="${esc(d.id)}" class="library-entry ${d.id===definitionId?'selected':''}"><strong>${esc(d.name)}</strong><span>${esc(cardKinds[d.kind]?.label||d.kind)} · ${dependencies.users(d.id).length} uses</span></button>`).join('');
+ $('#library-list').innerHTML=project.library.filter(d=>d.visibility!=='local'&&`${d.name} ${cardKinds[d.kind]?.label||d.kind} ${d.kind}`.toLowerCase().includes(query)).map(d=>`<button type="button" data-definition="${esc(d.id)}" class="library-entry card-panel ${d.id===definitionId?'selected':''}" data-card-type="${esc(d.kind)}" style="--card-editor-tint:${esc(cardEditorTint(d.kind))}"><strong>${esc(d.name)}</strong><span>${esc(cardKinds[d.kind]?.label||d.kind)} · ${dependencies.users(d.id).length} uses</span></button>`).join('');
 }
 function render(){
  if(!project.chapters.some(c=>c.id===chapterId))chapterId=project.activeChapterId||project.chapters[0]?.id;
@@ -96,12 +106,13 @@ function changeField(event){const el=event.target,path=el.dataset.path,scope=el.
   catch{el.setCustomValidity('Enter a 3- or 6-digit hex color, such as #A9BB86.');el.reportValidity();return;}
  }
  edit(()=>{
-  if(scope==='connection'){setConnection(node(),path,el.value||null);return;}
+  if(scope==='connection'){setConnection(node(),path,el.value==='unlinked'?false:el.value==='end'?null:el.value.slice(7));return;}
   if(scope==='initial-toggle'){chapter().initialValues||={};if(el.checked)chapter().initialValues={...chapter().initialValues,[path]:project.variables.find(v=>v.id===path).initial};else delete chapter().initialValues[path];return;}
   if(scope==='initial-value'){const variable=project.variables.find(v=>v.id===path);const value=variable.type==='flag'?el.value==='true':Number(el.value);chapter().initialValues={...(chapter().initialValues||{}),[path]:value};return;}
   const root=scopeRoot(scope,el);if(!root)return;
+  if(scope==='placement'&&path==='useCustomRules'){if(el.checked)customizeAction(project,root);else delete root.overrides;return;}
   if(scope==='node'&&path==='introEnabled'&&el.checked&&root.type==='fork'&&!root.intro)root.intro=makePlacement(project,'event');
-  if(scope==='placement'&&path==='definitionId'){setCardSource(project,root,el.value,{allowedKinds:allowedCardKinds(node().type,node().intro===root?'intro':node().type==='container'?'items':'cards')});return;}
+  if(scope==='placement'&&path==='definitionId'){localDrafts.switchSource(project,root,el.value,{allowedKinds:allowedCardKinds(node().type,node().intro===root?'intro':node().type==='container'?'items':'cards')});return;}
   if(path==='itemBehaviour'){if(el.value==='consumable')root.use={effects:[],conditions:[]};else delete root.use;return;}
   const {parent,key}=pathTarget(root,path);
   if(colorField){if(color===undefined)delete parent[key];else parent[key]=color;return;}
@@ -172,15 +183,14 @@ function command(event){const b=event.target.closest('[data-command]');if(!b)ret
   if(cmd==='reset-artwork'){const root=scopeRoot(b.dataset.scope,b);delete root.imageScale;delete root.imageOffsetX;delete root.imageOffsetY;}
   if(cmd==='add-rule'){const root=scopeRoot(b.dataset.scope,b),{parent,key}=pathTarget(root,b.dataset.path);parent[key]||=[];parent[key].push(newRule(project,b.dataset.ruleKind));}
   if(cmd==='remove-rule'){const root=scopeRoot(b.dataset.scope,b),{parent,key}=pathTarget(root,b.dataset.path);parent[key].splice(Number(b.dataset.index),1);}
-  if(cmd==='local-copy')replaceCard(project,p,b.dataset.kind,{copy:true});
-  if(cmd==='promote-card')promoteCard(project,p);
+  if(cmd==='local-copy')localDrafts.convert(project,p);
+  if(cmd==='clear-card')localDrafts.clear(project,p);
+  if(cmd==='promote-card'){promoteCard(project,p);localDrafts.drafts.delete(p.id);}
   if(cmd==='add-placement')n[b.dataset.slot].push(makePlacement(project,b.dataset.kind));
   if(cmd==='duplicate-placement')duplicatePlacement(project,n,p);
-  if(cmd==='remove-placement')for(const slot of ['cards','choices','items'])if(n[slot])n[slot]=n[slot].filter(c=>c.id!==p.id);
+  if(cmd==='remove-placement'){localDrafts.drafts.delete(p.id);for(const slot of ['cards','choices','items'])if(n[slot])n[slot]=n[slot].filter(c=>c.id!==p.id);}
   if(cmd==='move-placement')for(const slot of ['cards','choices','items'])if(n[slot]){const i=n[slot].findIndex(c=>c.id===p.id),j=i+Number(b.dataset.direction);if(i>=0&&j>=0&&j<n[slot].length)[n[slot][i],n[slot][j]]=[n[slot][j],n[slot][i]];}
-  if(cmd==='customize')customizeAction(project,p);
-  if(cmd==='reset-overrides')delete p.overrides;
-  if(cmd==='add-route')n.routes.push({id:uid('route'),name:`Route ${n.routes.length+1}`,target:null,weight:1,conditions:[]});
+  if(cmd==='add-route')n.routes.push({id:uid('route'),name:`Route ${n.routes.length+1}`,target:false,weight:1,conditions:[]});
   if(cmd==='remove-route')n.routes.splice(Number(b.dataset.index),1);
   if(cmd==='delete-definition'){deleteDefinition(project,definitionId);definitionId=project.library.find(d=>d.visibility!=='local')?.id;}
   if(cmd==='add-variable')project.variables.push({id:uid('variable'),name:'New variable',type:'number',initial:0});
@@ -200,14 +210,14 @@ $('#add-chapter').onclick=()=>edit(()=>{const c=createChapter(uid('chapter'),`Ch
 for(const b of document.querySelectorAll('[data-add-kind]'))b.onclick=()=>edit(()=>{const d=createDefinition(b.dataset.addKind,uid(b.dataset.addKind));project.library.push(d);definitionId=d.id;mode='library';});
 for(const b of document.querySelectorAll('[data-add]'))b.onclick=()=>edit(()=>{const n=createNode(project,b.dataset.add,{x:(150-graph.view.x)/graph.view.z,y:(140-graph.view.y)/graph.view.z});chapter().nodes.push(n);if(!chapter().startNode)chapter().startNode=n.id;selected=n.id;});
 $('#duplicate').onclick=()=>{if(node())edit(()=>{const n=duplicateNode(project,node());chapter().nodes.push(n);selected=n.id;});};
-$('#delete').onclick=()=>{if(node())edit(()=>{const id=node().id;chapter().nodes=chapter().nodes.filter(n=>n.id!==id);for(const n of chapter().nodes){for(const key of Object.keys(n.connections||{}))if(n.connections[key]===id)n.connections[key]=null;for(const r of n.routes||[])if(r.target===id)r.target=null;if(n.fallback===id)n.fallback=null;}if(chapter().startNode===id)chapter().startNode=chapter().nodes[0]?.id||'';selected=chapter().startNode;});};
+$('#delete').onclick=()=>{if(node())edit(()=>{const id=node().id;chapter().nodes=chapter().nodes.filter(n=>n.id!==id);for(const n of chapter().nodes){for(const key of Object.keys(n.connections||{}))if(n.connections[key]===id)n.connections[key]=false;for(const r of n.routes||[])if(r.target===id)r.target=false;if(n.fallback===id)n.fallback=false;}if(chapter().startNode===id)chapter().startNode=chapter().nodes[0]?.id||'';selected=chapter().startNode;});};
 $('#start').onclick=()=>{if(node())edit(()=>{chapter().startNode=node().id;});};$('#fit').onclick=()=>graph.fit();
-function travel(method){graph.cancel();if(history[method]()){project=history.document;saveProject(project);}render();}
+function travel(method){graph.cancel();localDrafts.reset();if(history[method]()){project=history.document;saveProject(project);}render();}
 $('#undo').onclick=()=>travel('undo');$('#redo').onclick=()=>travel('redo');
 function download(value,name){const url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 $('#export-project').onclick=()=>{const errors=validateProject(project);if(errors.length){report('Fix validation errors before exporting.');return;}download(project,`${project.name.replace(/[^a-z0-9]+/gi,'-')}.nest.json`);};
 $('#export-chapter').onclick=()=>{const errors=validateProject(project);if(errors.length){report('Fix validation errors before exporting.');return;}download(exportChapter(project,chapterId),`${chapter().name.replace(/[^a-z0-9]+/gi,'-')}.chapter.json`);};
-$('#import').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{const text=await file.text(),raw=JSON.parse(text),incoming=parseProject(text);preview.stop();edit(()=>{project=raw.kind==='nest-project'?incoming:importChapter(project,raw);chapterId=project.activeChapterId;selected=chapter().startNode;});graph.fit();}catch(error){report(`Import rejected: ${error.message}`);}e.target.value='';};
+$('#import').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{const text=await file.text(),raw=JSON.parse(text),incoming=parseProject(text);preview.stop();localDrafts.reset();edit(()=>{project=raw.kind==='nest-project'?incoming:importChapter(project,raw);chapterId=project.activeChapterId;selected=chapter().startNode;});graph.fit();}catch(error){report(`Import rejected: ${error.message}`);}e.target.value='';};
 function play(startNode,{restore=true}={}){try{previewWindow.show({restore});preview.play(project,chapterId,startNode,{focus:!previewWindow.minimized});report('Chapter ready.');return true;}catch(error){report(error.message);return false;}}
 $('#play').onclick=()=>play();$('#play-node').onclick=()=>play(selected);$('#restart').onclick=()=>play();$('#stop').onclick=()=>preview.stop();
 window.addEventListener('pagehide',()=>{autoplay.destroy();previewWindow.destroy();preview.destroy();});

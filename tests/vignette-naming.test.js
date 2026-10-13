@@ -4,14 +4,14 @@ import { cardKinds, createDefinition } from '../project/cards.js';
 import { createProject, parseProject, exportChapter, importChapter, validateProject } from '../project/model.js';
 import { cardFields, definitionInspector, nodeInspector, placementInspector } from '../studio/inspectors.js';
 
-test('event definitions use Beat in editor labels while retaining the event kind and authored names',()=>{
+test('event definitions use Vignette in editor labels while retaining the event kind and authored names',()=>{
  const project=createProject(),event=project.library.find(d=>d.kind==='event');
- assert.equal(cardKinds.event.label,'Beat');
- assert.equal(createDefinition('event','new').name,'New Beat');
- assert.match(cardFields(project,event),/Card type[\s\S]*?value="event"[^>]*>Beat/);
- assert.match(definitionInspector(project,event),/<h2>Beat<\/h2>/);
- assert.match(placementInspector(project,project.chapters[0].nodes[0].cards[0],'event',0,'cards'),/Beat: Arrival/);
- assert.match(nodeInspector(project,project.chapters[0],project.chapters[0].nodes[0]),/Add beat/);
+ assert.equal(cardKinds.event.label,'Vignette');
+ assert.equal(createDefinition('event','new').name,'New Vignette');
+ assert.match(cardFields(project,event),/Card type[\s\S]*?value="event"[^>]*>Vignette/);
+ assert.match(definitionInspector(project,event),/<h2>Vignette<\/h2>/);
+ assert.match(placementInspector(project,project.chapters[0].nodes[0].cards[0],'event',0,'cards'),/Vignette: Arrival/);
+ assert.match(nodeInspector(project,project.chapters[0],project.chapters[0].nodes[0]),/Add vignette/);
  assert.equal(event.name,'Arrival');
 });
 

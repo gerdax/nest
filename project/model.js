@@ -27,6 +27,12 @@ export function outputsForNode(project,node) {
   // Connections depend on Action resolution, independent of its inventory context.
   return nodeOutputs(node, placement => resolvePlacement(project, {...placement,contextItemId:undefined}));
 }
+/** null intentionally ends a chapter; false is an unlinked output. */
+export function connectionForOutput(connections,output) {
+ if(Object.hasOwn(connections,output))return connections[output];
+ const previous=output.endsWith(':success')?output.slice(0,-8):!output.includes(':')?`${output}:success`:null;
+ return previous&&Object.hasOwn(connections,previous)?connections[previous]:false;
+}
 export function labelForOutput(project,node,output) {
   if(output==='next') return 'Next'; if(output==='fallback')return 'Fallback';
   if(node.type==='random') return node.routes?.find(r=>r.id===output)?.name || output;
@@ -48,7 +54,7 @@ export function createVariant(project,placement,newId,{chapterId,nodeId}={}) {
 
 export function compileChapter(project,chapterId=project.activeChapterId) {
   // All resolved mechanics and normalization must operate on detached data.
-  project=cloneProject(project);
+  project=discardPlacementContext(cloneProject(project));
   const chapter=project.chapters.find(c=>c.id===chapterId);if(!chapter)throw new TypeError(`Unknown chapter: ${chapterId}`);
   const result=cloneProject(chapter);result.cardStyles=cloneProject(project.cardStyles||{}); result.library=project.library.map(d=>({...cloneProject(d),kind:canonicalCardKind(d.kind),definitionId:d.id,...(d.kind==='item'?{inventoryKey:d.inventoryKey ?? d.id}:{})})); result.variables=project.variables.map(v=>({...v,initial:chapter.initialValues?.[v.id] ?? v.initial}));
   for(const node of result.nodes) {
@@ -84,7 +90,7 @@ export function exportChapter(project,id=project.activeChapterId) {
  const ids=definitionGraph(project).reachableFrom(chapter);
  const pkg=cloneProject({version:2,kind:'nest-chapter',library:project.library.filter(d=>ids.has(d.id)),variables:project.variables,cardStyles:project.cardStyles||{},chapter});
  for(const definition of pkg.library)definition.kind=canonicalCardKind(definition.kind);
- discardPlacementContext({chapters:[pkg.chapter]});return normalizeSingleItems(pkg);
+ discardPlacementContext({library:pkg.library,chapters:[pkg.chapter]});return normalizeSingleItems(pkg);
 }
 
 export function importChapter(project,pkgOrV1) {
@@ -130,10 +136,10 @@ export function validateProject(project,{allowDraft=false}={}) {
  if(d.resolution==='check'){const c=d.check;if(!object(c)||!Array.isArray(c.pool)||!c.pool.length||c.pool.some(d=>!object(d)||![4,6,8,10,12,20].includes(d.sides)||!Number.isSafeInteger(d.count)||d.count<1||d.count>30)||c.pool.reduce((a,d)=>a+(d.count||0),0)>30||!Number.isFinite(c.modifier)||!Number.isFinite(c.target)||c.modifierVariable!==undefined&&(!validRef(c.modifierVariable,vars)||vars.has(c.modifierVariable)&&vars.get(c.modifierVariable).type!=='number'))add(`${label}: invalid check.`);}}
  for(const d of library){if(!object(d))continue;if(d.contextItemId!==undefined||d.contextOverrideImage!==undefined)add(`Definition ${d.id}: inventory context belongs to a fork choice placement.`);if(d.visibility!==undefined&&!['local','shared'].includes(d.visibility)||!['event','caption','narrative','action','item'].includes(d.kind)||typeof d.name!=='string'||typeof d.text!=='string'||typeof d.image!=='string'||d.heading!==undefined&&typeof d.heading!=='string'||d.showName!==undefined&&typeof d.showName!=='boolean'||d.flipImage!==undefined&&typeof d.flipImage!=='boolean'||d.inventoryKey!==undefined&&!named(d.inventoryKey))add(`Definition ${d.id} has invalid content.`);for(const message of cardKinds[canonicalCardKind(d.kind)]?.validate(d) || [])add(`Definition ${d.id}: ${message}`);inspectCard(d,`Definition ${d.id}`);}
  if(!allowDraft&&!chapterIds.has(project.activeChapterId))add('Active chapter must exist.');
- for(const chapter of chapters){if(!object(chapter))continue;const cid=chapter.id;if(typeof chapter.name!=='string'||!Array.isArray(chapter.nodes)||typeof chapter.startNode!=='string'||chapter.backImage!==undefined&&typeof chapter.backImage!=='string'){add('Invalid chapter structure.',cid);continue;}const nodeIds=seen(chapter.nodes,'Node');if(!allowDraft&&!nodeIds.has(chapter.startNode))add('Start node must exist.',cid);
+ for(const chapter of chapters){if(!object(chapter))continue;const cid=chapter.id;if(typeof chapter.name!=='string'||!Array.isArray(chapter.nodes)||typeof chapter.startNode!=='string'||chapter.backImage!==undefined&&typeof chapter.backImage!=='string'){add('Invalid chapter structure.',cid);continue;}const nodeIds=seen(chapter.nodes,'Beat');if(!allowDraft&&!nodeIds.has(chapter.startNode))add('Start beat must exist.',cid);
  if(chapter.allowCycles!==undefined&&typeof chapter.allowCycles!=='boolean')add('Invalid allow node cycles setting.',cid);
  if(chapter.initialValues!==undefined){if(!object(chapter.initialValues))add('Initial values must be an object.',cid);else for(const [key,value]of Object.entries(chapter.initialValues)){const v=vars.get(key);if(!validRef(key,vars)||v&&(typeof value!==(v.type==='flag'?'boolean':'number')||v.type==='number'&&(!Number.isFinite(value)||v.min!==undefined&&value<v.min||v.max!==undefined&&value>v.max)))add(`Invalid initial value: ${key}.`,cid);}}
- const edges=new Map();for(const node of chapter.nodes){if(!object(node))continue;const nid=node.id,label=`Node ${nid}`;if(typeof node.name!=='string'||!Number.isFinite(node.x)||!Number.isFinite(node.y)||!nodeTypeDescriptor(node.type))add(`${label}: invalid node structure.`,cid,nid);
+ const edges=new Map();for(const node of chapter.nodes){if(!object(node))continue;const nid=node.id,label=`Beat ${nid}`;if(typeof node.name!=='string'||!Number.isFinite(node.x)||!Number.isFinite(node.y)||!nodeTypeDescriptor(node.type))add(`${label}: invalid beat structure.`,cid,nid);
  if(node.type==='linear'&&!Array.isArray(node.cards)||node.type==='fork'&&!Array.isArray(node.choices)||node.type==='container'&&(!Array.isArray(node.items)||!object(node.intro)))add(`${label}: missing placements.`,cid,nid);
  if(!allowDraft&&(node.type==='linear'&&!node.cards?.length||node.type==='fork'&&!node.choices?.length))add(`${label}: needs at least one placement.`,cid,nid);
  if(node.type==='fork'&&(node.intro!==undefined&&!object(node.intro)||node.introEnabled===true&&!object(node.intro)))add(`${label}: missing introduction.`,cid,nid);
@@ -141,8 +147,8 @@ export function validateProject(project,{allowDraft=false}={}) {
  if(node.introEnabled!==undefined&&typeof node.introEnabled!=='boolean')add(`${label}: invalid introduction toggle.`,cid,nid);
  const ps=placements(node),pids=new Set();for(const p of ps){if(!object(p)||!named(p.id)||typeof p.definitionId!=='string'){add(`${label}: invalid placement.`,cid,nid);continue;}if(pids.has(p.id))add(`${label}: duplicate placement ID.`,cid,nid);pids.add(p.id);if(!validRef(p.definitionId,definitions))add(`${label}: unknown definition ${p.definitionId}.`,cid,nid);if(p.unavailable!==undefined&&!['hidden','disabled'].includes(p.unavailable)||p.overrides!==undefined&&!object(p.overrides))add(`${label}: invalid placement options.`,cid,nid);inspectCard(p,label);if(object(p.overrides)){if(Object.keys(p.overrides).some(k=>!['conditions','costs','effects','resolution','check','successEffects','failureEffects'].includes(k)))add(`${label}: unsupported override.`,cid,nid);inspectCard(p.overrides,label);}const d=definitions.get(p.definitionId);if(p.contextOverrideImage!==undefined&&!(node.type==='fork'&&list(node.choices).includes(p)&&canonicalCardKind(d?.kind)==='action'))add(`${label}: Override img belongs to a native fork Action choice.`,cid,nid);const linked=p.contextItemId!==undefined&&p.contextItemId!=='';const contextValid=!linked || named(p.contextItemId)&&node.type==='fork'&&list(node.choices).includes(p)&&canonicalCardKind(d?.kind)==='action'&&definitions.get(p.contextItemId)?.kind==='item';if(!contextValid)add(`${label}: inventory context needs a native fork Action choice and an Item definition.`,cid,nid);if(d){if(['linear','fork','container'].includes(node.type)&&!allowedCardKinds(node.type,p===node.intro?'intro':list(node.choices).includes(p)?'choices':list(node.items).includes(p)?'items':'cards').includes(canonicalCardKind(d.kind)))add(`${label}: incompatible card kind.`,cid,nid);if(contextValid)inspectCard(resolvePlacement(project,p),label);}}
  let targets=[];
- if(node.type==='random'){if(!Array.isArray(node.routes)){add(`${label}: routes must be a list.`,cid,nid);}else{const ids=new Set();for(const r of node.routes){if(!object(r)||!named(r.id)||ids.has(r.id)||!Number.isFinite(r.weight)||r.weight<=0||r.target!==null&&typeof r.target!=='string')add(`${label}: invalid random route.`,cid,nid);if(object(r)){ids.add(r.id);inspectConditions(r.conditions,label);targets.push(r.target);}}}if(node.fallback!==null&&typeof node.fallback!=='string')add(`${label}: invalid fallback.`,cid,nid);targets.push(node.fallback);}
- else {if(!object(node.connections))add(`${label}: connections must be an object.`,cid,nid);else {targets=Object.values(node.connections);for(const target of targets)if(target!==null&&typeof target!=='string')add(`${label}: invalid connection.`,cid,nid);if(!allowDraft)for(const output of outputsForNode(project,node))if(!Object.hasOwn(node.connections,output))add(`${label}: missing connection ${output}.`,cid,nid);}}
+ if(node.type==='random'){if(!Array.isArray(node.routes)){add(`${label}: routes must be a list.`,cid,nid);}else{const ids=new Set();for(const r of node.routes){if(!object(r)||!named(r.id)||ids.has(r.id)||!Number.isFinite(r.weight)||r.weight<=0||r.target!==null&&r.target!==false&&typeof r.target!=='string')add(`${label}: invalid random route.`,cid,nid);if(object(r)){ids.add(r.id);inspectConditions(r.conditions,label);targets.push(r.target);}}}if(node.fallback!==null&&node.fallback!==false&&typeof node.fallback!=='string')add(`${label}: invalid fallback.`,cid,nid);targets.push(node.fallback);}
+ else {if(!object(node.connections))add(`${label}: connections must be an object.`,cid,nid);else {targets=Object.values(node.connections);for(const target of targets)if(target!==null&&target!==false&&typeof target!=='string')add(`${label}: invalid connection.`,cid,nid);if(!allowDraft)for(const output of outputsForNode(project,node))if(!Object.hasOwn(node.connections,output))add(`${label}: missing connection ${output}.`,cid,nid);}}
  for(const raw of legacyArtwork(node)){if(raw.contextOverrideImage!==undefined||raw.contextItemId!==undefined&&raw.contextItemId!=='')add(`${label}: inventory context is unsupported on legacy cards.`,cid,nid);if(!named(raw.id)||typeof raw.definitionId!=='string'||typeof raw.image!=='string'||raw.unavailable!==undefined&&!['hidden','disabled'].includes(raw.unavailable))add(`${label}: invalid legacy artwork.`,cid,nid);if(!validRef(raw.definitionId,definitions))add(`${label}: unknown legacy definition.`,cid,nid);inspectCard(raw,label);if(definitions.has(raw.definitionId)){try{inspectCard(resolvePlacement(project,raw),label);}catch{add(`${label}: invalid legacy placement mechanics.`,cid,nid);}}}
  for(const seq of node.type==='legacySequence'?[node.sequence]:node.type==='legacyPool'?list(node.sequences):[]){if(!object(seq)||!named(seq.id)||!['linear','container','forked'].includes(seq.type)||!Array.isArray(seq.cards)||!Array.isArray(seq.exits)){add(`${label}: invalid legacy sequence.`,cid,nid);continue;}const cardIds=new Set(seq.cards.filter(object).map(c=>c.id)),exitIds=new Set(seq.exits),adjacency=new Map();
  for(const card of seq.cards){if(!object(card)||!named(card.id)||typeof card.title!=='string'||typeof card.text!=='string'||typeof card.image!=='string'){add(`${label}: invalid legacy card.`,cid,nid);continue;}const links=[];for(const choice of list(card.choices)){if(!object(choice)||!named(choice.id)||typeof choice.target!=='string'){add(`${label}: invalid legacy choice.`,cid,nid);continue;}if(!allowDraft){if(choice.target.startsWith('card:')){const target=choice.target.slice(5);if(!cardIds.has(target))add(`${label}: unknown legacy card target.`,cid,nid);else links.push(target);}else if(!choice.target.startsWith('exit:') || !exitIds.has(choice.target.slice(5)))add(`${label}: unknown legacy exit.`,cid,nid);}}adjacency.set(card.id,links);}
@@ -150,8 +156,8 @@ export function validateProject(project,{allowDraft=false}={}) {
 
  if(node.type==='legacySequence'&&!object(node.sequence))add(`${label}: missing legacy sequence.`,cid,nid);
  if(node.type==='legacyPool'&&(!Array.isArray(node.sequences)||!Array.isArray(node.pool)||!Number.isSafeInteger(node.count)||node.count<1||node.count>node.pool.length||node.pool.some(p=>!object(p)||!Number.isFinite(p.weight)||p.weight<=0||!allowDraft&&!node.sequences.some(s=>s.id===p.sequenceId))))add(`${label}: invalid legacy pool.`,cid,nid);
- if(!allowDraft)for(const t of targets)if(t!==null&&!nodeIds.has(t))add(`${label}: unknown target ${t}.`,cid,nid);edges.set(nid,targets.filter(t=>t!==null&&nodeIds.has(t)));}
- if(!allowDraft&&chapter.allowCycles!==true){const active=new Set(),done=new Set();const visit=id=>{if(active.has(id))return true;if(done.has(id))return false;active.add(id);for(const to of edges.get(id)||[])if(visit(to))return true;active.delete(id);done.add(id);return false;};if([...nodeIds].some(visit))add('Chapter has a node cycle.',cid);}
+ if(!allowDraft)for(const t of targets)if(t!==null&&t!==false&&!nodeIds.has(t))add(`${label}: unknown target ${t}.`,cid,nid);edges.set(nid,targets.filter(t=>t!==null&&nodeIds.has(t)));}
+ if(!allowDraft&&chapter.allowCycles!==true){const active=new Set(),done=new Set();const visit=id=>{if(active.has(id))return true;if(done.has(id))return false;active.add(id);for(const to of edges.get(id)||[])if(visit(to))return true;active.delete(id);done.add(id);return false;};if([...nodeIds].some(visit))add('Chapter has a beat cycle.',cid);}
  }
  return errors;
 }
@@ -167,7 +173,30 @@ export function normalizeSingleItems(project) {
  });return project;
 }
 export function discardPlacementContext(project) {
- for(const chapter of list(project?.chapters))for(const node of list(chapter?.nodes).filter(object))for(const p of [...placements(node),...legacyArtwork(node)]){delete p.context;if(p.contextItemId==='')delete p.contextItemId;}
+ const localIds=new Set(list(project?.library).filter(d=>d?.visibility==='local').map(d=>d.id));
+ for(const chapter of list(project?.chapters))for(const node of list(chapter?.nodes).filter(object)){
+  let resetResolution=false;
+  for(const p of [...placements(node),...legacyArtwork(node)]){
+   delete p.context;if(p.contextItemId==='')delete p.contextItemId;
+   if(localIds.has(p.definitionId)&&p.overrides!==undefined){resetResolution ||= p.overrides?.resolution!==undefined;delete p.overrides;}
+   const definition=list(project?.library).find(d=>d?.id===p.definitionId);
+   if(definition?.kind==='action'&&['linear','fork'].includes(node.type)&&[p.conditions,p.effects].every(v=>v===undefined||Array.isArray(v))){
+    if(p.conditions?.length||p.effects?.length){
+     const resolved=resolvePlacement(project,{...p,contextItemId:undefined});
+     if(definition.visibility==='local'){
+      definition.conditions=resolved.conditions;definition.effects=resolved.effects;
+     }else{
+      p.overrides=Object.fromEntries(['conditions','costs','effects','resolution','check','successEffects','failureEffects'].map(key=>[key,cloneProject(resolved[key]??(key==='resolution'?'direct':key==='check'?{pool:[{sides:20,count:1}],modifier:0,target:10}:[]))]));
+     }
+    }
+    delete p.conditions;delete p.effects;
+   }
+  }
+  if(resetResolution&&node.type==='fork'){
+   const old=node.connections||{};
+   node.connections=Object.fromEntries(outputsForNode(project,node).map(exit=>[exit,connectionForOutput(old,exit)]));
+  }
+ }
  return project;
 }
 export function parseProject(text,{allowDraft=false}={}) {

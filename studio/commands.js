@@ -1,5 +1,5 @@
 import { createDefinition, resolvePlacement } from '../project/cards.js';
-import { outputsForNode } from '../project/model.js';
+import { outputsForNode,connectionForOutput } from '../project/model.js';
 import { createNodeDefaults } from '../project/nodeTypes.js';
 export const uid = prefix => `${prefix}-${crypto.randomUUID().slice(0,8)}`;
 export function makeDefinition(project,kind,name) {
@@ -9,7 +9,7 @@ export function makePlacement(project,kind,name) {
  const definition=makeDefinition(project,kind,name);definition.visibility='local';
  return {id:uid('placement'),definitionId:definition.id};
 }
-function remapInventory(value,ids) {
+export function remapInventory(value,ids) {
  if(Array.isArray(value))value.forEach(v=>remapInventory(v,ids));
  else if(value&&typeof value==='object'){
   if(value.key&&(value.source==='inventory'||['addItem','removeItem'].includes(value.op))&&ids.has(value.key))value.key=ids.get(value.key);
@@ -26,6 +26,13 @@ export function replaceCard(project,placement,kind,{copy=false}={}) {
 export function setCardSource(project,placement,definitionId,{allowedKinds}={}) {
  const source=project.library.find(d=>d.id===placement.definitionId);
  if(!source)throw new Error('Card definition is missing.');
+ if(definitionId?.startsWith('local:')){
+  const kind=definitionId.slice(6);
+  if(!(allowedKinds||[source.kind]).includes(kind))throw new Error('Choose a local card type allowed in this beat.');
+  if(source.visibility==='local'&&source.kind===kind)return;
+  replaceCard(project,placement,kind,{copy:source.kind===kind});
+  return;
+ }
  if(!definitionId){
   if(source.visibility!=='local')replaceCard(project,placement,source.kind,{copy:true});
   return;
@@ -51,7 +58,7 @@ export function duplicatePlacement(project,node,placement) {
  }
  node[slot].splice(node[slot].indexOf(placement)+1,0,copy);
  if(slot==='choices')for(const output of outputsForNode(project,node).filter(exit=>exit===copy.id||exit.startsWith(`${copy.id}:`))){
-  const original=placement.id+output.slice(copy.id.length);node.connections[output]=node.connections[original]??null;
+  const original=placement.id+output.slice(copy.id.length);node.connections[output]=Object.hasOwn(node.connections,original)?node.connections[original]:false;
  }
  return copy;
 }
@@ -83,15 +90,14 @@ export function synchronizeConnections(project) {
  for(const chapter of project.chapters)for(const node of chapter.nodes){
   if(node.type==='random')continue;
   const old=node.connections||{};
-  node.connections=Object.fromEntries(outputsForNode(project,node).map(exit=>[exit,old[exit]??(exit.endsWith(':success')?old[exit.slice(0,-8)]:!exit.includes(':')?old[`${exit}:success`]:null)??null]));
+  node.connections=Object.fromEntries(outputsForNode(project,node).map(exit=>[exit,connectionForOutput(old,exit)]));
  }
 }
 export function customizeAction(project,placement) {
- const card=resolvePlacement(project,placement);
+ if(project.library.find(d=>d.id===placement.definitionId)?.visibility==='local'){delete placement.overrides;return;}
+ const card=resolvePlacement(project,{...placement,contextItemId:undefined});
  placement.overrides=Object.fromEntries(['conditions','costs','effects','resolution','check','successEffects','failureEffects'].map(key=>[key,structuredClone(card[key]??(key==='resolution'?'direct':key==='check'?{pool:[{sides:20,count:1}],modifier:0,target:10}:[]))]));
- // Availability and local effects are edited separately from shared defaults.
- placement.overrides.conditions=structuredClone(project.library.find(d=>d.id===placement.definitionId).conditions||[]);
- placement.overrides.effects=structuredClone(project.library.find(d=>d.id===placement.definitionId).effects||[]);
+ delete placement.conditions;delete placement.effects;
 }
 export function newRule(project,kind) {
  if(kind==='dice')return {sides:20,count:1};

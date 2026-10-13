@@ -156,7 +156,8 @@ export function decorateCard(deck, element, image, title, text, flipImage = fals
   const body = document.createElement('p');
   body.textContent = text || '';
   copy.append(heading);
-  if (inventoryAction) copy.append(body);
+  const actionCard = presentation.cardKind === 'action';
+  if (actionCard) copy.append(body);
   if (presentation.summary) {
     const summary = document.createElement('p');
     summary.className = 'nest-card-summary';
@@ -169,7 +170,7 @@ export function decorateCard(deck, element, image, title, text, flipImage = fals
     source.textContent = presentation.inventoryLabel;
     copy.append(source);
   }
-  if (!inventoryAction) copy.append(body);
+  if (!actionCard) copy.append(body);
   element.append(copy, artwork, cardTexture());
   if (['action','item'].includes(presentation.cardKind)) {
     const typeLabel = document.createElement('span');

@@ -9,8 +9,8 @@ test('Linear authors every card kind, accepts library sources and keeps one Next
  const project=createProject(),chapter=project.chapters[0],node=chapter.nodes[0];
  node.cards=['event','caption','action','item'].map(kind=>makePlacement(project,kind));
  const html=nodeInspector(project,chapter,node);
- for(const kind of ['event','caption','action','item'])assert.match(html,new RegExp(`Add ${kind==='event'?'beat':kind}`));
- assert.match(html,/Item behaviour/);assert.match(html,/Customize this action/);assert.match(html,/Unavailable action/);
+ for(const kind of ['event','caption','action','item'])assert.match(html,new RegExp(`Add ${kind==='event'?'vignette':kind}`));
+ assert.match(html,/Item behaviour/);assert.doesNotMatch(html,/Use custom rules/);assert.match(html,/Unavailable action/);
  const shared=createDefinition('action','shared-check');project.library.push(shared);
  setCardSource(project,node.cards[2],shared.id,{allowedKinds:allowedCardKinds('linear','cards')});
  customizeAction(project,node.cards[2]);node.cards[2].overrides.resolution='check';

@@ -21,7 +21,13 @@ export class ProjectController {
     ++this.generation; this.checking?.abort(); this.checking=null;
     this.deck.reset(); this.variables=initialValues(this.compiled.variables); this.inventory=[];
     this.remaining=new Map(); this.accepted=new Set();this.revealedIntros=new Set();this.pendingIntro=null; this.pendingItem=null;this.stagedDestination=null;this.completed=false;
-    try {this.adopt(this.locate(this.compiled.startNode),false);this.show();} catch(error){this.error(error);this.completed=true;this.deck.endContent();this.notify();}
+    try {this.adopt(this.locate(this.compiled.startNode),false);this.show();} catch(error){
+      if(error.message==='Unlinked output') {
+        this.location=null;this.completed=false;
+        this.deck.replaceContent({id:`${this.generation}:${++this.serial}`,title:'Unlinked output',actions:[{id:'unavailable',label:'Unlinked output',disabled:true}],decisionOnly:true},{presentation:'open',animate:false});
+      }else {this.completed=true;this.deck.endContent();}
+      this.error(error);this.notify();
+    }
   }
   type(location=this.location) {return location?.sequence?.type ?? location?.node.type;}
   card(location=this.location) {
@@ -47,12 +53,17 @@ export class ProjectController {
     return routes.find(r=>(ticket-=r.weight)<0) ?? routes.at(-1);
   }
   locate(id,values=this.variables,inventory=this.inventory,visited=new Set(),excluded=null,preview=false) {
-    if(id==null)return {completed:true};
+    if(id===null)return {completed:true};
+    if(id===false||id===undefined)throw new Error('Unlinked output');
     if(visited.has(id))throw new Error('Automatic routing cycle'); visited.add(id);
     const node=this.nodes.get(id);if(!node)throw new Error(`Unknown node: ${id}`);
     if(node.type==='random') {
-      if(preview)return null;
       const routes=(node.routes ?? []).filter(r=>r.weight>0 && conditionsMet(r.conditions,values,inventory));
+      if(preview) {
+        const targets=routes.length?routes.map(r=>r.target):[node.fallback];
+        for(const target of targets)this.locate(target,values,inventory,new Set(visited),excluded,true);
+        return null;
+      }
       const selected=this.weighted(routes);
       return this.locate(selected ? selected.target : node.fallback,values,inventory,visited,excluded,preview);
     }
@@ -88,18 +99,35 @@ export class ProjectController {
     const key=location.node.type==='legacyPool'?'next':output;
     return this.locate(location.node.connections?.[key],values,inventory,visited,excluded,preview);
   }
-  destination(source,success,values=this.variables,inventory=this.inventory) {
-    const location=this.location,type=this.type();
+  destination(source,success,values=this.variables,inventory=this.inventory,location=this.location,preview=false) {
+    const type=this.type(location);
     if(type==='linear') {
-      return this.seek({...location,index:location.index+1},values,inventory,new Set());
+      return this.seek({...location,index:location.index+1},values,inventory,new Set(),null,preview);
     }
     if(location.sequence && type==='forked') {
       const target=source.target;
       if(target?.startsWith('card:'))return {...location,index:location.sequence.cards.findIndex(c=>c.id===target.slice(5))};
-      return this.next(location,target?.slice(5) ?? source.id,values,inventory);
+      return this.next(location,target?.slice(5) ?? source.id,values,inventory,new Set(),null,preview);
     }
     const output=source.resolution==='check'?`${source.id}:${success?'success':'failure'}`:source.id;
-    return this.next(location,output,values,inventory);
+    return this.next(location,output,values,inventory,new Set(),null,preview);
+  }
+  departureBlocked(source,location=this.location,values=this.variables,inventory=this.inventory,transition=null,excludedItem=null) {
+    try {
+      const outcomes=source.resolution==='check'?[true,false]:[undefined];
+      for(const outcome of outcomes) {
+        const collected=transition==='collect'?addInventory(inventory,{...source,text:this.body(source)}):inventory;
+        const result=transact(values,collected,{costs:transition?[]:source.costs,effects:transition?(transition==='collect'?(source.onCollect??source.effects??[]):[]):[...(source.effects??[]),...(outcome===undefined?[]:outcome?source.successEffects??[]:source.failureEffects??[])]},this.compiled.variables,this.compiled.library);
+        if(this.type(location)==='container') {
+          if(transition==='collect'&&this.items(location,result.variables,result.inventory,excludedItem).some(i=>i.id!==source.id))continue;
+          this.next(location,'next',result.variables,result.inventory,new Set(),transition==='discard'?{key:this.key(location),all:true}:source.id,true);
+        }else this.destination(source,outcome,result.variables,result.inventory,location,true);
+      }
+      return false;
+    }catch(error) {
+      // Transaction errors retain their existing runtime error/retry behavior.
+      return error.message==='Unlinked output'||error.message==='Automatic routing cycle'||error.message.startsWith('Unknown node:');
+    }
   }
   adopt(destination,notify=true) {this.completed=!!destination.completed;if(!this.completed)this.location=destination;if(notify)this.notify();}
   body(card) {return cardBody(card);}
@@ -113,16 +141,21 @@ export class ProjectController {
     if(fork)actions=this.choices(location).flatMap(c=>{
       if(c.contextItemId&&!conditionsMet([{source:'inventory',key:c.contextInventoryKey ?? c.contextItemId,op:'has'}],values,inventory))return [];
       const available=conditionsMet(c.conditions,values,inventory)&&affordCosts(values,inventory,c.costs,this.compiled.variables);
-      return !available&&c.unavailable==='hidden'?[]:[{...this.action(c),disabled:!available}];
+      return !available&&c.unavailable==='hidden'?[]:[{...this.action(c),disabled:!available||this.departureBlocked(c,location,values,inventory)}];
     });
-    else if(container)actions=this.items(location,values,inventory,excludedItem).map(c=>this.action(c));
+    else if(container)actions=this.items(location,values,inventory,excludedItem).map(c=>({...this.action(c),discardDisabled:this.departureBlocked(c,location,values,inventory,'discard',excludedItem),collectDisabled:this.departureBlocked(c,location,values,inventory,'collect',excludedItem)}));
     else if(linearFace)actions=[{...this.action(card),disabled:!conditionsMet(card.conditions,values,inventory)||!affordCosts(values,inventory,card.kind==='action'?card.costs:[],this.compiled.variables)}];
     else actions=[{id:'continue',label:'Continue',image:card?.image,flipImage:!!card?.flipImage}];
+    if(linearFace) {
+      if(linearItem)Object.assign(actions[0],{discardDisabled:this.departureBlocked(card,location,values,inventory,'discard'),collectDisabled:this.departureBlocked(card,location,values,inventory,'collect')});
+      else actions[0].disabled ||= this.departureBlocked(card,location,values,inventory);
+    }
+    if(container||linearItem)for(const action of actions)action.disabled ||= action.collectDisabled&&action.discardDisabled;
     if(!actions.length)actions=[{id:'unavailable',label:'No available choices',disabled:true}];
     const payload={autoBrowse:fork||container,id:`${this.generation}:${++this.serial}`,backImage:this.compiled.backImage ?? '',title:card?.name ?? card?.title ?? '',heading:cardFace(card,this.compiled.variables,this.compiled.library).heading,text:this.body(card),cardKind:card?.kind ?? 'event',summary:card&&!isStoryKind(card.kind??card.cardKind)&&fork?cardSummary(card,this.compiled.variables,this.compiled.library):'',image:card?.image ?? '',imageScale:card?.imageScale??100,imageOffsetX:card?.imageOffsetX??0,imageOffsetY:card?.imageOffsetY??0,flipImage:!!card?.flipImage,actions,directAdvance:!fork&&!container&&!linearFace,decisionOnly:linearFace||fork&&(location.sequence?!!location.sequence.decisionOnly:this.presentation(location,values,inventory)==='open'),interaction:container||linearItem?'container':'choice',discardAll:container,allowClose:false};
     if(fork)payload.choiceFollowerRatio=.82;
     payload.flipItemsOnReveal=container&&this.presentation(location,values,inventory)==='closed';
-    if(payload.directAdvance)payload.nextTransition='flip';
+    if(payload.directAdvance){payload.nextTransition='flip';payload.advanceDisabled=this.departureBlocked(card,location,values,inventory);actions[0].disabled=payload.advanceDisabled;}
     if(type==='linear'&&preview&&card&&card.kind!=='item'&&card.resolution!=='check') {
       try {
         const predicted=transact(values,inventory,{costs:card.costs,effects:card.effects},this.compiled.variables,this.compiled.library);
@@ -177,7 +210,7 @@ export class ProjectController {
     if(this.destroyed||this.completed||this.checking||this.pendingItem||this.pendingIntro||(this.type()==='container'||this.type()==='linear'&&this.card()?.kind==='item')||detail.contentId!==this.deck.content.id||this.accepted.has(detail.contentId))return;
     const action=this.deck.content.actions.find(a=>a.id===detail.action?.id&&!a.disabled);if(!action)return;
     const source=['fork','forked'].includes(this.type())?this.choices().find(c=>c.id===action.id):this.card();
-    if(!source||!this.available(source)){this.show({restore:true});return;}
+    if(!source||!this.available(source)||this.departureBlocked(source)){this.show({restore:true});return;}
     this.accepted.add(detail.contentId);
     if(source.resolution==='check'){this.runCheck(source);return;}
     try {
@@ -187,6 +220,7 @@ export class ProjectController {
     }catch(error){this.error(error);this.show({restore:true});}
   }
   async runCheck(source) {
+    if(this.departureBlocked(source))return;
     const generation=this.generation,abort=new AbortController();this.checking=abort;this.notify();
     try {
       if(!this.rollCheck)throw new Error('No dice roller supplied');
@@ -200,6 +234,7 @@ export class ProjectController {
       const total=raw+modifier,success=total>=source.check.target;
       await this.onCheckResult({total,target:source.check.target,success,dice:dice??[],signal:abort.signal});
       if(abort.signal.aborted||generation!==this.generation||this.destroyed)return;
+      if(this.departureBlocked(source))throw new Error('Unlinked output');
       if(!this.available(source))throw new Error('Check requirements changed');
       const next=this.transaction(source,success);const destination=this.destination(source,success,next.variables,next.inventory);
       this.variables=next.variables;this.inventory=next.inventory;this.checking=null;this.adopt(destination,false);this.show();
@@ -215,6 +250,7 @@ export class ProjectController {
     if(this.destroyed||this.completed||this.checking||this.pendingItem||this.pendingIntro||(!linearItem&&this.type()!=='container')||detail.contentId!==this.deck.content.id)return;
     const item=linearItem?this.card():this.items().find(i=>i.id===detail.action?.id);
     if(!item||item.id!==detail.action?.id||!conditionsMet(item.conditions,this.variables,this.inventory))return;
+    if(this.departureBlocked(item,this.location,this.variables,this.inventory,transition)){this.show({restore:true});return;}
     try {
       const {context,...itemContent}=item;
       const inventory=transition==='collect'?addInventory(this.inventory,{...itemContent,text:this.body(item)}):this.inventory;
@@ -238,7 +274,10 @@ export class ProjectController {
     if(this.pendingIntro&&detail.transition==='reveal'&&detail.contentId===this.pendingIntro.contentId) {
       this.pendingIntro=null;
       try {
-        if(this.type()==='container'&&!this.items().length){this.adopt(this.next(this.location),false);this.show();}
+        if(this.type()==='container'&&!this.items().length){
+          if(this.departureBlocked(this.card()??{},this.location,this.variables,this.inventory,'discard'))this.show({presentation:'open',animate:false});
+          else {this.adopt(this.next(this.location),false);this.show();}
+        }
         else {
           const updated=this.content();
           if(JSON.stringify(this.deck.content.actions)!==JSON.stringify(updated.actions)) {
@@ -261,7 +300,8 @@ export class ProjectController {
         if(!this.items().length){this.adopt(this.next(this.location),false);this.show();}
         else {
           const visible=this.items().map(i=>i.id),shown=this.deck.content.actions.map(a=>a.id);
-          if(visible.length!==shown.length||visible.some(id=>!shown.includes(id)))this.show({presentation:'open',animate:false,autoBrowse:false});
+          const updated=this.content();
+          if(visible.length!==shown.length||visible.some(id=>!shown.includes(id))||updated.actions.some(a=>{const old=this.deck.content.actions.find(c=>c.id===a.id);return old?.collectDisabled!==a.collectDisabled||old?.discardDisabled!==a.discardDisabled;}))this.show({presentation:'open',animate:false,autoBrowse:false});
         }
       }
     }else if(detail.transition==='commit'&&this.stagedDestination){const destination=this.stagedDestination;this.stagedDestination=null;this.adopt(destination);if(!this.completed)this.reportBlocked();}

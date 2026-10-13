@@ -354,10 +354,13 @@ export class CardDeck extends EventTarget {
     }
     if (gesture.axis === 'y') {
       if (!this.drag.open) {
-        this.p.x = resistance(this.drag.p - gesture.y / this.departureTravel(), 0, 1);
+        this.p.x = this.content.directAdvance && this.content.advanceDisabled && gesture.y < 0
+          ? Math.min(24, 24 * (1 - Math.exp(gesture.y / 90))) / this.departureTravel()
+          : resistance(this.drag.p - gesture.y / this.departureTravel(), 0, 1);
       } else if (this.drag.ready && this.content.interaction === 'container') {
         const action = this.content.actions[this.index];
-        const group = this.content.discardAll === true && gesture.y < 0 && !action.disabled;
+        const disabled=action.disabled||(gesture.y<0?action.discardDisabled:action.collectDisabled);
+        const group = this.content.discardAll === true && gesture.y < 0 && !disabled;
         if (group) {
           this.beginGroupLift();
           this.beginGrab();
@@ -365,9 +368,9 @@ export class CardDeck extends EventTarget {
           this.clearGroupLift();
           this.captureItemPose(action);
         }
-        this.l.x = action.disabled ? clamp(this.drag.l - gesture.y / height, -24 / height, 24 / height)
+        this.l.x = disabled ? clamp(this.drag.l - gesture.y / height, -24 / height, 24 / height)
           : this.drag.l - gesture.y / height;
-        if (!action.disabled && (group || this.cards.length === 1) && this.l.x !== 0) stageNextBack(this);
+        if (!disabled && (group || this.cards.length === 1) && this.l.x !== 0) stageNextBack(this);
       } else if (gesture.y > 0) {
         this.restoreLiftPoses();
         if (!this.content.allowClose) {
@@ -694,6 +697,11 @@ export class CardDeck extends EventTarget {
 
   commitCover(pointerVelocity = 0) {
     if (this.busy || !this.content.directAdvance || this.phase !== 'closed') return;
+    if(this.content.advanceDisabled) {
+      this.releaseGrab();
+      this.p.x = Math.max(this.p.x,12/this.departureTravel());
+      this.p.target = 0;this.p.v = 0;this.operation = 'settle';this.schedule();return;
+    }
     this.nextFlip = spring(this.content.nextTransition === 'flip' ? 1 : 0);
     this.busy = true;
     this.phase = 'committing';
@@ -708,16 +716,7 @@ export class CardDeck extends EventTarget {
     if (this.busy || this.phase !== 'choices') return;
     this.cancelPresentationHint();
     if (this.content.actions[this.index]?.disabled) {
-      if (!this.liftPoses) {
-        this.liftPoses = new Map(this.content.actions.map((a, i) => [a.id, this.unpickedCardPose(i)]));
-        this.liftRotation = { x: this.rotationX.x, y: this.rotationY.x, z: this.rotationZ.x };
-        this.liftStart = this.l.x;
-        this.liftId = this.content.actions[this.index].id;
-      }
-      this.l.x = Math.max(this.l.x, 12 / this.mount.getBoundingClientRect().height);
-      this.l.target = 0;
-      this.operation = 'settle';
-      this.schedule();
+      this.blockedAction();
       return;
     }
     if (this.content.interaction === 'container') {
@@ -734,6 +733,20 @@ export class CardDeck extends EventTarget {
     this.commitMotion = this.departureMotion(pointerVelocity);
     this.emit('commit', { action: this.content.actions[this.index], index: this.index });
     this.schedule();
+  }
+
+  blockedAction(direction=-1) {
+    if (!this.liftPoses) {
+      this.liftPoses = new Map(this.content.actions.map((a, i) => [a.id, this.unpickedCardPose(i)]));
+      this.liftRotation = { x: this.rotationX.x, y: this.rotationY.x, z: this.rotationZ.x };
+      this.liftStart = this.l.x;
+      this.liftId = this.content.actions[this.index].id;
+    }
+    this.l.x = direction<0?Math.max(this.l.x,12/this.mount.getBoundingClientRect().height):Math.min(this.l.x,-12/this.mount.getBoundingClientRect().height);
+    this.l.target = 0;
+    this.operation = 'settle';
+    this.schedule();
+    return;
   }
 
   departureMotion(pointerVelocity) {
@@ -798,7 +811,8 @@ export class CardDeck extends EventTarget {
     if (this.content.discardAll !== true) { this.resolveItem('discard', pointerVelocity); return; }
     if (this.destroyed || this.busy || this.drag || this.phase !== 'choices' || this.content.interaction !== 'container') return;
     const action = this.content.actions[this.index];
-    if (!action || action.disabled) return;
+    if (!action) return;
+    if(action.disabled||action.discardDisabled){this.blockedAction();return;}
     this.cancelPresentationHint();
     this.beginGroupLift();
     this.sampleChoices();
@@ -818,7 +832,8 @@ export class CardDeck extends EventTarget {
     if (this.destroyed || this.busy || this.drag || this.phase !== 'choices' || this.content.interaction !== 'container') return;
     this.cancelPresentationHint();
     const action = this.content.actions[this.index];
-    if (!action || action.disabled) return;
+    if (!action) return;
+    if(action.disabled||(transition==='collect'?action.collectDisabled:action.discardDisabled)){this.blockedAction(transition==='collect'?1:-1);return;}
     this.clearGroupLift();
     this.captureItemPose(action);
     const final = this.cards.length === 1;

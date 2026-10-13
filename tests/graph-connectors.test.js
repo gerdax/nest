@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { GraphView } from '../studio/GraphView.js';
+import { createDefinition,cardEditorTint } from '../project/cards.js';
 
 // This fixture exercises event routing and generated SVG, not browser layout.
 class Element {
@@ -32,9 +33,9 @@ class Root extends Element {
 }
 function setup(){
  const nodes=[{id:'a',name:'A',type:'linear',cards:[],x:0,y:0,connections:{next:'b'}},{id:'b',name:'B',type:'linear',cards:[],x:400,y:50,connections:{next:null}},{id:'c',name:'C',type:'linear',cards:[],x:600,y:150,connections:{next:null}}];
- const chapter={nodes,startNode:'a'},project={library:[]},root=new Root(),calls=[],moves=[];
- const graph=new GraphView(root,{onSelect(){},onConnect:(...args)=>calls.push(args),onMove:(...args)=>moves.push(args)});graph.render(project,chapter,'a','b');
- return {root,graph,chapter,calls,moves,port:()=>root.node('a').children[0]};
+ const chapter={nodes,startNode:'a'},project={library:[]},root=new Root(),calls=[],moves=[],selections=[],opened=[];
+ const graph=new GraphView(root,{onSelect:id=>selections.push(id),onOpenCard:(...args)=>opened.push(args),onConnect:(...args)=>calls.push(args),onMove:(...args)=>moves.push(args)});graph.render(project,chapter,'a','b');
+ return {root,graph,chapter,calls,moves,selections,opened,port:()=>root.node('a').children[0]};
 }
 test('port drag captures on root, highlights hit node, and commits only on release',()=>{
  const s=setup();s.root.event('pointerdown',s.port(),200,100);assert.equal(s.root.capture,1);
@@ -42,13 +43,20 @@ test('port drag captures on root, highlights hit node, and commits only on relea
  assert.equal(s.root.node('c').classes.has('connection-target'),true);assert.match(s.root.parts['#edges'].innerHTML,/edge-ghost/);assert.deepEqual(s.calls,[]);
  s.root.event('pointerup',s.root,700,220);assert.deepEqual(s.calls,[['a','next','c']]);assert.equal(s.graph.pending,null);assert.doesNotMatch(s.root.parts['#edges'].innerHTML,/edge-ghost/);assert.equal(s.root.node('b').classes.has('active'),true);
 });
-test('existing wire reroutes through its source and exit without mutating old connection',()=>{
- const s=setup(),edge=new Element('edge-hit',{source:'a',exit:'next'},s.root);
+test('clicking or dragging an existing line neither reroutes nor pans the graph',()=>{
+ const s=setup(),edge=new Element('edge-hit',{source:'a',exit:'next'},s.root),before={...s.graph.view};
  assert.match(s.root.parts['#edges'].innerHTML,/class="edge-hit" data-source="a" data-exit="next"/);
- s.root.event('pointerdown',edge);s.root.hit=s.root.node('c');s.root.event('pointerup',s.root,700,220);
- assert.deepEqual(s.calls,[['a','next','c']]);assert.equal(s.chapter.nodes[0].connections.next,'b');
+ s.root.event('pointerdown',edge);assert.equal(s.graph.drag,null);assert.equal(s.root.capture,null);
+ s.root.hit=s.root.node('c');s.root.event('pointermove',s.root,700,220);s.root.event('pointerup',s.root,700,220);
+ assert.deepEqual(s.calls,[]);assert.deepEqual(s.graph.view,before);assert.equal(s.chapter.nodes[0].connections.next,'b');
 });
-for(const drop of ['blank','self','outside','foreign'])test(`${drop} moved drop preserves connection and clears pending`,()=>{
+test('double-clicking an existing line disconnects exactly its source output',()=>{
+ const s=setup(),edge=new Element('edge-hit',{source:'a',exit:'next'},s.root);
+ s.root.handlers.dblclick({target:edge,preventDefault(){}});
+ assert.deepEqual(s.calls,[['a','next',false]]);assert.deepEqual(s.selections,[]);assert.deepEqual(s.opened,[]);
+ s.root.handlers.dblclick({target:s.port(),preventDefault(){}});assert.equal(s.calls.length,1);
+});
+for(const drop of ['self','outside','foreign'])test(`${drop} moved drop preserves connection and clears pending`,()=>{
  const s=setup();s.root.event('pointerdown',s.port(),200,100);s.root.hit=drop==='self'?s.root.node('a'):drop==='foreign'?new Element('node',{id:'c'}):null;
  if(drop==='outside')s.root.hit=s.root.node('c');
  s.root.event('pointerup',s.root,drop==='outside'?1015:700,220);
@@ -59,9 +67,70 @@ for(const kind of ['pointercancel','lostpointercapture','Escape'])test(`${kind} 
  if(kind==='Escape')s.root.handlers.keydown({key:'Escape'});else s.root.event(kind,s.root);
  assert.equal(s.graph.drag,null);assert.equal(s.graph.pending,null);assert.deepEqual(s.calls,[]);assert.equal(s.chapter.nodes[0].connections.next,'b');assert.doesNotMatch(s.root.parts['#edges'].innerHTML,/edge-ghost/);
 });
-test('stationary port click retains pending and subsequent node click connects',()=>{
- const s=setup();s.root.event('pointerdown',s.port());s.root.event('pointerup',s.root);assert.deepEqual(s.graph.pending,{nodeId:'a',exit:'next'});
- s.root.event('pointerdown',s.root.node('c'));assert.deepEqual(s.calls,[['a','next','c']]);assert.equal(s.graph.pending,null);
+test('stationary output-description click does nothing without panning or connecting',()=>{
+ const s=setup();s.root.event('pointerdown',s.port());s.root.event('pointerup',s.root);
+ assert.deepEqual(s.calls,[]);assert.equal(s.graph.pending,null);
+ assert.deepEqual(s.graph.view,{x:50,y:50,z:1});assert.deepEqual(s.selections,[]);assert.deepEqual(s.opened,[]);
+ s.root.event('pointerdown',s.root.node('c'));assert.deepEqual(s.calls,[]);
+});
+test('moved output-link drop on empty canvas unlinks only that output',()=>{
+ const s=setup();s.root.event('pointerdown',s.port(),200,100);s.root.hit=null;s.root.event('pointerup',s.root,700,220);
+ assert.deepEqual(s.calls,[['a','next',false]]);assert.equal(s.graph.pending,null);
+});
+test('unlinked ports have an explicit class and do not pan on click',()=>{
+ const s=setup();s.chapter.nodes[0].connections.next=false;s.graph.render(s.graph.project,s.chapter,'a');
+ assert.match(s.root.parts['#nodes'].rendered,/class="port unlinked" data-exit="next"[^>]*>Next → Unlinked/);
+ const before={...s.graph.view};s.root.event('pointerdown',s.port());s.root.event('pointerup',s.root);
+ assert.deepEqual(s.graph.view,before);assert.deepEqual(s.calls,[]);
+});
+test('keyboard output-description activation does nothing',()=>{
+ const s=setup();s.root.handlers.click({detail:0,target:s.port()});
+ assert.deepEqual(s.selections,[]);assert.deepEqual(s.opened,[]);assert.deepEqual(s.calls,[]);
+});
+test('double clicking the same connector centers and selects only its target',()=>{
+ const s=setup();
+ s.graph.activatePort('a','next',1000,300,200);s.graph.activatePort('a','next',1200,300,200);
+ assert.deepEqual(s.graph.view,{x:-10,y:290,z:1});assert.deepEqual(s.selections,['b']);
+ assert.deepEqual(s.opened,[]);assert.deepEqual(s.calls,[]);
+});
+test('slow clicks or canceled interactions do not trigger target navigation',()=>{
+ const s=setup();s.graph.activatePort('a','next',1000,300,200);s.graph.activatePort('a','next',1600,300,200);
+ s.graph.cancel();s.graph.activatePort('a','next',1700,300,200);
+ assert.deepEqual(s.selections,[]);assert.equal(s.opened.length,0);
+});
+test('clicking or keyboard activating a card name opens that exact card without dragging',()=>{
+ for(const detail of [0,1]){
+  const s=setup(),row=new Element('graph-card-row',{cardPlacement:'chosen-card'},s.root.node('a')),name=new Element('graph-card-name',{},row);
+  s.root.event('pointerdown',name);assert.equal(s.graph.drag,null);assert.equal(s.root.capture,null);
+  s.root.handlers.click({detail,target:name});
+  assert.deepEqual(s.opened,[['a',{chapterId:undefined,nodeId:'a',placementId:'chosen-card'}]]);
+  assert.deepEqual(s.selections,[]);assert.deepEqual(s.calls,[]);
+ }
+});
+test('graph groups card types with shared tints and keeps check outcomes in one row',()=>{
+ const s=setup(),library=['event','caption','action','item'].map(kind=>({...createDefinition(kind,kind),name:`${kind} card`}));
+ const node={id:'fork',name:'Fork',type:'fork',x:0,y:0,intro:{id:'intro',definitionId:'event'},choices:[{id:'story',definitionId:'caption'},{id:'direct',definitionId:'action'},{id:'check',definitionId:'action',overrides:{resolution:'check'}}],connections:{story:'b',direct:'b','check:success':'b','check:failure':false}};
+ s.graph.render({library},{nodes:[node,s.chapter.nodes[1]],startNode:node.id},node.id);
+ const html=s.root.parts['#nodes'].rendered;
+ for(const kind of ['event','caption','action'])assert.ok(html.includes(`--card-editor-tint:${cardEditorTint(kind)}`));
+ assert.equal((html.match(/class="graph-card-divider"/g)||[]).length,4);
+ const check=html.slice(html.indexOf('data-card-placement="check"'),html.indexOf('</article>'));
+ assert.match(check,/Success \| B/);assert.match(check,/Failure \| Unlinked/);
+ assert.equal((check.match(/class="graph-card-name"/g)||[]).length,1);assert.doesNotMatch(check,/graph-card-divider/);
+ assert.equal(s.graph.portElements.get(node.id).size,4);
+ node.introEnabled=false;s.graph.render({library},{nodes:[node,s.chapter.nodes[1]],startNode:node.id});
+ assert.doesNotMatch(s.root.parts['#nodes'].rendered,/data-card-placement="intro"/);
+});
+test('Linear and Container rows show their cards separately from their shared Next connector',()=>{
+ const s=setup(),library=[{...createDefinition('event','event'),name:'Story'},{...createDefinition('item','item'),name:'Loot'}];
+ for(const node of [{type:'linear',cards:[{id:'first',definitionId:'event'},{id:'second',definitionId:'item'}]},{type:'container',intro:{id:'intro',definitionId:'event'},items:[{id:'loot',definitionId:'item'}]}]){
+  const beat={id:'cards',name:'Cards',x:0,y:0,connections:{next:null},...node};
+  s.graph.render({library},{nodes:[beat],startNode:beat.id});
+  const html=s.root.parts['#nodes'].rendered;
+  assert.equal((html.match(/class="graph-card-row /g)||[]).length,2);
+  assert.equal((html.match(/data-exit="next"/g)||[]).length,1);
+  assert.ok(html.indexOf('data-exit="next"')>html.lastIndexOf('graph-card-name'));
+ }
 });
 test('unrelated pointer cannot move, commit, or cancel an active gesture',()=>{
  const s=setup();s.root.event('pointerdown',s.port());s.root.event('pointercancel',s.root,700,220,2);s.root.event('pointermove',s.root,700,220,2);s.root.event('pointerup',s.root,700,220,2);assert.equal(s.graph.drag.moved,false);assert.equal(s.root.capture,1);assert.deepEqual(s.calls,[]);

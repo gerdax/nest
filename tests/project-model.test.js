@@ -64,7 +64,7 @@ test('retired item quantities normalize away while numeric resource costs remain
 
 test('chapter node cycles are opt-in and survive project and chapter round trips',()=>{
  const project=createProject(),chapter=project.chapters[0];chapter.nodes[3].fallback=chapter.startNode;
- assert.ok(validateProject(project).some(e=>e.message.includes('node cycle')));
+ assert.ok(validateProject(project).some(e=>e.message.includes('beat cycle')));
  chapter.allowCycles=true;assert.deepEqual(validateProject(project),[]);
  assert.equal(parseProject(JSON.stringify(project)).chapters[0].allowCycles,true);
  assert.equal(compileChapter(project).allowCycles,true);

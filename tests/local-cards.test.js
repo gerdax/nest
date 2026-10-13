@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createProject,compileChapter,exportChapter,importChapter,validateProject,parseProject} from '../project/model.js';
-import {createNode,replaceCard,promoteCard,synchronizeConnections,duplicateNode,duplicatePlacement,setCardSource} from '../studio/commands.js';
+import {createProject,compileChapter,exportChapter,importChapter,validateProject,parseProject,discardPlacementContext} from '../project/model.js';
+import {createNode,replaceCard,promoteCard,synchronizeConnections,duplicateNode,duplicatePlacement,setCardSource,customizeAction} from '../studio/commands.js';
 import {nodeInspector} from '../studio/inspectors.js';
 import {saveProject,loadProject} from '../project/storage.js';
 import {DocumentHistory} from '../editor/DocumentHistory.js';
@@ -86,12 +86,12 @@ test('copies and duplicated nodes remap item self references and legacy inventor
 });
 
 
-test('Custom card source opens an independent same-type copy and library options stay compatible',()=>{
+test('local type source opens an independent same-type copy and library options stay compatible',()=>{
  const project=createProject(),node=project.chapters[0].nodes.find(n=>n.type==='linear'),p=node.cards[0],original=project.library.find(d=>d.id===p.definitionId),id=p.id;
- const sharedId=original.id;setCardSource(project,p,'');const local=project.library.find(d=>d.id===p.definitionId);
+ const sharedId=original.id;setCardSource(project,p,'local:event');const local=project.library.find(d=>d.id===p.definitionId);
  assert.equal(local.visibility,'local');assert.equal(local.kind,'event');assert.equal(local.text,original.text);assert.equal(p.id,id);
- const count=project.library.length;setCardSource(project,p,'');assert.equal(project.library.length,count);
- const html=nodeInspector(project,project.chapters[0],node);assert.match(html,/<option value="" selected>Custom card/);assert.match(html,/local-definition/);assert.doesNotMatch(html,/Choose library card/);
+ const count=project.library.length;setCardSource(project,p,'local:event');assert.equal(project.library.length,count);
+ const html=nodeInspector(project,project.chapters[0],node);assert.match(html,/<option value="local:event" selected>local \[Vignette\]/);assert.match(html,/local-definition/);assert.doesNotMatch(html,/Choose library card/);
  assert.throws(()=>setCardSource(project,p,'flashlight'),/same type/);assert.equal(p.definitionId,local.id);
  setCardSource(project,p,sharedId);assert.equal(p.definitionId,original.id);assert.equal(p.id,id);
 });
@@ -116,4 +116,87 @@ test('Duplicate card inserts an independent local copy and retains shared refere
  const shared=project.chapters[0].nodes[0],original=shared.cards[0],reference=duplicatePlacement(project,shared,original);assert.equal(reference.definitionId,original.definitionId);assert.notEqual(reference.id,original.id);
  definition.resolution='check';local.connections[`${source.id}:success`]='yes';local.connections[`${source.id}:failure`]='no';
  const checked=duplicatePlacement(project,local,source);assert.equal(local.connections[`${checked.id}:success`],'yes');assert.equal(local.connections[`${checked.id}:failure`],'no');
+});
+
+
+test('Custom actions discard overrides while keeping their local rules and placement additions',()=>{
+ const project=createProject(),chapter=project.chapters[0],node=chapter.nodes.find(n=>n.type==='fork'),p=node.choices[0];
+ const sharedId=p.definitionId;
+ const local=replaceCard(project,p,'action');
+ local.costs=[{source:'variable',key:'energy',amount:1}];
+ p.effects=[{op:'add',key:'energy',value:1}];
+ p.conditions=[{source:'variable',key:'energy',op:'gte',value:1}];
+ p.contextItemId='flashlight';p.unavailable='hidden';
+ p.overrides={costs:[{source:'variable',key:'energy',amount:9}],resolution:'check',effects:[{op:'add',key:'energy',value:8}]};
+ node.connections={[`${p.id}:success`]:'encounter',[`${p.id}:failure`]:null};
+ const html=nodeInspector(project,chapter,node);
+ assert.doesNotMatch(html,/Use custom rules|data-path="overrides\./);
+ const loaded=parseProject(JSON.stringify(project));
+ const restored=loaded.chapters[0].nodes.find(n=>n.id===node.id).choices[0];
+ assert.equal(restored.overrides,undefined);
+ assert.equal(restored.effects,undefined);assert.equal(restored.conditions,undefined);
+ assert.deepEqual(loaded.library.find(d=>d.id===local.id).effects,p.effects);
+ assert.deepEqual(loaded.library.find(d=>d.id===local.id).conditions,p.conditions);
+ assert.equal(restored.contextItemId,'flashlight');assert.equal(restored.unavailable,'hidden');
+ assert.equal(loaded.chapters[0].nodes.find(n=>n.id===node.id).connections[p.id],'encounter');
+ const card=compileChapter(project).nodes.find(n=>n.id===node.id).choices[0];
+ assert.equal(card.resolution,'direct');assert.deepEqual(card.costs,local.costs);assert.deepEqual(card.effects,p.effects);
+ assert.equal(exportChapter(project).chapter.nodes.find(n=>n.id===node.id).choices[0].overrides,undefined);
+ customizeAction(project,p);assert.equal(p.overrides,undefined);
+ setCardSource(project,p,sharedId);customizeAction(project,p);
+ assert.ok(p.overrides);assert.match(nodeInspector(project,chapter,node),/data-path="useCustomRules" checked/);
+});
+
+
+test('additional shared Action rules become one override set without absorbing inventory trigger',()=>{
+ const project=createProject(),node=project.chapters[0].nodes.find(n=>n.type==='fork'),p=node.choices[0];
+ const source=project.library.find(d=>d.id===p.definitionId);
+ source.conditions=[{source:'variable',key:'energy',op:'gte',value:1}];
+ source.effects=[{op:'add',key:'energy',value:1}];
+ p.conditions=[{source:'variable',key:'energy',op:'lte',value:9}];
+ p.effects=[{op:'add',key:'energy',value:2}];p.contextItemId='flashlight';
+ const loaded=parseProject(JSON.stringify(project)),restored=loaded.chapters[0].nodes.find(n=>n.id===node.id).choices[0];
+ assert.equal(restored.conditions,undefined);assert.equal(restored.effects,undefined);
+ assert.deepEqual(restored.overrides.conditions,[...source.conditions,...p.conditions]);
+ assert.deepEqual(restored.overrides.effects,[...source.effects,...p.effects]);
+ assert.deepEqual(parseProject(JSON.stringify(loaded)),loaded);
+ assert.deepEqual(loaded.library.find(d=>d.id===source.id),source);
+ assert.doesNotMatch(nodeInspector(loaded,loaded.chapters[0],loaded.chapters[0].nodes.find(n=>n.id===node.id)),/Additional action requirements|Additional effects/);
+ delete restored.overrides;
+ const card=compileChapter(loaded).nodes.find(n=>n.id===node.id).choices[0];
+ assert.deepEqual(card.effects,source.effects);assert.equal(card.conditions.length,2);
+ const html=nodeInspector(loaded,loaded.chapters[0],loaded.chapters[0].nodes.find(n=>n.id===node.id));
+ assert.match(html,/Using source rules/);assert.match(html,/Use custom rules/);assert.doesNotMatch(html,/data-path="useCustomRules" checked|data-path="overrides\./);
+ customizeAction(loaded,restored);
+ assert.deepEqual(restored.overrides.conditions,source.conditions);
+});
+
+
+test('editor transactions expose migrated rules immediately after switching to an Action',()=>{
+ const project=createProject(),p=project.chapters[0].nodes[0].cards[0];
+ p.conditions=[{source:'variable',key:'energy',op:'gte',value:8}];
+ p.effects=[{op:'add',key:'energy',value:-2}];
+ setCardSource(project,p,'explore',{allowedKinds:['event','action']});
+ discardPlacementContext(project);synchronizeConnections(project);
+ assert.equal(p.conditions,undefined);assert.equal(p.effects,undefined);
+ assert.equal(p.overrides.conditions[0].value,8);assert.equal(p.overrides.effects[0].value,-2);
+ setCardSource(project,p,'');discardPlacementContext(project);synchronizeConnections(project);
+ const local=project.library.find(d=>d.id===p.definitionId);
+ assert.equal(p.overrides,undefined);assert.equal(local.conditions[0].value,8);assert.equal(local.effects[0].value,-2);
+ assert.match(nodeInspector(project,project.chapters[0],project.chapters[0].nodes[0]),/Requirements · 1/);
+});
+
+
+test('local source templates follow allowed node types and preserve placement identity',()=>{
+ const project=createProject(),chapter=project.chapters[0],node=chapter.nodes[0],p=node.cards[0],id=p.id;
+ let html=nodeInspector(project,chapter,node);
+ for(const label of ['Vignette','Caption','Action','Item'])assert.ok(html.includes(`local [${label}]`));
+ assert.doesNotMatch(html,/Custom card/);
+ setCardSource(project,p,'local:action',{allowedKinds:['event','caption','action','item']});
+ assert.equal(p.id,id);assert.equal(project.library.find(d=>d.id===p.definitionId).kind,'action');
+ assert.equal(project.library.find(d=>d.id===p.definitionId).visibility,'local');
+ const fork=chapter.nodes.find(n=>n.type==='fork');html=nodeInspector(project,chapter,fork);
+ assert.ok(html.includes('local [Action]'));assert.ok(!html.includes('local [Item]'));
+ assert.throws(()=>setCardSource(project,fork.choices[0],'local:item',{allowedKinds:['event','caption','action']}),/allowed in this beat/);
+ assert.deepEqual(validateProject(project),[]);
 });
