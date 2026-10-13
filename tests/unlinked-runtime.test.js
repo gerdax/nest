@@ -87,3 +87,50 @@ for(const cycleFirst of [true,false])test(`mixed automatic cycle and Unlinked ro
  const {deck,controller}=real([{id:'beat',type:'linear',cards:[{...narrative('event'),effects}],connections:{next:'random'}},{id:'random',type:'random',routes,fallback:null}],{variables:energy},{rng:()=>{draws++;return 0;}});
  assert.equal(deck.content.advanceDisabled,true);const before=controller.state;key(deck,'Enter');swipe(deck);unchanged(controller,before);assert.equal(draws,0);dispose(deck,controller);
 });
+
+function countPreflight(controller,source=controller.card()) {
+ const locate=controller.locate;let calls=0;
+ controller.locate=function(...args){calls++;return locate.apply(this,args);};
+ try{return {blocked:controller.departureBlocked(source),calls};}finally{controller.locate=locate;}
+}
+test('Random preflight bounds traversal through distinct reconverging targets and empty nodes',()=>{
+ const depth=10,nodes=[{id:'beat',type:'linear',cards:[narrative('event')],connections:{next:'r0'}}];
+ for(let level=0;level<depth;level++)for(const side of level===0?['']:['a','b']) {
+  const targets=level===depth-1?['end','end']:[`bridge${level+1}a`,`bridge${level+1}b`];
+  nodes.push({id:`r${level}${side}`,type:'random',routes:targets.map((target,i)=>({id:`route${i}`,weight:1,target})),fallback:false});
+  if(level)nodes.push({id:`bridge${level}${side}`,type:'linear',cards:[],connections:{next:`r${level}${side}`}});
+ }
+ nodes.push({id:'end',type:'linear',cards:[narrative('end')],connections:{next:null}});
+ let draws=0;const {deck,controller}=real(nodes,{}, {rng:()=>{draws++;return 0;}});
+ const result=countPreflight(controller);
+ assert.equal(result.blocked,false);assert.ok(result.calls<=6*depth,`preflight used ${result.calls} locate calls`);assert.equal(draws,0);
+ key(deck,'Enter');assert.equal(controller.state.cardId,'end');assert.equal(draws,depth);dispose(deck,controller);
+});
+test('Random preflight bounds repeated duplicate targets',()=>{
+ const depth=12,nodes=[{id:'beat',type:'linear',cards:[narrative('event')],connections:{next:'r0'}}];
+ for(let level=0;level<depth;level++)nodes.push({id:`r${level}`,type:'random',routes:[0,1].map(i=>({id:`route${i}`,weight:1,target:level===depth-1?'end':`r${level+1}`})),fallback:false});
+ nodes.push({id:'end',type:'linear',cards:[narrative('end')],connections:{next:null}});
+ let draws=0;const {deck,controller}=real(nodes,{}, {rng:()=>{draws++;return 0;}});
+ assert.deepEqual(countPreflight(controller),{blocked:false,calls:2*depth+1});assert.equal(draws,0);dispose(deck,controller);
+});
+for(const invalid of [false,'cycle'])test(`memoized safe targets do not hide later ${invalid} routes`,()=>{
+ const nodes=[{id:'beat',type:'linear',cards:[{...narrative('event'),effects}],connections:{next:'random'}},
+  {id:'random',type:'random',routes:['safe','safe',invalid].map((target,i)=>({id:`route${i}`,weight:1,target})),fallback:null},
+  {id:'safe',type:'linear',cards:[narrative('safe')],connections:{next:null}},
+  {id:'cycle',type:'linear',cards:[],connections:{next:'random'}}];
+ let draws=0;const {deck,controller}=real(nodes,{variables:energy},{rng:()=>{draws++;return 0;}});
+ assert.equal(countPreflight(controller).blocked,true);assert.equal(deck.content.advanceDisabled,true);
+ const before=controller.state;key(deck,'Enter');controller.commit({contentId:deck.content.id,action:deck.content.actions[0]});settle();unchanged(controller,before);assert.equal(draws,0);dispose(deck,controller);
+});
+test('preflight memoization is isolated across predicted values, inventory, and exclusions',()=>{
+ const nodes=[{id:'beat',type:'linear',cards:[narrative('event')],connections:{next:null}},
+  {id:'random',type:'random',routes:[0,1].map(i=>({id:`route${i}`,weight:1,target:'box'})),fallback:null},
+  {id:'box',type:'container',introEnabled:false,items:[item('apple',{conditions:[{source:'variable',key:'energy',op:'gte',value:1},{source:'inventory',key:'token',op:'has'}]})],connections:{next:false}}];
+ const {deck,controller}=real(nodes,{variables:energy});const inventory=[{id:'token',definitionId:'token'}];
+ const preview=(values,items,excluded=null)=>controller.locate('random',values,items,new Set(),excluded,true);
+ assert.equal(preview({energy:4},inventory),null);
+ assert.throws(()=>preview({energy:0},inventory),/Unlinked output/);
+ assert.throws(()=>preview({energy:4},[]),/Unlinked output/);
+ assert.throws(()=>preview({energy:4},inventory,'apple'),/Unlinked output/);
+ assert.equal(preview({energy:4},inventory),null);dispose(deck,controller);
+});

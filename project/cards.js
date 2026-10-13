@@ -1,10 +1,10 @@
 import { nodeSlotCardKinds } from './nodeTypes.js';
 /** The library stores content; placements store chapter-specific behavior. */
 export const cardKinds = Object.freeze({
-  event: { label: 'Vignette', editorTint: '#a8c58b', validate: card => typeof card.text === 'string' ? [] : ['Vignette text must be a string.'] },
-  caption: { label: 'Caption', editorTint: '#b5a3d6', validate: card => typeof card.text === 'string' ? [] : ['Caption text must be a string.'] },
-  action: { label: 'Action', editorTint: '#d8b46d', validate: card => ['direct','check'].includes(card.resolution) ? [] : ['Action resolution must be direct or check.'] },
-  item: { label: 'Item', editorTint: '#7dbfb2', validate: card => Array.isArray(card.onCollect) ? [] : ['Item collection effects must be a list.'] }
+  event: { label: 'Vignette', editorTint: '#b9fdef', validate: card => typeof card.text === 'string' ? [] : ['Vignette text must be a string.'] },
+  caption: { label: 'Caption', editorTint: '#e4ffeb', validate: card => typeof card.text === 'string' ? [] : ['Caption text must be a string.'] },
+  action: { label: 'Action', editorTint: '#d98181', validate: card => ['direct','check'].includes(card.resolution) ? [] : ['Action resolution must be direct or check.'] },
+  item: { label: 'Item', editorTint: '#dfcf78', validate: card => Array.isArray(card.onCollect) ? [] : ['Item collection effects must be a list.'] }
 });
 export const canonicalCardKind = kind => kind === 'narrative' ? 'event' : kind;
 export const cardEditorTint = kind => cardKinds[canonicalCardKind(kind)]?.editorTint || '#aab8bb';

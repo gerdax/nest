@@ -57,3 +57,10 @@ header { flex-wrap:wrap; }
 .card-style-row {display:grid;grid-template-columns:minmax(0,1fr) 116px;gap:14px;align-items:end;}
 .card-style-row .field {min-width:0;}
 .card-style-color input {font-family:monospace;}
+
+.card-panel .check-settings {background:color-mix(in srgb,var(--card-editor-tint) 8%,#222f32);border-color:color-mix(in srgb,var(--card-editor-tint) 25%,#405153);}
+.add-card-buttons {display:flex;flex-wrap:wrap;gap:8px;margin:12px 0;}
+.connections-divider {border:0;border-top:1px solid #394a4c;margin:20px 0 0;}
+
+.add-card-buttons button {color:var(--card-editor-tint);background:color-mix(in srgb,var(--card-editor-tint) 12%,#1a2326);border-color:color-mix(in srgb,var(--card-editor-tint) 35%,#394a4c);}
+.add-card-buttons button:hover {background:color-mix(in srgb,var(--card-editor-tint) 22%,#1a2326);}

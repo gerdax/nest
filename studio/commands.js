@@ -2,6 +2,11 @@ import { createDefinition, resolvePlacement } from '../project/cards.js';
 import { outputsForNode,connectionForOutput } from '../project/model.js';
 import { createNodeDefaults } from '../project/nodeTypes.js';
 export const uid = prefix => `${prefix}-${crypto.randomUUID().slice(0,8)}`;
+export function addHealthVariable(project) {
+ if(project.variables.some(variable=>variable.id==='health'))return false;
+ project.variables.push({id:'health',name:'Health',type:'number',initial:10,min:0,max:10});
+ return true;
+}
 export function makeDefinition(project,kind,name) {
  const definition=createDefinition(kind,uid(kind));if(name)definition.name=name;project.library.push(definition);return definition;
 }

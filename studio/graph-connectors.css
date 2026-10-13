@@ -12,7 +12,7 @@
 #canvas .graph-beat-icon {position:absolute;right:12px;top:50%;transform:translateY(-50%);width:26px;height:26px;fill:none;stroke:#e1e8e6;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;pointer-events:none;}
 #canvas .graph-card-row {padding:9px 12px;background:color-mix(in srgb,var(--card-editor-tint) 14%,#202b2e);}
 #canvas .graph-card-row.has-outputs {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:8px;align-items:start;}
-#canvas .graph-card-name {display:block;min-width:0;width:100%;border:0;border-radius:0;padding:0;text-align:left;background:transparent;color:inherit;overflow-wrap:anywhere;font-size:12px;line-height:1.6;cursor:pointer;}
+#canvas .graph-card-name {display:block;min-width:0;width:100%;border:0;border-radius:0;padding:0;text-align:left;background:transparent;color:var(--card-editor-tint);overflow-wrap:anywhere;font-size:12px;line-height:1.6;cursor:pointer;}
 #canvas .graph-card-name:hover {text-decoration:underline;}
 #canvas .graph-card-name small {display:block;color:#a9b9b7;font-size:10px;}
 #canvas .graph-card-outputs .port {display:flex;align-items:center;justify-content:flex-end;gap:4px;border:0;padding:0 0 0 4px;min-height:20px;font-size:11px;border-radius:0;overflow-wrap:anywhere;}

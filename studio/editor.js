@@ -1,3 +1,4 @@
+import { addHealthVariable } from './commands.js';
 import { applyCardStyles, parseCardColor } from '../project/card-styles.js';
 import { nodeTypeLabel } from '../project/nodeTypes.js';
 import { artworkSettings, parseArtworkSettings } from './artwork-settings.js';
@@ -188,11 +189,12 @@ function command(event){const b=event.target.closest('[data-command]');if(!b)ret
   if(cmd==='promote-card'){promoteCard(project,p);localDrafts.drafts.delete(p.id);}
   if(cmd==='add-placement')n[b.dataset.slot].push(makePlacement(project,b.dataset.kind));
   if(cmd==='duplicate-placement')duplicatePlacement(project,n,p);
-  if(cmd==='remove-placement'){localDrafts.drafts.delete(p.id);for(const slot of ['cards','choices','items'])if(n[slot])n[slot]=n[slot].filter(c=>c.id!==p.id);}
+  if(cmd==='remove-placement'){localDrafts.removePlacement(project,p);for(const slot of ['cards','choices','items'])if(n[slot])n[slot]=n[slot].filter(c=>c.id!==p.id);}
   if(cmd==='move-placement')for(const slot of ['cards','choices','items'])if(n[slot]){const i=n[slot].findIndex(c=>c.id===p.id),j=i+Number(b.dataset.direction);if(i>=0&&j>=0&&j<n[slot].length)[n[slot][i],n[slot][j]]=[n[slot][j],n[slot][i]];}
   if(cmd==='add-route')n.routes.push({id:uid('route'),name:`Route ${n.routes.length+1}`,target:false,weight:1,conditions:[]});
   if(cmd==='remove-route')n.routes.splice(Number(b.dataset.index),1);
   if(cmd==='delete-definition'){deleteDefinition(project,definitionId);definitionId=project.library.find(d=>d.visibility!=='local')?.id;}
+  if(cmd==='add-health')addHealthVariable(project);
   if(cmd==='add-variable')project.variables.push({id:uid('variable'),name:'New variable',type:'number',initial:0});
   if(cmd==='remove-variable')project.variables.splice(Number(b.dataset.index),1);
  });

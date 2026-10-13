@@ -12,7 +12,7 @@ export function createProject() {
   const event = {...createDefinition('event','arrival'), name:'Arrival',heading:'',text:'Your expedition begins at the edge of the city.',image:'./assets/img/city.png'};
   const item = {...createDefinition('item','flashlight'),name:'Flashlight',image:'./assets/img/flashlight.png'};
   const action = {...createDefinition('action','explore'),name:'Explore',text:'Follow the corridor',image:'./assets/img/corridor_02.png'};
-  return {version:2,kind:'nest-project',id:'project-1',name:'First expedition',activeChapterId:'chapter-1',library:[event,item,action],variables:[{id:'energy',type:'number',initial:3,min:0,max:10}],chapters:[{id:'chapter-1',name:'First expedition',startNode:'arrival',nodes:[
+  return {version:2,kind:'nest-project',id:'project-1',name:'First expedition',activeChapterId:'chapter-1',library:[event,item,action],variables:[{id:'energy',type:'number',initial:3,min:0,max:10},{id:'health',name:'Health',type:'number',initial:10,min:0,max:10}],chapters:[{id:'chapter-1',name:'First expedition',startNode:'arrival',nodes:[
     {id:'arrival',name:'Arrival',type:'linear',x:80,y:100,cards:[{id:'arrival-card',definitionId:'arrival'}],connections:{next:'supplies'}},
     {id:'supplies',name:'Supplies',type:'container',x:340,y:100,intro:{id:'supply-intro',definitionId:'arrival'},items:[{id:'supply-flashlight',definitionId:'flashlight'}],connections:{next:'route'}},
     {id:'route',name:'Choose a route',type:'fork',x:600,y:100,choices:[{id:'explore-choice',definitionId:'explore'}],connections:{'explore-choice':'encounter'}},

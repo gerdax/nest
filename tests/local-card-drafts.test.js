@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import {createProject, exportChapter, parseProject, validateProject} from '../project/model.js';
 import {createDefinition} from '../project/cards.js';
 import {addInventory, conditionsMet} from '../project/state.js';
-import {createNode, synchronizeConnections} from '../studio/commands.js';
+import {createNode, makePlacement, synchronizeConnections} from '../studio/commands.js';
 import {DocumentHistory} from '../editor/DocumentHistory.js';
+import {cleanupLocalDefinitions} from '../project/dependencies.js';
 import {LocalCardDrafts} from '../studio/local-card-drafts.js';
 
 const allowedKinds = ['event', 'caption', 'action', 'item'];
@@ -279,6 +280,126 @@ test('Action dependency restoration prefers the latest Item draft over its older
   assert.deepEqual(restoredItem.onCollect, [effect(5)]);
   assert.deepEqual(definition(project, placement).effects, [{op:'addItem',key:itemId}]);
   synchronizeConnections(project); assert.deepEqual(validateProject(project), []);
+});
+
+function cachedItemAction() {
+  const state = setup(), {project, chapter, drafts} = state;
+  const itemNode = createNode(project, 'linear'); chapter.nodes.push(itemNode);
+  const itemPlacement = itemNode.cards[0];
+  drafts.switchSource(project, itemPlacement, 'local:item', {allowedKinds});
+  const item = definition(project, itemPlacement);
+  item.inventoryKey = 'cleared-item-alias'; item.onCollect = [effect(9)];
+  item.use = {effects:[effect(4)]};
+  switchTo(state, 'local:action');
+  definition(project, state.placement).effects = [{op:'addItem',key:item.id}];
+  switchTo(state, 'local:caption');
+  return {...state, itemNode, itemPlacement, itemId:item.id};
+}
+
+test('Clear refreshes cached Item dependencies before placement removal and unused cleanup', () => {
+  const state = cachedItemAction(), {project, drafts, itemNode, itemPlacement, itemId} = state;
+  drafts.clear(project, itemPlacement);
+  const cleared = structuredClone(definition(project, itemPlacement));
+  drafts.removePlacement(project, itemPlacement); itemNode.cards = [{id:'replacement',definitionId:'arrival'}];
+  assert.ok(cleanupLocalDefinitions(project) > 0);
+  assert.equal(project.library.some(d => d.id === itemId), false);
+  switchTo(state, 'local:action');
+  assert.deepEqual(project.library.find(d => d.id === itemId), cleared);
+  assert.equal(cleared.inventoryKey, 'cleared-item-alias');
+  assert.deepEqual(definition(project, state.placement).effects, [{op:'addItem',key:itemId}]);
+  synchronizeConnections(project); assert.deepEqual(validateProject(project), []);
+});
+
+test('cleared Item defaults survive automatic pruning during a Library detour', () => {
+  const state = cachedItemAction(), {project, drafts, itemPlacement, itemId} = state;
+  drafts.clear(project, itemPlacement);
+  const cleared = structuredClone(definition(project, itemPlacement));
+  drafts.switchSource(project, itemPlacement, 'flashlight', {allowedKinds});
+  assert.equal(project.library.some(d => d.id === itemId), false);
+  switchTo(state, 'local:action');
+  assert.deepEqual(project.library.find(d => d.id === itemId), cleared);
+  synchronizeConnections(project); assert.deepEqual(validateProject(project), []);
+});
+
+test('placement removal refreshes older dependency copies from the current Item', () => {
+  const state = cachedItemAction(), {project, drafts, itemNode, itemPlacement, itemId} = state;
+  definition(project, itemPlacement).onCollect = [effect(2)];
+  const current = structuredClone(definition(project, itemPlacement));
+  drafts.removePlacement(project, itemPlacement); itemNode.cards = [{id:'replacement',definitionId:'arrival'}];
+  cleanupLocalDefinitions(project);
+  switchTo(state, 'local:action');
+  assert.deepEqual(project.library.find(d => d.id === itemId), current);
+  synchronizeConnections(project); assert.deepEqual(validateProject(project), []);
+});
+
+function sameBeatItemAction() {
+  const state = setup(), {project, node} = state;
+  const itemPlacement = makePlacement(project, 'item'); node.cards.push(itemPlacement);
+  const item = definition(project, itemPlacement);
+  switchTo(state, 'local:action');
+  definition(project, state.placement).effects = [{op:'addItem',key:item.id}];
+  return {...state, itemPlacement, item};
+}
+
+test('removal refreshes newly added transitive dependencies in the same beat before cleanup', () => {
+  const state = sameBeatItemAction(), {project, node, drafts, itemPlacement, item} = state;
+  switchTo(state, 'local:caption');
+  const nextPlacement = makePlacement(project, 'item'); node.cards.push(nextPlacement);
+  const next = definition(project, nextPlacement);
+  item.use = {effects:[{op:'addItem',key:next.id}]};
+  next.use = {effects:[{op:'addItem',key:item.id}]};
+  const expected = [structuredClone(item), structuredClone(next)];
+  for(const p of [itemPlacement, nextPlacement]){
+    drafts.removePlacement(project, p); node.cards = node.cards.filter(card => card.id !== p.id);
+  }
+  cleanupLocalDefinitions(project);
+  assert.ok(expected.every(d => !project.library.some(current => current.id === d.id)));
+  switchTo(state, 'local:action');
+  for(const saved of expected)assert.deepEqual(project.library.find(d => d.id === saved.id), saved);
+  synchronizeConnections(project); assert.deepEqual(validateProject(project), []);
+});
+
+test('Clear removes obsolete transitive dependencies from cached Item closures', () => {
+  const state = sameBeatItemAction(), {project, node, drafts, itemPlacement, item} = state;
+  const nextPlacement = makePlacement(project, 'item'); node.cards.push(nextPlacement);
+  const next = definition(project, nextPlacement);
+  item.use = {effects:[{op:'addItem',key:next.id}]};
+  switchTo(state, 'local:caption');
+  drafts.clear(project, itemPlacement);
+  const cleared = structuredClone(definition(project, itemPlacement));
+  for(const p of [itemPlacement, nextPlacement]){
+    drafts.removePlacement(project, p); node.cards = node.cards.filter(card => card.id !== p.id);
+  }
+  cleanupLocalDefinitions(project);
+  switchTo(state, 'local:action');
+  assert.deepEqual(project.library.find(d => d.id === item.id), cleared);
+  assert.equal(project.library.some(d => d.id === next.id), false);
+  synchronizeConnections(project); assert.deepEqual(validateProject(project), []);
+});
+
+test('Undo and Redo reset session snapshots while restoring exact cleared Item documents', () => {
+  const state = cachedItemAction(), {drafts, itemPlacement, itemId} = state;
+  const history = new DocumentHistory(state.project), before = history.document;
+  history.transact(project => {
+    const p = project.chapters[0].nodes.find(n => n.id === state.itemNode.id).cards[0];
+    drafts.clear(project, p);
+  });
+  const after = history.document;
+  // Match editor travel: cached drafts reset before either history operation.
+  drafts.reset(); assert.equal(history.undo(), true);
+  assert.deepEqual(history.document, before);
+  assert.deepEqual(history.document.library.find(d => d.id === itemId).onCollect, [effect(9)]);
+  drafts.reset(); assert.equal(history.redo(), true);
+  assert.deepEqual(history.document, after);
+  state.project = history.document;
+  state.placement = state.project.chapters[0].nodes.find(n => n.id === state.node.id).cards[0];
+  const p = state.project.chapters[0].nodes.find(n => n.id === state.itemNode.id).cards[0];
+  assert.equal(p.id, itemPlacement.id);
+  assert.equal(definition(state.project, p).inventoryKey, 'cleared-item-alias');
+  switchTo(state, 'local:action');
+  assert.deepEqual(definition(state.project, state.placement).effects, []);
+  assert.deepEqual(definition(state.project, p).onCollect, []);
+  synchronizeConnections(state.project); assert.deepEqual(validateProject(state.project), []);
 });
 
 test('disallowed local/shared kinds and another local definition leave the document unchanged', () => {

@@ -11,7 +11,7 @@ test('event definitions use Vignette in editor labels while retaining the event 
  assert.match(cardFields(project,event),/Card type[\s\S]*?value="event"[^>]*>Vignette/);
  assert.match(definitionInspector(project,event),/<h2>Vignette<\/h2>/);
  assert.match(placementInspector(project,project.chapters[0].nodes[0].cards[0],'event',0,'cards'),/Vignette: Arrival/);
- assert.match(nodeInspector(project,project.chapters[0],project.chapters[0].nodes[0]),/Add vignette/);
+ assert.match(nodeInspector(project,project.chapters[0],project.chapters[0].nodes[0]),/\+ Vignette/);
  assert.equal(event.name,'Arrival');
 });
 

@@ -52,32 +52,48 @@ export class ProjectController {
     let ticket=draw*total;
     return routes.find(r=>(ticket-=r.weight)<0) ?? routes.at(-1);
   }
-  locate(id,values=this.variables,inventory=this.inventory,visited=new Set(),excluded=null,preview=false) {
+  locate(id,values=this.variables,inventory=this.inventory,visited=new Set(),excluded=null,preview=false,preflight=null) {
     if(id===null)return {completed:true};
     if(id===false||id===undefined)throw new Error('Unlinked output');
+    // Share completed results only within this prediction, while keeping the
+    // current DFS path separate so reconvergence cannot hide routing cycles.
+    if(preview) {
+      if(!preflight||preflight.values!==values||preflight.inventory!==inventory||preflight.excluded!==excluded)preflight={values,inventory,excluded,visiting:new Set(visited),completed:new Map()};
+      visited=preflight.visiting;
+      if(visited.has(id))throw new Error('Automatic routing cycle');
+      if(preflight.completed.has(id))return preflight.completed.get(id);
+    }
     if(visited.has(id))throw new Error('Automatic routing cycle'); visited.add(id);
-    const node=this.nodes.get(id);if(!node)throw new Error(`Unknown node: ${id}`);
-    if(node.type==='random') {
-      const routes=(node.routes ?? []).filter(r=>r.weight>0 && conditionsMet(r.conditions,values,inventory));
-      if(preview) {
-        const targets=routes.length?routes.map(r=>r.target):[node.fallback];
-        for(const target of targets)this.locate(target,values,inventory,new Set(visited),excluded,true);
-        return null;
+    try {
+      const node=this.nodes.get(id);if(!node)throw new Error(`Unknown node: ${id}`);
+      let result;
+      if(node.type==='random') {
+        const routes=(node.routes ?? []).filter(r=>r.weight>0 && conditionsMet(r.conditions,values,inventory));
+        if(preview) {
+          const targets=routes.length?routes.map(r=>r.target):[node.fallback];
+          for(const target of targets)this.locate(target,values,inventory,visited,excluded,true,preflight);
+          result=null;
+        }else {
+          const selected=this.weighted(routes);
+          return this.locate(selected ? selected.target : node.fallback,values,inventory,visited,excluded,preview);
+        }
+      }else if(node.type==='legacyPool'&&preview) {
+        result=null;
+      }else {
+        let location={node,index:0,queue:[]};
+        if(node.type==='legacySequence')location.sequence=node.sequence;
+        if(node.type==='legacyPool') {
+          location.queue=selectPool(node.pool,node.count,this.rng);
+          location.sequence=node.sequences.find(s=>s.id===location.queue.shift());
+          if(!location.sequence)return this.locate(node.connections?.next,values,inventory,visited,excluded,preview);
+        }
+        result=this.seek(location,values,inventory,visited,excluded,preview,preflight);
       }
-      const selected=this.weighted(routes);
-      return this.locate(selected ? selected.target : node.fallback,values,inventory,visited,excluded,preview);
-    }
-    let location={node,index:0,queue:[]};
-    if(node.type==='legacySequence')location.sequence=node.sequence;
-    if(node.type==='legacyPool') {
-      if(preview)return null;
-      location.queue=selectPool(node.pool,node.count,this.rng);
-      location.sequence=node.sequences.find(s=>s.id===location.queue.shift());
-      if(!location.sequence)return this.locate(node.connections?.next,values,inventory,visited,excluded,preview);
-    }
-    return this.seek(location,values,inventory,visited,excluded,preview);
+      if(preview)preflight.completed.set(id,result);
+      return result;
+    }finally {if(preview)visited.delete(id);}
   }
-  seek(location,values=this.variables,inventory=this.inventory,visited=new Set(),excluded=null,preview=false) {
+  seek(location,values=this.variables,inventory=this.inventory,visited=new Set(),excluded=null,preview=false,preflight=null) {
     const type=this.type(location);
     if(type==='linear') {
       const cards=location.sequence?.cards ?? location.node.cards ?? [];
@@ -87,17 +103,17 @@ export class ProjectController {
         if(conditionsMet(card.conditions,values,inventory)&&!hiddenAction)break;
         location={...location,index:location.index+1};
       }
-      if(location.index>=cards.length)return this.next(location,'next',values,inventory,visited,excluded,preview);
-    } else if(type==='container' && !this.items(location,values,inventory,excluded).length && !(location.node.type==='container'&&this.introEnabled(location)&&!this.introShown(location)&&conditionsMet(this.card(location)?.conditions,values,inventory)&&this.card(location)?.effects?.length)) return this.next(location,'next',values,inventory,visited,excluded,preview);
+      if(location.index>=cards.length)return this.next(location,'next',values,inventory,visited,excluded,preview,preflight);
+    } else if(type==='container' && !this.items(location,values,inventory,excluded).length && !(location.node.type==='container'&&this.introEnabled(location)&&!this.introShown(location)&&conditionsMet(this.card(location)?.conditions,values,inventory)&&this.card(location)?.effects?.length)) return this.next(location,'next',values,inventory,visited,excluded,preview,preflight);
     return location;
   }
-  next(location,output='next',values=this.variables,inventory=this.inventory,visited=new Set(),excluded=null,preview=false) {
+  next(location,output='next',values=this.variables,inventory=this.inventory,visited=new Set(),excluded=null,preview=false,preflight=null) {
     if(location.queue?.length) {
       const queue=[...location.queue];const id=queue.shift();
-      return this.seek({...location,sequence:location.node.sequences.find(s=>s.id===id),queue,index:0},values,inventory,visited,excluded,preview);
+      return this.seek({...location,sequence:location.node.sequences.find(s=>s.id===id),queue,index:0},values,inventory,visited,excluded,preview,preflight);
     }
     const key=location.node.type==='legacyPool'?'next':output;
-    return this.locate(location.node.connections?.[key],values,inventory,visited,excluded,preview);
+    return this.locate(location.node.connections?.[key],values,inventory,visited,excluded,preview,preflight);
   }
   destination(source,success,values=this.variables,inventory=this.inventory,location=this.location,preview=false) {
     const type=this.type(location);

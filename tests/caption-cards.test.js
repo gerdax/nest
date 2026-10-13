@@ -27,7 +27,7 @@ test('Caption is accepted in every story slot and portable chapter export',()=>{
  const project=createProject(),chapter=project.chapters[0],caption=createDefinition('caption','caption');project.library.push(caption);
  chapter.nodes[0].cards[0].definitionId=caption.id;chapter.nodes[1].intro.definitionId=caption.id;chapter.nodes[2].choices[0].definitionId=caption.id;
  assert.deepEqual(validateProject(project),[]);assert.ok(allowedCardKinds('linear','cards').includes('caption'));assert.ok(allowedCardKinds('fork','intro').includes('caption'));assert.ok(allowedCardKinds('fork','choices').includes('caption'));assert.deepEqual(allowedCardKinds('container','items'),['item']);
- assert.match(nodeInspector(project,chapter,chapter.nodes[0]),/Add caption/);
+ assert.match(nodeInspector(project,chapter,chapter.nodes[0]),/\+ Caption/);
  const restored=importChapter(createProject(),exportChapter(project));assert.ok(restored.library.some(d=>d.kind==='caption'));assert.deepEqual(validateProject(restored),[]);
 });
 test('Caption applies effects on advance or choice and works as an introduction',()=>{

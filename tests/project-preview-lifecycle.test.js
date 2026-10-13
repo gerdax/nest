@@ -4,7 +4,7 @@ import { ProjectPreview } from '../studio/ProjectPreview.js';
 import { Preview } from '../editor/preview.js';
 import { ProjectController } from '../project/ProjectController.js';
 import { DiceService } from '../dice/DiceService.js';
-import { createProject } from '../project/model.js';
+import { createProject, compileChapter } from '../project/model.js';
 
 // A small DOM-shaped fixture for ownership/listeners, not rendering verification.
 class Element extends EventTarget {
@@ -35,6 +35,39 @@ function environment() {
   globalThis.requestAnimationFrame = () => 1;
   globalThis.cancelAnimationFrame = () => {};
 }
+
+test('player preserves authored resources, bounds and chapter starts', () => {
+  environment();
+  const project = createProject(), root = new Element(), preview = new ProjectPreview(root);
+  project.chapters[0].initialValues = {energy:7};
+  project.library.find(card=>card.id==='arrival').effects = [{op:'add',key:'energy',value:20}];
+  preview.play(project);
+  assert.deepEqual(preview.compiled.variables,compileChapter(project).variables);
+  assert.deepEqual(preview.state.variables,{energy:7,health:10});
+  assert.equal(root.querySelector('[data-health]').hidden,false);
+  assert.equal(root.querySelector('[data-health]').getAttribute('aria-label'),'Health 10 out of 10');
+  assert.equal(root.querySelector('[data-energy]').getAttribute('aria-label'),'Energy 7 out of 10');
+  const result = preview.controller.transaction(preview.controller.card());
+  assert.deepEqual(result.variables,{energy:10,health:10});
+  preview.update({...preview.state,variables:result.variables});
+  assert.equal(preview.energyValue.textContent,10);
+  preview.destroy();
+});
+
+test('resource HUD accepts flags, unbounded numbers and absent resource definitions', () => {
+  environment();
+  const project = createProject(), root = new Element(), preview = new ProjectPreview(root);
+  project.variables = [{id:'health',type:'flag',initial:false},{id:'energy',type:'number',initial:123}];
+  preview.play(project);
+  assert.deepEqual(preview.state.variables,{health:false,energy:123});
+  assert.equal(root.querySelector('[data-health]').hidden,true);
+  assert.equal(root.querySelector('[data-energy]').getAttribute('aria-label'),'Energy 123');
+  project.variables = [];
+  preview.play(project);
+  assert.deepEqual(preview.state.variables,{});
+  assert.equal(preview.resources.hidden,true);
+  preview.destroy();
+});
 
 test('hidden autoplay playback can skip focus and inert preview ignores Escape',()=>{
   environment();

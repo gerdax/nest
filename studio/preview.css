@@ -18,5 +18,6 @@
 .player-resources {width:100%;display:flex;justify-content:space-between;align-items:center;color:#b6c99b;}
 .player-resources[hidden] {display:none;}
 .player-resource {display:flex;align-items:center;gap:5px;font:56px/1 NestVitals,monospace;font-variant-numeric:tabular-nums;}
+.player-resource[hidden] {display:none;}
 .player-resource img {width:24px;height:27px;object-fit:contain;}
 .player-resource[data-health] img {width:26px;height:23px;}

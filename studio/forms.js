@@ -43,7 +43,7 @@ export function actionFields(project,action,prefix='',scope='definition') {
  html+=select('Resolution',action.resolution||'direct',[['direct','Direct'],['check','Dice check']],p('resolution'),scope);
  if(action.resolution==='check') {
   const check=action.check||{pool:[{sides:20,count:1}],modifier:0,target:10};
-  html+='<div class="entry"><h3>Check settings</h3>';
+  html+='<div class="entry check-settings"><h3>Check settings</h3>';
   html+=check.pool.map((die,i)=>select('Dice',String(die.sides),[4,6,8,10,12,20].map(n=>[String(n),`d${n}`]),p(`check.pool.${i}.sides`),scope)+field('Count',die.count,p(`check.pool.${i}.count`),scope,'number')+button('Remove dice','remove-rule',extras(scope,p('check.pool'),'dice')+` data-index="${i}"`)).join('');
   html+=button('Add dice','add-rule',extras(scope,p('check.pool'),'dice'))+field('Modifier',check.modifier,p('check.modifier'),scope,'number')+select('Variable modifier',check.modifierVariable||'',[['','None'],...project.variables.filter(v=>v.type==='number').map(v=>[v.id,v.name||v.id])],p('check.modifierVariable'),scope)+field('Target',check.target,p('check.target'),scope,'number')+'</div>';
   html+=rules(project,action.successEffects,p('successEffects'),scope,'effects',{label:'On success effects'})+rules(project,action.failureEffects,p('failureEffects'),scope,'effects',{label:'On failure effects'});

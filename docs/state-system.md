@@ -2,6 +2,8 @@
 
 Project v2 defines variables once for all chapters. In **Project variables and chapter settings**, create named flags or numbers with typed default values. Numbers may have optional minimum/maximum bounds. **Chapter initial values** overrides those defaults for one chapter without redefining variables. A playback session compiles these initial values from its snapshot; restart resets variables and inventory. Expand **Run state** under the preview to inspect live values.
 
+The player HUD displays Health and Energy when the project defines numeric variables with IDs `health` and `energy`. It uses their authored values and maximum bounds; playback does not add variables or change their definitions. Flags with these IDs remain ordinary flags and have no numeric HUD meter.
+
 ## Requirements, costs and effects
 
 Rules are structured data; no JavaScript is evaluated. Variable conditions support equals, does not equal, at least and at most; flags support equality/inequality. Inventory conditions check owned/not owned against item definitions or preserved migration aliases. All conditions must pass. Action placements choose whether unmet requirements hide the action or show it disabled. Costs also determine affordability. If no action is available, the author must supply a usable route; the runtime does not invent a destination.

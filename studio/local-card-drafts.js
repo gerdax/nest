@@ -12,6 +12,31 @@ export class LocalCardDrafts {
  constructor(){this.context=null;this.drafts=new Map();this.managedIds=new Set();}
  setContext(chapterId,beatId){const key=JSON.stringify([chapterId,beatId]);if(key!==this.context){this.reset();this.context=key;}}
  reset(){this.drafts.clear();this.context=null;}
+ refreshDefinition(project,source){
+  if(!source)return;
+  // Dependency copies outlive their owning placement. Explicit edits must win
+  // over those older copies even after removal or unused-definition cleanup.
+  for(const draft of this.drafts.values())for(const saved of draft.types.values()){
+   if(saved.definition.id!==source.id&&!saved.dependencies.some(d=>d.id===source.id))continue;
+   if(saved.definition.id===source.id){
+    saved.definition=structuredClone(source);
+    draft.common=pick(source,commonKeys);
+   }
+   // Live definitions refresh the entire reachable closure. Cached definitions
+   // remain available for dependencies already pruned by a type switch.
+   const candidates=new Map([...saved.dependencies,...project.library].map(d=>[d.id,d]));
+   candidates.set(source.id,source);
+   candidates.set(saved.definition.id,saved.definition);
+   const library=[...candidates.values()];
+   const reachable=definitionGraph({...project,library}).reachableFrom({definition:saved.definition,placement:saved.placement});
+   reachable.delete(saved.definition.id);
+   saved.dependencies=library.filter(d=>reachable.has(d.id)).map(d=>structuredClone(d));
+  }
+ }
+ removePlacement(project,p){
+  this.refreshDefinition(project,sourceOf(project,p));
+  this.drafts.delete(p.id);
+ }
  capture(project,p){
   const source=sourceOf(project,p);
   if(source?.visibility!=='local')return;
@@ -103,6 +128,7 @@ export class LocalCardDrafts {
   for(const key of Object.keys(source))delete source[key];
   Object.assign(source,defaults,{visibility:'local'});
   for(const key of Object.keys(p))if(!['id','definitionId'].includes(key))delete p[key];
+  this.refreshDefinition(project,source);
   this.drafts.delete(p.id);
   this.prune(project,source.id);
  }

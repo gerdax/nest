@@ -7,7 +7,6 @@ import { applyCardStyles } from '../project/card-styles.js';
 import { acquireDock } from '../editor/dockOwnership.js';
 import { nodeTypeLabel } from '../project/nodeTypes.js';
 import { previewCardTarget } from './preview-card-target.js';
-import { withPlayerResources } from '../project/resources.js';
 
 /** Playback UI owns dice/inventory presentation, never chapter resolution rules. */
 export class ProjectPreview {
@@ -58,7 +57,6 @@ export class ProjectPreview {
     const issues = validateProject(project);
     if (issues.length) throw new Error(issues.map(issue => issue.message).join('\n'));
     const chapter = compileChapter(project, chapterId);
-    chapter.variables = withPlayerResources(chapter.variables);
     if (startNode) chapter.startNode = startNode;
     this.stop();
     const generation = this.generation;
@@ -93,11 +91,17 @@ export class ProjectPreview {
     if (this.destroyed) return;
     if (state.checking || (this.errorMessage && this.errorNode !== state.activeNodeId)) this.errorMessage = null;
     this.state = state;
-    this.resources.hidden = false;
-    this.healthValue.textContent = state.variables.health;
-    this.energyValue.textContent = state.variables.energy;
-    this.root.querySelector('[data-health]').setAttribute('aria-label', `Health ${state.variables.health} out of 10`);
-    this.root.querySelector('[data-energy]').setAttribute('aria-label', `Energy ${state.variables.energy} out of 99`);
+    let visibleResources = 0;
+    for (const [id, label, valueElement] of [['health', 'Health', this.healthValue], ['energy', 'Energy', this.energyValue]]) {
+      const definition = this.compiled?.variables.find(variable => variable.id === id);
+      const meter = this.root.querySelector(`[data-${id}]`);
+      meter.hidden = definition?.type !== 'number';
+      if (meter.hidden) continue;
+      visibleResources++;
+      valueElement.textContent = state.variables[id];
+      meter.setAttribute('aria-label', `${label} ${state.variables[id]}${definition.max === undefined ? '' : ` out of ${definition.max}`}`);
+    }
+    this.resources.hidden = visibleResources === 0;
     const node = this.compiled?.nodes.find(node => node.id === state.activeNodeId);
     const nodeType = nodeTypeLabel(node?.type) || '';
     this.status.textContent = this.errorMessage || (state.completed ? 'Chapter complete.' : state.checking ? 'Resolving attempt…' : `Playing · ${node?.name || ''} · ${nodeType}`);
