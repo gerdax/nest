@@ -104,6 +104,58 @@ test('camera cap, zero tuning, and downward ordinary choices keep pickup bounded
   assert.equal(d.grabAmount('a0'), 8); d.updateSettings({ grabLift: 0 }); assert.equal(d.grabAmount('a0'), 0); d.cancel(); settle(); dispose(d);
 });
 
+test('disabled fork down drag matches enabled zoom without accepting an action', () => {
+  const enabled = make(), disabled = make(); disabled.content.actions[0].disabled = true;
+  ready(enabled); ready(disabled); let accepts = 0;
+  for (const name of ['commit', 'collect', 'discard']) disabled.addEventListener(name, () => accepts++);
+  const initial = disabled.cards.map((_, i) => cardPose(disabled, i));
+  for (const d of [enabled, disabled]) { d.start(); d.move(g(180)); }
+  for (let i = 0; i < 100; i++) step();
+  for (let i = 0; i < disabled.cards.length; i++) {
+    const actual = cardPose(disabled, i), expected = cardPose(enabled, i);
+    for (const field of ['x', 'y', 'z', 'rx', 'ry', 'rz']) near(actual[field], expected[field], 'disabled matches enabled');
+    near(actual.y, initial[i].y, 'no downward travel');
+  }
+  assert.equal(disabled.grabAmount('a0'), 24);
+  for (const d of [enabled, disabled]) d.end({ ...g(180), vy: 1800 });
+  settle(); assert.equal(accepts, 0); assert.equal(disabled.phase, 'choices'); assert.equal(disabled.grabCards.size, 0);
+  dispose(enabled, disabled);
+});
+
+test('disabled fork down-to-up reversal returns feedback without enabling commitment', () => {
+  const d = make(); d.content.actions[0].disabled = true; ready(d); let commits = 0;
+  d.addEventListener('commit', () => commits++);
+  d.start(); d.move(g(180)); step(200); assert.ok(d.grabAmount('a0') > 0);
+  d.move(g(-300)); assert.equal(d.grabCards.get('a0').held, false);
+  d.end({ ...g(-300), vy: -1800 }); settle();
+  assert.equal(commits, 0); assert.equal(d.phase, 'choices'); assert.equal(d.grabCards.size, 0); dispose(d);
+});
+
+const downFeedbackCovers = [
+  ['vignette', { cardKind: 'event', directAdvance: true }],
+  ['caption', { cardKind: 'caption', directAdvance: true }],
+  ['fork introduction', { interaction: 'choice' }],
+  ['container introduction', { interaction: 'container', flipItemsOnReveal: true }],
+  ['legacy container cover', { interaction: 'container' }],
+];
+for (const [kind, content] of downFeedbackCovers) for (const ending of ['release', 'cancel', 'reverse']) test(`${kind} down drag only zooms and settles after ${ending}`, () => {
+  const d = new CardDeck(new Element(), { content: { ...fixture(3), ...content } });
+  const initial = scenePose(d); let accepts = 0;
+  for (const name of ['commit', 'reveal', 'collect', 'discard']) d.addEventListener(name, () => accepts++);
+  d.start(); d.move(g(240)); for (let i = 0; i < 100; i++) step();
+  const held = scenePose(d); near(held.y, initial.y, 'story stays in place');
+  assert.equal(d.grabAmount(), 24); near(held.z - initial.z, 24, 'same bounded zoom');
+  for (const field of ['rx', 'ry', 'rz']) near(held[field], initial[field], 'no down tilt');
+  if (ending === 'cancel') d.cancel();
+  else {
+    if (ending === 'reverse') { d.move(g(-80)); assert.ok(d.p.x > 0, 'upward travel still works'); d.move(g(240)); near(scenePose(d).y, initial.y); }
+    d.end({ ...g(240), vy: 1800 });
+  }
+  for (let i = 0; frames.size && i < 2000; i++) { step(); near(scenePose(d).y, initial.y, 'no release drift'); }
+  assert.equal(frames.size, 0); assert.equal(accepts, 0); assert.equal(d.phase, 'closed'); near(d.grabAmount(), 0);
+  dispose(d);
+});
+
 for (const action of ['reset', 'replace', 'destroy', 'reduced', 'hidden']) test(`${action} clears delayed pickup and all scheduling`, () => {
   const d = make(); ready(d); d.start(); d.move(g(-40)); step(10); assert.ok(d.grabAmount('a0') > 0);
   if (action === 'replace') d.replaceContent(fixture(2)); else if (action === 'reduced') { d.media.matches = true; d.media.dispatchEvent(new Event('change')); }

@@ -74,7 +74,8 @@ export function compileChapter(project,chapterId=project.activeChapterId) {
   // All resolved mechanics and normalization must operate on detached data.
   project=discardPlacementContext(cloneProject(project));
   const chapter=project.chapters.find(c=>c.id===chapterId);if(!chapter)throw new TypeError(`Unknown chapter: ${chapterId}`);
-  const result=cloneProject(chapter);delete result.backImage;result.cardStyles=cloneProject(project.cardStyles||{}); result.library=project.library.map(d=>({...cloneProject(d),kind:canonicalCardKind(d.kind),definitionId:d.id,...(d.kind==='item'?{inventoryKey:d.inventoryKey ?? d.id}:{})})); result.variables=project.variables.map(v=>({...v,initial:chapter.initialValues?.[v.id] ?? v.initial}));
+  const result=cloneProject(chapter);delete result.backImage;
+  result.cardBack={...result.cardBack,switchIcons:project.switchCardBackIcons!==false};result.cardStyles=cloneProject(project.cardStyles||{}); result.library=project.library.map(d=>({...cloneProject(d),kind:canonicalCardKind(d.kind),definitionId:d.id,...(d.kind==='item'?{inventoryKey:d.inventoryKey ?? d.id}:{})})); result.variables=project.variables.map(v=>({...v,initial:chapter.initialValues?.[v.id] ?? v.initial}));
   for(const node of result.nodes) {
     for(const key of ['cards','choices','items'])if(node[key])node[key]=node[key].map(p=>resolvePlacement(project,p));
     if(node.intro)node.intro=resolvePlacement(project,node.intro);
@@ -106,13 +107,14 @@ function walk(value,fn) {if(Array.isArray(value))value.forEach(v=>walk(v,fn));el
 export function exportChapter(project,id=project.activeChapterId) {
  const chapter=project.chapters.find(c=>c.id===id);if(!chapter)throw new TypeError('Unknown chapter.');
  const ids=definitionGraph(project).reachableFrom(chapter);
- const pkg=cloneProject({version:2,kind:'nest-chapter',library:project.library.filter(d=>ids.has(d.id)),variables:project.variables,cardStyles:project.cardStyles||{},chapter});
+ const pkg=cloneProject({version:2,kind:'nest-chapter',library:project.library.filter(d=>ids.has(d.id)),variables:project.variables,cardStyles:project.cardStyles||{},switchCardBackIcons:project.switchCardBackIcons,chapter});
  for(const definition of pkg.library)definition.kind=canonicalCardKind(definition.kind);
  discardPlacementContext({library:pkg.library,chapters:[pkg.chapter]});return normalizeSingleItems(pkg);
 }
 
 export function importChapter(project,pkgOrV1) {
  const next=cloneProject(project);const imported=pkgOrV1.version===1 ? migrateChapter(pkgOrV1) : pkgOrV1.kind==='nest-project' ? cloneProject(pkgOrV1) : {library:cloneProject(pkgOrV1.library),variables:cloneProject(pkgOrV1.variables || []),chapters:[cloneProject(pkgOrV1.chapter)]};
+ if(next.switchCardBackIcons===undefined&&pkgOrV1.switchCardBackIcons!==undefined)next.switchCardBackIcons=pkgOrV1.switchCardBackIcons;
  if(!next.cardStyles&&pkgOrV1.cardStyles)next.cardStyles=cloneProject(pkgOrV1.cardStyles);
  for(const definition of imported.library)definition.kind=canonicalCardKind(definition.kind);
  const defMap=new Map(),varMap=new Map(),chapterIds=new Set(next.chapters.map(c=>c.id)),defs=new Set(next.library.map(d=>d.id)),vars=new Set(next.variables.map(v=>v.id));
@@ -143,6 +145,7 @@ export function validateProject(project,{allowDraft=false}={}) {
  const errors=[];const add=(message,chapterId,nodeId)=>errors.push({message,...(chapterId?{chapterId}:{}),...(nodeId?{nodeId}:{})});
  if(!object(project))return [{message:'Project must be an object.'}];
  if(project.version!==2 || project.kind!=='nest-project')add('Project needs version 2 and kind nest-project.');
+ if(project.switchCardBackIcons!==undefined&&typeof project.switchCardBackIcons!=='boolean')add('Cardback icon switching must be a boolean.');
  if(project.cardStyles!==undefined){
   if(!object(project.cardStyles))add('Invalid card text style sizes.');
   else for(const [key,value] of Object.entries(project.cardStyles)){
@@ -237,7 +240,7 @@ export function discardPlacementContext(project) {
 export function parseProject(text,{allowDraft=false}={}) {
  let value=JSON.parse(text);
  if(value?.version===1){parseChapter(text,{allowDraft});value=migrateChapter(value);}
- else if(value?.version===2&&value.kind==='nest-chapter')value={version:2,kind:'nest-project',id:`${value.chapter?.id || 'chapter'}-project`,name:value.chapter?.name,activeChapterId:value.chapter?.id,library:value.library,variables:value.variables || [],cardStyles:value.cardStyles||{},chapters:[value.chapter]};
+ else if(value?.version===2&&value.kind==='nest-chapter')value={version:2,kind:'nest-project',id:`${value.chapter?.id || 'chapter'}-project`,name:value.chapter?.name,activeChapterId:value.chapter?.id,library:value.library,variables:value.variables || [],cardStyles:value.cardStyles||{},switchCardBackIcons:value.switchCardBackIcons,chapters:[value.chapter]};
  for(const definition of list(value?.library))if(object(definition))definition.kind=canonicalCardKind(definition.kind);
  discardPlacementContext(value);normalizeSingleItems(value);
  for(const chapter of list(value?.chapters))if(object(chapter))delete chapter.backImage;

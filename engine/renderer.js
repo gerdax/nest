@@ -80,7 +80,7 @@ function updateBackIcon(back, operation, progress, appearance = null, distance =
   const url = distance === Infinity ? config.icons[operation] : selectBackIcon(config, operation, adjusted, adjustedDistance);
   const reached = distance === Infinity || (Number.isFinite(config.switchProgress)
     ? adjusted >= config.switchProgress : adjustedDistance > 0 && adjustedDistance >= config.switchDistance);
-  let key = operation && reached && url === config.icons[operation] ? operation : 'default';
+  let key = config.switchIcons !== false && operation && reached && url === config.icons[operation] ? operation : 'default';
   if (back.backIcons.get(key)?.backFailed) key = 'default';
   back.backOperation = key === 'default' ? null : operation;
   for (const [name, icon] of back.backIcons) icon.hidden = name !== key;

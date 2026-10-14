@@ -531,6 +531,21 @@ const backIcon = element => element?.getAttribute('data-back-icon');
 function contextualDeck(content) {
  const d=deck();d.replaceContent({id:'context',actions:[{id:'item',label:'Item'}],...content});return d;
 }
+for (const operation of ['container', 'dice', 'collect', 'discard']) test(`disabled icon switching keeps default through ${operation} preview and commit`,()=>{
+ const content={cardBack:{switchIcons:false,icons:{default:'custom-default.png'}},
+  ...(operation==='container'?{interaction:'container',flipItemsOnReveal:true}:
+   operation==='dice'?{decisionOnly:true,actions:[{id:'check',label:'Check',resolution:'check'}]}:{interaction:'container',discardAll:true})};
+ const d=contextualDeck(content);if(operation!=='container')ready(d);
+ const check=()=>{for(const back of [d.sceneBack,d.underlayBack,...d.cardBacks,...(d.forwardDeck?.cardBacks||[])])if(back){
+  assert.equal(backIcon(back),'default');assert.equal(back.backIcons.get('default').hidden,false);
+  assert.equal(back.backIcons.get('default').getAttribute('src'),'custom-default.png');
+ }};
+ const y=operation==='collect'?300:-300;
+ d.start();d.move({axis:'y',x:0,y,vx:0,vy:0});check();
+ d.end({axis:'y',x:0,y,vx:0,vy:y*3});check();
+ assert.ok(d.backTransition,'committed operation has locked icon context');
+ d.tick(performance.now()+30);check();d.reset();check();d.destroy();
+});
 test('container introduction changes actual staged backs after a few pixels and resets on cancel',()=>{
  const d=contextualDeck({interaction:'container',flipItemsOnReveal:true});
  const back=d.forwardDeck.cardBacks[0], icons=[...back.children];

@@ -204,11 +204,11 @@ export class CardDeck extends EventTarget {
     return clamp(state?.x || 0, 0, Math.min(this.settings.grabLift, this.settings.perspective * .02));
   }
 
-  beginGrab(time = performance.now()) {
+  beginGrab(time = performance.now(), disabledFeedback = false) {
     if (this.reduced || document.hidden) return;
     const amount = Math.min(this.settings.grabLift, this.settings.perspective * .02);
     if (!this.drag.open) { this.grabCover.target = amount; return; }
-    if (!this.drag.ready || this.content.actions[this.index]?.disabled) return;
+    if (!this.drag.ready || this.content.actions[this.index]?.disabled && !disabledFeedback) return;
     if (this.groupChoiceMotion) this.beginChoiceHistory(time);
     for (const [index, action] of this.content.actions.entries()) {
       if (!this.groupChoiceMotion && index !== this.index) continue;
@@ -350,7 +350,11 @@ export class CardDeck extends EventTarget {
     if (!this.drag || !gesture.axis) return;
     const recognizedVertical = gesture.axis === 'y' && this.drag.axis !== 'y';
     this.drag.axis = gesture.axis;
-    if (recognizedVertical) this.beginGrab();
+    const disabledDown = gesture.axis === 'y' && gesture.y > 0
+      && this.content.interaction === 'choice' && this.content.actions[this.index]?.disabled;
+    if (recognizedVertical || disabledDown) this.beginGrab(performance.now(), disabledDown);
+    if (gesture.axis === 'y' && gesture.y < 0 && this.drag.ready
+      && this.content.interaction === 'choice' && this.content.actions[this.index]?.disabled) this.releaseGrab();
     const { width, height } = this.mount.getBoundingClientRect();
     if (gesture.axis === 'x' && this.drag.ready && this.cards.length > 1) {
       this.restoreLiftPoses();
@@ -358,6 +362,13 @@ export class CardDeck extends EventTarget {
     }
     if (gesture.axis === 'y') {
       if (!this.drag.open) {
+        if (gesture.y > 0) {
+          this.p.x = this.drag.p;
+          this.rotationX.target = this.rotationY.target = this.rotationZ.target = 0;
+          this.render();
+          this.schedule();
+          return;
+        }
         this.p.x = this.content.directAdvance && this.content.advanceDisabled && gesture.y < 0
           ? Math.min(24, 24 * (1 - Math.exp(gesture.y / 90))) / this.departureTravel()
           : resistance(this.drag.p - gesture.y / this.departureTravel(), 0, 1);
@@ -471,7 +482,7 @@ export class CardDeck extends EventTarget {
       if (!drag.open && this.content.directAdvance && accepted && gesture.y < 0) { this.commitCover(gesture.vy); return; }
       if (!drag.open && this.content.flipItemsOnReveal && accepted && gesture.y < 0) { this.commitIntroduction(gesture.vy); return; }
       this.setOpen(accepted && (gesture.y < 0 || this.content.allowClose) ? gesture.y < 0 : drag.open);
-      if (this.phase !== 'closing' && !drag.open) this.p.v = -gesture.vy / this.departureTravel();
+      if (this.phase !== 'closing' && !drag.open && gesture.y <= 0) this.p.v = -gesture.vy / this.departureTravel();
     }
     // Accepted cover departure keeps its pickup until safely offscreen.
     if (!(gesture.axis === 'y' && !drag.open && this.open)) this.releaseGrab();

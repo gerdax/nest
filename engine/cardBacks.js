@@ -20,6 +20,7 @@ export function validateCardBack(value) {
   if (value === undefined) return [];
   if (!isRecord(value)) return ['cardBack must be an object'];
   const errors = [];
+  if (value.switchIcons !== undefined && typeof value.switchIcons !== 'boolean') errors.push('cardBack.switchIcons must be a boolean');
   if (value.background !== undefined && !imagePath(value.background, null)) errors.push('cardBack.background must be a nonempty string');
   if (value.icons !== undefined) {
     if (!isRecord(value.icons)) errors.push('cardBack.icons must be an object');
@@ -42,6 +43,7 @@ export function resolveBackAppearance(content = {}) {
     for (const name of ICON_NAMES) icons[name] = imagePath(config.icons[name], icons[name]);
   }
   return {
+    switchIcons: config?.switchIcons !== false,
     background: imagePath(config?.background, defaultCardBack.background),
     icons,
     iconScale: Number.isFinite(config?.iconScale) && config.iconScale > 0 ? config.iconScale : defaultCardBack.iconScale,
@@ -67,6 +69,7 @@ export function resolveBackOperation(content = {}, options = {}) {
 /** Select at the threshold; temporal hysteresis belongs to the animation caller. */
 export function selectBackIcon(appearance, operation, progress, distance = 0) {
   if (!isRecord(appearance) || !isRecord(appearance.icons)) return null;
+  if (appearance.switchIcons === false) return appearance.icons.default ?? null;
   const reached = Number.isFinite(appearance.switchProgress)
     ? Number.isFinite(progress) && progress >= appearance.switchProgress
     : Number.isFinite(distance) && distance > 0 && distance >= (appearance.switchDistance ?? defaultCardBack.switchDistance);
