@@ -8,6 +8,7 @@ export const motionControls = [
   ['axisThreshold', 'Axis lock distance', 2, 40, 1, ' px'],
   ['distanceThreshold', 'Down / browse distance', 0.1, 0.6, 0.01, ' × card dimension'],
   ['upwardDistanceThreshold', 'Upward commit distance', 0.1, 0.6, 0.01, ' × card height'],
+  ['discardDistanceThreshold', 'Item discard distance (no flick shortcut)', 0.3, 0.8, 0.01, ' × card height'],
   ['flickVelocity', 'Flick velocity', 200, 1600, 25, ' px/s'],
   ['flickDistance', 'Minimum flick distance', 8, 100, 1, ' px'],
   ['commitDuration', 'Commit duration', 100, 1000, 10, ' ms'],

@@ -453,8 +453,13 @@ export class CardDeck extends EventTarget {
         this.emit('selection', { action: this.content.actions[this.index] });
       }
     } else if (gesture.axis === 'y') {
-      const accepted = qualifies(gesture.y, gesture.vy, height, this.settings,
-        gesture.y < 0 ? this.settings.upwardDistanceThreshold : this.settings.distanceThreshold);
+      // Item disposal requires deliberate release distance; a short flick must
+      // never bypass the threshold for this irreversible game action.
+      const discarding = drag.ready && this.content.interaction === 'container' && gesture.y < 0;
+      const accepted = discarding
+        ? -gesture.y >= height * this.settings.discardDistanceThreshold
+        : qualifies(gesture.y, gesture.vy, height, this.settings,
+          gesture.y < 0 ? this.settings.upwardDistanceThreshold : this.settings.distanceThreshold);
       if (drag.ready && this.content.interaction === 'container' && accepted) {
         if (gesture.y > 0) this.collect(gesture.vy); else this.discard(gesture.vy);
         return;

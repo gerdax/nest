@@ -498,7 +498,7 @@ test('explicitly blank card artwork never inherits the introduction image, inclu
  assert.equal(cleared.cards[1],bundle.cards[1]);assert.equal(cleared.cards[1].children[1].style.backgroundImage,undefined);d.destroy();
 });
 
-for(const mode of ['vignette','caption','action','container','uncover'])test(`upward release distance increases while flicks stay unchanged: ${mode}`,()=>{
+for(const mode of ['vignette','caption','action','uncover'])test(`upward release distance increases while flicks stay unchanged: ${mode}`,()=>{
  for(const [distance,velocity,accepted] of [[-80,0,false],[-100,0,false],[-149,0,false],[-150,0,true],[-26,-800,true],[-25,-800,false],[-26,800,false]]){
   const content={...fixture(3),cardKind:mode==='caption'?'caption':'narrative',directAdvance:['vignette','caption'].includes(mode),interaction:mode==='container'?'container':'choice',discardAll:mode==='container'};
   const d=new CardDeck(new Element(),{content});

@@ -54,6 +54,40 @@ function opaque(deck) { for (const node of descendants(deck.mount)) assert.equal
 function inputBlocked(deck) { const index = deck.index, cursor = deck.b.target; assert.equal(deck.start(), false); for (const name of ['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown']) key(deck, name); deck.commit(); assert.equal(deck.index, index); assert.equal(deck.b.target, cursor); assert.equal(deck.open, true); }
 function dispose(deck, host) { host?.destroy(); deck.destroy(); settle(); document.hidden = false; }
 
+for (const [count, all] of [[4, true], [1, false], [3, false]]) {
+  for (const [distance, velocity, accepted] of [[26, -1800, false], [150, -1800, false], [226, -1800, false], [226.5, 0, true], [240, 0, true]]) {
+    test(`item discard requires half-height release: count=${count}, all=${all}, distance=${distance}`, () => {
+      const deck = make(count, { ...fixture(count), discardAll: all }); ready(deck);
+      const initial = poses(deck), cards = [...deck.cards]; let discards = 0;
+      deck.addEventListener('discard', () => discards++);
+      deck.start(); deck.move(gesture(-distance)); deck.end(gesture(-distance, velocity));
+      assert.equal(discards, accepted ? 1 : 0);
+      settle();
+      if (!accepted) {
+        assert.deepEqual(deck.cards, cards); assert.equal(deck.open, true); assert.equal(deck.phase, 'choices');
+        for (const [id, pose] of poses(deck)) samePose(pose, initial.get(id), 'short release restores item');
+      }
+      dispose(deck);
+    });
+  }
+}
+
+test('crossing discard threshold then retreating before release restores all items', () => {
+  const deck = make(4); ready(deck); const initial = poses(deck); let discards = 0;
+  deck.addEventListener('discard', () => discards++);
+  deck.start(); deck.move(gesture(-300)); step(64); deck.move(gesture(-120)); deck.end(gesture(-120, -1200)); settle();
+  assert.equal(discards, 0); assert.equal(deck.cards.length, 4);
+  for (const [id, pose] of poses(deck)) samePose(pose, initial.get(id), 'retreated release restores stack');
+  dispose(deck);
+});
+
+test('short downward item flick still collects', () => {
+  const deck = make(3); ready(deck); let collects = 0;
+  deck.addEventListener('collect', () => collects++);
+  deck.start(); deck.move(gesture(26)); deck.end(gesture(26, 800)); settle();
+  assert.equal(collects, 1); assert.equal(deck.cards.length, 2); dispose(deck);
+});
+
 for (const index of [0, 2]) test(`up leaves the whole container with selected ${index} leading delayed followers`, () => {
   const deck = make(4); ready(deck); select(deck, index);
   const initial = poses(deck), items = [...deck.cards];
@@ -71,7 +105,8 @@ for (const index of [0, 2]) test(`up leaves the whole container with selected ${
   step(deck.settings.choiceStaggerMs * 4);
   for (const [id, pose] of poses(deck)) assert.ok(pose.y < initial.get(id).y, 'every card follows upward');
   assert.equal(deck.underlay.style.visibility, 'visible'); opaque(deck);
-  deck.end(gesture(-150));
+  deck.move(gesture(-240));
+  deck.end(gesture(-240));
   assert.equal(deck.phase, 'committing'); assert.equal(deck.commitMotion.discardAll, true);
   assert.equal(deck.content.id, 'items-4'); assert.equal(deck.pending.id, 'next'); assert.deepEqual(deck.cards, items);
   inputBlocked(deck); assert.match(deck.live.textContent, /discarding remaining items/);
@@ -267,10 +302,10 @@ test('standalone single item shares container discard poses throughout drag and 
   const accepts=[],completions=[];
   single.addEventListener('discard',e=>accepts.push(e.detail));
   single.addEventListener('transitioncomplete',e=>{if(e.detail.transition==='discard')completions.push(e.detail)});
-  for(const deck of [container,single]) {deck.start();deck.move(gesture(-180));}
+  for(const deck of [container,single]) {deck.start();deck.move(gesture(-240));}
   step(64);samePose(cardPose(single,0,now),cardPose(container,0,now),'held single item uses container spin and sideways movement');
   const before=cardPose(single,0,now);
-  for(const deck of [container,single]) deck.end(gesture(-180,-650));
+  for(const deck of [container,single]) deck.end(gesture(-240,-650));
   samePose(cardPose(single,0,now),before,'release is continuous');
   assert.equal(single.commitMotion.discardItem,true);assert.equal(single.commitMotion.discardAll,false);
   assert.equal(accepts.length,1);assert.equal(accepts[0].all,false);assert.equal(accepts[0].final,true);assert.equal(accepts[0].discardedIds,undefined);

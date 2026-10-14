@@ -76,14 +76,14 @@ for (const resolution of ['collect', 'discard']) for (const count of [2, 3, 4]) 
     const accepts = [], completes = [];
     deck.addEventListener(resolution, e => accepts.push(e.detail));
     deck.addEventListener('transitioncomplete', e => { if (e.detail.transition === resolution) completes.push(e.detail); });
-    const direction = resolution === 'collect' ? 1 : -1;
+    const direction = resolution === 'collect' ? 1 : -1, distance = resolution === 'collect' ? 150 : 240;
     const survivorPose = resolution === 'collect' ? recededPose : samePose;
-    deck.start(); deck.move(gesture(direction * 150));
-    assert.ok(direction * (poses(deck).get(selected).y - initial.get(selected).y) >= 149);
+    deck.start(); deck.move(gesture(direction * distance));
+    assert.ok(direction * (poses(deck).get(selected).y - initial.get(selected).y) >= distance - 1);
     for (const [id, pose] of poses(deck)) if (id !== selected) survivorPose(pose, initial.get(id), 'held survivor');
     step(); step();
     for (const [id, pose] of poses(deck)) if (id !== selected) survivorPose(pose, initial.get(id), 'held angular survivor');
-    deck.end(gesture(direction * 150));
+    deck.end(gesture(direction * distance));
     assert.equal(accepts.length, 1); assert.equal(accepts[0].action.id, selected); assert.equal(accepts[0].index, index); assert.equal(accepts[0].final, false);
     let before;
     while (deck.collectMotion) {
@@ -106,7 +106,7 @@ for (const resolution of ['collect', 'discard']) for (const count of [2, 3, 4]) 
 
 for (const resolution of ['collect', 'discard']) test(`final ${resolution} stages its reverse while held and flips only after clearance`, () => {
   const deck = make(1); ready(deck);
-  const direction = resolution === 'collect' ? 1 : -1, events = [];
+  const direction = resolution === 'collect' ? 1 : -1, distance = resolution === 'collect' ? 150 : 240, events = [];
   deck.addEventListener(resolution, e => {
     events.push('accepted'); assert.equal(e.detail.final, true);
     deck.replaceContent({ ...fixture(2, 'choice'), id: 'next', title: 'Next situation' });
@@ -119,10 +119,10 @@ for (const resolution of ['collect', 'discard']) test(`final ${resolution} stage
     }
     if (e.detail.transition === 'commit') events.push('flipped');
   });
-  deck.start(); deck.move(gesture(direction * 150));
+  deck.start(); deck.move(gesture(direction * distance));
   const back = deck.underlayBack;
   assert.ok(back); assert.equal(back.style.visibility, 'visible'); assert.equal(deck.nextFlip.x, 1); assert.deepEqual(events, []);
-  deck.end(gesture(direction * 150, direction * 1600));
+  deck.end(gesture(direction * distance, direction * 1600));
   while (deck.collectMotion || deck.commitMotion?.discardItem) {
     inputBlocked(deck);
     if (resolution === 'collect') assert.equal(deck.nextFlip.x, 1);

@@ -120,10 +120,11 @@ test('newly selected follower adopts physical depth without pickup duplication',
 
 for (const interaction of ['choice', 'container']) for (const direction of (interaction === 'container' ? [-1, 1] : [-1])) test(`${interaction} accepted departure preserves pickup until safe adoption, y=${direction}`, () => {
   const d = make(interaction === 'container' ? 1 : 4, interaction); ready(d); let complete = 0;
+  const distance = interaction === 'container' && direction < 0 ? 240 : 100;
   d.addEventListener(interaction === 'choice' ? 'commit' : direction < 0 ? 'discard' : 'collect', () => d.replaceContent({ ...fixture(2), id: 'next' }));
   d.addEventListener('transitioncomplete', e => { if (e.detail.transition === 'commit') complete++; });
-  d.start(); d.move(g(direction * 100)); for (let i = 0; i < 100; i++) step(); const before = d.cards.map((_, i) => cardPose(d, i));
-  d.end({ ...g(direction * 100), vy: direction * 800 });
+  d.start(); d.move(g(direction * distance)); for (let i = 0; i < 100; i++) step(); const before = d.cards.map((_, i) => cardPose(d, i));
+  d.end({ ...g(direction * distance), vy: direction * 800 });
   d.cards.forEach((_, i) => near(cardPose(d, i).z, before[i].z, 'release boundary')); assert.equal(d.grabAmount('a0'), 24); assert.equal(d.start(), false);
   const bounds = d.mount.getBoundingClientRect();
   for (let i = 0; frames.size && i < 2000; i++) {
