@@ -33,7 +33,7 @@ test('random conditions choose once, fallback works, transparent cycles report e
  let draws=0;const nodes=[{id:'r',type:'random',routes:[{id:'one',target:'a',weight:1},{id:'hidden',target:'b',weight:100,conditions:[{source:'variable',key:'missing',op:'eq',value:1}]}],fallback:'b'},{id:'a',type:'linear',cards:[narrative('a')],connections:{}},{id:'b',type:'linear',cards:[narrative('b')],connections:{}}];
  const {controller}=fixture(nodes,{}, {rng:()=>{draws++;return 0;}});assert.equal(controller.state.cardId,'a');assert.equal(draws,1);controller.destroy();
  nodes[0].routes=[];const f=fixture(nodes);assert.equal(f.controller.state.cardId,'b');f.controller.destroy();
- const errors=[];const cycle=fixture([{id:'r',type:'random',routes:[],fallback:'r'}],{}, {onError:e=>errors.push(e)});assert.equal(errors.length,1);assert.equal(cycle.controller.state.completed,true);cycle.controller.destroy();
+ const errors=[];const cycle=fixture([{id:'r',type:'random',routes:[],fallback:'r'}],{}, {onError:e=>errors.push(e)});assert.equal(errors.length,1);assert.equal(cycle.controller.state.completed,false);cycle.controller.destroy();
 });
 test('check spends costs then applies common and failure effects after feedback',async()=>{
  let resolve,feedback;const roll=new Promise(r=>resolve=r),wait=new Promise(r=>feedback=r);
@@ -245,7 +245,7 @@ test('player-driven node loops revisit story cards and can leave the loop',()=>{
 });
 test('automatic routing loops remain bounded when node cycles are allowed',()=>{
  const errors=[];const {controller}=fixture([{id:'random',type:'random',routes:[{id:'loop',target:'random',weight:1}],fallback:null}],{allowCycles:true},{onError:e=>errors.push(e)});
- assert.equal(controller.state.completed,true);assert.match(errors[0].message,/Automatic routing cycle/);controller.destroy();
+ assert.equal(controller.state.completed,false);assert.match(errors[0].message,/Automatic routing cycle/);controller.destroy();
 });
 
 for(const once of [true,false,undefined])test(`Fork introductions respect per-visit/once behavior, show once=${once}`,()=>{

@@ -89,9 +89,9 @@ for(const cycleFirst of [true,false])test(`mixed automatic cycle and Unlinked ro
 });
 
 function countPreflight(controller,source=controller.card()) {
- const locate=controller.locate;let calls=0;
- controller.locate=function(...args){calls++;return locate.apply(this,args);};
- try{return {blocked:controller.departureBlocked(source),calls};}finally{controller.locate=locate;}
+ const get=controller.nodes.get;let calls=0;
+ controller.nodes.get=function(...args){calls++;return get.apply(this,args);};
+ try{return {blocked:controller.departureBlocked(source),calls};}finally{controller.nodes.get=get;}
 }
 test('Random preflight bounds traversal through distinct reconverging targets and empty nodes',()=>{
  const depth=10,nodes=[{id:'beat',type:'linear',cards:[narrative('event')],connections:{next:'r0'}}];
@@ -103,7 +103,7 @@ test('Random preflight bounds traversal through distinct reconverging targets an
  nodes.push({id:'end',type:'linear',cards:[narrative('end')],connections:{next:null}});
  let draws=0;const {deck,controller}=real(nodes,{}, {rng:()=>{draws++;return 0;}});
  const result=countPreflight(controller);
- assert.equal(result.blocked,false);assert.ok(result.calls<=6*depth,`preflight used ${result.calls} locate calls`);assert.equal(draws,0);
+ assert.equal(result.blocked,false);assert.ok(result.calls<=6*depth,`preflight expanded ${result.calls} nodes`);assert.equal(draws,0);
  key(deck,'Enter');assert.equal(controller.state.cardId,'end');assert.equal(draws,depth);dispose(deck,controller);
 });
 test('Random preflight bounds repeated duplicate targets',()=>{
@@ -111,7 +111,7 @@ test('Random preflight bounds repeated duplicate targets',()=>{
  for(let level=0;level<depth;level++)nodes.push({id:`r${level}`,type:'random',routes:[0,1].map(i=>({id:`route${i}`,weight:1,target:level===depth-1?'end':`r${level+1}`})),fallback:false});
  nodes.push({id:'end',type:'linear',cards:[narrative('end')],connections:{next:null}});
  let draws=0;const {deck,controller}=real(nodes,{}, {rng:()=>{draws++;return 0;}});
- assert.deepEqual(countPreflight(controller),{blocked:false,calls:2*depth+1});assert.equal(draws,0);dispose(deck,controller);
+ assert.deepEqual(countPreflight(controller),{blocked:false,calls:depth+1});assert.equal(draws,0);dispose(deck,controller);
 });
 for(const invalid of [false,'cycle'])test(`memoized safe targets do not hide later ${invalid} routes`,()=>{
  const nodes=[{id:'beat',type:'linear',cards:[{...narrative('event'),effects}],connections:{next:'random'}},

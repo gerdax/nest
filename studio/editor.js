@@ -52,9 +52,10 @@ function goToPreviewCard(target){
  if(!revealCardEntry($('#inspector'),target))report('This card is not currently shown in the panel. Its introduction may have been disabled since playback started.');
 }
 function edit(fn){
+ const previousLibrary=project.library;
  let failure;
  graph.cancel();
- try{history.transact(draft=>{project=draft;fn();discardPlacementContext(project);synchronizeConnections(project);return project;});}
+ try{history.transact(draft=>{project=draft;fn();discardPlacementContext(project);synchronizeConnections(project);localDrafts.refreshChangedDefinitions(project,previousLibrary);return project;});}
  catch(error){failure=error.message;localDrafts.reset();}
  finally{project=history.document;}
  const saved=saveProject(project);render();report(failure|| (saved.ok?'Saved in this browser':`Save failed: ${saved.error}`));

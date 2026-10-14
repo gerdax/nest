@@ -1,11 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createProject, exportChapter, parseProject, validateProject} from '../project/model.js';
+import {readFileSync} from 'node:fs';
+import {runInNewContext} from 'node:vm';
+import {createProject, exportChapter, parseProject, validateProject, discardPlacementContext} from '../project/model.js';
 import {createDefinition} from '../project/cards.js';
 import {addInventory, conditionsMet} from '../project/state.js';
-import {createNode, makePlacement, synchronizeConnections} from '../studio/commands.js';
+import {createNode, makePlacement, synchronizeConnections, pathTarget, normalizeRule, newRule} from '../studio/commands.js';
 import {DocumentHistory} from '../editor/DocumentHistory.js';
-import {cleanupLocalDefinitions} from '../project/dependencies.js';
+import {cleanupLocalDefinitions, deleteDefinition} from '../project/dependencies.js';
 import {LocalCardDrafts} from '../studio/local-card-drafts.js';
 
 const allowedKinds = ['event', 'caption', 'action', 'item'];
@@ -451,4 +453,70 @@ test('repeated type and Library switching bounds local definitions and respects 
   assert.ok(state.project.library.some(d => d.id === alsoUsed.id));
   synchronizeConnections(state.project);
   assert.deepEqual(validateProject(state.project), []);
+});
+
+// Execute the editor's real transaction and event handlers with DOM/rendering
+// replaced by inert ports. This catches missing wiring as well as cache behavior.
+function editorHandlers(state, definitionId) {
+  const source = readFileSync(new URL('../studio/editor.js', import.meta.url), 'utf8');
+  const section = (start, end) => source.slice(source.indexOf(start), source.indexOf(end, source.indexOf(start)));
+  const context = {
+    project:state.project, history:new DocumentHistory(state.project), localDrafts:state.drafts,
+    definitionId, graph:{cancel(){}}, saveProject:() => ({ok:true}), render(){}, report(){},
+    discardPlacementContext, synchronizeConnections, pathTarget, normalizeRule, newRule, deleteDefinition,
+    node:() => context.project.chapters[0].nodes.find(n => n.id === state.node.id),
+    scopeRoot:() => context.project.library.find(d => d.id === context.definitionId),
+    findPlacement:() => undefined
+  };
+  runInNewContext([
+    section('function edit(fn){', 'function renderGraph()'),
+    section('function changeField(event){', 'for(const root of'),
+    section('function command(event){', 'for(const root of')
+  ].join('\n'), context);
+  return context;
+}
+
+function cachedSharedItem() {
+  const state = setup();
+  const item = createDefinition('item', 'shared-cached-item');
+  item.onCollect = [effect(1)]; state.project.library.push(item);
+  switchTo(state, 'local:action');
+  definition(state.project, state.placement).effects = [{op:'addItem',key:item.id}];
+  switchTo(state, 'local:caption');
+  return {...state,item};
+}
+
+function restoreEditorAction(state, editor) {
+  state.project = editor.project;
+  state.placement = state.project.chapters[0].nodes.find(n => n.id === state.node.id).cards[0];
+  switchTo(state, 'local:action');
+  return state.project.library.find(d => d.id === state.item.id);
+}
+
+test('editor Library field edits and deletion preserve current shared Item dependency drafts', () => {
+  const state = cachedSharedItem(), editor = editorHandlers(state, state.item.id);
+  editor.changeField({target:{dataset:{scope:'definition',path:'onCollect.0.value'},
+    matches:() => false, type:'number', value:'5'}});
+  assert.deepEqual(editor.project.library.find(d => d.id === state.item.id).onCollect, [effect(5)]);
+  editor.command({target:{closest:() => ({dataset:{command:'delete-definition'}})}});
+  assert.equal(editor.project.library.some(d => d.id === state.item.id), false);
+  assert.deepEqual(restoreEditorAction(state, editor).onCollect, [effect(5)]);
+  synchronizeConnections(state.project); assert.deepEqual(validateProject(state.project), []);
+});
+
+test('editor Library rule removal refreshes obsolete transitive dependencies before deletion', () => {
+  const state = cachedSharedItem();
+  const extra = createDefinition('item', 'extra-shared-item');
+  state.project.library.push(extra);
+  state.item.onCollect = [{op:'addItem',key:extra.id}];
+  // Capture the current dependency closure, including the transitive Item.
+  switchTo(state, 'local:action'); switchTo(state, 'local:caption');
+  const editor = editorHandlers(state, state.item.id);
+  editor.command({target:{closest:() => ({dataset:{command:'remove-rule',scope:'definition',path:'onCollect',index:'0'}})}});
+  editor.command({target:{closest:() => ({dataset:{command:'delete-definition'}})}});
+  editor.definitionId = extra.id;
+  editor.command({target:{closest:() => ({dataset:{command:'delete-definition'}})}});
+  assert.deepEqual(restoreEditorAction(state, editor).onCollect, []);
+  assert.equal(state.project.library.some(d => d.id === extra.id), false);
+  synchronizeConnections(state.project); assert.deepEqual(validateProject(state.project), []);
 });

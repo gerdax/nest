@@ -8,6 +8,23 @@ export const cloneProject = value => JSON.parse(JSON.stringify(value));
 const object = v => v !== null && typeof v === 'object' && !Array.isArray(v);
 const named = v => typeof v === 'string' && !!v.trim();
 const unique = (base, used) => { let id=base,n=2; while(used.has(id)) id=`${base}-${n++}`; used.add(id);return id; };
+// Explicit DFS frames keep validation safe for long authoring graphs.
+function hasDirectedCycle(ids, edges) {
+ const active=new Set(),done=new Set();
+ for(const root of ids){
+  if(done.has(root))continue;
+  const stack=[{id:root,targets:edges.get(root)||[],index:0}];active.add(root);
+  while(stack.length){
+   const frame=stack[stack.length-1];
+   if(frame.index===frame.targets.length){active.delete(frame.id);done.add(frame.id);stack.pop();continue;}
+   const target=frame.targets[frame.index++];
+   if(active.has(target))return true;
+   if(done.has(target))continue;
+   active.add(target);stack.push({id:target,targets:edges.get(target)||[],index:0});
+  }
+ }
+ return false;
+}
 export function createChapter(id='chapter-1',name='First chapter') { return {id,name,startNode:'',nodes:[]}; }
 export function createProject() {
   const event = {...createDefinition('event','arrival'), name:'Arrival',heading:'',text:'Your expedition begins at the edge of the city.',image:'./assets/img/city.png'};
@@ -99,14 +116,26 @@ export function importChapter(project,pkgOrV1) {
  if(!next.cardStyles&&pkgOrV1.cardStyles)next.cardStyles=cloneProject(pkgOrV1.cardStyles);
  for(const definition of imported.library)definition.kind=canonicalCardKind(definition.kind);
  const defMap=new Map(),varMap=new Map(),chapterIds=new Set(next.chapters.map(c=>c.id)),defs=new Set(next.library.map(d=>d.id)),vars=new Set(next.variables.map(v=>v.id));
+ const inventoryUsed=new Set(next.library.filter(d=>d.kind==='item').flatMap(d=>[d.id,d.inventoryKey].filter(Boolean)));
+ const allocateDefinition=d=>{
+  const used=d.kind==='item'?new Set([...defs,...inventoryUsed]):defs;
+  const id=unique(d.id,used);defs.add(id);if(d.kind==='item')inventoryUsed.add(id);return id;
+ };
  const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
  for(const v of imported.variables){const existing=next.variables.find(x=>x.id===v.id);varMap.set(v.id,existing&&same(existing,v)?v.id:unique(v.id,vars));}
  const variablesUnchanged=[...varMap].every(([a,b])=>a===b);
- const reused=new Set();for(const d of imported.library){const existing=next.library.find(x=>x.id===d.id);if(d.visibility!=='local'&&existing&&same(existing,d)&&variablesUnchanged){defMap.set(d.id,d.id);reused.add(d.id);}else defMap.set(d.id,unique(d.id,defs));}
- let reduced=true;while(reduced){reduced=false;for(const d of imported.library.filter(d=>reused.has(d.id))){let conflict=false;walk(d,v=>{if(v.definitionId && defMap.has(v.definitionId) && defMap.get(v.definitionId)!==v.definitionId)conflict=true;if(v.key && (v.source==='inventory'||['addItem','removeItem'].includes(v.op))){if(defMap.has(v.key)&&defMap.get(v.key)!==v.key)conflict=true;if(imported.library.some(item=>item.kind==='item'&&item.inventoryKey===v.key&&!reused.has(item.id)))conflict=true;}});if(conflict){reused.delete(d.id);defMap.set(d.id,unique(d.id,defs));reduced=true;}}}
- const aliases=new Map(),aliasUsed=new Set(next.library.filter(d=>d.kind==='item').map(d=>d.inventoryKey || d.id));
- for(const d of imported.library.filter(d=>d.kind==='item'&&d.inventoryKey)){if(!aliases.has(d.inventoryKey))aliases.set(d.inventoryKey,reused.has(d.id)?d.inventoryKey:unique(d.inventoryKey,aliasUsed));}
- const remap=value=>walk(value,v=>{if(v.definitionId && defMap.has(v.definitionId))v.definitionId=defMap.get(v.definitionId);if(v.contextItemId && defMap.has(v.contextItemId))v.contextItemId=defMap.get(v.contextItemId);if(v.key){if(v.source==='inventory'||['addItem','removeItem'].includes(v.op))v.key=defMap.get(v.key) || aliases.get(v.key) || v.key;else v.key=varMap.get(v.key) || v.key;}if(v.modifierVariable)v.modifierVariable=varMap.get(v.modifierVariable) || v.modifierVariable;});
+ const reused=new Set();for(const d of imported.library){const existing=next.library.find(x=>x.id===d.id);if(d.visibility!=='local'&&existing&&same(existing,d)&&variablesUnchanged){defMap.set(d.id,d.id);reused.add(d.id);}else defMap.set(d.id,allocateDefinition(d));}
+ let reduced=true;while(reduced){reduced=false;for(const d of imported.library.filter(d=>reused.has(d.id))){let conflict=false;walk(d,v=>{if([v.definitionId,v.contextItemId].some(id=>id&&defMap.has(id)&&defMap.get(id)!==id))conflict=true;if(v.key && (v.source==='inventory'||['addItem','removeItem'].includes(v.op))){if(defMap.has(v.key)&&defMap.get(v.key)!==v.key)conflict=true;if(imported.library.some(item=>item.kind==='item'&&item.inventoryKey===v.key&&!reused.has(item.id)))conflict=true;}});if(conflict){reused.delete(d.id);defMap.set(d.id,allocateDefinition(d));reduced=true;}}}
+ const importedItems=imported.library.filter(d=>d.kind==='item'),itemMap=new Map(importedItems.map(d=>[d.id,defMap.get(d.id)]));
+ const aliases=new Map();
+ for(const d of importedItems.filter(d=>d.inventoryKey)){
+  if(aliases.has(d.inventoryKey))continue;
+  const group=importedItems.filter(item=>(item.inventoryKey??item.id)===d.inventoryKey);
+  // Shared aliases deliberately describe one inventory identity in legacy data.
+  const owner=group.find(item=>reused.has(item.id)) || group.find(item=>item.id===d.inventoryKey);
+  aliases.set(d.inventoryKey,owner?(reused.has(owner.id)?d.inventoryKey:defMap.get(owner.id)):unique(d.inventoryKey,inventoryUsed));
+ }
+ const remap=value=>walk(value,v=>{if(v.definitionId && defMap.has(v.definitionId))v.definitionId=defMap.get(v.definitionId);if(v.contextItemId && defMap.has(v.contextItemId))v.contextItemId=defMap.get(v.contextItemId);if(v.key){if(v.source==='inventory'||['addItem','removeItem'].includes(v.op))v.key=itemMap.get(v.key) || aliases.get(v.key) || v.key;else v.key=varMap.get(v.key) || v.key;}if(v.modifierVariable)v.modifierVariable=varMap.get(v.modifierVariable) || v.modifierVariable;});
  for(const d of imported.library){const old=d.id;if(reused.has(old))continue;remap(d);d.id=defMap.get(old);if(d.inventoryKey)d.inventoryKey=aliases.get(d.inventoryKey) || d.inventoryKey;next.library.push(d);}for(const v of imported.variables){v.id=varMap.get(v.id);if(!next.variables.some(x=>x.id===v.id))next.variables.push(v);}
  for(const c of imported.chapters){remap(c);if(c.initialValues)c.initialValues=Object.fromEntries(Object.entries(c.initialValues).map(([k,v])=>[varMap.get(k)||k,v]));c.id=unique(c.id,chapterIds);next.chapters.push(c);next.activeChapterId=c.id;}return normalizeSingleItems(discardPlacementContext(next));
 }
@@ -129,6 +158,11 @@ export function validateProject(project,{allowDraft=false}={}) {
  for(const d of library)if(object(d))definitions.set(d.id,d);
  for(const v of variables){if(!object(v))continue;vars.set(v.id,v);if(!['flag','number'].includes(v.type)||(v.type==='flag'?typeof v.initial!=='boolean':!Number.isFinite(v.initial)))add(`Variable ${v.id} needs a typed initial value.`);if(v.type==='number'){if(v.min!==undefined&&!Number.isFinite(v.min)||v.max!==undefined&&!Number.isFinite(v.max)||v.min!==undefined&&v.max!==undefined&&v.min>v.max||v.min!==undefined&&v.initial<v.min||v.max!==undefined&&v.initial>v.max)add(`Variable ${v.id} has invalid bounds.`);}else if(v.min!==undefined||v.max!==undefined)add(`Flag ${v.id} cannot have numeric bounds.`);}
  const itemKeys=new Set(library.filter(d=>d?.kind==='item').flatMap(d=>[d.id,d.inventoryKey].filter(Boolean)));
+ const itemsById=new Map(library.filter(d=>d?.kind==='item').map(d=>[d.id,d]));
+ for(const item of itemsById.values()){
+  const owner=itemsById.get(item.inventoryKey);
+  if(owner&&owner!==item&&(owner.inventoryKey??owner.id)!==(item.inventoryKey??item.id))add(`Item ${item.id}: inventory alias ${item.inventoryKey} conflicts with another item ID.`);
+ }
  const validRef=(key,set)=>allowDraft || set.has(key);
  function inspectConditions(list,label){if(list===undefined)return;if(!Array.isArray(list)){add(`${label}: conditions must be a list.`);return;}for(const c of list){if(!object(c)||!['variable','inventory'].includes(c.source)||typeof c.key!=='string'){add(`${label}: invalid condition.`);continue;}if(c.source==='inventory'){if(!['has','missing'].includes(c.op)||!validRef(c.key,itemKeys)||['gte','lte'].includes(c.op)&&(!Number.isSafeInteger(c.value)||c.value<0))add(`${label}: invalid inventory condition.`);}else {const v=vars.get(c.key);if(!validRef(c.key,vars)||!['eq','neq','gte','lte'].includes(c.op)||!['number','boolean'].includes(typeof c.value)||typeof c.value==='number'&&!Number.isFinite(c.value)||v&&(typeof c.value!==(v.type==='flag'?'boolean':'number')||v.type==='flag'&&!['eq','neq'].includes(c.op)))add(`${label}: invalid variable condition.`);}}}
  function inspectEffects(list,label){if(list===undefined)return;if(!Array.isArray(list)){add(`${label}: effects must be a list.`);return;}for(const e of list){if(!object(e)||typeof e.key!=='string'){add(`${label}: invalid effect.`);continue;}if(['addItem','removeItem'].includes(e.op)){if(!validRef(e.key,new Set(library.filter(d=>d?.kind==='item').map(d=>d.id))))add(`${label}: inventory effect needs an item.`);}else{const v=vars.get(e.key);if(!['set','add'].includes(e.op)||!validRef(e.key,vars)||!['number','boolean'].includes(typeof e.value)||typeof e.value==='number'&&!Number.isFinite(e.value)||e.op==='add'&&typeof e.value!=='number'||v&&(typeof e.value!==(v.type==='flag'?'boolean':'number')||e.op==='add'&&v.type!=='number'))add(`${label}: invalid variable effect.`);if(e.op==='set'&&v?.type==='number'&&(v.min!==undefined&&e.value<v.min||v.max!==undefined&&e.value>v.max))add(`${label}: set effect is outside variable bounds.`);}}}
@@ -153,12 +187,12 @@ export function validateProject(project,{allowDraft=false}={}) {
  for(const raw of legacyArtwork(node)){if(raw.contextOverrideImage!==undefined||raw.contextItemId!==undefined&&raw.contextItemId!=='')add(`${label}: inventory context is unsupported on legacy cards.`,cid,nid);if(!named(raw.id)||typeof raw.definitionId!=='string'||typeof raw.image!=='string'||raw.unavailable!==undefined&&!['hidden','disabled'].includes(raw.unavailable))add(`${label}: invalid legacy artwork.`,cid,nid);if(!validRef(raw.definitionId,definitions))add(`${label}: unknown legacy definition.`,cid,nid);inspectCard(raw,label);if(definitions.has(raw.definitionId)){try{inspectCard(resolvePlacement(project,raw),label);}catch{add(`${label}: invalid legacy placement mechanics.`,cid,nid);}}}
  for(const seq of node.type==='legacySequence'?[node.sequence]:node.type==='legacyPool'?list(node.sequences):[]){if(!object(seq)||!named(seq.id)||!['linear','container','forked'].includes(seq.type)||!Array.isArray(seq.cards)||!Array.isArray(seq.exits)){add(`${label}: invalid legacy sequence.`,cid,nid);continue;}const cardIds=new Set(seq.cards.filter(object).map(c=>c.id)),exitIds=new Set(seq.exits),adjacency=new Map();
  for(const card of seq.cards){if(!object(card)||!named(card.id)||typeof card.title!=='string'||typeof card.text!=='string'||typeof card.image!=='string'){add(`${label}: invalid legacy card.`,cid,nid);continue;}const links=[];for(const choice of list(card.choices)){if(!object(choice)||!named(choice.id)||typeof choice.target!=='string'){add(`${label}: invalid legacy choice.`,cid,nid);continue;}if(!allowDraft){if(choice.target.startsWith('card:')){const target=choice.target.slice(5);if(!cardIds.has(target))add(`${label}: unknown legacy card target.`,cid,nid);else links.push(target);}else if(!choice.target.startsWith('exit:') || !exitIds.has(choice.target.slice(5)))add(`${label}: unknown legacy exit.`,cid,nid);}}adjacency.set(card.id,links);}
- if(!allowDraft){const visiting=new Set(),finished=new Set();const visit=id=>{if(visiting.has(id))return true;if(finished.has(id))return false;visiting.add(id);for(const target of adjacency.get(id)||[])if(visit(target))return true;visiting.delete(id);finished.add(id);return false;};if([...cardIds].some(visit))add(`${label}: legacy sequence has a card cycle.`,cid,nid);}}
+ if(!allowDraft&&hasDirectedCycle(cardIds,adjacency))add(`${label}: legacy sequence has a card cycle.`,cid,nid);}
 
  if(node.type==='legacySequence'&&!object(node.sequence))add(`${label}: missing legacy sequence.`,cid,nid);
  if(node.type==='legacyPool'&&(!Array.isArray(node.sequences)||!Array.isArray(node.pool)||!Number.isSafeInteger(node.count)||node.count<1||node.count>node.pool.length||node.pool.some(p=>!object(p)||!Number.isFinite(p.weight)||p.weight<=0||!allowDraft&&!node.sequences.some(s=>s.id===p.sequenceId))))add(`${label}: invalid legacy pool.`,cid,nid);
  if(!allowDraft)for(const t of targets)if(t!==null&&t!==false&&!nodeIds.has(t))add(`${label}: unknown target ${t}.`,cid,nid);edges.set(nid,targets.filter(t=>t!==null&&nodeIds.has(t)));}
- if(!allowDraft&&chapter.allowCycles!==true){const active=new Set(),done=new Set();const visit=id=>{if(active.has(id))return true;if(done.has(id))return false;active.add(id);for(const to of edges.get(id)||[])if(visit(to))return true;active.delete(id);done.add(id);return false;};if([...nodeIds].some(visit))add('Chapter has a beat cycle.',cid);}
+ if(!allowDraft&&chapter.allowCycles!==true&&hasDirectedCycle(nodeIds,edges))add('Chapter has a beat cycle.',cid);
  }
  return errors;
 }

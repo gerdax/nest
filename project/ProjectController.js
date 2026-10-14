@@ -21,11 +21,11 @@ export class ProjectController {
     ++this.generation; this.checking?.abort(); this.checking=null;
     this.deck.reset(); this.variables=initialValues(this.compiled.variables); this.inventory=[];
     this.remaining=new Map(); this.accepted=new Set();this.revealedIntros=new Set();this.pendingIntro=null; this.pendingItem=null;this.stagedDestination=null;this.completed=false;
+    this.location=null;
     try {this.adopt(this.locate(this.compiled.startNode),false);this.show();} catch(error){
-      if(error.message==='Unlinked output') {
-        this.location=null;this.completed=false;
-        this.deck.replaceContent({id:`${this.generation}:${++this.serial}`,title:'Unlinked output',actions:[{id:'unavailable',label:'Unlinked output',disabled:true}],decisionOnly:true},{presentation:'open',animate:false});
-      }else {this.completed=true;this.deck.endContent();}
+      this.location=null;this.completed=false;
+      const message=error.message==='Unlinked output'?'Unlinked output':'Playback blocked';
+      this.deck.replaceContent({id:`${this.generation}:${++this.serial}`,title:message,actions:[{id:'unavailable',label:message,disabled:true}],decisionOnly:true},{presentation:'open',animate:false});
       this.error(error);this.notify();
     }
   }
@@ -53,47 +53,66 @@ export class ProjectController {
     return routes.find(r=>(ticket-=r.weight)<0) ?? routes.at(-1);
   }
   locate(id,values=this.variables,inventory=this.inventory,visited=new Set(),excluded=null,preview=false,preflight=null) {
-    if(id===null)return {completed:true};
-    if(id===false||id===undefined)throw new Error('Unlinked output');
-    // Share completed results only within this prediction, while keeping the
-    // current DFS path separate so reconvergence cannot hide routing cycles.
+    return this.traverse({id},values,inventory,visited,excluded,preview,preflight);
+  }
+  // Explicit DFS frames keep long automatic paths off the JavaScript call stack.
+  // Preview explores every eligible Random branch without drawing randomness.
+  traverse(start,values,inventory,visited,excluded,preview,preflight) {
     if(preview) {
       if(!preflight||preflight.values!==values||preflight.inventory!==inventory||preflight.excluded!==excluded)preflight={values,inventory,excluded,visiting:new Set(visited),completed:new Map()};
       visited=preflight.visiting;
-      if(visited.has(id))throw new Error('Automatic routing cycle');
-      if(preflight.completed.has(id))return preflight.completed.get(id);
     }
-    if(visited.has(id))throw new Error('Automatic routing cycle'); visited.add(id);
+    const pending=[start],entered=new Set();
+    let result;
     try {
-      const node=this.nodes.get(id);if(!node)throw new Error(`Unknown node: ${id}`);
-      let result;
-      if(node.type==='random') {
-        const routes=(node.routes ?? []).filter(r=>r.weight>0 && conditionsMet(r.conditions,values,inventory));
-        if(preview) {
-          const targets=routes.length?routes.map(r=>r.target):[node.fallback];
-          for(const target of targets)this.locate(target,values,inventory,visited,excluded,true,preflight);
-          result=null;
-        }else {
-          const selected=this.weighted(routes);
-          return this.locate(selected ? selected.target : node.fallback,values,inventory,visited,excluded,preview);
+      while(pending.length) {
+        const step=pending.pop();
+        if(step.finish) {
+          if(step.random)result=null;
+          if(preview){preflight.completed.set(step.id,result);visited.delete(step.id);entered.delete(step.id);}
+          continue;
         }
-      }else if(node.type==='legacyPool'&&preview) {
-        result=null;
-      }else {
-        let location={node,index:0,queue:[]};
-        if(node.type==='legacySequence')location.sequence=node.sequence;
-        if(node.type==='legacyPool') {
-          location.queue=selectPool(node.pool,node.count,this.rng);
-          location.sequence=node.sequences.find(s=>s.id===location.queue.shift());
-          if(!location.sequence)return this.locate(node.connections?.next,values,inventory,visited,excluded,preview);
+        if(step.location) {
+          const next=this.seekStep(step.location,values,inventory,excluded);
+          if(next.ready)result=next.location;
+          else pending.push(next);
+          continue;
         }
-        result=this.seek(location,values,inventory,visited,excluded,preview,preflight);
+        const id=step.id;
+        if(id===null){result={completed:true};continue;}
+        if(id===false||id===undefined)throw new Error('Unlinked output');
+        if(visited.has(id))throw new Error('Automatic routing cycle');
+        if(preview&&preflight.completed.has(id)){result=preflight.completed.get(id);continue;}
+        visited.add(id);entered.add(id);
+        const node=this.nodes.get(id);if(!node)throw new Error(`Unknown node: ${id}`);
+        pending.push({finish:true,id,random:preview&&node.type==='random'});
+        if(node.type==='random') {
+          const routes=(node.routes ?? []).filter(r=>r.weight>0&&conditionsMet(r.conditions,values,inventory));
+          if(preview) {
+            const targets=routes.length?routes.map(r=>r.target):[node.fallback];
+            for(let i=targets.length-1;i>=0;i--)pending.push({id:targets[i]});
+          }else {
+            const selected=this.weighted(routes);
+            pending.push({id:selected?selected.target:node.fallback});
+          }
+        }else if(node.type==='legacyPool'&&preview)result=null;
+        else {
+          const location={node,index:0,queue:[]};
+          if(node.type==='legacySequence')location.sequence=node.sequence;
+          if(node.type==='legacyPool') {
+            location.queue=selectPool(node.pool,node.count,this.rng);
+            location.sequence=node.sequences.find(s=>s.id===location.queue.shift());
+            if(!location.sequence){pending.push({id:node.connections?.next});continue;}
+          }
+          pending.push({location});
+        }
       }
-      if(preview)preflight.completed.set(id,result);
       return result;
-    }finally {if(preview)visited.delete(id);}
+    }finally {
+      if(preview)for(const id of entered)visited.delete(id);
+    }
   }
-  seek(location,values=this.variables,inventory=this.inventory,visited=new Set(),excluded=null,preview=false,preflight=null) {
+  seekStep(location,values,inventory,excluded) {
     const type=this.type(location);
     if(type==='linear') {
       const cards=location.sequence?.cards ?? location.node.cards ?? [];
@@ -103,17 +122,23 @@ export class ProjectController {
         if(conditionsMet(card.conditions,values,inventory)&&!hiddenAction)break;
         location={...location,index:location.index+1};
       }
-      if(location.index>=cards.length)return this.next(location,'next',values,inventory,visited,excluded,preview,preflight);
-    } else if(type==='container' && !this.items(location,values,inventory,excluded).length && !(location.node.type==='container'&&this.introEnabled(location)&&!this.introShown(location)&&conditionsMet(this.card(location)?.conditions,values,inventory)&&this.card(location)?.effects?.length)) return this.next(location,'next',values,inventory,visited,excluded,preview,preflight);
-    return location;
+      if(location.index>=cards.length)return this.nextStep(location);
+    }else if(type==='container'&&!this.items(location,values,inventory,excluded).length&&!(location.node.type==='container'&&this.introEnabled(location)&&!this.introShown(location)&&conditionsMet(this.card(location)?.conditions,values,inventory)&&this.card(location)?.effects?.length))return this.nextStep(location);
+    return {ready:true,location};
   }
-  next(location,output='next',values=this.variables,inventory=this.inventory,visited=new Set(),excluded=null,preview=false,preflight=null) {
+  nextStep(location,output='next') {
     if(location.queue?.length) {
-      const queue=[...location.queue];const id=queue.shift();
-      return this.seek({...location,sequence:location.node.sequences.find(s=>s.id===id),queue,index:0},values,inventory,visited,excluded,preview,preflight);
+      const queue=[...location.queue],id=queue.shift();
+      return {location:{...location,sequence:location.node.sequences.find(s=>s.id===id),queue,index:0}};
     }
     const key=location.node.type==='legacyPool'?'next':output;
-    return this.locate(location.node.connections?.[key],values,inventory,visited,excluded,preview,preflight);
+    return {id:location.node.connections?.[key]};
+  }
+  seek(location,values=this.variables,inventory=this.inventory,visited=new Set(),excluded=null,preview=false,preflight=null) {
+    return this.traverse({location},values,inventory,visited,excluded,preview,preflight);
+  }
+  next(location,output='next',values=this.variables,inventory=this.inventory,visited=new Set(),excluded=null,preview=false,preflight=null) {
+    return this.traverse(this.nextStep(location,output),values,inventory,visited,excluded,preview,preflight);
   }
   destination(source,success,values=this.variables,inventory=this.inventory,location=this.location,preview=false) {
     const type=this.type(location);

@@ -12,6 +12,20 @@ export class LocalCardDrafts {
  constructor(){this.context=null;this.drafts=new Map();this.managedIds=new Set();}
  setContext(chapterId,beatId){const key=JSON.stringify([chapterId,beatId]);if(key!==this.context){this.reset();this.context=key;}}
  reset(){this.drafts.clear();this.context=null;}
+ refreshChangedDefinitions(project,previousLibrary){
+  // Inspect only cached identities, once per document mutation, never on render.
+  const ids=new Set();
+  for(const draft of this.drafts.values())for(const saved of draft.types.values()){
+   ids.add(saved.definition.id);
+   for(const dependency of saved.dependencies)ids.add(dependency.id);
+  }
+  const previous=new Map(previousLibrary.map(d=>[d.id,d]));
+  const current=new Map(project.library.map(d=>[d.id,d]));
+  for(const id of ids){
+   const before=previous.get(id),after=current.get(id);
+   if(JSON.stringify(before)!==JSON.stringify(after))this.refreshDefinition(project,after||before);
+  }
+ }
  refreshDefinition(project,source){
   if(!source)return;
   // Dependency copies outlive their owning placement. Explicit edits must win

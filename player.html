@@ -25,6 +25,7 @@
     #preview { border-top: 1px solid #33402b; margin-top: 16px; }
   </style>
   <link rel="stylesheet" href="./player/player.css">
+  <link rel="stylesheet" href="./player/performance-tuning.css">
 <link rel="stylesheet" href="./demo/inventory.css?v=grab-camera-1"></head>
 <body>
   <main>
@@ -40,6 +41,27 @@
     <h2 id="chapter-name">Chapter</h2>
     <p id="message" role="status" aria-live="polite"></p>
     <div id="preview"></div>
+    <details class="performance-tuning" id="performance-mode">
+      <summary>Performance comparison · effects</summary>
+      <div class="performance-tuning-body">
+        <p>Compare the same gestures with original or lighter effects. Card motion and game rules stay the same. Changes last until reload.</p>
+        <div class="performance-actions">
+          <button type="button" data-performance-original>Original effects</button>
+          <button type="button" data-performance-light>Light effects</button>
+        </div>
+        <div class="performance-controls" data-performance-controls></div>
+        <p class="performance-help">For each comparison, return to the same card and repeat the same swipe 5–10 times. First try Light effects, then Original with one effect disabled at a time.</p>
+        <div class="performance-actions">
+          <button type="button" data-performance-record>Record 10 seconds</button>
+          <button type="button" data-performance-stop disabled>Stop recording</button>
+        </div>
+        <p class="performance-help">Recording measures animation-frame callback intervals during activity. It does not measure GPU time or prove rendered FPS. Keep this tab visible; you can collapse this panel while recording.</p>
+        <p data-performance-status role="status" aria-live="polite">Original effects. No recording yet.</p>
+        <label class="performance-report">Last comparison report
+          <textarea data-performance-report readonly rows="9" spellcheck="false" aria-label="Performance comparison report"></textarea>
+        </label>
+      </div>
+    </details>
     <details class="motion-tuning" id="dev-mode">
       <summary>Developer mode · Motion tuning</summary>
       <div class="motion-tuning-body">
