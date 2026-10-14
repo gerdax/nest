@@ -99,22 +99,34 @@ test('image mirroring affects artwork only, including successor and reused actio
   dispose(deck, controller);
 });
 
-test('chapter image backs reach story, successor and decision cards; clearing restores the default', () => {
-  const chapter = createStarterChapter(); chapter.backImage = 'back.png';
+test('layered chapter backs reach story, successor and decision cards; retained backs refresh config', () => {
+  const chapter = createStarterChapter(); chapter.cardBack = {background:'back.png',icons:{default:'custom-nest.png'},iconScale:0.8,switchProgress:0.4};
   const deck = new CardDeck(new Element(), {content:{id:'wait',actions:[{id:'wait',label:'Wait'}]}});
   const controller = new ChapterController(deck, chapter);
-  assert.equal(deck.content.backImage, 'back.png');
+  assert.deepEqual(deck.content.cardBack, chapter.cardBack);
   assert.equal(deck.sceneBack.style.backgroundImage, 'url("back.png")');
-  assert.deepEqual(deck.sceneBack.children.map(child=>child.className), ['nest-card-texture'], 'custom image retains only the texture overlay');
+  assert.deepEqual(deck.sceneBack.children.map(child=>child.className), ['nest-card-texture',...Array(5).fill('nest-back-icon')]);
+  assert.equal(deck.sceneBack.backIcons.get('default').getAttribute('src'), 'custom-nest.png');
+  assert.equal(deck.sceneBack.backIcons.get('default').style.transform, 'scale(0.8)');
+  assert.equal(deck.sceneBack.backIcons.get('default').hidden, false);
+  assert.equal(deck.sceneBack.backIcons.get('container').hidden, true);
   assert.equal(deck.underlayBack.style.backgroundImage, 'url("back.png")');
   stageNextContent(deck, {image:'front.png',text:'Future'});
   assert.equal(deck.underlayBack.style.backgroundImage, 'url("back.png")', 'simple successor preview retains chapter back');
-  const content = {decisionOnly:true,backImage:'back.png',actions:[{id:'choice',label:'Choose'}]};
+  assert.equal(deck.underlayBack.backIcons.get('default').getAttribute('src'), 'custom-nest.png');
+  const content = {decisionOnly:true,cardBack:chapter.cardBack,actions:[{id:'choice',label:'Choose'}]};
   const previous = stageActionDeck(deck, content);
   assert.equal(previous.cardBacks[0].style.backgroundImage, 'url("back.png")');
-  const next = stageActionDeck(deck, {...content,backImage:''},0,previous);
-  assert.equal(next.cardBacks[0].style.backgroundImage, '');
-  assert.equal(next.cardBacks[0].children.find(child=>child.className==='nest-back-frame').children[0].textContent, 'NEST');
+  const next = stageActionDeck(deck, {...content,cardBack:{background:'changed.png',icons:{default:'changed-nest.png'},iconScale:0.6}},0,previous);
+  assert.equal(next.cards[0], previous.cards[0], 'same action retains its physical card');
+  assert.equal(next.cardBacks[0], previous.cardBacks[0], 'retained back refreshes in place');
+  assert.equal(next.cardBacks[0].style.backgroundImage, 'url("changed.png")');
+  assert.equal(next.cardBacks[0].backIcons.get('default').getAttribute('src'), 'changed-nest.png');
+  assert.equal(next.cardBacks[0].backIcons.get('default').style.transform, 'scale(0.6)');
+  const defaults = stageActionDeck(deck, {...content,cardBack:undefined},0,next);
+  assert.equal(defaults.cardBacks[0].style.backgroundImage, 'url("./assets/img/ui/cardback.png")');
+  assert.equal(defaults.cardBacks[0].backIcons.get('default').getAttribute('src'), './assets/img/ui/default.png');
+  assert.equal(defaults.cardBacks[0].children.some(child=>child.className==='nest-back-frame' || child.textContent==='NEST'), false);
   dispose(deck, controller);
 });
 

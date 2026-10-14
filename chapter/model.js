@@ -1,3 +1,4 @@
+import { validateCardBack } from '../engine/cardBacks.js';
 import { validateStateConfig } from './state.js';
 import { nodeTypes, nodeType, nodeOutputs } from './nodeTypes.js';
 import { sequenceTypes, sequenceType } from './sequenceTypes.js';
@@ -29,7 +30,7 @@ export function validateChapter(chapter) {
   if (!object(chapter)) return [{ message: 'Chapter must be an object.' }];
   if (chapter.version !== 1) add('Chapter version must be 1.');
   if (!string(chapter.name)) add('Chapter needs a name.');
-  if (chapter.backImage !== undefined && typeof chapter.backImage !== 'string') add('Card back image must be a string.');
+  for (const message of validateCardBack(chapter.cardBack)) add(message);
   if (!Array.isArray(chapter.nodes) || !chapter.nodes.length) add('Chapter needs at least one node.');
   if (!Array.isArray(chapter.sequences) || !chapter.sequences.length) add('Chapter needs at least one sequence.');
   const nodes = Array.isArray(chapter.nodes) ? chapter.nodes : [];
@@ -92,9 +93,11 @@ export function validateChapter(chapter) {
 
 export function parseChapter(text, { allowDraft = false } = {}) {
   const chapter = JSON.parse(text);
+  if (object(chapter)) delete chapter.backImage;
   if (allowDraft) {
     if (!object(chapter) || chapter.version !== 1 || typeof chapter.name !== 'string' || typeof chapter.startNode !== 'string' || !Array.isArray(chapter.nodes) || !Array.isArray(chapter.sequences)) throw new TypeError('Invalid chapter draft structure.');
-    if (chapter.backImage !== undefined && typeof chapter.backImage !== 'string') throw new TypeError('Card back image must be a string.');
+    const backErrors = validateCardBack(chapter.cardBack);
+    if (backErrors.length) throw new TypeError(backErrors.join('\n'));
     for (const node of chapter.nodes) {
       if (!object(node) || !string(node.id) || typeof node.name !== 'string' || !Object.hasOwn(nodeTypes, node.type) || !Number.isFinite(node.x) || !Number.isFinite(node.y) || !object(node.connections)) throw new TypeError('Invalid node draft structure.');
       if (Object.values(node.connections).some(target => target !== null && typeof target !== 'string')) throw new TypeError('Invalid connection draft structure.');

@@ -1,8 +1,9 @@
 import { projectedBounds, turningBounds } from './geometry.js?v=no-ending-card-1';
-import { buildDeck, decorateCard, announceDeck, renderDeck, stageNextContent, stageNextBack, stageActionDeck, scenePose, cardPose } from './renderer.js?v=no-ending-card-1';
+import { buildDeck, decorateCard, announceDeck, renderDeck, stageNextContent, stageNextBack, stageActionDeck, scenePose, cardPose, restoreBacks } from './renderer.js?v=no-ending-card-1';
 import { MovementHistory } from './MovementHistory.js?v=no-ending-card-1';
 import { DEFAULT_SETTINGS, settingsWith, spring, springStep, qualifies, resistance, modulo, clamp, carouselPose, departureDistance } from './motion.js?v=no-ending-card-1';
 import { PointerInput } from './PointerInput.js?v=no-ending-card-1';
+import { resolveBackAppearance, resolveBackOperation } from './cardBacks.js';
 export { DEFAULT_SETTINGS };
 
 function validate(content) {
@@ -66,6 +67,7 @@ export class CardDeck extends EventTarget {
     this.operation = null;
     this.commitMotion = null;
     this.collectMotion = null;
+    this.backTransition = null;
     this.groupLeaveActive = false;
     this.reflowOffsets = new Map();
     this.reflowOrder = null;
@@ -558,6 +560,7 @@ export class CardDeck extends EventTarget {
   completePhase(phase, transition) {
     this.phase = phase;
     this.operation = null;
+    if (!this.commitMotion && !this.collectMotion) { this.backTransition = null; restoreBacks(this); }
     this.render();
     if (transition === 'reveal' && this.openingReturn) {
       this.openingReturn = false;
@@ -677,6 +680,15 @@ export class CardDeck extends EventTarget {
     }
   }
 
+  lockBackOperation(source, direction = -1) {
+    this.backTransition = {
+      operation: resolveBackOperation(this.content, { source, direction,
+        action: this.content.actions[this.index], count: this.cards.length }),
+      appearance: resolveBackAppearance(this.content)
+    };
+    this.render();
+  }
+
   commitIntroduction(pointerVelocity = 0) {
     if (this.busy || this.open || this.phase !== 'closed') return;
     const content = this.content;
@@ -687,6 +699,7 @@ export class CardDeck extends EventTarget {
     this.commitMotion = this.departureMotion(pointerVelocity);
     this.commitMotion.continueFlight = true;
     this.commitMotion.introduction = true;
+    this.lockBackOperation('cover');
     this.emit('reveal');
     // Hosts can stage refreshed items after applying introduction effects.
     if (!this.pending && !this.ending && this.content === content) {
@@ -708,6 +721,7 @@ export class CardDeck extends EventTarget {
     this.operation = null;
     this.commitMotion = this.departureMotion(pointerVelocity);
     this.commitMotion.continueFlight = true;
+    this.lockBackOperation('cover');
     this.emit('commit', { action: this.content.actions[0], index: 0 });
     this.schedule();
   }
@@ -731,6 +745,7 @@ export class CardDeck extends EventTarget {
     this.phase = 'committing';
     this.operation = null;
     this.commitMotion = this.departureMotion(pointerVelocity);
+    this.lockBackOperation('actions');
     this.emit('commit', { action: this.content.actions[this.index], index: this.index });
     this.schedule();
   }
@@ -823,6 +838,7 @@ export class CardDeck extends EventTarget {
     this.operation = null;
     const motion = this.commitMotion = this.departureMotion(pointerVelocity);
     motion.discardAll = true;
+    this.lockBackOperation('actions');
     this.emit('discard', { action, index: this.index, final: true, all: true,
       discardedIds: this.content.actions.map(item => item.id) });
     if (this.commitMotion === motion && !this.destroyed) this.schedule();
@@ -851,6 +867,7 @@ export class CardDeck extends EventTarget {
       gravity, velocity: Math.max(direction * pointerVelocity, distance / seconds + .5 * gravity * seconds),
       index: this.index, id: action.id };
     this.collectMotion = motion;
+    if (final) this.lockBackOperation('actions', direction);
     this.emit(transition, { action, index: this.index, final });
     if (this.collectMotion === motion && !this.destroyed) this.schedule();
   }
@@ -1177,8 +1194,9 @@ export class CardDeck extends EventTarget {
     }
   }
 
-  install(content, { faceDown = false, open = false, selectedId, staged = null, stagedDepth = staged ? 1 : 0, flipState = null } = {}) {
+  install(content, { faceDown = false, open = false, selectedId, staged = null, stagedDepth = staged ? 1 : 0, flipState = null, backTransition = null } = {}) {
     this.clearGrab();
+    this.backTransition = backTransition;
     this.groupLeaveActive = false;
     if (open && content.flipItemsOnReveal) content = { ...content, flipItemsOnReveal: false };
     this.content = content;
@@ -1235,6 +1253,7 @@ export class CardDeck extends EventTarget {
   }
 
   completeCommit() {
+    const backTransition = this.backTransition;
     const introduction = this.commitMotion?.introduction === true;
     const all = this.commitMotion?.discardAll === true;
     this.commitMotion = null;
@@ -1262,7 +1281,7 @@ export class CardDeck extends EventTarget {
       if (presentation === 'open' && next.decisionOnly && transition === 'flip') {
         const staged = this.forwardDeck;
         const flipState = { ...this.nextFlip, target: 0 };
-        this.install(next, { open: true, staged, stagedDepth: 1, flipState });
+        this.install(next, { open: true, staged, stagedDepth: 1, flipState, backTransition });
         this.commitTransition = introduction ? 'reveal' : 'commit';
         this.fan.target = 1;
         this.phase = 'committing';
@@ -1274,7 +1293,7 @@ export class CardDeck extends EventTarget {
       }
       if (presentation === 'open') {
         const staged = this.forwardDeck;
-        this.install(next, { open: true, staged });
+        this.install(next, { open: true, staged, backTransition });
         this.busy = false;
         this.openingCommit = this.open;
         if (!this.open) this.emit('transitioncomplete', { transition: 'commit' });
@@ -1283,7 +1302,7 @@ export class CardDeck extends EventTarget {
         return;
       }
       const flipState = transition === 'reveal' ? spring(0) : { ...this.nextFlip, target: 0 };
-      this.install(next, { faceDown: true, stagedDepth: 1, flipState });
+      this.install(next, { faceDown: true, stagedDepth: 1, flipState, backTransition });
       this.flip.target = 0;
       this.n = spring(1);
       this.n.target = 0;
@@ -1319,6 +1338,7 @@ export class CardDeck extends EventTarget {
     this.last = 0;
     this.commitMotion = null;
     this.collectMotion = null;
+    this.backTransition = null;
     this.groupLeaveActive = false;
     this.openingCommit = false;
     this.pendingPresentation = 'closed';
@@ -1345,6 +1365,8 @@ export class CardDeck extends EventTarget {
   }
 
   finishCommitTransition() {
+    this.backTransition = null;
+    restoreBacks(this);
     if (this.open && this.entrances.size) {
       this.browsePresentedStack({ beforeEntrance: true });
       if (this.presentationHint) return;
@@ -1541,6 +1563,7 @@ export class CardDeck extends EventTarget {
     this.frame = 0;
     this.busy = false;
     this.operation = null;
+    this.backTransition = null;
     this.collectMotion = this.commitMotion = this.drag = this.pending = this.liftPoses = null;
     this.groupLeaveActive = false;
     this.reflowOffsets.clear();

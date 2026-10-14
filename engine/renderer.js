@@ -1,6 +1,7 @@
 import { handoffRadius, projectedBounds } from './geometry.js?v=no-ending-card-1';
 import { carouselPose, clamp, departureDistance, revealScale } from './motion.js?v=no-ending-card-1';
 import { applyArtworkColorize } from './artworkColorize.js';
+import { resolveBackAppearance, resolveBackOperation, selectBackIcon } from './cardBacks.js';
 
 // Stable per-card variation: adjacent IDs should not produce a regular fan,
 // and repeated renders of a held gesture must never jitter.
@@ -29,25 +30,70 @@ function layerFor(deck, card, className = '') {
   return layer;
 }
 
-function decorateBack(back, image = '') {
-  back.className = `nest-card nest-card-back${image ? ' nest-card-back-image' : ''}`;
-  back.style.backgroundImage = image ? `url(${JSON.stringify(image)})` : '';
-  back.replaceChildren();
-  back.append(cardTexture());
-  if (image) return;
-  const frame = document.createElement('div');
-  frame.className = 'nest-back-frame';
-  const mark = document.createElement('span');
-  mark.className = 'nest-back-mark';
-  mark.textContent = 'NEST';
-  frame.append(mark);
-  back.append(frame);
+function decorateBack(back, content = {}, temporary = false) {
+  const appearance = resolveBackAppearance(content);
+  if (!temporary) back.baseAppearance = appearance;
+  const signature = JSON.stringify(appearance);
+  if (back.backSignature === signature) return;
+  back.backSignature = signature;
+  back.backAppearance = appearance;
+  back.backOperation = null;
+  back.className = 'nest-card nest-card-back';
+  back.style.backgroundImage = `url(${JSON.stringify(appearance.background)})`;
+  back.replaceChildren(cardTexture());
+  back.backIcons = new Map();
+  for (const [key, url] of Object.entries(appearance.icons)) {
+    const icon = document.createElement('img');
+    icon.className = 'nest-back-icon';
+    icon.setAttribute('src', url);
+    icon.setAttribute('alt', '');
+    icon.setAttribute('aria-hidden', 'true');
+    icon.draggable = false;
+    icon.hidden = key !== 'default';
+    icon.style.transform = `scale(${appearance.iconScale})`;
+    // Load every context upfront, so crossing the gesture threshold never
+    // requests a new image. A missing contextual image falls back to Nest.
+    icon.onerror = () => {
+      icon.backFailed = true;
+      if (!icon.hidden) updateBackIcon(back, back.backOperation, 1);
+    };
+    back.backIcons.set(key, icon);
+    back.append(icon);
+  }
+  back.setAttribute('data-back-icon', 'default');
 }
-function backFace(image = '') {
+function backFace(content = {}) {
   const back = document.createElement('article');
   back.setAttribute('aria-hidden', 'true');
-  decorateBack(back, image);
+  decorateBack(back, content);
   return back;
+}
+
+function updateBackIcon(back, operation, progress, appearance = null) {
+  if (!back) return;
+  if (appearance) decorateBack(back, { cardBack: appearance }, true);
+  const config = back.backAppearance;
+  // Once selected, allow a small return margin around the threshold.
+  const held = operation && back.backOperation === operation;
+  const adjusted = held && progress > 0 ? progress + .03 : progress;
+  const url = selectBackIcon(config, operation, adjusted);
+  let key = operation && url === config.icons[operation] ? operation : 'default';
+  if (back.backIcons.get(key)?.backFailed) key = 'default';
+  back.backOperation = key === 'default' ? null : operation;
+  for (const [name, icon] of back.backIcons) icon.hidden = name !== key;
+  back.setAttribute('data-back-icon', key);
+}
+
+function backContext(deck, progress) {
+  if (deck.backTransition) return { ...deck.backTransition, progress: 1 };
+  const cover = deck.coverDeparture || deck.content.flipItemsOnReveal && !deck.open;
+  const action = deck.content.actions[deck.index];
+  const direction = deck.l.x < 0 ? 1 : -1;
+  const blocked = cover ? deck.content.advanceDisabled : action?.disabled
+    || (deck.content.interaction === 'container' && (direction < 0 ? action?.discardDisabled : action?.collectDisabled));
+  return { operation: resolveBackOperation(deck.content, {
+    source: cover ? 'cover' : 'actions', action, count: deck.cards.length, direction, blocked
+  }), progress };
 }
 
 export function backPose(front) {
@@ -73,8 +119,8 @@ export function stageActionDeck(deck, content, selectedIndex = null, previous = 
         card.style.backgroundImage = '';
         title = deck.decorate(card, action.image ?? content.image ?? '', action.heading || '', action.cardKind ? action.text || '' : action.label, flipped(action), action);
       }
-      if (back && previous.content.backImage !== content.backImage) decorateBack(back, content.backImage);
-      if ((action.faceDown || content.decisionOnly) && !back) { back = backFace(content.backImage); layer.append(back); }
+      if (back) decorateBack(back, content);
+      if ((action.faceDown || content.decisionOnly) && !back) { back = backFace(content); layer.append(back); }
       if (!action.faceDown && !content.decisionOnly && back) { back.remove(); back = null; }
       bundle.cards.push(card);
       bundle.cardLayers.push(layer);
@@ -87,7 +133,7 @@ export function stageActionDeck(deck, content, selectedIndex = null, previous = 
     bundle.cardTitles.push(deck.decorate(card, action.image ?? content.image ?? '', action.heading || '', action.cardKind ? action.text || '' : action.label, flipped(action), action));
     const layer = layerFor(deck, card);
     bundle.cardLayers.push(layer);
-    const back = action.faceDown || content.decisionOnly ? backFace(content.backImage) : null;
+    const back = action.faceDown || content.decisionOnly ? backFace(content) : null;
     if (back) layer.append(back);
     bundle.cardBacks.push(back);
     bundle.cards.push(card);
@@ -117,7 +163,7 @@ export function buildDeck(deck, staged = null) {
   deck.scene.className = 'nest-card nest-situation';
   deck.decorate(deck.scene, deck.content.image, deck.content.heading || '', deck.content.text, deck.content.flipImage, deck.content);
   deck.sceneLayer = layerFor(deck, deck.scene);
-  deck.sceneBack = backFace(deck.content.backImage);
+  deck.sceneBack = backFace(deck.content);
   deck.sceneLayer.append(deck.sceneBack);
   deck.live = document.createElement('span');
   deck.live.className = 'nest-live';
@@ -189,7 +235,7 @@ export function stageNextBack(deck) {
     deck.underlay.className = 'nest-card nest-next-situation';
     deck.underlay.setAttribute('aria-hidden', 'true');
     deck.underlayLayer = layerFor(deck, deck.underlay);
-    deck.underlayBack = backFace(deck.content.backImage);
+    deck.underlayBack = backFace(deck.content);
     deck.underlayLayer.append(deck.underlayBack);
   }
 }
@@ -197,7 +243,7 @@ export function stageNextBack(deck) {
 // The host's next situation is physically below the departing action cards.
 export function stageNextContent(deck, content) {
   stageNextBack(deck);
-  decorateBack(deck.underlayBack, content.backImage ?? deck.content.backImage);
+  decorateBack(deck.underlayBack, { ...deck.content, ...content });
   deck.underlay.replaceChildren();
   deck.underlay.style.backgroundImage = '';
   deck.decorate(deck.underlay, content.image, content.heading || '', content.text, content.flipImage, content);
@@ -412,6 +458,15 @@ export function renderDeck(deck, time = performance.now()) {
   const exposure = resolution && movingDown && poses.length
     ? Math.max(0, projectedBounds(poses[0], width, height, deck.settings.perspective).top) : height - coveredBottom;
   const nextScale = deck.reduced ? 1 : revealScale(exposure, height, deck.settings);
+  const back = backContext(deck, clamp(exposure / height, 0, 1));
+  updateBackIcon(deck.underlayBack, back.operation, back.progress, back.appearance);
+  for (const reverse of deck.forwardDeck?.cardBacks || []) updateBackIcon(reverse, back.operation, back.progress, back.appearance);
+  // A staged reverse becomes the actual next card during its flip. Preserve
+  // the source operation until that flip finishes, including async checks.
+  if (deck.backTransition && !deck.commitMotion && !deck.collectMotion) {
+    updateBackIcon(deck.sceneBack, back.operation, 1, back.appearance);
+    for (const reverse of deck.cardBacks) updateBackIcon(reverse, back.operation, 1, back.appearance);
+  }
   const forwardActive = !!deck.forwardDeck && (((deck.content.directAdvance || deck.content.flipItemsOnReveal) && !deck.busy && deck.p.x > 0) || (deck.phase === 'committing' && deck.pendingPresentation === 'open')
     || (deck.phase === 'choices' && deck.l.x > 0 && deck.forwardOwner === deck.content.actions[deck.index]?.id));
   if (deck.underlay) {
@@ -468,4 +523,12 @@ function renderStagedActions(deck, bundle, baseOrder, visible, y = 0, z = -36, s
     if (bundle.cardBacks[index]) applyPose(deck, bundle.cardBacks[index], bundle.cardLayers[index], bundle.content.actions[index].faceDown ? { ...pose, face: 360 } : backPose(pose), order);
     card.setAttribute('aria-hidden', 'true');
   });
+}
+
+export function restoreBacks(deck) {
+  for (const back of [deck.sceneBack, ...deck.cardBacks, deck.underlayBack, ...(deck.forwardDeck?.cardBacks || [])]) {
+    if (!back) continue;
+    decorateBack(back, { cardBack: back.baseAppearance });
+    updateBackIcon(back, null, 0);
+  }
 }

@@ -122,11 +122,15 @@ test('card artwork alone is filtered, preserving crop/flip and excluding caption
       assert.equal(card.children[1].style.backgroundImage, undefined);
       if (cardKind === 'caption') assert.equal(card.children[1].style.transform, '');
     }
-    const deck = { mount: doc.createElement('div'), content: { backImage: 'back.png' } };
+    const deck = { mount: doc.createElement('div'), content: { cardBack: {background:'back.png',icons:{default:'custom-nest.png'}} } };
     stageNextBack(deck);
     assert.equal(deck.underlayBack.style.backgroundImage, 'url("back.png")');
     assert.equal(deck.underlayBack.style.filter, undefined);
-    assert.equal(deck.underlayBack.children[0].style.filter, undefined);
+    for (const child of deck.underlayBack.children) assert.equal(child.style.filter, undefined);
+    assert.equal(deck.underlayBack.backIcons.get('default').attributes.src, 'custom-nest.png');
+    assert.equal(deck.underlayBack.backIcons.get('dice').attributes.src, './assets/img/ui/dice.png');
+    assert.equal(deck.underlayBack.backIcons.get('default').hidden, false);
+    assert.equal(deck.underlayBack.backIcons.get('dice').hidden, true);
     assert.equal(doc.body.children.length, 1);
   });
 });

@@ -1,3 +1,4 @@
+import { validateCardBack } from '../engine/cardBacks.js';
 import { cardKinds, createDefinition, resolvePlacement, canonicalCardKind, allowedCardKinds } from './cards.js';
 import { parseChapter } from '../chapter/model.js';
 import { definitionGraph } from './dependencies.js';
@@ -56,7 +57,7 @@ export function compileChapter(project,chapterId=project.activeChapterId) {
   // All resolved mechanics and normalization must operate on detached data.
   project=discardPlacementContext(cloneProject(project));
   const chapter=project.chapters.find(c=>c.id===chapterId);if(!chapter)throw new TypeError(`Unknown chapter: ${chapterId}`);
-  const result=cloneProject(chapter);result.cardStyles=cloneProject(project.cardStyles||{}); result.library=project.library.map(d=>({...cloneProject(d),kind:canonicalCardKind(d.kind),definitionId:d.id,...(d.kind==='item'?{inventoryKey:d.inventoryKey ?? d.id}:{})})); result.variables=project.variables.map(v=>({...v,initial:chapter.initialValues?.[v.id] ?? v.initial}));
+  const result=cloneProject(chapter);delete result.backImage;result.cardStyles=cloneProject(project.cardStyles||{}); result.library=project.library.map(d=>({...cloneProject(d),kind:canonicalCardKind(d.kind),definitionId:d.id,...(d.kind==='item'?{inventoryKey:d.inventoryKey ?? d.id}:{})})); result.variables=project.variables.map(v=>({...v,initial:chapter.initialValues?.[v.id] ?? v.initial}));
   for(const node of result.nodes) {
     for(const key of ['cards','choices','items'])if(node[key])node[key]=node[key].map(p=>resolvePlacement(project,p));
     if(node.intro)node.intro=resolvePlacement(project,node.intro);
@@ -69,7 +70,7 @@ export function migrateChapter(v1) {
   const project={version:2,kind:'nest-project',id:`${id}-project`,name:source.name,activeChapterId:id,library,variables:source.variables || [],chapters:[]};
   const bind=(raw,kind,seq)=>{const definitionId=unique(`${seq.id}-${kind}-${raw.id}`,used);const d={...createDefinition(kind,definitionId),name:raw.label || raw.title || raw.id,heading:'',text:raw.text || '',image:raw.image || ''};if(raw.flipImage!==undefined)d.flipImage=raw.flipImage;if(kind==='item'){d.inventoryKey=`${id}:${raw.id}`;d.onCollect=cloneProject(raw.effects || []);}else {d.effects=cloneProject(raw.effects || []);if(kind==='action')d.conditions=cloneProject(raw.conditions || []);}library.push(d);delete raw.effects;delete raw.conditions;raw.definitionId=definitionId;return {id:raw.id,definitionId};};
   const sequences=new Map();for(const seq of source.sequences || []){for(const c of seq.cards || []){bind(c,'event',seq);for(const a of c.choices || [])bind(a,'action',seq);}for(const i of seq.items || [])bind(i,'item',seq);sequences.set(seq.id,seq);}
-  const chapter={id,name:source.name,startNode:source.startNode,nodes:[],...(source.backImage!==undefined?{backImage:source.backImage}:{})};
+  const chapter={id,name:source.name,startNode:source.startNode,nodes:[],...(source.cardBack!==undefined?{cardBack:source.cardBack}:{})};
   for(const old of source.nodes || []) {const node={id:old.id,name:old.name,x:old.x,y:old.y,connections:cloneProject(old.connections)};const seq=sequences.get(old.sequenceId);
     if(old.type==='random') Object.assign(node,{type:'legacyPool',sequences:[...new Set((old.pool || []).map(p=>p.sequenceId))].map(id=>sequences.get(id)).filter(Boolean),pool:cloneProject(old.pool),count:old.count});
     else if(seq?.type==='linear')Object.assign(node,{type:'linear',cards:seq.cards.map(c=>({id:c.id,definitionId:c.definitionId})),connections:{next:old.connections[seq.exits[0]]??null}});
@@ -136,7 +137,7 @@ export function validateProject(project,{allowDraft=false}={}) {
  if(d.resolution==='check'){const c=d.check;if(!object(c)||!Array.isArray(c.pool)||!c.pool.length||c.pool.some(d=>!object(d)||![4,6,8,10,12,20].includes(d.sides)||!Number.isSafeInteger(d.count)||d.count<1||d.count>30)||c.pool.reduce((a,d)=>a+(d.count||0),0)>30||!Number.isFinite(c.modifier)||!Number.isFinite(c.target)||c.modifierVariable!==undefined&&(!validRef(c.modifierVariable,vars)||vars.has(c.modifierVariable)&&vars.get(c.modifierVariable).type!=='number'))add(`${label}: invalid check.`);}}
  for(const d of library){if(!object(d))continue;if(d.contextItemId!==undefined||d.contextOverrideImage!==undefined)add(`Definition ${d.id}: inventory context belongs to a fork choice placement.`);if(d.visibility!==undefined&&!['local','shared'].includes(d.visibility)||!['event','caption','narrative','action','item'].includes(d.kind)||typeof d.name!=='string'||typeof d.text!=='string'||typeof d.image!=='string'||d.heading!==undefined&&typeof d.heading!=='string'||d.showName!==undefined&&typeof d.showName!=='boolean'||d.flipImage!==undefined&&typeof d.flipImage!=='boolean'||d.inventoryKey!==undefined&&!named(d.inventoryKey))add(`Definition ${d.id} has invalid content.`);for(const message of cardKinds[canonicalCardKind(d.kind)]?.validate(d) || [])add(`Definition ${d.id}: ${message}`);inspectCard(d,`Definition ${d.id}`);}
  if(!allowDraft&&!chapterIds.has(project.activeChapterId))add('Active chapter must exist.');
- for(const chapter of chapters){if(!object(chapter))continue;const cid=chapter.id;if(typeof chapter.name!=='string'||!Array.isArray(chapter.nodes)||typeof chapter.startNode!=='string'||chapter.backImage!==undefined&&typeof chapter.backImage!=='string'){add('Invalid chapter structure.',cid);continue;}const nodeIds=seen(chapter.nodes,'Beat');if(!allowDraft&&!nodeIds.has(chapter.startNode))add('Start beat must exist.',cid);
+ for(const chapter of chapters){if(!object(chapter))continue;const cid=chapter.id;if(typeof chapter.name!=='string'||!Array.isArray(chapter.nodes)||typeof chapter.startNode!=='string'){add('Invalid chapter structure.',cid);continue;}for(const message of validateCardBack(chapter.cardBack))add(message,cid);const nodeIds=seen(chapter.nodes,'Beat');if(!allowDraft&&!nodeIds.has(chapter.startNode))add('Start beat must exist.',cid);
  if(chapter.allowCycles!==undefined&&typeof chapter.allowCycles!=='boolean')add('Invalid allow node cycles setting.',cid);
  if(chapter.initialValues!==undefined){if(!object(chapter.initialValues))add('Initial values must be an object.',cid);else for(const [key,value]of Object.entries(chapter.initialValues)){const v=vars.get(key);if(!validRef(key,vars)||v&&(typeof value!==(v.type==='flag'?'boolean':'number')||v.type==='number'&&(!Number.isFinite(value)||v.min!==undefined&&value<v.min||v.max!==undefined&&value>v.max)))add(`Invalid initial value: ${key}.`,cid);}}
  const edges=new Map();for(const node of chapter.nodes){if(!object(node))continue;const nid=node.id,label=`Beat ${nid}`;if(typeof node.name!=='string'||!Number.isFinite(node.x)||!Number.isFinite(node.y)||!nodeTypeDescriptor(node.type))add(`${label}: invalid beat structure.`,cid,nid);
@@ -205,5 +206,6 @@ export function parseProject(text,{allowDraft=false}={}) {
  else if(value?.version===2&&value.kind==='nest-chapter')value={version:2,kind:'nest-project',id:`${value.chapter?.id || 'chapter'}-project`,name:value.chapter?.name,activeChapterId:value.chapter?.id,library:value.library,variables:value.variables || [],cardStyles:value.cardStyles||{},chapters:[value.chapter]};
  for(const definition of list(value?.library))if(object(definition))definition.kind=canonicalCardKind(definition.kind);
  discardPlacementContext(value);normalizeSingleItems(value);
+ for(const chapter of list(value?.chapters))if(object(chapter))delete chapter.backImage;
  const errors=validateProject(value,{allowDraft});if(errors.length)throw new TypeError(errors.map(e=>e.message).join('\n'));return value;
 }

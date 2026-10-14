@@ -20,6 +20,7 @@ RUNTIME_FILES = (
     "editor/storage.js",
     "engine/CardDeck.js",
     "engine/artworkColorize.js",
+    "engine/cardBacks.js",
     "engine/PointerInput.js",
     "engine/geometry.js",
     "engine/motion.js",
