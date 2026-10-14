@@ -43,7 +43,7 @@ export function definitionInspector(project,definition) {
   u.node?button(`${u.chapter.name} → ${u.node.name}${u.kind==='inventory'?' · gameplay rule':''}`,'jump-use',`data-chapter="${esc(u.chapterId)}" data-node="${esc(u.nodeId)}"`):esc(`${u.chapter.name} · gameplay rule`)}</p>`).join(''):'<p class="small">Not referenced yet.</p>');
  return html+button('Delete definition','delete-definition',users.length?'disabled':'')+'</section>';
 }
-export function placementInspector(project,p,kind,index,slot) {
+export function placementInspector(project,p,kind,index,slot,count=Infinity) {
  let card;try{card=resolvePlacement(project,p);}catch{}
  const definition=project.library.find(d=>d.id===p.definitionId),local=definition?.visibility==='local';
  const nodeType=slot==='choices'?'fork':slot==='items'?'container':'linear';
@@ -73,8 +73,11 @@ export function placementInspector(project,p,kind,index,slot) {
  html+='</div>';
  html+=`<div class="inspector-card-preview" data-card-preview data-preview-placement="${esc(p.id)}"></div>`;
  if(local)html+=artworkControls(definition,'local-definition');
- if(slot!=='intro')html+=`<div class="row">${button('Move up','move-placement',`${attr} data-direction="-1"`)}${button('Move down','move-placement',`${attr} data-direction="1"`)}${button('Duplicate','duplicate-placement',attr)}${button('Remove','remove-placement',attr)}</div>`;
- return html+'</details>';
+ if(slot!=='intro')html+=`<div class="row card-panel-actions">${button('Duplicate','duplicate-placement',attr)}${button('Remove','remove-placement',attr)}</div>`;
+ html+='</details>';
+ if(slot==='intro')return html;
+ const arrow=(direction,label,disabled)=>`<button type="button" class="card-order-arrow" data-command="move-placement" ${attr} data-direction="${direction}" aria-label="${label}" title="${label}" ${disabled?'disabled':''}><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="${direction<0?'M3 10 8 5l5 5':'M3 6l5 5 5-5'}"/></svg></button>`;
+ return `<div class="card-placement-row">${html}<div class="card-order-controls">${arrow(-1,'Move card up',index===0)}${arrow(1,'Move card down',index===count-1)}</div></div>`;
 }
 function introductionControls(node) {
  const enabled=node.type==='fork'?!!node.intro&&node.introEnabled!==false:node.introEnabled!==false;
@@ -92,7 +95,7 @@ export function nodeInspector(project,chapter,node) {
    if(node.intro&&node.introEnabled!==false)html+=placementInspector(project,node.intro,kind,0,slot);
   }else {
    if(slot!=='cards')html+=`<h3>${esc(slot[0].toUpperCase()+slot.slice(1))}</h3>`;
-   html+=(node[slot]||[]).map((p,i)=>placementInspector(project,p,kind,i,slot)).join('');
+   html+=(node[slot]||[]).map((p,i)=>placementInspector(project,p,kind,i,slot,node[slot].length)).join('');
    html+='<div class="add-card-buttons">'+[kind,...kinds.filter(k=>k!==kind)].map(k=>button(`+ ${cardKinds[k]?.label||k}`,'add-placement',`data-slot="${esc(slot)}" data-kind="${esc(k)}" style="--card-editor-tint:${esc(cardEditorTint(k))}"`)).join('')+'</div>';
   }
  }

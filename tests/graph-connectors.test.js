@@ -157,23 +157,23 @@ test('preview-triggered rerender keeps node and incoming wire at transient drag 
  s.graph.cancel();assert.match(s.root.parts['#nodes'].rendered,/data-id="b" style="left:400px;top:50px"/);
 });
 
-test('node summaries count cards consistently and include only enabled, present introductions',()=>{
+test('card nodes omit the count bar while random nodes retain route summaries',()=>{
  const s=setup();
  const summary=node=>{
   const chapter={startNode:'summary',nodes:[{id:'summary',name:'Summary',x:0,y:0,connections:{},...node}]};
   s.graph.render({library:[]},chapter);
-  return s.root.parts['#nodes'].rendered.match(/<div class="node-body">([^<]*)<\/div>/)[1];
+  return s.root.parts['#nodes'].rendered.match(/<div class="node-body">([^<]*)<\/div>/)?.[1];
  };
- assert.equal(summary({type:'linear',cards:[{},{}]}),'2 cards');
- assert.equal(summary({type:'linear',cards:[{}]}),'1 card');
- assert.equal(summary({type:'linear',cards:[] }),'0 cards');
+ assert.equal(summary({type:'linear',cards:[{},{}]}),undefined);
+ assert.equal(summary({type:'linear',cards:[{}]}),undefined);
+ assert.equal(summary({type:'linear',cards:[] }),undefined);
  for(const [type,slot] of [['fork','choices'],['container','items']]) {
   const node={type,[slot]:[{id:'one'},{id:'two'}],intro:{id:'intro'}};
-  assert.equal(summary(node),'3 cards');
-  assert.equal(summary({...node,introEnabled:true,introOnce:true}),'3 cards');
-  assert.equal(summary({...node,introEnabled:false}),'2 cards');
-  assert.equal(summary({...node,intro:undefined}),'2 cards');
-  assert.equal(summary({...node,[slot]:[]}),'1 card');
+  assert.equal(summary(node),undefined);
+  assert.equal(summary({...node,introEnabled:true,introOnce:true}),undefined);
+  assert.equal(summary({...node,introEnabled:false}),undefined);
+  assert.equal(summary({...node,intro:undefined}),undefined);
+  assert.equal(summary({...node,[slot]:[]}),undefined);
  }
  assert.equal(summary({type:'random',routes:[{id:'route'}]}),'1 route');
  assert.equal(summary({type:'random',routes:[{id:'one'},{id:'two'}]}),'2 routes');

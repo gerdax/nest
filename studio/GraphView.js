@@ -2,20 +2,9 @@ import { esc } from './forms.js';
 import { outputsForNode, labelForOutput } from '../project/model.js';
 import { nodeTypeLabel } from '../project/nodeTypes.js';
 import { nodeTypeDescriptor } from '../project/nodeTypes.js';
+import { nodeIcon } from './node-icons.js';
 import { cardEditorTint,canonicalCardKind } from '../project/cards.js';
 
-function nodeSummary(node) {
- if(node.type==='random')return `${node.routes.length} ${node.routes.length===1?'route':'routes'}`;
- const slot={linear:'cards',fork:'choices',container:'items'}[node.type];
- if(!slot)return 'Preserved legacy behaviour';
- const intro=(node.type==='fork'||node.type==='container')&&node.intro&&node.introEnabled!==false?1:0;
- const count=(node[slot]?.length??0)+intro;
- return `${count} ${count===1?'card':'cards'}`;
-}
-function nodeIcon(type){
- const path=nodeTypeDescriptor(type)?.iconPath;
- return path?`<svg class="graph-beat-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="${esc(path)}"/></svg>`:'';
-}
 
 /** Canvas interaction owns selection/pan, and emits completed document edits. */
 export class GraphView {
@@ -45,7 +34,7 @@ export class GraphView {
   this.nodesById=new Map(chapter.nodes.map(node=>[node.id,node]));
   this.definitionsById=new Map(project.library.map(definition=>[definition.id,definition]));
   if(this.pending&&!chapter.nodes.some(n=>n.id===this.pending.nodeId&&outputsForNode(project,n).includes(this.pending.exit)))this.pending=null;
-  this.root.querySelector('#nodes').innerHTML=chapter.nodes.map(n=>`<article class="node ${n.type} ${n.id===selected?'selected':''} ${n.id===active?'active':''}" data-id="${esc(n.id)}" style="left:${this.position(n).x}px;top:${this.position(n).y}px"><div class="node-heading">${nodeIcon(n.type)}<span class="badge">${n.id===chapter.startNode?'START · ':''}${esc(nodeTypeLabel(n.type))}</span>${esc(n.name)}</div><div class="node-body">${nodeSummary(n)}</div>${this.cardRows(n)}</article>`).join('');
+  this.root.querySelector('#nodes').innerHTML=chapter.nodes.map(n=>`<article class="node ${n.type} ${n.id===selected?'selected':''} ${n.id===active?'active':''}" data-id="${esc(n.id)}" style="left:${this.position(n).x}px;top:${this.position(n).y}px"><div class="node-heading">${nodeIcon(n.type)}<span class="badge">${n.id===chapter.startNode?'START · ':''}${esc(nodeTypeLabel(n.type))}</span>${esc(n.name)}</div>${n.type==='random'?`<div class="node-body">${n.routes.length} ${n.routes.length===1?'route':'routes'}</div>`:n.type.startsWith('legacy')?'<div class="node-body">Preserved legacy behaviour</div>':''}${this.cardRows(n)}</article>`).join('');
   this.nodeElements=new Map([...this.root.querySelectorAll('.node')].map(el=>[el.dataset.id,el]));
   this.portElements=new Map([...this.nodeElements].map(([id,el])=>[id,new Map([...el.querySelectorAll('.port')].map(port=>[port.dataset.exit,port]))]));
   this.transform();this.edges();

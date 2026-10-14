@@ -1,6 +1,7 @@
 import { addHealthVariable } from './commands.js';
 import { applyCardStyles, parseCardColor } from '../project/card-styles.js';
 import { nodeTypeLabel } from '../project/nodeTypes.js';
+import { nodeIcon } from './node-icons.js';
 import { artworkSettings, parseArtworkSettings } from './artwork-settings.js';
 import { DocumentHistory } from '../editor/DocumentHistory.js';
 import { LocalCardDrafts } from './local-card-drafts.js';
@@ -77,7 +78,8 @@ function renderInspector({collapseCards=false}={}){
  if(collapseCards)for(const entry of $('#inspector').querySelectorAll('details[data-placement],details[data-sequence]')){entry.open=false;entry.classList.remove('card-navigation-target');}
  $('#inspector').dataset.key=inspectorKey;
  if(!sameInspector)document.querySelector('aside').scrollTop=0;
- $('#panel-title').textContent=mode==='library'?(cardKinds[definition()?.kind]?.label||'Library'):nodeTypeLabel(node()?.type)||'Beat';
+ const panelLabel=mode==='library'?(cardKinds[definition()?.kind]?.label||'Library'):nodeTypeLabel(node()?.type)||'Beat';
+ $('#panel-title').innerHTML=`<span>${esc(panelLabel)}</span>${mode==='chapter'?nodeIcon(node()?.type):''}`;
 }
 function renderLibrary(){
  const query=$('#library-search').value.toLowerCase();
