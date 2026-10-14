@@ -99,8 +99,8 @@ export class ChapterController {
       presentation: this.presentation.entry(successorDestination.sequence)
     } : null;
     const noSuccessor = sequence.type !== 'forked' && !successor && !(destination.queue ?? this.queue)?.length && !node.connections[connectionOutput(node, sequence.exits[0])];
-    return { backImage: this.chapter.backImage || '', noSuccessor, nextDeckPreview, nextCardPreview: successor ? { title: successor.title, text: successor.text, image: successor.image, flipImage: !!successor.flipImage } : null, id: `${node.id}:${sequence.id}:${card.id}`, title: card.title, text: card.text,
-      image: card.image, flipImage: !!card.flipImage, ...this.presentation.content(sequence), actions };
+    return { nextTransition: successor ? this.presentation.within(sequence) : this.presentation.exit(sequence), cardBack: this.chapter.cardBack, noSuccessor, nextDeckPreview, nextCardPreview: successor ? { title: successor.title, text: successor.text, image: successor.image, flipImage: !!successor.flipImage } : null, id: `${node.id}:${sequence.id}:${card.id}`, title: card.title, text: card.text,
+      image: card.image, flipImage: !!card.flipImage, ...this.presentation.content(sequence), discardAll: sequence.type==='container', actions };
   }
 
   showCard({ transition = 'flip' } = {}) {
@@ -147,8 +147,9 @@ export class ChapterController {
     if (this.destroyed || this.completed || !sequenceType(this.sequence).resolvesItems || this.pendingItem || detail.contentId !== this.deck.content.id) return;
     const item = this.remaining().find(item => item.id === detail.action?.id);
     if (!item) return;
-    this.pendingItem = { item: { ...item, sequenceId: this.sequence.id }, containerKey: this.containerKey(), transition, contentId: detail.contentId };
-    if (detail.final) {
+    const all=transition==='discard'&&detail.all===true;
+    this.pendingItem = { item: { ...item, sequenceId: this.sequence.id }, containerKey: this.containerKey(), all, transition, contentId: detail.contentId };
+    if (detail.final||all) {
       this.stagedDestination = this.destination(this.sequence.exits[0]);
       if (this.stagedDestination.completed) { this.deck.endContent(); return; }
       this.deck.replaceContent(this.cardContent(this.stagedDestination, { values: transition === 'collect' ? applyEffects(this.variables, item.effects) : this.variables, inventory: transition === 'collect' ? [...this.collectedItems,item] : this.collectedItems }), { presentation: this.stagedDestination.completed ? 'closed' : this.presentation.entry(this.stagedDestination.sequence), transition: this.presentation.exit(this.sequence) });
@@ -158,9 +159,9 @@ export class ChapterController {
   transitionComplete(detail) {
     if (this.destroyed) return;
     if (this.pendingItem && detail.transition === this.pendingItem.transition && detail.contentId === this.pendingItem.contentId) {
-      const { item, transition, containerKey } = this.pendingItem;
+      const { item, transition, containerKey, all } = this.pendingItem;
       this.pendingItem = null;
-      this.remainingItems.set(containerKey, this.remaining().filter(candidate => candidate.id !== item.id));
+      this.remainingItems.set(containerKey, all?[]:this.remaining().filter(candidate => candidate.id !== item.id));
       if (transition === 'collect') { this.variables = applyEffects(this.variables, item.effects); this.collectedItems.push(item); }
       this.notify();
     } else if (detail.transition === 'commit' && this.stagedDestination) {

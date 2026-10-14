@@ -24,26 +24,17 @@
   pointer-events: none;
 }
 .nest-deck:focus-visible {
-  outline: none;
-}
-.nest-deck:focus-visible::after {
-  content: '';
-  position: absolute;
-  left: 44%;
-  right: 44%;
-  bottom: -18px;
-  height: 2px;
-  background: #b0ca8b;
-  z-index: 2000;
-  pointer-events: none;
+  outline: 1px solid #b0ca8b66;
+  outline-offset: 8px;
+  border-radius: var(--card-radius, 20px);
 }
 .nest-card {
   position: absolute;
   inset: 0;
   box-sizing: border-box;
-  border: 1px solid var(--card-border, #39432a);
+  border: 1px solid var(--card-border, #39432a80);
   border-radius: var(--card-radius, 20px);
-  background-color: var(--card-background, #14190e);
+  background-color: var(--card-background, #000);
   background-size: cover;
   background-position: center;
   /* Thin strata suggest matte card stock, with a tight contact shadow. */
@@ -60,6 +51,15 @@
   pointer-events: none;
   transform-origin: 50% 50%;
   backface-visibility: hidden;
+  isolation: isolate;
+}
+.nest-card-texture {
+  position: absolute;
+  inset: 0;
+  background: url('../assets/img/cardfront.png') center / 100% 100% no-repeat;
+  mix-blend-mode: lighten;
+  z-index: 3;
+  pointer-events: none;
 }
 .nest-card::before {
   content: '';
@@ -67,13 +67,13 @@
   inset: 0;
   border-radius: inherit;
   /* The masked ring lights only the rim, keeping artwork and copy clear. */
-  padding: 2px;
+  padding: 1px;
   background: linear-gradient(165deg,
-    var(--card-edge-highlight, #d5ceb08c) 0%,
-    #a9aa8647 18%,
-    #777d5826 42%,
-    #282c1ccc 72%,
-    var(--card-edge-shadow, #070b06e6) 100%);
+    var(--card-edge-highlight, #d5ceb047) 0%,
+    #a9aa8624 18%,
+    #777d5813 42%,
+    #282c1c66 72%,
+    var(--card-edge-shadow, #070b0673) 100%);
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
@@ -84,7 +84,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, #0000 25%, #06090366 48%, #060903f5 100%);
+  background: linear-gradient(180deg, #0000 25%, #0006 48%, #000000f5 100%);
 }
 .nest-copy {
   font-family: var(--card-font, NestLetter, monospace);
@@ -96,14 +96,23 @@
   z-index: 1;
   color: var(--card-text, #d2dfb6);
 }
-.nest-card-title {
-  font-size: 10px;
+.nest-card-title, .nest-card-type {
+  font-size: var(--card-small-size, 10px);
   letter-spacing: .18em;
   color: var(--card-title-color, #a9bb86);
   display: block;
   text-transform: uppercase;
 }
 .nest-card-title[hidden] { display: none; }
+.nest-card-type {
+  position: absolute;
+  top: var(--card-padding, 26px);
+  left: var(--card-padding, 26px);
+  right: var(--card-padding, 26px);
+  z-index: 1;
+  font-family: var(--card-font, NestLetter, monospace);
+  pointer-events: none;
+}
 .nest-copy p {
   font-size: var(--card-font-size, clamp(16px, 4vw, 21px));
   line-height: 1.45;
@@ -111,8 +120,7 @@
   text-wrap: pretty;
   overflow-wrap: anywhere;
 }
-.nest-action .nest-copy { padding-bottom: 32px; }
-.nest-action { border-color: var(--card-action-border, #607044); }
+.nest-action { border-color: var(--card-action-border, #60704480); }
 .nest-live {
   position: absolute;
   width: 1px;
@@ -127,29 +135,20 @@
 /* A real reverse face shares the situation's layer and motion. CSS hides
    the face pointing away from the camera; no opacity animation is involved. */
 .nest-card-back {
-  background-color: var(--card-back-background, #172010);
-  background-image: repeating-linear-gradient(135deg, #25321b 0 1px, #172010 1px 13px);
-  border-color: #64734a;
+  background-color: var(--card-back-background, #000);
+  border-color: #64734a80;
 }
-.nest-card-back::after {
-  background: radial-gradient(ellipse at center, #17201044, #070c05bb);
-}
-.nest-back-frame {
+.nest-card-back::after { background: none; }
+.nest-back-icon {
   position: absolute;
-  inset: 18px;
-  border: 1px solid #627446;
-  border-radius: 10px;
-  display: grid;
-  place-items: center;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
   z-index: 1;
 }
-.nest-back-mark {
-  font-family: var(--card-font, NestLetter, monospace);
-  color: #b8c89a;
-  font-size: clamp(22px, 6vw, 32px);
-  letter-spacing: .22em;
-  padding-left: .22em;
-}
+.nest-back-icon[hidden] { display: none; }
 
 /* Mirror only the artwork; copy and card choreography stay independent. */
 .nest-artwork {
@@ -162,4 +161,81 @@
 }
 .nest-card::after { z-index: 0; }
 
-.nest-card-back-image::after { background: none; }
+/* The image-local edge fade moves and scales with the artwork, not the card. */
+.nest-artwork-vignetted, .nest-image-vignette { border-radius:6px;overflow:hidden; }
+.nest-image-vignette { position:relative; }
+.nest-artwork-vignetted::after, .nest-image-vignette::after {
+  content:'';
+  position:absolute;
+  inset:0;
+  border:1px solid #000;
+  border-radius:inherit;
+  background:
+    linear-gradient(to right, #000, #0000 4px, #0000 calc(100% - 4px), #000),
+    linear-gradient(to bottom, #000, #0000 4px, #0000 calc(100% - 4px), #000);
+  pointer-events:none;
+  z-index:1;
+}
+
+
+/* Typed content supplies headings and summaries; legacy narrative remains plain. */
+.nest-card[data-card-kind="item"] .nest-card-title {
+  font-family: var(--card-font, NestLetter, monospace);
+  font-size: var(--card-font-size, clamp(16px, 4vw, 21px));
+  font-weight: normal;
+  line-height: 1.45;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--card-text, #d2dfb6);
+  margin-top: 12px;
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+.nest-card[data-card-kind="item"] .nest-copy {
+  padding-bottom: var(--card-padding, 26px);
+}
+.nest-card[data-card-kind="item"] .nest-copy > p:empty { display: none; }
+.nest-copy p.nest-card-summary {
+  font: 13px/1.4 system-ui, sans-serif;
+  color: #c0d99b;
+  margin-top: 9px;
+  white-space: pre-line;
+}
+.nest-card[data-card-kind="item"] .nest-copy > p:not(.nest-card-summary) {
+  font-size: var(--card-medium-size, 15px);
+  color: var(--card-medium-color, var(--card-text, #d2dfb6));
+  line-height: 1.35;
+}
+
+/* Caption faces have fixed stock artwork and a centered Big-style description. */
+.nest-card[data-card-kind="caption"] .nest-artwork {
+  background-image:url('../assets/img/narrative.png');
+  background-size:100% 100%;
+}
+.nest-card[data-card-kind="caption"]::after { background:none; }
+.nest-card[data-card-kind="caption"] .nest-copy {
+  inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;
+  text-align:center;padding:var(--card-padding,26px);
+}
+.nest-card[data-card-kind="caption"] .nest-copy > p {margin:0;width:100%;}
+
+.nest-copy p.nest-card-inventory {
+  font-size: var(--card-small-size, 12px);
+  line-height: 1.2;
+  margin: 0 0 6px;
+}
+
+/* Inventory actions read as action first, then supporting Medium-style text. */
+.nest-card[data-inventory-action="true"] .nest-copy p.nest-card-summary,
+.nest-card[data-inventory-action="true"] .nest-copy p.nest-card-inventory {
+  font-family: var(--card-font, NestLetter, monospace);
+  font-size: var(--card-medium-size, 15px);
+  font-weight: normal;
+  line-height: 1.35;
+  color: var(--card-medium-color, var(--card-text, #d2dfb6));
+  margin: 12px 0 0;
+}
+
+.nest-card[data-inventory-action="true"] .nest-copy p.nest-card-summary + p.nest-card-inventory {
+  margin-top: 0;
+}

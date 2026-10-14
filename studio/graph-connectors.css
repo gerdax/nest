@@ -1,0 +1,21 @@
+/* Wide transparent paths make connections easy to double-click. */
+#edges .edge-hit {stroke:transparent;stroke-width:16;pointer-events:stroke;cursor:pointer;vector-effect:non-scaling-stroke;}
+#edges .edge-line {pointer-events:none;}
+#edges .edge-ghost {stroke:#b7e4d3;stroke-width:3;stroke-dasharray:6 4;pointer-events:none;}
+#canvas .node.connection-target {outline:3px solid #b7e4d3;box-shadow:0 0 16px #b7e4d355;}
+#canvas .port {cursor:pointer;}
+#canvas .port.unlinked::after {color:#000;}
+#canvas .node {overflow:hidden;}
+#canvas .graph-card-divider {border:0;border-top:2px solid #080d0f;margin:0;}
+#canvas .node-heading {border-bottom:2px solid #080d0f;}
+#canvas .node-heading {position:relative;padding-right:48px;}
+#canvas .graph-beat-icon {position:absolute;right:12px;top:50%;transform:translateY(-50%);width:26px;height:26px;fill:none;stroke:#e1e8e6;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;pointer-events:none;}
+#canvas .graph-card-row {padding:9px 12px;background:color-mix(in srgb,var(--card-editor-tint) 14%,#202b2e);}
+#canvas .graph-card-row.has-outputs {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:8px;align-items:start;}
+#canvas .graph-card-name {display:block;min-width:0;width:100%;border:0;border-radius:0;padding:0;text-align:left;background:transparent;color:var(--card-editor-tint);overflow-wrap:anywhere;font-size:12px;line-height:1.6;cursor:pointer;}
+#canvas .graph-card-name:hover {text-decoration:underline;}
+#canvas .graph-card-name small {display:block;color:#a9b9b7;font-size:10px;}
+#canvas .graph-card-outputs .port {display:flex;align-items:center;justify-content:flex-end;gap:4px;border:0;padding:0 0 0 4px;min-height:20px;font-size:11px;border-radius:0;overflow-wrap:anywhere;}
+#canvas .graph-card-outputs .port::after {flex:none;}
+#canvas .graph-card-outputs .port + .port {margin-top:5px;}
+#canvas .graph-card-outputs .port:hover {background:color-mix(in srgb,var(--card-editor-tint) 24%,#202b2e);}

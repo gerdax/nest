@@ -1,3 +1,5 @@
+import { applyArtworkColorize } from '../engine/artworkColorize.js';
+
 let serial = 0;
 
 // Session-only visual inventory. Cards can be scrolled, but not used yet.
@@ -41,8 +43,12 @@ export class InventoryStrip {
         image.src = item.image;
         image.alt = '';
         image.draggable = false;
+        applyArtworkColorize(image);
         if (item.flipImage) image.style.transform = 'scaleX(-1)';
-        entry.append(image);
+        const artwork = document.createElement('div');
+        artwork.className = 'nest-image-vignette';
+        artwork.append(image);
+        entry.append(artwork);
       }
       const label = document.createElement('span');
       label.textContent = item.label ?? item.title ?? item.id ?? String(item);

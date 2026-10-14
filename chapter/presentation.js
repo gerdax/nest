@@ -3,11 +3,11 @@
  */
 export const defaultPresentation = Object.freeze({
   entry(sequence) { return sequence.decisionOnly ? 'open' : 'closed'; },
-  exit(sequence) { return sequence.type === 'linear' ? 'reveal' : 'flip'; },
+  exit() { return 'flip'; },
   within() { return 'reveal'; },
   content(sequence) {
     const mode={linear:'story',forked:'decision',container:'container'}[sequence.type];
-    return {directAdvance:mode==='story',decisionOnly:!!sequence.decisionOnly,
-      interaction:mode==='container'?'container':'choice',allowClose:false};
+    return {...(mode==='decision'?{choiceFollowerRatio:.82}:{}),directAdvance:mode==='story',decisionOnly:!!sequence.decisionOnly,
+      interaction:mode==='container'?'container':'choice',flipItemsOnReveal:mode==='container',allowClose:false};
   }
 });

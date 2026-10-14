@@ -2,24 +2,7 @@ import { CardDeck } from '../engine/CardDeck.js';
 import { ChapterController } from '../chapter/ChapterController.js';
 import { cloneChapter, validateChapter } from '../chapter/model.js';
 import { InventoryStrip } from '../demo/InventoryStrip.js';
-
-// Body-level styling is shared by all docked previews in a document.
-const dockOwners = new WeakMap();
-function acquireDock(body) {
-  let ownership = dockOwners.get(body);
-  if (!ownership) {
-    ownership = { count: 0, existing: body.classList.contains('has-inventory-dock') };
-    dockOwners.set(body, ownership);
-  }
-  ownership.count++;
-  body.classList.add('has-inventory-dock');
-  return () => {
-    if (--ownership.count === 0) {
-      if (!ownership.existing) body.classList.remove('has-inventory-dock');
-      dockOwners.delete(body);
-    }
-  };
-}
+import { acquireDock } from './dockOwnership.js';
 
 export class Preview {
   constructor(root, { onChange = () => {}, onRestart, inventoryDock = false, deckSettings = {}, presentation } = {}) {

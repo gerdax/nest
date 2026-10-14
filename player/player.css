@@ -1,0 +1,14 @@
+/* Standalone player layout; studio and inspector card sizes remain independent. */
+.chapter-picker { display:flex;align-items:center;gap:8px;flex:1 1 220px;min-width:0; }
+#chapter-selector { width:100%;min-width:0;padding:9px 8px;background:#162014;color:#dce5ce;border:1px solid #687c58;border-radius:6px;font:inherit; }
+#chapter-selector:focus-visible { outline:2px solid #c3dd9c;outline-offset:3px; }
+#chapter-name { margin:12px 0 4px; }
+#message { margin:4px 0 8px; }
+#preview .chapter-preview-stage { min-height:490px;padding:40px 32px 30px; }
+#preview .chapter-preview-deck { width:min(100%,310px); }
+@media(max-width:420px) {
+  main { padding:20px 16px 32px; }
+  .chapter-picker { flex-basis:100%; }
+  #preview .chapter-preview-stage { min-height:430px;padding:28px 20px 24px; }
+  #preview .chapter-preview-deck { width:min(100%,270px); }
+}

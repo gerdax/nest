@@ -1,11 +1,12 @@
 /** Default card feel. Pure presentation settings; never chapter rules. */
 export const DEFAULT_SETTINGS = Object.freeze({
-  stiffness: 360,
-  damping: 56,
+  stiffness: 440,
+  damping: 70,
   mass: 1.15,
   maxTilt: 12,
   axisThreshold: 34,
   distanceThreshold: 0.14,
+  upwardDistanceThreshold: 0.33,
   flickVelocity: 325,
   flickDistance: 26,
   commitDuration: 210,
@@ -18,7 +19,8 @@ export const DEFAULT_SETTINGS = Object.freeze({
   gravity: 800,
   revealStartScale: .915,
   revealFullScaleAt: 0.167054298371648,
-  choiceStaggerMs: 30,
+  choiceStaggerMs: 0,
+  choiceFollowerRatio: .7,
   flipLeadMs: 100,
   flipAxisTilt: -1
 });
