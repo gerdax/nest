@@ -55,7 +55,7 @@ function decorateBack(back, content = {}, temporary = false) {
     // requests a new image. A missing contextual image falls back to Nest.
     icon.onerror = () => {
       icon.backFailed = true;
-      if (!icon.hidden) updateBackIcon(back, back.backOperation, 1);
+      if (!icon.hidden) updateBackIcon(back, back.backOperation, 1, null, Infinity);
     };
     back.backIcons.set(key, icon);
     back.append(icon);
@@ -69,23 +69,26 @@ function backFace(content = {}) {
   return back;
 }
 
-function updateBackIcon(back, operation, progress, appearance = null) {
+function updateBackIcon(back, operation, progress, appearance = null, distance = 0) {
   if (!back) return;
   if (appearance) decorateBack(back, { cardBack: appearance }, true);
   const config = back.backAppearance;
   // Once selected, allow a small return margin around the threshold.
   const held = operation && back.backOperation === operation;
   const adjusted = held && progress > 0 ? progress + .03 : progress;
-  const url = selectBackIcon(config, operation, adjusted);
-  let key = operation && url === config.icons[operation] ? operation : 'default';
+  const adjustedDistance = held && distance > 0 ? distance + Math.min(2, config.switchDistance / 2) : distance;
+  const url = distance === Infinity ? config.icons[operation] : selectBackIcon(config, operation, adjusted, adjustedDistance);
+  const reached = distance === Infinity || (Number.isFinite(config.switchProgress)
+    ? adjusted >= config.switchProgress : adjustedDistance > 0 && adjustedDistance >= config.switchDistance);
+  let key = operation && reached && url === config.icons[operation] ? operation : 'default';
   if (back.backIcons.get(key)?.backFailed) key = 'default';
   back.backOperation = key === 'default' ? null : operation;
   for (const [name, icon] of back.backIcons) icon.hidden = name !== key;
   back.setAttribute('data-back-icon', key);
 }
 
-function backContext(deck, progress) {
-  if (deck.backTransition) return { ...deck.backTransition, progress: 1 };
+function backContext(deck, progress, context) {
+  if (deck.backTransition) return { ...deck.backTransition, progress: 1, distance: Infinity };
   const cover = deck.coverDeparture || deck.content.flipItemsOnReveal && !deck.open;
   const action = deck.content.actions[deck.index];
   const direction = deck.l.x < 0 ? 1 : -1;
@@ -93,7 +96,7 @@ function backContext(deck, progress) {
     || (deck.content.interaction === 'container' && (direction < 0 ? action?.discardDisabled : action?.collectDisabled));
   return { operation: resolveBackOperation(deck.content, {
     source: cover ? 'cover' : 'actions', action, count: deck.cards.length, direction, blocked
-  }), progress };
+  }), progress, distance: cover ? Math.max(0, deck.p.x * context.travel) : Math.abs(deck.l.x) * context.height };
 }
 
 export function backPose(front) {
@@ -252,6 +255,7 @@ export function stageNextContent(deck, content) {
 export function announceDeck(deck) {
   const action = deck.content.actions[deck.index];
   const message = deck.phase === 'inserting' ? (deck.entrances.size ? 'Adding inventory choices…' : 'Updating choices…') : deck.phase === 'collecting' ? (deck.collectMotion?.transition === 'discard' ? 'Discarding item…' : 'Taking item…')
+    : deck.commitMotion?.discardItem ? 'Discarding item…'
     : deck.commitMotion?.discardAll ? 'Leaving container and discarding remaining items…'
     : deck.busy && deck.flip.x > 0 ? 'Turning next card…' : deck.busy ? (deck.pending || deck.operation === 'commit' ? 'Revealing next card…' : 'Waiting for next card…')
     : deck.phase === 'revealing' ? (deck.content.interaction === 'container' ? 'Uncovering items…' : 'Uncovering choices…')
@@ -261,7 +265,17 @@ export function announceDeck(deck) {
   if (deck.live && deck.live.textContent !== message) deck.live.textContent = message;
 }
 
-export function scenePose(deck, time = performance.now(), travel = deck.departureTravel()) {
+// With the CSS perspective origin at 45% height, the inverse projection
+// factor changes by depth/perspective. Compensating Y keeps the top edge
+// anchored while preserving Z, scale and every rotation.
+function anchorRecedingTop(pose, depth, width, height, perspective) {
+  if (!(depth > 0)) return;
+  const baseline = { ...pose, z: pose.z + depth };
+  const top = projectedBounds(baseline, width, height, perspective).top;
+  pose.y += (top - height * .45) * depth / perspective;
+}
+
+export function scenePose(deck, time = performance.now(), travel = deck.departureTravel(), bounds = null) {
   const lift = deck.p.x * travel + (deck.commitMotion ? departureDistance(deck.commitMotion, time) : 0);
   const pose = {
     x: 0, y: -lift, z: 16 - deck.n.x * 40 + deck.grabAmount() + Math.min(Math.abs(lift) * 0.08, deck.settings.liftHeight),
@@ -271,6 +285,11 @@ export function scenePose(deck, time = performance.now(), travel = deck.departur
     rz: deck.rotationZ.x * (1 - clamp(deck.p.x, 0, 1)),
     visible: !deck.skipCover && !(deck.busy && !deck.commitMotion && deck.operation !== 'commit')
   };
+  const depth = deck.n.x * 40 * (deck.takeDepthRatio || 0);
+  if (depth > 0) {
+    const area = bounds || deck.mount.getBoundingClientRect();
+    anchorRecedingTop(pose, depth, area.width, area.height, deck.settings.perspective);
+  }
   return pose;
 }
 
@@ -298,7 +317,7 @@ function takeProgress(deck, time, height, selected, distanceRatio = .5) {
 function poseContext(deck, time) {
   const bounds = deck.mount.getBoundingClientRect();
   const width = Math.max(1, bounds.width), height = Math.max(1, bounds.height);
-  const travel = deck.departureTravel(bounds), front = scenePose(deck, time, travel);
+  const travel = deck.departureTravel(bounds), front = scenePose(deck, time, travel, bounds);
   const presented = deck.content.actions.flatMap((action, index) => deck.entrances.get(action.id)?.startAt === null ? [] : [index]);
   const slots = new Map(presented.map((index, slot) => [index, slot]));
   const count = Math.max(1, presented.length), selectedSlot = slots.get(deck.index) ?? 0;
@@ -315,6 +334,7 @@ export function cardPose(deck, index, time = performance.now(), context = poseCo
   const frozen = deck.liftPoses?.get(action.id);
   if (frozen) {
     const pose = { ...frozen };
+    let recession = 0;
     if (action.id === deck.liftId) {
       const lift = (deck.l.x - deck.liftStart) * bounds.height;
       pose.y -= lift;
@@ -326,9 +346,11 @@ export function cardPose(deck, index, time = performance.now(), context = poseCo
       pose.rz += deck.rotationZ.x - deck.liftRotation.z;
       for (const field of ['rx', 'ry', 'rz']) pose[field] = clamp(pose[field], -deck.settings.maxTilt, deck.settings.maxTilt);
     } else {
-      pose.z -= height * .4 * takeProgress(deck, time, height, selected, .45);
+      recession = height * .4 * takeProgress(deck, time, height, selected, .45);
+      pose.z -= recession;
     }
     pose.z += deck.grabAmount(action.id);
+    anchorRecedingTop(pose, recession, width, height, deck.settings.perspective);
     return pose;
   }
   // Cards waiting below the deck do not occupy slots until their entrance starts.
@@ -425,6 +447,7 @@ export function cardPose(deck, index, time = performance.now(), context = poseCo
     pose.y += entrance.travel.x;
     pose.visible &&= entrance.startAt !== null && time >= entrance.startAt;
   }
+  anchorRecedingTop(pose, deck.n.x * 40 * (deck.takeDepthRatio || 0), width, height, deck.settings.perspective);
   return pose;
 }
 
@@ -457,33 +480,37 @@ export function renderDeck(deck, time = performance.now()) {
   const movingDown = deck.collectMotion?.direction === 1 || (!deck.collectMotion && deck.l.x < 0);
   const exposure = resolution && movingDown && poses.length
     ? Math.max(0, projectedBounds(poses[0], width, height, deck.settings.perspective).top) : height - coveredBottom;
-  const nextScale = deck.reduced ? 1 : revealScale(exposure, height, deck.settings);
-  const back = backContext(deck, clamp(exposure / height, 0, 1));
-  updateBackIcon(deck.underlayBack, back.operation, back.progress, back.appearance);
-  for (const reverse of deck.forwardDeck?.cardBacks || []) updateBackIcon(reverse, back.operation, back.progress, back.appearance);
+  const takingLast = resolution && movingDown && context.selected && !context.selected.collectDisabled;
+  if (takingLast) deck.nextTakeDepth = height * .4 * takeProgress(deck, time, height, context.selected, .45);
+  else if (deck.backTransition?.operation !== 'collect') deck.nextTakeDepth = 0;
+  const nextScale = takingLast || deck.nextTakeDepth > 0 || deck.reduced ? 1 : revealScale(exposure, height, deck.settings);
+  const back = backContext(deck, clamp(exposure / height, 0, 1), context);
+  updateBackIcon(deck.underlayBack, back.operation, back.progress, back.appearance, back.distance);
+  for (const reverse of deck.forwardDeck?.cardBacks || []) updateBackIcon(reverse, back.operation, back.progress, back.appearance, back.distance);
   // A staged reverse becomes the actual next card during its flip. Preserve
   // the source operation until that flip finishes, including async checks.
   if (deck.backTransition && !deck.commitMotion && !deck.collectMotion) {
-    updateBackIcon(deck.sceneBack, back.operation, 1, back.appearance);
-    for (const reverse of deck.cardBacks) updateBackIcon(reverse, back.operation, 1, back.appearance);
+    updateBackIcon(deck.sceneBack, back.operation, 1, back.appearance, Infinity);
+    for (const reverse of deck.cardBacks) updateBackIcon(reverse, back.operation, 1, back.appearance, Infinity);
   }
   const forwardActive = !!deck.forwardDeck && (((deck.content.directAdvance || deck.content.flipItemsOnReveal) && !deck.busy && deck.p.x > 0) || (deck.phase === 'committing' && deck.pendingPresentation === 'open')
     || (deck.phase === 'choices' && deck.l.x > 0 && deck.forwardOwner === deck.content.actions[deck.index]?.id));
   if (deck.underlay) {
     const stagedPose = {
-      x: 0, y: 0, z: -24, rx: 0, ry: 0, rz: 0, scale: nextScale,
+      x: 0, y: 0, z: -24 - (deck.nextTakeDepth || 0), rx: 0, ry: 0, rz: 0, scale: nextScale,
       turn: deck.nextFlip.x * 180, turnAxis: deck.settings.flipAxisTilt,
       visible: (((deck.content.directAdvance || deck.content.flipItemsOnReveal) && deck.p.x > 0 && !deck.busy) || (deck.phase === 'committing' && (!!deck.commitMotion || deck.operation !== 'commit')) || (deck.phase === 'collecting' && deck.collectMotion?.final)
         || (deck.phase === 'choices' && (deck.content.interaction === 'container' ? (resolution && deck.l.x !== 0) || (deck.groupLeaveActive && deck.l.x > 0) : deck.l.x > 0)
         && !deck.content.actions[deck.index]?.disabled))
         && !forwardActive && !deck.ending && !deck.content.noSuccessor
     };
+    anchorRecedingTop(stagedPose, deck.nextTakeDepth || 0, width, height, deck.settings.perspective);
     applyPose(deck, deck.underlay, deck.underlayLayer, stagedPose, 0);
     applyPose(deck, deck.underlayBack, deck.underlayLayer, backPose(stagedPose), 0);
   }
   const forwardTurns = deck.pending?.decisionOnly && deck.pendingTransition === 'flip'
     || !deck.busy && (deck.content.flipItemsOnReveal || deck.content.directAdvance && deck.content.nextTransition === 'flip') && deck.forwardDeck?.content.decisionOnly;
-  renderStagedActions(deck, deck.forwardDeck, 20, forwardActive, 0, -36, nextScale, forwardTurns ? deck.nextFlip.x * 180 : 0, true);
+  renderStagedActions(deck, deck.forwardDeck, 20, forwardActive, 0, -36 - (deck.nextTakeDepth || 0), nextScale, forwardTurns ? deck.nextFlip.x * 180 : 0, true, deck.nextTakeDepth || 0, context.bounds);
   renderStagedActions(deck, deck.returnDeck, 500,
     (deck.phase === 'closing' && deck.returning)
       || deck.returnLift.x > 0,
@@ -510,7 +537,7 @@ export function renderDeck(deck, time = performance.now()) {
   announceDeck(deck);
 }
 
-function renderStagedActions(deck, bundle, baseOrder, visible, y = 0, z = -36, scale = 1, turn = 0, suppressEntrances = false) {
+function renderStagedActions(deck, bundle, baseOrder, visible, y = 0, z = -36, scale = 1, turn = 0, suppressEntrances = false, takeDepth = 0, bounds = null) {
   if (!bundle) return;
   const presented = bundle.content.actions.flatMap((action, i) => suppressEntrances && action.entrance === 'bottom' ? [] : [i]);
   const slots = new Map(presented.map((index, slot) => [index, slot]));
@@ -518,6 +545,9 @@ function renderStagedActions(deck, bundle, baseOrder, visible, y = 0, z = -36, s
   bundle.cards.forEach((card, index) => {
     const rank = ((slots.get(index) ?? 0) - selectedSlot + count) % count;
     const pose = { x: 0, y, z: z - rank * deck.settings.stackDepth, rx: 0, ry: 0, rz: 0, scale, visible: visible && !(suppressEntrances && bundle.content.actions[index].entrance === 'bottom'), turn, turnAxis: deck.settings.flipAxisTilt };
+    if (takeDepth > 0) {
+      anchorRecedingTop(pose, takeDepth, bounds.width, bounds.height, deck.settings.perspective);
+    }
     const order = baseOrder + bundle.cards.length - rank;
     applyPose(deck, card, bundle.cardLayers[index], bundle.content.actions[index].faceDown ? backPose(pose) : pose, order);
     if (bundle.cardBacks[index]) applyPose(deck, bundle.cardBacks[index], bundle.cardLayers[index], bundle.content.actions[index].faceDown ? { ...pose, face: 360 } : backPose(pose), order);

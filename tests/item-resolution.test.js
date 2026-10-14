@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CardDeck, DEFAULT_SETTINGS } from '../engine/CardDeck.js';
 import { cardPose, scenePose } from '../engine/renderer.js';
-import { projectedBounds } from '../engine/geometry.js';
+import { projectedBounds, turningBounds } from '../engine/geometry.js';
 
 // Browser-shaped tree: collection must physically detach its layer, while the
 // remaining articles retain their identity and their original parent layers.
@@ -44,7 +44,9 @@ function samePose(actual, expected, message) {
   assert.ok(Math.abs((actual.scale ?? 1) - (expected.scale ?? 1)) < 1e-8, `${message}: scale changed`);
 }
 function recededPose(actual, expected, message) {
-  samePose(actual, { ...expected, z: actual.z }, message);
+  samePose(actual, { ...expected, y: actual.y, z: actual.z }, message);
+  assert.ok(actual.y <= expected.y, `${message}: remaining card shifts upward`);
+  assert.ok(Math.abs(projectedBounds(actual,340,453,1200).top-projectedBounds(expected,340,453,1200).top)<1e-7, `${message}: top edge stays anchored`);
   assert.ok(actual.z < expected.z, `${message}: take recedes remaining cards`);
 }
 function descendants(node) { return [node, ...node.children.flatMap(descendants)]; }
@@ -121,10 +123,17 @@ for (const resolution of ['collect', 'discard']) test(`final ${resolution} stage
   const back = deck.underlayBack;
   assert.ok(back); assert.equal(back.style.visibility, 'visible'); assert.equal(deck.nextFlip.x, 1); assert.deepEqual(events, []);
   deck.end(gesture(direction * 150, direction * 1600));
-  while (deck.collectMotion) {
-    inputBlocked(deck); assert.equal(deck.nextFlip.x, 1); assert.equal(deck.underlayBack, back); assert.equal(back.style.visibility, 'visible'); opaque(deck); step(1);
+  while (deck.collectMotion || deck.commitMotion?.discardItem) {
+    inputBlocked(deck);
+    if (resolution === 'collect') assert.equal(deck.nextFlip.x, 1);
+    else if (deck.nextFlip.x < 1) {
+      const bounds=deck.mount.getBoundingClientRect();
+      const incoming=turningBounds({x:0,y:0,z:-24,turnAxis:deck.settings.flipAxisTilt},bounds.width,bounds.height,deck.settings.perspective);
+      assert.ok(projectedBounds(cardPose(deck,0,now),bounds.width,bounds.height,deck.settings.perspective).bottom<=incoming.top-8,'container-style flip waits for projected clearance');
+    }
+    assert.equal(deck.underlayBack, back); assert.equal(back.style.visibility, 'visible'); opaque(deck); step(1);
   }
-  assert.deepEqual(events, ['accepted', 'removed']); assert.equal(deck.phase, 'committing'); assert.equal(deck.flip.x, 1);
+  assert.deepEqual(events, ['accepted', 'removed']); assert.equal(deck.phase, 'committing'); assert.ok(deck.flip.x>0&&deck.flip.x<=1);
   assert.equal(deck.scene.style.visibility, 'visible'); assert.equal(deck.sceneBack.style.visibility, 'visible');
   while (frames.size) { assert.equal(deck.start(), false); opaque(deck); step(); }
   assert.deepEqual(events, ['accepted', 'removed', 'flipped']); assert.equal(deck.content.id, 'next'); assert.equal(deck.phase, 'closed'); assert.equal(deck.busy, false); assert.equal(deck.flip.x, 0);
@@ -169,7 +178,7 @@ for (const resolution of ['collect', 'discard']) test(`keyboard final ${resoluti
   const deck = make(1); ready(deck); let observedFullScale = false, previous = DEFAULT_SETTINGS.revealStartScale;
   deck.addEventListener(resolution, () => deck.replaceContent(fixture(2, 'choice')));
   deck[resolution]();
-  while (deck.collectMotion) {
+  while (deck.collectMotion || deck.commitMotion?.discardItem) {
     assert.equal(deck.underlayBack.style.visibility, 'visible');
     const scale = renderedScale(deck.underlayBack);
     assert.ok(scale >= previous - 1e-10, 'reverse grows monotonically as selected item departs');

@@ -44,8 +44,10 @@ function samePose(actual, expected, message) {
   assert.ok(Math.abs((actual.scale ?? 1) - (expected.scale ?? 1)) < 1e-8, `${message}: scale changed`);
 }
 function recededPose(actual, expected, message) {
-  samePose(actual, { ...expected, z: actual.z }, message);
-  assert.ok(actual.z < expected.z, `${message}: remaining card recedes only in depth`);
+  samePose(actual, { ...expected, y: actual.y, z: actual.z }, message);
+  assert.ok(actual.y <= expected.y, `${message}: remaining card shifts upward`);
+  assert.ok(Math.abs(projectedBounds(actual,340,453,1200).top-projectedBounds(expected,340,453,1200).top)<1e-7, `${message}: top edge stays anchored`);
+  assert.ok(actual.z < expected.z, `${message}: remaining card recedes`);
 }
 function descendants(node) { return [node, ...node.children.flatMap(descendants)]; }
 function opaque(deck) { for (const node of descendants(deck.mount)) assert.equal(Object.hasOwn(node.style, 'opacity'), false); }
@@ -149,7 +151,11 @@ for (const input of ['gesture', 'Enter']) test(`new ${input} take during cancele
   if (input === 'gesture') { deck.start(); deck.move(gesture(150)); deck.end(gesture(150)); }
   else key(deck, 'Enter');
   assert.equal(deck.groupLeaveActive, false); assert.equal(deck.collectMotion.transition, 'collect');
-  for (let i = 1; i < 3; i++) assert.equal(cardPose(deck, i).y, initial.get(`item-${i}`).y);
+  for (let i = 1; i < 3; i++) {
+    const pose=cardPose(deck,i),base=initial.get(`item-${i}`);
+    assert.ok(pose.y<=base.y);
+    assert.ok(Math.abs(projectedBounds(pose,340,453,deck.settings.perspective).top-projectedBounds(base,340,453,deck.settings.perspective).top)<1e-7);
+  }
   settle(); assert.equal(deck.cards.length, 2); dispose(deck);
 });
 
@@ -252,4 +258,32 @@ test('discard spin pivots below the card center with matching pose geometry',()=
  const fixedY=pose.y+pivot*Math.cos(angle);
  assert.ok(Math.abs(fixedY-(centerY+pivot))<1e-8,'point below center stays on the vertical lift path');
  deck.cancel();settle();samePose(cardPose(deck,0),initial,'pivot cancels cleanly');dispose(deck);
+});
+
+
+test('standalone single item shares container discard poses throughout drag and departure without discard-all semantics', () => {
+  const container=make(1), single=make(1,{...fixture(1),discardAll:false});
+  ready(container);ready(single);
+  const accepts=[],completions=[];
+  single.addEventListener('discard',e=>accepts.push(e.detail));
+  single.addEventListener('transitioncomplete',e=>{if(e.detail.transition==='discard')completions.push(e.detail)});
+  for(const deck of [container,single]) {deck.start();deck.move(gesture(-180));}
+  step(64);samePose(cardPose(single,0,now),cardPose(container,0,now),'held single item uses container spin and sideways movement');
+  const before=cardPose(single,0,now);
+  for(const deck of [container,single]) deck.end(gesture(-180,-650));
+  samePose(cardPose(single,0,now),before,'release is continuous');
+  assert.equal(single.commitMotion.discardItem,true);assert.equal(single.commitMotion.discardAll,false);
+  assert.equal(accepts.length,1);assert.equal(accepts[0].all,false);assert.equal(accepts[0].final,true);assert.equal(accepts[0].discardedIds,undefined);
+  for(let i=0;i<5;i++){step(32);samePose(cardPose(single,0,now),cardPose(container,0,now),'single flight matches container flight');}
+  settle();assert.equal(completions.length,1);assert.equal(completions[0].all,false);assert.deepEqual(completions[0].remainingIds,[]);assert.equal(single.cards.length,0);
+  dispose(container);dispose(single);
+});
+
+test('standalone item discard tilt cancels, reverses to collection and respects disabled discard',()=>{
+  const deck=make(1,{...fixture(1),discardAll:false});ready(deck);const initial=cardPose(deck,0,now);
+  deck.start();deck.move(gesture(-180));assert.equal(deck.groupLeaveActive,true);assert.ok(Math.abs(cardPose(deck,0,now).rz-initial.rz)>1);
+  deck.cancel();settle();samePose(cardPose(deck,0,now),initial,'cancel restores single item');
+  deck.start();deck.move(gesture(-180));deck.move(gesture(180));assert.equal(deck.groupLeaveActive,false);deck.end(gesture(180,600));assert.equal(deck.collectMotion.transition,'collect');settle();dispose(deck);
+  const blocked=make(1,{...fixture(1),discardAll:false,actions:[{id:'blocked',label:'Blocked',discardDisabled:true}]});ready(blocked);
+  blocked.start();blocked.move(gesture(-180));assert.equal(blocked.groupLeaveActive,false);blocked.end(gesture(-180,-900));settle();assert.equal(blocked.commitMotion,null);assert.equal(blocked.cards.length,1);dispose(blocked);
 });

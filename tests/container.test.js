@@ -292,7 +292,11 @@ for(const selected of [0,2])test(`taking item ${selected} recedes remaining card
   for(let i=0;i<3;i++){
    const id=deck.content.actions[i].id,pose=current.get(id),base=rest.get(id);
    if(i===selected){assert.equal(pose.y,base.y+distance);if(distance===0)assert.equal(pose.z,base.z+deck.grabAmount(id));else assert.ok(pose.z>base.z+deck.grabAmount(id),'leading card grows toward the viewer');}
-   else for(const field of ['x','y','rx','ry','rz'])assert.equal(pose[field],base[field],'remaining cards keep their alignment');
+   else {
+    for(const field of ['x','rx','ry','rz'])assert.equal(pose[field],base[field],'remaining cards keep their horizontal alignment and rotation');
+    assert.ok(pose.y<=base.y,'remaining cards move upward');
+    assert.ok(Math.abs(projectedBounds(pose,340,453,deck.settings.perspective).top-projectedBounds(base,340,453,deck.settings.perspective).top)<1e-7,'top stays anchored while zoom changes');
+   }
   }
   const follower=deck.content.actions.find((_,i)=>i!==selected).id;depths.push(rest.get(follower).z-current.get(follower).z);
  }

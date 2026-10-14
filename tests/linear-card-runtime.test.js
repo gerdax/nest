@@ -9,6 +9,8 @@ const energy=[{id:'energy',type:'number',initial:4,min:0}];
 const flush=async()=>{for(let i=0;i<8;i++)await Promise.resolve();};
 // Browser-shaped harness verifies actual deck event order and asynchronous commits.
 import { CardDeck } from '../engine/CardDeck.js';
+import { cardPose, scenePose } from '../engine/renderer.js';
+import { projectedBounds } from '../engine/geometry.js';
 class Element extends EventTarget {
  constructor(){super();this.attrs=new Map();this.style={};this.children=[];this.parentNode=null;this.classList={add(){},remove(){}};this.captures=new Set();}
  setAttribute(k,v){this.attrs.set(k,String(v));}getAttribute(k){return this.attrs.get(k)??null;}removeAttribute(k){this.attrs.delete(k);}
@@ -78,4 +80,35 @@ test('failed Linear collection is atomic and restores the same open item for dis
 test('failed Linear roller restores an unchanged open check with retry',async()=>{
  let attempts=0;const errors=[];const {deck,controller}=real(linear([action('roll',{resolution:'check',check:{pool:[{sides:6,count:1}],target:1},costs:[{source:'variable',key:'energy',amount:1}]}),narrative('after')]),{variables:energy},{rollCheck:async()=>{if(++attempts===1)throw new Error('roller failed');return 6;},onError:e=>errors.push(e)});
  deck.commit();await flush();settle();assert.equal(errors.length,1);assert.equal(controller.state.cardId,'roll');assert.equal(controller.state.variables.energy,4);assert.equal(deck.phase,'choices');assert.equal(controller.state.checking,false);deck.commit();await flush();settle();assert.equal(controller.state.cardId,'after');assert.equal(controller.state.variables.energy,3);dispose(deck,controller);
+});
+
+
+function reverseDepth(deck) {return Number(deck.underlayBack.style.transform.match(/translate3d\([^,]+,[^,]+,([\d.-]+)px\)/)[1]);}
+for(const openSuccessor of [false,true])test(`actual Linear take recedes its underlying back like container followers and carries depth into successor, open=${openSuccessor}`,()=>{
+ const next=openSuccessor?item('after'):narrative('after');
+ const standalone=real(linear([item('apple'),next]));
+ const container=real([{id:'box',type:'container',introEnabled:false,items:[item('apple'),item('other')],connections:{next:null}}]);
+ const d=standalone.deck,c=container.deck;
+ const start=cardPose(c,1,now).z;
+ for(const deck of [d,c]){deck.start();deck.move({axis:'y',x:0,y:100,vx:0,vy:0});}
+ const recession=cardPose(c,1,now).z-start;
+ assert.ok(recession<0);assert.ok(Math.abs(reverseDepth(d)-(-24+recession))<1e-8,'real Linear reverse follows container follower depth');
+ const transform=d.underlayBack.style.transform.match(/translate3d\(([-\d.]+)px,([-\d.]+)px,([-\d.]+)px\)/);
+ const underlay={x:Number(transform[1]),y:Number(transform[2]),z:Number(transform[3]),turn:180,turnAxis:d.settings.flipAxisTilt,face:180};
+ const baseline={...underlay,y:0,z:-24};
+ assert.ok(underlay.y<0,'receding reverse shifts upward');
+ assert.ok(Math.abs(projectedBounds(underlay,340,453,d.settings.perspective).top-projectedBounds(baseline,340,453,d.settings.perspective).top)<1e-7,'reverse top edge is stationary');
+ const held=reverseDepth(d);
+ d.cancel();settle();assert.equal(d.nextTakeDepth,0);assert.equal(reverseDepth(d),-24,'cancel restores the back');
+ d.start();d.move({axis:'y',x:0,y:100,vx:0,vy:0});assert.equal(reverseDepth(d),held);
+ d.end({axis:'y',x:0,y:100,vx:0,vy:600});
+ while(d.collectMotion){now+=1;const callbacks=[...frames.values()];frames.clear();callbacks.forEach(fn=>fn(now));}
+ assert.ok(d.n.x>1,'installed successor retains the receded depth');
+ const incoming=openSuccessor?cardPose(d,0,now):scenePose(d,now);
+ assert.ok(Math.abs(incoming.z-((openSuccessor?-36:-24)-453*.4))<1e-6,'successor has no depth jump');
+ assert.ok(incoming.y<0,'successor retains upward compensation');
+ const uncompensated={...incoming,y:0,z:openSuccessor?-36:-24};
+ assert.ok(Math.abs(projectedBounds(incoming,340,453,d.settings.perspective).top-projectedBounds(uncompensated,340,453,d.settings.perspective).top)<1e-6,'incoming top starts anchored');
+ settle();assert.equal(d.n.x,0);assert.equal(d.nextTakeDepth,0);assert.equal(standalone.controller.state.cardId,'after');
+ dispose(d,standalone.controller);c.cancel();dispose(c,container.controller);
 });

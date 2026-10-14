@@ -4,7 +4,7 @@ export const defaultCardBack = Object.freeze({
   background: `${UI_PATH}cardback.png`,
   icons: Object.freeze(Object.fromEntries(ICON_NAMES.map(name => [name, `${UI_PATH}${name}.png`]))),
   iconScale: 1,
-  switchProgress: 0.5,
+  switchDistance: 6,
 });
 
 function isRecord(value) {
@@ -28,6 +28,7 @@ export function validateCardBack(value) {
     }
   }
   if (value.iconScale !== undefined && (!Number.isFinite(value.iconScale) || value.iconScale <= 0)) errors.push('cardBack.iconScale must be a positive finite number');
+  if (value.switchDistance !== undefined && (!Number.isFinite(value.switchDistance) || value.switchDistance < 0)) errors.push('cardBack.switchDistance must be a nonnegative finite number');
   if (value.switchProgress !== undefined && (!Number.isFinite(value.switchProgress) || value.switchProgress < 0 || value.switchProgress > 1)) errors.push('cardBack.switchProgress must be a number between 0 and 1');
   return errors;
 }
@@ -44,8 +45,8 @@ export function resolveBackAppearance(content = {}) {
     background: imagePath(config?.background, defaultCardBack.background),
     icons,
     iconScale: Number.isFinite(config?.iconScale) && config.iconScale > 0 ? config.iconScale : defaultCardBack.iconScale,
-    switchProgress: Number.isFinite(config?.switchProgress) && config.switchProgress >= 0 && config.switchProgress <= 1
-      ? config.switchProgress : defaultCardBack.switchProgress,
+    switchDistance: Number.isFinite(config?.switchDistance) && config.switchDistance >= 0 ? config.switchDistance : defaultCardBack.switchDistance,
+    ...(Number.isFinite(config?.switchProgress) && config.switchProgress >= 0 && config.switchProgress <= 1 ? { switchProgress: config.switchProgress } : {}),
   };
 }
 
@@ -64,9 +65,11 @@ export function resolveBackOperation(content = {}, options = {}) {
 }
 
 /** Select at the threshold; temporal hysteresis belongs to the animation caller. */
-export function selectBackIcon(appearance, operation, progress) {
+export function selectBackIcon(appearance, operation, progress, distance = 0) {
   if (!isRecord(appearance) || !isRecord(appearance.icons)) return null;
-  const threshold = Number.isFinite(appearance.switchProgress) ? appearance.switchProgress : 0.5;
-  const contextual = Number.isFinite(progress) && progress >= threshold && ICON_NAMES.includes(operation);
+  const reached = Number.isFinite(appearance.switchProgress)
+    ? Number.isFinite(progress) && progress >= appearance.switchProgress
+    : Number.isFinite(distance) && distance > 0 && distance >= (appearance.switchDistance ?? defaultCardBack.switchDistance);
+  const contextual = reached && ICON_NAMES.includes(operation);
   return appearance.icons[contextual ? operation : 'default'] ?? appearance.icons.default ?? null;
 }

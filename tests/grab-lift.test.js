@@ -85,7 +85,7 @@ for (const direction of [-1, 1]) test(`container pickup raises only selected ite
     const z = cardPose(d, i).z, baseline = withoutPickup(d, () => cardPose(d, i).z);
     near(z - baseline, i === 1 ? 24 : 0, 'single additive pickup');
     if (i !== 1) {
-      for (const field of ['x', 'y', 'rx', 'ry', 'rz']) near(cardPose(d, i)[field], rest[i][field], 'unselected alignment stays frozen');
+      for (const field of ['x', ...(direction > 0 ? [] : ['y']), 'rx', 'ry', 'rz']) near(cardPose(d, i)[field], rest[i][field], 'unselected alignment stays frozen');
       if (direction > 0) assert.ok(cardPose(d, i).z < rest[i].z, 'unselected card recedes on take');
       else near(cardPose(d, i).z, rest[i].z, 'discard has no take recession');
     }

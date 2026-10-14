@@ -531,13 +531,13 @@ const backIcon = element => element?.getAttribute('data-back-icon');
 function contextualDeck(content) {
  const d=deck();d.replaceContent({id:'context',actions:[{id:'item',label:'Item'}],...content});return d;
 }
-test('container introduction changes actual staged backs at half exposure and resets on cancel',()=>{
+test('container introduction changes actual staged backs after a few pixels and resets on cancel',()=>{
  const d=contextualDeck({interaction:'container',flipItemsOnReveal:true});
  const back=d.forwardDeck.cardBacks[0], icons=[...back.children];
- d.start();d.move({axis:'y',x:0,y:-100,vx:0,vy:0});assert.equal(backIcon(back),'default');
- d.move({axis:'y',x:0,y:-380,vx:0,vy:0});assert.equal(backIcon(back),'container');
+ d.start();d.move({axis:'y',x:0,y:-5,vx:0,vy:0});assert.equal(backIcon(back),'default');
+ d.move({axis:'y',x:0,y:-6,vx:0,vy:0});assert.equal(backIcon(back),'container');
  assert.deepEqual(back.children,icons,'a gesture only changes visibility of preloaded icons');
- d.move({axis:'y',x:0,y:-30,vx:0,vy:0});assert.equal(backIcon(back),'default');
+ d.move({axis:'y',x:0,y:-3,vx:0,vy:0});assert.equal(backIcon(back),'default');
  d.cancel();settle(d);assert.equal(backIcon(back),'default');d.destroy();
 });
 test('last item preview reverses between pocket and trash and restores Nest after Escape',()=>{
@@ -573,4 +573,16 @@ test('source appearance expires on successor previews as well as the installed c
  d.commit();d.tick(d.commitMotion.start+1000);assert.equal(d.underlayBack.style.backgroundImage,'url("source.png")');
  settle(d);assert.equal(d.backTransition,null);assert.equal(d.underlayBack.style.backgroundImage,'url("destination.png")');
  d.start();d.move({axis:'y',x:0,y:-380,vx:0,vy:0});assert.equal(d.underlayBack.style.backgroundImage,'url("destination.png")');assert.equal(backIcon(d.underlayBack),'default');d.cancel();d.destroy();
+});
+
+test('early icon follows direction within six pixels, has a return margin, and cancels cleanly',()=>{
+ const d=contextualDeck({interaction:'container',discardAll:true});ready(d);
+ d.start();d.move({axis:'y',x:0,y:5,vx:0,vy:0});assert.equal(backIcon(d.underlayBack),'default');
+ d.move({axis:'y',x:0,y:6,vx:0,vy:0});assert.equal(backIcon(d.underlayBack),'collect');
+ d.move({axis:'y',x:0,y:5,vx:0,vy:0});assert.equal(backIcon(d.underlayBack),'collect');
+ d.move({axis:'y',x:0,y:3,vx:0,vy:0});assert.equal(backIcon(d.underlayBack),'default');
+ d.move({axis:'y',x:0,y:-6,vx:0,vy:0});assert.equal(backIcon(d.underlayBack),'discard');
+ d.cancel();settle(d);assert.equal(backIcon(d.underlayBack),'default');d.destroy();
+ const dice=contextualDeck({decisionOnly:true,actions:[{id:'check',label:'Check',resolution:'check'}]});ready(dice);
+ dice.start();dice.move({axis:'y',x:0,y:-6,vx:0,vy:0});assert.equal(backIcon(dice.underlayBack),'dice');dice.cancel();settle(dice);assert.equal(backIcon(dice.underlayBack),'default');dice.destroy();
 });
