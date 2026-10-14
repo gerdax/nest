@@ -9,6 +9,7 @@
   user-select: none;
   -webkit-user-select: none;
   outline: none;
+  -webkit-tap-highlight-color: transparent;
   isolation: isolate;
   transform-style: flat;
 }
@@ -22,11 +23,6 @@
   transform-style: flat;
   isolation: isolate;
   pointer-events: none;
-}
-.nest-deck:focus-visible {
-  outline: 1px solid #b0ca8b66;
-  outline-offset: 8px;
-  border-radius: var(--card-radius, 20px);
 }
 .nest-card {
   position: absolute;
