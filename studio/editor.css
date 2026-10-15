@@ -44,11 +44,12 @@ main {grid-template-columns:minmax(0,1fr) 430px;}
 .inspector-card-preview {position:relative;width:min(100%,276px);aspect-ratio:3/4;margin:24px auto;isolation:isolate;}
 @media(max-width:420px) {.inspector-card-preview {width:min(100%,240px);}}
 
-.preview-window {position:fixed;z-index:100;left:24px;top:100px;width:min(420px,calc(100vw - 16px));max-height:calc(100vh - 16px);display:flex;flex-direction:column;background:#11191c;border:1px solid #63786d;border-radius:10px;box-shadow:0 16px 48px #000a;overflow:hidden;}
+.preview-window {--preview-bar-height:48px;position:fixed;z-index:100;left:24px;top:100px;width:min(360px,calc(100vw - 16px),calc((100dvh - var(--preview-bar-height) - 18px)*796/1654));max-height:calc(100dvh - 16px);display:flex;flex-direction:column;background:#11191c;border:1px solid #63786d;border-radius:10px;box-shadow:0 16px 48px #000a;overflow:hidden;}
 .preview-window-bar {position:relative;z-index:5001;display:flex;gap:8px;align-items:center;padding:8px;background:#263431;border-bottom:1px solid #46594f;flex-shrink:0;}
-.preview-window-handle {flex:1;text-align:left;cursor:grab;touch-action:none;user-select:none;border:0;background:transparent;font-weight:650;}
+.preview-window-handle {flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;cursor:grab;touch-action:none;user-select:none;border:0;background:transparent;font-weight:650;}
 .preview-window.dragging .preview-window-handle {cursor:grabbing;}
-.preview-window-body {min-height:0;overflow:auto;overscroll-behavior:contain;background:#000;}
+.preview-window-body {position:relative;min-height:0;aspect-ratio:796/1654;flex:0 0 auto;overflow:hidden;background:#000;}
+.preview-window-scroll {position:absolute;inset:0;overflow:auto;overscroll-behavior:contain;}
 .preview-window.minimized .preview-window-body {position:absolute;top:100%;left:0;width:100%;height:var(--preview-body-height);visibility:hidden;pointer-events:none;}
 .preview-window.minimized .preview-window-body * {visibility:hidden!important;}
 .preview-window #preview {border-top:0;background:#000;}

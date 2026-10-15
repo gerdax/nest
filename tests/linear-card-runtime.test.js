@@ -25,7 +25,7 @@ Object.defineProperty(performance,'now',{value:()=>now,configurable:true});
 globalThis.requestAnimationFrame=fn=>{frames.set(++serial,fn);return serial;};globalThis.cancelAnimationFrame=id=>frames.delete(id);
 globalThis.document=new Element();document.createElement=()=>new Element();document.hidden=false;
 globalThis.matchMedia=()=>Object.assign(new EventTarget(),{matches:false});
-globalThis.ResizeObserver=class {observe(){}disconnect(){}};
+globalThis.ResizeObserver=class {constructor(callback){this.callback=callback;}observe(){}disconnect(){}};
 function settle(){for(let i=0;frames.size&&i<2000;i++){now+=16;const callbacks=[...frames.values()];frames.clear();callbacks.forEach(fn=>fn(now));}assert.equal(frames.size,0,'motion converges');}
 function key(deck,name){deck.key({key:name,preventDefault(){}});settle();}
 function real(nodes,extra={},options={}){const deck=new CardDeck(new Element(),{content:{id:'waiting',actions:[{id:'wait',label:'Wait'}]}});const controller=new ProjectController(deck,{startNode:nodes[0].id,nodes,variables:[],library:[],...extra},options);settle();return {deck,controller};}
@@ -111,4 +111,44 @@ for(const openSuccessor of [false,true])test(`actual Linear take recedes its und
  assert.ok(Math.abs(projectedBounds(incoming,340,453,d.settings.perspective).top-projectedBounds(uncompensated,340,453,d.settings.perspective).top)<1e-6,'incoming top starts anchored');
  settle();assert.equal(d.n.x,0);assert.equal(d.nextTakeDepth,0);assert.equal(standalone.controller.state.cardId,'after');
  dispose(d,standalone.controller);c.cancel();dispose(c,container.controller);
+});
+
+for(const resize of [false,true])test(`last Linear inventory deposit waits and fades before its container successor, resize=${resize}`,async()=>{
+ const {InventoryPickup}=await import('../engine/InventoryPickup.js');
+ const {deck,controller}=real([{id:'linear',type:'linear',cards:[item('apple')],connections:{next:'box'}},{id:'box',type:'container',intro:narrative('box-intro'),items:[item('inside')],connections:{next:null}}]);
+ document.body=new Element();
+ const target={slot:0,rect:{left:0,top:560,width:75,height:100}};
+ const exits=[];
+ const adapter={getTarget:()=>target,slotTarget:()=>target,preview(){},setContext(){},cancelPending(){},authorize:()=>({slot:0}),stageDeposit(){},clearDeposit(){},clearExit(){},setExitProgress:value=>exits.push(value)};
+ deck.pickup=new InventoryPickup(deck,adapter);
+ deck.collect();await flush();
+ const advance=ms=>{now+=ms;const callbacks=[...frames.values()];frames.clear();callbacks.forEach(fn=>fn(now));};
+ if(resize){
+   deck.mount.getBoundingClientRect=()=>({left:0,top:0,width:338,height:451});
+   deck.resize.callback([{target:deck.mount}]);
+   assert.equal(deck.phase,'collecting');
+ }
+ advance(450);assert.equal(exits.at(-1),0);assert.equal(controller.state.activeNodeId,'linear');
+ advance(50);assert.equal(exits.at(-1),.5);assert.equal(controller.state.activeNodeId,'linear');
+ advance(50);assert.equal(exits.at(-1),1);
+ settle();assert.equal(controller.state.activeNodeId,'box');dispose(deck,controller);
+});
+
+for(const type of ['linear','container'])test(`${type} upward discard fades the drawer before the next container intro`,async()=>{
+ const {InventoryPickup}=await import('../engine/InventoryPickup.js');
+ const source=type==='linear'?{id:'source',type,cards:[item('apple')]}:{id:'source',type,introEnabled:false,items:[item('apple'),item('other')]};
+ source.connections={next:'box'};
+ const {deck,controller}=real([source,{id:'box',type:'container',intro:narrative('box-intro'),items:[item('inside')],connections:{next:null}}]);
+ const exits=[];deck.pickup=new InventoryPickup(deck,{preview(){},setContext(){},cancelPending(){},clearExit(){},setExitProgress:value=>exits.push(value)});
+ const advance=ms=>{now+=ms;const callbacks=[...frames.values()];frames.clear();callbacks.forEach(fn=>fn(now));};
+ deck.discard();
+ for(let i=0;i<1000&&deck.commitMotion?.drawerExitStart===undefined;i++)advance(16);
+ assert.ok(deck.commitMotion?.drawerExitStart,'discard reaches its drawer exit');
+ assert.equal(exits.at(-1),0);assert.equal(controller.state.activeNodeId,'source');
+ assert.equal(deck.nextFlip.target,1,'successor has not begun its early flip');
+ // Layout changes must not fast-forward the exit either.
+ deck.mount.getBoundingClientRect=()=>({left:0,top:0,width:338,height:451});deck.resize.callback([{target:deck.mount}]);
+ advance(50);assert.equal(exits.at(-1),.5);assert.equal(controller.state.activeNodeId,'source');
+ advance(50);assert.equal(exits.at(-1),1);settle();
+ assert.equal(controller.state.activeNodeId,'box');assert.equal(controller.state.collectedItems.length,0);dispose(deck,controller);
 });

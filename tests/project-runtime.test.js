@@ -65,6 +65,7 @@ test('legacy multi-card fork keeps internal targets and pool queue exits only af
 
 // Browser-shaped harness verifies actual deck event order and asynchronous commits.
 import { CardDeck } from '../engine/CardDeck.js';
+import { InventoryPickup } from '../engine/InventoryPickup.js';
 class Element extends EventTarget {
  constructor(){super();this.attrs=new Map();this.style={};this.children=[];this.parentNode=null;this.classList={add(){},remove(){}};this.captures=new Set();}
  setAttribute(k,v){this.attrs.set(k,String(v));}getAttribute(k){return this.attrs.get(k)??null;}removeAttribute(k){this.attrs.delete(k);}
@@ -358,4 +359,30 @@ test('drawer rejects invalid replacement effects without losing the old item',()
   deck.pickup={}; controller.inventory=['a','b','c','d'].map(id=>({id,definitionId:id}));
   assert.equal(controller.authorizeCollection(item,{replacementId:'b'}),false);
   assert.deepEqual(controller.inventory.map(i=>i.id),['a','b','c','d']); controller.destroy();
+});
+
+for (const reduced of [false,true]) for (const survivor of [false,true]) test(`drawer stays visible when collection unlocks another item, reduced=${reduced}, survivor=${survivor}`,async()=>{
+ const items=[{id:'a',definitionId:'key',kind:'item',name:'Key'},
+  ...(survivor?[{id:'c',definitionId:'coin',kind:'item',name:'Coin'}]:[]),
+  {id:'b',definitionId:'prize',kind:'item',name:'Prize',conditions:[{source:'inventory',key:'key',op:'has'}]}];
+ const errors=[];
+ const {deck,controller}=real([{id:'box',type:'container',intro:narrative('box'),introEnabled:false,items,connections:{next:'after'}},{id:'after',type:'linear',cards:[narrative('after')]}],{},{onError:error=>errors.push(error.stack)});
+ deck.reduced=reduced;
+ const visibility=[],exits=[],events=[];
+ for(const name of ['collect','transitioncomplete','inventoryerror'])deck.addEventListener(name,event=>events.push({name,...event.detail}));
+ const target={slot:0,rect:{left:0,top:560,width:75,height:100}};
+ deck.pickup=new InventoryPickup(deck,{getTarget:()=>target,slotTarget:()=>target,preview(){},presentPreview(){},stageDeposit(){},clearDeposit(){},cancelPending(){},clearExit(){},
+  authorize:()=>({slot:0}),setContext:visible=>visibility.push(visible),setExitProgress:progress=>exits.push(progress)});
+ deck.render();assert.equal(visibility.at(-1),true);
+ visibility.length=0;
+ deck.index=deck.content.actions.findIndex(action=>action.id==='a');
+ deck.collect();await flush();settle();
+ assert.equal(controller.state.activeNodeId,'box');assert.ok(deck.content.actions.some(action=>action.id==='b'));
+ assert.deepEqual(errors,[]);assert.equal(events.some(event=>event.name==='inventoryerror'),false);
+ assert.ok(visibility.length>0);assert.equal(visibility.includes(false),false,'same container never hides the drawer');
+ assert.deepEqual(exits,[],'unlocking another item must not start an exit');
+ assert.equal(deck.preserveInventoryContext,false,'continuation flag is consumed by installation');
+ // The continuation must not suppress a later real departure or its fade.
+ deck.discard();settle();if(!reduced)assert.ok(exits.length>0);assert.equal(visibility.at(-1),false);
+ dispose(deck,controller);
 });

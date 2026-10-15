@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { InventoryView } from '../studio/InventoryView.js';
 class Element {
- constructor(){this.nodes={};this.children=[];this.style={};const classes=new Set();this.classList={add:c=>classes.add(c),toggle:(c,v)=>v?classes.add(c):classes.delete(c),contains:c=>classes.has(c)};this.rect={left:0,top:500,width:340,height:100};}
+ constructor(){this.nodes={};this.children=[];this.style={};const classes=new Set();this.classList={add:c=>classes.add(c),remove:c=>classes.delete(c),toggle:(c,v)=>v?classes.add(c):classes.delete(c),contains:c=>classes.has(c)};this.rect={left:0,top:500,width:340,height:100};}
  querySelector(s){return this.nodes[s]??=new Element();}
  append(...children){this.children.push(...children);}
  replaceChildren(...children){this.children=children;}
@@ -32,11 +32,12 @@ assert.deepEqual(view.slotElements,elements);
 view.slotElements.forEach((element,i)=>element.rect={left:i*85,top:500,width:75,height:100});
 assert.equal(view.getTarget({clientX:310,clientY:550}).slot,3);
 assert.equal(view.getTarget({clientX:310,clientY:410}),null);
-assert.equal(view.getTarget({clientX:310,clientY:460}).snapped,false);
+assert.equal(view.getTarget({clientX:310,clientY:460}),null,'large card stays until close to the mini row');
+assert.equal(view.getTarget({clientX:310,clientY:480}).snapped,false);
 assert.equal(view.getTarget({clientX:310,clientY:535}).snapped,true);
 assert.equal(view.getTarget({clientX:310,clientY:525,snapped:true}).snapped,true);
 assert.equal(view.getTarget({clientX:310,clientY:510,snapped:true}).snapped,false);
-assert.equal(view.getTarget({clientX:310,clientY:425,active:true}).slot,3);
+assert.equal(view.getTarget({clientX:310,clientY:465,active:true}).slot,3);
 assert.deepEqual(await view.authorize({id:'c'},view.slotTarget(3)),{slot:3});
 view.update(items.slice(0,3)); assert.equal(view.slots[3].id,'c'); assert.equal(view.slots[2],null);
 view.update(items); assert.equal(view.slots[2].id,'d');
@@ -80,6 +81,9 @@ test('occupied-slot hover shifts only the queue toward the nearest gap and commi
     assert.match(view.slotElements[2].className,/is-queue-destination/,'hide empty-slot plus under the shifted card');
     assert.deepEqual(view.slots,[a,b,null,null],'hover never commits queue order');
     view.preview(null); assert.deepEqual(transforms(),['','','','']);
+    view.slotElements.forEach((el,i)=>{el.offsetWidth=75;el.rect={left:i*42.5,top:500,width:37.5,height:50};});
+    view.preview(view.slotTarget(0));assert.deepEqual(transforms(),['translateX(85px)','translateX(85px)','',''],'scaled host uses local CSS displacement');
+    view.slotElements.forEach((el,i)=>{delete el.offsetWidth;el.rect={left:i*85,top:500,width:75,height:100};});
     set([null,a,b,c]); view.preview(view.slotTarget(2));
     assert.deepEqual(transforms(),['','translateX(-85px)','translateX(-85px)','']);
     set([null,a,null,c]); view.preview(view.slotTarget(1));
@@ -98,6 +102,82 @@ test('occupied-slot hover shifts only the queue toward the nearest gap and commi
     set([a,b,null,null]);
     const cancelled=await view.authorize(c,view.slotTarget(0)); view.stageDeposit(c,cancelled); view.clearDeposit();
     view.update([a,b]); assert.deepEqual(view.slots,[a,b,null,null],'rollback restores previous layout');
+    view.destroy();
+  } finally {globalThis.document=previousDocument;}
+});
+
+
+test('embedded drawer rejects drops outside its own surface and respects inert hosts',()=>{
+  const previousDocument=globalThis.document;
+  try {
+    globalThis.document={createElement:()=>new Element(),body:new Element()};
+    let bounds={left:100,top:100,width:340,height:520};
+    const root=new Element(),view=new InventoryView(root,{getBounds:()=>bounds});
+    view.setContext(true); view.update([]);
+    view.list.rect={left:100,top:500,width:340,height:100};
+    view.slotElements.forEach((el,i)=>el.rect={left:100+i*85,top:500,width:75,height:100});
+    assert.equal(view.getTarget({clientX:140,clientY:550}).slot,0);
+    assert.equal(view.getTarget({clientX:140,clientY:650}),null,'browser space below host is not a drop zone');
+    assert.equal(view.getTarget({clientX:90,clientY:550,active:true}),null,'hysteresis cannot escape the host');
+    bounds={...bounds,top:200,height:0};assert.equal(view.getTarget({keyboard:true}),null);
+    bounds={left:100,top:100,width:340,height:520};root.closest=()=>({inert:true});
+    assert.equal(view.getTarget({keyboard:true}),null);
+    view.destroy();
+  } finally {globalThis.document=previousDocument;}
+});
+
+
+test('drawer enters only on context changes and preserves controller-driven exit progress',()=>{
+  const previousDocument=globalThis.document;
+  try {
+    globalThis.document={createElement:()=>new Element(),body:new Element()};
+    const root=new Element(),view=new InventoryView(root);
+    let entrances=0;
+    const add=root.classList.add;
+    root.classList.add=className=>{if(className==='is-entering') entrances++;add(className);};
+    view.setContext(true);
+    assert.equal(root.hidden,false);
+    assert.equal(entrances,1);
+    view.update([]);view.setContext(true);view.setContext(true);
+    assert.equal(entrances,1,'engine renders cannot restart entrance');
+    view.setExitProgress(.5);
+    assert.equal(root.classList.contains('is-entering'),false,'entrance cannot override exit progress');
+    assert.equal(root.style.opacity,'0.5');
+    assert.equal(root.style.transform,'translateY(4px)');
+    view.setExitProgress(2);view.setContext(true);view.update([]);
+    assert.equal(root.style.opacity,'0','completed exit stays visually hidden through renders');
+    assert.equal(root.style.transform,'translateY(8px)');
+    assert.equal(entrances,1);
+    view.clearExit();
+    assert.equal(view.exitProgress,0);
+    assert.equal(root.style.opacity,'1');
+    assert.equal(root.style.transform,'translateY(0px)');
+    view.setExitProgress(-1);assert.equal(root.style.opacity,'1','progress clamps to zero');
+    view.setExitProgress(.8);view.setContext(false);
+    assert.equal(root.hidden,true,'context removal hides immediately');
+    view.setContext(true);
+    assert.equal(entrances,2,'a reused context gets a new entrance');
+    assert.equal(root.style.opacity,'1');
+    assert.equal(root.style.transform,'translateY(0px)');
+    view.destroy();
+  } finally {globalThis.document=previousDocument;}
+});
+
+test('exit continues from an interrupted entrance without an opacity or position jump',()=>{
+  const previousDocument=globalThis.document;
+  try {
+    globalThis.document={createElement:()=>new Element(),body:new Element()};
+    const root=new Element(),view=new InventoryView(root);
+    root.ownerDocument={defaultView:{getComputedStyle:()=>({opacity:'.75',transform:'matrix(1, 0, 0, 1, 0, 3)'})}};
+    view.setContext(true);
+    view.setExitProgress(0);
+    assert.equal(root.style.opacity,'0.75');assert.equal(root.style.transform,'translateY(3px)');
+    view.setExitProgress(.5);
+    assert.equal(root.style.opacity,'0.375');assert.equal(root.style.transform,'translateY(7px)');
+    view.setExitProgress(1);assert.equal(root.style.opacity,'0');
+    view.setContext(false);view.setContext(true);
+    root.ownerDocument.defaultView.getComputedStyle=()=>({opacity:'1',transform:'matrix(1, 0, 0, 1, 0, 0)'});
+    view.setExitProgress(.5);assert.equal(root.style.opacity,'0.5');assert.equal(root.style.transform,'translateY(4px)');
     view.destroy();
   } finally {globalThis.document=previousDocument;}
 });

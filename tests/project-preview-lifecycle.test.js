@@ -218,7 +218,7 @@ test('card link is optional, starts enabled after controller assignment, and res
   const standalone = new ProjectPreview(new Element());
   assert.equal(standalone.goToCardButton, undefined); standalone.destroy();
   const root = new Element(), targets = [], inserted = [];
-  root.querySelector('[data-status]').parentNode = { insertBefore: button => inserted.push(button) };
+  root.querySelector('[data-preview-actions]').append = button => inserted.push(button);
   const preview = new ProjectPreview(root, { onGoToCard: target => targets.push(target) });
   const button = preview.goToCardButton;
   assert.equal(button.disabled, true); assert.deepEqual(inserted, [button]);

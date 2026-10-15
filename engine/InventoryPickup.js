@@ -46,8 +46,24 @@ export class InventoryPickup {
   }
   render() {
     const deck = this.deck;
-    deck.mount.setAttribute('data-inventory-context', String(deck.content.interaction === 'container' && deck.open));
-    this.adapter.setContext(deck.content.interaction === 'container' && deck.open && deck.phase !== 'ended' && (deck.cards.length > 0 || !!this.pending));
+    const inContext = deck.preserveInventoryContext || deck.content.interaction === 'container' && deck.open && deck.phase !== 'ended' && (deck.cards.length > 0 || !!this.pending);
+    // Only installation starts a new presentation. Item removal and action
+    // updates rebuild content without restarting its drawer entrance.
+    if (this.contextRevision !== deck.presentationRevision) {
+      this.contextRevision = deck.presentationRevision;
+      if (!deck.preserveInventoryContext) {
+        this.contextEntered = false;
+        this.adapter.setContext(false);
+      }
+    }
+    if (!inContext) this.contextEntered = false;
+    else if (!this.contextEntered && deck.phase === 'choices' && !deck.busy && !deck.openingCommit && !deck.openingReturn
+      && !deck.presentationBrowsePending && (!deck.presentationHint || deck.presentationHint.stage === 'return') && !deck.entrances.size) this.contextEntered = true;
+    // Once entered, keep the drawer through gestures and departures. Rechecking
+    // the entrance conditions on every frame would blink during interaction.
+    const visible = inContext && this.contextEntered;
+    deck.mount.setAttribute('data-inventory-context', String(visible));
+    this.adapter.setContext(visible);
     if (this.target && !this.staged && !this.layer) {
       const action = deck.content.actions.find(action => action.id === this.ownerId);
       if (!action) return;
@@ -62,14 +78,14 @@ export class InventoryPickup {
         const artwork = document.createElement('div'); artwork.className = 'nest-image-vignette';
         artwork.append(image); this.layer.append(artwork);
       }
-      const label = document.createElement('span'); label.textContent = action.name || action.label || 'Item';
-      this.layer.append(label);
-      document.body.append(this.layer);
+      if (!this.adapter.presentPreview) document.body.append(this.layer);
     }
     if (this.layer && this.target) {
       this.layer.className = `nest-inventory-item nest-inventory-drag-preview ${this.target.snapped === false ? 'is-floating' : 'is-docked'}`;
-      Object.assign(this.layer.style, { position: 'fixed', left: `${this.x.x}px`, top: `${this.y.x}px`,
-        width: `${this.target.rect.width}px`, height: `${this.target.rect.height}px`, minHeight: '0', zIndex: '4000', pointerEvents: 'none' });
+      const bounds = { left: this.x.x, top: this.y.x, width: this.target.rect.width, height: this.target.rect.height };
+      if (this.adapter.presentPreview) this.adapter.presentPreview(this.layer, bounds);
+      else Object.assign(this.layer.style, { position: 'fixed', left: `${bounds.left}px`, top: `${bounds.top}px`,
+        width: `${bounds.width}px`, height: `${bounds.height}px`, minHeight: '0', zIndex: '4000', pointerEvents: 'none' });
     }
   }
   restoreLayer() {
@@ -101,6 +117,14 @@ export class InventoryPickup {
     ++this.serial; this.pending = false;
     this.adapter.cancelPending?.(); this.preview(null);
   }
+  readyToProgress(time, start, hold = 450) {
+    // Deposits hold briefly in their slot; discards pass zero hold. Both
+    // finish the drawer fade before permitting the next presentation.
+    const elapsed = time - start;
+    if (elapsed < hold) return false;
+    this.adapter.setExitProgress(Math.min(1, (elapsed - hold) / 100));
+    return elapsed >= hold + 100;
+  }
   accept(action, decision) {
     if (!this.adapter.stageDeposit) return;
     this.adapter.stageDeposit(action, decision);
@@ -109,7 +133,7 @@ export class InventoryPickup {
   }
   reset({ completed = false } = {}) {
     this.cancel();
-    if (!completed) this.adapter.clearDeposit?.();
+    if (!completed) { this.adapter.clearDeposit?.(); this.adapter.clearExit?.(); }
     this.staged = false;
     for (const state of this.states) { state.x = state.target; state.v = 0; }
   }

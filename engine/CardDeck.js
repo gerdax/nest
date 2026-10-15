@@ -33,6 +33,7 @@ export class CardDeck extends EventTarget {
     this.mount = mount;
     this.settings = settingsWith(settings);
     this.content = validate(content);
+    this.presentationRevision = 0;
     this.presentationBrowsePending = this.content.autoBrowse === true;
     this.index = Math.max(0, this.content.actions.findIndex(a => a.entrance !== 'bottom'));
     this.open = false;
@@ -133,9 +134,12 @@ export class CardDeck extends EventTarget {
       const wasDragging = !!this.drag;
       if (this.pickup?.pending || this.pickup?.mix.x > 0 && !this.collectMotion) { this.pickup.cancel(); this.cancelPickup(); }
       if (wasDragging) { this.input.cancel(); this.cancel(); }
-      // A resize changes the departure distance and the entire turn envelope.
-      // Finish the active choreography before painting the new dimensions.
-      if (wasDragging || this.busy || this.openingCommit || this.openingReturn || this.open && this.entrances.size) this.finishMotion();
+      // A deposited mini is already in its slot: its hold/fade clock does not
+      // depend on deck geometry. Layout changes must not skip that feedback.
+      const depositing = this.collectMotion?.deposit && this.collectMotion.final;
+      const fadingDiscard = this.pickup?.adapter.setExitProgress && (this.commitMotion?.discardItem || this.commitMotion?.discardAll);
+      // Other departures depend on the resized turn envelope and must finish.
+      if (!depositing && !fadingDiscard && (wasDragging || this.busy || this.openingCommit || this.openingReturn || this.open && this.entrances.size)) this.finishMotion();
       this.ensureCoverClearance();
       this.render();
     });
@@ -302,6 +306,9 @@ export class CardDeck extends EventTarget {
 
   tryEarlyFlip(time) {
     if (!this.pending || (this.pendingPresentation !== 'closed' && !this.pending?.decisionOnly) || !this.commitMotion || this.nextFlip.target === 0) return;
+    // Discarding an item leaves drawer context too. Its exit must finish
+    // before the successor's early flip can begin.
+    if (this.pickup?.adapter.setExitProgress && (this.commitMotion.discardItem || this.commitMotion.discardAll)) return;
     if (time < this.commitMotion.start + Math.max(0, this.commitMotion.duration - this.settings.flipLeadMs)) return;
     const { width, height } = this.mount.getBoundingClientRect();
     const area = turningBounds({ x: 0, y: 0, z: -24 + (this.reduced ? 0 : flipLift(.5, this.settings)), turnAxis: this.settings.flipAxisTilt }, width, height, this.settings.perspective);
@@ -930,6 +937,7 @@ export class CardDeck extends EventTarget {
 
   itemCleared(time) {
     const motion = this.collectMotion, bounds = this.mount.getBoundingClientRect();
+    if (motion.deposit && motion.final && !this.preserveInventoryContext && this.pickup?.adapter.setExitProgress && !this.reduced && !document.hidden) return this.pickup.readyToProgress(time, motion.start);
     if (motion.deposit) return time - motion.start >= motion.duration && (this.reduced || this.pickup.states.every(state => this.atRest(state)));
     const area = projectedBounds(cardPose(this, motion.index, time), bounds.width, bounds.height, this.settings.perspective);
     return motion.direction > 0 ? area.top + (bounds.top || 0) >= (globalThis.innerHeight || bounds.height + (bounds.top || 0)) + 8
@@ -1063,6 +1071,7 @@ export class CardDeck extends EventTarget {
   endContent() {
     if (this.destroyed) return;
     this.ending = true;
+    this.preserveInventoryContext = false;
     this.pending = null;
     this.forwardDeck?.cardLayers.forEach(layer => layer.remove());
     this.forwardDeck = null;
@@ -1205,11 +1214,15 @@ export class CardDeck extends EventTarget {
     this.schedule();
   }
 
-  replaceContent(content, { presentation = 'closed', transition = 'flip', animate = true } = {}) {
+  replaceContent(content, { presentation = 'closed', transition = 'flip', animate = true, preserveInventoryContext = false } = {}) {
     if (this.destroyed) return;
     if (!['closed', 'open'].includes(presentation)) throw new TypeError('Unknown presentation');
     if (!['flip', 'reveal'].includes(transition)) throw new TypeError('Unknown content transition');
     const next = validate(content);
+    // Only the controller can identify a continuation of the same container.
+    preserveInventoryContext = Boolean(preserveInventoryContext && this.open && presentation === 'open'
+      && this.content.interaction === 'container' && next.interaction === 'container' && next.actions.length);
+    this.preserveInventoryContext = preserveInventoryContext;
     // A coverless successor still turns when a story leaves its node.
     if (this.coverDeparture && transition === 'flip' && presentation === 'open') next.decisionOnly = true;
     if (this.busy && (this.phase === 'committing' || (this.phase === 'collecting' && this.collectMotion?.final))) {
@@ -1230,8 +1243,8 @@ export class CardDeck extends EventTarget {
     }
     const hintState = !animate && presentation === 'open' && this.content.autoBrowse && next.autoBrowse && this.cards.length > 1
       ? { pending: this.presentationBrowsePending, hint: this.presentationHint, browse: { ...this.b } } : null;
-    this.reset();
-    this.install(next, { open: presentation === 'open' });
+    this.reset({ preserveInventoryContext });
+    this.install(next, { open: presentation === 'open', preserveInventoryContext });
     if (presentation === 'open' && !animate) {
       this.entrances.clear();
       this.entranceTransition = null;
@@ -1252,7 +1265,9 @@ export class CardDeck extends EventTarget {
     }
   }
 
-  install(content, { faceDown = false, open = false, selectedId, staged = null, stagedDepth = staged ? 1 : 0, flipState = null, backTransition = null, takeRecession = 0 } = {}) {
+  install(content, { faceDown = false, open = false, selectedId, staged = null, stagedDepth = staged ? 1 : 0, flipState = null, backTransition = null, takeRecession = 0, preserveInventoryContext = false } = {}) {
+    this.preserveInventoryContext = preserveInventoryContext;
+    ++this.presentationRevision;
     this.clearGrab();
     this.backTransition = backTransition;
     this.nextTakeDepth = 0;
@@ -1310,6 +1325,7 @@ export class CardDeck extends EventTarget {
       }
     }
     this.render();
+    this.preserveInventoryContext = false;
   }
 
   completeCommit() {
@@ -1338,6 +1354,7 @@ export class CardDeck extends EventTarget {
       this.open = false;
       this.phase = 'ended';
       this.mount.replaceChildren();
+      this.pickup?.render();
       this.emit('transitioncomplete', { transition: 'commit' });
       return;
     }
@@ -1345,11 +1362,12 @@ export class CardDeck extends EventTarget {
       const next = this.pending;
       const presentation = this.pendingPresentation;
       const transition = this.pendingTransition;
+      const preserveInventoryContext = this.preserveInventoryContext;
       this.pending = null;
       if (presentation === 'open' && next.decisionOnly && transition === 'flip') {
         const staged = this.forwardDeck;
         const flipState = { ...this.nextFlip, target: 0 };
-        this.install(next, { open: true, staged, stagedDepth, flipState, backTransition, takeRecession });
+        this.install(next, { open: true, staged, stagedDepth, flipState, backTransition, takeRecession, preserveInventoryContext });
         this.commitTransition = introduction ? 'reveal' : 'commit';
         this.fan.target = 1;
         this.phase = 'committing';
@@ -1361,7 +1379,7 @@ export class CardDeck extends EventTarget {
       }
       if (presentation === 'open') {
         const staged = this.forwardDeck;
-        this.install(next, { open: true, staged, stagedDepth, backTransition, takeRecession });
+        this.install(next, { open: true, staged, stagedDepth, backTransition, takeRecession, preserveInventoryContext });
         this.busy = false;
         this.openingCommit = this.open;
         if (!this.open) this.emit('transitioncomplete', { transition: 'commit' });
@@ -1370,7 +1388,7 @@ export class CardDeck extends EventTarget {
         return;
       }
       const flipState = transition === 'reveal' ? spring(0) : { ...this.nextFlip, target: 0 };
-      this.install(next, { faceDown: true, stagedDepth, flipState, backTransition, takeRecession });
+      this.install(next, { faceDown: true, stagedDepth, flipState, backTransition, takeRecession, preserveInventoryContext });
       this.flip.target = 0;
       this.n = spring(stagedDepth);
       this.n.target = 0;
@@ -1398,8 +1416,9 @@ export class CardDeck extends EventTarget {
     if (!this.drag) this.schedule();
   }
 
-  reset() {
+  reset({ preserveInventoryContext = false } = {}) {
     if (this.destroyed) return;
+    this.preserveInventoryContext = preserveInventoryContext;
     this.pickup?.reset();
     this.input.cancel();
     cancelAnimationFrame(this.frame);
@@ -1416,7 +1435,7 @@ export class CardDeck extends EventTarget {
     this.pendingTransition = 'flip';
     this.pending = null;
     this.busy = false;
-    this.install(this.content);
+    this.install(this.content, { preserveInventoryContext });
   }
 
   schedule() {
@@ -1498,9 +1517,13 @@ export class CardDeck extends EventTarget {
       const offsetsClear = this.coverDeparture ? projectedBounds(scenePose(this, t), bounds.width, bounds.height, this.settings.perspective).bottom <= -8 : (!this.commitMotion.discardAll && !this.commitMotion.discardItem && !this.reflowOffsets.size && !this.grabCards.size) || this.cards.every((_, i) =>
         projectedBounds(cardPose(this, i, t), bounds.width, bounds.height, this.settings.perspective).bottom <= -8);
       if (t - this.commitMotion.start >= duration && offsetsClear) {
-        this.completeCommit();
-        this.last = 0;
-        return;
+        const fade = this.pickup?.adapter.setExitProgress && (this.commitMotion.discardItem || this.commitMotion.discardAll);
+        if (fade) this.commitMotion.drawerExitStart ??= t;
+        if (!fade || this.pickup.readyToProgress(t, this.commitMotion.drawerExitStart, 0)) {
+          this.completeCommit();
+          this.last = 0;
+          return;
+        }
       }
       for (const rotation of [this.rotationX, this.rotationY, this.rotationZ, this.nextFlip]) this.stepAngular(rotation, dt);
       this.render(t);

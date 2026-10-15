@@ -5,11 +5,11 @@
 .nest-inventory-item .nest-image-vignette{position:absolute;inset:0;}
 
 /* The current player drawer; the strip rules above remain available to legacy previews. */
-.nest-inventory.nest-inventory-drawer{position:fixed;inset:auto 0 0;z-index:3000;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0;margin:0;border:0;border-radius:0;padding:36px max(12px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));background:transparent;box-shadow:none;backdrop-filter:none;pointer-events:none;color:#eee}
+.nest-inventory.nest-inventory-drawer{position:absolute;inset:auto 0 var(--inventory-footer-height,44px);z-index:3000;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0;margin:0;border:0;border-radius:0;padding:30px max(12px,env(safe-area-inset-right)) 16px max(12px,env(safe-area-inset-left));background:transparent;box-shadow:none;backdrop-filter:none;pointer-events:none;color:#eee}
 .nest-inventory.nest-inventory-drawer[hidden]{display:none}
 .nest-inventory-drawer .nest-inventory-heading{width:min(100%,340px);margin:0;color:#ccc;font-size:10px}
 .nest-inventory-drawer .nest-inventory-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;width:min(100%,340px);padding:0;margin:0;overflow:visible;touch-action:none;pointer-events:auto}
-.nest-inventory-drawer .nest-inventory-slot{box-sizing:border-box;position:relative;display:block;width:auto;min-width:0;height:100px;min-height:0;overflow:hidden;border:1px solid #747474;border-radius:7px;background:#161616;transition:border-color .15s,box-shadow .15s,transform .15s}
+.nest-inventory-drawer .nest-inventory-slot{box-sizing:border-box;position:relative;display:block;width:auto;min-width:0;height:100px;min-height:0;overflow:visible;border:1px solid #747474;border-radius:7px;background:#161616;transition:border-color .15s,box-shadow .15s,transform .15s}
 .nest-inventory-drawer .nest-inventory-slot>button{position:relative;display:flex;align-items:flex-end;width:100%;height:100%;padding:0;border:0;border-radius:inherit;color:inherit;background:none;cursor:pointer;font:inherit;text-align:left;touch-action:manipulation}
 .nest-inventory-drawer .nest-inventory-slot>button:focus-visible{outline:3px solid #f4e8b6;outline-offset:-4px}
 .nest-inventory-drawer .nest-inventory-slot.is-empty{display:flex;align-items:center;justify-content:center;background:#1118;border-style:dashed;border-color:#8888}
@@ -21,7 +21,7 @@
 .nest-inventory-drawer .nest-inventory-picker:empty{display:none}
 .nest-inventory-drawer .nest-inventory-overflow{display:flex;flex-wrap:wrap;gap:8px;list-style:none;margin:0;padding:0}
 .nest-inventory-drawer .nest-inventory-overflow li{width:80px}
-.nest-inventory-drawer .nest-inventory-overflow button{position:relative;display:flex;align-items:flex-end;overflow:hidden;width:80px;height:104px;padding:0;background:#151515;color:#eee;border:1.5px solid #393939;border-radius:9px;text-align:left;cursor:pointer}
+.nest-inventory-drawer .nest-inventory-overflow button{position:relative;display:flex;align-items:flex-end;overflow:hidden;width:80px;height:104px;padding:0;background:#151515;color:#eee;border:1.5px solid #303030;border-radius:9px;text-align:left;cursor:pointer}
 .nest-inventory-drawer .nest-inventory-overflow .nest-image-vignette{position:absolute;inset:0}
 .nest-inventory-drawer .nest-inventory-overflow img{width:100%;height:100%;object-fit:cover}
 .nest-inventory-drawer .nest-inventory-overflow span{position:relative;width:100%;padding:12px 5px 5px;background:linear-gradient(transparent,#000);font-size:11px;overflow-wrap:anywhere}
@@ -31,23 +31,19 @@
 @keyframes nest-inventory-replace-pulse{50%{border-color:#f6d395}}
 @media(prefers-reduced-motion:reduce){.nest-inventory-drawer.is-full-drag .nest-inventory-slot{animation:none}}
 
-.nest-inventory-drag-preview{box-sizing:border-box;border:1.5px solid #393939;border-radius:10.5px;background:#161a13;box-shadow:0 0 0 2px #dce5b933,0 8px 22px #000a;pointer-events:none;user-select:none}
+.nest-inventory-drag-preview{box-sizing:border-box;border:1.5px solid #303030;border-radius:10.5px;background:#161a13;box-shadow:0 0 0 2px #dce5b933,0 8px 22px #000a;pointer-events:none;user-select:none}
 .nest-inventory-drag-preview .nest-image-vignette{position:absolute;inset:0}
 
 /* Only card contents move: stable slot shells keep hit targets deterministic. */
 .nest-inventory-drawer .nest-inventory-slot>button{overflow:hidden;transition:transform 280ms cubic-bezier(.25,.1,.25,1),opacity 220ms ease}
-.nest-inventory-drawer .nest-inventory-slot.is-replacement{overflow:visible;background:transparent}
-.nest-inventory-drag-preview.is-floating{box-shadow:0 12px 28px #0008;border-color:#393939}
+.nest-inventory-drag-preview.is-floating{box-shadow:0 12px 28px #0008;border-color:#303030}
 .nest-inventory-drag-preview.is-docked{box-shadow:0 4px 12px #0006}
 @media(prefers-reduced-motion:reduce){.nest-inventory-drawer .nest-inventory-slot>button{transition:none}}
 
-.nest-inventory-drawer .nest-inventory-slot.is-shifted{overflow:visible;border-color:transparent;background:transparent;animation:none}
-.nest-inventory-drawer .nest-inventory-slot.is-shifted>button{box-shadow:0 0 0 1px #747474}
 
-/* The drawer has no painted panel. Only this translucent layer sits behind cards. */
-.nest-inventory.nest-inventory-drawer::before{content:'';position:absolute;inset:-84px 0 0;z-index:-1;pointer-events:none;background:linear-gradient(to bottom,transparent 0%,rgb(0 0 0 / 72%) 45%,rgb(0 0 0 / 92%) 100%)}
+/* The first 30px fade into an opaque surface at the exact top of the minis. */
+.nest-inventory.nest-inventory-drawer::before{content:'';position:absolute;inset:0;z-index:-1;pointer-events:none;background:linear-gradient(to bottom,transparent 0,#000 30px,#000 100%)}
 .nest-inventory-drawer .nest-inventory-slot,.nest-inventory-drawer .nest-inventory-slot.is-empty{background:transparent}
-.chapter-preview-stage:has([data-inventory-context="true"]){overflow:visible}
 
 
 .nest-inventory-drawer .nest-inventory-slot.is-queue-destination>span{visibility:hidden}
@@ -57,8 +53,35 @@
 .nest-inventory-drawer .nest-inventory-slot.is-empty,
 .nest-inventory-drawer .nest-inventory-slot.is-shifted,
 .nest-inventory-drawer .nest-inventory-slot.is-replacement{background:transparent;border:0;border-radius:0;box-shadow:none;animation:none}
-.nest-inventory-drawer .nest-inventory-slot>button{border:1.5px solid #393939;border-radius:10.5px;box-sizing:border-box}
+.nest-inventory-drawer .nest-inventory-slot>button{border:1.5px solid #303030;border-radius:10.5px;box-sizing:border-box}
 .nest-inventory-drawer .nest-inventory-slot.is-shifted>button{box-shadow:none}
 
 .nest-inventory-drawer .nest-inventory-slot::before{content:'';position:absolute;inset:0;background:url('../assets/img/ui/mini_place.png') center / 100% 100% no-repeat;opacity:.5;pointer-events:none}
 .nest-inventory-drawer .nest-inventory-slot>button{z-index:1}
+
+/* A surface, rather than the drawer, chooses viewport or component anchoring. */
+.nest-inventory-surface{position:absolute;inset:0;z-index:3000;pointer-events:none;overflow:hidden}
+.project-preview--embedded{box-sizing:border-box;min-height:100%;padding-bottom:140px}
+
+.nest-inventory-surface .nest-inventory-drawer .nest-inventory-slot{height:auto;aspect-ratio:3/4}
+
+/* Entrance runs once per context; controller-driven exits use inline progress. */
+.nest-inventory.nest-inventory-drawer{opacity:1;transform:translateY(0)}
+.nest-inventory.nest-inventory-drawer.is-entering{animation:nest-inventory-enter 180ms ease-out 0ms backwards}
+@keyframes nest-inventory-enter{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){.nest-inventory.nest-inventory-drawer{transform:none!important}.nest-inventory.nest-inventory-drawer.is-entering{animation:none}}
+
+.nest-inventory.nest-inventory-drawer::before{bottom:calc(-1 * (var(--inventory-footer-height,44px) + 16px))}
+.nest-inventory-drawer .nest-inventory-slot>button{min-height:0;isolation:isolate;clip-path:inset(0 round 10.5px)}
+.nest-inventory-drawer .nest-inventory-slot>button>.nest-image-vignette{border-radius:inherit}
+/* Busy state disables actions, without applying the host app's dimmed-button style. */
+.nest-inventory-drawer .nest-inventory-slot>button:disabled{opacity:1}
+
+/* Keep mini artwork above center; translate composes with authored horizontal flips. */
+.nest-inventory-drawer .nest-inventory-slot>button>.nest-image-vignette>img,
+.nest-inventory-drawer .nest-inventory-overflow .nest-image-vignette>img,
+.nest-inventory-drag-preview>.nest-image-vignette>img{translate:0 -12.5%}
+
+.nest-inventory-drawer .nest-inventory-slot>button,
+.nest-inventory-drawer .nest-inventory-overflow button,
+.nest-inventory-drag-preview{background:#000}

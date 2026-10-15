@@ -1,4 +1,6 @@
-.chapter-preview-stage { display:grid;place-items:center;min-height:440px;padding:24px 38px 30px;gap:22px;overflow:hidden; }
+/* Perspective turns extend beyond the resting stage. The outer player/preview
+   viewport owns clipping, independently of inventory visibility. */
+.chapter-preview-stage { display:grid;place-items:center;min-height:440px;padding:24px 38px 30px;gap:clamp(42px,12vw,50px);overflow:visible; }
 .chapter-preview-deck { width:min(100%,276px);aspect-ratio:3/4; }
 .project-preview [data-status] { overflow-wrap:anywhere; }
 .project-preview [data-state] pre { white-space:pre-wrap; }
@@ -21,3 +23,9 @@
 .player-resource[hidden] {display:none;}
 .player-resource img {width:24px;height:27px;object-fit:contain;}
 .player-resource[data-health] img {width:26px;height:23px;}
+
+.preview-footer{position:absolute;inset:auto 0 0;z-index:3100;box-sizing:border-box;display:flex;align-items:flex-end;justify-content:space-between;gap:12px;min-height:44px;padding:8px 12px max(8px,env(safe-area-inset-bottom));color:#89947c;pointer-events:auto;background:#000}
+.preview-footer [data-state]{min-width:0;max-width:75%;font-size:12px}
+.preview-footer [data-state] pre{max-height:160px;overflow:auto;margin:8px 0 0}
+.preview-footer [data-preview-actions]{margin-left:auto;flex-shrink:0}
+.preview-footer [data-go-to-card]{border:0;padding:0;background:transparent;color:inherit;text-decoration:underline;font:inherit;font-size:12px}

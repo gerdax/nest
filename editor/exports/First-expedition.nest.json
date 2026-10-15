@@ -7,12 +7,18 @@
   "library": [
     {
       "id": "arrival",
-      "kind": "event",
+      "kind": "caption",
       "name": "arrival",
       "heading": "",
       "text": "Your expedition begins at the edge of the city.",
       "image": "./assets/img/city.png",
-      "effects": [],
+      "effects": [
+        {
+          "op": "add",
+          "key": "energy",
+          "value": 3
+        }
+      ],
       "showName": true
     },
     {
@@ -24,9 +30,9 @@
       "image": "./assets/img/Gemini_Generated_Image_ptpu4wptpu4wptpu.jpeg",
       "onCollect": [],
       "showName": true,
-      "imageScale": 100,
+      "imageScale": 94,
       "imageOffsetY": -17,
-      "imageOffsetX": -4
+      "imageOffsetX": -8
     },
     {
       "id": "explore",
@@ -35,7 +41,13 @@
       "heading": "",
       "text": "Follow the corridor",
       "image": "./assets/img/corridor_02.png",
-      "conditions": [],
+      "conditions": [
+        {
+          "source": "inventory",
+          "key": "flashlight",
+          "op": "has"
+        }
+      ],
       "costs": [],
       "effects": [],
       "resolution": "direct",
@@ -57,10 +69,10 @@
       "kind": "event",
       "name": "The box",
       "heading": "",
-      "text": "There's an open crate on the floor.",
+      "text": "You find a crate on the floor.",
       "image": "./assets/img/090a49aa-cc2d-454d-a93b-aeb16d134a7f.jpeg",
       "effects": [],
-      "flipImage": false,
+      "flipImage": true,
       "imageScale": 96,
       "imageOffsetY": -12,
       "imageOffsetX": -1
@@ -354,7 +366,7 @@
     {
       "id": "narrative-5ab5d753",
       "kind": "caption",
-      "name": "",
+      "name": "where?",
       "heading": "",
       "showName": false,
       "text": "Where are you?",
@@ -468,38 +480,8 @@
       "successEffects": [],
       "failureEffects": [],
       "visibility": "local",
-      "imageScale": 89,
+      "imageScale": 78,
       "imageOffsetY": -7
-    },
-    {
-      "id": "action-871734d5",
-      "kind": "action",
-      "name": "Open",
-      "heading": "",
-      "showName": true,
-      "text": "Open it.",
-      "image": "./assets/img/Gemini_Generated_Image_j82i4ej82i4ej82i.jpeg",
-      "conditions": [],
-      "costs": [],
-      "effects": [],
-      "resolution": "direct",
-      "check": {
-        "pool": [
-          {
-            "sides": 20,
-            "count": 1
-          }
-        ],
-        "modifier": 0,
-        "target": 10
-      },
-      "successEffects": [],
-      "failureEffects": [],
-      "visibility": "local",
-      "flipImage": false,
-      "imageScale": 88,
-      "imageOffsetY": -8,
-      "imageOffsetX": -2
     },
     {
       "id": "narrative-6e3cb1dd",
@@ -631,7 +613,10 @@
       "text": "Run, Lazarus, this may be it!",
       "image": "./assets/img/Gemini_Generated_Image_%20(4).jpeg",
       "effects": [],
-      "visibility": "local"
+      "visibility": "local",
+      "imageOffsetY": -20,
+      "imageScale": 94,
+      "imageOffsetX": -1
     },
     {
       "id": "narrative-16a87edb",
@@ -709,12 +694,17 @@
       "name": "Door found",
       "heading": "",
       "showName": false,
-      "text": "You approach a steel metal door",
+      "text": "Hmm.. a metal door.",
       "image": "./assets/img/7554c938-21d3-4906-92ac-927f1e060d5a.jpeg",
-      "effects": [],
+      "effects": [
+        {
+          "op": "addItem",
+          "key": "item-1dbec0f5"
+        }
+      ],
       "visibility": "local",
       "imageScale": 85,
-      "imageOffsetY": -3
+      "imageOffsetY": -15
     },
     {
       "id": "narrative-12024784",
@@ -833,7 +823,7 @@
       "kind": "event",
       "name": "Event",
       "showName": false,
-      "text": "The steel is cold and lifeless.",
+      "text": "The steel feels old and lifeless.",
       "image": "./assets/img/Gemini_Generated_Image_rdw0tlrdw0tlrdw0.jpeg",
       "effects": [],
       "visibility": "local"
@@ -877,7 +867,7 @@
       "successEffects": [],
       "failureEffects": [],
       "visibility": "local",
-      "imageScale": 84,
+      "imageScale": 76,
       "imageOffsetX": 0,
       "imageOffsetY": -4,
       "flipImage": false
@@ -885,7 +875,7 @@
     {
       "id": "caption-bd920e3c",
       "kind": "caption",
-      "name": "New narrative",
+      "name": "",
       "heading": "",
       "showName": false,
       "text": "You carefully push the handle and open the door and step into an empty dark corridor.",
@@ -956,10 +946,10 @@
     {
       "id": "action-d8295cbc",
       "kind": "action",
-      "name": "Explore",
+      "name": "Approach",
       "heading": "",
-      "text": "Follow the corridor",
-      "image": "./assets/img/Gemini_Generated_Image_tpikwetpikwetpik.jpeg",
+      "text": "Approach",
+      "image": "./assets/img/Gemini_Generated_Image_wvi1h8wvi1h8wvi1.jpeg",
       "conditions": [],
       "costs": [],
       "effects": [],
@@ -976,10 +966,552 @@
       },
       "successEffects": [],
       "failureEffects": [],
+      "visibility": "shared",
+      "flipImage": false,
+      "imageOffsetY": 4,
+      "imageScale": 81,
+      "imageOffsetX": 4
+    },
+    {
+      "id": "item-1dbec0f5",
+      "kind": "item",
+      "name": "Lockpick",
+      "showName": true,
+      "text": "Might help you get inside.",
+      "image": "./assets/img/Gemini_Generated_Image_xdcidexdcidexdci.jpeg",
+      "onCollect": [],
+      "imageOffsetY": -21,
+      "imageScale": 104
+    },
+    {
+      "id": "action-36384034",
+      "kind": "action",
+      "name": "Pick the lock",
+      "showName": false,
+      "text": "Pick the lock",
+      "image": "./assets/img/Gemini_Generated_Image_rz1fa9rz1fa9rz1f.jpeg",
+      "conditions": [],
+      "costs": [],
+      "effects": [
+        {
+          "op": "set",
+          "key": "energy",
+          "value": 10
+        }
+      ],
+      "resolution": "direct",
+      "check": {
+        "pool": [
+          {
+            "sides": 20,
+            "count": 1
+          }
+        ],
+        "modifier": 0,
+        "target": 10
+      },
+      "successEffects": [],
+      "failureEffects": [],
+      "visibility": "shared",
+      "imageScale": 69,
+      "imageOffsetY": -10,
+      "imageOffsetX": 4
+    },
+    {
+      "id": "item-748bf01a",
+      "kind": "item",
+      "name": "New Item",
+      "showName": true,
+      "text": "",
+      "image": "",
+      "onCollect": [],
+      "visibility": "local"
+    },
+    {
+      "id": "action-05c576dd",
+      "kind": "action",
+      "name": "Put some light",
+      "showName": false,
+      "text": "Put some light on it.",
+      "image": "",
+      "conditions": [],
+      "costs": [
+        {
+          "source": "variable",
+          "key": "energy",
+          "amount": 1
+        }
+      ],
+      "effects": [],
+      "resolution": "direct",
+      "check": {
+        "pool": [
+          {
+            "sides": 20,
+            "count": 1
+          }
+        ],
+        "modifier": 0,
+        "target": 10
+      },
+      "successEffects": [],
+      "failureEffects": [],
+      "visibility": "local"
+    },
+    {
+      "id": "action-d8a92ca6",
+      "kind": "action",
+      "name": "Pick the lock",
+      "showName": false,
+      "text": "Pick the lock",
+      "image": "./assets/img/Gemini_Generated_Image_rz1fa9rz1fa9rz1f.jpeg",
+      "conditions": [],
+      "costs": [],
+      "effects": [
+        {
+          "op": "set",
+          "key": "energy",
+          "value": 10
+        }
+      ],
+      "resolution": "direct",
+      "check": {
+        "pool": [
+          {
+            "sides": 20,
+            "count": 1
+          }
+        ],
+        "modifier": 0,
+        "target": 10
+      },
+      "successEffects": [],
+      "failureEffects": [],
       "visibility": "local",
+      "imageScale": 69,
+      "imageOffsetY": -10,
+      "imageOffsetX": 4
+    },
+    {
+      "id": "caption-6c0e1a4b",
+      "kind": "caption",
+      "name": "arrival",
+      "heading": "",
+      "text": "Your expedition begins at the edge of the city.",
+      "image": "./assets/img/city.png",
+      "effects": [
+        {
+          "op": "add",
+          "key": "energy",
+          "value": 3
+        }
+      ],
+      "showName": true,
+      "visibility": "local"
+    },
+    {
+      "id": "action-b5024929",
+      "kind": "action",
+      "name": "Pick the lock",
+      "showName": false,
+      "text": "Pick the lock",
+      "image": "./assets/img/Gemini_Generated_Image_rz1fa9rz1fa9rz1f.jpeg",
+      "conditions": [],
+      "costs": [],
+      "effects": [
+        {
+          "op": "set",
+          "key": "energy",
+          "value": 10
+        }
+      ],
+      "resolution": "direct",
+      "check": {
+        "pool": [
+          {
+            "sides": 20,
+            "count": 1
+          }
+        ],
+        "modifier": 0,
+        "target": 10
+      },
+      "successEffects": [],
+      "failureEffects": [],
+      "visibility": "local",
+      "imageScale": 69,
+      "imageOffsetY": -10,
+      "imageOffsetX": 4
+    },
+    {
+      "id": "action-2a8c1446",
+      "kind": "action",
+      "name": "Pick the lock",
+      "showName": false,
+      "text": "Pick the lock",
+      "image": "./assets/img/Gemini_Generated_Image_rz1fa9rz1fa9rz1f.jpeg",
+      "conditions": [],
+      "costs": [],
+      "effects": [
+        {
+          "op": "set",
+          "key": "energy",
+          "value": 10
+        }
+      ],
+      "resolution": "direct",
+      "check": {
+        "pool": [
+          {
+            "sides": 20,
+            "count": 1
+          }
+        ],
+        "modifier": 0,
+        "target": 10
+      },
+      "successEffects": [],
+      "failureEffects": [],
+      "visibility": "local",
+      "imageScale": 69,
+      "imageOffsetY": -10,
+      "imageOffsetX": 4
+    },
+    {
+      "id": "action-d06ee5ae",
+      "kind": "action",
+      "name": "Pick the lock",
+      "showName": false,
+      "text": "Pick the lock",
+      "image": "./assets/img/Gemini_Generated_Image_rz1fa9rz1fa9rz1f.jpeg",
+      "conditions": [],
+      "costs": [],
+      "effects": [
+        {
+          "op": "set",
+          "key": "energy",
+          "value": 10
+        }
+      ],
+      "resolution": "direct",
+      "check": {
+        "pool": [
+          {
+            "sides": 20,
+            "count": 1
+          }
+        ],
+        "modifier": 0,
+        "target": 10
+      },
+      "successEffects": [],
+      "failureEffects": [],
+      "visibility": "local",
+      "imageScale": 69,
+      "imageOffsetY": -10,
+      "imageOffsetX": 4
+    },
+    {
+      "id": "item-46d61fd7",
+      "kind": "item",
+      "name": "Flashlight",
+      "heading": "",
+      "text": "A regular military flashlight,",
+      "image": "./assets/img/Gemini_Generated_Image_ptpu4wptpu4wptpu.jpeg",
+      "onCollect": [],
+      "showName": true,
+      "imageScale": 94,
+      "imageOffsetY": -17,
+      "imageOffsetX": -8,
+      "visibility": "local"
+    },
+    {
+      "id": "action-1594df88",
+      "kind": "action",
+      "name": "Pick the lock",
+      "showName": false,
+      "text": "Pick the lock",
+      "image": "./assets/img/Gemini_Generated_Image_rz1fa9rz1fa9rz1f.jpeg",
+      "conditions": [],
+      "costs": [],
+      "effects": [
+        {
+          "op": "set",
+          "key": "energy",
+          "value": 10
+        }
+      ],
+      "resolution": "direct",
+      "check": {
+        "pool": [
+          {
+            "sides": 20,
+            "count": 1
+          }
+        ],
+        "modifier": 0,
+        "target": 10
+      },
+      "successEffects": [],
+      "failureEffects": [],
+      "visibility": "local",
+      "imageScale": 69,
+      "imageOffsetY": -10,
+      "imageOffsetX": 4
+    },
+    {
+      "id": "action-c0cae3cc",
+      "kind": "action",
+      "name": "Pick the lock",
+      "showName": false,
+      "text": "Pick the lock",
+      "image": "./assets/img/Gemini_Generated_Image_rz1fa9rz1fa9rz1f.jpeg",
+      "conditions": [],
+      "costs": [],
+      "effects": [
+        {
+          "op": "set",
+          "key": "energy",
+          "value": 10
+        }
+      ],
+      "resolution": "direct",
+      "check": {
+        "pool": [
+          {
+            "sides": 20,
+            "count": 1
+          }
+        ],
+        "modifier": 0,
+        "target": 10
+      },
+      "successEffects": [],
+      "failureEffects": [],
+      "visibility": "local",
+      "imageScale": 69,
+      "imageOffsetY": -10,
+      "imageOffsetX": 4
+    },
+    {
+      "id": "action-82d2c0ef",
+      "kind": "action",
+      "name": "Pick the lock",
+      "showName": false,
+      "text": "Pick the lock",
+      "image": "./assets/img/Gemini_Generated_Image_rz1fa9rz1fa9rz1f.jpeg",
+      "conditions": [],
+      "costs": [],
+      "effects": [
+        {
+          "op": "set",
+          "key": "energy",
+          "value": 10
+        }
+      ],
+      "resolution": "direct",
+      "check": {
+        "pool": [
+          {
+            "sides": 20,
+            "count": 1
+          }
+        ],
+        "modifier": 0,
+        "target": 10
+      },
+      "successEffects": [],
+      "failureEffects": [],
+      "visibility": "local",
+      "imageScale": 69,
+      "imageOffsetY": -10,
+      "imageOffsetX": 4
+    },
+    {
+      "id": "event-806354c5",
+      "kind": "event",
+      "name": "The box",
+      "heading": "",
+      "text": "You find a crate on the floor.",
+      "image": "./assets/img/090a49aa-cc2d-454d-a93b-aeb16d134a7f.jpeg",
+      "effects": [],
       "flipImage": true,
-      "imageOffsetY": -4,
-      "imageScale": 89
+      "imageScale": 96,
+      "imageOffsetY": -12,
+      "imageOffsetX": -1,
+      "visibility": "local"
+    },
+    {
+      "id": "action-47c74d18",
+      "kind": "action",
+      "name": "Pick the lock",
+      "showName": false,
+      "text": "Pick the lock",
+      "image": "./assets/img/Gemini_Generated_Image_rz1fa9rz1fa9rz1f.jpeg",
+      "conditions": [],
+      "costs": [],
+      "effects": [
+        {
+          "op": "set",
+          "key": "energy",
+          "value": 10
+        }
+      ],
+      "resolution": "check",
+      "check": {
+        "pool": [
+          {
+            "sides": 20,
+            "count": 1
+          }
+        ],
+        "modifier": 0,
+        "target": 10
+      },
+      "successEffects": [
+        {
+          "op": "set",
+          "key": "energy",
+          "value": 3
+        }
+      ],
+      "failureEffects": [],
+      "visibility": "local",
+      "imageScale": 69,
+      "imageOffsetY": -10,
+      "imageOffsetX": 4
+    },
+    {
+      "id": "event-05cd854c",
+      "kind": "event",
+      "name": "New Vignette",
+      "showName": false,
+      "text": "",
+      "image": "",
+      "effects": [],
+      "visibility": "local"
+    },
+    {
+      "id": "caption-7bf0b71e",
+      "kind": "caption",
+      "name": "New Caption",
+      "showName": false,
+      "text": "",
+      "image": "",
+      "effects": [],
+      "visibility": "local"
+    },
+    {
+      "id": "action-baaeeb9e",
+      "kind": "action",
+      "name": "New Action",
+      "showName": false,
+      "text": "",
+      "image": "",
+      "conditions": [],
+      "costs": [],
+      "effects": [],
+      "resolution": "direct",
+      "check": {
+        "pool": [
+          {
+            "sides": 20,
+            "count": 1
+          }
+        ],
+        "modifier": 0,
+        "target": 10
+      },
+      "successEffects": [],
+      "failureEffects": [],
+      "visibility": "local"
+    },
+    {
+      "id": "item-46b1d7c7",
+      "kind": "item",
+      "name": "New Item",
+      "showName": true,
+      "text": "",
+      "image": "./assets/img/Gemini_Generated_Image_xdcidexdcidexdci.jpeg",
+      "onCollect": [],
+      "visibility": "local",
+      "imageOffsetY": -23
+    },
+    {
+      "id": "action-8da45b27",
+      "kind": "action",
+      "name": "New Action",
+      "showName": false,
+      "text": "",
+      "image": "",
+      "conditions": [],
+      "costs": [],
+      "effects": [],
+      "resolution": "direct",
+      "check": {
+        "pool": [
+          {
+            "sides": 20,
+            "count": 1
+          }
+        ],
+        "modifier": 0,
+        "target": 10
+      },
+      "successEffects": [],
+      "failureEffects": [],
+      "visibility": "local"
+    },
+    {
+      "id": "caption-5ef4fde8",
+      "kind": "caption",
+      "name": "New Caption",
+      "showName": false,
+      "text": "",
+      "image": "",
+      "effects": [],
+      "visibility": "local"
+    },
+    {
+      "id": "item-788bac36",
+      "kind": "item",
+      "name": "New Item",
+      "showName": true,
+      "text": "",
+      "image": "",
+      "onCollect": [],
+      "visibility": "local"
+    },
+    {
+      "id": "item-c71e4626",
+      "kind": "item",
+      "name": "New Item",
+      "showName": true,
+      "text": "",
+      "image": "",
+      "onCollect": [],
+      "visibility": "local"
+    },
+    {
+      "id": "item-d843575f",
+      "kind": "item",
+      "name": "New Item",
+      "showName": true,
+      "text": "",
+      "image": "./assets/img/Gemini_Generated_Image_xdcidexdcidexdci.jpeg",
+      "onCollect": [],
+      "visibility": "local",
+      "imageOffsetY": -20
+    },
+    {
+      "id": "item-d3609614",
+      "kind": "item",
+      "name": "New Item",
+      "showName": true,
+      "text": "",
+      "image": "",
+      "onCollect": [],
+      "visibility": "local"
     }
   ],
   "variables": [
@@ -987,6 +1519,14 @@
       "id": "energy",
       "type": "number",
       "initial": 3,
+      "min": 0,
+      "max": 10
+    },
+    {
+      "id": "health",
+      "name": "Health",
+      "type": "number",
+      "initial": 10,
       "min": 0,
       "max": 10
     }
@@ -1001,16 +1541,16 @@
           "id": "arrival",
           "name": "Start",
           "type": "linear",
-          "x": 106.99647756000033,
-          "y": -342.13786351203294,
+          "x": -106.0403877586425,
+          "y": -653.1094442989435,
           "cards": [
             {
               "id": "arrival-card",
-              "definitionId": "narrative-e1720845"
+              "definitionId": "event-f3d27885"
             },
             {
               "id": "placement-7f3a6065",
-              "definitionId": "narrative-5ab5d753"
+              "definitionId": "item-46b1d7c7"
             },
             {
               "id": "placement-a0b7ed91",
@@ -1018,7 +1558,7 @@
             },
             {
               "id": "placement-67596a8b",
-              "definitionId": "narrative-dc489ccb"
+              "definitionId": "item-46d61fd7"
             }
           ],
           "connections": {
@@ -1029,10 +1569,10 @@
           "id": "node-ce99368d",
           "name": "Get out",
           "type": "linear",
-          "x": 457.8740337884069,
-          "y": -404.91068822748946,
+          "x": 221.60385518317233,
+          "y": -630.4255043230154,
           "connections": {
-            "next": "node-b65c4230"
+            "next": "node-95051c47"
           },
           "cards": [
             {
@@ -1042,6 +1582,14 @@
             {
               "id": "placement-a186f5e6",
               "definitionId": "narrative-08eb0570"
+            },
+            {
+              "id": "placement-96fae141",
+              "definitionId": "item-788bac36"
+            },
+            {
+              "id": "placement-ed53cfcd",
+              "definitionId": "item-c71e4626"
             }
           ]
         },
@@ -1049,17 +1597,19 @@
           "id": "node-b65c4230",
           "name": "The door",
           "type": "fork",
-          "x": 851.6218839581375,
-          "y": -379.92729251392393,
+          "x": 884.9461485087988,
+          "y": -685.3052193144588,
           "connections": {
-            "placement-3c031d98": "node-de440080",
-            "placement-d0ff990e": "node-fe02f5e4",
-            "placement-4c34b270": "node-ffe79362"
+            "placement-3c031d98": "node-b0abb05d",
+            "placement-d0ff990e": false,
+            "placement-4c34b270": false,
+            "placement-d6a3fb4c:success": false,
+            "placement-d6a3fb4c:failure": "node-ffe79362"
           },
           "choices": [
             {
               "id": "placement-3c031d98",
-              "definitionId": "action-871734d5"
+              "definitionId": "action-36384034"
             },
             {
               "id": "placement-d0ff990e",
@@ -1068,11 +1618,17 @@
             {
               "id": "placement-4c34b270",
               "definitionId": "action-d5e985a8"
+            },
+            {
+              "id": "placement-d6a3fb4c",
+              "definitionId": "action-47c74d18",
+              "unavailable": "disabled"
             }
           ],
           "intro": {
             "id": "placement-33c4a6b7",
-            "definitionId": "narrative-af59a4c2"
+            "definitionId": "narrative-af59a4c2",
+            "effects": []
           },
           "introEnabled": true,
           "introOnce": true
@@ -1081,10 +1637,10 @@
           "id": "node-fe02f5e4",
           "name": "Sit and wait",
           "type": "linear",
-          "x": 1523.5419738002665,
-          "y": -753.516286655058,
+          "x": 1630.4281386907192,
+          "y": -785.7121816310568,
           "connections": {
-            "next": "node-195acd0b"
+            "next": false
           },
           "cards": [
             {
@@ -1103,13 +1659,13 @@
         },
         {
           "id": "node-195acd0b",
-          "name": "New fork",
+          "name": "Maybe leaving",
           "type": "fork",
-          "x": 573.5110627095544,
-          "y": -644.5271322786004,
+          "x": 547.2668962695075,
+          "y": -822.7329630209874,
           "connections": {
             "placement-ea3713f1": "node-b65c4230",
-            "placement-f2216d97": "node-fe02f5e4"
+            "placement-f2216d97": "node-b0abb05d"
           },
           "introEnabled": true,
           "intro": {
@@ -1125,14 +1681,15 @@
               "id": "placement-f2216d97",
               "definitionId": "caption-f3ff7b19"
             }
-          ]
+          ],
+          "introOnce": false
         },
         {
           "id": "node-3943e264",
           "name": "New linear",
           "type": "linear",
-          "x": 1666.5022089510792,
-          "y": -349.1718650964922,
+          "x": 1727.5419228539565,
+          "y": -359.5703518772964,
           "connections": {
             "next": null
           },
@@ -1151,8 +1708,8 @@
           "id": "node-b0abb05d",
           "name": "New container",
           "type": "container",
-          "x": 1416.1089441896947,
-          "y": -519.070265841809,
+          "x": 1365.475751255747,
+          "y": -547.0297832194967,
           "connections": {
             "next": "node-3943e264"
           },
@@ -1184,8 +1741,8 @@
           "id": "node-ffe79362",
           "name": "New linear",
           "type": "linear",
-          "x": 842.6486590261549,
-          "y": -87.84374996070062,
+          "x": 1129.512522787643,
+          "y": -231.01495097825324,
           "connections": {
             "next": "node-b65c4230"
           },
@@ -1198,12 +1755,12 @@
         },
         {
           "id": "node-de440080",
-          "name": "New linear copy",
+          "name": "Opened the door",
           "type": "linear",
-          "x": 1178.06600314915,
-          "y": -365.27531493033007,
+          "x": 1172.9301062182171,
+          "y": -826.2931071726254,
           "connections": {
-            "next": "node-b0abb05d"
+            "next": "node-b65c4230"
           },
           "cards": [
             {
@@ -1213,19 +1770,47 @@
             {
               "id": "placement-61487b90",
               "definitionId": "caption-17633c17"
+            }
+          ]
+        },
+        {
+          "id": "node-95051c47",
+          "name": "New container copy",
+          "type": "container",
+          "x": 537.5791442664299,
+          "y": -543.3143167262455,
+          "connections": {
+            "next": "node-b65c4230"
+          },
+          "introEnabled": true,
+          "intro": {
+            "id": "placement-b89aee60",
+            "definitionId": "narrative-c0bbae86"
+          },
+          "items": [
+            {
+              "id": "placement-9758e4bc",
+              "definitionId": "item-f17980b3",
+              "conditions": []
             },
             {
-              "id": "placement-da6040f2",
-              "definitionId": "action-d8295cbc"
+              "id": "placement-28b993ad",
+              "definitionId": "item-d843575f"
+            },
+            {
+              "id": "placement-73a29719",
+              "definitionId": "item-d3609614"
             }
           ]
         }
       ],
-      "backImage": "./assets/img/cardback.png",
       "allowCycles": true
     }
   ],
   "cardStyles": {
-    "big": 17
-  }
+    "big": 17,
+    "medium": 15,
+    "mediumColor": "#768265"
+  },
+  "switchCardBackIcons": false
 }

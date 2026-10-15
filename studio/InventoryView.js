@@ -7,12 +7,13 @@ const name = item => item?.name || item?.label || 'Item';
 
 /** Inventory presentation; the controller alone mutates ownership and effects. */
 export class InventoryView {
-  constructor(root, { onUse = () => {} } = {}) {
+  constructor(root, { onUse = () => {}, getBounds = () => null } = {}) {
     this.root = root;
     this.onUse = onUse;
+    this.getBounds = getBounds;
     this.items = [];
     this.slots = Array(4).fill(null);
-    this.visible = false;
+    this.visible = null;
     root.classList.add('nest-inventory');
     root.classList.add('nest-inventory-drawer');
     root.innerHTML = '<span data-count hidden aria-hidden="true"></span><ul class="nest-inventory-cards" aria-label="Inventory slots"></ul><p data-drawer-feedback role="status" hidden></p><dialog class="item-dialog"><h3></h3><div class="nest-image-vignette" data-item-artwork><img alt=""></div><p data-summary></p><p data-description></p><div class="row"><button type="button" data-use>Use</button><button type="button" data-close>Close</button></div><p data-feedback role="status"></p><section data-overflow hidden><h4>Other owned items</h4><ul class="nest-inventory-overflow"></ul></section></dialog><dialog class="item-dialog nest-inventory-confirm" data-collect-dialog><h3>Collect item</h3><p data-collect-message></p><div data-slot-picker class="nest-inventory-picker"></div><div class="row"><button type="button" data-confirm>Replace</button><button type="button" data-cancel>Cancel</button></div></dialog>';
@@ -34,13 +35,43 @@ export class InventoryView {
     this.renderSlots();
   }
   setContext(visible) {
-    this.visible = Boolean(visible);
+    const nextVisible = Boolean(visible);
+    if (nextVisible === this.visible) return;
+    const entering = nextVisible && !this.visible;
+    this.visible = nextVisible;
     this.root.hidden = !this.visible;
+    if (entering) {
+      this.clearExit();
+      this.root.classList.add('is-entering');
+    }
     if (!this.visible) {
+      this.clearExit();
       this.cancelPending();
       this.preview(null);
       if (this.dialog.open) this.dialog.close();
     }
+  }
+  // The controller supplies progress so the drawer shares its collection clock.
+  setExitProgress(progress) {
+    this.exitProgress = Math.max(0, Math.min(1, Number(progress) || 0));
+    if (!this.exitStart) {
+      // An exit can interrupt the CSS entrance. Capture its painted pose
+      // before removing the animation, rather than flashing to full opacity.
+      const view = this.root.ownerDocument?.defaultView ?? globalThis;
+      const style = this.root.classList.contains?.('is-entering') ? view.getComputedStyle?.(this.root) : null;
+      const matrix = style?.transform?.match(/^matrix\(([^)]+)\)$/)?.[1].split(',').map(Number);
+      this.exitStart = { opacity: style ? Number(style.opacity) : 1, y: matrix?.[5] || 0 };
+    }
+    this.root.classList.remove('is-entering');
+    this.root.style.opacity = String(this.exitStart.opacity * (1 - this.exitProgress));
+    this.root.style.transform = `translateY(${this.exitStart.y + 8 * this.exitProgress}px)`;
+  }
+  clearExit() {
+    this.exitProgress = 0;
+    this.exitStart = null;
+    this.root.classList.remove('is-entering');
+    this.root.style.opacity = '1';
+    this.root.style.transform = 'translateY(0px)';
   }
   update(items = [], { busy = false, variables = [], values = {}, library = [] } = {}) {
     this.deposited = null;
@@ -82,8 +113,6 @@ export class InventoryView {
       const artwork = document.createElement('div'); artwork.className = 'nest-image-vignette';
       artwork.append(image); button.append(artwork);
     }
-    const label = document.createElement('span'); label.textContent = name(item);
-    button.append(label);
     button.onclick = () => { if (this.pending || this.deposited) return; this.selected = identity(item); this.showDetails(); this.dialog.showModal(); };
     return button;
   }
@@ -151,7 +180,10 @@ export class InventoryView {
     return this.slots.findIndex(item => item && (identity(item) === identity(action) || action.inventoryKey && item.inventoryKey === action.inventoryKey));
   }
   getTarget({ clientX, clientY, active = false, snapped = false, keyboard = false, action } = {}) {
-    if (!this.visible || this.items.length > 4) return null;
+    if (!this.visible || this.items.length > 4 || this.root.closest?.('[inert]')) return null;
+    const bounds = this.getBounds();
+    if (bounds && (bounds.width <= 0 || bounds.height <= 0)) return null;
+    if (!keyboard && bounds && (clientX < bounds.left || clientX > bounds.left + bounds.width || clientY < bounds.top || clientY > bounds.top + bounds.height)) return null;
     const candidates = this.slots.map((item, index) => this.targetFor(index));
     const empty = candidates.filter(target => !target.occupied);
     const owned = this.ownedSlot(action);
@@ -161,9 +193,9 @@ export class InventoryView {
     if (!row || !Number.isFinite(clientX) || !Number.isFinite(clientY)) return null;
     // Enter the drawer above its row, then cross a second, deeper boundary
     // to insert. Measure shells, never the displaced card contents.
-    const entry = row.top - row.height * .65;
+    const entry = row.top - row.height * .2;
     const margin = active ? 16 : 0;
-    const bottom = Math.max(row.top + row.height * 1.5, globalThis.innerHeight || 0);
+    const bottom = bounds ? bounds.top + bounds.height : Math.max(row.top + row.height * 1.5, globalThis.innerHeight || 0);
     if (clientX < row.left - 40 || clientX > row.left + row.width + 40 || clientY < entry - margin || clientY > bottom) return null;
     const candidate = duplicate || candidates.filter(target => target.rect).sort((a, b) => Math.abs(clientX - a.rect.left - a.rect.width / 2) - Math.abs(clientX - b.rect.left - b.rect.width / 2))[0];
     if (!candidate) return null;
@@ -185,7 +217,9 @@ export class InventoryView {
       element.className = `nest-inventory-item nest-inventory-slot${shownItem ? '' : ' is-empty'}${selected ? ' is-candidate' : ''}${selected && replacing ? ' is-replacement' : ''}${shifted ? ' is-shifted' : ''}${insertion && !shownItem && insertion.layout[index] ? ' is-queue-destination' : ''}`;
       const card = shownItem ? element.children[0] : null;
       if (card) {
-        const dx = shifted ? this.targetFor(destination).rect.left - this.targetFor(index).rect.left : 0;
+        const sourceRect = shifted ? this.targetFor(index).rect : null;
+        const scaleX = sourceRect && element.offsetWidth > 0 ? sourceRect.width / element.offsetWidth : 1;
+        const dx = shifted ? (this.targetFor(destination).rect.left - sourceRect.left) / scaleX : 0;
         card.style.transform = selected && replacing ? 'translateY(28px) scale(.96)' : shifted ? `translateX(${dx}px)` : '';
         card.style.opacity = selected && replacing ? '.5' : '';
       }
@@ -195,7 +229,7 @@ export class InventoryView {
 
   async authorize(action, target) {
     this.cancelPending();
-    if (!this.visible || this.busy || this.items.length > 4) {
+    if (!this.visible || this.busy || this.items.length > 4 || this.root.closest?.('[inert]')) {
       if (this.hint && this.items.length > 4) this.hint.textContent = 'Other owned items exceed the four slots. Use an item before collecting.';
       return false;
     }

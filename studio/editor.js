@@ -29,7 +29,7 @@ const localDrafts=new LocalCardDrafts();
 const chapter=()=>project.chapters.find(c=>c.id===chapterId)||project.chapters[0];
 const node=()=>chapter().nodes.find(n=>n.id===selected);
 const definition=()=>project.library.find(d=>d.id===definitionId);
-const preview=new ProjectPreview($('#preview'),{onChange:()=>renderGraph(),onGoToCard:goToPreviewCard});
+const preview=new ProjectPreview($('#preview'),{inventoryHost:$('.preview-window-body'),onChange:()=>renderGraph(),onGoToCard:goToPreviewCard});
 const previewWindow=mountPreviewWindow($('#preview-window'),{onClose:()=>preview.stop()});
 $('#show-preview').onclick=()=>previewWindow.show();
 const autoplay=mountAutoplay($('#autoplay'),{getSelected:()=>selected,onPlay:id=>play(id,{restore:false})});

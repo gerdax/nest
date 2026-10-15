@@ -3,6 +3,7 @@ import { DiceService } from '../dice/DiceService.js';
 import { compileChapter, validateProject } from '../project/model.js';
 import { ProjectController } from '../project/ProjectController.js';
 import { InventoryView } from './InventoryView.js';
+import { InventorySurface } from './InventorySurface.js';
 import { applyCardStyles } from '../project/card-styles.js';
 import { acquireDock } from '../editor/dockOwnership.js';
 import { nodeTypeLabel } from '../project/nodeTypes.js';
@@ -10,7 +11,7 @@ import { previewCardTarget } from './preview-card-target.js';
 
 /** Playback UI owns dice/inventory presentation, never chapter resolution rules. */
 export class ProjectPreview {
-  constructor(root, { onChange = () => {}, onGoToCard, inventoryDock = false, deckSettings = {} } = {}) {
+  constructor(root, { onChange = () => {}, onGoToCard, inventoryDock = false, inventoryHost = null, deckSettings = {} } = {}) {
     this.root = root;
     this.destroyed = false;
     this.generation = 0;
@@ -18,7 +19,7 @@ export class ProjectPreview {
     this.onChange = onChange;
     this.onGoToCard = typeof onGoToCard === 'function' ? onGoToCard : null;
     this.deckSettings = { ...deckSettings };
-    this.root.innerHTML = '<section class="project-preview"><div class="chapter-preview-stage"><div class="player-resources" data-resources hidden><span class="player-resource" data-health aria-label="Health"><img src="./assets/img/hud-health.png" alt=""><span data-health-value></span></span><span class="player-resource" data-energy aria-label="Energy"><span data-energy-value></span><img src="./assets/img/hud-energy.png" alt=""></span></div><div class="chapter-preview-deck" tabindex="0"></div></div><div class="preview-status-row"><p data-status role="status">Stopped.</p></div><details data-state hidden><summary>Run state</summary><pre></pre></details><section data-inventory></section><div class="check-overlay" hidden role="dialog" aria-modal="true" aria-label="Action check"><div class="check-panel"><h3>Resolving attempt</h3><div class="check-tray"></div><p data-result role="status"></p><button data-cancel type="button">Cancel attempt</button></div></div></section>';
+    this.root.innerHTML = '<section class="project-preview"><div class="chapter-preview-stage"><div class="player-resources" data-resources hidden><span class="player-resource" data-health aria-label="Health"><img src="./assets/img/hud-health.png" alt=""><span data-health-value></span></span><span class="player-resource" data-energy aria-label="Energy"><span data-energy-value></span><img src="./assets/img/hud-energy.png" alt=""></span></div><div class="chapter-preview-deck" tabindex="0"></div></div><div class="preview-status-row"><p data-status role="status">Stopped.</p></div><footer class="preview-footer" data-preview-footer><details data-state hidden><summary>Run state</summary><pre></pre></details><div data-preview-actions></div></footer><section data-inventory></section><div class="check-overlay" hidden role="dialog" aria-modal="true" aria-label="Action check"><div class="check-panel"><h3>Resolving attempt</h3><div class="check-tray"></div><p data-result role="status"></p><button data-cancel type="button">Cancel attempt</button></div></div></section>';
     this.mount = root.querySelector('.chapter-preview-deck');
     this.status = root.querySelector('[data-status]');
     this.resources = root.querySelector('[data-resources]');
@@ -30,7 +31,7 @@ export class ProjectPreview {
       this.goToCardButton.textContent = 'Go to card';
       this.goToCardButton.setAttribute('data-go-to-card', '');
       this.goToCardButton.disabled = true;
-      this.status.parentNode?.insertBefore(this.goToCardButton, this.status.nextSibling);
+      root.querySelector('[data-preview-actions]').append(this.goToCardButton);
       this.goToCardButton.onclick = () => {
         const target = this.cardTarget();
         this.syncCardLink();
@@ -42,7 +43,21 @@ export class ProjectPreview {
     this.stateReadout = root.querySelector('[data-state]');
     const inventoryRoot = root.querySelector('[data-inventory]');
     if (inventoryDock) { inventoryRoot.classList.add('nest-inventory-dock'); this.releaseDock = acquireDock(document.body); }
-    this.inventory = new InventoryView(inventoryRoot, { onUse: id => this.controller?.useItem(id) });
+    this.inventorySurface = new InventorySurface({ container: inventoryDock ? null : inventoryHost ?? root });
+    this.inventorySurface.mount(inventoryRoot);
+    this.footer = root.querySelector('[data-preview-footer]');
+    this.inventorySurface.mount(this.footer);
+    this.footerResize = new ResizeObserver(entries => {
+      const height = entries?.[0]?.borderBoxSize?.[0]?.blockSize ?? this.footer.offsetHeight;
+      if (height > 0) {
+        const style = this.inventorySurface.frame.style;
+        if (style.setProperty) style.setProperty('--inventory-footer-height', `${height}px`);
+        else style['--inventory-footer-height'] = `${height}px`;
+      }
+    });
+    this.footerResize.observe(this.footer);
+    if (!inventoryDock) root.querySelector('.project-preview').classList.add('project-preview--embedded');
+    this.inventory = new InventoryView(inventoryRoot, { onUse: id => this.controller?.useItem(id), getBounds: () => this.inventorySurface.bounds() });
     this.cancelButton = root.querySelector('[data-cancel]');
     this.cancelButton.onclick = () => this.controller?.cancelCheck();
     this.cancelKey = event => {
@@ -66,10 +81,13 @@ export class ProjectPreview {
     try {
       this.deck = new CardDeck(this.mount, { settings: this.deckSettings, inventoryDrawer: {
         getTarget: options => this.inventory.getTarget(options),
+        presentPreview: (element, bounds) => this.inventorySurface.presentPreview(element, bounds),
         slotTarget: slot => this.inventory.slotTarget(slot),
         preview: target => this.inventory.preview(target),
         stageDeposit: (action, decision) => this.inventory.stageDeposit(action, decision),
         clearDeposit: () => this.inventory.clearDeposit(),
+        setExitProgress: progress => this.inventory.setExitProgress(progress),
+        clearExit: () => this.inventory.clearExit(),
         setContext: visible => this.inventory.setContext(visible),
         cancelPending: () => this.inventory.cancelPending(),
         authorize: async (action, target) => {
@@ -184,6 +202,8 @@ export class ProjectPreview {
     if (this.destroyed) return;
     this.stop(); this.destroyed = true;
     this.inventory.destroy(); this.inventory.onUse = () => {};
+    this.footerResize.disconnect();
+    this.inventorySurface.destroy();
     document.removeEventListener('keydown', this.cancelKey);
     this.cancelKey = null; this.cancelButton.onclick = null;
     if (this.goToCardButton) this.goToCardButton.onclick = null;

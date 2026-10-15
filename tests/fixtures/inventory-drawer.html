@@ -7,23 +7,73 @@
 <link rel="stylesheet" href="../../engine/card-deck.css">
 <link rel="stylesheet" href="../../demo/inventory.css">
 <link rel="stylesheet" href="../../studio/preview.css">
+<link rel="stylesheet" href="../../studio/editor.css">
 <style>
-body{margin:0;background:#080a08;color:#ddd;font:14px system-ui}main{max-width:480px;margin:auto;padding:16px}button{background:#263025;color:#eee;border:1px solid #798373;border-radius:5px;padding:8px 12px}.chapter-preview-stage{min-height:360px;padding-top:8px}.chapter-preview-deck{width:240px}.preview-status-row{margin-bottom:190px}h1{font-size:18px}.row{display:flex;gap:8px}
+body{margin:0;background:#080a08;color:#ddd;font:14px system-ui}main{max-width:480px;margin:auto;padding:16px}button{background:#263025;color:#eee;border:1px solid #798373;border-radius:5px;padding:8px 12px}.chapter-preview-stage{min-height:360px;padding-top:8px}.chapter-preview-deck{width:240px}h1{font-size:18px}.row{display:flex;gap:8px}
 </style>
-<main><h1>Inventory drawer verification</h1><button id="restart">Restart fixture</button><div id="preview"></div></main>
+<main><h1>Inventory drawer verification</h1><button id="restart">Restart fixture</button><output id="collection-timeline" hidden></output><div id="preview"></div></main>
 <script type="module">
 import {ProjectPreview} from '../../studio/ProjectPreview.js';
 import {createProject} from '../../project/model.js';
+import {mountPreviewWindow} from '../../studio/preview-window.js';
 const project=createProject();
 const names=['Flashlight','Compass','Rope','Map','Lantern','Key'];
+const single=new URLSearchParams(location.search).has('single');
+if(single)names.splice(1);
 const intro=project.library[0];
 project.library=names.map((name,i)=>({id:`item-${i}`,kind:'item',name,text:`${name} for your expedition.`,image:'/assets/img/flashlight.png',inventoryKey:`item-${i}`,onCollect:[]}));
 project.library.push(intro);
 project.chapters[0].startNode='items';
 project.chapters[0].nodes=[{id:'items',name:'Supplies',type:'container',x:0,y:0,intro:{id:'intro',definitionId:intro.id},introEnabled:false,items:names.map((_,i)=>({id:`placement-${i}`,definitionId:`item-${i}`})),connections:{next:null}}];
+if(single){project.chapters[0].nodes[0].connections.next='after';project.chapters[0].nodes.push({id:'after',name:'After collection',type:'linear',x:300,y:0,cards:[{id:'after-card',definitionId:intro.id}],connections:{next:null}});}
+if(new URLSearchParams(location.search).has('linear')){
+  project.chapters[0].startNode='linear-item';
+  project.chapters[0].nodes.unshift({id:'linear-item',name:'Loose item',type:'linear',x:-300,y:0,cards:[{id:'loose-item',definitionId:'item-0'}],connections:{next:'items'}});
+  project.chapters[0].nodes.find(node=>node.id==='items').introEnabled=true;
+}
 project.cardStyles={big:25,medium:17,small:12,bigColor:'#f2deac',mediumColor:'#eee2ba',smallColor:'#d4d0aa'};
-const preview=new ProjectPreview(document.querySelector('#preview'),{inventoryDock:true});
+if(new URLSearchParams(location.search).has('unlock')){
+  project.library[1].conditions=[{source:'inventory',key:'item-0',op:'has'}];
+  project.chapters[0].nodes.find(node=>node.id==='items').items=project.chapters[0].nodes.find(node=>node.id==='items').items.slice(0,2);
+}
+const embedded=new URLSearchParams(location.search).has('embedded');
+const previewRoot=document.querySelector('#preview');
+let host=null,windowRoot=null;
+if(embedded){
+  windowRoot=document.createElement('section');windowRoot.className='preview-window';
+  windowRoot.innerHTML='<div class="preview-window-bar"><button type="button" class="preview-window-handle" data-preview-drag aria-label="Move interaction preview">Interaction preview</button><button type="button" data-preview-minimize aria-label="Minimize interaction preview">−</button><button type="button" data-preview-close aria-label="Close interaction preview">×</button></div><div class="preview-window-body"><div class="preview-window-scroll"></div></div>';
+  previewRoot.parentNode.insertBefore(windowRoot,previewRoot);
+  windowRoot.querySelector('.preview-window-scroll').append(previewRoot);
+  host=windowRoot.querySelector('.preview-window-body');
+}
+const preview=new ProjectPreview(previewRoot,{inventoryDock:!embedded,inventoryHost:host});
+if(embedded)mountPreviewWindow(windowRoot,{onClose:()=>preview.stop()}).show();
 preview.play(project);
+let traceSerial=0,rapidDiscarded=false;
+function traceDrawer(){
+  const serial=++traceSerial,start=performance.now(),timeline=[],drawer=previewRoot.ownerDocument.querySelector('.nest-inventory-drawer');
+  let last='',resized=false;
+  const sample=()=>{
+    if(serial!==traceSerial)return;
+    if(!rapidDiscarded&&!drawer.hidden&&preview.deck.phase==='choices'&&new URLSearchParams(location.search).has('rapid')){
+      rapidDiscarded=true;preview.deck.discard();return;
+    }
+    if(!resized&&windowRoot&&new URLSearchParams(location.search).has('resize')&&performance.now()-start>=200){
+      windowRoot.style.width=`${windowRoot.clientWidth-2}px`;resized=true;
+    }
+    const style=getComputedStyle(drawer);
+    const state={phase:preview.deck.phase,hidden:drawer.hidden,opacity:drawer.style.opacity,computedOpacity:style.opacity,transform:style.transform,entering:drawer.classList.contains('is-entering'),content:preview.deck.content.id,open:preview.deck.open,hint:preview.deck.presentationHint?.stage??null};
+    const key=JSON.stringify(state);
+    if(key!==last){timeline.push({ms:Math.round(performance.now()-start),...state});last=key;}
+    document.querySelector('#collection-timeline').textContent=JSON.stringify(timeline);
+    if(performance.now()-start<6000)requestAnimationFrame(sample);
+  };
+  requestAnimationFrame(sample);
+}
+if(new URLSearchParams(location.search).has('linear')||new URLSearchParams(location.search).has('trace')){
+  for(const transition of ['collect','discard','reveal'])preview.deck.addEventListener(transition,traceDrawer);
+  traceDrawer();
+}
 document.querySelector('#restart').onclick=()=>preview.restart();
 </script>
 </html>

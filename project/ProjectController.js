@@ -222,13 +222,13 @@ export class ProjectController {
   reportBlocked(content=this.deck.content) {
     if((['fork','forked'].includes(this.type())||this.type()==='linear'&&this.card()?.kind==='action')&&this.presentation()==='open'&&!content.actions.some(a=>!a.disabled))this.error(new Error(`No available choices at ${this.location.node.name || this.location.node.id}. Check choice requirements and costs, use an eligible inventory item, or restart.`));
   }
-  show({transition='flip',restore=false,presentation,animate=true,autoBrowse=true}={}) {
+  show({transition='flip',restore=false,presentation,animate=true,autoBrowse=true,preserveInventoryContext=false}={}) {
     if(this.completed){this.deck.endContent();if(!this.deck.busy)this.deck.completeCommit?.();this.notify();return;}
     if(restore)this.deck.reset();
     if(this.type()==='container'&&!conditionsMet(this.card()?.conditions,this.variables,this.inventory)){this.location.introRevealed=true;this.revealedIntros.add(this.key());}
     const content=this.content();
     content.autoBrowse=content.autoBrowse&&autoBrowse;
-    this.deck.replaceContent(content,{presentation:presentation ?? this.presentation(),transition,animate});this.reportBlocked(content);this.notify();
+    this.deck.replaceContent(content,{presentation:presentation ?? this.presentation(),transition,animate,preserveInventoryContext});this.reportBlocked(content);this.notify();
   }
   reveal(detail) {
     if(this.destroyed||this.completed||this.checking||this.pendingItem||this.pendingIntro||!['container','fork'].includes(this.location.node.type)||!this.introEnabled()||detail.contentId!==this.deck.content.id||this.introShown())return;
@@ -330,7 +330,7 @@ export class ProjectController {
         else {
           const content=this.content(this.stagedDestination,result.variables,result.inventory,true,retainContainer?item.id:null);
           if(retainContainer)content.autoBrowse=false;
-          this.deck.replaceContent(content,{presentation:retainContainer?'open':this.presentation(this.stagedDestination,result.variables,result.inventory),transition:'flip'});
+          this.deck.replaceContent(content,{presentation:retainContainer?'open':this.presentation(this.stagedDestination,result.variables,result.inventory),transition:'flip',preserveInventoryContext:retainContainer});
         }
       }
     }catch(error){this.pendingItem=null;this.stagedDestination=null;this.error(error);this.show({restore:true});}
@@ -367,7 +367,7 @@ export class ProjectController {
         else {
           const visible=this.items().map(i=>i.id),shown=this.deck.content.actions.map(a=>a.id);
           const updated=this.content();
-          if(visible.length!==shown.length||visible.some(id=>!shown.includes(id))||updated.actions.some(a=>{const old=this.deck.content.actions.find(c=>c.id===a.id);return old?.collectDisabled!==a.collectDisabled||old?.discardDisabled!==a.discardDisabled;}))this.show({presentation:'open',animate:false,autoBrowse:false});
+          if(visible.length!==shown.length||visible.some(id=>!shown.includes(id))||updated.actions.some(a=>{const old=this.deck.content.actions.find(c=>c.id===a.id);return old?.collectDisabled!==a.collectDisabled||old?.discardDisabled!==a.discardDisabled;}))this.show({presentation:'open',animate:false,autoBrowse:false,preserveInventoryContext:true});
         }
       }
     }else if(detail.transition==='commit'&&this.stagedDestination){const destination=this.stagedDestination;this.stagedDestination=null;this.adopt(destination);if(!this.completed)this.reportBlocked();}

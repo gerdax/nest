@@ -66,9 +66,9 @@ test('add and remove effects ignore legacy quantity and normalize preexisting du
   assert.equal(inventory[0].quantity,12);
 });
 
-test('inventory view displays owned item names, item count and a single Use action',()=>{
+test('inventory view keeps accessible item names without mini labels and a single Use action',()=>{
   class Element {
-    constructor() { this.children=[]; this.style={}; this.attributes={}; this.classList={add(){}}; }
+    constructor() { this.children=[]; this.style={}; this.attributes={}; this.classList={add(){},remove(){}}; }
     append(...children) { this.children.push(...children); }
     replaceChildren(...children) { this.children=[...children]; }
     setAttribute(key,value) { this.attributes[key]=value; }
@@ -94,7 +94,7 @@ test('inventory view displays owned item names, item count and a single Use acti
     assert.equal(button.attributes['aria-label'],'Apple');
     assert.equal(button.children[0].children[0].style.filter,'url("#nest-artwork-colorize")');
     assert.equal(button.children[0].children[0].style.transform,'scaleX(-1)');
-    assert.equal(button.children[1].textContent,'Apple');
+    assert.equal(button.children.length,1);
     button.onclick();
     assert.equal(dialog.nodes.h3.textContent,'Apple');
     assert.equal(dialog.nodes.img.style.filter,'url("#nest-artwork-colorize")');

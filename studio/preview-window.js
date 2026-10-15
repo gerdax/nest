@@ -4,6 +4,10 @@ export function mountPreviewWindow(root,{onClose=()=>{}}={}) {
  const close=root.querySelector('[data-preview-close]');
  const toggle=root.querySelector('[data-preview-minimize]');
  const body=root.querySelector('.preview-window-body');
+ const bar=root.querySelector('.preview-window-bar');
+ const measureBar=()=>{if(bar)root.style.setProperty('--preview-bar-height',`${bar.getBoundingClientRect().height}px`);};
+ const barObserver=typeof ResizeObserver==='function'&&bar?new ResizeObserver(measureBar):null;
+ barObserver?.observe(bar);
  let drag=null,placed=false,minimized=false;
  const position=(x,y)=>{
   const rect=root.getBoundingClientRect();
@@ -32,7 +36,7 @@ export function mountPreviewWindow(root,{onClose=()=>{}}={}) {
   measureBody();minimized=true;updateState();toggle.focus();clamp();
  };
  const show=({restore:shouldRestore=true}={})=>{
-  root.hidden=false;
+  root.hidden=false;measureBar();
   if(shouldRestore)restore();
   if(!placed){position(window.innerWidth-root.getBoundingClientRect().width-24,100);placed=true;}
   else clamp();
@@ -69,5 +73,5 @@ export function mountPreviewWindow(root,{onClose=()=>{}}={}) {
  handle.addEventListener('pointerdown',down);handle.addEventListener('pointermove',move);
  for(const name of ['pointerup','pointercancel','lostpointercapture'])handle.addEventListener(name,up);
  handle.addEventListener('keydown',key);close.addEventListener('click',hide);toggle.addEventListener('click',toggleState);window.addEventListener('resize',resize);
- return {show,hide,minimize,restore,get minimized(){return minimized;},destroy(){cancel();handle.removeEventListener('pointerdown',down);handle.removeEventListener('pointermove',move);for(const name of ['pointerup','pointercancel','lostpointercapture'])handle.removeEventListener(name,up);handle.removeEventListener('keydown',key);close.removeEventListener('click',hide);toggle.removeEventListener('click',toggleState);window.removeEventListener('resize',resize);}};
+ return {show,hide,minimize,restore,get minimized(){return minimized;},destroy(){cancel();barObserver?.disconnect();root.style.removeProperty('--preview-bar-height');handle.removeEventListener('pointerdown',down);handle.removeEventListener('pointermove',move);for(const name of ['pointerup','pointercancel','lostpointercapture'])handle.removeEventListener(name,up);handle.removeEventListener('keydown',key);close.removeEventListener('click',hide);toggle.removeEventListener('click',toggleState);window.removeEventListener('resize',resize);}};
 }
