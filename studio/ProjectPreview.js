@@ -64,10 +64,22 @@ export class ProjectPreview {
     applyCardStyles(this.mount, chapter.cardStyles);
     this.project = structuredClone(project); this.chapterId = chapterId; this.startNode = startNode; this.compiled = chapter;
     try {
-      this.deck = new CardDeck(this.mount, { settings: this.deckSettings, content: { id:'project-loading',text:'',actions:[{id:'wait',label:'Loading',disabled:true}] } });
+      this.deck = new CardDeck(this.mount, { settings: this.deckSettings, inventoryDrawer: {
+        getTarget: options => this.inventory.getTarget(options),
+        slotTarget: slot => this.inventory.slotTarget(slot),
+        preview: target => this.inventory.preview(target),
+        stageDeposit: (action, decision) => this.inventory.stageDeposit(action, decision),
+        clearDeposit: () => this.inventory.clearDeposit(),
+        setContext: visible => this.inventory.setContext(visible),
+        cancelPending: () => this.inventory.cancelPending(),
+        authorize: async (action, target) => {
+          const decision = await this.inventory.authorize(action, target);
+          return active() && decision && this.controller?.authorizeCollection(action, decision) ? decision : false;
+        }
+      }, content: { id:'project-loading',text:'',actions:[{id:'wait',label:'Loading',disabled:true}] } });
       const controller = new ProjectController(this.deck, chapter, {
         onChange: state => { if (active()) this.update(state); },
-        onError: (error,state) => { if (!active()) return; this.hideDice(); this.errorNode = state?.activeNodeId; this.errorMessage = error.message || String(error); this.status.textContent = this.errorMessage; },
+        onError: (error,state) => { if (!active()) return; this.hideDice(); this.errorNode = state?.activeNodeId; this.errorMessage = error.message || String(error); this.status.textContent = this.errorMessage; this.status.hidden = false; },
         rollCheck: (pool, options) => {
           if (!active()) throw new DOMException('Preview stopped.', 'AbortError');
           return this.roll(pool, options);
@@ -105,6 +117,7 @@ export class ProjectPreview {
     const node = this.compiled?.nodes.find(node => node.id === state.activeNodeId);
     const nodeType = nodeTypeLabel(node?.type) || '';
     this.status.textContent = this.errorMessage || (state.completed ? 'Chapter complete.' : state.checking ? 'Resolving attempt…' : `Playing · ${node?.name || ''} · ${nodeType}`);
+    this.status.hidden = !this.errorMessage && !state.completed && !state.checking;
     this.stateReadout.hidden = !Object.keys(state.variables || {}).length;
     this.stateReadout.querySelector('pre').textContent = JSON.stringify(state.variables || {}, null, 2);
     this.inventory.update(state.collectedItems || [], { busy: !state.idle, variables: this.compiled?.variables || [], values: state.variables, library: this.compiled?.library || [] });
@@ -160,10 +173,11 @@ export class ProjectPreview {
     const controller = this.controller, deck = this.deck;
     this.controller = null; this.deck = null;
     controller?.destroy(); deck?.destroy();
+    this.inventory.cancelPending?.(); this.inventory.setContext?.(false);
     this.hideDice(); this.state = null; this.errorMessage = null; this.errorNode = null; this.compiled = null;
     this.mount.replaceChildren(); this.inventory.update([]); this.stateReadout.hidden = true;
     this.resources.hidden = true;
-    this.status.textContent = 'Stopped.';
+    this.status.textContent = 'Stopped.'; this.status.hidden = false;
     this.syncCardLink();
   }
   destroy() {

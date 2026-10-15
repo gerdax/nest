@@ -329,6 +329,11 @@ function poseContext(deck, time) {
 }
 
 export function cardPose(deck, index, time = performance.now(), context = poseContext(deck, time)) {
+  const pose = baseCardPose(deck, index, time, context);
+  return deck.pickup ? deck.pickup.pose(pose, index) : pose;
+}
+
+function baseCardPose(deck, index, time, context) {
   const { bounds, width, height, presented, slots, count, selectedSlot, selected, scale } = context;
   let cursor = deck.commitMotion ? deck.commitMotion.browse : deck.b.x;
   const action = deck.content.actions[index];
@@ -339,7 +344,7 @@ export function cardPose(deck, index, time = performance.now(), context = poseCo
     if (action.id === deck.liftId) {
       const lift = (deck.l.x - deck.liftStart) * bounds.height;
       pose.y -= lift;
-      if (deck.collectMotion) pose.y += deck.collectMotion.direction * departureDistance(deck.collectMotion, time);
+      if (deck.collectMotion && !deck.collectMotion.deposit) pose.y += deck.collectMotion.direction * departureDistance(deck.collectMotion, time);
       pose.z += Math.min(Math.max(0, lift) * .1, deck.settings.liftHeight);
       pose.z += Math.min(height * .25, deck.settings.perspective * .16) * takeProgress(deck, time, height, selected);
       pose.rx += deck.rotationX.x - deck.liftRotation.x;

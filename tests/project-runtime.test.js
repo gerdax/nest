@@ -334,3 +334,28 @@ test('only fork nodes request closer choice followers',()=>{
   const {deck,controller}=fixture([node]);assert.equal(deck.content.choiceFollowerRatio,type==='fork'?.82:undefined);controller.destroy();
  }
 });
+
+test('drawer replacement is authorized against current ownership and commits atomically after collection',()=>{
+  const item={id:'placement',definitionId:'new',kind:'item',name:'New',onCollect:[{op:'add',key:'energy',value:2}]};
+  const {deck,controller}=fixture([{id:'c',type:'container',intro:narrative('box'),items:[item],connections:{next:'done'}},{id:'done',type:'end'}],{variables:[{id:'energy',type:'number',initial:1}]});
+  deck.pickup={};
+  controller.inventory=['a','b','c','d'].map(id=>({id,definitionId:id,kind:'item'}));
+  assert.equal(controller.authorizeCollection(item,{}),false);
+  assert.equal(controller.authorizeCollection(item,{replacementId:'missing'}),false);
+  assert.equal(controller.authorizeCollection(item,{replacementId:'b'}),true);
+  assert.equal(controller.inventory.length,4); assert.equal(controller.variables.energy,1);
+  deck.busy=true; deck.emit('collect',{action:item,final:true,replacementId:'b',slot:1});
+  assert.deepEqual(controller.inventory.map(i=>i.id),['a','b','c','d']);
+  assert.equal(controller.variables.energy,1);
+  deck.finish();
+  assert.deepEqual(controller.inventory.map(i=>i.definitionId),['a','c','d','new']);
+  assert.equal(controller.variables.energy,3); controller.destroy();
+});
+
+test('drawer rejects invalid replacement effects without losing the old item',()=>{
+  const item={id:'new',kind:'item',onCollect:[{op:'add',key:'absent',value:1}]};
+  const {deck,controller}=fixture([{id:'c',type:'container',intro:narrative('box'),items:[item],connections:{next:'done'}},{id:'done',type:'end'}]);
+  deck.pickup={}; controller.inventory=['a','b','c','d'].map(id=>({id,definitionId:id}));
+  assert.equal(controller.authorizeCollection(item,{replacementId:'b'}),false);
+  assert.deepEqual(controller.inventory.map(i=>i.id),['a','b','c','d']); controller.destroy();
+});

@@ -13,7 +13,7 @@ export class ProjectController {
     for(const [name,listener] of Object.entries(this.listeners)) deck.addEventListener(name,listener);
     this.restart();
   }
-  get state() { return {activeNodeId:this.location?.node.id ?? null,cardId:this.card()?.id ?? null,variables:{...this.variables},collectedItems:this.inventory.map(i=>({...i})),completed:this.completed,checking:!!this.checking,idle:!this.completed&&!this.checking&&!this.pendingItem&&!this.pendingIntro&&!this.deck.busy&&!this.deck.drag&&!['revealing','closing','committing','collecting'].includes(this.deck.phase)}; }
+  get state() { return {activeNodeId:this.location?.node.id ?? null,cardId:this.card()?.id ?? null,variables:{...this.variables},collectedItems:this.inventory.map(i=>({...i})),completed:this.completed,checking:!!this.checking,idle:!this.completed&&!this.checking&&!this.pendingItem&&!this.pendingIntro&&!this.deck.busy&&!this.deck.pickup?.pending&&!this.deck.drag&&!['revealing','closing','committing','collecting'].includes(this.deck.phase)}; }
   notify() {if(!this.destroyed)this.onChange(this.state);}
   error(error) {if(!this.destroyed)this.onError(error,this.state);}
   restart() {
@@ -285,16 +285,41 @@ export class ProjectController {
     }
   }
   cancelCheck() {if(!this.checking)return false;this.checking.abort();this.checking=null;++this.generation;this.show({restore:true});return true;}
+  collectionInventory(item, replacementId) {
+    const existing = this.inventory.some(owned => (owned.definitionId ?? owned.id) === (item.definitionId ?? item.id) || item.inventoryKey && owned.inventoryKey === item.inventoryKey);
+    let inventory = this.inventory;
+    if (replacementId && !existing) {
+      if (inventory.length !== 4 || !inventory.some(owned => (owned.definitionId ?? owned.id) === replacementId)) throw new Error('Inventory replacement is no longer available');
+      inventory = inventory.filter(owned => (owned.definitionId ?? owned.id) !== replacementId);
+    }
+    if (!existing && inventory.length >= 4 && this.deck.pickup) throw new Error('Choose an inventory item to replace');
+    return inventory;
+  }
+  authorizeCollection(action, decision) {
+    if (this.destroyed || this.completed || this.checking || this.pendingItem || this.pendingIntro) return false;
+    const item = this.type() === 'linear' && this.card()?.kind === 'item' ? this.card() : this.items().find(item => item.id === action.id);
+    if (!item || item.id !== action.id || !conditionsMet(item.conditions, this.variables, this.inventory)) return false;
+    try {
+      const inventory = this.collectionInventory(item, decision.replacementId);
+      if (this.departureBlocked(item, this.location, this.variables, inventory, 'collect')) return false;
+      const collected = addInventory(inventory, {...item, text:this.body(item)});
+      transact(this.variables, collected, {effects:item.onCollect ?? item.effects ?? []}, this.compiled.variables, this.compiled.library);
+      return true;
+    } catch (error) { this.error(error); return false; }
+  }
   resolveItem(detail,transition) {
     const linearItem=this.type()==='linear'&&this.card()?.kind==='item';
     const all=transition==='discard'&&detail.all===true&&!linearItem;
     if(this.destroyed||this.completed||this.checking||this.pendingItem||this.pendingIntro||(!linearItem&&this.type()!=='container')||detail.contentId!==this.deck.content.id)return;
     const item=linearItem?this.card():this.items().find(i=>i.id===detail.action?.id);
     if(!item||item.id!==detail.action?.id||!conditionsMet(item.conditions,this.variables,this.inventory))return;
-    if(this.departureBlocked(item,this.location,this.variables,this.inventory,transition)){this.show({restore:true});return;}
+    let baseInventory;
+    try { baseInventory = transition === 'collect' ? this.collectionInventory(item, detail.replacementId) : this.inventory; }
+    catch(error) { this.error(error); this.show({restore:true}); return; }
+    if(this.departureBlocked(item,this.location,this.variables,baseInventory,transition)){this.show({restore:true});return;}
     try {
       const {context,...itemContent}=item;
-      const inventory=transition==='collect'?addInventory(this.inventory,{...itemContent,text:this.body(item)}):this.inventory;
+      const inventory=transition==='collect'?addInventory(baseInventory,{...itemContent,text:this.body(item)}):this.inventory;
       const result=transact(this.variables,inventory,{effects:transition==='collect'?(item.onCollect??item.effects??[]):[]},this.compiled.variables,this.compiled.library);
       this.pendingItem={item,key:this.key(),linearItem,all,transition,contentId:detail.contentId,result};
       if(detail.final||linearItem||all) {
@@ -349,7 +374,7 @@ export class ProjectController {
     else this.notify();
   }
   useItem(definitionId) {
-    if(this.destroyed||this.completed||this.checking||this.pendingItem||this.pendingIntro||this.deck.busy||this.deck.drag||['revealing','closing','committing','collecting'].includes(this.deck.phase))return false;
+    if(this.destroyed||this.completed||this.checking||this.pendingItem||this.pendingIntro||this.deck.busy||this.deck.pickup?.pending||this.deck.drag||['revealing','closing','committing','collecting'].includes(this.deck.phase))return false;
     if(this.location.node.type==='fork'&&typeof this.deck.updateActions==='function'&&!['closed','choices'].includes(this.deck.phase))return false;
     const item=this.inventory.find(i=>i.definitionId===definitionId||i.inventoryKey===definitionId||i.id===definitionId);
     if(!item?.use||!conditionsMet(item.use.conditions,this.variables,this.inventory))return false;

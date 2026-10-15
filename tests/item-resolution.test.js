@@ -215,3 +215,195 @@ for(const transition of ['collect','discard'])for(const shown of [false,true])te
  check();for(let i=0;frames.size&&i<2000;i++){step();check();}
  assert.equal(frames.size,0);assert.equal(deck.content.actions.length,1);check();dispose(deck);
 });
+
+function drawerFixture(deck, { authorize, full = false } = {}) {
+  document.body = new Element();
+  const target = { slot: 1, rect: {left:80, top:560, width:75, height:100}, occupied:full };
+  const adapter = {
+    getTarget: ({clientY, keyboard}) => keyboard ? target : clientY >= 560 && clientY <= 660 ? target : null,
+    slotTarget: () => target, preview() {}, setContext() {}, cancelPending() {},
+    authorize: authorize ?? (() => Promise.resolve({slot:1}))
+  };
+  return import('../engine/InventoryPickup.js').then(({InventoryPickup}) => {
+    deck.pickup = new InventoryPickup(deck, adapter);
+    return {target, adapter};
+  });
+}
+const flushPickup = async () => { for (let i=0;i<5;i++) await Promise.resolve(); };
+
+test('drawer preview reverses without collection and rejects a short flick outside its slots', async () => {
+  const deck=make(); ready(deck); await drawerFixture(deck);
+  let collections=0; deck.addEventListener('collect',()=>collections++);
+  deck.start();
+  deck.move({...gesture(260),clientX:115,clientY:600}); settle();
+  assert.equal(deck.pickup.mix.x,1);
+  assert.equal(deck.pickup.layer.parentNode,document.body);
+  const mini=cardPose(deck,deck.index);
+  assert.equal(mini.visible,false,'large card is hidden only in drawer context');
+  assert.equal(deck.pickup.layer.style.width,'75px','drawer mini has its own fixed dimensions');
+  deck.move({...gesture(90),clientX:115,clientY:430}); settle();
+  assert.equal(deck.pickup.mix.x,0);
+  assert.equal(deck.pickup.layer,null);
+  deck.end({...gesture(90,4000),clientX:115,clientY:430}); settle();
+  assert.equal(collections,0); assert.equal(deck.cards.length,3);
+  deck.destroy();
+});
+
+test('drawer release recomputes target and completes once at slot arrival', async () => {
+  const deck=make(); ready(deck); await drawerFixture(deck);
+  let collections=0,completions=0;
+  deck.addEventListener('collect',()=>collections++);
+  deck.addEventListener('transitioncomplete',e=>{if(e.detail.transition==='collect')completions++;});
+  deck.start(); deck.move({...gesture(80),clientX:115,clientY:420});
+  deck.end({...gesture(260),clientX:115,clientY:600});
+  await flushPickup(); settle();
+  assert.equal(collections,1); assert.equal(completions,1); assert.equal(deck.cards.length,2);
+  assert.equal(document.body.children.length,0); deck.destroy();
+});
+
+test('drawer confirmation locks input; cancellation restores the card; reset invalidates stale approval', async () => {
+  const deck=make(); ready(deck);
+  let approve; await drawerFixture(deck,{authorize:()=>new Promise(resolve=>{approve=resolve;})});
+  let collections=0; deck.addEventListener('collect',()=>collections++);
+  deck.start(); deck.move({...gesture(260),clientX:115,clientY:600});
+  deck.end({...gesture(260),clientX:115,clientY:600});
+  assert.equal(deck.pickup.pending,true); assert.equal(deck.start(),false);
+  approve(false); await flushPickup(); settle();
+  assert.equal(deck.pickup.pending,false); assert.equal(deck.pickup.mix.x,0); assert.equal(collections,0);
+  deck.collect(); assert.equal(deck.pickup.pending,true);
+  deck.reset(); approve({slot:1}); await flushPickup(); settle();
+  assert.equal(collections,0); assert.equal(document.body.children.length,0); deck.destroy();
+});
+
+test('drawer deposits and reversals support reduced motion', async () => {
+  const deck=make(); ready(deck); await drawerFixture(deck); deck.reduced=true;
+  deck.start(); deck.move({...gesture(260),clientX:115,clientY:600});
+  assert.equal(deck.pickup.mix.x,1);
+  deck.move({...gesture(80),clientX:115,clientY:420});
+  assert.equal(deck.pickup.mix.x,0);
+  deck.end({...gesture(260),clientX:115,clientY:600}); await flushPickup();
+  assert.equal(deck.cards.length,2); assert.equal(document.body.children.length,0); deck.destroy();
+});
+
+test('disabled drawer pickup released over slots settles without a permanent miniature', async () => {
+  const deck=make(); ready(deck); await drawerFixture(deck);
+  deck.content.actions[deck.index].collectDisabled=true;
+  deck.start(); deck.move({...gesture(260),clientX:115,clientY:600});
+  deck.end({...gesture(260),clientX:115,clientY:600}); await flushPickup(); settle();
+  assert.equal(deck.pickup.mix.x,0); assert.equal(deck.pickup.pending,false);
+  assert.equal(deck.cards.length,3); assert.equal(document.body.children.length,0); deck.destroy();
+});
+
+test('leaving drawer context immediately restores the full card and permits browsing', async () => {
+  const deck=make(); ready(deck); await drawerFixture(deck);
+  deck.start(); deck.move({...gesture(260),clientX:115,clientY:600}); settle();
+  const owner=deck.content.actions[deck.index].id;
+  deck.cancel(); settle(); key(deck,'ArrowRight'); settle();
+  assert.notEqual(deck.content.actions[deck.index].id,owner);
+  assert.equal(document.body.children.length,0); deck.destroy();
+});
+
+test('Escape cancels the held drawer gesture and releasing afterwards cannot collect', async () => {
+  const deck=make(); ready(deck); await drawerFixture(deck);
+  let collections=0; deck.addEventListener('collect',()=>collections++);
+  deck.start(); deck.move({...gesture(260),clientX:115,clientY:600}); settle();
+  key(deck,'Escape');
+  assert.equal(deck.drag,null); assert.equal(deck.pickup.mix.x,0);
+  deck.move({...gesture(280),clientX:115,clientY:620});
+  deck.end({...gesture(280),clientX:115,clientY:620}); await flushPickup(); settle();
+  assert.equal(collections,0); assert.equal(deck.cards.length,3); deck.destroy();
+});
+
+test('Escape during an accepted deposit does not reverse its presentation or cancel its transaction', async () => {
+  const deck=make(); ready(deck); await drawerFixture(deck);
+  deck.collect(); await flushPickup();
+  assert.ok(deck.collectMotion?.deposit);
+  key(deck,'Escape'); assert.equal(deck.pickup.mix.x,1);
+  settle(); assert.equal(deck.cards.length,2); assert.equal(document.body.children.length,0); deck.destroy();
+});
+
+test('before the drawer boundary the large card keeps exactly the original drag pose', async () => {
+  const original=make(),drawer=make(); ready(original); ready(drawer); await drawerFixture(drawer);
+  original.start(); drawer.start();
+  const movement={...gesture(150),clientX:115,clientY:490};
+  original.move(movement); drawer.move(movement);
+  const expected=cardPose(original,original.index),actual=cardPose(drawer,drawer.index);
+  samePose(actual,expected,'drawer must not shrink or change the ordinary card drag');
+  assert.equal(drawer.pickup.mix.x,0); assert.equal(drawer.pickup.layer,null);
+  original.destroy(); drawer.destroy();
+});
+
+test('final drawer deposit completes once, clears the mini and ends the item context', async () => {
+  const deck=make(1); ready(deck); await drawerFixture(deck);
+  let completed=0;
+  deck.addEventListener('collect',()=>deck.endContent());
+  deck.addEventListener('transitioncomplete',event=>{if(event.detail.transition==='collect')completed++;});
+  deck.collect(); await flushPickup(); settle();
+  assert.equal(completed,1); assert.equal(deck.phase,'ended');
+  assert.equal(document.body.children.length,0); deck.destroy();
+});
+
+
+test('drawer mini tracks the pointer before insertion; releasing there does not collect', async () => {
+  const deck=make(); ready(deck); const {adapter,target}=await drawerFixture(deck);
+  adapter.getTarget=({clientX,clientY})=>({...target,snapped:false,clientX,clientY});
+  let collections=0; deck.addEventListener('collect',()=>collections++);
+  deck.start(); deck.move({...gesture(180),clientX:160,clientY:510});
+  assert.equal(deck.pickup.x.x,160-target.rect.width/2);
+  assert.equal(deck.pickup.y.x,510-target.rect.height/2);
+  deck.move({...gesture(190),clientX:195,clientY:520});
+  assert.equal(deck.pickup.x.x,195-target.rect.width/2);
+  deck.end({...gesture(190),clientX:195,clientY:520}); await flushPickup(); settle();
+  assert.equal(collections,0); assert.equal(deck.cards.length,3); deck.destroy();
+});
+
+test('moving deeper snaps the pointer-following mini into its grid destination', async () => {
+  const deck=make(); ready(deck); const {adapter,target}=await drawerFixture(deck);
+  adapter.getTarget=({clientX,clientY})=>({...target,snapped:clientY>=560,clientX,clientY});
+  deck.start(); deck.move({...gesture(180),clientX:160,clientY:510});
+  deck.move({...gesture(260),clientX:160,clientY:600});
+  assert.equal(deck.pickup.target.snapped,true);
+  assert.equal(deck.pickup.x.target,target.rect.left); assert.equal(deck.pickup.y.target,target.rect.top);
+  deck.end({...gesture(260),clientX:160,clientY:600}); await flushPickup(); settle();
+  assert.equal(deck.cards.length,2); deck.destroy();
+});
+
+
+test('accepted drawer deposit appears immediately and persists through stack reflow', async () => {
+  const deck=make(); ready(deck); const {adapter}=await drawerFixture(deck);
+  let staged=0,cleared=0;
+  adapter.stageDeposit=()=>staged++; adapter.clearDeposit=()=>cleared++;
+  deck.collect(); await flushPickup();
+  assert.equal(staged,1,'slot accepts before any animation frames');
+  assert.equal(deck.pickup.layer,null,'floating replica hands off without duplication');
+  assert.equal(cleared,0);
+  settle(); assert.equal(cleared,0,'stack reflow must not erase accepted slot');
+  deck.destroy(); assert.equal(cleared,1);
+});
+
+test('replacement confirmation keeps the main stack at its held pose until a decision', async () => {
+  const deck=make(); ready(deck);
+  let answer; await drawerFixture(deck,{full:true,authorize:()=>new Promise(resolve=>{answer=resolve;})});
+  deck.start(); deck.move({...gesture(260),clientX:115,clientY:600}); settle();
+  const held=poses(deck);
+  deck.end({...gesture(260),clientX:115,clientY:600});
+  assert.equal(deck.pickup.pending,true);
+  for(let i=0;i<60;i++) {
+    step();
+    for(let index=0;index<deck.cards.length;index++) samePose(cardPose(deck,index),held.get(deck.content.actions[index].id),'confirmation must not release stack recession');
+  }
+  answer(false); await flushPickup(); settle();
+  assert.equal(deck.pickup.pending,false); assert.equal(deck.cards.length,3); deck.destroy();
+});
+
+test('reduced-motion replacement question holds the drag offset until confirmation', async () => {
+  const deck=make(); ready(deck); deck.reduced=true;
+  let answer; await drawerFixture(deck,{full:true,authorize:()=>new Promise(resolve=>{answer=resolve;})});
+  deck.start(); deck.move({...gesture(260),clientX:115,clientY:600});
+  const lift=deck.l.x;
+  deck.end({...gesture(260),clientX:115,clientY:600});
+  assert.equal(deck.pickup.pending,true); assert.equal(deck.l.x,lift);
+  assert.equal(deck.cards.length,3);
+  answer({slot:1,replacementId:'old'}); await flushPickup();
+  assert.equal(deck.pickup.pending,false); assert.equal(deck.cards.length,2); deck.destroy();
+});

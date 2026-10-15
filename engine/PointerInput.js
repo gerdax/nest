@@ -56,6 +56,8 @@ export class PointerInput {
     this.callbacks.move({
       x,
       y,
+      clientX: e.clientX,
+      clientY: e.clientY,
       axis: a.axis,
       vx: a.vx,
       vy: a.vy
@@ -72,6 +74,8 @@ export class PointerInput {
     if (!a.waiting) this.callbacks.end({
       x: e.clientX - a.x,
       y: e.clientY - a.y,
+      clientX: e.clientX,
+      clientY: e.clientY,
       axis: a.axis,
       vx: stale ? 0 : a.vx,
       vy: stale ? 0 : a.vy

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<base href="/">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inventory drawer verification</title>
+<link rel="stylesheet" href="../../engine/card-deck.css">
+<link rel="stylesheet" href="../../demo/inventory.css">
+<link rel="stylesheet" href="../../studio/preview.css">
+<style>
+body{margin:0;background:#080a08;color:#ddd;font:14px system-ui}main{max-width:480px;margin:auto;padding:16px}button{background:#263025;color:#eee;border:1px solid #798373;border-radius:5px;padding:8px 12px}.chapter-preview-stage{min-height:360px;padding-top:8px}.chapter-preview-deck{width:240px}.preview-status-row{margin-bottom:190px}h1{font-size:18px}.row{display:flex;gap:8px}
+</style>
+<main><h1>Inventory drawer verification</h1><button id="restart">Restart fixture</button><div id="preview"></div></main>
+<script type="module">
+import {ProjectPreview} from '../../studio/ProjectPreview.js';
+import {createProject} from '../../project/model.js';
+const project=createProject();
+const names=['Flashlight','Compass','Rope','Map','Lantern','Key'];
+const intro=project.library[0];
+project.library=names.map((name,i)=>({id:`item-${i}`,kind:'item',name,text:`${name} for your expedition.`,image:'/assets/img/flashlight.png',inventoryKey:`item-${i}`,onCollect:[]}));
+project.library.push(intro);
+project.chapters[0].startNode='items';
+project.chapters[0].nodes=[{id:'items',name:'Supplies',type:'container',x:0,y:0,intro:{id:'intro',definitionId:intro.id},introEnabled:false,items:names.map((_,i)=>({id:`placement-${i}`,definitionId:`item-${i}`})),connections:{next:null}}];
+project.cardStyles={big:25,medium:17,small:12,bigColor:'#f2deac',mediumColor:'#eee2ba',smallColor:'#d4d0aa'};
+const preview=new ProjectPreview(document.querySelector('#preview'),{inventoryDock:true});
+preview.play(project);
+document.querySelector('#restart').onclick=()=>preview.restart();
+</script>
+</html>

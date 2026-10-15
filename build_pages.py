@@ -19,6 +19,7 @@ RUNTIME_FILES = (
     "editor/preview.js",
     "editor/storage.js",
     "engine/CardDeck.js",
+    "engine/InventoryPickup.js",
     "engine/artworkColorize.js",
     "engine/cardBacks.js",
     "engine/PointerInput.js",
@@ -33,7 +34,7 @@ RUNTIME_FILES = (
 )
 IMPORT_RE = re.compile(r"\b(?:from\s+|import\s+)['\"]([^'\"\r\n]+)['\"]")
 URL_RE = re.compile(r"url\(\s*(['\"]?)(.*?)\1\s*\)", re.IGNORECASE)
-ASSET_RE = re.compile(r"\b([\w.-]+\.(?:png|ttf))")
+ASSET_RE = re.compile(r"\b((?:assets/(?:img|fonts)/(?:[\w.-]+/)*)?[\w.-]+\.(?:png|ttf))")
 
 
 def fail(message: str) -> None:
@@ -93,7 +94,7 @@ def main() -> None:
         for match in ASSET_RE.finditer(content):
             filename = match.group(1)
             folder = "fonts" if filename.endswith(".ttf") else "img"
-            asset = ROOT / "assets" / folder / filename
+            asset = ROOT / filename if filename.startswith("assets/") else ROOT / "assets" / folder / filename
             if not asset.is_file():
                 fail(f"referenced runtime asset is missing: {asset.relative_to(ROOT)}")
             assets.add(asset)

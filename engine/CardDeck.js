@@ -4,6 +4,7 @@ import { MovementHistory } from './MovementHistory.js?v=no-ending-card-1';
 import { DEFAULT_SETTINGS, settingsWith, spring, springStep, qualifies, resistance, modulo, clamp, carouselPose, departureDistance, flipLift } from './motion.js?v=no-ending-card-1';
 import { PointerInput } from './PointerInput.js?v=no-ending-card-1';
 import { resolveBackAppearance, resolveBackOperation } from './cardBacks.js';
+import { InventoryPickup } from './InventoryPickup.js';
 export { DEFAULT_SETTINGS };
 
 function validate(content) {
@@ -25,7 +26,8 @@ function validate(content) {
 export class CardDeck extends EventTarget {
   constructor(mount, {
     content,
-    settings = {}
+    settings = {},
+    inventoryDrawer = null
   } = {}) {
     super();
     this.mount = mount;
@@ -81,6 +83,7 @@ export class CardDeck extends EventTarget {
     this.commitTransition = 'commit';
     this.openingCommit = false;
     this.drag = null;
+    this.pickup = inventoryDrawer ? new InventoryPickup(this, inventoryDrawer) : null;
     this.prepareEntrances();
     this.abort = new AbortController();
     this.original = {
@@ -128,6 +131,7 @@ export class CardDeck extends EventTarget {
       if (entries?.length && bounds.width === this.resizeBounds.width && bounds.height === this.resizeBounds.height) return;
       this.resizeBounds = bounds;
       const wasDragging = !!this.drag;
+      if (this.pickup?.pending || this.pickup?.mix.x > 0 && !this.collectMotion) { this.pickup.cancel(); this.cancelPickup(); }
       if (wasDragging) { this.input.cancel(); this.cancel(); }
       // A resize changes the departure distance and the entire turn envelope.
       // Finish the active choreography before painting the new dimensions.
@@ -319,7 +323,7 @@ export class CardDeck extends EventTarget {
   }
 
   start(event) {
-    if (this.destroyed || this.busy || this.openingCommit || this.openingReturn || ['closing', 'revealing', 'ended'].includes(this.phase)) return false;
+    if (this.pickup?.pending || this.pickup?.mix.x > .001 || this.destroyed || this.busy || this.openingCommit || this.openingReturn || ['closing', 'revealing', 'ended'].includes(this.phase)) return false;
     this.cancelPresentationHint();
     this.mount.focus({ preventScroll: true });
     const bounds = this.mount.getBoundingClientRect();
@@ -430,6 +434,7 @@ export class CardDeck extends EventTarget {
         }
       }
     }
+    if (this.pickup && this.drag.ready && this.content.interaction === 'container') this.pickup.move(gesture);
     this.sampleChoices();
     const max = this.settings.maxTilt;
     this.rotationX.target = clamp(-gesture.y / height * max * 2, -max, max);
@@ -452,6 +457,14 @@ export class CardDeck extends EventTarget {
     this.drag = null;
     const { width, height } = this.mount.getBoundingClientRect();
     this.releaseRotation(gesture);
+    if (this.pickup && drag.ready && this.content.interaction === 'container' && gesture.axis === 'y' && gesture.y > 0) {
+      const target = this.pickup.targetFor(gesture);
+      const action = this.content.actions[this.index];
+      if (target && target.snapped !== false && !action?.disabled && !action?.collectDisabled) { this.pickup.preview(target); this.pickup.request(target, gesture.vy); }
+      else { this.pickup.cancel(); this.cancelPickup(); }
+      return;
+    }
+    this.pickup?.preview(null);
     if (gesture.axis === 'x' && drag.ready) {
       const accepted = this.cards.length > 1 && qualifies(gesture.x, gesture.vx, width, this.settings);
       const steps = accepted ? Math.max(1, Math.round(Math.abs(gesture.x) / (width * .62))) : 0;
@@ -493,7 +506,13 @@ export class CardDeck extends EventTarget {
     this.schedule();
   }
 
+  cancelPickup() {
+    this.releaseGrab(); this.releaseRotation();
+    this.l.target = 0; this.operation = 'cancel'; this.render(); this.schedule();
+  }
+
   cancel() {
+    this.pickup?.cancel();
     if (!this.drag) return;
     this.drag = null;
     this.releaseGrab();
@@ -660,6 +679,13 @@ export class CardDeck extends EventTarget {
   }
 
   key(e) {
+    if (this.pickup && (this.pickup.pending || this.pickup.mix.x > 0)) {
+      if (e.key === 'Escape' && !this.busy && !this.collectMotion) {
+        e.preventDefault();
+        this.input.cancel(); this.cancel(); this.cancelPickup();
+      }
+      return;
+    }
     if (e.key === 'Escape' && (this.content.interaction === 'container' || this.drag)) {
       e.preventDefault();
       if (!this.busy) { this.input.cancel(); this.cancel(); }
@@ -839,7 +865,14 @@ export class CardDeck extends EventTarget {
     if (this.drag) this.drag.l = 0;
   }
 
-  collect(pointerVelocity = 0) { this.resolveItem('collect', pointerVelocity); }
+  collect(pointerVelocity = 0) {
+    if (this.pickup) {
+      if (this.busy || this.drag || this.phase !== 'choices' || this.content.interaction !== 'container') return;
+      this.pickup.request(this.pickup.targetFor(null, true), pointerVelocity);
+      return;
+    }
+    this.resolveItem('collect', pointerVelocity);
+  }
   discard(pointerVelocity = 0) {
     if (this.content.discardAll !== true && this.cards.length !== 1) { this.resolveItem('discard', pointerVelocity); return; }
     if (this.destroyed || this.busy || this.drag || this.phase !== 'choices' || this.content.interaction !== 'container') return;
@@ -863,7 +896,7 @@ export class CardDeck extends EventTarget {
     if (this.commitMotion === motion && !this.destroyed) this.schedule();
   }
 
-  resolveItem(transition, pointerVelocity = 0) {
+  resolveItem(transition, pointerVelocity = 0, deposit = null) {
     if (this.destroyed || this.busy || this.drag || this.phase !== 'choices' || this.content.interaction !== 'container') return;
     this.cancelPresentationHint();
     const action = this.content.actions[this.index];
@@ -885,14 +918,19 @@ export class CardDeck extends EventTarget {
     const motion = { start: performance.now(), duration, direction, transition, final, continueFlight: true,
       gravity, velocity: Math.max(direction * pointerVelocity, distance / seconds + .5 * gravity * seconds),
       index: this.index, id: action.id };
+    if (deposit) { motion.deposit = deposit; motion.duration = this.reduced ? 0 : 220; }
     this.collectMotion = motion;
     if (final) this.lockBackOperation('actions', direction);
-    this.emit(transition, { action, index: this.index, final });
-    if (this.collectMotion === motion && !this.destroyed) this.schedule();
+    this.emit(transition, { action, index: this.index, final, ...(deposit ? { replacementId: deposit.replacementId, slot: deposit.slot } : {}) });
+    if (this.collectMotion === motion && !this.destroyed) {
+      if (deposit) this.pickup?.accept(action, deposit);
+      this.schedule();
+    }
   }
 
   itemCleared(time) {
     const motion = this.collectMotion, bounds = this.mount.getBoundingClientRect();
+    if (motion.deposit) return time - motion.start >= motion.duration && (this.reduced || this.pickup.states.every(state => this.atRest(state)));
     const area = projectedBounds(cardPose(this, motion.index, time), bounds.width, bounds.height, this.settings.perspective);
     return motion.direction > 0 ? area.top + (bounds.top || 0) >= (globalThis.innerHeight || bounds.height + (bounds.top || 0)) + 8
       : area.bottom + (bounds.top || 0) <= -8;
@@ -930,6 +968,7 @@ export class CardDeck extends EventTarget {
       layer: this.cardLayers[i], back: this.cardBacks[i], title: this.cardTitles[i] }))
       .filter((_, i) => i !== motion.index)
       .sort((a, b) => oldOrder.get(b.action.id) - oldOrder.get(a.action.id));
+    this.pickup?.reset({ completed: true });
     this.cardLayers[motion.index].remove();
     this.collectMotion = null;
     this.grabCards.delete(motion.id);
@@ -1361,6 +1400,7 @@ export class CardDeck extends EventTarget {
 
   reset() {
     if (this.destroyed) return;
+    this.pickup?.reset();
     this.input.cancel();
     cancelAnimationFrame(this.frame);
     this.frame = 0;
@@ -1382,14 +1422,16 @@ export class CardDeck extends EventTarget {
   schedule() {
     if (this.destroyed || this.frame) return;
     if (this.reduced || document.hidden) {
-      this.finishMotion();
+      for (const state of this.pickup?.states || []) { state.x = state.target; state.v = 0; }
+      this.render();
+      if (!this.pickup?.pending) this.finishMotion();
       return;
     }
     this.frame = requestAnimationFrame(t => this.tick(t));
   }
 
   motionStates() {
-    return [this.p, this.b, this.l, this.n, this.fan, this.returnLift, this.rotationX, this.rotationY, this.rotationZ, this.flip,
+    return [...(this.pickup?.states || []), this.p, this.b, this.l, this.n, this.fan, this.returnLift, this.rotationX, this.rotationY, this.rotationZ, this.flip,
       ...(this.presentationHint ? [this.presentationHint.travel] : []),
       ...Array.from(this.entrances.values(), entry => entry.travel),
       ...Array.from(this.reflowOffsets.values()).flatMap(offset => Object.values(offset))];
@@ -1422,6 +1464,15 @@ export class CardDeck extends EventTarget {
     if (this.destroyed) return;
     let dt = this.last ? Math.min((t - this.last) / 1000, 0.05) : 1 / 60;
     this.last = t;
+    const pickupMoving = this.pickup?.step(dt);
+    // Releasing into a replacement question is still a held presentation.
+    // Settling l/rotation/grab here would undo the stack's take-depth recession
+    // and make the remaining cards zoom forward behind the modal.
+    if (this.pickup?.pending) {
+      this.render(t);
+      if (pickupMoving) this.schedule(); else this.last = 0;
+      return;
+    }
     const grabMoving = this.stepGrab(dt, t);
     if (this.collectMotion) {
       if (this.itemCleared(t)) {
@@ -1463,7 +1514,7 @@ export class CardDeck extends EventTarget {
       }
       this.sampleChoices(t);
       this.render(t);
-      if (grabMoving || angularMoving || this.choiceHistory || this.reflowOffsets.size) this.schedule(); else this.last = 0;
+      if (pickupMoving || grabMoving || angularMoving || this.choiceHistory || this.reflowOffsets.size) this.schedule(); else this.last = 0;
       return;
     }
     for (const state of [this.p, this.b, this.l, this.n, this.fan, this.returnLift]) {
@@ -1489,7 +1540,7 @@ export class CardDeck extends EventTarget {
     for (const offset of this.reflowOffsets.values()) for (const [field, state] of Object.entries(offset)) {
       if (field.startsWith('r')) this.stepAngular(state, dt); else this.stepPosition(state, dt);
     }
-    if (this.liftPoses && this.atRest(this.l) && [this.rotationX, this.rotationY, this.rotationZ].every(s => this.atRest(s))) this.restoreLiftPoses();
+    if ((!this.pickup || this.pickup.mix.x < .001) && this.liftPoses && this.atRest(this.l) && [this.rotationX, this.rotationY, this.rotationZ].every(s => this.atRest(s))) this.restoreLiftPoses();
     this.advanceEntrances(t);
     this.sampleChoices(t);
     this.advancePhases();
@@ -1582,10 +1633,14 @@ export class CardDeck extends EventTarget {
 
   render(t) {
     renderDeck(this, t);
+    this.pickup?.render();
   }
 
   destroy() {
     if (this.destroyed) return;
+    this.pickup?.reset();
+    this.pickup?.adapter.setContext(false);
+    this.mount.removeAttribute('data-inventory-context');
     this.input.destroy();
     this.destroyed = true;
     this.abort.abort();
