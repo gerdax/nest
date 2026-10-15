@@ -4,7 +4,7 @@ import { CardDeck, DEFAULT_SETTINGS } from '../engine/CardDeck.js';
 import { MovementHistory } from '../engine/MovementHistory.js';
 import { cardPose, scenePose, backPose } from '../engine/renderer.js';
 import { projectedBounds, turningBounds } from '../engine/geometry.js';
-import { departureDistance, settingsWith } from '../engine/motion.js';
+import { departureDistance, settingsWith, flipLift } from '../engine/motion.js';
 class Element extends EventTarget {
   constructor() { super(); this.attrs = new Map(); this.style = {}; this.children = []; this.classList = { add() {}, remove() {} }; }
   setAttribute(k,v) { this.attrs.set(k,v); } getAttribute(k) { return this.attrs.get(k) ?? null; } removeAttribute(k) { this.attrs.delete(k); }
@@ -24,6 +24,40 @@ function settle() { for(let i=0;frames.size && i<2500;i++)step();assert.equal(fr
 function make(n=4) { const d=new CardDeck(new Element(),{content:fixture(n),settings:{choiceStaggerMs:30,choiceFollowerRatio:1}}); d.setOpen(true);d.schedule();settle();return d; }
 const g=y=>({axis:'y',x:0,y,vx:0,vy:0});
 const near=(a,b,message)=>assert.ok(Math.abs(a-b)<1e-8,`${message}: ${a} != ${b}`);
+
+test('flip pickup is smooth, symmetric, bounded and absent at either resting face',()=>{
+ for(const perspective of [400,1200,2000]) {
+  const settings=settingsWith({perspective});
+  assert.equal(flipLift(0,settings),0);assert.equal(flipLift(1,settings),0);
+  assert.equal(flipLift(-.1,settings),0);assert.equal(flipLift(1.1,settings),0);
+  assert.ok(flipLift(.5,settings)>0&&flipLift(.5,settings)<=perspective*.14);
+  assert.ok(flipLift(.2,settings)>.7*flipLift(.5,settings),'pickup is visible before the card is edge-on');
+  assert.ok(flipLift(.25,settings)<flipLift(.5,settings));
+  near(flipLift(.25,settings),flipLift(.75,settings),'lift is symmetric');
+  assert.ok(flipLift(.0001,settings)<.001,'pickup begins gently');
+ }
+});
+
+test('cover and decision cards lift while turning and reduced motion omits pickup',()=>{
+ const d=make(2);d.content.decisionOnly=true;
+ for(const progress of [0,.25,.5,.75,1]) {
+  d.flip.x=progress;d.reduced=true;
+  const cover=scenePose(d),cards=d.cards.map((_,i)=>cardPose(d,i));d.reduced=false;
+  near(scenePose(d).z-cover.z,flipLift(progress,d.settings),'cover flip depth');
+  d.cards.forEach((_,i)=>near(cardPose(d,i).z-cards[i].z,flipLift(progress,d.settings),'decision flip depth'));
+ }
+ d.flip.x=0;d.destroy();settle();
+});
+
+test('staged successor and installed cover retain the same mid-turn pickup depth',()=>{
+ const d=make(2);d.addEventListener('commit',()=>d.replaceContent(fixture(2,'next')));d.commit();
+ d.nextFlip.x=.5;d.render();
+ const z=Number(d.underlay.style.transform.match(/translate3d\([^,]+,[^,]+,([^p]+)px\)/)[1]);
+ near(z,-24+flipLift(.5,d.settings),'staged reverse is picked up');
+ d.completeCommit();near(scenePose(d).z,z,'no depth jump at adoption');
+ const reverse=backPose(scenePose(d));near(reverse.z,z,'both faces share pickup');
+ d.reset();d.destroy();settle();
+});
 
 test('chosen defaults and signed/zero motion tuning are complete',()=>{
   const expected={stiffness:440,damping:70,mass:1.15,maxTilt:12,axisThreshold:34,distanceThreshold:.14,upwardDistanceThreshold:.33,discardDistanceThreshold:.5,flickVelocity:325,flickDistance:26,commitDuration:210,perspective:1200,stackDepth:22,liftHeight:56,grabLift:24,angularStiffness:350,angularDamping:65,gravity:800,choiceStaggerMs:0,choiceFollowerRatio:.7,flipLeadMs:100,flipAxisTilt:-1,revealStartScale:.915,revealFullScaleAt:0.167054298371648};
@@ -57,12 +91,12 @@ for(const count of [2,3,4]) for(const stagger of [0,30]) test(`${count} keyboard
 
 test('earlier flip waits for the full swept plane, then overlaps departure and carries position and velocity into adoption',()=>{
   const d=make(4);d.updateSettings({choiceStaggerMs:18,flipLeadMs:30,flipAxisTilt:-3});d.mount.top=500;d.addEventListener('commit',()=>d.replaceContent(fixture(2,'next')));let complete=0;d.addEventListener('transitioncomplete',e=>{if(e.detail.transition==='commit')complete++;});
-  d.commit();const start=now;step(179);assert.equal(d.nextFlip.target,1);step(1);assert.equal(d.nextFlip.target,0,JSON.stringify({poses:d.cards.map((_,i)=>projectedBounds(cardPose(d,i,now),340,453,1200)),area:turningBounds({z:-24,turnAxis:-3},340,453,1200),time:now-start}));assert.ok(d.commitMotion);assert.ok(d.nextFlip.x<1);
-  const area=turningBounds({z:-24,turnAxis:-3},340,453,1200);
+  d.commit();const start=now;step(179);assert.equal(d.nextFlip.target,1);step(1);assert.equal(d.nextFlip.target,0,JSON.stringify({poses:d.cards.map((_,i)=>projectedBounds(cardPose(d,i,now),340,453,1200)),area:turningBounds({z:-24+flipLift(.5,d.settings),turnAxis:-3},340,453,1200),time:now-start}));assert.ok(d.commitMotion);assert.ok(d.nextFlip.x<1);
+  const area=turningBounds({z:-24+flipLift(.5,d.settings),turnAxis:-3},340,453,1200);
   d.cards.forEach((_,i)=>assert.ok(projectedBounds(cardPose(d,i,now),340,453,1200).bottom<=area.top-8));
   step(20);const outgoing=d.cards.slice();assert.ok(outgoing.every(card=>card.parentNode));assert.equal(d.start(),false);
   step(start+210+54-1-now);const carried={...d.nextFlip};step(1);
-  assert.equal(d.content.id,'next');assert.deepEqual(d.flip,carried);assert.equal(d.flip.v,carried.v);assert.equal(scenePose(d).z,-24);
+  assert.equal(d.content.id,'next');assert.deepEqual(d.flip,carried);assert.equal(d.flip.v,carried.v);near(scenePose(d).z,-24+flipLift(d.flip.x,d.settings),'adoption retains flip pickup depth');
   const front=scenePose(d),reverse=backPose(front);for(const field of ['top','bottom','left','right'])near(projectedBounds(front,340,453,1200)[field],projectedBounds(reverse,340,453,1200)[field],'coincident face planes');
   assert.ok(outgoing.every(card=>!card.parentNode?.parentNode));settle();assert.equal(d.busy,false);assert.equal(complete,1);d.destroy();
 });

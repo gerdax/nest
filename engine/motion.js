@@ -83,6 +83,16 @@ export function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
+// Pick up the card as it turns, then place it back with zero endpoint slope.
+export function flipLift(progress, settings = DEFAULT_SETTINGS) {
+  const phase = clamp(progress, 0, 1);
+  if (phase === 0 || phase === 1) return 0;
+  // Pick up early enough to see the size change before the face is edge-on,
+  // hold through the turn, then gently put the card down as its front lands.
+  const pickup = clamp(Math.min(phase, 1 - phase) / .3, 0, 1);
+  return Math.min(160, settings.perspective * .14) * pickup * pickup * (3 - 2 * pickup);
+}
+
 export function revealScale(exposedPixels, height, settings = DEFAULT_SETTINGS) {
   const progress = clamp(exposedPixels / (Math.max(1, height) * settings.revealFullScaleAt), 0, 1);
   const eased = progress * progress * (3 - 2 * progress);

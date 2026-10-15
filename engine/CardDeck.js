@@ -1,7 +1,7 @@
 import { projectedBounds, turningBounds } from './geometry.js?v=no-ending-card-1';
 import { buildDeck, decorateCard, announceDeck, renderDeck, stageNextContent, stageNextBack, stageActionDeck, scenePose, cardPose, restoreBacks } from './renderer.js?v=no-ending-card-1';
 import { MovementHistory } from './MovementHistory.js?v=no-ending-card-1';
-import { DEFAULT_SETTINGS, settingsWith, spring, springStep, qualifies, resistance, modulo, clamp, carouselPose, departureDistance } from './motion.js?v=no-ending-card-1';
+import { DEFAULT_SETTINGS, settingsWith, spring, springStep, qualifies, resistance, modulo, clamp, carouselPose, departureDistance, flipLift } from './motion.js?v=no-ending-card-1';
 import { PointerInput } from './PointerInput.js?v=no-ending-card-1';
 import { resolveBackAppearance, resolveBackOperation } from './cardBacks.js';
 export { DEFAULT_SETTINGS };
@@ -300,7 +300,7 @@ export class CardDeck extends EventTarget {
     if (!this.pending || (this.pendingPresentation !== 'closed' && !this.pending?.decisionOnly) || !this.commitMotion || this.nextFlip.target === 0) return;
     if (time < this.commitMotion.start + Math.max(0, this.commitMotion.duration - this.settings.flipLeadMs)) return;
     const { width, height } = this.mount.getBoundingClientRect();
-    const area = turningBounds({ x: 0, y: 0, z: -24, turnAxis: this.settings.flipAxisTilt }, width, height, this.settings.perspective);
+    const area = turningBounds({ x: 0, y: 0, z: -24 + (this.reduced ? 0 : flipLift(.5, this.settings)), turnAxis: this.settings.flipAxisTilt }, width, height, this.settings.perspective);
     if ((this.coverDeparture ? [scenePose(this, time)] : this.cards.map((_, i) => cardPose(this, i, time))).every(pose => projectedBounds(pose, width, height, this.settings.perspective).bottom <= area.top - 8)) {
       this.nextFlip.target = 0;
     }

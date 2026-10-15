@@ -1,5 +1,5 @@
 import { handoffRadius, projectedBounds } from './geometry.js?v=no-ending-card-1';
-import { carouselPose, clamp, departureDistance, revealScale } from './motion.js?v=no-ending-card-1';
+import { carouselPose, clamp, departureDistance, revealScale, flipLift } from './motion.js?v=no-ending-card-1';
 import { applyArtworkColorize } from './artworkColorize.js';
 import { resolveBackAppearance, resolveBackOperation, selectBackIcon } from './cardBacks.js';
 
@@ -285,6 +285,7 @@ export function scenePose(deck, time = performance.now(), travel = deck.departur
     rz: deck.rotationZ.x * (1 - clamp(deck.p.x, 0, 1)),
     visible: !deck.skipCover && !(deck.busy && !deck.commitMotion && deck.operation !== 'commit')
   };
+  if (!deck.reduced) pose.z += flipLift(deck.flip.x, deck.settings);
   const depth = deck.n.x * 40 * (deck.takeDepthRatio || 0);
   if (depth > 0) {
     const area = bounds || deck.mount.getBoundingClientRect();
@@ -437,7 +438,10 @@ export function cardPose(deck, index, time = performance.now(), context = poseCo
   }
   pose.visible = !(deck.phase === 'committing' && deck.busy && !deck.commitMotion && deck.operation !== 'commit')
     && !(deck.busy && deck.operation === 'commit' && !deck.content.decisionOnly && (deck.flip.x !== 0 || deck.flip.v !== 0));
-  if (deck.content.decisionOnly) { pose.turn = deck.flip.x * 180; pose.turnAxis = deck.settings.flipAxisTilt; }
+  if (deck.content.decisionOnly) {
+    pose.turn = deck.flip.x * 180; pose.turnAxis = deck.settings.flipAxisTilt;
+    if (!deck.reduced) pose.z += flipLift(deck.flip.x, deck.settings);
+  }
   pose.rank = rank;
   const offset = deck.reflowOffsets.get(action.id);
   if (offset) for (const [field, state] of Object.entries(offset)) pose[field] += state.x;
@@ -504,6 +508,7 @@ export function renderDeck(deck, time = performance.now()) {
         && !deck.content.actions[deck.index]?.disabled))
         && !forwardActive && !deck.ending && !deck.content.noSuccessor
     };
+    if (!deck.reduced) stagedPose.z += flipLift(deck.nextFlip.x, deck.settings);
     anchorRecedingTop(stagedPose, deck.nextTakeDepth || 0, width, height, deck.settings.perspective);
     applyPose(deck, deck.underlay, deck.underlayLayer, stagedPose, 0);
     applyPose(deck, deck.underlayBack, deck.underlayLayer, backPose(stagedPose), 0);
@@ -545,6 +550,7 @@ function renderStagedActions(deck, bundle, baseOrder, visible, y = 0, z = -36, s
   bundle.cards.forEach((card, index) => {
     const rank = ((slots.get(index) ?? 0) - selectedSlot + count) % count;
     const pose = { x: 0, y, z: z - rank * deck.settings.stackDepth, rx: 0, ry: 0, rz: 0, scale, visible: visible && !(suppressEntrances && bundle.content.actions[index].entrance === 'bottom'), turn, turnAxis: deck.settings.flipAxisTilt };
+    if (!deck.reduced) pose.z += flipLift(turn / 180, deck.settings);
     if (takeDepth > 0) {
       anchorRecedingTop(pose, takeDepth, bounds.width, bounds.height, deck.settings.perspective);
     }

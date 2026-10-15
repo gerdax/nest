@@ -378,14 +378,14 @@ test('show-once fork repeats the same ordinary hint before inventory choices ent
  const deck=make(1,choices([ordinary('loading')]));const controller=new ProjectController(deck,{startNode:'door',nodes,variables:[],library:[{id:'key',kind:'item',name:'Key'}]});
  assert.equal(deck.content.actions.length,2);deck.setOpen(true);deck.schedule();until(()=>deck.presentationHint?.stage==='hold');
  // Compare equivalent fan/hint progress, independent of cover vs flip timing.
- deck.fan.x=1;deck.presentationHint.travel.x=.95;
+ deck.fan.x=1;deck.flip.x=0;deck.presentationHint.travel.x=.95;
  const first=ordinaryActions.map(a=>cardPose(deck,deck.content.actions.findIndex(b=>b.id===a.id)));
  settle();assert.equal(deck.content.actions.length,3);
  while(deck.content.actions[deck.index].id!=='open'){key(deck,'ArrowRight');settle();}
  key(deck,'ArrowUp');settle();assert.equal(controller.state.activeNodeId,'again');
  key(deck,'ArrowUp');until(()=>deck.presentationHint?.stage==='hold');
  assert.equal(controller.state.activeNodeId,'door');assert.equal(deck.skipCover,true);assert.equal(deck.entrances.get('use-key').startAt,null);
- deck.fan.x=1;deck.presentationHint.travel.x=.95;
+ deck.fan.x=1;deck.flip.x=0;deck.presentationHint.travel.x=.95;
  ordinaryActions.forEach((a,i)=>samePose(cardPose(deck,deck.content.actions.findIndex(b=>b.id===a.id)),first[i],'repeat visit matches intro hint'));
  settle();assert.equal(deck.content.actions[deck.index].id,'use-key');assert.equal(deck.presentationHint,null);assert.equal(controller.state.idle,true);dispose(deck,controller);
 });
