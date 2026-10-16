@@ -36,6 +36,16 @@ if(new URLSearchParams(location.search).has('unlock')){
   project.library[1].conditions=[{source:'inventory',key:'item-0',op:'has'}];
   project.chapters[0].nodes.find(node=>node.id==='items').items=project.chapters[0].nodes.find(node=>node.id==='items').items.slice(0,2);
 }
+if(new URLSearchParams(location.search).has('linear-run')){
+  project.chapters[0].startNode='linear-run';
+  project.chapters[0].nodes.unshift({id:'linear-run',name:'Consecutive items',type:'linear',x:-300,y:0,cards:[{id:'run-one',definitionId:'item-0'},{id:'run-two',definitionId:'item-1'},{id:'run-after',definitionId:intro.id}],connections:{next:null}});
+}
+if(new URLSearchParams(location.search).has('return-loop')){
+  project.chapters[0].allowCycles=true;
+  const container=project.chapters[0].nodes.find(node=>node.id==='items');
+  container.items=container.items.slice(0,3);container.introEnabled=true;container.connections.next='return';
+  project.chapters[0].nodes.push({id:'return',name:'Return to supplies',type:'linear',x:300,y:0,cards:[{id:'return-card',definitionId:intro.id}],connections:{next:'items'}});
+}
 const embedded=new URLSearchParams(location.search).has('embedded');
 const previewRoot=document.querySelector('#preview');
 let host=null,windowRoot=null;
@@ -49,6 +59,10 @@ if(embedded){
 const preview=new ProjectPreview(previewRoot,{inventoryDock:!embedded,inventoryHost:host});
 if(embedded)mountPreviewWindow(windowRoot,{onClose:()=>preview.stop()}).show();
 preview.play(project);
+if(new URLSearchParams(location.search).has('overflow')){
+  preview.controller.inventory=Array.from({length:5},(_,i)=>({id:`owned-${i}`,definitionId:`owned-${i}`,kind:'item',name:`Owned ${i+1}`}));
+  preview.controller.show({restore:true});
+}
 let traceSerial=0,rapidDiscarded=false;
 function traceDrawer(){
   const serial=++traceSerial,start=performance.now(),timeline=[],drawer=previewRoot.ownerDocument.querySelector('.nest-inventory-drawer');
@@ -62,7 +76,7 @@ function traceDrawer(){
       windowRoot.style.width=`${windowRoot.clientWidth-2}px`;resized=true;
     }
     const style=getComputedStyle(drawer);
-    const state={phase:preview.deck.phase,hidden:drawer.hidden,opacity:drawer.style.opacity,computedOpacity:style.opacity,transform:style.transform,entering:drawer.classList.contains('is-entering'),content:preview.deck.content.id,open:preview.deck.open,hint:preview.deck.presentationHint?.stage??null};
+    const state={itemsExposed:preview.deck.presentationState?.itemsExposed??false,visualReady:preview.deck.presentationState?.visualReady??false,fullySettled:preview.deck.presentationState?.fullySettled??false,phase:preview.deck.phase,hidden:drawer.hidden,opacity:drawer.style.opacity,computedOpacity:style.opacity,transform:style.transform,entering:drawer.classList.contains('is-entering'),exiting:drawer.classList.contains('is-exiting'),inert:drawer.inert,content:preview.deck.content.id,open:preview.deck.open,hint:preview.deck.presentationHint?.stage??null};
     const key=JSON.stringify(state);
     if(key!==last){timeline.push({ms:Math.round(performance.now()-start),...state});last=key;}
     document.querySelector('#collection-timeline').textContent=JSON.stringify(timeline);

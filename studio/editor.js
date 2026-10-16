@@ -11,6 +11,7 @@ import { definitionGraph, deleteDefinition, cleanupLocalDefinitions } from '../p
 import { loadProject,saveProject } from '../project/storage.js';
 import { GraphView } from './GraphView.js';
 import { ProjectPreview } from './ProjectPreview.js';
+import { mountDrawerDebug } from './drawer-debug.js';
 import { definitionInspector,nodeInspector,variableInspector } from './inspectors.js';
 import { esc } from './forms.js';
 import { mountPreviewWindow } from './preview-window.js';
@@ -30,6 +31,7 @@ const chapter=()=>project.chapters.find(c=>c.id===chapterId)||project.chapters[0
 const node=()=>chapter().nodes.find(n=>n.id===selected);
 const definition=()=>project.library.find(d=>d.id===definitionId);
 const preview=new ProjectPreview($('#preview'),{inventoryHost:$('.preview-window-body'),onChange:()=>renderGraph(),onGoToCard:goToPreviewCard});
+const stopDrawerDebug=mountDrawerDebug(preview);
 const previewWindow=mountPreviewWindow($('#preview-window'),{onClose:()=>preview.stop()});
 $('#show-preview').onclick=()=>previewWindow.show();
 const autoplay=mountAutoplay($('#autoplay'),{getSelected:()=>selected,onPlay:id=>play(id,{restore:false})});
@@ -225,5 +227,5 @@ $('#export-chapter').onclick=()=>{const errors=validateProject(project);if(error
 $('#import').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{const text=await file.text(),raw=JSON.parse(text),incoming=parseProject(text);preview.stop();localDrafts.reset();edit(()=>{project=raw.kind==='nest-project'?incoming:importChapter(project,raw);chapterId=project.activeChapterId;selected=chapter().startNode;});graph.fit();}catch(error){report(`Import rejected: ${error.message}`);}e.target.value='';};
 function play(startNode,{restore=true}={}){try{previewWindow.show({restore});preview.play(project,chapterId,startNode,{focus:!previewWindow.minimized});report('Chapter ready.');return true;}catch(error){report(error.message);return false;}}
 $('#play').onclick=()=>play();$('#play-node').onclick=()=>play(selected);$('#restart').onclick=()=>play();$('#stop').onclick=()=>preview.stop();
-window.addEventListener('pagehide',()=>{autoplay.destroy();previewWindow.destroy();preview.destroy();});
+window.addEventListener('pagehide',()=>{stopDrawerDebug();autoplay.destroy();previewWindow.destroy();preview.destroy();});
 render();graph.fit();if(loaded.error)report(loaded.error);else if(loaded.migrated)report('Legacy save loaded; original browser save preserved.');

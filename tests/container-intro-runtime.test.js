@@ -67,3 +67,28 @@ test('legacy container presentation and effects ignore the native intro toggle',
     deck.emit('reveal');assert.equal(controller.state.variables.energy,0);assert.equal(controller.pendingIntro,null);controller.destroy();
   }
 });
+
+test('an empty container skips its introduction and effects even on the first visit',()=>{
+ const {deck,controller,errors}=fixture([box({items:[]}),after]);
+ assert.equal(controller.state.activeNodeId,'after');assert.equal(deck.content.text,'after');assert.equal(controller.state.variables.energy,0);
+ assert.deepEqual(errors,[]);controller.destroy();
+});
+
+for(const once of [false,true])test(`return visits show only remaining container items, introOnce=${once}`,()=>{
+ const {deck,controller,errors}=fixture([
+  box({introOnce:once,items:[item,{...item,id:'pear',definitionId:'pear',conditions:[{source:'variable',key:'energy',op:'gte',value:2}]}],connections:{next:'return'}}),
+  {id:'return',type:'linear',cards:[{...story('return'),effects:[effect]}],connections:{next:'box'}}
+ ]);
+ deck.emit('reveal');deck.emit('transitioncomplete',{transition:'reveal'});
+ deck.emit('collect',{action:{id:'apple'}});deck.emit('transitioncomplete',{transition:'collect'});
+ assert.equal(controller.state.activeNodeId,'return');
+ deck.emit('commit',{action:{id:'continue'}});
+ assert.equal(controller.state.activeNodeId,'box');assert.equal(deck.options.presentation,once?'open':'closed');
+ if(!once){deck.emit('reveal');deck.emit('transitioncomplete',{transition:'reveal'});}
+ assert.deepEqual(deck.content.actions.map(action=>action.id),['pear']);
+ assert.equal(controller.authorizeCollection({id:'pear'},{slot:1}),true);
+ deck.emit('collect',{action:{id:'pear'}});deck.emit('transitioncomplete',{transition:'collect'});
+ assert.equal(controller.state.activeNodeId,'return');
+ deck.emit('commit',{action:{id:'continue'}});assert.equal(controller.state.activeNodeId,'return','empty container skips even its replayable effects');
+ assert.deepEqual(controller.state.collectedItems.map(item=>item.definitionId),['apple','pear']);assert.deepEqual(errors,[]);controller.destroy();
+});

@@ -5,6 +5,8 @@ import { DEFAULT_SETTINGS, settingsWith, spring, springStep, qualifies, resistan
 import { PointerInput } from './PointerInput.js?v=no-ending-card-1';
 import { resolveBackAppearance, resolveBackOperation } from './cardBacks.js';
 import { InventoryPickup } from './InventoryPickup.js';
+import { PresentationReadiness } from './presentationReadiness.js';
+import { isInventoryContext } from './inventoryContext.js';
 export { DEFAULT_SETTINGS };
 
 function validate(content) {
@@ -27,13 +29,15 @@ export class CardDeck extends EventTarget {
   constructor(mount, {
     content,
     settings = {},
-    inventoryDrawer = null
+    inventoryDrawer = null,
+    presentationPolicy = {}
   } = {}) {
     super();
     this.mount = mount;
     this.settings = settingsWith(settings);
     this.content = validate(content);
     this.presentationRevision = 0;
+    this.presentationReadiness = new PresentationReadiness(presentationPolicy);
     this.presentationBrowsePending = this.content.autoBrowse === true;
     this.index = Math.max(0, this.content.actions.findIndex(a => a.entrance !== 'bottom'));
     this.open = false;
@@ -134,12 +138,11 @@ export class CardDeck extends EventTarget {
       const wasDragging = !!this.drag;
       if (this.pickup?.pending || this.pickup?.mix.x > 0 && !this.collectMotion) { this.pickup.cancel(); this.cancelPickup(); }
       if (wasDragging) { this.input.cancel(); this.cancel(); }
-      // A deposited mini is already in its slot: its hold/fade clock does not
+      // A deposited mini is already in its slot: its feedback clock does not
       // depend on deck geometry. Layout changes must not skip that feedback.
       const depositing = this.collectMotion?.deposit && this.collectMotion.final;
-      const fadingDiscard = this.pickup?.adapter.setExitProgress && (this.commitMotion?.discardItem || this.commitMotion?.discardAll);
       // Other departures depend on the resized turn envelope and must finish.
-      if (!depositing && !fadingDiscard && (wasDragging || this.busy || this.openingCommit || this.openingReturn || this.open && this.entrances.size)) this.finishMotion();
+      if (!depositing && (wasDragging || this.busy || this.openingCommit || this.openingReturn || this.open && this.entrances.size)) this.finishMotion();
       this.ensureCoverClearance();
       this.render();
     });
@@ -162,6 +165,10 @@ export class CardDeck extends EventTarget {
   }
 
   emit(type, detail = {}) {
+    if (this.pickup?.adapter.traceEnabled?.()) {
+      this.pickup.adapter.trace?.(`CardDeck.emit(${type})`, { ...this.state, transition: detail.transition, final: detail.final });
+      this.pickup.traceReadiness('CardDeck.emit:readiness');
+    }
     this.dispatchEvent(new CustomEvent(type, {
       detail: {
         ...this.state,
@@ -306,9 +313,6 @@ export class CardDeck extends EventTarget {
 
   tryEarlyFlip(time) {
     if (!this.pending || (this.pendingPresentation !== 'closed' && !this.pending?.decisionOnly) || !this.commitMotion || this.nextFlip.target === 0) return;
-    // Discarding an item leaves drawer context too. Its exit must finish
-    // before the successor's early flip can begin.
-    if (this.pickup?.adapter.setExitProgress && (this.commitMotion.discardItem || this.commitMotion.discardAll)) return;
     if (time < this.commitMotion.start + Math.max(0, this.commitMotion.duration - this.settings.flipLeadMs)) return;
     const { width, height } = this.mount.getBoundingClientRect();
     const area = turningBounds({ x: 0, y: 0, z: -24 + (this.reduced ? 0 : flipLift(.5, this.settings)), turnAxis: this.settings.flipAxisTilt }, width, height, this.settings.perspective);
@@ -609,6 +613,8 @@ export class CardDeck extends EventTarget {
     if (transition === 'reveal' && this.openingReturn) {
       this.openingReturn = false;
       this.emit('transitioncomplete', { transition: 'close' });
+      if (!this.destroyed) this.pickup?.render();
+      this.pickup?.traceReadiness('CardDeck.completePhase:finished');
       return;
     }
     this.emit('transitioncomplete', { transition });
@@ -617,6 +623,8 @@ export class CardDeck extends EventTarget {
       this.emit('transitioncomplete', { transition: 'commit' });
     }
     if (transition === 'reveal') this.browsePresentedStack();
+    if (!this.destroyed) this.pickup?.render();
+    this.pickup?.traceReadiness('CardDeck.completePhase:finished');
   }
 
   browsePresentedStack({ beforeEntrance = false } = {}) {
@@ -937,8 +945,13 @@ export class CardDeck extends EventTarget {
 
   itemCleared(time) {
     const motion = this.collectMotion, bounds = this.mount.getBoundingClientRect();
-    if (motion.deposit && motion.final && !this.preserveInventoryContext && this.pickup?.adapter.setExitProgress && !this.reduced && !document.hidden) return this.pickup.readyToProgress(time, motion.start);
-    if (motion.deposit) return time - motion.start >= motion.duration && (this.reduced || this.pickup.states.every(state => this.atRest(state)));
+    if (motion.deposit) {
+      // Final collection feedback is authored pacing, independent of the
+      // drawer's visual exit. Continuations retain their immediate handoff.
+      const feedback = motion.final && !this.preserveInventoryContext && !this.reduced && !document.hidden ? 450 : 0;
+      return time - motion.start >= Math.max(motion.duration, feedback)
+        && (this.reduced || this.pickup.states.every(state => this.atRest(state)));
+    }
     const area = projectedBounds(cardPose(this, motion.index, time), bounds.width, bounds.height, this.settings.perspective);
     return motion.direction > 0 ? area.top + (bounds.top || 0) >= (globalThis.innerHeight || bounds.height + (bounds.top || 0)) + 8
       : area.bottom + (bounds.top || 0) <= -8;
@@ -1219,9 +1232,10 @@ export class CardDeck extends EventTarget {
     if (!['closed', 'open'].includes(presentation)) throw new TypeError('Unknown presentation');
     if (!['flip', 'reveal'].includes(transition)) throw new TypeError('Unknown content transition');
     const next = validate(content);
-    // Only the controller can identify a continuation of the same container.
+    // The controller resolves continuity from the actual successor, including
+    // consecutive Linear items. A closed introduction always breaks the run.
     preserveInventoryContext = Boolean(preserveInventoryContext && this.open && presentation === 'open'
-      && this.content.interaction === 'container' && next.interaction === 'container' && next.actions.length);
+      && isInventoryContext(this.content, 'open') && isInventoryContext(next, presentation));
     this.preserveInventoryContext = preserveInventoryContext;
     // A coverless successor still turns when a story leaves its node.
     if (this.coverDeparture && transition === 'flip' && presentation === 'open') next.decisionOnly = true;
@@ -1476,6 +1490,10 @@ export class CardDeck extends EventTarget {
     this.commitTransition = 'commit';
     this.emit('transitioncomplete', { transition });
     this.browsePresentedStack();
+    // A single-card hint clears readiness without scheduling another frame.
+    // Refresh the drawer after that change, rather than waiting for input.
+    if (!this.destroyed) this.pickup?.render();
+    this.pickup?.traceReadiness('CardDeck.finishCommitTransition:finished');
   }
 
   tick(t) {
@@ -1517,13 +1535,9 @@ export class CardDeck extends EventTarget {
       const offsetsClear = this.coverDeparture ? projectedBounds(scenePose(this, t), bounds.width, bounds.height, this.settings.perspective).bottom <= -8 : (!this.commitMotion.discardAll && !this.commitMotion.discardItem && !this.reflowOffsets.size && !this.grabCards.size) || this.cards.every((_, i) =>
         projectedBounds(cardPose(this, i, t), bounds.width, bounds.height, this.settings.perspective).bottom <= -8);
       if (t - this.commitMotion.start >= duration && offsetsClear) {
-        const fade = this.pickup?.adapter.setExitProgress && (this.commitMotion.discardItem || this.commitMotion.discardAll);
-        if (fade) this.commitMotion.drawerExitStart ??= t;
-        if (!fade || this.pickup.readyToProgress(t, this.commitMotion.drawerExitStart, 0)) {
-          this.completeCommit();
-          this.last = 0;
-          return;
-        }
+        this.completeCommit();
+        this.last = 0;
+        return;
       }
       for (const rotation of [this.rotationX, this.rotationY, this.rotationZ, this.nextFlip]) this.stepAngular(rotation, dt);
       this.render(t);
@@ -1655,8 +1669,43 @@ export class CardDeck extends EventTarget {
   }
 
   render(t) {
+    this.updatePresentationReadiness();
     renderDeck(this, t);
     this.pickup?.render();
+  }
+
+  updatePresentationReadiness() {
+    // Incoming flips may still be busy; outgoing throws must never grant an
+    // entrance. Require the final opening targets, not merely any spring rest.
+    const eligible = !this.destroyed && !this.ending && this.content.interaction === 'container'
+      && this.open && this.cards.length > 0 && !this.drag && !this.commitMotion && !this.collectMotion && !this.pending
+      && !this.pickup?.pending && !this.pickup?.target && !this.entrances.size && !this.entranceTransition
+      && (['revealing', 'choices'].includes(this.phase)
+        || this.phase === 'committing' && this.operation === 'commit' && this.content.decisionOnly)
+      && this.fan.target === 1 && this.flip.target === 0 && this.n.target === 0
+      && (this.skipCover || this.coverCleared());
+    const preserveEstablished = !!this.preserveInventoryContext && !!this.pickup?.contextEntered;
+    const exposure = { fan: this.fan.x, angle: this.flip.x * 180 };
+    if (!eligible || this.presentationReadiness.revision === this.presentationRevision && this.presentationReadiness.fullySettled) {
+      this.presentationState = this.presentationReadiness.update({ revision: this.presentationRevision, eligible, motions: [], preserveEstablished, exposure });
+      return;
+    }
+    const bounds = this.mount.getBoundingClientRect();
+    const motions = [
+      { state: this.fan, kind: 'fan' },
+      { state: this.flip, kind: 'angle', scale: 180 },
+      { state: this.n, scale: 40 },
+      { state: this.l, scale: Math.max(1, bounds.height) },
+      { state: this.returnLift, scale: this.departureTravel(bounds) },
+      ...[this.rotationX, this.rotationY, this.rotationZ].map(state => ({ state, kind: 'angle' })),
+      ...Array.from(this.reflowOffsets.values()).flatMap(offset => Object.entries(offset).map(([field, state]) =>
+        ({ state, kind: field.startsWith('r') ? 'angle' : 'position' }))),
+    ];
+    // Once the cover is offscreen, its residual lift does not affect the items.
+    const settlementMotions = [...motions, { state: this.b }];
+    if (this.presentationHint) settlementMotions.push({ state: this.presentationHint.travel });
+    const canSettle = !this.presentationHint && (!this.presentationBrowsePending || this.cards.length < 2);
+    this.presentationState = this.presentationReadiness.update({ revision: this.presentationRevision, eligible, motions, settlementMotions, canSettle, preserveEstablished, exposure });
   }
 
   destroy() {

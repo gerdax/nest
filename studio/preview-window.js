@@ -38,7 +38,7 @@ export function mountPreviewWindow(root,{onClose=()=>{}}={}) {
  const show=({restore:shouldRestore=true}={})=>{
   root.hidden=false;measureBar();
   if(shouldRestore)restore();
-  if(!placed){position(window.innerWidth-root.getBoundingClientRect().width-24,100);placed=true;}
+  if(!placed){position(400,100);placed=true;}
   else clamp();
  };
  const cancel=()=>{

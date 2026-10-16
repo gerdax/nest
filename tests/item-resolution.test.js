@@ -408,42 +408,66 @@ test('reduced-motion replacement question holds the drag offset until confirmati
   assert.equal(deck.pickup.pending,false); assert.equal(deck.cards.length,2); deck.destroy();
 });
 
-test('last deposit holds for 450ms, fades the drawer, then permits progression', async () => {
+for(const exitCapability of [false,true])test(`last deposit keeps 450ms feedback independently of drawer animation capability=${exitCapability}`, async () => {
   const deck=make(1); ready(deck); const {adapter}=await drawerFixture(deck);
-  const exit=[]; let completed=0;
-  adapter.setExitProgress=progress=>exit.push(progress);
+  const exit=[]; let completed=0,visible=false;
+  if(exitCapability) adapter.setExitProgress=progress=>exit.push(progress);
+  adapter.setContext=value=>{visible=value;};
+  deck.render();assert.equal(visible,true);
   deck.addEventListener('collect',()=>deck.endContent());
   deck.addEventListener('transitioncomplete',event=>{if(event.detail.transition==='collect')completed++;});
   deck.collect(); await flushPickup();
-  step(430); assert.deepEqual(exit,[]); assert.equal(completed,0);
-  step(20); assert.equal(exit.at(-1),0); assert.equal(completed,0);
-  step(50); assert.equal(exit.at(-1),.5); assert.equal(completed,0); assert.equal(deck.cards.length,1);
-  step(50); assert.equal(exit.at(-1),1); assert.equal(completed,1); assert.equal(deck.phase,'ended');
+  // Isolate the feedback clock after the mini has reached its slot.
+  for(const state of deck.pickup.states){state.x=state.target;state.v=0;}
+  step(449);assert.equal(completed,0);assert.equal(visible,true);
+  step(1);assert.equal(completed,1);assert.equal(deck.phase,'ended');assert.equal(visible,false);
+  assert.deepEqual(exit,[],'engine never drives visual exit progress');
   deck.destroy();
 });
 
-test('drawer exit is cancelled on reset and is not used for intermediate pickups', async () => {
-  const deck=make(1); ready(deck); const {adapter}=await drawerFixture(deck);
-  let progress=0,completed=0;
-  adapter.setExitProgress=value=>{progress=value;};adapter.clearExit=()=>{progress=0;};
+for(const mode of ['reduced','hidden'])test(`final drawer deposit completes immediately with ${mode} motion`,async()=>{
+  const deck=make(1);ready(deck);await drawerFixture(deck);let completed=0;
+  if(mode==='reduced')deck.reduced=true;else document.hidden=true;
+  deck.addEventListener('collect',()=>deck.endContent());
   deck.addEventListener('transitioncomplete',event=>{if(event.detail.transition==='collect')completed++;});
-  deck.collect(); await flushPickup();step(500);assert.equal(progress,.5);
-  deck.reset();settle();assert.equal(progress,0);assert.equal(completed,0);deck.destroy();
-  const another=make();ready(another);const {adapter:remaining}=await drawerFixture(another);
-  let fades=0;remaining.setExitProgress=()=>fades++;
-  another.collect();await flushPickup();settle();assert.equal(fades,0);assert.equal(another.cards.length,2);another.destroy();
+  const start=now;deck.collect();await flushPickup();
+  assert.equal(now,start,'completion does not require an animation frame');
+  assert.equal(completed,1);assert.equal(deck.phase,'ended');
+  deck.destroy();document.hidden=false;
 });
 
-test('drawer enters as the stack hint pauses, stays through pickups, and remains hidden on the next intro',async()=>{
+test('final deposit still requires its duration and dock arrival after feedback elapses',async()=>{
+  const deck=make(1);ready(deck);await drawerFixture(deck);deck.collect();await flushPickup();
+  for(const state of deck.pickup.states){state.x=state.target;state.v=0;}
+  deck.collectMotion.duration=500;
+  assert.equal(deck.itemCleared(deck.collectMotion.start+450),false);
+  assert.equal(deck.itemCleared(deck.collectMotion.start+500),true);
+  deck.pickup.x.x-=20;
+  assert.equal(deck.itemCleared(deck.collectMotion.start+600),false);
+  deck.destroy();
+});
+
+test('reset and intermediate pickups leave visual exit cleanup to the view', async () => {
+  const deck=make(1); ready(deck); const {adapter}=await drawerFixture(deck);
+  let progressCalls=0,cleanupCalls=0,completed=0;
+  adapter.setExitProgress=()=>progressCalls++;adapter.clearExit=()=>cleanupCalls++;
+  deck.addEventListener('transitioncomplete',event=>{if(event.detail.transition==='collect')completed++;});
+  deck.collect();await flushPickup();step(430);
+  deck.reset();settle();assert.equal(progressCalls,0);assert.equal(cleanupCalls,0);assert.equal(completed,0);deck.destroy();
+  const another=make();ready(another);const {adapter:remaining}=await drawerFixture(another);
+  remaining.setExitProgress=()=>progressCalls++;
+  another.collect();await flushPickup();settle();assert.equal(progressCalls,0);assert.equal(another.cards.length,2);another.destroy();
+});
+
+test('drawer enters before the stack hint starts, stays through pickups, and remains hidden on the next intro',async()=>{
   const deck=make(3,{...fixture(3),autoBrowse:true});
   const {adapter}=await drawerFixture(deck);const visibility=[];
   adapter.setContext=visible=>visibility.push(visible);
   deck.setOpen(true);deck.schedule();
   for(let i=0;i<1000&&!deck.presentationHint;i++)step();
   assert.ok(deck.presentationHint,'multi-card stack presents its hint');
-  assert.equal(visibility.includes(true),false,'drawer stays hidden during the reveal and hint');
-  while(deck.presentationHint.stage!=='hold'){assert.equal(visibility.at(-1),false);step();}
-  assert.equal(visibility.at(-1),true,'drawer enters when the spread pauses, before the hint returns');
+  assert.equal(deck.presentationHint.stage,'waiting','the stack hint has not started moving');
+  assert.equal(visibility.at(-1),true,'the shared exposure milestone opens the drawer before the hint starts');
   settle();assert.equal(visibility.at(-1),true);
   visibility.length=0;
   deck.collect();await flushPickup();settle();
@@ -457,22 +481,21 @@ test('drawer enters as the stack hint pauses, stays through pickups, and remains
   deck.destroy();
 });
 
-for(const id of [undefined,'reused'])test(`new drawer presentation resets its fade even when content id is ${id}`,async()=>{
+for(const id of [undefined,'reused'])test(`new drawer presentation re-enters even when content id is ${id}`,async()=>{
   const deck=make(1,{...fixture(1),id});ready(deck);
-  const {adapter}=await drawerFixture(deck);let visible=false,opacity=1,entrances=0;
-  adapter.setContext=value=>{if(value&&!visible){opacity=1;entrances++;}visible=value;};
-  adapter.setExitProgress=progress=>{opacity=1-progress;};
+  const {adapter}=await drawerFixture(deck);let visible=false,entrances=0;
+  adapter.setContext=value=>{if(value&&!visible)entrances++;visible=value;};
   deck.render();assert.equal(visible,true);
   deck.addEventListener('discard',()=>deck.replaceContent({...fixture(2),id},{presentation:'open'}));
   deck.discard();settle();
-  assert.equal(deck.phase,'choices');assert.equal(visible,true);assert.equal(opacity,1);assert.equal(entrances,2);
+  assert.equal(deck.phase,'choices');assert.equal(visible,true);assert.equal(entrances,2);
   deck.destroy();
 });
 
-test('terminal container discard hides the drawer after fading instead of leaving invisible hit targets',async()=>{
+test('terminal container discard ends logical drawer visibility',async()=>{
   const deck=make(3,{...fixture(3),discardAll:true});ready(deck);
   const {adapter}=await drawerFixture(deck);let visible=false;
-  adapter.setContext=value=>{visible=value;};adapter.setExitProgress=()=>{};
+  adapter.setContext=value=>{visible=value;};
   deck.render();assert.equal(visible,true);
   deck.addEventListener('discard',()=>deck.endContent());
   deck.discard();settle();
@@ -494,6 +517,58 @@ test('ending content cancels a queued inventory continuation',async()=>{
     assert.equal(deck.preserveInventoryContext,false);
   });
   deck.collect();await flushPickup();settle();
-  assert.equal(deck.phase,'ended');assert.equal(visible,false);assert.ok(exits.length>0);
+  assert.equal(deck.phase,'ended');assert.equal(visible,false);assert.deepEqual(exits,[]);
   deck.destroy();
+});
+
+
+test('drawer diagnostics expose readiness blockers without changing visibility or scheduling',async()=>{
+  const deck=make(2);ready(deck);const {adapter}=await drawerFixture(deck);
+  const trace=[];let enabled=false;
+  adapter.traceEnabled=()=>enabled;adapter.trace=(source,state)=>trace.push({source,state});
+  deck.pickup.traceReadiness();assert.equal(trace.length,0,'closed diagnostics do no tracing');
+  enabled=true;deck.openingCommit=true;
+  deck.pickup.traceReadiness();
+  assert.equal(trace.at(-1).state.openingCommit,true);
+  assert.equal(trace.at(-1).state.blockers.includes('openingCommit'),false,'input locks are not visual blockers');
+  const before=trace.length;deck.pickup.traceReadiness();assert.equal(trace.length,before,'unchanged render snapshots are deduplicated');
+  deck.openingCommit=false;deck.presentationBrowsePending=true;
+  deck.pickup.traceReadiness('CardDeck.completePhase:finished');
+  assert.equal(trace.at(-1).state.blockers.includes('stack hint pending'),false,'hint timing no longer blocks the drawer');
+  deck.presentationBrowsePending=false;
+  deck.pickup.traceReadiness('CardDeck.completePhase:finished');
+  assert.deepEqual(trace.at(-1).state.blockers,[]);
+  assert.equal(deck.pickup.contextEntered,undefined,'diagnostics do not enter the context');
+  assert.equal(frames.size,0,'diagnostics do not schedule a render');
+  deck.destroy();
+});
+
+for(const flag of ['openingCommit','openingReturn'])test(`drawer visual readiness is independent of the ${flag} input lock`,async()=>{
+ const deck=make(1);ready(deck);const {adapter}=await drawerFixture(deck);let visible=false;
+ adapter.setContext=value=>{visible=value;};
+ deck[flag]=true;deck.render();assert.equal(visible,true);
+ assert.equal(deck.start(),false,'showing the drawer does not unlock the card');
+ deck.completePhase('choices','reveal');
+ assert.equal(deck[flag],false);assert.equal(visible,true);
+ assert.equal(frames.size,0,'visibility refresh does not depend on another frame');
+ deck.destroy();
+});
+
+test('visual readiness excludes compressed targets, departures and queued entrances',()=>{
+ const deck=make(2);
+ deck.open=true;deck.phase='revealing';
+ deck.fan.x=deck.fan.target=0;
+ deck.updatePresentationReadiness();assert.equal(deck.presentationState.visualReady,false,'a compressed stack at rest is not ready');
+ deck.skipCover=true;deck.fan.x=.98;deck.fan.target=1;deck.fan.v=.2;
+ deck.updatePresentationReadiness();assert.equal(deck.presentationState.visualReady,true);
+ for(const blocker of ['commitMotion','collectMotion','pending','drag']) {
+  deck.presentationRevision++;deck[blocker]={};
+  deck.updatePresentationReadiness();assert.equal(deck.presentationState.visualReady,false,blocker);
+  deck[blocker]=null;
+ }
+ deck.presentationRevision++;deck.entrances.set('item-0',{startAt:null});
+ deck.updatePresentationReadiness();assert.equal(deck.presentationState.visualReady,false,'queued cards must enter first');
+ deck.entrances.clear();deck.phase='closing';deck.presentationRevision++;
+ deck.updatePresentationReadiness();assert.equal(deck.presentationState.visualReady,false,'closing is never an entrance');
+ deck.destroy();
 });

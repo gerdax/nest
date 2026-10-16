@@ -31,6 +31,87 @@ function key(deck,name){deck.key({key:name,preventDefault(){}});settle();}
 function real(nodes,extra={},options={}){const deck=new CardDeck(new Element(),{content:{id:'waiting',actions:[{id:'wait',label:'Wait'}]}});const controller=new ProjectController(deck,{startNode:nodes[0].id,nodes,variables:[],library:[],...extra},options);settle();return {deck,controller};}
 function dispose(deck,controller){controller.destroy();deck.destroy();settle();}
 
+for(const reduced of [false,true])test(`returning Linear skips taken items and deposits its remaining item, reduced=${reduced}`,async()=>{
+ const {InventoryPickup}=await import('../engine/InventoryPickup.js');
+ const errors=[];
+ const nodes=[
+  {id:'linear',type:'linear',cards:[item('one'),item('two',{conditions:[{source:'variable',key:'visit',op:'gte',value:1}]})],connections:{next:'hub'}},
+  {id:'hub',type:'fork',choices:[action('again',{effects:[{op:'add',key:'visit',value:1}]}),action('end')],connections:{again:'linear',end:null}}
+ ];
+ const {deck,controller}=real(nodes,{variables:[{id:'visit',type:'number',initial:0}]},{onError:error=>errors.push(error)});deck.reduced=reduced;
+ document.body=new Element();
+ const target={slot:0,snapped:true,rect:{left:0,top:560,width:75,height:100}};
+ const adapter={getTarget:()=>target,slotTarget:()=>target,preview(){},setContext(){},cancelPending(){},stageDeposit(){},clearDeposit(){},authorize:action=>controller.authorizeCollection(action,{slot:0})?{slot:0}:false};
+ deck.pickup=new InventoryPickup(deck,adapter);
+ for(const id of ['one','two']) {
+  assert.equal(controller.state.cardId,id);assert.equal(controller.state.idle,true);
+  if(id==='one')deck.collect();
+  else {
+   const gesture={axis:'y',x:0,y:180,vx:0,vy:600,clientX:30,clientY:600};
+   assert.equal(deck.start(),true);deck.move(gesture);deck.end(gesture);
+  }
+  await flush();settle();
+  assert.equal(controller.state.activeNodeId,'hub');assert.equal(controller.pendingItem,null);
+  key(deck,'ArrowUp');
+ }
+ assert.equal(controller.state.activeNodeId,'hub','fully exhausted Linear skips back to its next connection');
+ assert.deepEqual(controller.state.collectedItems.map(item=>item.definitionId),['one','two']);assert.deepEqual(errors,[]);
+ controller.restart();settle();assert.equal(controller.state.cardId,'one');assert.equal(controller.state.collectedItems.length,0);
+ dispose(deck,controller);
+});
+
+test('Linear collection removes only that placement and preserves story replay',()=>{
+ const nodes=[{id:'linear',type:'linear',cards:[narrative('story'),item('shared')],connections:{next:'other'}},
+  {id:'other',type:'linear',cards:[item('shared')],connections:{next:'linear'}}];
+ const {deck,controller}=real(nodes);
+ key(deck,'ArrowUp');deck.collect();settle();assert.equal(controller.state.activeNodeId,'other','same ID in another node stays available');
+ deck.collect();settle();assert.equal(controller.state.cardId,'story');assert.equal(deck.content.nextDeckPreview.content.text,'story','preview skips exhausted item nodes');
+ key(deck,'ArrowUp');assert.equal(controller.state.cardId,'story','narrative remains replayable while items stay removed');
+ dispose(deck,controller);
+});
+
+test('Linear item self-loop excludes collected items but permits revisiting a discarded item',()=>{
+ const {deck,controller}=real([{id:'linear',type:'linear',cards:[item('one'),item('two')],connections:{next:'linear'}}]);
+ deck.collect();settle();assert.equal(controller.state.cardId,'two');
+ assert.equal(deck.content.actions[0].collectDisabled,true,'exhausting a closed automatic cycle remains blocked');
+ assert.equal(controller.departureBlocked(controller.card(),controller.location,controller.variables,controller.inventory,'collect'),true);
+ assert.equal(deck.content.actions[0].discardDisabled,false);
+ deck.discard();settle();assert.equal(controller.state.cardId,'two');
+ dispose(deck,controller);
+});
+
+for(const reduced of [false,true])test(`caption returns with the discarded item while the taken item stays removed, reduced=${reduced}`,()=>{
+ const {deck,controller}=real([
+  {id:'linear',type:'linear',cards:[{...narrative('caption'),kind:'caption'},item('one'),item('two')],connections:{next:'next'}},
+  {id:'next',type:'linear',cards:[narrative('next')],connections:{next:'linear'}}
+ ]);deck.reduced=reduced;
+ key(deck,'ArrowUp');assert.equal(controller.state.cardId,'one');
+ deck.collect();settle();assert.equal(controller.state.cardId,'two');
+ deck.discard();settle();assert.equal(controller.state.activeNodeId,'next');
+ key(deck,'ArrowUp');assert.equal(controller.state.cardId,'caption');
+ assert.equal(deck.content.nextDeckPreview.content.actions[0].id,'two');
+ key(deck,'ArrowUp');assert.equal(controller.state.cardId,'two');
+ assert.equal(controller.authorizeCollection({id:'two'},{slot:1}),true);
+ deck.collect();settle();assert.deepEqual(controller.state.collectedItems.map(item=>item.definitionId),['one','two']);
+ key(deck,'ArrowUp');assert.equal(controller.state.cardId,'caption');
+ key(deck,'ArrowUp');assert.equal(controller.state.activeNodeId,'next','both taken items stay removed');
+ dispose(deck,controller);
+});
+
+test('an item-only Linear replays discarded items and skips only after collection',()=>{
+ const {deck,controller}=real([
+  {id:'linear',type:'linear',cards:[item('one')],connections:{next:'next'}},
+  {id:'next',type:'linear',cards:[narrative('next')],connections:{next:'linear'}}
+ ]);
+ for(let visit=0;visit<2;visit++) {
+  assert.equal(controller.state.cardId,'one');deck.discard();settle();
+  assert.equal(controller.state.activeNodeId,'next');key(deck,'ArrowUp');
+ }
+ deck.collect();settle();assert.equal(controller.state.activeNodeId,'next');
+ key(deck,'ArrowUp');assert.equal(controller.state.activeNodeId,'next','exhausted item-only node follows its connection');
+ dispose(deck,controller);
+});
+
 for(const reduced of [false,true])test(`mixed Linear cards keep one open action/item face and ordered successors, reduced=${reduced}`,()=>{
  const {deck,controller}=real(linear([narrative('event'),action('act',{costs:[{source:'variable',key:'energy',amount:2}],effects:[{op:'add',key:'energy',value:1}]}),item('apple',{onCollect:[{op:'add',key:'energy',value:3}]}),{...narrative('caption'),kind:'caption'}]),{variables:energy});deck.reduced=reduced;
  assert.equal(deck.phase,'closed');assert.equal(deck.content.nextDeckPreview.presentation,'open');assert.equal(deck.content.nextDeckPreview.content.actions[0].id,'act');
@@ -113,14 +194,14 @@ for(const openSuccessor of [false,true])test(`actual Linear take recedes its und
  dispose(d,standalone.controller);c.cancel();dispose(c,container.controller);
 });
 
-for(const resize of [false,true])test(`last Linear inventory deposit waits and fades before its container successor, resize=${resize}`,async()=>{
+for(const resize of [false,true])test(`last Linear deposit keeps feedback before its successor without awaiting drawer exit, resize=${resize}`,async()=>{
  const {InventoryPickup}=await import('../engine/InventoryPickup.js');
  const {deck,controller}=real([{id:'linear',type:'linear',cards:[item('apple')],connections:{next:'box'}},{id:'box',type:'container',intro:narrative('box-intro'),items:[item('inside')],connections:{next:null}}]);
  document.body=new Element();
  const target={slot:0,rect:{left:0,top:560,width:75,height:100}};
- const exits=[];
- const adapter={getTarget:()=>target,slotTarget:()=>target,preview(){},setContext(){},cancelPending(){},authorize:()=>({slot:0}),stageDeposit(){},clearDeposit(){},clearExit(){},setExitProgress:value=>exits.push(value)};
- deck.pickup=new InventoryPickup(deck,adapter);
+ const exits=[],visibility=[];const unresolvedExit=new Promise(()=>{});
+ const adapter={getTarget:()=>target,slotTarget:()=>target,preview(){},setContext(value){visibility.push(value);return value?undefined:unresolvedExit;},cancelPending(){},authorize:()=>({slot:0}),stageDeposit(){},clearDeposit(){},setExitProgress:value=>exits.push(value)};
+ deck.pickup=new InventoryPickup(deck,adapter);deck.render();assert.equal(visibility.at(-1),true);
  deck.collect();await flush();
  const advance=ms=>{now+=ms;const callbacks=[...frames.values()];frames.clear();callbacks.forEach(fn=>fn(now));};
  if(resize){
@@ -128,27 +209,25 @@ for(const resize of [false,true])test(`last Linear inventory deposit waits and f
    deck.resize.callback([{target:deck.mount}]);
    assert.equal(deck.phase,'collecting');
  }
- advance(450);assert.equal(exits.at(-1),0);assert.equal(controller.state.activeNodeId,'linear');
- advance(50);assert.equal(exits.at(-1),.5);assert.equal(controller.state.activeNodeId,'linear');
- advance(50);assert.equal(exits.at(-1),1);
- settle();assert.equal(controller.state.activeNodeId,'box');dispose(deck,controller);
+ for(const state of deck.pickup.states){state.x=state.target;state.v=0;}
+ advance(449);assert.equal(controller.state.activeNodeId,'linear');
+ advance(1);assert.equal(deck.collectMotion,null,'collection feedback ends at 450ms');
+ assert.deepEqual(exits,[],'visual exit has no engine progress clock');
+ settle();assert.equal(controller.state.activeNodeId,'box');assert.equal(visibility.at(-1),false);dispose(deck,controller);
 });
 
-for(const type of ['linear','container'])test(`${type} upward discard fades the drawer before the next container intro`,async()=>{
+for(const type of ['linear','container'])for(const resize of [false,true])test(`${type} discard reaches its successor while drawer exit is unresolved, resize=${resize}`,async()=>{
  const {InventoryPickup}=await import('../engine/InventoryPickup.js');
  const source=type==='linear'?{id:'source',type,cards:[item('apple')]}:{id:'source',type,introEnabled:false,items:[item('apple'),item('other')]};
  source.connections={next:'box'};
  const {deck,controller}=real([source,{id:'box',type:'container',intro:narrative('box-intro'),items:[item('inside')],connections:{next:null}}]);
- const exits=[];deck.pickup=new InventoryPickup(deck,{preview(){},setContext(){},cancelPending(){},clearExit(){},setExitProgress:value=>exits.push(value)});
- const advance=ms=>{now+=ms;const callbacks=[...frames.values()];frames.clear();callbacks.forEach(fn=>fn(now));};
- deck.discard();
- for(let i=0;i<1000&&deck.commitMotion?.drawerExitStart===undefined;i++)advance(16);
- assert.ok(deck.commitMotion?.drawerExitStart,'discard reaches its drawer exit');
- assert.equal(exits.at(-1),0);assert.equal(controller.state.activeNodeId,'source');
- assert.equal(deck.nextFlip.target,1,'successor has not begun its early flip');
- // Layout changes must not fast-forward the exit either.
- deck.mount.getBoundingClientRect=()=>({left:0,top:0,width:338,height:451});deck.resize.callback([{target:deck.mount}]);
- advance(50);assert.equal(exits.at(-1),.5);assert.equal(controller.state.activeNodeId,'source');
- advance(50);assert.equal(exits.at(-1),1);settle();
- assert.equal(controller.state.activeNodeId,'box');assert.equal(controller.state.collectedItems.length,0);dispose(deck,controller);
+ const exits=[],visibility=[];const unresolvedExit=new Promise(()=>{});
+ deck.pickup=new InventoryPickup(deck,{preview(){},setContext(value){visibility.push(value);return value?undefined:unresolvedExit;},cancelPending(){},setExitProgress:value=>exits.push(value)});
+ deck.render();assert.equal(visibility.at(-1),true);deck.discard();
+ if(resize){
+  deck.mount.getBoundingClientRect=()=>({left:0,top:0,width:338,height:451});deck.resize.callback([{target:deck.mount}]);
+ }
+ settle();assert.equal(controller.state.activeNodeId,'box');assert.equal(visibility.at(-1),false);
+ assert.deepEqual(exits,[],'discard never drives an exit animation');
+ assert.equal(controller.state.collectedItems.length,0);dispose(deck,controller);
 });

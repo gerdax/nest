@@ -11,7 +11,7 @@ import { previewCardTarget } from './preview-card-target.js';
 
 /** Playback UI owns dice/inventory presentation, never chapter resolution rules. */
 export class ProjectPreview {
-  constructor(root, { onChange = () => {}, onGoToCard, inventoryDock = false, inventoryHost = null, deckSettings = {} } = {}) {
+  constructor(root, { onChange = () => {}, onGoToCard, inventoryDock = false, inventoryHost = null, deckSettings = {}, presentationPolicy = {} } = {}) {
     this.root = root;
     this.destroyed = false;
     this.generation = 0;
@@ -19,6 +19,7 @@ export class ProjectPreview {
     this.onChange = onChange;
     this.onGoToCard = typeof onGoToCard === 'function' ? onGoToCard : null;
     this.deckSettings = { ...deckSettings };
+    this.presentationPolicy = { ...presentationPolicy };
     this.root.innerHTML = '<section class="project-preview"><div class="chapter-preview-stage"><div class="player-resources" data-resources hidden><span class="player-resource" data-health aria-label="Health"><img src="./assets/img/hud-health.png" alt=""><span data-health-value></span></span><span class="player-resource" data-energy aria-label="Energy"><span data-energy-value></span><img src="./assets/img/hud-energy.png" alt=""></span></div><div class="chapter-preview-deck" tabindex="0"></div></div><div class="preview-status-row"><p data-status role="status">Stopped.</p></div><footer class="preview-footer" data-preview-footer><details data-state hidden><summary>Run state</summary><pre></pre></details><div data-preview-actions></div></footer><section data-inventory></section><div class="check-overlay" hidden role="dialog" aria-modal="true" aria-label="Action check"><div class="check-panel"><h3>Resolving attempt</h3><div class="check-tray"></div><p data-result role="status"></p><button data-cancel type="button">Cancel attempt</button></div></div></section>';
     this.mount = root.querySelector('.chapter-preview-deck');
     this.status = root.querySelector('[data-status]');
@@ -57,7 +58,7 @@ export class ProjectPreview {
     });
     this.footerResize.observe(this.footer);
     if (!inventoryDock) root.querySelector('.project-preview').classList.add('project-preview--embedded');
-    this.inventory = new InventoryView(inventoryRoot, { onUse: id => this.controller?.useItem(id), getBounds: () => this.inventorySurface.bounds() });
+    this.inventory = new InventoryView(inventoryRoot, { onUse: id => this.controller?.useItem(id), getBounds: () => this.inventorySurface.bounds(), onMotion: event => this.drawerTrace?.(event) });
     this.cancelButton = root.querySelector('[data-cancel]');
     this.cancelButton.onclick = () => this.controller?.cancelCheck();
     this.cancelKey = event => {
@@ -79,16 +80,21 @@ export class ProjectPreview {
     applyCardStyles(this.mount, chapter.cardStyles);
     this.project = structuredClone(project); this.chapterId = chapterId; this.startNode = startNode; this.compiled = chapter;
     try {
-      this.deck = new CardDeck(this.mount, { settings: this.deckSettings, inventoryDrawer: {
+      this.deck = new CardDeck(this.mount, { settings: this.deckSettings, presentationPolicy: this.presentationPolicy, inventoryDrawer: {
         getTarget: options => this.inventory.getTarget(options),
         presentPreview: (element, bounds) => this.inventorySurface.presentPreview(element, bounds),
         slotTarget: slot => this.inventory.slotTarget(slot),
         preview: target => this.inventory.preview(target),
         stageDeposit: (action, decision) => this.inventory.stageDeposit(action, decision),
         clearDeposit: () => this.inventory.clearDeposit(),
-        setExitProgress: progress => this.inventory.setExitProgress(progress),
-        clearExit: () => this.inventory.clearExit(),
-        setContext: visible => this.inventory.setContext(visible),
+        traceEnabled: () => typeof this.drawerTrace === 'function',
+        trace: (event, data) => this.drawerTrace?.(event, data),
+        setContext: visible => {
+          const changed = this.inventory.visible !== Boolean(visible);
+          if (changed) this.drawerTrace?.('InventoryView.setContext:requested', { visible });
+          this.inventory.setContext(visible);
+          if (changed) this.drawerTrace?.('InventoryView.setContext:applied', { visible: !this.inventory.root.hidden, hidden: this.inventory.root.hidden, requestedVisible: this.inventory.visible });
+        },
         cancelPending: () => this.inventory.cancelPending(),
         authorize: async (action, target) => {
           const decision = await this.inventory.authorize(action, target);
@@ -191,7 +197,7 @@ export class ProjectPreview {
     const controller = this.controller, deck = this.deck;
     this.controller = null; this.deck = null;
     controller?.destroy(); deck?.destroy();
-    this.inventory.cancelPending?.(); this.inventory.setContext?.(false);
+    this.inventory.cancelPending?.(); this.inventory.setContext?.(false, { immediate: true });
     this.hideDice(); this.state = null; this.errorMessage = null; this.errorNode = null; this.compiled = null;
     this.mount.replaceChildren(); this.inventory.update([]); this.stateReadout.hidden = true;
     this.resources.hidden = true;

@@ -57,7 +57,12 @@ decision=view.authorize({id:'f',name:'f'});
 assert.equal(root.querySelector('[data-slot-picker]').children.length,4);
 view.cancelPending();assert.equal(await decision,false);
 view.update([...items,{id:'e',name:'e'}]);assert.equal(view.overflow.length,1);
-assert.equal(await view.authorize({id:'f'}),false);
+assert.equal(view.getTarget({clientX:310,clientY:550}).slot,3,'overflow does not disable mini drag targets');
+decision=view.authorize({id:'f',name:'f'},view.slotTarget(1));
+assert.match(root.querySelector('[data-collect-message]').textContent,/Replace/);
+root.querySelector('[data-confirm]').onclick();
+assert.deepEqual(await decision,{slot:1,replacementId:view.slots[1].id});
+assert.equal(view.items.length,5,'authorization preserves all ownership until commit');
 view.selected=view.overflow[0].id;view.showDetails();assert.equal(root.querySelector('.nest-inventory-overflow').children.length,1);
 view.destroy();assert.equal(root.children.length,0);
 } finally { globalThis.document=previousDocument; }
@@ -127,57 +132,29 @@ test('embedded drawer rejects drops outside its own surface and respects inert h
 });
 
 
-test('drawer enters only on context changes and preserves controller-driven exit progress',()=>{
-  const previousDocument=globalThis.document;
-  try {
-    globalThis.document={createElement:()=>new Element(),body:new Element()};
-    const root=new Element(),view=new InventoryView(root);
-    let entrances=0;
-    const add=root.classList.add;
-    root.classList.add=className=>{if(className==='is-entering') entrances++;add(className);};
-    view.setContext(true);
-    assert.equal(root.hidden,false);
-    assert.equal(entrances,1);
-    view.update([]);view.setContext(true);view.setContext(true);
-    assert.equal(entrances,1,'engine renders cannot restart entrance');
-    view.setExitProgress(.5);
-    assert.equal(root.classList.contains('is-entering'),false,'entrance cannot override exit progress');
-    assert.equal(root.style.opacity,'0.5');
-    assert.equal(root.style.transform,'translateY(4px)');
-    view.setExitProgress(2);view.setContext(true);view.update([]);
-    assert.equal(root.style.opacity,'0','completed exit stays visually hidden through renders');
-    assert.equal(root.style.transform,'translateY(8px)');
-    assert.equal(entrances,1);
-    view.clearExit();
-    assert.equal(view.exitProgress,0);
-    assert.equal(root.style.opacity,'1');
-    assert.equal(root.style.transform,'translateY(0px)');
-    view.setExitProgress(-1);assert.equal(root.style.opacity,'1','progress clamps to zero');
-    view.setExitProgress(.8);view.setContext(false);
-    assert.equal(root.hidden,true,'context removal hides immediately');
-    view.setContext(true);
-    assert.equal(entrances,2,'a reused context gets a new entrance');
-    assert.equal(root.style.opacity,'1');
-    assert.equal(root.style.transform,'translateY(0px)');
-    view.destroy();
-  } finally {globalThis.document=previousDocument;}
-});
-
-test('exit continues from an interrupted entrance without an opacity or position jump',()=>{
-  const previousDocument=globalThis.document;
-  try {
-    globalThis.document={createElement:()=>new Element(),body:new Element()};
-    const root=new Element(),view=new InventoryView(root);
-    root.ownerDocument={defaultView:{getComputedStyle:()=>({opacity:'.75',transform:'matrix(1, 0, 0, 1, 0, 3)'})}};
-    view.setContext(true);
-    view.setExitProgress(0);
-    assert.equal(root.style.opacity,'0.75');assert.equal(root.style.transform,'translateY(3px)');
-    view.setExitProgress(.5);
-    assert.equal(root.style.opacity,'0.375');assert.equal(root.style.transform,'translateY(7px)');
-    view.setExitProgress(1);assert.equal(root.style.opacity,'0');
-    view.setContext(false);view.setContext(true);
-    root.ownerDocument.defaultView.getComputedStyle=()=>({opacity:'1',transform:'matrix(1, 0, 0, 1, 0, 0)'});
-    view.setExitProgress(.5);assert.equal(root.style.opacity,'0.5');assert.equal(root.style.transform,'translateY(4px)');
-    view.destroy();
-  } finally {globalThis.document=previousDocument;}
+test('view does not restart entrances and preserves the outgoing painted cards during exit',async()=>{
+ const previousDocument=globalThis.document;
+ try {
+  globalThis.document={createElement:()=>new Element(),body:new Element()};
+  const root=new Element(),view=new InventoryView(root),animations=[];
+  root.ownerDocument={defaultView:{getComputedStyle:()=>({opacity:'1',transform:'none'}),matchMedia:()=>({matches:false})}};
+  root.animate=(frames,options)=>{
+   let finish,reject;const finished=new Promise((resolve,fail)=>{finish=resolve;reject=fail;});
+   const animation={frames,options,finished,finish,cancel(){reject(new Error('cancelled'));}};animations.push(animation);return animation;
+  };
+  view.setContext(true);view.update([{id:'a',name:'A'}]);view.setContext(true);
+  assert.equal(animations.length,1);assert.equal(root.hidden,false);
+  animations[0].finish();await Promise.resolve();
+  const button=view.slotElements[0].children[0];
+  view.setContext(false);assert.equal(view.visible,false);assert.equal(root.hidden,false,'paint remains for asynchronous exit');
+  assert.equal(root.inert,true,'outgoing inventory cannot be used');
+  view.update([{id:'b',name:'B'}]);
+  assert.equal(view.items[0].id,'b','ownership model remains current');
+  assert.equal(view.slotElements[0].children[0],button,'outgoing painted contents remain stable');
+  animations[1].finish();await Promise.resolve();
+  assert.equal(root.hidden,true);assert.notEqual(view.slotElements[0].children[0],button);
+  view.setContext(true);assert.equal(animations.length,3);assert.equal(root.hidden,false);
+  view.setContext(false,{immediate:true});assert.equal(root.hidden,true);
+  view.destroy();
+ } finally {globalThis.document=previousDocument;}
 });

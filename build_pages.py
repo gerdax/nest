@@ -26,6 +26,8 @@ RUNTIME_FILES = (
     "engine/geometry.js",
     "engine/motion.js",
     "engine/motionProfile.js",
+    "engine/presentationReadiness.js",
+    "engine/inventoryContext.js",
     "engine/MovementHistory.js",
     "engine/renderer.js",
     "engine/card-deck.css",

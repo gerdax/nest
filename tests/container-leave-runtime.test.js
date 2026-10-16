@@ -36,8 +36,34 @@ for(const reduced of [false,true])test(`leave all remaining container items pres
  const {deck,controller}=real([box([item('taken',{onCollect:[{op:'add',key:'energy',value:1}]}),item('left'),item('also-left'),hidden]),after],{variables:energy});deck.reduced=reduced;
  assert.equal(deck.content.discardAll,true);key(deck,'ArrowDown');assert.equal(controller.state.collectedItems.length,1);assert.equal(controller.state.variables.energy,4);
  deck.discard();if(!reduced){assert.equal(controller.state.activeNodeId,'box');assert.equal(controller.remaining.has('box:'),true);assert.equal(controller.remaining.get('box:').length,3);}settle();
- assert.equal(controller.state.activeNodeId,'after');assert.deepEqual(controller.remaining.get('box:'),[]);
+ assert.equal(controller.state.activeNodeId,'after');assert.deepEqual(controller.remaining.get('box:').map(item=>item.id),['left','also-left','hidden']);
  assert.deepEqual(controller.state.collectedItems.map(i=>i.definitionId),['taken']);assert.equal(controller.state.variables.energy,4);assert.equal(deck.phase,'closed');dispose(deck,controller);
+});
+for(const reduced of [false,true])for(const introEnabled of [false,true])test(`leaving a container preserves uncollected items on return, intro=${introEnabled}, reduced=${reduced}`,()=>{
+ const {deck,controller}=real([
+  box([item('taken',{onCollect:[]}),item('left',{onCollect:[]})],{introEnabled,connections:{next:'linear'}}),
+  {id:'linear',type:'linear',cards:[narrative('return')],connections:{next:'box'}}
+ ]);deck.reduced=reduced;
+ if(introEnabled)key(deck,'ArrowUp');
+ key(deck,'ArrowDown');assert.deepEqual(controller.state.collectedItems.map(item=>item.definitionId),['taken']);
+ key(deck,'ArrowUp');assert.equal(controller.state.activeNodeId,'linear');
+ key(deck,'ArrowUp');assert.equal(controller.state.activeNodeId,'box');
+ if(introEnabled)key(deck,'ArrowUp');
+ assert.deepEqual(deck.content.actions.map(item=>item.id),['left']);
+ assert.equal(controller.authorizeCollection({id:'left'},{slot:1}),true);
+ key(deck,'ArrowDown');assert.equal(controller.state.activeNodeId,'linear');
+ key(deck,'ArrowUp');assert.equal(controller.state.activeNodeId,'linear','fully collected container skips its introduction');
+ assert.deepEqual(controller.state.collectedItems.map(item=>item.definitionId),['taken','left']);
+ dispose(deck,controller);
+});
+
+test('a container self-loop can be left and revisited without erasing its items',()=>{
+ const {deck,controller}=real([box([item('left')],{connections:{next:'box'}})]);
+ for(let visit=0;visit<2;visit++) {
+  assert.equal(controller.state.activeNodeId,'box');assert.equal(deck.content.actions[0].discardDisabled,false);
+  key(deck,'ArrowUp');assert.deepEqual(deck.content.actions.map(item=>item.id),['left']);
+ }
+ assert.equal(controller.state.collectedItems.length,0);dispose(deck,controller);
 });
 for(const reduced of [false,true])test(`leaving a terminal container completes and restart ignores stale departure, reduced=${reduced}`,()=>{
  const {deck,controller}=real([box([item('one'),item('two')],{connections:{next:null}})],{variables:energy});deck.reduced=reduced;

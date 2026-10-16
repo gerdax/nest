@@ -2,6 +2,7 @@ import { initialValues, conditionsMet, affordCosts, transact, addInventory } fro
 import { cardBody, cardFace } from './presentation.js';
 import { cardSummary, isStoryKind } from './cards.js';
 import { selectPool } from '../chapter/random.js';
+import { isInventoryContext } from '../engine/inventoryContext.js';
 
 /** Playback only. CardDeck remains responsible for gestures and departure choreography. */
 export class ProjectController {
@@ -41,6 +42,15 @@ export class ProjectController {
   key(location=this.location) {return `${location.node.id}:${location.sequence?.id ?? ''}`;}
   introEnabled(location=this.location) {return location.node.type==='fork'?!!location.node.intro&&location.node.introEnabled!==false:location.node.type!=='container'||location.node.introEnabled!==false;}
   introShown(location=this.location) {return location.introRevealed===true || location.node.introOnce===true&&this.revealedIntros.has(this.key(location));}
+  linearItemRemaining(card,location,excluded) {
+    if(card.kind!=='item')return true;
+    const key=this.key(location),pending=this.pendingItem;
+    // Staged successors exclude a collected item before ownership commits.
+    // Discard only advances this visit; the item stays available on return.
+    if((excluded?.key===key&&excluded.itemId===card.id)||(pending?.linearItem&&pending.transition==='collect'&&pending.key===key&&pending.item.id===card.id))return false;
+    const remaining=this.remaining.get(key);
+    return !remaining||remaining.some(item=>item.id===card.id);
+  }
   items(location=this.location, values=this.variables, inventory=this.inventory, excluded=null) {
     if(excluded?.all&&excluded.key===this.key(location))return [];
     const raw=this.remaining.get(this.key(location)) ?? location.sequence?.items ?? location.node.items ?? [];
@@ -119,11 +129,16 @@ export class ProjectController {
       while(location.index<cards.length) {
         const card=cards[location.index];
         const hiddenAction=card.kind==='action'&&card.unavailable==='hidden'&&!affordCosts(values,inventory,card.costs,this.compiled.variables);
-        if(conditionsMet(card.conditions,values,inventory)&&!hiddenAction)break;
+        if(this.linearItemRemaining(card,location,excluded)&&conditionsMet(card.conditions,values,inventory)&&!hiddenAction)break;
         location={...location,index:location.index+1};
       }
       if(location.index>=cards.length)return this.nextStep(location);
-    }else if(type==='container'&&!this.items(location,values,inventory,excluded).length&&!(location.node.type==='container'&&this.introEnabled(location)&&!this.introShown(location)&&conditionsMet(this.card(location)?.conditions,values,inventory)&&this.card(location)?.effects?.length))return this.nextStep(location);
+    }else if(type==='container'&&!this.items(location,values,inventory,excluded).length) {
+      const raw=excluded?.all&&excluded.key===this.key(location)?[]:(this.remaining.get(this.key(location))??location.sequence?.items??location.node.items??[]).filter(item=>item.id!==excluded);
+      // An introduction may unlock hidden items, but never revives an emptied container.
+      const canUnlock=raw.length&&location.node.type==='container'&&this.introEnabled(location)&&!this.introShown(location)&&conditionsMet(this.card(location)?.conditions,values,inventory)&&this.card(location)?.effects?.length;
+      if(!canUnlock)return this.nextStep(location);
+    }
     return {ready:true,location};
   }
   nextStep(location,output='next') {
@@ -140,10 +155,10 @@ export class ProjectController {
   next(location,output='next',values=this.variables,inventory=this.inventory,visited=new Set(),excluded=null,preview=false,preflight=null) {
     return this.traverse(this.nextStep(location,output),values,inventory,visited,excluded,preview,preflight);
   }
-  destination(source,success,values=this.variables,inventory=this.inventory,location=this.location,preview=false) {
+  destination(source,success,values=this.variables,inventory=this.inventory,location=this.location,preview=false,excluded=null) {
     const type=this.type(location);
     if(type==='linear') {
-      return this.seek({...location,index:location.index+1},values,inventory,new Set(),null,preview);
+      return this.seek({...location,index:location.index+1},values,inventory,new Set(),excluded,preview);
     }
     if(location.sequence && type==='forked') {
       const target=source.target;
@@ -161,8 +176,8 @@ export class ProjectController {
         const result=transact(values,collected,{costs:transition?[]:source.costs,effects:transition?(transition==='collect'?(source.onCollect??source.effects??[]):[]):[...(source.effects??[]),...(outcome===undefined?[]:outcome?source.successEffects??[]:source.failureEffects??[])]},this.compiled.variables,this.compiled.library);
         if(this.type(location)==='container') {
           if(transition==='collect'&&this.items(location,result.variables,result.inventory,excludedItem).some(i=>i.id!==source.id))continue;
-          this.next(location,'next',result.variables,result.inventory,new Set(),transition==='discard'?{key:this.key(location),all:true}:source.id,true);
-        }else this.destination(source,outcome,result.variables,result.inventory,location,true);
+          this.next(location,'next',result.variables,result.inventory,new Set(),transition==='discard'?null:source.id,true);
+        }else this.destination(source,outcome,result.variables,result.inventory,location,true,transition==='collect'?{key:this.key(location),itemId:source.id}:null);
       }
       return false;
     }catch(error) {
@@ -289,10 +304,10 @@ export class ProjectController {
     const existing = this.inventory.some(owned => (owned.definitionId ?? owned.id) === (item.definitionId ?? item.id) || item.inventoryKey && owned.inventoryKey === item.inventoryKey);
     let inventory = this.inventory;
     if (replacementId && !existing) {
-      if (inventory.length !== 4 || !inventory.some(owned => (owned.definitionId ?? owned.id) === replacementId)) throw new Error('Inventory replacement is no longer available');
+      if (inventory.length < 4 || !inventory.some(owned => (owned.definitionId ?? owned.id) === replacementId)) throw new Error('Inventory replacement is no longer available');
       inventory = inventory.filter(owned => (owned.definitionId ?? owned.id) !== replacementId);
     }
-    if (!existing && inventory.length >= 4 && this.deck.pickup) throw new Error('Choose an inventory item to replace');
+    if (!existing && !replacementId && inventory.length >= 4 && this.deck.pickup) throw new Error('Choose an inventory item to replace');
     return inventory;
   }
   authorizeCollection(action, decision) {
@@ -324,13 +339,15 @@ export class ProjectController {
       this.pendingItem={item,key:this.key(),linearItem,all,transition,contentId:detail.contentId,result};
       if(detail.final||linearItem||all) {
         const retainContainer=!linearItem&&!all&&this.items(this.location,result.variables,result.inventory,item.id).length>0;
-        const excluded=all?{key:this.key(),all:true}:item.id;
+        const excluded=transition==='collect'?item.id:null;
         this.stagedDestination=linearItem?this.destination(item,undefined,result.variables,result.inventory):retainContainer?this.location:this.next(this.location,'next',result.variables,result.inventory,new Set(),excluded);
         if(this.stagedDestination.completed)this.deck.endContent();
         else {
           const content=this.content(this.stagedDestination,result.variables,result.inventory,true,retainContainer?item.id:null);
           if(retainContainer)content.autoBrowse=false;
-          this.deck.replaceContent(content,{presentation:retainContainer?'open':this.presentation(this.stagedDestination,result.variables,result.inventory),transition:'flip',preserveInventoryContext:retainContainer});
+          const presentation=retainContainer?'open':this.presentation(this.stagedDestination,result.variables,result.inventory);
+          const preserveInventoryContext=isInventoryContext(content,presentation);
+          this.deck.replaceContent(content,{presentation,transition:'flip',preserveInventoryContext});
         }
       }
     }catch(error){this.pendingItem=null;this.stagedDestination=null;this.error(error);this.show({restore:true});}
@@ -357,9 +374,9 @@ export class ProjectController {
     }
     const pending=this.pendingItem;
     if(pending&&detail.transition===pending.transition&&detail.contentId===pending.contentId) {
-      if(!pending.linearItem) {
-        const raw=this.remaining.get(pending.key)??this.location.sequence?.items??this.location.node.items??[];
-        this.remaining.set(pending.key,pending.all?[]:raw.filter(i=>i.id!==pending.item.id));
+      if(pending.transition==='collect') {
+        const raw=this.remaining.get(pending.key)??(pending.linearItem?this.location.sequence?.cards??this.location.node.cards:this.location.sequence?.items??this.location.node.items)??[];
+        this.remaining.set(pending.key,raw.filter(i=>i.id!==pending.item.id));
       }
       this.variables=pending.result.variables;this.inventory=pending.result.inventory;this.pendingItem=null;this.notify();
       if(!this.stagedDestination) {

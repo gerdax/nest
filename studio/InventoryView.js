@@ -1,13 +1,14 @@
 import { conditionsMet } from '../project/state.js';
 import { cardSummary } from '../project/cards.js';
 import { applyArtworkColorize } from '../engine/artworkColorize.js';
+import { DrawerMotion } from './drawer-motion.js';
 
 const identity = item => item?.definitionId ?? item?.id;
 const name = item => item?.name || item?.label || 'Item';
 
 /** Inventory presentation; the controller alone mutates ownership and effects. */
 export class InventoryView {
-  constructor(root, { onUse = () => {}, getBounds = () => null } = {}) {
+  constructor(root, { onUse = () => {}, getBounds = () => null, onMotion = () => {} } = {}) {
     this.root = root;
     this.onUse = onUse;
     this.getBounds = getBounds;
@@ -31,47 +32,23 @@ export class InventoryView {
         if (!this.items.some(item => identity(item) === id)) this.dialog.close();
       } catch (error) { root.querySelector('[data-feedback]').textContent = error.message; }
     };
-    this.setContext(false);
+    this.motion = new DrawerMotion(root, { onMotion, onIdle: () => { if (this.needsSlotRender) this.renderSlots(); } });
+    this.setContext(false, { immediate: true });
     this.renderSlots();
   }
-  setContext(visible) {
+  setContext(visible, { immediate = false } = {}) {
     const nextVisible = Boolean(visible);
-    if (nextVisible === this.visible) return;
-    const entering = nextVisible && !this.visible;
+    if (nextVisible === this.visible && !immediate) return;
+    const initialized = this.visible !== null;
     this.visible = nextVisible;
-    this.root.hidden = !this.visible;
-    if (entering) {
-      this.clearExit();
-      this.root.classList.add('is-entering');
-    }
-    if (!this.visible) {
-      this.clearExit();
+    // Logical visibility changes now; only the painted drawer outlives an exit.
+    this.motion.setVisible(nextVisible, { immediate: immediate || !initialized });
+    if (nextVisible) this.renderSlots();
+    else {
       this.cancelPending();
       this.preview(null);
       if (this.dialog.open) this.dialog.close();
     }
-  }
-  // The controller supplies progress so the drawer shares its collection clock.
-  setExitProgress(progress) {
-    this.exitProgress = Math.max(0, Math.min(1, Number(progress) || 0));
-    if (!this.exitStart) {
-      // An exit can interrupt the CSS entrance. Capture its painted pose
-      // before removing the animation, rather than flashing to full opacity.
-      const view = this.root.ownerDocument?.defaultView ?? globalThis;
-      const style = this.root.classList.contains?.('is-entering') ? view.getComputedStyle?.(this.root) : null;
-      const matrix = style?.transform?.match(/^matrix\(([^)]+)\)$/)?.[1].split(',').map(Number);
-      this.exitStart = { opacity: style ? Number(style.opacity) : 1, y: matrix?.[5] || 0 };
-    }
-    this.root.classList.remove('is-entering');
-    this.root.style.opacity = String(this.exitStart.opacity * (1 - this.exitProgress));
-    this.root.style.transform = `translateY(${this.exitStart.y + 8 * this.exitProgress}px)`;
-  }
-  clearExit() {
-    this.exitProgress = 0;
-    this.exitStart = null;
-    this.root.classList.remove('is-entering');
-    this.root.style.opacity = '1';
-    this.root.style.transform = 'translateY(0px)';
   }
   update(items = [], { busy = false, variables = [], values = {}, library = [] } = {}) {
     this.deposited = null;
@@ -144,6 +121,8 @@ export class InventoryView {
     return { layout, replacement: false };
   }
   renderSlots() {
+    if (this.motion?.exiting) { this.needsSlotRender = true; return; }
+    this.needsSlotRender = false;
     const incoming = this.deposited?.item;
     const alreadyOwned = incoming && this.items.some(item => identity(item) === identity(incoming) || incoming.inventoryKey && item.inventoryKey === incoming.inventoryKey);
     this.root.querySelector('[data-count]').textContent = String(this.items.length + (incoming && !alreadyOwned && this.items.length < 4 ? 1 : 0));
@@ -180,7 +159,7 @@ export class InventoryView {
     return this.slots.findIndex(item => item && (identity(item) === identity(action) || action.inventoryKey && item.inventoryKey === action.inventoryKey));
   }
   getTarget({ clientX, clientY, active = false, snapped = false, keyboard = false, action } = {}) {
-    if (!this.visible || this.items.length > 4 || this.root.closest?.('[inert]')) return null;
+    if (!this.visible || this.root.closest?.('[inert]')) return null;
     const bounds = this.getBounds();
     if (bounds && (bounds.width <= 0 || bounds.height <= 0)) return null;
     if (!keyboard && bounds && (clientX < bounds.left || clientX > bounds.left + bounds.width || clientY < bounds.top || clientY > bounds.top + bounds.height)) return null;
@@ -229,10 +208,7 @@ export class InventoryView {
 
   async authorize(action, target) {
     this.cancelPending();
-    if (!this.visible || this.busy || this.items.length > 4 || this.root.closest?.('[inert]')) {
-      if (this.hint && this.items.length > 4) this.hint.textContent = 'Other owned items exceed the four slots. Use an item before collecting.';
-      return false;
-    }
+    if (!this.visible || this.busy || this.root.closest?.('[inert]')) return false;
     const owned = this.ownedSlot(action);
     if (owned >= 0) return { slot: owned };
     if (!target) target = this.getTarget({ keyboard: true });
@@ -316,6 +292,7 @@ export class InventoryView {
     }
   }
   destroy() {
+    this.motion.destroy();
     this.cancelPending();
     if (this.dialog.open) this.dialog.close();
     this.root.replaceChildren(); this.items = []; this.slots = []; this.slotElements = [];

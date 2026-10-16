@@ -257,11 +257,10 @@ for(const once of [true,false,undefined])test(`Fork introductions respect per-vi
  deck.accept();deck.accept();assert.equal(deck.options.presentation,once===true?'open':'closed');deck.emit('reveal');deck.emit('transitioncomplete',{transition:'reveal'});assert.equal(controller.state.variables.energy,once===true?1:2);
  controller.restart();assert.equal(deck.options.presentation,'closed');assert.equal(controller.state.variables.energy,0);controller.destroy();
 });
-for(const once of [true,false])test(`Container replay effects respect show once=${once} without respawning items`,()=>{
+for(const once of [true,false])test(`Exhausted containers skip replay effects, show once=${once}`,()=>{
  const {deck,controller}=fixture([{id:'box',type:'container',intro:{...narrative('intro'),effects:[{op:'add',key:'energy',value:1}]},introOnce:once,items:[{id:'item',kind:'item',definitionId:'item',name:'Item'}],connections:{next:'return'}},{id:'return',type:'linear',cards:[narrative('return')],connections:{next:'box'}}],{variables:[{id:'energy',type:'number',initial:0}]});
  deck.emit('reveal');deck.emit('transitioncomplete',{transition:'reveal'});deck.take('item',true);deck.finish();assert.equal(controller.state.activeNodeId,'return');deck.accept();
- if(!once){assert.equal(controller.state.activeNodeId,'box');assert.equal(deck.options.presentation,'closed');deck.emit('reveal');deck.emit('transitioncomplete',{transition:'reveal'});}
- assert.equal(controller.state.variables.energy,once?1:2);assert.equal(controller.state.activeNodeId,'return');assert.equal(controller.state.collectedItems.length,1);controller.destroy();
+ assert.equal(controller.state.variables.energy,1);assert.equal(controller.state.activeNodeId,'return');assert.equal(controller.state.collectedItems.length,1);controller.destroy();
 });
 
 test('container controller retains survivor stack and does not replay hint after removal',()=>{
@@ -353,6 +352,21 @@ test('drawer replacement is authorized against current ownership and commits ato
   assert.equal(controller.variables.energy,3); controller.destroy();
 });
 
+test('drawer can replace a visible item while preserving existing inventory overflow',()=>{
+  const item={id:'new',kind:'item',name:'New'};
+  const {deck,controller}=fixture([{id:'c',type:'container',intro:narrative('box'),items:[item],connections:{next:'done'}},{id:'done',type:'end'}]);
+  deck.pickup={};
+  controller.inventory=['a','b','c','d','overflow'].map(id=>({id,definitionId:id,kind:'item'}));
+  assert.equal(controller.authorizeCollection(item,{}),false);
+  assert.equal(controller.authorizeCollection(item,{replacementId:'missing'}),false);
+  assert.equal(controller.authorizeCollection(item,{replacementId:'b'}),true);
+  deck.busy=true; deck.emit('collect',{action:item,final:true,replacementId:'b',slot:1});
+  assert.equal(controller.inventory.length,5,'confirmation does not commit ownership');
+  deck.finish();
+  assert.deepEqual(controller.inventory.map(i=>i.definitionId??i.id),['a','c','d','overflow','new']);
+  controller.destroy();
+});
+
 test('drawer rejects invalid replacement effects without losing the old item',()=>{
   const item={id:'new',kind:'item',onCollect:[{op:'add',key:'absent',value:1}]};
   const {deck,controller}=fixture([{id:'c',type:'container',intro:narrative('box'),items:[item],connections:{next:'done'}},{id:'done',type:'end'}]);
@@ -382,7 +396,129 @@ for (const reduced of [false,true]) for (const survivor of [false,true]) test(`d
  assert.ok(visibility.length>0);assert.equal(visibility.includes(false),false,'same container never hides the drawer');
  assert.deepEqual(exits,[],'unlocking another item must not start an exit');
  assert.equal(deck.preserveInventoryContext,false,'continuation flag is consumed by installation');
- // The continuation must not suppress a later real departure or its fade.
- deck.discard();settle();if(!reduced)assert.ok(exits.length>0);assert.equal(visibility.at(-1),false);
+ // The continuation must not suppress a later real departure.
+ deck.discard();settle();assert.deepEqual(exits,[],'engine does not drive drawer animation');assert.equal(visibility.at(-1),false);
+ dispose(deck,controller);
+});
+
+for(const reduced of [false,true])test(`single-item intro updates drawer visibility after hint readiness clears, reduced=${reduced}`,()=>{
+ const {deck,controller}=real([{id:'box',type:'container',intro:narrative('intro'),items:[{id:'item',definitionId:'key',kind:'item',name:'Key'}],connections:{next:null}}]);
+ deck.reduced=reduced;let visible=false;
+ deck.pickup=new InventoryPickup(deck,{setContext:value=>{visible=value;},preview(){},cancelPending(){}});
+ assert.equal(deck.open,false);assert.equal(visible,false);
+ key(deck,'ArrowUp');
+ assert.equal(deck.phase,'choices');assert.equal(deck.presentationBrowsePending,false);
+ assert.equal(frames.size,0,'no additional interaction or animation frame is needed');
+ assert.equal(visible,true,'drawer reflects final readiness even when no stack hint is animated');
+ assert.equal(deck.mount.getAttribute('data-inventory-context'),'true');
+ dispose(deck,controller);
+});
+
+for(const context of ['linear','container'])test(`${context} drawer starts before full settlement while input stays locked`,()=>{
+ const item={id:'item',definitionId:'key',kind:'item',name:'Key'};
+ const nodes=context==='container'
+  ?[{id:'box',type:'container',intro:narrative('intro'),items:[item],connections:{next:null}}]
+  :[{id:'before',type:'linear',cards:[narrative('before')],connections:{next:'items'}},{id:'items',type:'linear',cards:[item],connections:{next:null}}];
+ const {deck,controller}=real(nodes);let shownAt=null,settledAt=null,visible=false;
+ deck.pickup=new InventoryPickup(deck,{preview(){},cancelPending(){},traceEnabled:()=>true,
+  trace:(source,state)=>{if(state.fullySettled&&settledAt===null)settledAt=now;},
+  setContext:value=>{
+   if(value&&!visible&&shownAt===null){shownAt=now;assert.equal(deck.start(),false,'early visibility must not unlock interaction');}
+   visible=value;
+  }});
+ key(deck,context==='container'?'ArrowUp':'Enter');
+ assert.equal(visible,true);assert.ok(shownAt!==null&&settledAt!==null);
+ assert.ok(shownAt<settledAt,`exposure precedes settlement by ${settledAt-shownAt}ms`);
+ assert.equal(deck.phase,'choices');assert.equal(deck.state.busy,false);
+ dispose(deck,controller);
+});
+
+function continuityDrawer(deck) {
+ const visibility=[],exits=[],entrances=[];let visible=false;
+ const target={slot:0,rect:{left:0,top:560,width:75,height:100}};
+ deck.pickup=new InventoryPickup(deck,{getTarget:()=>target,slotTarget:()=>target,
+  preview(){},presentPreview(){},stageDeposit(){},clearDeposit(){},cancelPending(){},clearExit(){},
+  authorize:()=>({slot:0}),setContext:value=>{visibility.push(value);if(value&&!visible)entrances.push(now);visible=value;},
+  setExitProgress:progress=>exits.push(progress)});
+ deck.render();
+ return {visibility,exits,entrances,get visible(){return visible;}};
+}
+for(const reduced of [false,true])for(const acrossNodes of [false,true])for(const operation of ['collect','discard'])test(`consecutive linear items retain drawer across ${operation}, across nodes=${acrossNodes}, reduced=${reduced}`,async()=>{
+ const item=id=>({id,definitionId:id,kind:'item',name:id});
+ const nodes=acrossNodes
+  ?[{id:'before',type:'linear',cards:[narrative('before')],connections:{next:'first'}},
+    {id:'first',type:'linear',cards:[item('one')],connections:{next:'second'}},
+    {id:'second',type:'linear',cards:[item('two')],connections:{next:'after'}},
+    {id:'after',type:'linear',cards:[narrative('after')]}]
+  :[{id:'items',type:'linear',cards:[narrative('before'),item('one'),item('two'),narrative('after')]}];
+ const errors=[];const {deck,controller}=real(nodes,{},{onError:error=>errors.push(error.stack)});deck.reduced=reduced;
+ const drawer=continuityDrawer(deck);assert.equal(drawer.visible,false);
+ key(deck,'Enter');assert.equal(controller.state.cardId,'one');assert.equal(drawer.visible,true);assert.equal(drawer.entrances.length,1);
+ drawer.visibility.length=0;drawer.exits.length=0;
+ deck[operation]();
+ assert.deepEqual(controller.state.collectedItems,[],'request and departure do not transfer ownership');
+ await flush();settle();
+ assert.equal(controller.state.cardId,'two');assert.equal(deck.phase,'choices');assert.equal(drawer.visible,true);
+ assert.equal(drawer.visibility.includes(false),false,'consecutive item replacement never hides the drawer');
+ assert.deepEqual(drawer.exits,[],'consecutive items never start a drawer exit');
+ assert.equal(drawer.entrances.length,1,'the next item does not replay the entrance');
+ assert.deepEqual(controller.state.collectedItems.map(item=>item.definitionId),operation==='collect'?['one']:[]);
+ assert.equal(deck.preserveInventoryContext,false,'installation consumes the continuation flag');
+ assert.deepEqual(errors,[]);
+ // A real departure after the continuation must still end logical drawer visibility.
+ deck.discard();settle();assert.equal(controller.state.cardId,'after');assert.equal(drawer.visible,false);
+ assert.deepEqual(drawer.exits,[],'real departures do not drive drawer animation');
+ assert.deepEqual(controller.state.collectedItems.map(item=>item.definitionId),operation==='collect'?['one']:[]);
+ dispose(deck,controller);
+});
+
+for(const successor of ['narrative','closed container'])for(const operation of ['collect','discard'])test(`linear item ${operation} ends drawer visibility for ${successor}`,async()=>{
+ const item=id=>({id,definitionId:id,kind:'item',name:id});
+ const next=successor==='narrative'?{id:'next',type:'linear',cards:[narrative('after')]}:{id:'next',type:'container',intro:narrative('intro'),items:[item('two')]};
+ const {deck,controller}=real([{id:'items',type:'linear',cards:[item('one')],connections:{next:'next'}},next]);
+ const drawer=continuityDrawer(deck);assert.equal(drawer.visible,true);drawer.exits.length=0;
+ deck[operation]();await flush();settle();
+ assert.equal(controller.state.activeNodeId,'next');assert.equal(deck.phase,'closed');assert.equal(drawer.visible,false);
+ assert.deepEqual(drawer.exits,[],'the view owns exit animation after logical visibility ends');
+ assert.equal(deck.preserveInventoryContext,false);
+ assert.deepEqual(controller.state.collectedItems.map(item=>item.definitionId),operation==='collect'?['one']:[]);
+ if(successor==='closed container'){
+  key(deck,'ArrowUp');assert.equal(drawer.visible,true);assert.equal(drawer.entrances.length,2,'the new introduction starts a fresh drawer entrance');
+ }
+ dispose(deck,controller);
+});
+
+test('linear item continuity uses effects and skips ineligible narrative cards',async()=>{
+ const {deck,controller}=real([{id:'items',type:'linear',cards:[
+  {id:'one',definitionId:'one',kind:'item',name:'One',onCollect:[{op:'set',key:'taken',value:true}]},
+  {...narrative('hidden'),conditions:[{source:'variable',key:'taken',op:'eq',value:false}]},
+  {id:'two',definitionId:'two',kind:'item',name:'Two',conditions:[{source:'variable',key:'taken',op:'eq',value:true}]}
+ ],connections:{next:null}}],{variables:[{id:'taken',type:'flag',initial:false}]});
+ const drawer=continuityDrawer(deck);assert.equal(drawer.visible,true);drawer.visibility.length=0;
+ deck.collect();assert.equal(controller.state.variables.taken,false);await flush();settle();
+ assert.equal(controller.state.cardId,'two');assert.equal(controller.state.variables.taken,true);
+ assert.deepEqual(controller.state.collectedItems.map(item=>item.definitionId),['one']);
+ assert.equal(drawer.visibility.includes(false),false);assert.deepEqual(drawer.exits,[]);assert.equal(drawer.entrances.length,1);
+ dispose(deck,controller);
+});
+
+for(const direction of ['linear to container','container to linear'])for(const operation of ['collect','discard'])test(`open item continuity ${direction} across ${operation}`,async()=>{
+ const item=id=>({id,definitionId:id,kind:'item',name:id});
+ const first=direction==='linear to container'
+  ?{id:'first',type:'linear',cards:[item('one')],connections:{next:'second'}}
+  :{id:'first',type:'container',introEnabled:false,items:[item('one')],connections:{next:'second'}};
+ const second=direction==='linear to container'
+  ?{id:'second',type:'container',introEnabled:false,items:[item('two')],connections:{next:null}}
+  :{id:'second',type:'linear',cards:[item('two')],connections:{next:null}};
+ const errors=[];const {deck,controller}=real([first,second],{},{onError:error=>errors.push(error.stack)});
+ const drawer=continuityDrawer(deck);assert.equal(drawer.visible,true);assert.equal(drawer.entrances.length,1);
+ drawer.visibility.length=0;
+ deck[operation]();assert.deepEqual(controller.state.collectedItems,[],'departure begins without transferring ownership');
+ await flush();settle();
+ assert.equal(controller.state.activeNodeId,'second');assert.equal(deck.content.actions[0].id,'two');assert.equal(deck.phase,'choices');
+ assert.equal(drawer.visible,true);assert.equal(drawer.visibility.includes(false),false,'open item contexts share drawer visibility');
+ assert.deepEqual(drawer.exits,[],'changing node kind does not start a drawer exit');assert.equal(drawer.entrances.length,1);
+ assert.deepEqual(controller.state.collectedItems.map(item=>item.definitionId),operation==='collect'?['one']:[]);
+ assert.equal(deck.preserveInventoryContext,false);assert.deepEqual(errors,[]);
  dispose(deck,controller);
 });

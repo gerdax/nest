@@ -44,6 +44,34 @@ export class InventoryPickup {
     for (const state of this.states) springStep(state, dt, { ...this.deck.settings, stiffness: 720, damping: 56 });
     return this.states.some(state => !this.deck.atRest(state));
   }
+  entranceBlockers() {
+    const deck = this.deck;
+    const blockers = [];
+    if (deck.content.interaction !== 'container') blockers.push('not an item context');
+    if (!deck.open) blockers.push('deck closed');
+    if (deck.phase === 'ended') blockers.push('deck ended');
+    if (!deck.cards.length && !this.pending) blockers.push('no displayed items');
+    if (!deck.presentationState?.eligible) blockers.push('not an incoming presentation');
+    if (!deck.presentationState?.itemsExposed) blockers.push('items not exposed');
+    if (deck.entrances.size) blockers.push(`${deck.entrances.size} card entrances`);
+    return blockers;
+  }
+  traceReadiness(source = 'InventoryPickup.render') {
+    if (!this.adapter.traceEnabled?.()) return;
+    const deck = this.deck, hint = deck.presentationHint?.stage ?? null;
+    const blockers = this.entranceBlockers();
+    const state = { content: deck.content.id, interaction: deck.content.interaction, revision: deck.presentationRevision, phase: deck.phase,
+      open: deck.open, busy: deck.busy, openingCommit: deck.openingCommit, openingReturn: deck.openingReturn,
+      hint, hintPending: deck.presentationBrowsePending, entrances: deck.entrances.size,
+      contextEntered: !!this.contextEntered, preserveContext: !!deck.preserveInventoryContext,
+      visualReady: !!deck.presentationState?.visualReady, fullySettled: !!deck.presentationState?.fullySettled,
+      itemsExposed: !!deck.presentationState?.itemsExposed,
+      blockers, frameScheduled: !!deck.frame };
+    const key = JSON.stringify(state);
+    if (source === 'InventoryPickup.render' && key === this.lastTraceState) return;
+    this.lastTraceState = key;
+    this.adapter.trace?.(source, state);
+  }
   render() {
     const deck = this.deck;
     const inContext = deck.preserveInventoryContext || deck.content.interaction === 'container' && deck.open && deck.phase !== 'ended' && (deck.cards.length > 0 || !!this.pending);
@@ -57,12 +85,11 @@ export class InventoryPickup {
       }
     }
     if (!inContext) this.contextEntered = false;
-    else if (!this.contextEntered && (deck.phase === 'choices' || deck.phase === 'revealing' && deck.presentationHint?.stage === 'hold')
-      && !deck.busy && !deck.openingCommit && !deck.openingReturn && !deck.presentationBrowsePending
-      && (!deck.presentationHint || ['hold', 'return'].includes(deck.presentationHint.stage)) && !deck.entrances.size) this.contextEntered = true;
+    else if (!this.contextEntered && this.entranceBlockers().length === 0) this.contextEntered = true;
     // Once entered, keep the drawer through gestures and departures. Rechecking
     // the entrance conditions on every frame would blink during interaction.
     const visible = inContext && this.contextEntered;
+    this.traceReadiness();
     deck.mount.setAttribute('data-inventory-context', String(visible));
     this.adapter.setContext(visible);
     if (this.target && !this.staged && !this.layer) {
@@ -118,14 +145,6 @@ export class InventoryPickup {
     ++this.serial; this.pending = false;
     this.adapter.cancelPending?.(); this.preview(null);
   }
-  readyToProgress(time, start, hold = 450) {
-    // Deposits hold briefly in their slot; discards pass zero hold. Both
-    // finish the drawer fade before permitting the next presentation.
-    const elapsed = time - start;
-    if (elapsed < hold) return false;
-    this.adapter.setExitProgress(Math.min(1, (elapsed - hold) / 100));
-    return elapsed >= hold + 100;
-  }
   accept(action, decision) {
     if (!this.adapter.stageDeposit) return;
     this.adapter.stageDeposit(action, decision);
@@ -134,7 +153,7 @@ export class InventoryPickup {
   }
   reset({ completed = false } = {}) {
     this.cancel();
-    if (!completed) { this.adapter.clearDeposit?.(); this.adapter.clearExit?.(); }
+    if (!completed) this.adapter.clearDeposit?.();
     this.staged = false;
     for (const state of this.states) { state.x = state.target; state.v = 0; }
   }
