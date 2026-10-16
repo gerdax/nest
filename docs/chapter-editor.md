@@ -4,6 +4,11 @@ Run `python3 serve.py` and open `http://127.0.0.1:8937/editor.html`. The studio 
 
 ## Library and placements
 
+Select a beat on the graph and press **Delete** or **Backspace** (Mac Delete) to
+remove it. The shortcut works while the graph is focused, ignores typing and
+active drags, and uses the same undoable action as **Delete beat**. Click **Undo**
+to restore the beat and its connections.
+
 Project JSON v2 (`kind: "nest-project"`) owns a Library, project variables and chapters. The Library contains four explicit card kinds:
 
 - **Narrative**: description, artwork, optional visible heading and effects. Linear beats use narrative cards; Containers use one as their introduction.

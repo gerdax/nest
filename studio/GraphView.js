@@ -9,7 +9,7 @@ import { createLibraryIndex } from '../project/library-index.js';
 
 /** Canvas interaction owns selection/pan, and emits completed document edits. */
 export class GraphView {
- constructor(root,{onSelect,onConnect,onMove,onOpenCard=()=>{}}) {
+ constructor(root,{onSelect,onConnect,onMove,onOpenCard=()=>{},onDelete=()=>{}}) {
   this.root=root;this.onSelect=onSelect;this.onConnect=onConnect;this.onMove=onMove;this.onOpenCard=onOpenCard;this.lastPortClick=null;
   this.view={x:50,y:50,z:1};this.pending=null;this.drag=null;
   root.innerHTML='<div id="world"><svg id="edges"></svg><div id="nodes"></div></div>';
@@ -17,7 +17,15 @@ export class GraphView {
   root.addEventListener('pointermove',e=>this.move(e));
   root.addEventListener('pointerup',e=>this.up(e));
   for(const event of ['pointercancel','lostpointercapture'])root.addEventListener(event,e=>{if(this.drag?.pointer===e.pointerId)this.cancel();});
-  root.addEventListener('keydown',e=>{if(e.key==='Escape')this.cancel();});
+  root.addEventListener('keydown',e=>{
+   if(e.key==='Escape')this.cancel();
+   if(!['Delete','Backspace'].includes(e.key)||e.defaultPrevented||e.repeat||e.isComposing||e.ctrlKey||e.metaKey||e.altKey||e.shiftKey||this.drag)return;
+   if(e.target?.closest('input,textarea,select,[contenteditable]:not([contenteditable="false"]),[role="textbox"]'))return;
+   if(!this.nodesById?.has(this.selected))return;
+   e.preventDefault();onDelete(this.selected);
+   // Deletion redraws node buttons; keep subsequent keyboard input on the graph.
+   root.focus({preventScroll:true});
+  });
   root.addEventListener('click',e=>{
    const name=e.target.closest('.graph-card-name'),node=name?.closest('.node'),row=name?.closest('.graph-card-row');
    if(node&&row){this.lastPortClick=null;this.openCard(node.dataset.id,row.dataset.cardPlacement);}
@@ -119,6 +127,7 @@ export class GraphView {
   if(el){const id=el.dataset.id;this.onSelect(id);const n=this.nodesById.get(id);this.drag={kind:'node',id,x:e.clientX,y:e.clientY,ox:n.x,oy:n.y,px:n.x,py:n.y,pointer:e.pointerId};}
   else{this.pending=null;this.drag={kind:'pan',x:e.clientX,y:e.clientY,ox:this.view.x,oy:this.view.y,pointer:e.pointerId};}
   this.root.setPointerCapture(e.pointerId);
+  this.root.focus({preventScroll:true});
  }
  move(e) {
   const d=this.drag;if(!d||d.pointer!==e.pointerId)return;

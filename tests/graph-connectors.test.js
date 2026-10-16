@@ -33,10 +33,25 @@ class Root extends Element {
 }
 function setup(){
  const nodes=[{id:'a',name:'A',type:'linear',cards:[],x:0,y:0,connections:{next:'b'}},{id:'b',name:'B',type:'linear',cards:[],x:400,y:50,connections:{next:null}},{id:'c',name:'C',type:'linear',cards:[],x:600,y:150,connections:{next:null}}];
- const chapter={nodes,startNode:'a'},project={library:[]},root=new Root(),calls=[],moves=[],selections=[],opened=[];
- const graph=new GraphView(root,{onSelect:id=>selections.push(id),onOpenCard:(...args)=>opened.push(args),onConnect:(...args)=>calls.push(args),onMove:(...args)=>moves.push(args)});graph.render(project,chapter,'a','b');
- return {root,graph,chapter,calls,moves,selections,opened,port:()=>root.node('a').children[0]};
+ const chapter={nodes,startNode:'a'},project={library:[]},root=new Root(),calls=[],moves=[],selections=[],opened=[],deleted=[];
+ const graph=new GraphView(root,{onDelete:id=>deleted.push(id),onSelect:id=>selections.push(id),onOpenCard:(...args)=>opened.push(args),onConnect:(...args)=>calls.push(args),onMove:(...args)=>moves.push(args)});graph.render(project,chapter,'a','b');
+ return {root,graph,chapter,calls,moves,selections,opened,deleted,port:()=>root.node('a').children[0]};
 }
+test('Delete and Mac Backspace delete the selected beat through the graph callback',()=>{
+ for(const key of ['Delete','Backspace']){
+  const s=setup();let prevented=false;
+  s.root.handlers.keydown({key,target:s.root,preventDefault(){prevented=true;}});
+  assert.deepEqual(s.deleted,['a']);assert.equal(prevented,true);
+ }
+});
+test('beat deletion ignores typing, held keys, modifiers, composition, and active gestures',()=>{
+ for(const guard of [{repeat:true},{isComposing:true},{ctrlKey:true},{metaKey:true},{altKey:true},{shiftKey:true},{defaultPrevented:true},{target:{closest:()=>({})}}]){
+  const s=setup();s.root.handlers.keydown({key:'Backspace',target:s.root,...guard,preventDefault(){assert.fail('must preserve input');}});assert.deepEqual(s.deleted,[]);
+ }
+ const s=setup();s.root.event('pointerdown',s.root.node('a'));
+ s.root.handlers.keydown({key:'Delete',target:s.root});assert.deepEqual(s.deleted,[]);
+ s.graph.cancel();s.graph.selected='missing';s.root.handlers.keydown({key:'Delete',target:s.root});assert.deepEqual(s.deleted,[]);
+});
 test('port drag captures on root, highlights hit node, and commits only on release',()=>{
  const s=setup();s.root.event('pointerdown',s.port(),200,100);assert.equal(s.root.capture,1);
  s.root.hit=s.root.node('c');s.root.event('pointermove',s.root,700,220);

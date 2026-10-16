@@ -46,6 +46,7 @@ const graph=new GraphView($('#canvas'),{
  },
  onConnect:(id,exit,target)=>edit('connect',{id,exit,target}),
  onMove:(id,x,y)=>edit('move-node',{id,x,y}),
+ onDelete:()=>{if(mode==='chapter'&&node())edit('delete-node');},
 });
 const persistence=createPersistence({loaded,onStatus:text=>{$('#save-status').textContent=text;}});
 const saveProject=project=>persistence.save(project);
