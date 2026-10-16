@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Deck motion component verification</title>
+<link rel="stylesheet" href="../../engine/card-deck.css">
+<style>
+body{margin:0;background:#141714;color:#eee;font:14px system-ui}main{max-width:850px;margin:24px auto;padding:16px}nav{display:flex;flex-wrap:wrap;gap:8px}button{padding:8px;background:#2a3529;color:white;border:1px solid #88997f;border-radius:4px}#deck{width:280px;aspect-ratio:3/4;margin:32px auto}pre{white-space:pre-wrap;max-height:240px;overflow:auto}output{display:block;margin:12px 0}
+</style>
+<main>
+<h1>Deck motion component verification</h1>
+<p>Isolated browser fixture. Controls exercise the real deck APIs; they do not verify physical touch input.</p>
+<nav>
+<button id="choices">Choice scenario</button><button id="items">Container scenario</button>
+<button id="reveal">Reveal</button><button id="browse">Browse</button>
+<button id="cancel-lift">Simulate canceled lift</button><button id="reverse">Simulate item reversal</button>
+<button id="insert">Insert contextual choice</button><button id="collect">Collect item</button>
+<button id="commit">Commit or discard</button><button id="reduced">Toggle reduced motion</button>
+<button id="reset">Reset</button>
+</nav>
+<output id="state" aria-live="polite"></output>
+<div id="deck" tabindex="0"></div><pre id="events"></pre>
+</main>
+<script type="module">
+import {CardDeck} from '../../engine/CardDeck.js';
+let deck,serial=0,events=[],reduced=false;
+const state=document.querySelector('#state'),log=document.querySelector('#events');
+const actions=count=>Array.from({length:count},(_,i)=>({id:`a${i}`,label:`Action ${i+1}`,text:`Choice ${i+1}`}));
+function content(kind='choice'){
+ return {id:`${kind}-${++serial}`,title:kind==='choice'?'Choose a route':'Supplies',text:'Motion boundary verification',interaction:kind,discardAll:kind==='container',autoBrowse:true,actions:actions(3)};
+}
+function report(){state.textContent=`${deck.content.id} · ${deck.phase} · ${deck.cards.length} cards · ${deck.busy?'busy':'ready'} · reduced motion ${reduced?'on':'off'}`;}
+function setup(kind){
+ deck?.destroy();events=[];log.textContent='';
+ deck=new CardDeck(document.querySelector('#deck'),{content:content(kind),settings:{choiceStaggerMs:24,choiceFollowerRatio:.7}});
+ deck.reduced=reduced;
+ for(const type of ['reveal','selection','commit','collect','discard','transitioncomplete'])deck.addEventListener(type,event=>{
+  events.push({type,transition:event.detail.transition,contentId:event.detail.contentId,remainingIds:event.detail.remainingIds});
+  log.textContent=events.map(event=>JSON.stringify(event)).join('\n');
+  if(type==='commit'||(type==='collect'||type==='discard')&&event.detail.final)deck.replaceContent(content());
+  report();
+ });
+ report();
+}
+function key(key){deck.key({key,preventDefault(){}});report();}
+function simulatedGesture(reverse=false){
+ if(!deck.start())return;
+ deck.move({axis:'y',x:0,y:reverse?100:-100,vx:0,vy:0});
+ if(reverse)deck.move({axis:'y',x:0,y:-130,vx:0,vy:0});
+ deck.cancel();report();
+}
+document.querySelector('#choices').onclick=()=>setup('choice');
+document.querySelector('#items').onclick=()=>setup('container');
+document.querySelector('#reveal').onclick=()=>key('ArrowUp');
+document.querySelector('#browse').onclick=()=>key('ArrowRight');
+document.querySelector('#cancel-lift').onclick=()=>simulatedGesture();
+document.querySelector('#reverse').onclick=()=>simulatedGesture(true);
+document.querySelector('#insert').onclick=()=>{try{deck.updateActions([...deck.content.actions,{id:`context-${++serial}`,label:'New contextual choice',entrance:'bottom'}]);}catch(error){state.textContent=error.message;}};
+document.querySelector('#collect').onclick=()=>{deck.collect();report();};
+document.querySelector('#commit').onclick=()=>{if(deck.content.interaction==='container')deck.discard();else deck.commit();report();};
+document.querySelector('#reduced').onclick=()=>{reduced=!reduced;deck.reduced=reduced;deck.finishMotion();report();};
+document.querySelector('#reset').onclick=()=>{deck.reset();report();};
+setup('choice');
+</script>
+</html>

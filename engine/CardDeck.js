@@ -1,7 +1,8 @@
 import { projectedBounds, turningBounds } from './geometry.js?v=no-ending-card-1';
 import { buildDeck, decorateCard, announceDeck, renderDeck, stageNextContent, stageNextBack, stageActionDeck, scenePose, cardPose, restoreBacks } from './renderer.js?v=no-ending-card-1';
-import { MovementHistory } from './MovementHistory.js?v=no-ending-card-1';
-import { DEFAULT_SETTINGS, settingsWith, spring, springStep, qualifies, resistance, modulo, clamp, carouselPose, departureDistance, flipLift } from './motion.js?v=no-ending-card-1';
+import { DeckInteractionMotion } from './DeckInteractionMotion.js';
+import { DeckEntranceSequence } from './DeckEntranceSequence.js';
+import { DEFAULT_SETTINGS, settingsWith, spring, springStep, qualifies, resistance, modulo, clamp, carouselPose, flipLift } from './motion.js?v=no-ending-card-1';
 import { PointerInput } from './PointerInput.js?v=no-ending-card-1';
 import { resolveBackAppearance, resolveBackOperation } from './cardBacks.js';
 import { InventoryPickup } from './InventoryPickup.js';
@@ -36,6 +37,8 @@ export class CardDeck extends EventTarget {
     this.mount = mount;
     this.settings = settingsWith(settings);
     this.content = validate(content);
+    this.interactionMotion = new DeckInteractionMotion();
+    this.entranceSequence = new DeckEntranceSequence();
     this.presentationRevision = 0;
     this.presentationReadiness = new PresentationReadiness(presentationPolicy);
     this.presentationBrowsePending = this.content.autoBrowse === true;
@@ -53,8 +56,6 @@ export class CardDeck extends EventTarget {
     this.n = spring();
     this.flip = spring();
     this.nextFlip = spring(1);
-    this.choiceHistory = null;
-    this.choiceRanks = new Map();
     this.returnLift = spring();
     this.returning = false;
     this.openingReturn = false;
@@ -78,11 +79,8 @@ export class CardDeck extends EventTarget {
     this.nextTakeDepth = 0;
     this.takeDepthRatio = 0;
     this.groupLeaveActive = false;
-    this.reflowOffsets = new Map();
     this.reflowOrder = null;
     this.liftPoses = null;
-    this.grabCover = spring();
-    this.grabCards = new Map();
     this.pendingPresentation = 'closed';
     this.pendingTransition = 'flip';
     this.commitTransition = 'commit';
@@ -177,6 +175,42 @@ export class CardDeck extends EventTarget {
     }));
   }
 
+  get grabCover() { return this.interactionMotion.grabCover; }
+  set grabCover(value) { this.interactionMotion.grabCover = value; }
+
+  get grabCards() { return this.interactionMotion.grabCards; }
+  set grabCards(value) { this.interactionMotion.grabCards = value; }
+
+  get choiceHistory() { return this.interactionMotion.choiceHistory; }
+  set choiceHistory(value) { this.interactionMotion.choiceHistory = value; }
+
+  get choiceRanks() { return this.interactionMotion.choiceRanks; }
+  set choiceRanks(value) { this.interactionMotion.choiceRanks = value; }
+
+  get reflowOffsets() { return this.interactionMotion.reflowOffsets; }
+  set reflowOffsets(value) { this.interactionMotion.reflowOffsets = value; }
+
+  get entrances() { return this.entranceSequence.entrances; }
+  set entrances(value) { this.entranceSequence.entrances = value; }
+
+  get entranceActiveId() { return this.entranceSequence.entranceActiveId; }
+  set entranceActiveId(value) { this.entranceSequence.entranceActiveId = value; }
+
+  get entranceNextAt() { return this.entranceSequence.entranceNextAt; }
+  set entranceNextAt(value) { this.entranceSequence.entranceNextAt = value; }
+
+  get entranceSelectedId() { return this.entranceSequence.entranceSelectedId; }
+  set entranceSelectedId(value) { this.entranceSequence.entranceSelectedId = value; }
+
+  get entranceTransition() { return this.entranceSequence.entranceTransition; }
+  set entranceTransition(value) { this.entranceSequence.entranceTransition = value; }
+
+  get presentationHint() { return this.entranceSequence.presentationHint; }
+  set presentationHint(value) { this.entranceSequence.presentationHint = value; }
+
+  get presentationBrowsePending() { return this.entranceSequence.presentationBrowsePending; }
+  set presentationBrowsePending(value) { this.entranceSequence.presentationBrowsePending = value; }
+
   build(staged = null) {
     buildDeck(this, staged);
   }
@@ -214,58 +248,25 @@ export class CardDeck extends EventTarget {
   }
 
   grabAmount(id = null) {
-    if (this.reduced || document.hidden) return 0;
-    const state = id === null ? this.grabCover : this.grabCards.get(id)?.state;
-    return clamp(state?.x || 0, 0, Math.min(this.settings.grabLift, this.settings.perspective * .02));
+    return this.interactionMotion.grabAmount(id, Math.min(this.settings.grabLift, this.settings.perspective * .02), this.reduced || document.hidden);
   }
 
   beginGrab(time = performance.now(), disabledFeedback = false) {
     if (this.reduced || document.hidden) return;
     const amount = Math.min(this.settings.grabLift, this.settings.perspective * .02);
-    if (!this.drag.open) { this.grabCover.target = amount; return; }
+    if (!this.drag.open) { this.interactionMotion.beginGrab({ time, amount, cover: true }); return; }
     if (!this.drag.ready || this.content.actions[this.index]?.disabled && !disabledFeedback) return;
     if (this.groupChoiceMotion) this.beginChoiceHistory(time);
-    for (const [index, action] of this.content.actions.entries()) {
-      if (!this.groupChoiceMotion && index !== this.index) continue;
-      const existing = this.grabCards.get(action.id);
-      if (existing?.held) continue;
-      const state = existing?.state || spring();
-      const rank = this.groupChoiceMotion ? this.choiceRanks.get(action.id) || 0 : 0;
-      const delay = rank * this.settings.choiceStaggerMs;
-      this.grabCards.set(action.id, { state, start: time, delay, amount, held: true, started: delay === 0 });
-      if (!delay) state.target = amount;
-    }
+    const candidates = this.content.actions.flatMap((action, index) =>
+      !this.groupChoiceMotion && index !== this.index ? [] : [{ id: action.id, rank: this.groupChoiceMotion ? this.choiceRanks.get(action.id) || 0 : 0 }]);
+    this.interactionMotion.beginGrab({ time, amount, candidates, staggerMs: this.settings.choiceStaggerMs });
   }
 
-  releaseGrab() {
-    this.grabCover.target = 0;
-    for (const pickup of this.grabCards.values()) { pickup.held = false; pickup.state.target = 0; }
-  }
+  releaseGrab() { this.interactionMotion.releaseGrab(); }
 
-  clearGrab() {
-    this.grabCover = spring();
-    this.grabCards.clear();
-  }
+  clearGrab() { this.interactionMotion.clearGrab(); }
 
-  stepGrab(dt, time) {
-    // Pickup approaches a fixed depth quickly; pointer distance never increases
-    // its target. Each choice retains the rank delay captured on recognition.
-    let moving = false;
-    const config = { stiffness: 1000, damping: 64, mass: 1, precision: .02 };
-    moving = springStep(this.grabCover, dt, config) || moving;
-    for (const [id, pickup] of this.grabCards) {
-      let pickupDt = dt;
-      if (pickup.held && !pickup.started && time >= pickup.start + pickup.delay) {
-        pickup.state.target = pickup.amount;
-        pickup.started = true;
-        pickupDt = Math.min(dt, Math.max(0, (time - pickup.start - pickup.delay) / 1000));
-      }
-      moving = springStep(pickup.state, pickupDt, config) || moving;
-      if (pickup.held && time < pickup.start + pickup.delay) moving = true;
-      if (!pickup.held && this.atRest(pickup.state)) this.grabCards.delete(id);
-    }
-    return moving;
-  }
+  stepGrab(dt, time) { return this.interactionMotion.stepGrab(dt, time); }
 
   get coverDeparture() { return this.content.directAdvance || this.commitMotion?.introduction === true; }
 
@@ -275,16 +276,13 @@ export class CardDeck extends EventTarget {
 
   beginChoiceHistory(time = performance.now()) {
     if (this.choiceHistory || !this.groupChoiceMotion) return;
-    this.choiceHistory = new MovementHistory(time - .001, this.l.x);
     const order = this.content.actions.map((action, i) => ({ id: action.id,
       order: Number(this.cardLayers[i].style.zIndex) })).sort((a, b) => b.order - a.order);
-    const selected = this.content.actions[this.index]?.id;
-    order.sort((a, b) => (b.id === selected) - (a.id === selected));
-    this.choiceRanks = new Map(order.map((a, rank) => [a.id, rank]));
+    this.interactionMotion.beginFollowers({ time, lift: this.l.x, orderedIds: order.map(action => action.id), selectedId: this.content.actions[this.index]?.id });
   }
 
   sampleChoices(time = performance.now()) {
-    if (this.choiceHistory && !this.commitMotion) this.choiceHistory.record(time, this.l.x);
+    this.interactionMotion.sampleFollowers(time, this.l.x, !!this.commitMotion);
   }
 
   get followerRatio() {
@@ -292,23 +290,23 @@ export class CardDeck extends EventTarget {
   }
 
   choiceTravelRatio(index) {
-    if(!this.groupChoiceMotion || !this.choiceHistory || this.cards.length < 2)return 1;
-    const rank=this.choiceRanks.get(this.content.actions[index]?.id) || 0;
-    return 1-(1-this.followerRatio)*rank/(this.cards.length-1);
+    return this.interactionMotion.travelRatio({ id: this.content.actions[index]?.id,
+      count: this.cards.length, enabled: this.groupChoiceMotion, ratio: this.followerRatio });
   }
 
   choiceLift(index, time = performance.now()) {
-    const height = this.mount.getBoundingClientRect().height;
-    const delay = this.reduced ? 0 : (this.choiceRanks.get(this.content.actions[index]?.id) || 0) * this.settings.choiceStaggerMs;
-    const sampleTime = time - delay;
-    if (this.commitMotion && sampleTime >= this.commitMotion.start) {
-      return this.commitMotion.lift * height * this.choiceTravelRatio(index) + departureDistance(this.commitMotion, sampleTime);
-    }
-    return (this.choiceHistory ? this.choiceHistory.at(sampleTime) : this.l.x) * height * this.choiceTravelRatio(index);
+    return this.interactionMotion.followerLift({ id: this.content.actions[index]?.id,
+      count: this.cards.length, enabled: this.groupChoiceMotion, ratio: this.followerRatio,
+      height: this.mount.getBoundingClientRect().height, currentLift: this.l.x, time,
+      staggerMs: this.settings.choiceStaggerMs, reduced: this.reduced, departure: this.commitMotion });
   }
 
   followersMoving(time) {
-    return !!this.choiceHistory && this.cards.some((_, i) => Math.abs(this.choiceLift(i, time) / this.mount.getBoundingClientRect().height - this.l.x*this.choiceTravelRatio(i)) > .000001);
+    if (!this.choiceHistory) return false;
+    return this.interactionMotion.followersMoving({ ids: this.cards.map((_, i) => this.content.actions[i]?.id),
+      count: this.cards.length, enabled: this.groupChoiceMotion, ratio: this.followerRatio,
+      height: this.mount.getBoundingClientRect().height, currentLift: this.l.x, time,
+      staggerMs: this.settings.choiceStaggerMs, reduced: this.reduced, departure: this.commitMotion });
   }
 
   tryEarlyFlip(time) {
@@ -326,8 +324,7 @@ export class CardDeck extends EventTarget {
       || this.choiceRanks.get(this.content.actions[this.index]?.id) === 0) return;
     const poses = new Map(this.content.actions.map((a, i) => [a.id, cardPose(this, i, time)]));
     const lift = this.choiceLift(this.index, time) / this.mount.getBoundingClientRect().height;
-    this.choiceHistory = null;
-    this.choiceRanks.clear();
+    this.interactionMotion.clearFollowers();
     this.l.x = lift;
     this.beginChoiceHistory(time);
     this.createReflow(poses);
@@ -632,17 +629,12 @@ export class CardDeck extends EventTarget {
     this.presentationBrowsePending = false;
     const presentedCount = this.content.actions.filter(action => this.entrances.get(action.id)?.startAt !== null).length;
     if (this.finishingMotion || this.reduced || document.hidden || presentedCount < 2) return;
-    const travel = spring();
-    this.presentationHint = { travel, stage: 'waiting', startAt: null };
+    this.entranceSequence.beginHint();
     if (!beforeEntrance) this.operation = 'hint';
     this.schedule();
   }
 
-  cancelPresentationHint() {
-    if (!this.presentationHint) return;
-    this.presentationHint.travel.target = 0;
-    this.presentationHint.stage = 'return';
-  }
+  cancelPresentationHint() { this.entranceSequence.cancelHint(); }
 
   advancePhases() {
     if (this.drag) return;
@@ -871,8 +863,7 @@ export class CardDeck extends EventTarget {
   clearGroupLift() {
     if (!this.groupLeaveActive) return;
     this.groupLeaveActive = false;
-    this.choiceHistory = null;
-    this.choiceRanks.clear();
+    this.interactionMotion.clearFollowers();
     this.reflowOffsets.clear();
     this.liftPoses = null;
     this.clearGrab();
@@ -958,17 +949,12 @@ export class CardDeck extends EventTarget {
   }
 
   createReflow(poses) {
-    this.reflowOffsets = new Map();
+    // Destinations must be measured without the previous reflow offsets.
+    this.interactionMotion.clearReflow();
     for (let i = 0; i < this.cards.length; i++) {
       const id = this.content.actions[i].id, before = poses.get(id);
       if (!before) continue;
-      const after = cardPose(this, i);
-      const offsets = {};
-      for (const field of ['x', 'y', 'z', 'rx', 'ry', 'rz']) {
-        offsets[field] = spring(before[field] - after[field]);
-        offsets[field].target = 0;
-      }
-      this.reflowOffsets.set(id, offsets);
+      this.interactionMotion.addReflow(id, before, cardPose(this, i));
     }
   }
 
@@ -1094,12 +1080,7 @@ export class CardDeck extends EventTarget {
   // Entrance hints affect presentation only. The complete action list remains
   // available to the controller throughout reveal and reconciliation.
   prepareEntrances(ids = this.content.actions.filter(a => a.entrance === 'bottom').map(a => a.id)) {
-    const distance = this.departureTravel();
-    this.entrances = new Map(ids.map(id => [id, { travel: spring(distance), startAt: null, landed: false }]));
-    this.entranceActiveId = null;
-    this.entranceNextAt = null;
-    this.entranceSelectedId = null;
-    this.entranceTransition = null;
+    this.entranceSequence.prepare(ids, this.departureTravel());
     this.entranceAnnouncement = '';
   }
 
@@ -1110,26 +1091,24 @@ export class CardDeck extends EventTarget {
       // current hint poses, then reflow them during the inventory entrance pause.
       const poses = new Map(this.content.actions.flatMap((action, index) =>
         this.entrances.get(action.id)?.startAt === null ? [] : [[action.id, cardPose(this, index)]]));
-      this.presentationHint = null;
+      this.entranceSequence.clearHint();
       this.createReflow(poses);
     }
     this.beginEntrances(transition);
   }
 
   beginEntrances(transition) {
-    this.entranceTransition = transition;
+    this.entranceSequence.begin({ transition, selectedId: this.content.actions[this.index]?.id, time: performance.now() });
     this.phase = 'inserting';
     this.busy = true;
     this.operation = null;
-    this.entranceSelectedId = this.content.actions[this.index]?.id;
-    this.entranceNextAt = this.entrances.size ? performance.now() + 200 : null;
     this.render();
   }
 
   startNextEntrance(time) {
-    const pending = [...this.entrances].find(([, entry]) => entry.startAt === null);
-    if (!pending) { this.entranceNextAt = null; return; }
-    const [id, entry] = pending;
+    const pending = this.entranceSequence.nextPending();
+    if (!pending) return;
+    const [id] = pending;
     // Reflow the existing stack from its current poses. The arriving card has
     // no inherited pose: it comes straight up into the new foreground slot.
     const poses = new Map(this.content.actions.flatMap((action, index) => {
@@ -1142,11 +1121,8 @@ export class CardDeck extends EventTarget {
     this.reflowOrder = order;
     this.index = this.content.actions.findIndex(action => action.id === id);
     this.b = spring(this.index);
-    entry.startAt = time;
+    this.entranceSequence.start(id, time);
     this.createReflow(poses);
-    entry.travel.target = 0;
-    this.entranceActiveId = id;
-    this.entranceNextAt = time + 120;
   }
 
   advanceEntrances(time) {
@@ -1154,12 +1130,10 @@ export class CardDeck extends EventTarget {
     // card must wait for both to finish. Never restart the pause after they settle.
     if (!this.entranceTransition || !this.atRest(this.flip) || !this.atRest(this.n)) return;
     const stackSettled = [...this.reflowOffsets.values()].every(offset => Object.values(offset).every(state => this.atRest(state)));
-    for (const entry of this.entrances.values()) {
-      if (entry.startAt !== null && this.atRest(entry.travel)) entry.landed = true;
-    }
-    if ([...this.entrances.values()].every(entry => entry.landed) && stackSettled) {
+    this.entranceSequence.markLanded();
+    if (this.entranceSequence.allLanded() && stackSettled) {
       this.finishEntrances();
-    } else if (this.entranceNextAt !== null && time >= this.entranceNextAt) {
+    } else if (this.entranceSequence.nextDue(time)) {
       this.startNextEntrance(time);
     }
   }
@@ -1174,9 +1148,7 @@ export class CardDeck extends EventTarget {
       this.index = this.content.actions.findIndex(action => action.id === lastId);
       this.b = spring(this.index);
     }
-    this.entrances.clear();
-    this.entranceTransition = null;
-    this.entranceActiveId = this.entranceNextAt = this.entranceSelectedId = null;
+    this.entranceSequence.clear();
     this.reflowOrder = null;
     this.reflowOffsets.clear();
     this.busy = false;
@@ -1199,7 +1171,7 @@ export class CardDeck extends EventTarget {
       || old.actions.slice(0, this.index).reverse().find(a => survivors.has(a.id));
     const index = selected >= 0 ? selected : Math.max(0, actions.findIndex(a => a.id === replacement?.id));
     const poses = new Map(old.actions.map((a, i) => [a.id, cardPose(this, i)]));
-    this.presentationHint = null;
+    this.entranceSequence.clearHint();
     this.entranceAnnouncement = '';
     const previous = { content: old, cards: this.cards, cardLayers: this.cardLayers, cardBacks: this.cardBacks, cardTitles: this.cardTitles };
     const bundle = stageActionDeck(this, next, index, previous);
@@ -1289,7 +1261,7 @@ export class CardDeck extends EventTarget {
     this.groupLeaveActive = false;
     if (open && content.flipItemsOnReveal) content = { ...content, flipItemsOnReveal: false };
     this.content = content;
-    this.presentationHint = null;
+    this.entranceSequence.clearHint();
     this.presentationBrowsePending = content.autoBrowse === true;
     this.ending = false;
     this.open = open && content.actions.length > 0;
@@ -1306,8 +1278,7 @@ export class CardDeck extends EventTarget {
     this.n.target = 0;
     this.flip = flipState ? { ...flipState } : spring(faceDown ? 1 : 0);
     this.nextFlip = spring(1);
-    this.choiceHistory = null;
-    this.choiceRanks.clear();
+    this.interactionMotion.clearFollowers();
     this.skipCover = open;
     this.returnLift = spring();
     this.returning = this.openingReturn = this.openingCommit = false;
@@ -1315,7 +1286,7 @@ export class CardDeck extends EventTarget {
     this.actionPreviews.clear();
     this.forwardDeck = this.returnDeck = null;
     this.forwardOwner = this.returnContent = this.returnSelectedId = null;
-    this.reflowOffsets = new Map();
+    this.interactionMotion.clearReflow();
     this.liftPoses = null;
     this.reflowOrder = null;
     this.cardBacks = [];
@@ -1352,8 +1323,7 @@ export class CardDeck extends EventTarget {
     this.commitMotion = null;
     if (all || singleDiscard) {
       this.groupLeaveActive = false;
-      this.choiceHistory = null;
-      this.choiceRanks.clear();
+      this.interactionMotion.clearFollowers();
       // The outgoing stack is gone before a host installs its staged successor.
       if (singleDiscard) {
         for (const layer of this.cardLayers) layer.remove();
@@ -1526,9 +1496,7 @@ export class CardDeck extends EventTarget {
       // A new selection may inherit final coordinates of a canceled gesture.
       // Settle those offsets during its ordinary throw, and verify the real
       // transformed stack has cleared before adopting the destination.
-      for (const offset of this.reflowOffsets.values()) for (const [field, state] of Object.entries(offset)) {
-        if (field.startsWith('r')) this.stepAngular(state, dt); else this.stepPosition(state, dt);
-      }
+      this.interactionMotion.stepReflow(dt, (state, step) => this.stepAngular(state, step), (state, step) => this.stepPosition(state, step));
       this.tryEarlyFlip(t);
       const duration = this.commitMotion.duration + (this.cards.length - 1) * this.settings.choiceStaggerMs;
       const bounds = this.mount.getBoundingClientRect();
@@ -1546,9 +1514,7 @@ export class CardDeck extends EventTarget {
     }
     const angularMoving = [this.rotationX, this.rotationY, this.rotationZ, this.flip].map(rotation => this.stepAngular(rotation, dt)).some(Boolean);
     if (this.drag) {
-      for (const offset of this.reflowOffsets.values()) for (const [field, state] of Object.entries(offset)) {
-        if (field.startsWith('r')) this.stepAngular(state, dt); else this.stepPosition(state, dt);
-      }
+      this.interactionMotion.stepReflow(dt, (state, step) => this.stepAngular(state, step), (state, step) => this.stepPosition(state, step));
       this.sampleChoices(t);
       this.render(t);
       if (pickupMoving || grabMoving || angularMoving || this.choiceHistory || this.reflowOffsets.size) this.schedule(); else this.last = 0;
@@ -1560,23 +1526,8 @@ export class CardDeck extends EventTarget {
     for (const entry of this.entrances.values()) {
       if (entry.startAt !== null && t >= entry.startAt) this.stepPosition(entry.travel, dt);
     }
-    const hint = this.presentationHint;
-    if (hint?.stage === 'waiting') {
-      // Delay from the frame that previously began expanding the stack.
-      hint.startAt ??= t + 100;
-      if (t >= hint.startAt) { hint.stage = 'out'; hint.travel.target = 1; }
-    }
-    if (hint) springStep(hint.travel, dt, { ...this.settings, stiffness: 260, damping: 40 });
-    if (hint?.stage === 'out' && hint.travel.x >= .92) {
-      hint.stage = 'hold';
-      hint.holdUntil = t + 220;
-    } else if (hint?.stage === 'hold' && t >= hint.holdUntil) {
-      hint.stage = 'return';
-      hint.travel.target = 0;
-    } else if (hint?.stage === 'return' && this.atRest(hint.travel)) this.presentationHint = null;
-    for (const offset of this.reflowOffsets.values()) for (const [field, state] of Object.entries(offset)) {
-      if (field.startsWith('r')) this.stepAngular(state, dt); else this.stepPosition(state, dt);
-    }
+    this.entranceSequence.stepHint(dt, t, this.settings);
+    this.interactionMotion.stepReflow(dt, (state, step) => this.stepAngular(state, step), (state, step) => this.stepPosition(state, step));
     if ((!this.pickup || this.pickup.mix.x < .001) && this.liftPoses && this.atRest(this.l) && [this.rotationX, this.rotationY, this.rotationZ].every(s => this.atRest(s))) this.restoreLiftPoses();
     this.advanceEntrances(t);
     this.sampleChoices(t);
@@ -1587,7 +1538,7 @@ export class CardDeck extends EventTarget {
       this.schedule();
     } else {
       this.last = 0;
-      if (!this.drag && this.l.x === 0) { this.choiceHistory = null; this.choiceRanks.clear(); this.groupLeaveActive = false; }
+      if (!this.drag && this.l.x === 0) { this.interactionMotion.clearFollowers(); this.groupLeaveActive = false; }
       if (this.operation && !['revealing', 'closing'].includes(this.phase)) {
         const transition = this.operation;
         if (['collect', 'discard'].includes(transition)) {
@@ -1618,7 +1569,7 @@ export class CardDeck extends EventTarget {
   }
 
   finishMotionSequence() {
-    this.presentationHint = null;
+    this.entranceSequence.clearHint();
     if (this.entrances.size) this.presentationBrowsePending = false;
     cancelAnimationFrame(this.frame);
     this.frame = 0;
@@ -1647,8 +1598,7 @@ export class CardDeck extends EventTarget {
       if (this.entranceTransition) this.finishEntrances();
       this.advancePhases();
     }
-    this.choiceHistory = null;
-    this.choiceRanks.clear();
+    this.interactionMotion.clearFollowers();
     this.groupLeaveActive = false;
     this.render();
     if (this.operation) {
@@ -1727,12 +1677,9 @@ export class CardDeck extends EventTarget {
     this.collectMotion = this.commitMotion = this.drag = this.pending = this.liftPoses = null;
     this.groupLeaveActive = false;
     this.reflowOffsets.clear();
-    this.entrances.clear();
-    this.entranceTransition = null;
-    this.entranceActiveId = this.entranceNextAt = this.entranceSelectedId = null;
+    this.entranceSequence.clear();
     this.clearGrab();
-    this.choiceHistory = null;
-    this.choiceRanks.clear();
+    this.interactionMotion.clearFollowers();
     this.forwardDeck = this.returnDeck = null;
     this.forwardOwner = this.returnContent = this.returnSelectedId = null;
     this.actionPreviews.clear();
