@@ -17,4 +17,4 @@ for(const id of ['play','restart'])document.querySelector(`#${id}`).addEventList
 document.querySelector('#stop').addEventListener('click',()=>{preview.stop();document.querySelector('#stop').disabled=true;report('Stopped. Play or restart to begin again.');});
 document.querySelector('#import').addEventListener('change',async event=>{const file=event.target.files[0];if(!file)return;try{const imported=parseProject(await file.text());project=imported;listChapters();if(play())report(`Opened ${file.name}.`);}catch(error){report(`Could not open project or chapter: ${error.message}`,true);}event.target.value='';});
 listChapters();play();if(stored.error)report(`Saved project could not be loaded. ${stored.error}`,true);
-window.addEventListener('pagehide',()=>{stopPerformanceTuning();preview.destroy();});
+window.addEventListener('pagehide',event=>{if(event.persisted)return;stopPerformanceTuning();preview.destroy();});

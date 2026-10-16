@@ -17,4 +17,4 @@ document.getElementById('clear').addEventListener('click', () => {
   service.clear();
   result.textContent = 'Kości wyczyszczone.';
 });
-window.addEventListener('pagehide', () => service.destroy(), { once: true });
+window.addEventListener('pagehide', event => { if (!event.persisted) service.destroy(); });

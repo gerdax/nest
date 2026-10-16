@@ -1,0 +1,517 @@
+{
+  "date": "2026-10-16",
+  "environment": {
+    "fixture": "large",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+    "viewport": {
+      "width": 1890,
+      "height": 964,
+      "dpr": 1.600000023841858
+    },
+    "chapters": 8,
+    "nodes": 480,
+    "definitions": 610,
+    "bytes": 484273
+  },
+  "baselineGraphRevision": "d70db82",
+  "comparison": "Same runtime except GraphView.js loaded from baseline revision; separate isolated localhost origins; same Chrome tab and viewport. Seven samples per repeated action after two edit/undo warmups.",
+  "units": "milliseconds",
+  "before": {
+    "GraphView.edges": {
+      "n": 43,
+      "median": 4.3,
+      "p95": 12
+    },
+    "GraphView.render": {
+      "n": 43,
+      "median": 6.7,
+      "p95": 20.4
+    },
+    "GraphView.cancel": {
+      "n": 21,
+      "median": 17.2,
+      "p95": 20.6
+    },
+    "DocumentHistory.document": {
+      "n": 35,
+      "median": 2.6,
+      "p95": 3.9
+    },
+    "DocumentHistory.transact": {
+      "n": 7,
+      "median": 9.9,
+      "p95": 13.2
+    },
+    "transaction.total": {
+      "n": 7,
+      "median": 15.2,
+      "p95": 19.5
+    },
+    "storage.write": {
+      "n": 21,
+      "median": 1,
+      "p95": 1.5
+    },
+    "save.total": {
+      "n": 7,
+      "median": 18.6,
+      "p95": 24.6
+    },
+    "DocumentHistory.canUndo": {
+      "n": 75,
+      "median": 0,
+      "p95": 0.1
+    },
+    "DocumentHistory.canRedo": {
+      "n": 75,
+      "median": 0,
+      "p95": 0
+    },
+    "ui.change.node.name": {
+      "n": 7,
+      "median": 69.4,
+      "p95": 77.8
+    },
+    "ui.change.node.name.twoRAF": {
+      "n": 7,
+      "median": 99.9,
+      "p95": 107.5
+    },
+    "DocumentHistory.undo": {
+      "n": 7,
+      "median": 0,
+      "p95": 0.1
+    },
+    "ui.click.undo": {
+      "n": 7,
+      "median": 54,
+      "p95": 59.7
+    },
+    "ui.click.undo.twoRAF": {
+      "n": 7,
+      "median": 82.9,
+      "p95": 93.5
+    },
+    "DocumentHistory.redo": {
+      "n": 7,
+      "median": 0,
+      "p95": 0.1
+    },
+    "ui.click.redo": {
+      "n": 7,
+      "median": 47.9,
+      "p95": 56.1
+    },
+    "ui.click.redo.twoRAF": {
+      "n": 7,
+      "median": 75.3,
+      "p95": 84.6
+    },
+    "ProjectPreview.stop": {
+      "n": 14,
+      "median": 0.7,
+      "p95": 1.5
+    },
+    "GraphView.setActive": {
+      "n": 14,
+      "median": 0,
+      "p95": 0.1
+    },
+    "ProjectPreview.update": {
+      "n": 7,
+      "median": 0.2,
+      "p95": 0.2
+    },
+    "ProjectPreview.play": {
+      "n": 7,
+      "median": 20.5,
+      "p95": 41.5
+    },
+    "ui.click.play": {
+      "n": 7,
+      "median": 20.7,
+      "p95": 41.8
+    },
+    "ui.click.play.twoRAF": {
+      "n": 7,
+      "median": 34.5,
+      "p95": 71.1
+    },
+    "ui.click.stop": {
+      "n": 7,
+      "median": 0.7,
+      "p95": 1.7
+    },
+    "ui.click.stop.twoRAF": {
+      "n": 7,
+      "median": 16.4,
+      "p95": 39.4
+    },
+    "ui.click.library-view": {
+      "n": 1,
+      "median": 37.4,
+      "p95": 37.4
+    },
+    "ui.click.library-view.twoRAF": {
+      "n": 1,
+      "median": 95,
+      "p95": 95
+    },
+    "ui.input.library-search": {
+      "n": 7,
+      "median": 3.3,
+      "p95": 4.6
+    },
+    "ui.input.library-search.twoRAF": {
+      "n": 7,
+      "median": 15.6,
+      "p95": 21.7
+    },
+    "ui.click.chapter-view": {
+      "n": 1,
+      "median": 41,
+      "p95": 41
+    },
+    "ui.click.chapter-view.twoRAF": {
+      "n": 1,
+      "median": 97.4,
+      "p95": 97.4
+    }
+  },
+  "after": {
+    "GraphView.cancel": {
+      "n": 21,
+      "median": 0,
+      "p95": 0
+    },
+    "DocumentHistory.document": {
+      "n": 35,
+      "median": 3,
+      "p95": 3.7
+    },
+    "DocumentHistory.transact": {
+      "n": 7,
+      "median": 10.9,
+      "p95": 13
+    },
+    "transaction.total": {
+      "n": 7,
+      "median": 17.1,
+      "p95": 18.7
+    },
+    "storage.write": {
+      "n": 21,
+      "median": 1,
+      "p95": 1.4
+    },
+    "save.total": {
+      "n": 7,
+      "median": 19.9,
+      "p95": 22.8
+    },
+    "DocumentHistory.canUndo": {
+      "n": 75,
+      "median": 0,
+      "p95": 0
+    },
+    "DocumentHistory.canRedo": {
+      "n": 75,
+      "median": 0,
+      "p95": 0
+    },
+    "GraphView.edges": {
+      "n": 22,
+      "median": 3.7,
+      "p95": 4.5
+    },
+    "GraphView.render": {
+      "n": 22,
+      "median": 6.7,
+      "p95": 8.3
+    },
+    "ui.change.node.name": {
+      "n": 7,
+      "median": 53.6,
+      "p95": 68.9
+    },
+    "ui.change.node.name.twoRAF": {
+      "n": 7,
+      "median": 81.9,
+      "p95": 96.6
+    },
+    "DocumentHistory.undo": {
+      "n": 7,
+      "median": 0,
+      "p95": 0.1
+    },
+    "ui.click.undo": {
+      "n": 7,
+      "median": 34.3,
+      "p95": 38.6
+    },
+    "ui.click.undo.twoRAF": {
+      "n": 7,
+      "median": 61.2,
+      "p95": 78.4
+    },
+    "DocumentHistory.redo": {
+      "n": 7,
+      "median": 0,
+      "p95": 0.1
+    },
+    "ui.click.redo": {
+      "n": 7,
+      "median": 31.1,
+      "p95": 38.2
+    },
+    "ui.click.redo.twoRAF": {
+      "n": 7,
+      "median": 56.8,
+      "p95": 79.4
+    },
+    "ProjectPreview.stop": {
+      "n": 14,
+      "median": 0.2,
+      "p95": 0.9
+    },
+    "GraphView.setActive": {
+      "n": 14,
+      "median": 0,
+      "p95": 0
+    },
+    "ProjectPreview.update": {
+      "n": 7,
+      "median": 0.1,
+      "p95": 0.2
+    },
+    "ProjectPreview.play": {
+      "n": 7,
+      "median": 14.6,
+      "p95": 22.1
+    },
+    "ui.click.play": {
+      "n": 7,
+      "median": 14.9,
+      "p95": 22.9
+    },
+    "ui.click.play.twoRAF": {
+      "n": 7,
+      "median": 34,
+      "p95": 40.7
+    },
+    "ui.click.stop": {
+      "n": 7,
+      "median": 0.6,
+      "p95": 0.9
+    },
+    "ui.click.stop.twoRAF": {
+      "n": 7,
+      "median": 16.6,
+      "p95": 36.9
+    },
+    "ui.click.library-view": {
+      "n": 1,
+      "median": 9.7,
+      "p95": 9.7
+    },
+    "ui.click.library-view.twoRAF": {
+      "n": 1,
+      "median": 61.1,
+      "p95": 61.1
+    },
+    "ui.input.library-search": {
+      "n": 7,
+      "median": 3.7,
+      "p95": 6.1
+    },
+    "ui.input.library-search.twoRAF": {
+      "n": 7,
+      "median": 16.1,
+      "p95": 16.5
+    },
+    "ui.click.chapter-view": {
+      "n": 1,
+      "median": 39.9,
+      "p95": 39.9
+    },
+    "ui.click.chapter-view.twoRAF": {
+      "n": 1,
+      "median": 115.8,
+      "p95": 115.8
+    }
+  },
+  "startupObservations": {
+    "baseline-startup": {
+      "storage.write": {
+        "n": 1,
+        "median": 0.8,
+        "p95": 0.8
+      },
+      "storage.other": {
+        "n": 1,
+        "median": 0,
+        "p95": 0
+      },
+      "DocumentHistory.canUndo": {
+        "n": 2,
+        "median": 0,
+        "p95": 0
+      },
+      "DocumentHistory.canRedo": {
+        "n": 2,
+        "median": 0,
+        "p95": 0
+      },
+      "GraphView.edges": {
+        "n": 1,
+        "median": 4.2,
+        "p95": 4.2
+      },
+      "GraphView.render": {
+        "n": 1,
+        "median": 6,
+        "p95": 6
+      },
+      "navigation.appReady": {
+        "n": 1,
+        "median": 247.4,
+        "p95": 247.4
+      }
+    },
+    "after-startup": {
+      "storage.other": {
+        "n": 1,
+        "median": 0,
+        "p95": 0
+      },
+      "DocumentHistory.canUndo": {
+        "n": 2,
+        "median": 0,
+        "p95": 0
+      },
+      "DocumentHistory.canRedo": {
+        "n": 2,
+        "median": 0,
+        "p95": 0
+      },
+      "GraphView.edges": {
+        "n": 1,
+        "median": 9.1,
+        "p95": 9.1
+      },
+      "GraphView.render": {
+        "n": 1,
+        "median": 12.1,
+        "p95": 12.1
+      },
+      "navigation.appReady": {
+        "n": 1,
+        "median": 223.8,
+        "p95": 223.8
+      }
+    },
+    "player-startup": {
+      "storage.other": {
+        "n": 1,
+        "median": 0,
+        "p95": 0
+      },
+      "ProjectPreview.stop": {
+        "n": 1,
+        "median": 0.2,
+        "p95": 0.2
+      },
+      "ProjectPreview.update": {
+        "n": 3,
+        "median": 0.1,
+        "p95": 0.2
+      },
+      "ProjectPreview.play": {
+        "n": 1,
+        "median": 16,
+        "p95": 16
+      },
+      "navigation.appReady": {
+        "n": 1,
+        "median": 378.2,
+        "p95": 378.2
+      }
+    }
+  },
+  "pointerObservations": {
+    "after": {
+      "DocumentHistory.canUndo": {
+        "n": 3,
+        "median": 0,
+        "p95": 0
+      },
+      "DocumentHistory.canRedo": {
+        "n": 3,
+        "median": 0,
+        "p95": 0
+      },
+      "GraphView.move": {
+        "n": 9,
+        "median": 2.4,
+        "p95": 3.8
+      },
+      "GraphView.edges": {
+        "n": 10,
+        "median": 2.5,
+        "p95": 4.7
+      },
+      "GraphView.render": {
+        "n": 2,
+        "median": 9.2,
+        "p95": 9.2
+      },
+      "GraphView.cancel": {
+        "n": 1,
+        "median": 0,
+        "p95": 0
+      },
+      "DocumentHistory.document": {
+        "n": 3,
+        "median": 2.3,
+        "p95": 3
+      },
+      "DocumentHistory.transact": {
+        "n": 1,
+        "median": 11.1,
+        "p95": 11.1
+      },
+      "transaction.total": {
+        "n": 1,
+        "median": 15.5,
+        "p95": 15.5
+      },
+      "storage.write": {
+        "n": 1,
+        "median": 1.4,
+        "p95": 1.4
+      },
+      "save.total": {
+        "n": 1,
+        "median": 26.7,
+        "p95": 26.7
+      },
+      "ui.pointerup.canvas": {
+        "n": 1,
+        "median": 73.6,
+        "p95": 73.6
+      },
+      "ui.pointerup.canvas.twoRAF": {
+        "n": 1,
+        "median": 87.2,
+        "p95": 87.2
+      }
+    }
+  },
+  "limitations": [
+    "Synthetic change/click/input events execute real application handlers and real namespaced localStorage writes.",
+    "twoRAF is callback latency, not a measured paint or completed animation.",
+    "Seven-sample p95 is the maximum; these are local observations, not performance budgets.",
+    "Pointer drag timing is a single native drag, not a repeatable distribution.",
+    "Navigation appReady is one observed load with uncontrolled browser caches, not a cold-load benchmark."
+  ]
+}

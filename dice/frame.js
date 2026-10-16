@@ -18,7 +18,7 @@ function dispose() {
     gl?.getExtension('WEBGL_lose_context')?.loseContext();
   }
 }
-window.addEventListener('pagehide', dispose, { once: true });
+window.addEventListener('pagehide', event => { if (!event.persisted) dispose(); });
 window.NestDiceFrame = {
   init() {
     initialization ||= (async () => {

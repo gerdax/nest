@@ -143,7 +143,7 @@ export class GraphView {
    if(d.moved)this.lastPortClick=null;
   }else if(d.kind==='node')this.onMove(d.id,d.px,d.py);
  }
- cancel(){const d=this.drag;this.drag=null;this.pending=null;this.lastPortClick=null;if(d?.kind==='pan'){this.view.x=d.ox;this.view.y=d.oy;}if(d&&this.root.hasPointerCapture(d.pointer))this.root.releasePointerCapture(d.pointer);if(this.project)this.render(this.project,this.chapter,this.selected,this.active);}
+ cancel(){const d=this.drag,hadPending=!!this.pending;this.drag=null;this.pending=null;this.lastPortClick=null;if(d?.kind==='pan'){this.view.x=d.ox;this.view.y=d.oy;}if(d&&this.root.hasPointerCapture(d.pointer))this.root.releasePointerCapture(d.pointer);if(this.project&&(d||hadPending))this.render(this.project,this.chapter,this.selected,this.active);}
  openCard(nodeId,placementId){
   if(!this.nodesById.has(nodeId)||!placementId)return;
   this.onOpenCard(nodeId,{chapterId:this.chapter.id,nodeId,placementId});

@@ -232,3 +232,22 @@ test('full render replaces Library indexes after document replacement and keeps 
  assert.match(s.root.parts['#nodes'].rendered,/Changed · Failure/);
  assert.equal(s.root.node('c').classes.has('active'),true);
 });
+
+test('idle cancellation clears click tracking without replacing graph elements',()=>{
+ const s=setup(),node=s.root.node('a'),edges=s.root.parts['#edges'].innerHTML;
+ s.graph.lastPortClick={nodeId:'a',exit:'next',time:100,x:200,y:100};
+ s.graph.cancel();
+ assert.equal(s.graph.lastPortClick,null);
+ assert.equal(s.root.node('a'),node);
+ assert.equal(s.root.parts['#edges'].innerHTML,edges);
+ assert.equal(s.root.node('b').classes.has('active'),true);
+});
+
+test('pending cancellation still restores graph markup',()=>{
+ const s=setup(),node=s.root.node('a');
+ s.graph.pending={nodeId:'a',exit:'next'};
+ s.graph.cancel();
+ assert.equal(s.graph.pending,null);
+ assert.notEqual(s.root.node('a'),node);
+ assert.equal(s.root.node('b').classes.has('active'),true);
+});
