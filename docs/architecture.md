@@ -120,3 +120,9 @@ Instrumented real-browser verification used an isolated in-memory save store. Pr
 Studio/player and dice cleanup now preserve live resources on persisted `pagehide` departures; terminal departures still clean up. Idle `GraphView.cancel()` clears interaction tracking without rebuilding nodes, while active cancellation retains rollback. The browser benchmark measured 43→22 graph rebuilds over seven edit/undo/redo cycles, with persistence and recovery checks unchanged.
 
 The [browser validation report](browser-validation-2026-10-16.md) records actual Chrome Back/Forward restoration, a representative 480-beat workload, matched timing summaries, reproduction commands and unverified platforms. All 1,001 deterministic tests and static staging pass. This later pass verifies Chrome BFCache behavior that the preceding checks explicitly left unverified; mobile/touch and active GPU dice restoration remain unverified.
+
+## Portrait standalone player — 16 October 2026
+
+The standalone player now follows the interaction preview's resources/card/inventory composition. A stable viewport budget preserves the 3:4 engine mount and reserves drawer space while hidden; auxiliary controls and Run state live in a collapsible Controls panel. Shorter-than-target viewports can scroll rather than forcing smaller typography. Shared engine, editor and preview styles are unchanged.
+
+The [portrait layout report](portrait-layout-2026-10-16.md) records the 13-case viewport matrix, collection/replacement/use/dice checks, sample-copy fit, independent Astra review and remaining physical-device limitations.

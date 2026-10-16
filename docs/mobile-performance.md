@@ -1,6 +1,6 @@
 # Comparing player effects on a phone
 
-The standalone player includes **Performance comparison · effects**, below the card stage. This is a session-only diagnostic panel; the original appearance is the default. It does not change projects, exported JSON, motion settings, or the editor. Reload restores Original effects. `player.html?perf=1#performance-mode` opens the panel directly.
+The standalone player includes **Performance comparison · effects** inside **Controls**, at the bottom-right of the playfield. This is a session-only diagnostic panel; the original appearance is the default. It does not change projects, exported JSON, motion settings, or the editor. Reload restores Original effects. `player.html?perf=1#performance-mode` opens the panel directly.
 
 **Original effects** enables every effect. **Light effects** disables all five effects. Individual checkboxes disable card shadows, artwork colorization, paper texture, the masked rim, and inventory backdrop blur. The controls affect CSS rendering only: shadow calculations, DOM updates, gesture sampling, source asset sizes, and motion physics remain the same. Thus this first comparison isolates visual effect cost rather than every potential source of work. It does not yet test smaller textures or one-render-per-frame input scheduling.
 
@@ -9,7 +9,7 @@ The standalone player includes **Performance comparison · effects**, below the 
 1. Export the same project from the local editor and load it in the player with **Open JSON**. Use the same phone, browser, orientation, display refresh setting, and game position for every trial.
 2. Let artwork finish loading. Repeat a few swipes to warm the cache before measuring.
 3. Select Original effects. Return to a repeatable situation, such as an incomplete downward swipe that you cancel, so no items are consumed and the same cards remain visible.
-4. Choose **Record 10 seconds**, collapse the panel if helpful, and repeat that gesture 5–10 times. You can stop early; the report states how recording ended.
+4. Choose **Record 10 seconds**, close Controls after starting the recording, and repeat that gesture 5–10 times. You can stop early; the report states how recording ended.
 5. Repeat with Light effects. Then restore Original and disable one effect at a time, beginning with Shadows. Keep card count and gestures consistent.
 6. The report textarea keeps the last five runs for copying. Each records its effects, chapter, starting card count, viewport, DPR, browser identifier, active interval count, mean and p95 interval, callback cadence, and count of gaps above 33.3 ms.
 
@@ -27,3 +27,6 @@ python3 -m http.server 8940 --bind 0.0.0.0 --directory /tmp/nest-mobile-2
 ```
 
 The build creates a missing directory and refuses to overwrite a nonempty one. If a server already uses port 8940, stop it with Ctrl+C before starting the new command. On a phone on the same Wi-Fi, open `http://MAC_LAN_IP:8940/player.html?perf=1#performance-mode`, replacing `MAC_LAN_IP` with the Mac's network address. Staging is a snapshot; rebuild into a fresh directory after code changes. Public GitHub Pages is updated separately and does not include local changes until published.
+
+
+The [portrait layout report](portrait-layout-2026-10-16.md) records short, standard and tall viewport checks and the remaining physical-device limitations.

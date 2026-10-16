@@ -1,0 +1,299 @@
+{
+  "date": "2026-10-16",
+  "browser": "Codex in-app browser, emulated CSS viewports; not physical phones",
+  "checks": [
+    "3:4 mount ratio within 0.001",
+    "document width <= viewport width",
+    "card below HUD and above visible drawer",
+    "inventory row within viewport",
+    "four slots, each at least 44 CSS px wide"
+  ],
+  "cases": [
+    {
+      "label": "short",
+      "viewport": {
+        "height": 568,
+        "width": 320
+      },
+      "card": {
+        "width": 239.4921875,
+        "height": 319.3203125,
+        "top": 72.0078125,
+        "bottom": 391.328125
+      },
+      "hudBottom": 60.0078125,
+      "drawerTop": 403.3359375,
+      "inventoryBottom": 508,
+      "minimumSlotWidth": 56,
+      "document": {
+        "height": 568,
+        "width": 320
+      },
+      "pass": true
+    },
+    {
+      "label": "compact",
+      "viewport": {
+        "height": 640,
+        "width": 360
+      },
+      "card": {
+        "width": 276,
+        "height": 368,
+        "top": 78.9921875,
+        "bottom": 446.9921875
+      },
+      "hudBottom": 66.1953125,
+      "drawerTop": 462,
+      "inventoryBottom": 580,
+      "minimumSlotWidth": 66,
+      "document": {
+        "height": 640,
+        "width": 360
+      },
+      "pass": true
+    },
+    {
+      "label": "standard-small",
+      "viewport": {
+        "height": 667,
+        "width": 375
+      },
+      "card": {
+        "width": 276,
+        "height": 368,
+        "top": 91.34375,
+        "bottom": 459.34375
+      },
+      "hudBottom": 78.0078125,
+      "drawerTop": 484,
+      "inventoryBottom": 607,
+      "minimumSlotWidth": 69.75,
+      "document": {
+        "height": 667,
+        "width": 375
+      },
+      "pass": true
+    },
+    {
+      "label": "standard",
+      "viewport": {
+        "height": 844,
+        "width": 390
+      },
+      "card": {
+        "width": 276,
+        "height": 368,
+        "top": 180.4375,
+        "bottom": 548.4375
+      },
+      "hudBottom": 163.5625,
+      "drawerTop": 656,
+      "inventoryBottom": 784,
+      "minimumSlotWidth": 73.5,
+      "document": {
+        "height": 844,
+        "width": 390
+      },
+      "pass": true
+    },
+    {
+      "label": "tall",
+      "viewport": {
+        "height": 915,
+        "width": 412
+      },
+      "card": {
+        "width": 276,
+        "height": 368,
+        "top": 216.3125,
+        "bottom": 584.3125
+      },
+      "hudBottom": 198.015625,
+      "drawerTop": 726.3359375,
+      "inventoryBottom": 855,
+      "minimumSlotWidth": 74,
+      "document": {
+        "height": 915,
+        "width": 412
+      },
+      "pass": true
+    },
+    {
+      "label": "tall-wide",
+      "viewport": {
+        "height": 932,
+        "width": 430
+      },
+      "card": {
+        "width": 276,
+        "height": 368,
+        "top": 224.984375,
+        "bottom": 592.984375
+      },
+      "hudBottom": 206.3515625,
+      "drawerTop": 743.3359375,
+      "inventoryBottom": 872,
+      "minimumSlotWidth": 74,
+      "document": {
+        "height": 932,
+        "width": 430
+      },
+      "pass": true
+    },
+    {
+      "label": "breakpoint-399",
+      "viewport": {
+        "height": 844,
+        "width": 399
+      },
+      "card": {
+        "width": 276,
+        "height": 368,
+        "top": 180.1015625,
+        "bottom": 548.1015625
+      },
+      "hudBottom": 163.2265625,
+      "drawerTop": 655.3359375,
+      "inventoryBottom": 784,
+      "minimumSlotWidth": 74,
+      "document": {
+        "height": 844,
+        "width": 399
+      },
+      "pass": true
+    },
+    {
+      "label": "breakpoint-400",
+      "viewport": {
+        "height": 844,
+        "width": 400
+      },
+      "card": {
+        "width": 276,
+        "height": 368,
+        "top": 180.1015625,
+        "bottom": 548.1015625
+      },
+      "hudBottom": 163.2265625,
+      "drawerTop": 655.3359375,
+      "inventoryBottom": 784,
+      "minimumSlotWidth": 74,
+      "document": {
+        "height": 844,
+        "width": 400
+      },
+      "pass": true
+    },
+    {
+      "label": "breakpoint-401",
+      "viewport": {
+        "height": 844,
+        "width": 401
+      },
+      "card": {
+        "width": 276,
+        "height": 368,
+        "top": 180.1015625,
+        "bottom": 548.1015625
+      },
+      "hudBottom": 163.2265625,
+      "drawerTop": 655.3359375,
+      "inventoryBottom": 784,
+      "minimumSlotWidth": 74,
+      "document": {
+        "height": 844,
+        "width": 401
+      },
+      "pass": true
+    },
+    {
+      "label": "breakpoint-419",
+      "viewport": {
+        "height": 844,
+        "width": 419
+      },
+      "card": {
+        "width": 276,
+        "height": 368,
+        "top": 180.1015625,
+        "bottom": 548.1015625
+      },
+      "hudBottom": 163.2265625,
+      "drawerTop": 655.3359375,
+      "inventoryBottom": 784,
+      "minimumSlotWidth": 74,
+      "document": {
+        "height": 844,
+        "width": 419
+      },
+      "pass": true
+    },
+    {
+      "label": "breakpoint-420",
+      "viewport": {
+        "height": 844,
+        "width": 420
+      },
+      "card": {
+        "width": 276,
+        "height": 368,
+        "top": 180.1015625,
+        "bottom": 548.1015625
+      },
+      "hudBottom": 163.2265625,
+      "drawerTop": 655.3359375,
+      "inventoryBottom": 784,
+      "minimumSlotWidth": 74,
+      "document": {
+        "height": 844,
+        "width": 420
+      },
+      "pass": true
+    },
+    {
+      "label": "breakpoint-421",
+      "viewport": {
+        "height": 844,
+        "width": 421
+      },
+      "card": {
+        "width": 276,
+        "height": 368,
+        "top": 180.1015625,
+        "bottom": 548.1015625
+      },
+      "hudBottom": 163.2265625,
+      "drawerTop": 655.3359375,
+      "inventoryBottom": 784,
+      "minimumSlotWidth": 74,
+      "document": {
+        "height": 844,
+        "width": 421
+      },
+      "pass": true
+    },
+    {
+      "label": "foldable-secondary",
+      "viewport": {
+        "height": 720,
+        "width": 540
+      },
+      "card": {
+        "width": 276,
+        "height": 368,
+        "top": 116.8671875,
+        "bottom": 484.8671875
+      },
+      "hudBottom": 102.46875,
+      "drawerTop": 531.3359375,
+      "inventoryBottom": 660,
+      "minimumSlotWidth": 74,
+      "document": {
+        "height": 720,
+        "width": 540
+      },
+      "pass": true
+    }
+  ]
+}
