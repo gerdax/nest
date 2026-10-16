@@ -319,3 +319,14 @@ test('terminal destroy ignores stop-observer restart and direct play attempts',(
  assert.equal(stops,1);assert.equal(changes,1);assert.equal(deck.destroyed,true);assert.equal(controller.destroyed,true);
  assert.equal(preview.deck,null);assert.equal(preview.controller,null);assert.equal(preview.root.children.length,0);
 });
+
+test('an explicit inventory host is respected with dock ownership enabled',()=>{
+ environment();
+ const host=new Element(),preview=new ProjectPreview(new Element(),{inventoryDock:true,inventoryHost:host});
+ assert.equal(preview.inventorySurface.container,host);
+ assert.equal(preview.inventorySurface.frame.style.position,'absolute');
+ assert.equal(host.children.includes(preview.inventorySurface.frame),true);
+ assert.equal(document.body.classList.contains('has-inventory-dock'),true);
+ preview.destroy();
+ assert.equal(document.body.classList.contains('has-inventory-dock'),false);
+});

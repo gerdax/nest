@@ -21,7 +21,7 @@ export class ProjectPreview {
     this.onGoToCard = typeof onGoToCard === 'function' ? onGoToCard : null;
     this.deckSettings = { ...deckSettings };
     this.presentationPolicy = { ...presentationPolicy };
-    this.root.innerHTML = '<section class="project-preview"><div class="chapter-preview-stage"><div class="player-resources" data-resources hidden><span class="player-resource" data-health aria-label="Health"><img src="./assets/img/hud-health.png" alt=""><span data-health-value></span></span><span class="player-resource" data-energy aria-label="Energy"><span data-energy-value></span><img src="./assets/img/hud-energy.png" alt=""></span></div><div class="chapter-preview-deck" tabindex="0"></div></div><div class="preview-status-row"><p data-status role="status">Stopped.</p></div><footer class="preview-footer" data-preview-footer><details data-state hidden><summary>Run state</summary><pre></pre></details><div data-preview-actions></div></footer><section data-inventory></section><div class="check-overlay" hidden role="dialog" aria-modal="true" aria-label="Action check"><div class="check-panel"><h3>Resolving attempt</h3><div class="check-tray"></div><p data-result role="status"></p><button data-cancel type="button">Cancel attempt</button></div></div></section>';
+    this.root.innerHTML = '<section class="project-preview"><div class="chapter-preview-stage"><div class="player-resources" data-resources hidden><span class="player-resource" data-health aria-label="Health"><img src="./assets/img/hud-health.png" alt=""><span data-health-value></span></span><span class="player-resource" data-energy aria-label="Energy"><span data-energy-value></span><img src="./assets/img/hud-energy.png" alt=""></span></div><div class="chapter-preview-card-area"><div class="chapter-preview-deck" tabindex="0"></div></div></div><div class="preview-status-row"><p data-status role="status">Stopped.</p></div><footer class="preview-footer" data-preview-footer><details data-state hidden><summary>Run state</summary><pre></pre></details><div data-preview-actions></div></footer><section data-inventory></section><div class="check-overlay" hidden role="dialog" aria-modal="true" aria-label="Action check"><div class="check-panel"><h3>Resolving attempt</h3><div class="check-tray"></div><p data-result role="status"></p><button data-cancel type="button">Cancel attempt</button></div></div></section>';
     this.mount = root.querySelector('.chapter-preview-deck');
     this.status = root.querySelector('[data-status]');
     this.resources = root.querySelector('[data-resources]');
@@ -45,7 +45,7 @@ export class ProjectPreview {
     this.stateReadout = root.querySelector('[data-state]');
     const inventoryRoot = root.querySelector('[data-inventory]');
     if (inventoryDock) { inventoryRoot.classList.add('nest-inventory-dock'); this.releaseDock = acquireDock(document.body); }
-    this.inventorySurface = new InventorySurface({ container: inventoryDock ? null : inventoryHost ?? root });
+    this.inventorySurface = new InventorySurface({ container: inventoryHost ?? (inventoryDock ? null : root) });
     this.inventorySurface.mount(inventoryRoot);
     this.footer = root.querySelector('[data-preview-footer]');
     this.inventorySurface.mount(this.footer);

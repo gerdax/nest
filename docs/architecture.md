@@ -123,6 +123,6 @@ The [browser validation report](browser-validation-2026-10-16.md) records actual
 
 ## Portrait standalone player — 16 October 2026
 
-The standalone player now follows the interaction preview's resources/card/inventory composition. A stable viewport budget preserves the 3:4 engine mount and reserves drawer space while hidden; auxiliary controls and Run state live in a collapsible Controls panel. Shorter-than-target viewports can scroll rather than forcing smaller typography. Shared engine, editor and preview styles are unchanged.
+The standalone player and editor interaction preview now share `studio/playfield.css`, using each game frame as the sizing container. A stable frame budget preserves the 3:4 engine mount and reserves HUD and drawer space while hidden. Editor testing controls remain separate chrome; standalone controls use a collapsible panel. Shorter-than-target viewports can scroll rather than forcing smaller typography. See the [shared playfield report](shared-playfield.md) for current parity checks and limitations.
 
 The [portrait layout report](portrait-layout-2026-10-16.md) records the 13-case viewport matrix, collection/replacement/use/dice checks, sample-copy fit, independent Astra review and remaining physical-device limitations.

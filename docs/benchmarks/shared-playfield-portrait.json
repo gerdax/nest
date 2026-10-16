@@ -1,0 +1,152 @@
+[
+  {
+    "viewport": {
+      "width": 320,
+      "height": 568
+    },
+    "host": {
+      "height": 568,
+      "width": 320
+    },
+    "hudFont": "62px",
+    "parts": {
+      ".chapter-preview-deck": {
+        "height": 305.3203125,
+        "width": 228.9921875,
+        "x": 45.5,
+        "y": 86.0078125
+      },
+      ".nest-inventory-cards": {
+        "height": 74.6640625,
+        "width": 248,
+        "x": 36,
+        "y": 433.3359375
+      },
+      ".player-resources": {
+        "height": 62,
+        "width": 264,
+        "x": 28,
+        "y": 12
+      }
+    },
+    "slots": [
+      {
+        "height": 74.6640625,
+        "width": 56
+      },
+      {
+        "height": 74.6640625,
+        "width": 56
+      },
+      {
+        "height": 74.6640625,
+        "width": 56
+      },
+      {
+        "height": 74.6640625,
+        "width": 56
+      }
+    ],
+    "textFont": "13px"
+  },
+  {
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "host": {
+      "height": 844,
+      "width": 390
+    },
+    "hudFont": "62px",
+    "parts": {
+      ".chapter-preview-deck": {
+        "height": 368,
+        "width": 276,
+        "x": 57,
+        "y": 183.4375
+      },
+      ".nest-inventory-cards": {
+        "height": 98,
+        "width": 318,
+        "x": 36,
+        "y": 686
+      },
+      ".player-resources": {
+        "height": 62,
+        "width": 276,
+        "x": 57,
+        "y": 16.875
+      }
+    },
+    "slots": [
+      {
+        "height": 98,
+        "width": 73.5
+      },
+      {
+        "height": 98,
+        "width": 73.5
+      },
+      {
+        "height": 98,
+        "width": 73.5
+      },
+      {
+        "height": 98,
+        "width": 73.5
+      }
+    ],
+    "textFont": "13px"
+  },
+  {
+    "viewport": {
+      "width": 430,
+      "height": 932
+    },
+    "host": {
+      "height": 932,
+      "width": 430
+    },
+    "hudFont": "62px",
+    "parts": {
+      ".chapter-preview-deck": {
+        "height": 368,
+        "width": 276,
+        "x": 77,
+        "y": 227.984375
+      },
+      ".nest-inventory-cards": {
+        "height": 98.6640625,
+        "width": 320,
+        "x": 55,
+        "y": 773.3359375
+      },
+      ".player-resources": {
+        "height": 62,
+        "width": 276,
+        "x": 77,
+        "y": 18.6328125
+      }
+    },
+    "slots": [
+      {
+        "height": 98.6640625,
+        "width": 74
+      },
+      {
+        "height": 98.6640625,
+        "width": 74
+      },
+      {
+        "height": 98.6640625,
+        "width": 74
+      },
+      {
+        "height": 98.6640625,
+        "width": 74
+      }
+    ],
+    "textFont": "13px"
+  }
+]

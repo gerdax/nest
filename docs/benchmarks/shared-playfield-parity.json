@@ -1,0 +1,114 @@
+{
+  "editor": {
+    "host": {
+      "height": 649.8359375,
+      "width": 312.7421875
+    },
+    "hudFont": "62px",
+    "parts": {
+      ".chapter-preview-deck": {
+        "height": 342.3203125,
+        "width": 256.7421875,
+        "x": 28,
+        "y": 110.1328125
+      },
+      ".nest-inventory-cards": {
+        "height": 72.25,
+        "width": 240.734375,
+        "x": 36,
+        "y": 517.5859375
+      },
+      ".player-resources": {
+        "height": 62,
+        "width": 256.7421875,
+        "x": 28,
+        "y": 12.9921875
+      }
+    },
+    "slots": [
+      {
+        "height": 72.234375,
+        "width": 54.1796875
+      },
+      {
+        "height": 72.25,
+        "width": 54.1875
+      },
+      {
+        "height": 72.234375,
+        "width": 54.1796875
+      },
+      {
+        "height": 72.25,
+        "width": 54.1875
+      }
+    ],
+    "textFont": "15px"
+  },
+  "player": {
+    "host": {
+      "height": 650,
+      "width": 313
+    },
+    "hudFont": "62px",
+    "parts": {
+      ".chapter-preview-deck": {
+        "height": 342.6640625,
+        "width": 257,
+        "x": 28,
+        "y": 110
+      },
+      ".nest-inventory-cards": {
+        "height": 72.328125,
+        "width": 241,
+        "x": 36,
+        "y": 517.671875
+      },
+      ".player-resources": {
+        "height": 62,
+        "width": 257,
+        "x": 28,
+        "y": 13
+      }
+    },
+    "slots": [
+      {
+        "height": 72.328125,
+        "width": 54.25
+      },
+      {
+        "height": 72.328125,
+        "width": 54.25
+      },
+      {
+        "height": 72.328125,
+        "width": 54.25
+      },
+      {
+        "height": 72.328125,
+        "width": 54.25
+      }
+    ],
+    "textFont": "15px"
+  },
+  "differences": {
+    ".chapter-preview-deck": {
+      "height": 0.34375,
+      "width": 0.2578125,
+      "x": 0,
+      "y": 0.1328125
+    },
+    ".nest-inventory-cards": {
+      "height": 0.078125,
+      "width": 0.265625,
+      "x": 0,
+      "y": 0.0859375
+    },
+    ".player-resources": {
+      "height": 0,
+      "width": 0.2578125,
+      "x": 0,
+      "y": 0.0078125
+    }
+  }
+}

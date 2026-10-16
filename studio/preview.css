@@ -1,6 +1,7 @@
 /* Perspective turns extend beyond the resting stage. The outer player/preview
    viewport owns clipping, independently of inventory visibility. */
 .chapter-preview-stage { display:grid;place-items:center;min-height:440px;padding:24px 38px 30px;gap:clamp(42px,12vw,50px);overflow:visible; }
+.chapter-preview-card-area {width:100%;min-width:0;display:grid;place-items:center;}
 .chapter-preview-deck { width:min(100%,276px);aspect-ratio:3/4; }
 .project-preview [data-status] { overflow-wrap:anywhere; }
 .project-preview [data-state] pre { white-space:pre-wrap; }
@@ -19,10 +20,10 @@
 @font-face {font-family:NestVitals;src:url('../assets/fonts/trotont.ttf') format('truetype');font-display:swap;}
 .player-resources {width:100%;display:flex;justify-content:space-between;align-items:center;color:#b6c99b;}
 .player-resources[hidden] {display:none;}
-.player-resource {display:flex;align-items:center;gap:5px;font:56px/1 NestVitals,monospace;font-variant-numeric:tabular-nums;}
+.player-resource {display:flex;align-items:center;gap:5px;font:62px/1 NestVitals,monospace;font-variant-numeric:tabular-nums;}
 .player-resource[hidden] {display:none;}
-.player-resource img {width:24px;height:27px;object-fit:contain;}
-.player-resource[data-health] img {width:26px;height:23px;}
+.player-resource img {width:27px;height:30px;object-fit:contain;}
+.player-resource[data-health] img {width:29px;height:26px;}
 
 .preview-footer{position:absolute;inset:auto 0 0;z-index:3100;box-sizing:border-box;display:flex;align-items:flex-end;justify-content:space-between;gap:12px;min-height:44px;padding:8px 12px max(8px,env(safe-area-inset-bottom));color:#89947c;pointer-events:auto;background:#000}
 .preview-footer [data-state]{min-width:0;max-width:75%;font-size:12px}

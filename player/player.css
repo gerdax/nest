@@ -1,77 +1,21 @@
-/* Standalone layout owns its viewport budget; embedded studio previews retain
-   their independent sizing. Never scale a wrapper around the engine mount. */
+/* Only browser chrome and controls live here. Both playfields use the shared
+   frame-relative composition in studio/playfield.css. */
 .standalone-player {
-  --player-safe-top: env(safe-area-inset-top, 0px);
-  --player-safe-bottom: env(safe-area-inset-bottom, 0px);
-  --player-safe-left: max(12px, env(safe-area-inset-left, 0px));
-  --player-safe-right: max(12px, env(safe-area-inset-right, 0px));
-  --player-drawer-width: min(320px, calc(100vw - var(--player-safe-left) - var(--player-safe-right) - 48px));
-  --player-mini-height: calc((var(--player-drawer-width) - 24px) / 3);
-  /* Reserve the drawer even when hidden: reveal must not resize a held card. */
-  --player-drawer-space: calc(var(--player-mini-height) + 46px + 44px + var(--player-safe-bottom));
-  --player-hud-height: clamp(48px, 8svh, 56px);
-  --player-stage-gap: clamp(12px, 2svh, 24px);
-  position: relative;
-  height: 100vh;
-  height: 100svh;
-  min-height: 560px;
-  overflow-x: clip;
+  --player-safe-top:env(safe-area-inset-top,0px);
+  --player-safe-bottom:env(safe-area-inset-bottom,0px);
+  --player-safe-left:max(12px,env(safe-area-inset-left,0px));
+  --player-safe-right:max(12px,env(safe-area-inset-right,0px));
+  position:relative;height:100vh;height:100svh;min-height:560px;overflow-x:clip;
 }
-body.standalone-player.has-inventory-dock { padding-bottom: 0; }
+body.standalone-player.has-inventory-dock {padding-bottom:0;}
 .standalone-player .player-screen {
-  box-sizing: border-box;
-  width: 100%;
-  max-width: none;
-  height: 100%;
-  margin: 0;
-  padding: var(--player-safe-top) 0 var(--player-drawer-space);
+  --playfield-safe-top:env(safe-area-inset-top,0px);
+  --playfield-safe-bottom:env(safe-area-inset-bottom,0px);
+  --playfield-safe-left:max(12px,env(safe-area-inset-left,0px));
+  --playfield-safe-right:max(12px,env(safe-area-inset-right,0px));
+  box-sizing:border-box;width:100%;max-width:none;height:100%;margin:0;padding:0;
 }
-.standalone-player #preview { height:100%;margin:0;border:0; }
-.standalone-player .project-preview { position:relative;height:100%; }
-.standalone-player #preview .chapter-preview-stage {
-  box-sizing: border-box;
-  container-type: size;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  height: 100%;
-  min-height: 0;
-  padding: clamp(12px, 2svh, 20px) max(28px, var(--player-safe-right)) clamp(12px, 2svh, 20px) max(28px, var(--player-safe-left));
-  gap: var(--player-stage-gap);
-  overflow: visible;
-}
-.standalone-player #preview .player-resources {
-  flex: 0 0 var(--player-hud-height);
-  width: min(100%, 276px);
-  height: var(--player-hud-height);
-}
-.standalone-player #preview .player-resources[hidden] { display:flex;visibility:hidden; }
-.standalone-player #preview .player-resource { font-size:var(--player-hud-height); }
-.standalone-player #preview .chapter-preview-deck {
-  flex: none;
-  width: min(276px, 100%, calc((100cqh - var(--player-hud-height) - var(--player-stage-gap)) * .75));
-  height: auto;
-  aspect-ratio: 3 / 4;
-  margin: 0;
-}
-.standalone-player .preview-status-row {
-  position:absolute;inset:auto 12px 0;z-index:20;text-align:center;
-}
-.standalone-player .preview-status-row [data-status] {
-  max-height:20svh;overflow:auto;background:#000;margin:0;padding:4px;
-}
-/* Anchor to the same stable playfield, including its short-screen scroll
-   fallback. InventorySurface still measures real client rectangles. */
-.standalone-player > .nest-inventory-surface { position:absolute !important; }
-.standalone-player .nest-inventory-surface .nest-inventory-drawer {
-  bottom:calc(44px + var(--player-safe-bottom));
-  padding:30px var(--player-safe-right) 16px var(--player-safe-left);
-}
-.standalone-player .nest-inventory-drawer .nest-inventory-cards {
-  width:var(--player-drawer-width);max-width:none;gap:8px;
-}
-.standalone-player .nest-inventory-surface .preview-footer { display:none; }
+.standalone-player .nest-inventory-surface .preview-footer {display:none;}
 
 /* Auxiliary controls stay reachable without occupying the game composition. */
 .player-tools { position:fixed;right:var(--player-safe-right);bottom:calc(4px + var(--player-safe-bottom));z-index:4500; }
@@ -91,6 +35,3 @@ body.standalone-player.has-inventory-dock { padding-bottom: 0; }
 #chapter-name { margin:12px 0 4px;font-size:18px;overflow-wrap:anywhere; }
 #message { margin:4px 0 8px; }
 .player-tools-panel [data-state] pre { max-height:160px;overflow:auto;white-space:pre-wrap; }
-.standalone-player .nest-inventory-drawer dialog { inset:var(--player-safe-top) 0 var(--player-safe-bottom);max-height:calc(100svh - 32px - var(--player-safe-top) - var(--player-safe-bottom)); }
-.standalone-player .check-panel { max-height:calc(100svh - 40px - var(--player-safe-top) - var(--player-safe-bottom));overflow:auto; }
-.standalone-player .check-tray { height:clamp(140px,38svh,300px); }

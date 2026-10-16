@@ -6,7 +6,7 @@ import { mountPerformanceTuning } from '../player/performance-tuning.js';
 
 const message=document.querySelector('#message'),title=document.querySelector('#chapter-name'),selector=document.querySelector('#chapter-selector');
 const stored=loadProject();let project=stored.project??createProject();
-const preview=new ProjectPreview(document.querySelector('#preview'),{inventoryDock:true});
+const preview=new ProjectPreview(document.querySelector('#preview'),{inventoryDock:true,inventoryHost:document.querySelector('.player-screen')});
 const tools=document.querySelector('#player-tools');
 tools.querySelector('.player-tools-panel').append(preview.stateReadout);
 tools.addEventListener('keydown',event=>{

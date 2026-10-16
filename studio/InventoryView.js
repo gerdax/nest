@@ -2,6 +2,7 @@ import { conditionsMet } from '../project/state.js';
 import { cardSummary } from '../project/cards.js';
 import { applyArtworkColorize } from '../engine/artworkColorize.js';
 import { DrawerMotion } from './drawer-motion.js';
+import { dialogLayout } from './dialog-layout.js';
 
 const identity = item => item?.definitionId ?? item?.id;
 const name = item => item?.name || item?.label || 'Item';
@@ -20,6 +21,13 @@ export class InventoryView {
     root.innerHTML = '<span data-count hidden aria-hidden="true"></span><ul class="nest-inventory-cards" aria-label="Inventory slots"></ul><p data-drawer-feedback role="status" hidden></p><dialog class="item-dialog"><h3></h3><div class="nest-image-vignette" data-item-artwork><img alt=""></div><p data-summary></p><p data-description></p><div class="row"><button type="button" data-use>Use</button><button type="button" data-close>Close</button></div><p data-feedback role="status"></p><section data-overflow hidden><h4>Other owned items</h4><ul class="nest-inventory-overflow"></ul></section></dialog><dialog class="item-dialog nest-inventory-confirm" data-collect-dialog><h3>Collect item</h3><p data-collect-message></p><div data-slot-picker class="nest-inventory-picker"></div><div class="row"><button type="button" data-confirm>Replace</button><button type="button" data-cancel>Cancel</button></div></dialog>';
     this.dialog = root.querySelector('dialog');
     this.collectDialog = root.querySelector('[data-collect-dialog]');
+    this.view = root.ownerDocument?.defaultView ?? globalThis;
+    this.layoutDialogs = () => {
+      const layout = dialogLayout(this.getBounds(), this.view.innerWidth, this.view.innerHeight);
+      if (layout) for (const dialog of [this.dialog, this.collectDialog]) Object.assign(dialog.style, layout);
+    };
+    this.view.addEventListener?.('resize', this.layoutDialogs);
+    this.view.addEventListener?.('scroll', this.layoutDialogs, true);
     this.list = root.querySelector('ul');
     this.hint = root.querySelector('[data-drawer-feedback]');
     root.querySelector('[data-close]').onclick = () => this.dialog.close();
@@ -90,7 +98,7 @@ export class InventoryView {
       const artwork = document.createElement('div'); artwork.className = 'nest-image-vignette';
       artwork.append(image); button.append(artwork);
     }
-    button.onclick = () => { if (this.pending || this.deposited) return; this.selected = identity(item); this.showDetails(); this.dialog.showModal(); };
+    button.onclick = () => { if (this.pending || this.deposited) return; this.selected = identity(item); this.showDetails(); this.layoutDialogs(); this.dialog.showModal(); };
     return button;
   }
   stageDeposit(action, decision) {
@@ -265,7 +273,7 @@ export class InventoryView {
       cancel.onclick = () => finish(false);
       dialog.oncancel = event => { event.preventDefault(); finish(false); };
       dialog.onclose = () => finish(false);
-      try { dialog.showModal(); } catch { finish(false); }
+      try { this.layoutDialogs(); dialog.showModal(); } catch { finish(false); }
     });
   }
   cancelPending() { this.pending?.(); }
@@ -292,6 +300,8 @@ export class InventoryView {
     }
   }
   destroy() {
+    this.view.removeEventListener?.('resize', this.layoutDialogs);
+    this.view.removeEventListener?.('scroll', this.layoutDialogs, true);
     this.motion.destroy();
     this.cancelPending();
     if (this.dialog.open) this.dialog.close();

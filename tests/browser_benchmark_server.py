@@ -14,6 +14,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--port', type=int, default=8945)
     parser.add_argument('--project', type=Path, default=Path('/tmp/nest-realistic-large.nest.json'))
+    parser.add_argument('--no-panel', action='store_true', help='keep storage isolation/instrumentation without the diagnostic overlay')
     parser.add_argument('--graph-source', type=Path, help='optional GraphView.js from a comparison revision')
     parser.add_argument('--no-store', action='store_true', help='match serve.py development cache policy')
     args = parser.parse_args()
@@ -52,8 +53,9 @@ def main():
                 if entry not in source:
                     self.send_error(500, 'App entry module changed; update the diagnostic injection')
                     return
+                ready = '' if args.no_panel else 'qa.ready();'
                 source = source.replace(entry,
-                    f'<script type="module">import {{installBrowserBenchmark}} from "/tests/fixtures/browser-benchmark.js";const qa=await installBrowserBenchmark();await import("/studio/{module}.js");qa.ready();</script>')
+                    f'<script type="module">import {{installBrowserBenchmark}} from "/tests/fixtures/browser-benchmark.js";const qa=await installBrowserBenchmark();await import("/studio/{module}.js");{ready}</script>')
                 self.content(source)
             elif url.path == '/studio/GraphView.js' and args.graph_source:
                 self.content(args.graph_source.read_text(), 'text/javascript')
