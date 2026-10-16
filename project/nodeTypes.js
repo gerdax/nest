@@ -29,7 +29,7 @@ export const nodeTypes = Object.freeze({
   create:({makePlacement}) => ({...introduction(makePlacement),items:[makePlacement('item')]})
  }),
  random: Object.freeze({
-  label:'Random', slots:Object.freeze({}), outputs:node => [...objects(node.routes).map(r=>r.id),'fallback'],
+  label:'Random', iconPath:'M3 7H6L18 17H21M3 17H6L18 7H21', slots:Object.freeze({}), outputs:node => [...objects(node.routes).map(r=>r.id),'fallback'],
   create:({uid}) => ({routes:[{id:uid('route'),name:'Route 1',target:false,weight:1,conditions:[]}],fallback:false})
  }),
  legacySequence: Object.freeze({label:'Legacy sequence', slots:Object.freeze({}), outputs:legacyOutputs}),
