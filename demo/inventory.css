@@ -68,7 +68,7 @@
 /* Entrance runs once per context; controller-driven exits use inline progress. */
 .nest-inventory.nest-inventory-drawer{opacity:1;transform:translateY(0)}
 .nest-inventory.nest-inventory-drawer.is-entering{animation:nest-inventory-enter 180ms ease-out 0ms backwards}
-@keyframes nest-inventory-enter{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+@keyframes nest-inventory-enter{from{opacity:0;transform:translateY(60px)}to{opacity:1;transform:translateY(0)}}
 @media(prefers-reduced-motion:reduce){.nest-inventory.nest-inventory-drawer{transform:none!important}.nest-inventory.nest-inventory-drawer.is-entering{animation:none}}
 
 .nest-inventory.nest-inventory-drawer::before{bottom:calc(-1 * (var(--inventory-footer-height,44px) + 16px))}

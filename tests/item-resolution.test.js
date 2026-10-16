@@ -434,7 +434,7 @@ test('drawer exit is cancelled on reset and is not used for intermediate pickups
   another.collect();await flushPickup();settle();assert.equal(fades,0);assert.equal(another.cards.length,2);another.destroy();
 });
 
-test('drawer enters as the stack hint returns, stays through pickups, and remains hidden on the next intro',async()=>{
+test('drawer enters as the stack hint pauses, stays through pickups, and remains hidden on the next intro',async()=>{
   const deck=make(3,{...fixture(3),autoBrowse:true});
   const {adapter}=await drawerFixture(deck);const visibility=[];
   adapter.setContext=visible=>visibility.push(visible);
@@ -442,8 +442,8 @@ test('drawer enters as the stack hint returns, stays through pickups, and remain
   for(let i=0;i<1000&&!deck.presentationHint;i++)step();
   assert.ok(deck.presentationHint,'multi-card stack presents its hint');
   assert.equal(visibility.includes(true),false,'drawer stays hidden during the reveal and hint');
-  while(deck.presentationHint.stage!=='return'){assert.equal(visibility.at(-1),false);step();}
-  assert.equal(visibility.at(-1),true,'drawer enters during the hint return instead of waiting for its spring tail');
+  while(deck.presentationHint.stage!=='hold'){assert.equal(visibility.at(-1),false);step();}
+  assert.equal(visibility.at(-1),true,'drawer enters when the spread pauses, before the hint returns');
   settle();assert.equal(visibility.at(-1),true);
   visibility.length=0;
   deck.collect();await flushPickup();settle();

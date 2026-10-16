@@ -57,8 +57,9 @@ export class InventoryPickup {
       }
     }
     if (!inContext) this.contextEntered = false;
-    else if (!this.contextEntered && deck.phase === 'choices' && !deck.busy && !deck.openingCommit && !deck.openingReturn
-      && !deck.presentationBrowsePending && (!deck.presentationHint || deck.presentationHint.stage === 'return') && !deck.entrances.size) this.contextEntered = true;
+    else if (!this.contextEntered && (deck.phase === 'choices' || deck.phase === 'revealing' && deck.presentationHint?.stage === 'hold')
+      && !deck.busy && !deck.openingCommit && !deck.openingReturn && !deck.presentationBrowsePending
+      && (!deck.presentationHint || ['hold', 'return'].includes(deck.presentationHint.stage)) && !deck.entrances.size) this.contextEntered = true;
     // Once entered, keep the drawer through gestures and departures. Rechecking
     // the entrance conditions on every frame would blink during interaction.
     const visible = inContext && this.contextEntered;
