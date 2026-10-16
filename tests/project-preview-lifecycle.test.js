@@ -36,6 +36,24 @@ function environment() {
   globalThis.cancelAnimationFrame = () => {};
 }
 
+test('unavailable choices stay disabled without a player banner; real errors remain visible', () => {
+  environment();
+  const project=createProject(),chapter=project.chapters[0];
+  const fork=chapter.nodes.find(node=>node.type==='fork');
+  fork.introEnabled=false;
+  const action=project.library.find(card=>card.id===fork.choices[0].definitionId);
+  action.conditions=[{source:'variable',key:'energy',op:'gte',value:100}];
+  const preview=new ProjectPreview(new Element());
+  preview.play(project,chapter.id,fork.id);
+  assert.equal(preview.deck.content.actions.every(action=>action.disabled),true);
+  assert.equal(preview.status.hidden,true);
+  assert.equal(preview.errorMessage,null);
+  preview.controller.onError(new Error('Unlinked output'),preview.state);
+  assert.equal(preview.status.hidden,false);
+  assert.equal(preview.status.textContent,'Unlinked output');
+  preview.destroy();
+});
+
 test('player preserves authored resources, bounds and chapter starts', () => {
   environment();
   const project = createProject(), root = new Element(), preview = new ProjectPreview(root);

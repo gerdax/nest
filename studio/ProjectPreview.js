@@ -108,7 +108,7 @@ export class ProjectPreview {
       }, content: { id:'project-loading',text:'',actions:[{id:'wait',label:'Loading',disabled:true}] } });
       const controller = new ProjectController(this.deck, chapter, {
         onChange: state => { if (active()) this.update(state); },
-        onError: (error,state) => { if (!active()) return; this.hideDice(); this.errorNode = state?.activeNodeId; this.errorMessage = error.message || String(error); this.status.textContent = this.errorMessage; this.status.hidden = false; },
+        onError: (error,state) => { if (!active() || error.code === 'NO_AVAILABLE_CHOICES') return; this.hideDice(); this.errorNode = state?.activeNodeId; this.errorMessage = error.message || String(error); this.status.textContent = this.errorMessage; this.status.hidden = false; },
         rollCheck: (pool, options) => {
           if (!active()) throw new DOMException('Preview stopped.', 'AbortError');
           return this.roll(pool, options);

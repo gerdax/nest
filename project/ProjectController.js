@@ -237,7 +237,7 @@ export class ProjectController {
     return 'closed';
   }
   reportBlocked(content=this.deck.content) {
-    if((['fork','forked'].includes(this.type())||this.type()==='linear'&&this.card()?.kind==='action')&&this.presentation()==='open'&&!content.actions.some(a=>!a.disabled))this.error(new Error(`No available choices at ${this.location.node.name || this.location.node.id}. Check choice requirements and costs, use an eligible inventory item, or restart.`));
+    if((['fork','forked'].includes(this.type())||this.type()==='linear'&&this.card()?.kind==='action')&&this.presentation()==='open'&&!content.actions.some(a=>!a.disabled))this.error(Object.assign(new Error(`No available choices at ${this.location.node.name || this.location.node.id}. Check choice requirements and costs, use an eligible inventory item, or restart.`),{code:'NO_AVAILABLE_CHOICES'}));
   }
   show({transition='flip',restore=false,presentation,animate=true,autoBrowse=true,preserveInventoryContext=false}={}) {
     if(this.completed){this.deck.endContent();if(!this.deck.busy)this.deck.completeCommit?.();this.notify();return;}
