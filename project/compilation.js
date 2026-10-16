@@ -1,0 +1,42 @@
+import { canonicalCardKind, resolvePlacement } from './cards.js';
+import { cloneProject, legacyArtwork } from './model-data.js';
+import { discardPlacementContext, normalizeSingleItems } from './normalization.js';
+
+export function compileChapter(project, chapterId = project.activeChapterId) {
+  // All resolved mechanics and normalization must operate on detached data.
+  project = discardPlacementContext(cloneProject(project));
+  const chapter = project.chapters.find(c => c.id === chapterId);
+  if (!chapter) throw new TypeError(`Unknown chapter: ${chapterId}`);
+  const result = cloneProject(chapter);
+  delete result.backImage;
+  result.cardBack = {...result.cardBack, switchIcons: project.switchCardBackIcons !== false};
+  result.cardStyles = cloneProject(project.cardStyles || {});
+  result.library = project.library.map(d => ({
+    ...cloneProject(d),
+    kind: canonicalCardKind(d.kind),
+    definitionId: d.id,
+    ...(d.kind === 'item' ? {inventoryKey: d.inventoryKey ?? d.id} : {})
+  }));
+  result.variables = project.variables.map(variable => ({
+    ...variable,
+    initial: Object.hasOwn(chapter.initialValues ?? {}, variable.id)
+      ? chapter.initialValues[variable.id]
+      : variable.initial,
+  }));
+  for (const node of result.nodes) {
+    for (const key of ['cards', 'choices', 'items']) if (node[key]) node[key] = node[key].map(p => resolvePlacement(project, p));
+    if (node.intro) node.intro = resolvePlacement(project, node.intro);
+    for (const raw of legacyArtwork(node)) if (raw.definitionId) {
+      const resolved = resolvePlacement(project, raw);
+      const originalId = raw.id;
+      Object.assign(raw, resolved, {cardKind: resolved.kind, name: resolved.name, heading: resolved.heading,
+        inventoryKey: resolved.inventoryKey, title: resolved.heading || resolved.name, label: resolved.name,
+        text: resolved.text, image: resolved.image, flipImage: resolved.flipImage});
+      if (resolved.kind === 'item') raw.effects = resolved.onCollect || [];
+      else raw.effects = resolved.effects || [];
+      if (resolved.kind === 'action') raw.conditions = resolved.conditions || [];
+      raw.id = originalId;
+    }
+  }
+  return normalizeSingleItems(result);
+}

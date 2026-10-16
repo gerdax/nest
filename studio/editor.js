@@ -1,13 +1,12 @@
-import { addHealthVariable } from './commands.js';
 import { applyCardStyles, parseCardColor } from '../project/card-styles.js';
 import { nodeTypeLabel } from '../project/nodeTypes.js';
 import { nodeIcon } from './node-icons.js';
 import { artworkSettings, parseArtworkSettings } from './artwork-settings.js';
 import { DocumentHistory } from '../editor/DocumentHistory.js';
 import { LocalCardDrafts } from './local-card-drafts.js';
-import { createDefinition, allowedCardKinds, cardKinds, cardEditorTint } from '../project/cards.js';
-import { createProject,createChapter,validateProject,exportChapter,importChapter,discardPlacementContext } from '../project/model.js';
-import { definitionGraph, deleteDefinition, cleanupLocalDefinitions } from '../project/dependencies.js';
+import { cardKinds, cardEditorTint } from '../project/cards.js';
+import { createProject,validateProject,exportChapter } from '../project/model.js';
+import { definitionGraph } from '../project/dependencies.js';
 import { loadProject, readRecoveredSave } from '../project/storage.js';
 import { createPersistence, travelHistory, exportProjectDraft, parseStudioImport } from './persistence.js';
 import { GraphView } from './GraphView.js';
@@ -20,7 +19,8 @@ import { mountAutoplay } from './autoplay.js';
 import { sourceCard, revealCardEntry } from './card-navigation.js';
 import { renderCardPreviews } from './card-preview.js';
 import { bindImagePicker } from './image-picker.js';
-import { uid,createNode,makePlacement,promoteCard,duplicateNode,duplicatePlacement,findPlacement,pathTarget,synchronizeConnections,customizeAction,newRule,normalizeRule } from './commands.js';
+import { applyDocumentCommand, documentScope } from './document-commands.js';
+import { transactDocument } from './document-session.js';
 
 const $=s=>document.querySelector(s),loaded=loadProject();
 let copiedArtwork = null;
@@ -43,8 +43,8 @@ const graph=new GraphView($('#canvas'),{
   if(target)revealCardEntry($('#inspector'),target);
   else {const field=[...$('#inspector').querySelectorAll('[data-scope="connection"]')].find(el=>el.dataset.path===exit);field?.scrollIntoView({block:'center'});field?.focus({preventScroll:true});}
  },
- onConnect:(id,exit,target)=>edit(()=>setConnection(chapter().nodes.find(n=>n.id===id),exit,target)),
- onMove:(id,x,y)=>edit(()=>Object.assign(chapter().nodes.find(n=>n.id===id),{x,y})),
+ onConnect:(id,exit,target)=>edit('connect',{id,exit,target}),
+ onMove:(id,x,y)=>edit('move-node',{id,x,y}),
 });
 const persistence=createPersistence({loaded,onStatus:text=>{$('#save-status').textContent=text;}});
 const saveProject=project=>persistence.save(project);
@@ -57,15 +57,18 @@ function goToPreviewCard(target){
  render();if(changedChapter)graph.fit();
  if(!revealCardEntry($('#inspector'),target))report('This card is not currently shown in the panel. Its introduction may have been disabled since playback started.');
 }
-function edit(fn){
- const previousLibrary=project.library;
- let failure;
+const selection=()=>({chapterId,selected,definitionId,mode});
+function edit(type,data={}){
  graph.cancel();
- try{history.transact(draft=>{project=draft;fn();discardPlacementContext(project);synchronizeConnections(project);localDrafts.refreshChangedDefinitions(project,previousLibrary);return project;});}
- catch(error){failure=error.message;localDrafts.reset();}
- finally{project=history.document;}
- const saved=saveProject(project);render();report(failure|| (saved.ok?'Saved in this browser':`Save failed: ${saved.error}`));
- return !failure && saved.ok;
+ const outcome=transactDocument(history,localDrafts,draft=>applyDocumentCommand(draft,selection(),type,data,localDrafts));
+ project=outcome.project;
+ const patch=outcome.result?.selection||{};
+ if('chapterId' in patch)chapterId=patch.chapterId;
+ if('selected' in patch)selected=patch.selected;
+ if('definitionId' in patch)definitionId=patch.definitionId;
+ if('mode' in patch)mode=patch.mode;
+ const saved=saveProject(project);render();report(outcome.failure|| (saved.ok?'Saved in this browser':`Save failed: ${saved.error}`));
+ return {ok:!outcome.failure&&saved.ok,value:outcome.result?.value};
 }
 function renderGraph(){if(mode==='chapter')graph.render(project,chapter(),selected,preview.state?.activeNodeId);}
 function renderInspector({collapseCards=false}={}){
@@ -102,11 +105,8 @@ function render(){
  const issues=validateProject(project);$('#errors').innerHTML=issues.map(e=>`<div>${esc(e.message)}</div>`).join('');
  renderGraph();renderLibrary();renderInspector();
 }
-function setConnection(n,exit,target){if(n.type==='random'){if(exit==='fallback')n.fallback=target;else n.routes.find(r=>r.id===exit).target=target;}else n.connections[exit]=target;}
 function scopeRoot(scope,element){
- if(scope==='project')return project;if(scope==='chapter')return chapter();if(scope==='node')return node();if(scope==='definition')return definition();
- if(scope==='local-definition'){const p=findPlacement(node(),element.closest('[data-placement]')?.dataset.placement);return project.library.find(d=>d.id===p?.definitionId);}
- if(scope==='placement')return findPlacement(node(),element.closest('[data-placement]')?.dataset.placement);
+ return documentScope(project,selection(),{scope,placementId:element.closest('[data-placement]')?.dataset.placement});
 }
 function changeField(event){const el=event.target,path=el.dataset.path,scope=el.dataset.scope;if(!path)return;
  const colorField=el.matches('[data-card-style-color]');let color;
@@ -114,28 +114,8 @@ function changeField(event){const el=event.target,path=el.dataset.path,scope=el.
   try{color=el.value.trim()?parseCardColor(el.value):undefined;el.setCustomValidity('');}
   catch{el.setCustomValidity('Enter a 3- or 6-digit hex color, such as #A9BB86.');el.reportValidity();return;}
  }
- edit(()=>{
-  if(scope==='connection'){setConnection(node(),path,el.value==='unlinked'?false:el.value==='end'?null:el.value.slice(7));return;}
-  if(scope==='initial-toggle'){chapter().initialValues||={};if(el.checked)chapter().initialValues={...chapter().initialValues,[path]:project.variables.find(v=>v.id===path).initial};else delete chapter().initialValues[path];return;}
-  if(scope==='initial-value'){const variable=project.variables.find(v=>v.id===path);const value=variable.type==='flag'?el.value==='true':Number(el.value);chapter().initialValues={...(chapter().initialValues||{}),[path]:value};return;}
-  const root=scopeRoot(scope,el);if(!root)return;
-  if(scope==='placement'&&path==='useCustomRules'){if(el.checked)customizeAction(project,root);else delete root.overrides;return;}
-  if(scope==='node'&&path==='introEnabled'&&el.checked&&root.type==='fork'&&!root.intro)root.intro=makePlacement(project,'event');
-  if(scope==='placement'&&path==='definitionId'){localDrafts.switchSource(project,root,el.value,{allowedKinds:allowedCardKinds(node().type,node().intro===root?'intro':node().type==='container'?'items':'cards')});return;}
-  if(path==='itemBehaviour'){if(el.value==='consumable')root.use={effects:[],conditions:[]};else delete root.use;return;}
-  const {parent,key}=pathTarget(root,path);
-  if(colorField){if(color===undefined)delete parent[key];else parent[key]=color;return;}
-  let value=el.type==='checkbox'?el.checked:['number','range'].includes(el.type)||key==='sides'?Number(el.value):el.value;
-  if((['value','initial'].includes(key)||path.startsWith('initialValues.'))&&['true','false'].includes(value))value=value==='true';
-  if(el.type==='number'&&el.value===''){delete parent[key];return;}
-  if(['imageScale','imageOffsetX','imageOffsetY'].includes(key))value=Math.max(key==='imageScale'?10:-100,Math.min(key==='imageScale'?400:100,value));
-  parent[key]=value;
-  if(['modifierVariable','contextItemId'].includes(key)&&!value)delete parent[key];
-  if(key==='contextItemId'&&!value)delete parent.contextOverrideImage;
-  if(key==='resolution'&&value==='check')parent.check||={pool:[{sides:20,count:1}],modifier:0,target:10};
-  if(key==='type'&&['flag','number'].includes(value)){parent.initial=value==='flag'?false:0;delete parent.min;delete parent.max;}
-  if(['source','op','key'].includes(key))normalizeRule(project,parent,key);
- });
+ edit('field',{scope,path,value:el.value,checked:el.checked,inputType:el.type,
+  placementId:el.closest('[data-placement]')?.dataset.placement,colorField,color});
 }
 for(const root of [$('#inspector'),$('#settings')])root.addEventListener('change',changeField);
 $('#settings').addEventListener('input',event=>{
@@ -161,14 +141,7 @@ $('#inspector').addEventListener('input',event=>{
 
 for(const root of [$('#inspector'),$('#settings')])bindImagePicker(root,{
  onSelect(scope,placementId,path,value){
-  edit(()=>{
-   let target;
-   if(scope==='local-definition'){const p=findPlacement(node(),placementId);target=project.library.find(d=>d.id===p?.definitionId);}
-   else target=scope==='chapter'?chapter():scope==='definition'?definition():null;
-   if(!target)throw new Error('Select the card again before choosing its image.');
-   const {parent,key}=pathTarget(target,path);if(['imageScale','imageOffsetX','imageOffsetY'].includes(key))value=Math.max(key==='imageScale'?10:-100,Math.min(key==='imageScale'?400:100,value));
-  parent[key]=value;
-  });
+  edit('image',{scope,placementId,path,value});
  },onError:report
 });
 function command(event){const b=event.target.closest('[data-command]');if(!b)return;const cmd=b.dataset.command;
@@ -183,45 +156,27 @@ function command(event){const b=event.target.closest('[data-command]');if(!b)ret
   let settings=copiedArtwork;
   try{const saved=localStorage.getItem(artworkClipboardKey);if(saved)settings=parseArtworkSettings(saved);}catch{}
   if(!settings){report('Copy image settings from a card first.');return;}
-  const id=card.id;edit(()=>Object.assign(project.library.find(d=>d.id===id),settings));return;
+  edit('paste-artwork',{id:card.id,settings});return;
  }
  if(cmd==='edit-shared'){definitionId=b.dataset.definition;mode='library';render();return;}
  if(cmd==='jump-use'){chapterId=b.dataset.chapter;selected=b.dataset.node;mode='chapter';render();graph.fit();autoplay.select(selected);return;}
- edit(()=>{
-  const n=node(),p=findPlacement(n||{},b.dataset.placement);
-  if(cmd==='reset-artwork'){const root=scopeRoot(b.dataset.scope,b);delete root.imageScale;delete root.imageOffsetX;delete root.imageOffsetY;}
-  if(cmd==='add-rule'){const root=scopeRoot(b.dataset.scope,b),{parent,key}=pathTarget(root,b.dataset.path);parent[key]||=[];parent[key].push(newRule(project,b.dataset.ruleKind));}
-  if(cmd==='remove-rule'){const root=scopeRoot(b.dataset.scope,b),{parent,key}=pathTarget(root,b.dataset.path);parent[key].splice(Number(b.dataset.index),1);}
-  if(cmd==='local-copy')localDrafts.convert(project,p);
-  if(cmd==='clear-card')localDrafts.clear(project,p);
-  if(cmd==='promote-card'){promoteCard(project,p);localDrafts.drafts.delete(p.id);}
-  if(cmd==='add-placement')n[b.dataset.slot].push(makePlacement(project,b.dataset.kind));
-  if(cmd==='duplicate-placement')duplicatePlacement(project,n,p);
-  if(cmd==='remove-placement'){localDrafts.removePlacement(project,p);for(const slot of ['cards','choices','items'])if(n[slot])n[slot]=n[slot].filter(c=>c.id!==p.id);}
-  if(cmd==='move-placement')for(const slot of ['cards','choices','items'])if(n[slot]){const i=n[slot].findIndex(c=>c.id===p.id),j=i+Number(b.dataset.direction);if(i>=0&&j>=0&&j<n[slot].length)[n[slot][i],n[slot][j]]=[n[slot][j],n[slot][i]];}
-  if(cmd==='add-route')n.routes.push({id:uid('route'),name:`Route ${n.routes.length+1}`,target:false,weight:1,conditions:[]});
-  if(cmd==='remove-route')n.routes.splice(Number(b.dataset.index),1);
-  if(cmd==='delete-definition'){deleteDefinition(project,definitionId);definitionId=project.library.find(d=>d.visibility!=='local')?.id;}
-  if(cmd==='add-health')addHealthVariable(project);
-  if(cmd==='add-variable')project.variables.push({id:uid('variable'),name:'New variable',type:'number',initial:0});
-  if(cmd==='remove-variable')project.variables.splice(Number(b.dataset.index),1);
- });
+ edit('inspector',{...b.dataset});
 }
 for(const root of [$('#inspector'),$('#settings')])root.addEventListener('click',command);
 $('#library-list').onclick=e=>{const b=e.target.closest('[data-definition]');if(b){definitionId=b.dataset.definition;renderLibrary();renderInspector();}};
 $('#library-search').oninput=renderLibrary;
 $('#cleanup-local').onclick=()=>{
- let removed=0;
- if(edit(()=>{removed=cleanupLocalDefinitions(project);}))report(removed?`Removed ${removed} unused local card${removed===1?'':'s'}. Undo restores them.`:'No unused local cards.');
+ const result=edit('cleanup-local');
+ if(result.ok)report(result.value?`Removed ${result.value} unused local card${result.value===1?'':'s'}. Undo restores them.`:'No unused local cards.');
 };
 $('#chapter-view').onclick=()=>{mode='chapter';render();};$('#library-view').onclick=()=>{mode='library';render();};
-$('#chapter-selector').onchange=e=>{preview.stop();chapterId=e.target.value;selected=project.chapters.find(c=>c.id===chapterId).startNode;edit(()=>{project.activeChapterId=chapterId;});graph.fit();};
-$('#add-chapter').onclick=()=>edit(()=>{const c=createChapter(uid('chapter'),`Chapter ${project.chapters.length+1}`),n=createNode(project,'linear');c.nodes.push(n);c.startNode=n.id;project.chapters.push(c);chapterId=c.id;selected=n.id;project.activeChapterId=c.id;});
-for(const b of document.querySelectorAll('[data-add-kind]'))b.onclick=()=>edit(()=>{const d=createDefinition(b.dataset.addKind,uid(b.dataset.addKind));project.library.push(d);definitionId=d.id;mode='library';});
-for(const b of document.querySelectorAll('[data-add]'))b.onclick=()=>edit(()=>{const n=createNode(project,b.dataset.add,{x:(150-graph.view.x)/graph.view.z,y:(140-graph.view.y)/graph.view.z});chapter().nodes.push(n);if(!chapter().startNode)chapter().startNode=n.id;selected=n.id;});
-$('#duplicate').onclick=()=>{if(node())edit(()=>{const n=duplicateNode(project,node());chapter().nodes.push(n);selected=n.id;});};
-$('#delete').onclick=()=>{if(node())edit(()=>{const id=node().id;chapter().nodes=chapter().nodes.filter(n=>n.id!==id);for(const n of chapter().nodes){for(const key of Object.keys(n.connections||{}))if(n.connections[key]===id)n.connections[key]=false;for(const r of n.routes||[])if(r.target===id)r.target=false;if(n.fallback===id)n.fallback=false;}if(chapter().startNode===id)chapter().startNode=chapter().nodes[0]?.id||'';selected=chapter().startNode;});};
-$('#start').onclick=()=>{if(node())edit(()=>{chapter().startNode=node().id;});};$('#fit').onclick=()=>graph.fit();
+$('#chapter-selector').onchange=e=>{preview.stop();edit('select-chapter',{id:e.target.value});graph.fit();};
+$('#add-chapter').onclick=()=>edit('add-chapter');
+for(const b of document.querySelectorAll('[data-add-kind]'))b.onclick=()=>edit('add-definition',{kind:b.dataset.addKind});
+for(const b of document.querySelectorAll('[data-add]'))b.onclick=()=>{graph.cancel();edit('add-node',{type:b.dataset.add,position:{x:(150-graph.view.x)/graph.view.z,y:(140-graph.view.y)/graph.view.z}});};
+$('#duplicate').onclick=()=>{if(node())edit('duplicate-node');};
+$('#delete').onclick=()=>{if(node())edit('delete-node');};
+$('#start').onclick=()=>{if(node())edit('set-start');};$('#fit').onclick=()=>graph.fit();
 function travel(method){graph.cancel();localDrafts.reset();const result=travelHistory(history,method,persistence);if(result.changed)project=result.project;render();}
 $('#undo').onclick=()=>travel('undo');$('#redo').onclick=()=>travel('redo');
 function download(value,name){downloadText(JSON.stringify(value,null,2),name,'application/json');}
@@ -235,7 +190,7 @@ if(loaded.recovery){
 $('#export-project').textContent='Export project draft';
 $('#export-project').onclick=()=>{try{download(exportProjectDraft(project),`${project.name.replace(/[^a-z0-9]+/gi,'-')}.nest.json`);report('Project draft exported. Import it in the studio to continue editing; playback requires validation errors to be fixed.');}catch(error){report(`Project export failed: ${error.message}`);}};
 $('#export-chapter').onclick=()=>{const errors=validateProject(project);if(errors.length){report('Fix validation errors before exporting.');return;}download(exportChapter(project,chapterId),`${chapter().name.replace(/[^a-z0-9]+/gi,'-')}.chapter.json`);};
-$('#import').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{const text=await file.text(),{raw,project:incoming}=parseStudioImport(text);preview.stop();localDrafts.reset();const saved=edit(()=>{project=raw.kind==='nest-project'?incoming:importChapter(project,raw);chapterId=project.activeChapterId;selected=chapter().startNode;});if(saved&&raw.kind==='nest-project'&&persistence.adopt().ok){recoveryDownload?.remove();report('Project draft imported and saved in this browser. Recovery backups retained.');}graph.fit();}catch(error){report(`Import rejected: ${error.message}`);}e.target.value='';};
+$('#import').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{const text=await file.text(),{raw,project:incoming}=parseStudioImport(text);preview.stop();localDrafts.reset();const saved=edit('import',{raw,incoming}).ok;if(saved&&raw.kind==='nest-project'&&persistence.adopt().ok){recoveryDownload?.remove();report('Project draft imported and saved in this browser. Recovery backups retained.');}graph.fit();}catch(error){report(`Import rejected: ${error.message}`);}e.target.value='';};
 function play(startNode,{restore=true}={}){try{previewWindow.show({restore});preview.play(project,chapterId,startNode,{focus:!previewWindow.minimized});report('Chapter ready.');return true;}catch(error){report(error.message);return false;}}
 $('#play').onclick=()=>play();$('#play-node').onclick=()=>play(selected);$('#restart').onclick=()=>play();$('#stop').onclick=()=>preview.stop();
 window.addEventListener('pagehide',()=>{stopDrawerDebug();autoplay.destroy();previewWindow.destroy();preview.destroy();});

@@ -1,0 +1,191 @@
+import { createDefinition, allowedCardKinds } from '../project/cards.js';
+import { createChapter, importChapter } from '../project/model.js';
+import { deleteDefinition, cleanupLocalDefinitions } from '../project/dependencies.js';
+import {
+  uid, createNode, makePlacement, promoteCard, duplicateNode, duplicatePlacement,
+  findPlacement, pathTarget, customizeAction, newRule, normalizeRule, addHealthVariable,
+} from './commands.js';
+
+function chapterFor(project, selection) {
+  return project.chapters.find(chapter => chapter.id === selection.chapterId) || project.chapters[0];
+}
+function nodeFor(project, selection) {
+  return chapterFor(project, selection)?.nodes.find(node => node.id === selection.selected);
+}
+export function documentScope(project, selection, {scope, placementId}) {
+  if (scope === 'project') return project;
+  if (scope === 'chapter') return chapterFor(project, selection);
+  if (scope === 'node') return nodeFor(project, selection);
+  if (scope === 'definition') return project.library.find(card => card.id === selection.definitionId);
+  const placement = findPlacement(nodeFor(project, selection) || {}, placementId);
+  if (scope === 'placement') return placement;
+  if (scope === 'local-definition') return project.library.find(card => card.id === placement?.definitionId);
+}
+export function setConnection(node, exit, target) {
+  if (node.type === 'random') {
+    if (exit === 'fallback') node.fallback = target;
+    else node.routes.find(route => route.id === exit).target = target;
+  } else node.connections[exit] = target;
+}
+
+/** Apply an already-read form value to a draft, without DOM or browser services. */
+function changeField(project, selection, field, localDrafts) {
+  const {scope, path, value:raw, checked, inputType, colorField, color} = field;
+  const chapter = chapterFor(project, selection), node = nodeFor(project, selection);
+  if (scope === 'connection') {
+    setConnection(node, path, raw === 'unlinked' ? false : raw === 'end' ? null : raw.slice(7));
+    return;
+  }
+  if (scope === 'initial-toggle') {
+    chapter.initialValues ||= {};
+    if (checked) chapter.initialValues = {...chapter.initialValues, [path]:project.variables.find(v => v.id === path).initial};
+    else delete chapter.initialValues[path];
+    return;
+  }
+  if (scope === 'initial-value') {
+    const variable = project.variables.find(v => v.id === path);
+    chapter.initialValues = {...(chapter.initialValues || {}), [path]:variable.type === 'flag' ? raw === 'true' : Number(raw)};
+    return;
+  }
+  const root = documentScope(project, selection, field);
+  if (!root) return;
+  if (scope === 'placement' && path === 'useCustomRules') {
+    if (checked) customizeAction(project, root);
+    else delete root.overrides;
+    return;
+  }
+  if (scope === 'node' && path === 'introEnabled' && checked && root.type === 'fork' && !root.intro) root.intro = makePlacement(project, 'event');
+  if (scope === 'placement' && path === 'definitionId') {
+    localDrafts.switchSource(project, root, raw, {allowedKinds:allowedCardKinds(node.type, node.intro === root ? 'intro' : node.type === 'container' ? 'items' : 'cards')});
+    return;
+  }
+  if (path === 'itemBehaviour') {
+    if (raw === 'consumable') root.use = {effects:[], conditions:[]};
+    else delete root.use;
+    return;
+  }
+  const {parent, key} = pathTarget(root, path);
+  if (colorField) {
+    if (color === undefined) delete parent[key];
+    else parent[key] = color;
+    return;
+  }
+  let value = inputType === 'checkbox' ? checked : ['number','range'].includes(inputType) || key === 'sides' ? Number(raw) : raw;
+  if ((['value','initial'].includes(key) || path.startsWith('initialValues.')) && ['true','false'].includes(value)) value = value === 'true';
+  if (inputType === 'number' && raw === '') { delete parent[key]; return; }
+  if (['imageScale','imageOffsetX','imageOffsetY'].includes(key)) value = clampArtwork(key, value);
+  parent[key] = value;
+  if (['modifierVariable','contextItemId'].includes(key) && !value) delete parent[key];
+  if (key === 'contextItemId' && !value) delete parent.contextOverrideImage;
+  if (key === 'resolution' && value === 'check') parent.check ||= {pool:[{sides:20,count:1}],modifier:0,target:10};
+  if (key === 'type' && ['flag','number'].includes(value)) { parent.initial = value === 'flag' ? false : 0; delete parent.min; delete parent.max; }
+  if (['source','op','key'].includes(key)) normalizeRule(project, parent, key);
+}
+function clampArtwork(key, value) {
+  return Math.max(key === 'imageScale' ? 10 : -100, Math.min(key === 'imageScale' ? 400 : 100, value));
+}
+function inspectorCommand(project, selection, data, localDrafts) {
+  const node = nodeFor(project, selection), placement = findPlacement(node || {}, data.placement);
+  const descriptor = {scope:data.scope, placementId:data.placement};
+  switch (data.command) {
+    case 'reset-artwork': {
+      const root = documentScope(project, selection, descriptor);
+      delete root.imageScale; delete root.imageOffsetX; delete root.imageOffsetY;
+      break;
+    }
+    case 'add-rule': {
+      const {parent, key} = pathTarget(documentScope(project, selection, descriptor), data.path);
+      parent[key] ||= [];
+      parent[key].push(newRule(project, data.ruleKind));
+      break;
+    }
+    case 'remove-rule': {
+      const {parent, key} = pathTarget(documentScope(project, selection, descriptor), data.path);
+      parent[key].splice(Number(data.index), 1);
+      break;
+    }
+    case 'local-copy': localDrafts.convert(project, placement); break;
+    case 'clear-card': localDrafts.clear(project, placement); break;
+    case 'promote-card': promoteCard(project, placement); localDrafts.drafts.delete(placement.id); break;
+    case 'add-placement': node[data.slot].push(makePlacement(project, data.kind)); break;
+    case 'duplicate-placement': duplicatePlacement(project, node, placement); break;
+    case 'remove-placement':
+      localDrafts.removePlacement(project, placement);
+      for (const slot of ['cards','choices','items']) if (node[slot]) node[slot] = node[slot].filter(card => card.id !== placement.id);
+      break;
+    case 'move-placement':
+      for (const slot of ['cards','choices','items']) if (node[slot]) {
+        const index = node[slot].findIndex(card => card.id === placement.id), target = index + Number(data.direction);
+        if (index >= 0 && target >= 0 && target < node[slot].length) [node[slot][index],node[slot][target]] = [node[slot][target],node[slot][index]];
+      }
+      break;
+    case 'add-route': node.routes.push({id:uid('route'),name:`Route ${node.routes.length+1}`,target:false,weight:1,conditions:[]}); break;
+    case 'remove-route': node.routes.splice(Number(data.index), 1); break;
+    case 'delete-definition':
+      deleteDefinition(project, selection.definitionId);
+      return {selection:{definitionId:project.library.find(card => card.visibility !== 'local')?.id}};
+    case 'add-health': addHealthVariable(project); break;
+    case 'add-variable': project.variables.push({id:uid('variable'),name:'New variable',type:'number',initial:0}); break;
+    case 'remove-variable': project.variables.splice(Number(data.index), 1); break;
+  }
+}
+
+/** Commands mutate only the supplied history draft and return explicit UI changes. */
+export function applyDocumentCommand(project, selection, type, data = {}, localDrafts) {
+  const chapter = chapterFor(project, selection), node = nodeFor(project, selection);
+  switch (type) {
+    case 'field': return changeField(project, selection, data, localDrafts);
+    case 'inspector': return inspectorCommand(project, selection, data, localDrafts);
+    case 'connect': setConnection(chapter.nodes.find(n => n.id === data.id), data.exit, data.target); break;
+    case 'move-node': Object.assign(chapter.nodes.find(n => n.id === data.id), {x:data.x, y:data.y}); break;
+    case 'image': {
+      const target = documentScope(project, selection, data);
+      if (!target) throw new Error('Select the card again before choosing its image.');
+      const {parent, key} = pathTarget(target, data.path);
+      parent[key] = ['imageScale','imageOffsetX','imageOffsetY'].includes(key) ? clampArtwork(key, data.value) : data.value;
+      break;
+    }
+    case 'paste-artwork': Object.assign(project.library.find(card => card.id === data.id), data.settings); break;
+    case 'cleanup-local': return {value:cleanupLocalDefinitions(project)};
+    case 'select-chapter': {
+      const target = project.chapters.find(c => c.id === data.id);
+      project.activeChapterId = target.id;
+      return {selection:{chapterId:target.id, selected:target.startNode}};
+    }
+    case 'add-chapter': {
+      const added = createChapter(uid('chapter'), `Chapter ${project.chapters.length+1}`), first = createNode(project, 'linear');
+      added.nodes.push(first); added.startNode = first.id; project.chapters.push(added); project.activeChapterId = added.id;
+      return {selection:{chapterId:added.id, selected:first.id}};
+    }
+    case 'add-definition': {
+      const added = createDefinition(data.kind, uid(data.kind)); project.library.push(added);
+      return {selection:{definitionId:added.id, mode:'library'}};
+    }
+    case 'add-node': {
+      const added = createNode(project, data.type, data.position); chapter.nodes.push(added);
+      if (!chapter.startNode) chapter.startNode = added.id;
+      return {selection:{selected:added.id}};
+    }
+    case 'duplicate-node': {
+      const added = duplicateNode(project, node); chapter.nodes.push(added);
+      return {selection:{selected:added.id}};
+    }
+    case 'delete-node': {
+      chapter.nodes = chapter.nodes.filter(n => n.id !== node.id);
+      for (const remaining of chapter.nodes) {
+        for (const key of Object.keys(remaining.connections || {})) if (remaining.connections[key] === node.id) remaining.connections[key] = false;
+        for (const route of remaining.routes || []) if (route.target === node.id) route.target = false;
+        if (remaining.fallback === node.id) remaining.fallback = false;
+      }
+      if (chapter.startNode === node.id) chapter.startNode = chapter.nodes[0]?.id || '';
+      return {selection:{selected:chapter.startNode}};
+    }
+    case 'set-start': chapter.startNode = node.id; break;
+    case 'import': {
+      const next = data.raw.kind === 'nest-project' ? data.incoming : importChapter(project, data.raw);
+      const active = next.chapters.find(c => c.id === next.activeChapterId) || next.chapters[0];
+      return {project:next, selection:{chapterId:next.activeChapterId, selected:active.startNode}};
+    }
+  }
+  return {};
+}

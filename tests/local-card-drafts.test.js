@@ -2,13 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
-import {createProject, exportChapter, parseProject, validateProject, discardPlacementContext} from '../project/model.js';
+import {createProject, exportChapter, parseProject, validateProject} from '../project/model.js';
 import {createDefinition} from '../project/cards.js';
 import {addInventory, conditionsMet} from '../project/state.js';
-import {createNode, makePlacement, synchronizeConnections, pathTarget, normalizeRule, newRule} from '../studio/commands.js';
+import {createNode, makePlacement, synchronizeConnections} from '../studio/commands.js';
 import {DocumentHistory} from '../editor/DocumentHistory.js';
-import {cleanupLocalDefinitions, deleteDefinition} from '../project/dependencies.js';
+import {cleanupLocalDefinitions} from '../project/dependencies.js';
 import {LocalCardDrafts} from '../studio/local-card-drafts.js';
+import {applyDocumentCommand} from '../studio/document-commands.js';
+import {transactDocument} from '../studio/document-session.js';
 
 const allowedKinds = ['event', 'caption', 'action', 'item'];
 const definition = (project, placement) => project.library.find(d => d.id === placement.definitionId);
@@ -463,13 +465,14 @@ function editorHandlers(state, definitionId) {
   const context = {
     project:state.project, history:new DocumentHistory(state.project), localDrafts:state.drafts,
     definitionId, graph:{cancel(){}}, saveProject:() => ({ok:true}), render(){}, report(){},
-    discardPlacementContext, synchronizeConnections, pathTarget, normalizeRule, newRule, deleteDefinition,
+    applyDocumentCommand, transactDocument,
+    selection:() => ({chapterId:state.chapter.id,selected:state.node.id,definitionId:context.definitionId,mode:'library'}),
     node:() => context.project.chapters[0].nodes.find(n => n.id === state.node.id),
     scopeRoot:() => context.project.library.find(d => d.id === context.definitionId),
     findPlacement:() => undefined
   };
   runInNewContext([
-    section('function edit(fn){', 'function renderGraph()'),
+    section('function edit(type,data={}){', 'function renderGraph()'),
     section('function changeField(event){', 'for(const root of'),
     section('function command(event){', 'for(const root of')
   ].join('\n'), context);
@@ -496,7 +499,7 @@ function restoreEditorAction(state, editor) {
 test('editor Library field edits and deletion preserve current shared Item dependency drafts', () => {
   const state = cachedSharedItem(), editor = editorHandlers(state, state.item.id);
   editor.changeField({target:{dataset:{scope:'definition',path:'onCollect.0.value'},
-    matches:() => false, type:'number', value:'5'}});
+    matches:() => false, closest:() => null, type:'number', value:'5'}});
   assert.deepEqual(editor.project.library.find(d => d.id === state.item.id).onCollect, [effect(5)]);
   editor.command({target:{closest:() => ({dataset:{command:'delete-definition'}})}});
   assert.equal(editor.project.library.some(d => d.id === state.item.id), false);
