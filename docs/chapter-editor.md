@@ -9,6 +9,10 @@ remove it. The shortcut works while the graph is focused, ignores typing and
 active drags, and uses the same undoable action as **Delete beat**. Click **Undo**
 to restore the beat and its connections.
 
+**Command+Z** undoes project edits and **Command+Shift+Z** redoes them (Ctrl on
+Windows/Linux). Text fields retain their native text undo/redo; modal dialogs do
+not trigger project history shortcuts.
+
 Project JSON v2 (`kind: "nest-project"`) owns a Library, project variables and chapters. The Library contains four explicit card kinds:
 
 - **Narrative**: description, artwork, optional visible heading and effects. Linear beats use narrative cards; Containers use one as their introduction.

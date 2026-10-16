@@ -22,6 +22,7 @@ import { renderCardPreviews } from './card-preview.js';
 import { bindImagePicker } from './image-picker.js';
 import { applyDocumentCommand, documentScope } from './document-commands.js';
 import { transactDocument } from './document-session.js';
+import { mountHistoryShortcuts } from './history-shortcuts.js';
 
 const $=s=>document.querySelector(s),loaded=loadProject();
 let copiedArtwork = null;
@@ -181,6 +182,7 @@ $('#delete').onclick=()=>{if(node())edit('delete-node');};
 $('#start').onclick=()=>{if(node())edit('set-start');};$('#fit').onclick=()=>graph.fit();
 function travel(method){graph.cancel();localDrafts.reset();const result=travelHistory(history,method,persistence);if(result.changed)project=result.project;render();}
 $('#undo').onclick=()=>travel('undo');$('#redo').onclick=()=>travel('redo');
+const stopHistoryShortcuts=mountHistoryShortcuts(document,{undo:()=>$('#undo').click(),redo:()=>$('#redo').click()});
 function download(value,name){downloadText(JSON.stringify(value,null,2),name,'application/json');}
 function downloadText(text,name,type='text/plain'){const url=URL.createObjectURL(new Blob([text],{type}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 let recoveryDownload;
@@ -195,5 +197,5 @@ $('#export-chapter').onclick=()=>{const errors=validateProject(project);if(error
 $('#import').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{const text=await file.text(),{raw,project:incoming}=parseStudioImport(text);preview.stop();localDrafts.reset();const saved=edit('import',{raw,incoming}).ok;if(saved&&raw.kind==='nest-project'&&persistence.adopt().ok){recoveryDownload?.remove();report('Project draft imported and saved in this browser. Recovery backups retained.');}graph.fit();}catch(error){report(`Import rejected: ${error.message}`);}e.target.value='';};
 function play(startNode,{restore=true}={}){try{previewWindow.show({restore});preview.play(project,chapterId,startNode,{focus:!previewWindow.minimized});report('Chapter ready.');return true;}catch(error){report(error.message);return false;}}
 $('#play').onclick=()=>play();$('#play-node').onclick=()=>play(selected);$('#restart').onclick=()=>play();$('#stop').onclick=()=>preview.stop();
-window.addEventListener('pagehide',event=>{if(event.persisted)return;stopDrawerDebug();autoplay.destroy();previewWindow.destroy();preview.destroy();});
+window.addEventListener('pagehide',event=>{if(event.persisted)return;stopHistoryShortcuts();stopDrawerDebug();autoplay.destroy();previewWindow.destroy();preview.destroy();});
 render();graph.fit();if(loaded.error||loaded.recovery)report('');else if(loaded.migrated)report('Legacy save loaded; original browser save preserved.');
