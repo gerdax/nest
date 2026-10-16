@@ -20,14 +20,14 @@ export function createDefinition(kind, id) {
   if (kind === 'item') return { ...base, onCollect: [] };
   return { ...base, conditions: [], costs: [], effects: [], resolution: 'direct', check: {pool: [{sides:20,count:1}], modifier:0,target:10}, successEffects: [], failureEffects: [] };
 }
-export function resolvePlacement(project, placement) {
-  const definition = project.library.find(d => d?.id === placement.definitionId);
+export function resolvePlacement(project, placement, index) {
+  const definition = index && index.usable !== false ? index.byId.get(placement.definitionId) : project.library.find(d => d?.id === placement.definitionId);
   if (!definition) throw new TypeError(`Unknown definition: ${placement.definitionId}`);
   const base = {...definition, ...(definition.visibility==='local'?{}:placement.overrides), kind:canonicalCardKind(definition.kind)};
   const resolved = {...base, conditions:[...(base.conditions || []),...(placement.conditions || [])], effects:[...(base.effects || []),...(placement.effects || [])], id:placement.id, definitionId:definition.id, unavailable:placement.unavailable ?? 'disabled', inventoryKey:definition.inventoryKey ?? definition.id};
   if (base.kind === 'item') resolved.onCollect = [...collectionEffects(base), ...(placement.effects || [])];
   if (placement.contextItemId) {
-    const item = project.library.find(d => d.id === placement.contextItemId && d.kind === 'item');
+    const item = index && index.usable !== false ? index.itemsById.get(placement.contextItemId) : project.library.find(d => d.id === placement.contextItemId && d.kind === 'item');
     if (base.kind !== 'action' || !item) throw new TypeError('Contextual choice needs an Action and an Item definition.');
     const key = item.inventoryKey ?? item.id;
     Object.assign(resolved, {contextItemId:item.id, contextInventoryKey:key, inventoryLabel:`Inventory · ${item.name}`, entrance:'bottom', contextOverrideImage:placement.contextOverrideImage===true});

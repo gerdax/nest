@@ -11,12 +11,13 @@ import { previewCardTarget } from './preview-card-target.js';
 
 /** Playback UI owns dice/inventory presentation, never chapter resolution rules. */
 export class ProjectPreview {
-  constructor(root, { onChange = () => {}, onGoToCard, inventoryDock = false, inventoryHost = null, deckSettings = {}, presentationPolicy = {} } = {}) {
+  constructor(root, { onChange = () => {}, onStop = () => {}, onGoToCard, inventoryDock = false, inventoryHost = null, deckSettings = {}, presentationPolicy = {} } = {}) {
     this.root = root;
     this.destroyed = false;
     this.generation = 0;
     this.diceGeneration = 0;
     this.onChange = onChange;
+    this.onStop = onStop;
     this.onGoToCard = typeof onGoToCard === 'function' ? onGoToCard : null;
     this.deckSettings = { ...deckSettings };
     this.presentationPolicy = { ...presentationPolicy };
@@ -69,12 +70,16 @@ export class ProjectPreview {
   }
   play(project, chapterId, startNode, { focus = true } = {}) {
     if (this.destroyed) throw new Error('Project preview has been destroyed');
+    if (this.destroying) return;
     if (chapterId === undefined) chapterId = project.activeChapterId;
     const issues = validateProject(project);
     if (issues.length) throw new Error(issues.map(issue => issue.message).join('\n'));
     const chapter = compileChapter(project, chapterId);
     if (startNode) chapter.startNode = startNode;
+    const expectedGeneration = this.generation + 1;
     this.stop();
+    // A stop observer may replace or destroy playback synchronously.
+    if (this.destroyed || this.destroying || this.generation !== expectedGeneration) return;
     const generation = this.generation;
     const active = () => !this.destroyed && this.generation === generation;
     applyCardStyles(this.mount, chapter.cardStyles);
@@ -191,6 +196,7 @@ export class ProjectPreview {
   restart() { if (!this.destroyed && this.project) this.play(this.project, this.chapterId, this.startNode); }
   stop() {
     if (this.destroyed) return;
+    const hadPlayback = !!(this.controller || this.deck || this.state);
     ++this.generation;
     for (const event of this.cardLinkEvents || []) this.cardLinkDeck?.removeEventListener(event, this.cardLinkListener);
     this.cardLinkDeck = null; this.cardLinkListener = null; this.cardLinkEvents = null;
@@ -203,20 +209,28 @@ export class ProjectPreview {
     this.resources.hidden = true;
     this.status.textContent = 'Stopped.'; this.status.hidden = false;
     this.syncCardLink();
+    if (hadPlayback) this.onStop();
   }
   destroy() {
-    if (this.destroyed) return;
-    this.stop(); this.destroyed = true;
-    this.inventory.destroy(); this.inventory.onUse = () => {};
-    this.footerResize.disconnect();
-    this.inventorySurface.destroy();
-    document.removeEventListener('keydown', this.cancelKey);
-    this.cancelKey = null; this.cancelButton.onclick = null;
-    if (this.goToCardButton) this.goToCardButton.onclick = null;
-    this.onGoToCard = null;
-    this.releaseDock?.(); this.releaseDock = null;
-    this.project = null; this.compiled = null; this.chapterId = null; this.startNode = undefined;
-    this.onChange = () => {};
-    this.root.replaceChildren();
+    if (this.destroyed || this.destroying) return;
+    this.destroying = true;
+    try {
+      this.stop();
+    } finally {
+      this.destroyed = true;
+      this.inventory.destroy(); this.inventory.onUse = () => {};
+      this.footerResize.disconnect();
+      this.inventorySurface.destroy();
+      document.removeEventListener('keydown', this.cancelKey);
+      this.cancelKey = null; this.cancelButton.onclick = null;
+      if (this.goToCardButton) this.goToCardButton.onclick = null;
+      this.onGoToCard = null;
+      this.releaseDock?.(); this.releaseDock = null;
+      this.project = null; this.compiled = null; this.chapterId = null; this.startNode = undefined;
+      this.onChange = () => {};
+      this.onStop = () => {};
+      this.root.replaceChildren();
+      this.destroying = false;
+    }
   }
 }

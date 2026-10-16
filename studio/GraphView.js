@@ -4,6 +4,7 @@ import { nodeTypeLabel } from '../project/nodeTypes.js';
 import { nodeTypeDescriptor } from '../project/nodeTypes.js';
 import { nodeIcon } from './node-icons.js';
 import { cardEditorTint,canonicalCardKind } from '../project/cards.js';
+import { createLibraryIndex } from '../project/library-index.js';
 
 
 /** Canvas interaction owns selection/pan, and emits completed document edits. */
@@ -32,22 +33,32 @@ export class GraphView {
  render(project,chapter,selected,active) {
   this.project=project;this.chapter=chapter;this.selected=selected;this.active=active;
   this.nodesById=new Map(chapter.nodes.map(node=>[node.id,node]));
+  this.libraryIndex=createLibraryIndex(project.library);
   this.definitionsById=new Map(project.library.map(definition=>[definition.id,definition]));
-  if(this.pending&&!chapter.nodes.some(n=>n.id===this.pending.nodeId&&outputsForNode(project,n).includes(this.pending.exit)))this.pending=null;
+  if(this.pending&&!chapter.nodes.some(n=>n.id===this.pending.nodeId&&outputsForNode(project,n,this.libraryIndex).includes(this.pending.exit)))this.pending=null;
   this.root.querySelector('#nodes').innerHTML=chapter.nodes.map(n=>`<article class="node ${n.type} ${n.id===selected?'selected':''} ${n.id===active?'active':''}" data-id="${esc(n.id)}" style="left:${this.position(n).x}px;top:${this.position(n).y}px"><div class="node-heading">${nodeIcon(n.type)}<span class="badge">${n.id===chapter.startNode?'START · ':''}${esc(nodeTypeLabel(n.type))}</span>${esc(n.name)}</div>${n.type==='random'?`<div class="node-body">${n.routes.length} ${n.routes.length===1?'route':'routes'}</div>`:n.type.startsWith('legacy')?'<div class="node-body">Preserved legacy behaviour</div>':''}${this.cardRows(n)}</article>`).join('');
   this.nodeElements=new Map([...this.root.querySelectorAll('.node')].map(el=>[el.dataset.id,el]));
   this.portElements=new Map([...this.nodeElements].map(([id,el])=>[id,new Map([...el.querySelectorAll('.port')].map(port=>[port.dataset.exit,port]))]));
   this.transform();this.edges();
  }
+ // Preview notifications change only these classes. Keep the graph DOM, focus,
+ // viewport and in-flight gestures intact, including repeated same-node updates.
+ setActive(active) {
+  if(this.active===active)return;
+  const previous=this.active;
+  this.active=active;
+  this.nodeElements?.get(previous)?.classList.toggle('active',false);
+  this.nodeElements?.get(active)?.classList.toggle('active',true);
+ }
  target(n,exit) {if(n.type==='random')return exit==='fallback'?n.fallback:n.routes.find(r=>r.id===exit)?.target;return n.connections?.[exit];}
  portLabel(node,exit){const target=this.target(node,exit);return target===null?'End chapter':this.nodesById.get(target)?.name||'Unlinked';}
  unlinked(node,exit){const target=this.target(node,exit);return target!==null&&!this.nodesById.has(target);}
  port(node,exit,label=null){
-  const target=esc(this.portLabel(node,exit)),name=esc(labelForOutput(this.project,node,exit));
+  const target=esc(this.portLabel(node,exit)),name=esc(labelForOutput(this.project,node,exit,this.libraryIndex));
   return `<button class="port ${this.unlinked(node,exit)?'unlinked':''}" data-exit="${esc(exit)}" aria-label="${name} → ${target}">${label===null?`${name} → ${target}`:`${label?`${esc(label)} | `:'→ '}${target}`}</button>`;
  }
  cardRows(node){
-  const descriptor=nodeTypeDescriptor(node.type),outputs=outputsForNode(this.project,node),used=new Set();
+  const descriptor=nodeTypeDescriptor(node.type),outputs=outputsForNode(this.project,node,this.libraryIndex),used=new Set();
   let html='';
   for(const slot of Object.keys(descriptor?.slots||{})){
    const placements=slot==='intro'?(node.intro&&node.introEnabled!==false?[node.intro]:[]):node[slot]||[];
@@ -72,10 +83,10 @@ export class GraphView {
  outputPoint(n,exit) {
   const port=this.portElements.get(n.id)?.get(exit);
   if(port){const r=port.getBoundingClientRect();if(r.width&&r.height)return this.point({clientX:r.right,clientY:r.top+r.height/2});}
-  const pos=this.position(n);return {x:pos.x+220,y:pos.y+104+outputsForNode(this.project,n).indexOf(exit)*29};
+  const pos=this.position(n);return {x:pos.x+220,y:pos.y+104+outputsForNode(this.project,n,this.libraryIndex).indexOf(exit)*29};
  }
  edges() {
-  const paths=this.chapter.nodes.flatMap(n=>outputsForNode(this.project,n).map(exit=>{
+  const paths=this.chapter.nodes.flatMap(n=>outputsForNode(this.project,n,this.libraryIndex).map(exit=>{
    const t=this.nodesById.get(this.target(n,exit));if(!t)return '';
    const {x,y}=this.outputPoint(n,exit),to=this.position(t),path=this.wire(x,y,to.x,to.y+40);
    return `<path class="edge-line" d="${path}"/><path class="edge-hit" data-source="${esc(n.id)}" data-exit="${esc(exit)}" d="${path}"/>`;

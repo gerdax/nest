@@ -26,9 +26,9 @@ export function hasDirectedCycle(ids, edges) {
   return false;
 }
 
-export function outputsForNode(project, node) {
+export function outputsForNode(project, node, index) {
   // Connections depend on Action resolution, independent of its inventory context.
-  return nodeOutputs(node, placement => resolvePlacement(project, {...placement, contextItemId: undefined}));
+  return nodeOutputs(node, placement => resolvePlacement(project, {...placement, contextItemId: undefined}, index));
 }
 /** null intentionally ends a chapter; false is an unlinked output. */
 export function connectionForOutput(connections, output) {
@@ -36,12 +36,12 @@ export function connectionForOutput(connections, output) {
   const previous = output.endsWith(':success') ? output.slice(0, -8): !output.includes(':') ? `${output}:success`: null;
   return previous && Object.hasOwn(connections, previous) ? connections[previous]: false;
 }
-export function labelForOutput(project, node, output) {
+export function labelForOutput(project, node, output, index) {
   if (output === 'next') return 'Next';
   if (output === 'fallback') return 'Fallback';
   if (node.type === 'random') return node.routes?.find(r => r.id === output)?.name || output;
   const p = node.choices?.find(p => output === p.id || output === `${p.id}:success` || output === `${p.id}:failure`);
   if (!p) return output;
-  const d = project.library.find(d => d.id === p.definitionId);
+  const d = index && index.usable !== false ? index.byId.get(p.definitionId) : project.library.find(d => d.id === p.definitionId);
   return `${d?.name || p.id}${output.endsWith(':success') ? ' · Success' : output.endsWith(':failure') ? ' · Failure' : ''}`;
 }

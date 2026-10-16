@@ -4,6 +4,7 @@ import { nodeTypeDescriptor } from './nodeTypes.js';
 import { isCardColor } from './card-styles.js';
 import { object, named, list, placements, legacyArtwork } from './model-data.js';
 import { hasDirectedCycle, outputsForNode } from './graph.js';
+import { createLibraryIndex } from './library-index.js';
 
 export function validateProject(project, {allowDraft = false} = {}) {
   const errors = [];
@@ -24,6 +25,8 @@ export function validateProject(project, {allowDraft = false} = {}) {
   for (const key of ['library', 'variables', 'chapters']) if (!Array.isArray(project[key])) add(`${key} must be a list.`);
   const library = Array.isArray(project.library) ? project.library: [], variables = Array.isArray(project.variables) ? project.variables: [],
     chapters = Array.isArray(project.chapters) ? project.chapters: [];
+  // Resolution uses first matches; validation maps below intentionally use last matches.
+  const index = createLibraryIndex(library);
   const definitions = new Map(), vars = new Map();
   const seen = (list, label) => {
     const ids = new Set();
@@ -53,6 +56,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
   }
   const itemKeys = new Set(library.filter(d => d?.kind === 'item').flatMap(d => [d.id, d.inventoryKey].filter(Boolean)));
   const itemsById = new Map(library.filter(d => d?.kind === 'item').map(d => [d.id, d]));
+  const itemDefinitionIds = new Set(itemsById.keys());
   for (const item of itemsById.values()) {
     const owner = itemsById.get(item.inventoryKey);
     if (owner && owner !== item && (owner.inventoryKey ?? owner.id) !== (item.inventoryKey ?? item.id)) add(`Item ${item.id}: inventory alias ${item.inventoryKey} conflicts with another item ID.`);
@@ -92,7 +96,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
         continue;
       }
       if (['addItem', 'removeItem'].includes(e.op)) {
-        if (!validRef(e.key, new Set(library.filter(d => d?.kind === 'item').map(d => d.id)))) add(`${label}: inventory effect needs an item.`);
+        if (!validRef(e.key, itemDefinitionIds)) add(`${label}: inventory effect needs an item.`);
       } else {
         const v = vars.get(e.key);
         if (!['set', 'add'].includes(e.op) || !validRef(e.key, vars) || !['number', 'boolean'].includes(typeof e.value)
@@ -210,7 +214,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
         if (d) {
           if (['linear', 'fork', 'container'].includes(node.type) && !allowedCardKinds(node.type, p === node.intro ? 'intro': list(node.choices).includes(p) ? 'choices': list(node.items).includes(p) ? 'items': 'cards').includes(canonicalCardKind(d.kind))) add(`${label}: incompatible card kind.`,
             cid, nid);
-          if (contextValid) inspectCard(resolvePlacement(project, p), label);
+          if (contextValid) inspectCard(resolvePlacement(project, p, index), label);
         }
       }
       let targets = [];
@@ -238,7 +242,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
         else {
           targets = Object.values(node.connections);
           for (const target of targets) if (target !== null && target !== false && typeof target !== 'string') add(`${label}: invalid connection.`, cid, nid);
-          if (!allowDraft) for (const output of outputsForNode(project, node)) if (!Object.hasOwn(node.connections,
+          if (!allowDraft) for (const output of outputsForNode(project, node, index)) if (!Object.hasOwn(node.connections,
             output)) add(`${label}: missing connection ${output}.`, cid, nid);
         }
       }
@@ -252,7 +256,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
         inspectCard(raw, label);
         if (definitions.has(raw.definitionId)) {
           try {
-            inspectCard(resolvePlacement(project, raw), label);
+            inspectCard(resolvePlacement(project, raw, index), label);
           }
           catch {
             add(`${label}: invalid legacy placement mechanics.`, cid, nid);

@@ -10,6 +10,7 @@ import { definitionGraph } from '../project/dependencies.js';
 import { loadProject, readRecoveredSave } from '../project/storage.js';
 import { createPersistence, travelHistory, exportProjectDraft, parseStudioImport } from './persistence.js';
 import { GraphView } from './GraphView.js';
+import { previewActiveNode, updatePreviewHighlight } from './preview-highlight.js';
 import { ProjectPreview } from './ProjectPreview.js';
 import { mountDrawerDebug } from './drawer-debug.js';
 import { definitionInspector,nodeInspector,variableInspector } from './inspectors.js';
@@ -31,7 +32,7 @@ const localDrafts=new LocalCardDrafts();
 const chapter=()=>project.chapters.find(c=>c.id===chapterId)||project.chapters[0];
 const node=()=>chapter().nodes.find(n=>n.id===selected);
 const definition=()=>project.library.find(d=>d.id===definitionId);
-const preview=new ProjectPreview($('#preview'),{inventoryHost:$('.preview-window-body'),onChange:()=>renderGraph(),onGoToCard:goToPreviewCard});
+const preview=new ProjectPreview($('#preview'),{inventoryHost:$('.preview-window-body'),onChange:state=>updatePreviewHighlight(graph,preview,chapter(),state),onStop:()=>graph.setActive(null),onGoToCard:goToPreviewCard});
 const stopDrawerDebug=mountDrawerDebug(preview);
 const previewWindow=mountPreviewWindow($('#preview-window'),{onClose:()=>preview.stop()});
 $('#show-preview').onclick=()=>previewWindow.show();
@@ -70,7 +71,7 @@ function edit(type,data={}){
  const saved=saveProject(project);render();report(outcome.failure|| (saved.ok?'Saved in this browser':`Save failed: ${saved.error}`));
  return {ok:!outcome.failure&&saved.ok,value:outcome.result?.value};
 }
-function renderGraph(){if(mode==='chapter')graph.render(project,chapter(),selected,preview.state?.activeNodeId);}
+function renderGraph(){if(mode==='chapter')graph.render(project,chapter(),selected,previewActiveNode(preview,chapter()));}
 function renderInspector({collapseCards=false}={}){
  localDrafts.setContext(chapterId,selected);
  const settingsOpen=$('#settings').querySelector('details')?.open;

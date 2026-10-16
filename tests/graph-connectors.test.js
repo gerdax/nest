@@ -178,3 +178,57 @@ test('card nodes omit the count bar while random nodes retain route summaries',(
  assert.equal(summary({type:'random',routes:[{id:'route'}]}),'1 route');
  assert.equal(summary({type:'random',routes:[{id:'one'},{id:'two'}]}),'2 routes');
 });
+
+test('preview highlighting keeps node identity, edge markup, viewport, selection and pending interaction',()=>{
+ const s=setup(),nodes=s.graph.nodeElements,ports=s.graph.portElements,edgeMarkup=s.root.parts['#edges'].innerHTML;
+ s.graph.pending={nodeId:'a',exit:'next'};
+ s.graph.lastPortClick={nodeId:'a',exit:'next',time:1000};
+ const pending=s.graph.pending,lastPortClick=s.graph.lastPortClick,view={...s.graph.view},selected=s.graph.selected;
+ Object.defineProperty(s.root.parts['#edges'],'innerHTML',{get:()=>edgeMarkup,set(){throw Error('Highlight rebuilt edges');}});
+ s.graph.setActive('c');
+ assert.equal(s.graph.nodeElements,nodes);assert.equal(s.graph.portElements,ports);
+ assert.equal(s.root.node('b').classes.has('active'),false);assert.equal(s.root.node('c').classes.has('active'),true);
+ assert.equal(s.root.node('a').classes.has('selected'),true);
+ assert.equal(s.graph.active,'c');assert.equal(s.graph.selected,selected);
+ assert.equal(s.graph.pending,pending);assert.equal(s.graph.lastPortClick,lastPortClick);
+ assert.deepEqual(s.graph.view,view);assert.deepEqual(s.selections,[]);assert.deepEqual(s.calls,[]);
+});
+
+test('repeated same-node preview notifications do no DOM work and transitions touch only old/new nodes',()=>{
+ const s=setup(),writes=[];
+ for(const [id,element] of s.graph.nodeElements){const toggle=element.classList.toggle;element.classList.toggle=(...args)=>{writes.push([id,...args]);toggle(...args);};}
+ for(let i=0;i<1000;i++)s.graph.setActive('b');
+ assert.deepEqual(writes,[]);
+ s.graph.setActive('a');
+ assert.deepEqual(writes,[['b','active',false],['a','active',true]]);
+ s.graph.setActive(null);
+ assert.equal(s.root.node('a').classes.has('active'),false);
+ assert.equal(s.graph.active,null);
+});
+
+for(const kind of ['node','pan','connect'])test(`preview highlighting preserves an active ${kind} gesture and pointer capture`,()=>{
+ const s=setup(),target=kind==='node'?s.root.node('a'):kind==='connect'?s.port():s.root;
+ s.root.event('pointerdown',target,200,100);
+ s.root.hit=s.root.node('c');s.root.event('pointermove',s.root,230,130);
+ const drag=s.graph.drag,nodes=s.graph.nodeElements,view={...s.graph.view},edges=s.root.parts['#edges'].innerHTML;
+ s.graph.setActive('c');
+ assert.equal(s.graph.drag,drag);assert.equal(s.graph.nodeElements,nodes);assert.equal(s.root.capture,1);
+ assert.deepEqual(s.graph.view,view);assert.equal(s.root.parts['#edges'].innerHTML,edges);
+ s.graph.cancel();
+ assert.equal(s.graph.active,'c');assert.equal(s.root.node('c').classes.has('active'),true);
+});
+
+test('full render replaces Library indexes after document replacement and keeps updated preview highlight',()=>{
+ const s=setup(),definition={...createDefinition('action','choice'),name:'First'};
+ const fork={id:'fork',name:'Fork',type:'fork',x:0,y:0,choices:[{id:'pick',definitionId:'choice'}],connections:{pick:'b'}};
+ const chapter={...s.chapter,nodes:[fork,...s.chapter.nodes.slice(1)]};
+ s.graph.render({library:[definition]},chapter,'fork','b');
+ const oldIndex=s.graph.libraryIndex;
+ s.graph.setActive('c');
+ const replacement={...definition,name:'Changed',resolution:'check'};
+ s.graph.render({library:[replacement]},chapter,'fork',s.graph.active);
+ assert.notEqual(s.graph.libraryIndex,oldIndex);
+ assert.match(s.root.parts['#nodes'].rendered,/Changed · Success/);
+ assert.match(s.root.parts['#nodes'].rendered,/Changed · Failure/);
+ assert.equal(s.root.node('c').classes.has('active'),true);
+});

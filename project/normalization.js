@@ -1,4 +1,5 @@
 import { resolvePlacement } from './cards.js';
+import { createLibraryIndex } from './library-index.js';
 import { cloneProject, list, object, placements, legacyArtwork, walk } from './model-data.js';
 import { outputsForNode, connectionForOutput } from './graph.js';
 
@@ -14,7 +15,7 @@ export function normalizeSingleItems(project) {
   });
   return project;
 }
-export function discardPlacementContext(project) {
+export function discardPlacementContext(project, index = createLibraryIndex(list(project?.library))) {
   const localIds = new Set(list(project?.library).filter(d => d?.visibility === 'local').map(d => d.id));
   for (const chapter of list(project?.chapters)) for (const node of list(chapter?.nodes).filter(object)) {
     let resetResolution = false;
@@ -25,11 +26,11 @@ export function discardPlacementContext(project) {
         resetResolution ||= p.overrides?.resolution !== undefined;
         delete p.overrides;
       }
-      const definition = list(project?.library).find(d => d?.id === p.definitionId);
+      const definition = index.byId.get(p.definitionId);
       if (definition?.kind === 'action' && ['linear', 'fork'].includes(node.type) && [p.conditions, p.effects].every(v => v === undefined
         || Array.isArray(v))) {
         if (p.conditions?.length || p.effects?.length) {
-          const resolved = resolvePlacement(project, {...p, contextItemId: undefined});
+          const resolved = resolvePlacement(project, {...p, contextItemId: undefined}, index);
           if (definition.visibility === 'local') {
             definition.conditions = resolved.conditions;
             definition.effects = resolved.effects;
@@ -49,7 +50,7 @@ export function discardPlacementContext(project) {
     }
     if (resetResolution && node.type === 'fork') {
       const old = node.connections || {};
-      node.connections = Object.fromEntries(outputsForNode(project, node).map(exit => [exit, connectionForOutput(old, exit)]));
+      node.connections = Object.fromEntries(outputsForNode(project, node, index).map(exit => [exit, connectionForOutput(old, exit)]));
     }
   }
   return project;

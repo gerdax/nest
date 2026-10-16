@@ -67,7 +67,7 @@ This work is local until publication is explicitly requested. No backend, collab
 
 ## Scale and remaining measurement
 
-Card rendering shares measured dimensions, presentation slots and hint follower indexes within each render, then rebuilds them for the next frame. Standalone pose queries measure current state independently. Graph rendering builds node, element and port indexes per render, avoiding repeated node/DOM scans while drawing edges and dragging. It still redraws the graph, and route/output lookup costs remain. Document history keeps bounded full snapshots and edits still validate and save the project. Measure representative large projects before introducing incremental rendering or compact history; deterministic tests do not establish large-project performance.
+Card rendering shares measured dimensions, presentation slots and hint follower indexes within each render, then rebuilds them for the next frame. Standalone pose queries measure current state independently. Full graph rendering builds node, element, port and Library indexes, avoiding repeated node/DOM/Library scans while drawing edges and dragging. Preview notifications update only the previous/new active-node classes, leaving graph markup, focus, viewport, selection and gestures intact. Document edits and chapter/mode changes still rebuild the graph; route/output lookup costs remain. Document history keeps bounded full snapshots and edits still validate and save the project. Measure representative large projects before introducing incremental rendering or compact history; deterministic tests do not establish large-project performance.
 
 
 ## Model and studio refactor verification — 16 October 2026
@@ -93,3 +93,24 @@ All 972 deterministic tests pass with none skipped. New component regressions co
 A deterministic comparison against the committed deck matched 1,398 event, pose and state snapshots exactly across reveals, follower browsing, canceled lifts, ordinary/open-content handoff, nonfinal/final collection, group discard, contextual insertion, reset, reduced motion and background completion. Astra independently reviewed the ownership and lifecycle boundaries and passed 230 focused tests with no blocking findings. Static staging to `/tmp/nest-deck-final-pages-20261016` included both new engine modules and passed local reference verification.
 
 Real-browser checks used isolated fixtures with no saved project edits: choice reveal/canceled-lift/browse, contextual insertion and completion, ordinary content handoff, simulated downward/upward container reversal, nonfinal item removal, reduced-motion discard handoff, keyboard final deposit during embedded preview resize, and full-inventory replacement cancellation/confirmation. The tested flows reported no console warnings/errors. The simulated gestures do not establish physical pointer/touch behavior, and no physical-device, GPU-performance or browser back/forward-cache validation is claimed.
+
+
+## Library indexing and preview graph performance — 16 October 2026
+
+`project/library-index.js` provides first-match definition and Item-definition lookups scoped to a normalization, validation, compilation or full graph-render operation. The maps retain live definition references, not resolved-card snapshots, and are rebuilt for new operations/renders. Existing two-argument placement resolution remains available. Validation/dependency maps keep their separate last-match duplicate semantics; contextual Item lookups keep their kind-specific first match. Malformed Library entries fall back to the original scans so early-match/error behavior is preserved. Validation constructs the inventory-effect Item-ID set once rather than once per effect.
+
+`GraphView.setActive()` updates its active ID and at most two existing node classes; a repeated same-node notification performs no DOM writes. `studio/preview-highlight.js` scopes IDs by chapter to avoid highlighting a same-ID node in a different chapter. Full graph rendering remains on document edits/navigation and rebuilds its Library index. `ProjectPreview` has a separate optional `onStop` notification after playback clears; it does not add stop events to `onChange`. Generation and destruction guards protect synchronous observers that stop, replace or destroy playback.
+
+Synthetic desktop Node medians in milliseconds (two warm-ups; seven samples with before/after order alternating; same valid Linear fixtures, one placement per beat):
+
+| 5,000-beat workload | Validation before | Validation after | Compilation before | Compilation after |
+| --- | ---: | ---: | ---: | ---: |
+| One shared definition | 3.52 | 3.59 | 8.26 | 8.03 |
+| One distinct definition per beat, plus seed definition | 29.28 | 4.86 | 55.53 | 12.93 |
+| Distinct definition plus Item grant per beat (10,001 definitions) | 1,659.80 | 6.73 | 112.56 | 20.47 |
+
+These isolate CPU work; they exclude browser DOM/layout, localStorage writes, image decode and mobile hardware. They demonstrate removal of repeated Library/effect-set scans, not a supported project-size limit. Benchmark artifacts: `/tmp/nest-library-benchmark.mjs` and `/tmp/nest-library-benchmark-results.json`.
+
+Verification: 993 tests pass, none skipped; 220 baseline/model operation comparisons match including errors and invalid inputs; static staging to `/tmp/nest-performance-pages-20261016` passes local reference checks. Astra independently reviewed indexes, graph updates and stop reentrancy, with no remaining blockers. Regression coverage includes first/last duplicate handling, contextual kinds, live mutations, replacements, shared/local overrides, malformed inputs and bulk lookup counts; highlight tests cover DOM identity, zero same-node writes, active node/pan/connect gestures, pending links, chapter-scoped IDs and lifecycle observers.
+
+Instrumented real-browser verification used an isolated in-memory save store. Preview start, narrative progression, reveal, collection, automatic routing and Stop caused zero graph child-node changes and eight active-class changes, preserving the editor selection. A document edit and undo/redo still rebuilt the graph and refreshed displayed content. The tested browser flow reported no console warnings/errors. Physical touch, mobile/GPU performance and browser back/forward-cache behavior remain unverified.

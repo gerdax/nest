@@ -265,3 +265,57 @@ test('card link tracks deck selection and reveal transitions and removes obsolet
   preview.goToCardButton.onclick(); assert.equal(targets.length, 2);
   preview.destroy();
 });
+
+test('stop notification observes cleared playback without changing onChange or recursing on repeated stop',()=>{
+ environment();let changes=0,stops=0;
+ const preview=new ProjectPreview(new Element(),{onChange:()=>changes++,onStop:()=>{
+  stops++;assert.equal(preview.state,null);assert.equal(preview.deck,null);assert.equal(preview.controller,null);
+  preview.stop();
+ }});
+ preview.play(createProject());assert.equal(changes,1);assert.equal(stops,0);
+ preview.stop();preview.stop();assert.equal(changes,1);assert.equal(stops,1);
+ preview.restart();assert.equal(changes,2);
+ preview.destroy();assert.equal(stops,2);assert.equal(changes,2);
+ preview.stop();assert.equal(stops,2);
+});
+
+test('stop observer can destroy the preview without repeating teardown',()=>{
+ environment();let stops=0;
+ const preview=new ProjectPreview(new Element(),{onStop:()=>{stops++;preview.destroy();}});
+ preview.play(createProject());preview.destroy();
+ assert.equal(stops,1);assert.equal(preview.destroyed,true);
+ assert.equal(preview.root.children.length,0);
+});
+
+test('a stop observer destroying during replacement play cannot revive the preview',()=>{
+ environment();let stops=0;
+ const preview=new ProjectPreview(new Element(),{onStop:()=>{stops++;preview.destroy();}});
+ preview.play(createProject());const deck=preview.deck,controller=preview.controller;
+ preview.play(createProject());
+ assert.equal(stops,1);assert.equal(preview.destroyed,true);assert.equal(deck.destroyed,true);assert.equal(controller.destroyed,true);
+ assert.equal(preview.deck,null);assert.equal(preview.controller,null);assert.equal(preview.project,null);
+});
+
+test('a stop observer replacing play keeps only the replacement controller and callbacks',()=>{
+ environment();let stops=0,changes=0;
+ const replacement=createProject();replacement.name='Observer replacement';
+ const preview=new ProjectPreview(new Element(),{onChange:()=>changes++,onStop:()=>{if(++stops===1)preview.play(replacement);}});
+ preview.play(createProject());const firstDeck=preview.deck,firstController=preview.controller;
+ const superseded=createProject();superseded.name='Superseded outer play';
+ preview.play(superseded);
+ assert.equal(firstDeck.destroyed,true);assert.equal(firstController.destroyed,true);
+ assert.equal(preview.project.name,'Observer replacement');assert.equal(preview.controller.deck,preview.deck);
+ assert.equal(preview.deck.destroyed,false);assert.equal(changes,2);
+ preview.destroy();
+});
+
+test('terminal destroy ignores stop-observer restart and direct play attempts',()=>{
+ environment();let stops=0,changes=0;
+ const preview=new ProjectPreview(new Element(),{onChange:()=>changes++,onStop:()=>{
+  stops++;preview.restart();preview.play(createProject());
+ }});
+ preview.play(createProject());const deck=preview.deck,controller=preview.controller;
+ preview.destroy();
+ assert.equal(stops,1);assert.equal(changes,1);assert.equal(deck.destroyed,true);assert.equal(controller.destroyed,true);
+ assert.equal(preview.deck,null);assert.equal(preview.controller,null);assert.equal(preview.root.children.length,0);
+});

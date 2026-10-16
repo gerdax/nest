@@ -1,10 +1,13 @@
 import { canonicalCardKind, resolvePlacement } from './cards.js';
-import { cloneProject, legacyArtwork } from './model-data.js';
+import { createLibraryIndex } from './library-index.js';
+import { cloneProject, legacyArtwork, list } from './model-data.js';
 import { discardPlacementContext, normalizeSingleItems } from './normalization.js';
 
 export function compileChapter(project, chapterId = project.activeChapterId) {
   // All resolved mechanics and normalization must operate on detached data.
-  project = discardPlacementContext(cloneProject(project));
+  project = cloneProject(project);
+  const index = createLibraryIndex(list(project?.library));
+  discardPlacementContext(project, index);
   const chapter = project.chapters.find(c => c.id === chapterId);
   if (!chapter) throw new TypeError(`Unknown chapter: ${chapterId}`);
   const result = cloneProject(chapter);
@@ -24,10 +27,10 @@ export function compileChapter(project, chapterId = project.activeChapterId) {
       : variable.initial,
   }));
   for (const node of result.nodes) {
-    for (const key of ['cards', 'choices', 'items']) if (node[key]) node[key] = node[key].map(p => resolvePlacement(project, p));
-    if (node.intro) node.intro = resolvePlacement(project, node.intro);
+    for (const key of ['cards', 'choices', 'items']) if (node[key]) node[key] = node[key].map(p => resolvePlacement(project, p, index));
+    if (node.intro) node.intro = resolvePlacement(project, node.intro, index);
     for (const raw of legacyArtwork(node)) if (raw.definitionId) {
-      const resolved = resolvePlacement(project, raw);
+      const resolved = resolvePlacement(project, raw, index);
       const originalId = raw.id;
       Object.assign(raw, resolved, {cardKind: resolved.kind, name: resolved.name, heading: resolved.heading,
         inventoryKey: resolved.inventoryKey, title: resolved.heading || resolved.name, label: resolved.name,
