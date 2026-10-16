@@ -49,11 +49,13 @@ export function placementInspector(project,p,kind,index,slot,count=Infinity) {
  const nodeType=slot==='choices'?'fork':slot==='items'?'container':'linear';
  const kinds=allowedCardKinds(nodeType,slot);
  kind=definition?.kind || kind;
- const defs=project.library.filter(d=>kinds.includes(d.kind)&&d.visibility!=='local').sort((a,b)=>(a.name||'').localeCompare(b.name||'',undefined,{sensitivity:'base',numeric:true})).map(d=>[d.id,`${cardKinds[d.kind]?.label||d.kind}: ${d.name}`]);
+ const compareLabels=(a,b)=>a.localeCompare(b,undefined,{sensitivity:'base',numeric:true});
+ const localSources=kinds.map(k=>[`local:${k}`,`local [${cardKinds[k]?.label||k}]`]).sort((a,b)=>compareLabels(a[1],b[1]));
+ const defs=project.library.filter(d=>kinds.includes(d.kind)&&d.visibility!=='local').map(d=>[d.id,`${cardKinds[d.kind]?.label||d.kind}: ${d.name}`]).sort((a,b)=>compareLabels(a[1],b[1]));
  let html=`<details class="entry card-panel" data-card-type="${esc(kind)}" style="--card-editor-tint:${esc(cardEditorTint(kind))}" data-placement="${esc(p.id)}"><summary><span class="card-type-label" data-card-type="${esc(kind)}">${esc(cardKinds[kind]?.label||kind)}</span>${esc(card?.name||'Missing definition')}</summary>`;
  const attr=`data-placement="${esc(p.id)}"`;
  html+=`<p class="small">${cardSummaryParts(card||{},project.variables,project.library).map(esc).join('<br>')}</p>`;
- html+=select('Card source',local?`local:${kind}`:p.definitionId,[...kinds.map(k=>[`local:${k}`,`local [${cardKinds[k]?.label||k}]`]),...defs],'definitionId','placement');
+ html+=select('Card source',local?`local:${kind}`:p.definitionId,[...localSources,...defs],'definitionId','placement');
  if(local)html+=`<div class="row">${button('Add to library','promote-card',attr)}${button('Clear','clear-card',attr)}</div>`+cardFields(project,definition,'local-definition',false,false);
  else html+=`<div class="row">${button('Edit shared','edit-shared',`data-definition="${esc(p.definitionId)}" data-card-placement="${esc(p.id)}"`)}${button('Convert to local','local-copy',`${attr} data-kind="${kind}"`)}</div>`;
  // Placement fields use a dedicated scope and are selected by their stable ID.
