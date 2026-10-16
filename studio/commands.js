@@ -30,20 +30,21 @@ export function replaceCard(project,placement,kind,{copy=false}={}) {
 }
 export function setCardSource(project,placement,definitionId,{allowedKinds}={}) {
  const source=project.library.find(d=>d.id===placement.definitionId);
- if(!source)throw new Error('Card definition is missing.');
+ const kinds=allowedKinds || (source?[source.kind]:[]);
  if(definitionId?.startsWith('local:')){
   const kind=definitionId.slice(6);
-  if(!(allowedKinds||[source.kind]).includes(kind))throw new Error('Choose a local card type allowed in this beat.');
-  if(source.visibility==='local'&&source.kind===kind)return;
-  replaceCard(project,placement,kind,{copy:source.kind===kind});
+  if(!kinds.includes(kind))throw new Error('Choose a local card type allowed in this beat.');
+  if(source?.visibility==='local'&&source.kind===kind)return;
+  replaceCard(project,placement,kind,{copy:source?.kind===kind});
   return;
  }
  if(!definitionId){
+  if(!source)throw new Error('Choose a card source to repair the missing definition.');
   if(source.visibility!=='local')replaceCard(project,placement,source.kind,{copy:true});
   return;
  }
  const target=project.library.find(d=>d.id===definitionId);
- if(!target||!(allowedKinds || [source.kind]).includes(target.kind)||target.visibility==='local')throw new Error('Choose a shared library card of the same type.');
+ if(!target||!kinds.includes(target.kind)||target.visibility==='local')throw new Error('Choose a shared library card of the same type.');
  placement.definitionId=definitionId;delete placement.overrides;if(target.kind!=='action'){delete placement.contextItemId;delete placement.contextOverrideImage;}
 }
 export function promoteCard(project,placement) {

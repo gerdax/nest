@@ -9,7 +9,9 @@ export function renderCardPreviews(root,project,node) {
  for(const mount of root.querySelectorAll('[data-card-preview]')) {
   applyCardStyles(mount,project.cardStyles);
   const placement=mount.dataset.previewPlacement && findPlacement(node ?? {},mount.dataset.previewPlacement);
-  const card=placement?resolvePlacement(project,placement):project.library.find(d=>d.id===mount.dataset.previewDefinition);
+  let card;
+  try { card=placement?resolvePlacement(project,placement):project.library.find(d=>d.id===mount.dataset.previewDefinition); }
+  catch { mount.replaceChildren(); continue; } // Incomplete drafts can reference missing definitions.
   if(!card)continue;
   const face=cardFace(card,project.variables,project.library);
   const front=document.createElement('article');

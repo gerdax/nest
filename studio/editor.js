@@ -6,9 +6,10 @@ import { artworkSettings, parseArtworkSettings } from './artwork-settings.js';
 import { DocumentHistory } from '../editor/DocumentHistory.js';
 import { LocalCardDrafts } from './local-card-drafts.js';
 import { createDefinition, allowedCardKinds, cardKinds, cardEditorTint } from '../project/cards.js';
-import { createProject,createChapter,validateProject,parseProject,exportChapter,importChapter,discardPlacementContext } from '../project/model.js';
+import { createProject,createChapter,validateProject,exportChapter,importChapter,discardPlacementContext } from '../project/model.js';
 import { definitionGraph, deleteDefinition, cleanupLocalDefinitions } from '../project/dependencies.js';
-import { loadProject,saveProject } from '../project/storage.js';
+import { loadProject, readRecoveredSave } from '../project/storage.js';
+import { createPersistence, travelHistory, exportProjectDraft, parseStudioImport } from './persistence.js';
 import { GraphView } from './GraphView.js';
 import { ProjectPreview } from './ProjectPreview.js';
 import { mountDrawerDebug } from './drawer-debug.js';
@@ -45,7 +46,9 @@ const graph=new GraphView($('#canvas'),{
  onConnect:(id,exit,target)=>edit(()=>setConnection(chapter().nodes.find(n=>n.id===id),exit,target)),
  onMove:(id,x,y)=>edit(()=>Object.assign(chapter().nodes.find(n=>n.id===id),{x,y})),
 });
-function report(text){$('#save-status').textContent=text;}
+const persistence=createPersistence({loaded,onStatus:text=>{$('#save-status').textContent=text;}});
+const saveProject=project=>persistence.save(project);
+function report(text){persistence.report(text);}
 function goToPreviewCard(target){
  const source=sourceCard(project,target);
  if(!source){report('This card was removed from the current project. Restart preview to use the latest version.');return;}
@@ -219,13 +222,21 @@ for(const b of document.querySelectorAll('[data-add]'))b.onclick=()=>edit(()=>{c
 $('#duplicate').onclick=()=>{if(node())edit(()=>{const n=duplicateNode(project,node());chapter().nodes.push(n);selected=n.id;});};
 $('#delete').onclick=()=>{if(node())edit(()=>{const id=node().id;chapter().nodes=chapter().nodes.filter(n=>n.id!==id);for(const n of chapter().nodes){for(const key of Object.keys(n.connections||{}))if(n.connections[key]===id)n.connections[key]=false;for(const r of n.routes||[])if(r.target===id)r.target=false;if(n.fallback===id)n.fallback=false;}if(chapter().startNode===id)chapter().startNode=chapter().nodes[0]?.id||'';selected=chapter().startNode;});};
 $('#start').onclick=()=>{if(node())edit(()=>{chapter().startNode=node().id;});};$('#fit').onclick=()=>graph.fit();
-function travel(method){graph.cancel();localDrafts.reset();if(history[method]()){project=history.document;saveProject(project);}render();}
+function travel(method){graph.cancel();localDrafts.reset();const result=travelHistory(history,method,persistence);if(result.changed)project=result.project;render();}
 $('#undo').onclick=()=>travel('undo');$('#redo').onclick=()=>travel('redo');
-function download(value,name){const url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-$('#export-project').onclick=()=>{const errors=validateProject(project);if(errors.length){report('Fix validation errors before exporting.');return;}download(project,`${project.name.replace(/[^a-z0-9]+/gi,'-')}.nest.json`);};
+function download(value,name){downloadText(JSON.stringify(value,null,2),name,'application/json');}
+function downloadText(text,name,type='text/plain'){const url=URL.createObjectURL(new Blob([text],{type}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+let recoveryDownload;
+if(loaded.recovery){
+ recoveryDownload=document.createElement('button');recoveryDownload.type='button';recoveryDownload.textContent='Download recovered save';
+ recoveryDownload.onclick=()=>{const recovered=readRecoveredSave();if(!recovered.ok){report(`Recovery download failed: ${recovered.error}`);return;}downloadText(recovered.text,'nest-recovered-save.txt');report('Recovered save downloaded as exact original text. Recovery backup retained.');};
+ $('#save-status').after(recoveryDownload);
+}
+$('#export-project').textContent='Export project draft';
+$('#export-project').onclick=()=>{try{download(exportProjectDraft(project),`${project.name.replace(/[^a-z0-9]+/gi,'-')}.nest.json`);report('Project draft exported. Import it in the studio to continue editing; playback requires validation errors to be fixed.');}catch(error){report(`Project export failed: ${error.message}`);}};
 $('#export-chapter').onclick=()=>{const errors=validateProject(project);if(errors.length){report('Fix validation errors before exporting.');return;}download(exportChapter(project,chapterId),`${chapter().name.replace(/[^a-z0-9]+/gi,'-')}.chapter.json`);};
-$('#import').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{const text=await file.text(),raw=JSON.parse(text),incoming=parseProject(text);preview.stop();localDrafts.reset();edit(()=>{project=raw.kind==='nest-project'?incoming:importChapter(project,raw);chapterId=project.activeChapterId;selected=chapter().startNode;});graph.fit();}catch(error){report(`Import rejected: ${error.message}`);}e.target.value='';};
+$('#import').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{const text=await file.text(),{raw,project:incoming}=parseStudioImport(text);preview.stop();localDrafts.reset();const saved=edit(()=>{project=raw.kind==='nest-project'?incoming:importChapter(project,raw);chapterId=project.activeChapterId;selected=chapter().startNode;});if(saved&&raw.kind==='nest-project'&&persistence.adopt().ok){recoveryDownload?.remove();report('Project draft imported and saved in this browser. Recovery backups retained.');}graph.fit();}catch(error){report(`Import rejected: ${error.message}`);}e.target.value='';};
 function play(startNode,{restore=true}={}){try{previewWindow.show({restore});preview.play(project,chapterId,startNode,{focus:!previewWindow.minimized});report('Chapter ready.');return true;}catch(error){report(error.message);return false;}}
 $('#play').onclick=()=>play();$('#play-node').onclick=()=>play(selected);$('#restart').onclick=()=>play();$('#stop').onclick=()=>preview.stop();
 window.addEventListener('pagehide',()=>{stopDrawerDebug();autoplay.destroy();previewWindow.destroy();preview.destroy();});
-render();graph.fit();if(loaded.error)report(loaded.error);else if(loaded.migrated)report('Legacy save loaded; original browser save preserved.');
+render();graph.fit();if(loaded.error||loaded.recovery)report('');else if(loaded.migrated)report('Legacy save loaded; original browser save preserved.');

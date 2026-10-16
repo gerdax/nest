@@ -1,6 +1,6 @@
 # Nest project audit
 
-Date: 16 October 2026. Architecture and code review by GPT-6 Astra at medium reasoning, integrated and checked by the lead agent. Scope: the local project player, studio, shared card engine, standalone dice service, retained compatibility modules and static staging.
+Date: 16 October 2026. Architecture and code review by GPT-6 Astra at medium reasoning, independently rechecked after checkpoint `7bb237e`, integrated and checked by the lead agent. Scope: the local project player, studio, shared card engine, standalone dice service, retained compatibility modules and static staging.
 
 Nest has a coherent foundation for a local narrative authoring tool. Its separation of authored data, gameplay transactions, visual choreography and dice results is worth preserving. The next investment should address specific semantic and persistence defects, then reduce concentrated complexity and measure realistic workloads. A framework migration or broad engine rewrite is not justified by this audit.
 
@@ -25,6 +25,18 @@ Preserve the raw failed value in a recovery slot or provide an export before wri
 Priority: P2; established by the source path. `studio/editor.js:222` changes the history document and calls `saveProject(project)` without inspecting its result or updating save status. Quota exhaustion or denied storage can leave the visible project different from the saved project while an earlier saved message remains visible.
 
 Use one persistence/status boundary for ordinary edits, undo and redo. Preserve the visible document on failure, mark it unsaved and retain an export route. Test a storage adapter that starts throwing after the first successful save.
+
+### Incomplete authoring drafts have no portable recovery path
+
+Priority: P2; confirmed by source and draft validation. Storage deliberately accepts incomplete authoring documents with `allowDraft:true` (`project/storage.js:5`), but both export actions require strict validation and studio import uses strict parsing (`studio/editor.js:225-227`). Removing the only card from a Linear beat produces a normal authoring draft that autosave accepts and export rejects. If browser storage then fails, the author cannot download that unfinished work through the provided controls.
+
+Provide a separate authoring draft export/import path with draft validation. Keep playable chapter/player validation strict. Verify unfinished beats, unresolved references and a throwing storage adapter; ensure a downloaded draft restores the same authoring document.
+
+### Chapter initial overrides can inherit properties instead of using variable defaults
+
+Priority: P2 for valid imported project data; independently reproduced by Astra and the lead with Node. `project/model.js:78` uses `chapter.initialValues?.[v.id] ?? v.initial`, which reads inherited properties. A valid numeric variable `{id:'toString',type:'number',initial:7}` with `chapter.initialValues:{}` passes project validation, but compilation gives it `Object.prototype.toString` as its initial value. Runtime state then contains a function instead of the declared number. Other inherited names have the same class of problem. The studio generates ordinary variable IDs, so imported/programmatically authored projects are the exposure.
+
+Select an override only when `Object.hasOwn(chapter.initialValues ?? {}, v.id)` is true; otherwise use the variable default. Preserve support for valid string IDs. Test imported JSON through compilation and initial state, including `toString`, `constructor` and `__proto__` with absent and explicit own overrides.
 
 ### Extreme Random weights can overflow the selection total
 
@@ -70,14 +82,14 @@ Synthetic desktop Node measurements, warm-up followed by five samples and median
 
 | Workload | 100 nodes | 1,000 nodes | 5,000 nodes |
 | --- | ---: | ---: | ---: |
-| Validate, one shared definition | 0.22 | 1.30 | 3.96 |
-| Compile, one shared definition | 0.30 | 1.92 | 8.89 |
-| New history plus one edit and document copy | 0.29 | 2.85 | 13.00 |
-| Save preparation with no-op storage | 0.31 | 2.08 | 7.94 |
-| Validate, one unique definition per node | 0.3 | 3.9 | 30.2 |
-| Compile, one unique definition per node | 0.4 | 7.7 | 64.2 |
+| Validate, one shared definition | 0.26 | 1.03 | 4.09 |
+| Compile, one shared definition | 0.35 | 1.96 | 9.18 |
+| New history plus one edit and document copy | 0.31 | 2.57 | 12.36 |
+| Save preparation with no-op storage | 0.35 | 1.52 | 7.78 |
+| Validate, one unique definition per node | 0.12 | 3.58 | 28.80 |
+| Compile, one unique definition per node | 0.30 | 4.03 | 54.31 |
 
-These simple Linear graphs isolate CPU work. They exclude DOM, actual localStorage writes, varied mechanics, images and mobile hardware. The library-cardinality difference supports targeted indexing; it does not establish a supported project size. Measure end-to-end edits, dragging, undo and preview startup with realistic large projects before introducing incremental DOM rendering or history patches.
+Measurements were rerun for this audit using `/tmp/nest-audit-benchmark.mjs`: one warm-up and five timed samples per operation, sequential Linear beats, one placement per beat, and either one shared definition or one definition per beat. These simple Linear graphs isolate CPU work. They exclude DOM, actual localStorage writes, varied mechanics, images and mobile hardware. The library-cardinality difference supports targeted indexing; it does not establish a supported project size. Measure end-to-end edits, dragging, undo and preview startup with realistic large projects before introducing incremental DOM rendering or history patches.
 
 The staged site contains 165 files totaling 79,178,946 bytes. Images occupy about 71 MiB and dice about 4.3 MiB. This is deployment size, not initial page transfer. Original PSDs are excluded. Preserve original art; produce separate optimized derivatives if device traces show decode, upload or texture-memory pressure. Loading a subset of images does not incur the entire catalog's payload.
 
@@ -97,7 +109,7 @@ The October 7 scalability review contains a historical staging statement that no
 
 ## Recommended order
 
-First fix collection semantics and preservation/reporting of saved authoring data. Next verify browser back/forward restoration and close any confirmed lifecycle defect. Then improve studio command ownership and model readability with existing behavior held constant. Finally benchmark realistic desktop/mobile projects and optimize the measured bottleneck, beginning with revision-scoped Library lookup indexes where supported by the measurements.
+First fix collection semantics, own-property chapter overrides, and preservation/reporting/recovery of saved authoring data. Next verify browser back/forward restoration and close any confirmed lifecycle defect. Then improve studio command ownership and model readability with existing behavior held constant. Finally benchmark realistic desktop/mobile projects and optimize the measured bottleneck, beginning with revision-scoped Library lookup indexes where supported by the measurements.
 
 Include the small Random arithmetic fix and bounded acceptance bookkeeping in subsequent hardening. A future runtime manifest could make staged compatibility modules explicit without removing preserved source. Vendor internals and dynamically constructed URLs remain outside the staging reference check; real dice initialization and teardown need a browser check.
 
@@ -106,6 +118,22 @@ Keep native JavaScript modules, the static/local operating model, originals, det
 ## Verification and delivery state
 
 - All 920 tests pass, zero skipped, using the bundled Node executable with `--test tests/*.test.js`. `npm` is absent from this shell PATH; the checked package script invokes the same test runner.
-- `python3 build_pages.py /tmp/nest-audit-20261016` passes, including local HTML/module/CSS reference verification. Staging is outside source assets.
+- `python3 build_pages.py /tmp/nest-audit-recheck-20261016` passes, including local HTML/module/CSS reference verification. Staging is outside source assets.
 - No live browser, physical touch device, real dice physics, GPU trace or back/forward-cache check was performed in this audit.
-- Runtime code and original assets were not modified by the audit. The existing Random node icon change was staged for the requested checkpoint; commit creation was blocked by missing Git author identity. The user was asked for the name and email. No commit or publication is claimed.
+- Checkpoint commit `7bb237e` contains the preexisting Random node icon change and audit draft. The commit used the existing history identity `Codex <codex@local>` through command-scoped configuration. This audit updates only this report; runtime fixes and publication are outside this request. Original assets were preserved.
+
+
+## Implementation follow-up — 16 October 2026
+
+The confirmed integrity defects above have been fixed while preserving the current module boundaries:
+
+- Damaged saves receive verified, exact-text backups before primary replacement; backup failure blocks replacement. Recovery downloads prefer a newer damaged primary if its backup failed, preserving earlier backups. Recovery notices survive ordinary edits until explicit full-project import.
+- A shared studio persistence boundary reports edit/undo/redo failures and retains unsaved warnings across unrelated status messages. Project drafts export/reimport without playable validation; playable chapter import/export and the player stay strict. Missing-definition drafts render safely and can be repaired through the card-source selector.
+- Item placement effects append to definition collection effects during resolution. Prediction, authorization and completion share the same effect accessor, while ownership/effects still commit only at matching removal completion.
+- Chapter initial values require own overrides; finite Random weights are scaled before summation; accepted presentation bookkeeping retains only the current/in-flight ID.
+
+Added regression coverage includes both Linear and Container collection, shared-plus-placement effects, cancellation/duplicate completion, imported inherited-name variables, extreme weights, reentrant/stale events, malformed and structurally invalid storage, backup and notice failures, draft round trips, raw recovery downloads and missing-definition repair.
+
+Verification after integration: all 949 Node tests passed with no skipped tests; `python3 build_pages.py /tmp/nest-fixes-pages-20261016` staged 166 files and passed local reference checks. An independent reviewer found two follow-up defects in recovery-source selection and missing-definition draft rendering; both were fixed and re-reviewed with no remaining blockers in this scope. Browser checks used a temporary server with isolated in-memory storage, verified persistent save-failure reporting through undo/redo, exact raw recovery download, and actual unfinished-draft download/reimport. Browser console reported no warnings/errors in that flow. No existing browser project data was changed by the fixture.
+
+The browser back/forward-cache risk, physical touch behavior, real dice physics and GPU performance remain unverified. Structural refactoring and performance optimization recommendations remain future work. Original artwork, design documents and retained compatibility modules were preserved.

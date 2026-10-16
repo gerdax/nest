@@ -63,7 +63,7 @@ export function placementInspector(project,p,kind,index,slot,count=Infinity) {
  if(kind!=='action')html+=rules(project,p.conditions,'conditions','placement','conditions',{label:'Appearance conditions',help:kind==='item'?'All conditions must pass for this item to appear here. They do not restrict using it after collection.':'All conditions must pass for this card to appear here.'});
  if(local&&kind!=='action')html+=cardRuleFields(project,definition,'local-definition');
  if(kind!=='item'&&kind!=='action')html+=rules(project,p.effects,'effects','placement','effects',{label:'Additional effects',help:'Apply only to this placement when it completes, in addition to its source effects.'});
- if(kind==='action'&&!local) {
+ if(kind==='action'&&!local&&definition) {
   if(!p.overrides)html+=`<p class="small">Using source rules · ${esc(cardSummary(definition,project.variables,project.library)||'No requirements, costs or effects')} · Resolution: ${definition.resolution==='check'?'Dice check':'Direct'}</p>`;
   html+=checkbox('Use custom rules',!!p.overrides,'useCustomRules','placement');
   if(p.overrides)html+=actionFields(project,{...card,...p.overrides},'overrides.','placement');

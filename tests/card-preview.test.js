@@ -109,3 +109,25 @@ test('all action descriptions precede requirements and inventory source',()=>{
  assert.equal(front.attrs['data-inventory-action'],'false','reused ordinary actions clear contextual styling');
  assert.deepEqual(front.children[0].children.map(el=>el.textContent),['','Choose a route','Requires: Energy']);
 });
+
+test('unfinished missing-definition draft renders its inspector and skips unavailable artwork previews',async()=>{
+ const {parseStudioImport}=await import('../studio/persistence.js');
+ const {LocalCardDrafts}=await import('../studio/local-card-drafts.js');
+ for(const type of ['linear','fork','container'])for(const replacement of ['shared','local']){
+  const project=createProject(),chapter=project.chapters[0],node=chapter.nodes.find(n=>n.type===type);
+  chapter.startNode=node.id;
+  const slot=type==='fork'?'choices':type==='container'?'items':'cards';
+  const placement=node[slot][0],originalId=placement.definitionId;
+  placement.definitionId='unfinished-definition';
+  const imported=parseStudioImport(JSON.stringify(project)).project;
+  const importedChapter=imported.chapters[0],importedNode=importedChapter.nodes.find(n=>n.id===node.id),importedPlacement=importedNode[slot][0];
+  assert.match(nodeInspector(imported,importedChapter,importedNode),/Missing definition/);
+  const mount=new Element();mount.dataset.previewPlacement=placement.id;mount.children=[new Element()];
+  assert.doesNotThrow(()=>renderCardPreviews({querySelectorAll:()=>[mount]},imported,importedNode));
+  assert.equal(mount.children.length,0);
+  const kind=type==='fork'?'action':type==='container'?'item':'event';
+  new LocalCardDrafts().switchSource(imported,importedPlacement,replacement==='local'?`local:${kind}`:originalId,{allowedKinds:[kind]});
+  assert.equal(resolvePlacement(imported,importedPlacement).kind,kind);
+  assert.doesNotThrow(()=>nodeInspector(imported,importedChapter,importedNode));
+ }
+});

@@ -9,6 +9,9 @@ export const cardKinds = Object.freeze({
 export const canonicalCardKind = kind => kind === 'narrative' ? 'event' : kind;
 export const cardEditorTint = kind => cardKinds[canonicalCardKind(kind)]?.editorTint || '#aab8bb';
 export const isStoryKind = kind => ['event','caption'].includes(canonicalCardKind(kind));
+// Compiled placements include their added effects in onCollect. Legacy callers
+// may still supply collection mechanics under effects instead.
+export const collectionEffects = card => card.onCollect ?? card.effects ?? [];
 export function createDefinition(kind, id) {
   kind = canonicalCardKind(kind);
   if (!Object.hasOwn(cardKinds, kind)) throw new TypeError(`Unknown card kind: ${kind}`);
@@ -22,6 +25,7 @@ export function resolvePlacement(project, placement) {
   if (!definition) throw new TypeError(`Unknown definition: ${placement.definitionId}`);
   const base = {...definition, ...(definition.visibility==='local'?{}:placement.overrides), kind:canonicalCardKind(definition.kind)};
   const resolved = {...base, conditions:[...(base.conditions || []),...(placement.conditions || [])], effects:[...(base.effects || []),...(placement.effects || [])], id:placement.id, definitionId:definition.id, unavailable:placement.unavailable ?? 'disabled', inventoryKey:definition.inventoryKey ?? definition.id};
+  if (base.kind === 'item') resolved.onCollect = [...collectionEffects(base), ...(placement.effects || [])];
   if (placement.contextItemId) {
     const item = project.library.find(d => d.id === placement.contextItemId && d.kind === 'item');
     if (base.kind !== 'action' || !item) throw new TypeError('Contextual choice needs an Action and an Item definition.');

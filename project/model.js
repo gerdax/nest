@@ -75,7 +75,15 @@ export function compileChapter(project,chapterId=project.activeChapterId) {
   project=discardPlacementContext(cloneProject(project));
   const chapter=project.chapters.find(c=>c.id===chapterId);if(!chapter)throw new TypeError(`Unknown chapter: ${chapterId}`);
   const result=cloneProject(chapter);delete result.backImage;
-  result.cardBack={...result.cardBack,switchIcons:project.switchCardBackIcons!==false};result.cardStyles=cloneProject(project.cardStyles||{}); result.library=project.library.map(d=>({...cloneProject(d),kind:canonicalCardKind(d.kind),definitionId:d.id,...(d.kind==='item'?{inventoryKey:d.inventoryKey ?? d.id}:{})})); result.variables=project.variables.map(v=>({...v,initial:chapter.initialValues?.[v.id] ?? v.initial}));
+  result.cardBack={...result.cardBack,switchIcons:project.switchCardBackIcons!==false};
+  result.cardStyles=cloneProject(project.cardStyles||{});
+  result.library=project.library.map(d=>({...cloneProject(d),kind:canonicalCardKind(d.kind),definitionId:d.id,...(d.kind==='item'?{inventoryKey:d.inventoryKey ?? d.id}:{})}));
+  result.variables=project.variables.map(variable=>({
+    ...variable,
+    initial:Object.hasOwn(chapter.initialValues ?? {},variable.id)
+      ? chapter.initialValues[variable.id]
+      : variable.initial,
+  }));
   for(const node of result.nodes) {
     for(const key of ['cards','choices','items'])if(node[key])node[key]=node[key].map(p=>resolvePlacement(project,p));
     if(node.intro)node.intro=resolvePlacement(project,node.intro);

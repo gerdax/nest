@@ -1,6 +1,6 @@
 import { initialValues, conditionsMet, affordCosts, transact, addInventory } from './state.js';
 import { cardBody, cardFace } from './presentation.js';
-import { cardSummary, isStoryKind } from './cards.js';
+import { cardSummary, isStoryKind, collectionEffects } from './cards.js';
 import { selectPool } from '../chapter/random.js';
 import { isInventoryContext } from '../engine/inventoryContext.js';
 
@@ -57,10 +57,12 @@ export class ProjectController {
     return raw.filter(i=>i.id!==excluded && conditionsMet(i.conditions,values,inventory));
   }
   weighted(routes) {
-    const total=routes.reduce((sum,r)=>sum+r.weight,0); if(!total)return null;
+    if(!routes.length)return null;
+    const maximum=routes.reduce((max,r)=>Math.max(max,r.weight),0);
+    const total=routes.reduce((sum,r)=>sum+r.weight/maximum,0);
     const draw=this.rng();if(!Number.isFinite(draw)||draw<0||draw>=1)throw new TypeError('Random source must return 0 ≤ n < 1');
     let ticket=draw*total;
-    return routes.find(r=>(ticket-=r.weight)<0) ?? routes.at(-1);
+    return routes.find(r=>(ticket-=r.weight/maximum)<0) ?? routes.at(-1);
   }
   locate(id,values=this.variables,inventory=this.inventory,visited=new Set(),excluded=null,preview=false,preflight=null) {
     return this.traverse({id},values,inventory,visited,excluded,preview,preflight);
@@ -173,7 +175,7 @@ export class ProjectController {
       const outcomes=source.resolution==='check'?[true,false]:[undefined];
       for(const outcome of outcomes) {
         const collected=transition==='collect'?addInventory(inventory,{...source,text:this.body(source)}):inventory;
-        const result=transact(values,collected,{costs:transition?[]:source.costs,effects:transition?(transition==='collect'?(source.onCollect??source.effects??[]):[]):[...(source.effects??[]),...(outcome===undefined?[]:outcome?source.successEffects??[]:source.failureEffects??[])]},this.compiled.variables,this.compiled.library);
+        const result=transact(values,collected,{costs:transition?[]:source.costs,effects:transition?(transition==='collect'?collectionEffects(source):[]):[...(source.effects??[]),...(outcome===undefined?[]:outcome?source.successEffects??[]:source.failureEffects??[])]},this.compiled.variables,this.compiled.library);
         if(this.type(location)==='container') {
           if(transition==='collect'&&this.items(location,result.variables,result.inventory,excludedItem).some(i=>i.id!==source.id))continue;
           this.next(location,'next',result.variables,result.inventory,new Set(),transition==='discard'?null:source.id,true);
@@ -267,7 +269,9 @@ export class ProjectController {
     const action=this.deck.content.actions.find(a=>a.id===detail.action?.id&&!a.disabled);if(!action)return;
     const source=['fork','forked'].includes(this.type())?this.choices().find(c=>c.id===action.id):this.card();
     if(!source||!this.available(source)||this.departureBlocked(source)){this.show({restore:true});return;}
-    this.accepted.add(detail.contentId);
+    // Only the current/in-flight presentation can be accepted. Older events
+    // already fail the content-ID guard, so retaining their IDs grows forever.
+    this.accepted.clear();this.accepted.add(detail.contentId);
     if(source.resolution==='check'){this.runCheck(source);return;}
     try {
       const result=this.transaction(source);const destination=this.destination(source,undefined,result.variables,result.inventory);
@@ -318,7 +322,7 @@ export class ProjectController {
       const inventory = this.collectionInventory(item, decision.replacementId);
       if (this.departureBlocked(item, this.location, this.variables, inventory, 'collect')) return false;
       const collected = addInventory(inventory, {...item, text:this.body(item)});
-      transact(this.variables, collected, {effects:item.onCollect ?? item.effects ?? []}, this.compiled.variables, this.compiled.library);
+      transact(this.variables, collected, {effects:collectionEffects(item)}, this.compiled.variables, this.compiled.library);
       return true;
     } catch (error) { this.error(error); return false; }
   }
@@ -335,7 +339,7 @@ export class ProjectController {
     try {
       const {context,...itemContent}=item;
       const inventory=transition==='collect'?addInventory(baseInventory,{...itemContent,text:this.body(item)}):this.inventory;
-      const result=transact(this.variables,inventory,{effects:transition==='collect'?(item.onCollect??item.effects??[]):[]},this.compiled.variables,this.compiled.library);
+      const result=transact(this.variables,inventory,{effects:transition==='collect'?collectionEffects(item):[]},this.compiled.variables,this.compiled.library);
       this.pendingItem={item,key:this.key(),linearItem,all,transition,contentId:detail.contentId,result};
       if(detail.final||linearItem||all) {
         const retainContainer=!linearItem&&!all&&this.items(this.location,result.variables,result.inventory,item.id).length>0;

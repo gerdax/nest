@@ -84,7 +84,7 @@ export class LocalCardDrafts {
  }
  switchSource(project,p,value,{allowedKinds}={}){
   const source=sourceOf(project,p);
-  if(!source)throw new Error('Card definition is missing.');
+  if(!source){setCardSource(project,p,value,{allowedKinds});return;}
   const kind=value.startsWith('local:')?value.slice(6):null;
   if(kind&&!(allowedKinds||[source.kind]).includes(kind))throw new Error('Choose a local card type allowed in this beat.');
   if(kind&&source.visibility==='local'&&source.kind===kind)return;
