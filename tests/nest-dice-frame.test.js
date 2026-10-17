@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 
-test('compact tray sizing and resize update settled dice without rolling again', async () => {
+for (const floating of [false,true]) test(`compact sizing and resize preserve physical scale without reroll, floating=${floating}`, async () => {
   const url = new URL('../dice/frame.js', import.meta.url);
   const source = await readFile(url, 'utf8');
   const tray = { clientWidth: 200, clientHeight: 120 };
@@ -17,12 +17,13 @@ test('compact tray sizing and resize update settled dice without rolling again',
     async roll(pool) { calls.rolls.push(pool); return []; }
   }
   const window = {
+    location: { search: floating ? '?sizeMultiplier=1.2&referenceWidth=125&referenceHeight=80' : '' },
     Worker: class {},
     addEventListener() {},
     dispatchEvent(event) { if (event.type === 'resize') calls.resize++; }
   };
   const context = vm.createContext({
-    window, URL, Event, FakeDiceBox,
+    window, URL, URLSearchParams, Event, FakeDiceBox,
     document: {
       getElementById: () => tray,
       createElement: () => ({ getContext: () => ({ getExtension: () => null }) }),
@@ -43,7 +44,7 @@ test('compact tray sizing and resize update settled dice without rolling again',
   await window.NestDiceFrame.init();
   assert.equal(box.config.theme, 'nest');
   assert.match(box.config.externalThemes.nest, /\/dice\/themes\/nest$/);
-  assert.equal(box.config.scale, 12);
+  assert.equal(box.config.scale, floating ? 9.6 : 12);
   tray.clientWidth = 900;
   tray.clientHeight = 600;
   observer.callback();
@@ -51,7 +52,8 @@ test('compact tray sizing and resize update settled dice without rolling again',
   assert.equal(frames.size, 1, 'resize callbacks are coalesced');
   [...frames.values()][0]();
   await new Promise(resolve => setImmediate(resolve));
-  assert.equal(calls.updates.at(-1).scale, (4400 / 1.5) / 600);
+  assert.equal(calls.updates.at(-1).scale, floating ? 12 * 80 / 600 * 1.2 : (4400 / 1.5) / 600);
+  if(floating)assert.equal(calls.updates.at(-1).scale*600,box.config.scale*120);
   assert.equal(calls.rolls.length, 0);
   assert.equal(calls.resize, 1);
   await window.NestDiceFrame.roll([{ sides: 6, count: 3 }]);

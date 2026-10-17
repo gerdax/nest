@@ -238,16 +238,17 @@ test('result holds one second, fades dice for 200ms and leaves the result for ha
   const originalSet=globalThis.setTimeout,originalClear=globalThis.clearTimeout,jobs=[];
   globalThis.setTimeout=(callback,delay)=>{jobs.push({callback,delay});return jobs.length;};
   globalThis.clearTimeout=()=>{};
-  const preview=new ProjectPreview(new Element());let destroyed=0;
+  const preview=new ProjectPreview(new Element());let destroyed=0,faded=0,layerDestroyed=0;
   preview.overlay.hidden=false;preview.dice={destroy(){destroyed++;}};
+  preview.diceLayer={fade(){faded++;},destroy(){layerDestroyed++;}};
   try {
     const result=preview.showResult({total:15,target:13,success:true});
     assert.equal(jobs[0].delay,1000);assert.equal(destroyed,0);
     jobs[0].callback();await Promise.resolve();
-    assert.equal(preview.overlay.classList.contains('dice-fading'),true);
+    assert.equal(faded,1);assert.equal(layerDestroyed,0);
     assert.equal(jobs[1].delay,200);assert.equal(destroyed,0);
     jobs[1].callback();await result;
-    assert.equal(destroyed,1);assert.equal(preview.overlay.hidden,false);
+    assert.equal(destroyed,1);assert.equal(layerDestroyed,1);assert.equal(preview.overlay.hidden,false);
     assert.equal(preview.result.children[0].textContent,'15');
     assert.equal(preview.result.children[1].textContent,'Success');
   } finally {preview.destroy();globalThis.setTimeout=originalSet;globalThis.clearTimeout=originalClear;}

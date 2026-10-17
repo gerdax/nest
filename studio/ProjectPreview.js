@@ -8,6 +8,7 @@ import { applyCardStyles } from '../project/card-styles.js';
 import { acquireDock } from '../editor/dockOwnership.js';
 import { nodeTypeLabel } from '../project/nodeTypes.js';
 import { previewCardTarget } from './preview-card-target.js';
+import { DiceLayer } from './DiceLayer.js';
 
 /** Playback UI owns dice/inventory presentation, never chapter resolution rules. */
 export class ProjectPreview {
@@ -163,11 +164,11 @@ export class ProjectPreview {
     if (this.destroyed || generation !== this.diceGeneration || signal?.aborted) throw new DOMException('Preview stopped.', 'AbortError');
     slot.append(this.overlay);
     this.overlay.hidden = false;
-    this.overlay.classList.remove('dice-fading');
     this.result.replaceChildren();
     this.result.removeAttribute('data-outcome');
     this.result.textContent = 'Rolling…';
-    const dice = this.dice = new DiceService().mount(this.overlay.querySelector('.check-tray'));
+    this.diceLayer = new DiceLayer(this.overlay.querySelector('.check-tray'));
+    const dice = this.dice = new DiceService({ appearance: this.diceLayer.appearance }).mount(this.diceLayer.tray);
     try { return await dice.roll(pool, { signal }); }
     catch (error) { if (generation === this.diceGeneration) this.hideDice(); throw error; }
   }
@@ -193,10 +194,11 @@ export class ProjectPreview {
     try {
       await this.pauseResult(1000);
       if (generation !== this.diceGeneration || result.signal?.aborted) return;
-      this.overlay.classList.add('dice-fading');
+      this.diceLayer?.fade();
       await this.pauseResult(200);
       if (generation === this.diceGeneration) {
         this.dice?.destroy(); this.dice = null;
+        this.diceLayer?.destroy(); this.diceLayer = null;
         // Keep the result on the back until the controller installs its successor.
       }
     } finally { result.signal?.removeEventListener('abort', onAbort); }
@@ -206,6 +208,7 @@ export class ProjectPreview {
     if (this.resultTimer) { clearTimeout(this.resultTimer); this.resultTimer = null; this.resolveTimer?.(); }
     this.resolveTimer = null;
     this.dice?.destroy(); this.dice = null;
+    this.diceLayer?.destroy(); this.diceLayer = null;
     this.overlay.hidden = true;
   }
   restart() { if (!this.destroyed && this.project) this.play(this.project, this.chapterId, this.startNode); }

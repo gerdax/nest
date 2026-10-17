@@ -38,8 +38,11 @@ chapter or restarting still starts a fresh run.
 
 The selected Action and other fork choices depart normally. Their existing
 underlying back remains in place; it does not turn until the check finishes.
-An accessible slot on that real back hosts physical dice, then a large modified
-total, Success/Failure and target. After a 1,000ms result hold, dice fade for
+An accessible slot on that real back hosts the large modified total,
+Success/Failure and target. Physical dice render in a separate transparent top
+layer above the cards and editor preview, with 20% larger dice and room beyond
+the card edges. Their size is captured at the start of each roll; result copy
+cannot resize or reposition their canvas. After a 1,000ms result hold, dice fade for
 200ms and are destroyed before the back turns into the actual successor.
 The result remains until successor installation. No modal or fake story node
 is inserted. Both editor and player use ProjectPreview for this composition.
@@ -66,7 +69,7 @@ over the back. Tray resizing updates the existing dice world without rerolling.
 
 ## Verification
 
-The integrated suite passed **1,030 tests**. Static staging verified local HTML,
+The integrated suite passed **1,035 tests**. Static staging verified local HTML,
 module and CSS references and copied the owned theme. Astra independently passed
 43 targeted tests, rejected nine malformed import cases, and found no remaining
 acceptance-blocking issue in source review after the reported fixes.
@@ -87,6 +90,12 @@ Real in-app browser checks used isolated storage and physical WebGL dice:
 - Desktop editor success and native upward pointer swipe from a two-choice fork.
   Escape did not cancel the committed roll. Live resize retained one iframe;
   Stop removed it. The initial white iframe background was found and fixed.
+
+The floating-dice update was additionally checked in the desktop editor and at
+320×568, 390×844 and 430×932 in the player. The canvas bounds stayed identical
+before and after the result headline appeared; Stop removed the floating layer
+and iframe. An independent source review passed 36 targeted tests. These are
+browser emulations, not physical-device checks.
 
 Recorded measurements: [player](benchmarks/stat-checks-player.json),
 [editor](benchmarks/stat-checks-editor.json). Reusable projects for these checks

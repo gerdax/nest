@@ -14,10 +14,16 @@ const abortError = () => new DOMException('Dice roll cancelled.', 'AbortError');
 
 /** Raw physical dice only: callers interpret outcomes and own game mechanics. */
 export class DiceService {
-  constructor({ timeoutMs = 30000, transportFactory = createFrameTransport } = {}) {
+  constructor({ timeoutMs = 30000, transportFactory = createFrameTransport, appearance = {} } = {}) {
     if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new RangeError('timeoutMs must be positive.');
     this.timeoutMs = timeoutMs;
     this.transportFactory = transportFactory;
+    this.appearance = Object.fromEntries(['sizeMultiplier','referenceWidth','referenceHeight'].flatMap(key => {
+      const value = appearance[key] ?? (key === 'sizeMultiplier' ? 1 : undefined);
+      if (value === undefined) return [];
+      if (!Number.isFinite(value) || value <= 0) throw new RangeError(`Invalid dice ${key}.`);
+      return [[key, value]];
+    }));
     this.container = null;
     this.transport = null;
     this.pending = null;
@@ -45,7 +51,7 @@ export class DiceService {
     let timer;
     try {
       const work = (async () => {
-        this.transport ||= this.transportFactory(this.container);
+        this.transport ||= this.transportFactory(this.container, this.appearance);
         const transport = this.transport;
         await transport.ready;
         if (this.pending !== operation) throw abortError();
@@ -81,7 +87,7 @@ export class DiceService {
   }
 }
 
-function createFrameTransport(container) {
+function createFrameTransport(container, appearance) {
   const frame = container.ownerDocument.createElement('iframe');
   frame.title = '3D dice tray';
   frame.style.cssText = 'width:100%;height:100%;display:block;border:0;background:transparent';
@@ -99,7 +105,9 @@ function createFrameTransport(container) {
     }, { once: true });
     frame.addEventListener('error', () => reject(new Error('Dice frame failed to load.')), { once: true });
   });
-  frame.src = new URL('./frame.html', import.meta.url).href;
+  const url = new URL('./frame.html', import.meta.url);
+  for (const [key, value] of Object.entries(appearance)) url.searchParams.set(key, String(value));
+  frame.src = url.href;
   container.appendChild(frame);
   return {
     ready,

@@ -10,11 +10,18 @@ let initialization;
 let disposed = false;
 let resizeObserver;
 let resizeFrame;
+const appearance = new URLSearchParams(window.location?.search ?? '');
+const setting = (key, fallback) => {
+  const value = Number(appearance.get(key) ?? fallback);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+};
 const scale = () => {
   const { clientWidth: width, clientHeight: height } = document.getElementById('tray');
   // Keep the normal tray's readable pixel size, while leaving compact trays
   // enough physical space for several dice to settle side by side.
-  return Math.min(12, (4400 / 1.5) / Math.max(1, height), 12 * Math.max(0.4, width / Math.max(1, height)));
+  const referenceWidth = setting('referenceWidth', width), referenceHeight = setting('referenceHeight', height);
+  const referenceScale = Math.min(12, (4400 / 1.5) / Math.max(1, referenceHeight), 12 * Math.max(0.4, referenceWidth / Math.max(1, referenceHeight)));
+  return referenceScale * referenceHeight / Math.max(1, height) * setting('sizeMultiplier', 1);
 };
 async function resize() {
   if (disposed || !box) return;
