@@ -1,3 +1,4 @@
+import { isStatVariable } from '../project/checks.js';
 import { createDefinition, allowedCardKinds } from '../project/cards.js';
 import { createChapter, importChapter } from '../project/model.js';
 import { deleteDefinition, cleanupLocalDefinitions } from '../project/dependencies.js';
@@ -70,7 +71,7 @@ function changeField(project, selection, field, localDrafts) {
     else parent[key] = color;
     return;
   }
-  let value = inputType === 'checkbox' ? checked : ['number','range'].includes(inputType) || key === 'sides' ? Number(raw) : raw;
+  let value = inputType === 'checkbox' ? checked : ['number','range'].includes(inputType) || ['sides','difficulty'].includes(key) ? Number(raw) : raw;
   if ((['value','initial'].includes(key) || path.startsWith('initialValues.')) && ['true','false'].includes(value)) value = value === 'true';
   if (inputType === 'number' && raw === '') { delete parent[key]; return; }
   if (['imageScale','imageOffsetX','imageOffsetY'].includes(key)) value = clampArtwork(key, value);
@@ -78,6 +79,13 @@ function changeField(project, selection, field, localDrafts) {
   if (['modifierVariable','contextItemId'].includes(key) && !value) delete parent[key];
   if (key === 'contextItemId' && !value) delete parent.contextOverrideImage;
   if (key === 'resolution' && value === 'check') parent.check ||= {pool:[{sides:20,count:1}],modifier:0,target:10};
+  if (key === 'mode' && value === 'stat') {
+    parent.difficulty ??= 1;
+    if (!project.variables.some(v => v.id === parent.modifierVariable && isStatVariable(v))) parent.modifierVariable = project.variables.find(isStatVariable)?.id;
+  }
+  if (key === 'mode' && value === 'custom') {
+    parent.pool ||= [{sides:20,count:1}]; parent.modifier ??= 0; parent.target ??= 10;
+  }
   if (key === 'type' && ['flag','number'].includes(value)) { parent.initial = value === 'flag' ? false : 0; delete parent.min; delete parent.max; }
   if (['source','op','key'].includes(key)) normalizeRule(project, parent, key);
 }

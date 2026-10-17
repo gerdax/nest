@@ -1,3 +1,4 @@
+import { editorCheckSummary, playerCheckSummary, isStatVariable } from './checks.js';
 import { nodeSlotCardKinds } from './nodeTypes.js';
 /** The library stores content; placements store chapter-specific behavior. */
 export const cardKinds = Object.freeze({
@@ -55,7 +56,7 @@ export function cardSummaryParts(card, variables = [], library = []) {
   if(card.contextItemId) parts.push(`Triggered by: ${name(card.contextItemId)}`);
   if (requirements.length) parts.push(`Requires: ${requirements.join(', ')}`);
   if (card.costs?.length) parts.push(`Cost: ${card.costs.map(c=>c.source==='inventory'?name(c.key):`${c.amount} ${name(c.key)}`).join(', ')}`);
-  if (card.resolution === 'check') { const c = card.check; if(c) parts.push(`Check: ${(c.pool || []).map(d=>`${d.count}d${d.sides}`).join(' + ')}${c.modifier ? ` ${c.modifier >= 0 ? '+' : ''}${c.modifier}` : ''}${c.modifierVariable ? ` + ${name(c.modifierVariable)}` : ''} ≥ ${c.target}`); }
+  if (card.resolution === 'check') { const c = card.check; if(c?.mode === 'stat') { try { parts.push(`Check: ${editorCheckSummary(c, variables)}`); } catch { parts.push('Check: Invalid stat check'); } } else if(c) parts.push(`Check: ${(c.pool || []).map(d=>`${d.count}d${d.sides}`).join(' + ')}${c.modifier ? ` ${c.modifier >= 0 ? '+' : ''}${c.modifier}` : ''}${c.modifierVariable ? ` + ${name(c.modifierVariable)}` : ''} ≥ ${c.target}`); }
   if(card.effects?.length) parts.push(`Effects: ${effects(card.effects)}`);
   if(card.onCollect?.length) parts.push(`Collect: ${effects(card.onCollect)}`);
   if(card.successEffects?.length) parts.push(`Success: ${effects(card.successEffects)}`);
@@ -65,6 +66,22 @@ export function cardSummaryParts(card, variables = [], library = []) {
 }
 export function cardSummary(card, variables = [], library = []) {
   return cardSummaryParts(card,variables,library).join(' · ');
+}
+
+/** Gameplay summaries conceal numeric stat mechanics while preserving authored text. */
+export function playerCardSummary(card, variables = [], library = [], values = {}) {
+  const concealed = key => isStatVariable(variables.find(v => v.id === key));
+  const visible = rules => rules?.filter(rule => rule.source === 'inventory' || ['addItem','removeItem'].includes(rule.op) || !concealed(rule.key));
+  const filtered = {...card};
+  for (const key of ['conditions','explicitConditions','costs','effects','onCollect','successEffects','failureEffects']) if (card[key]) filtered[key] = visible(card[key]);
+  if (card.use) filtered.use = {...card.use, effects:visible(card.use.effects), conditions:visible(card.use.conditions)};
+  if (card.check?.mode === 'stat') filtered.resolution = 'direct';
+  const parts = cardSummaryParts(filtered, variables, library);
+  if (card.resolution === 'check' && card.check?.mode === 'stat') {
+    try { parts.push(`Check: ${playerCheckSummary(card.check, values, variables)}`); }
+    catch { parts.push('Check unavailable'); }
+  }
+  return parts.join(' · ');
 }
 
 /** Fork placements are branches regardless of whether their content is event or an action. */

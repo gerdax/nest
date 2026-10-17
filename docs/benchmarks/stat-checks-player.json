@@ -1,0 +1,164 @@
+[
+  {
+    "viewport": {
+      "width": 320,
+      "height": 568
+    },
+    "outcome": "success",
+    "front": "Hold your breath and cross the dark passage.\n\nCost: 1 energy · Check: Composure · Easy",
+    "geometry": {
+      "card": {
+        "height": 305.3203125,
+        "width": 228.9921875
+      },
+      "slot": {
+        "height": 304.9582824707031,
+        "width": 232.7839508056641,
+        "x": 43.6041145324707,
+        "y": 85.88949584960938
+      },
+      "tray": {
+        "height": 161.08705139160156,
+        "width": 204.27346801757812,
+        "x": 55.90909576416016,
+        "y": 101.97679138183594
+      }
+    },
+    "result": "15\nSUCCESS\nTarget 11"
+  },
+  {
+    "viewport": {
+      "width": 320,
+      "height": 568
+    },
+    "outcome": "failure",
+    "front": "Hold your breath and cross the dark passage.\n\nCost: 1 energy · Check: Composure · Impossible",
+    "geometry": {
+      "card": {
+        "height": 305.3203125,
+        "width": 228.9921875
+      },
+      "slot": {
+        "height": 304.9582824707031,
+        "width": 232.7839508056641,
+        "x": 43.6041145324707,
+        "y": 85.88949584960938
+      },
+      "tray": {
+        "height": 161.08705139160156,
+        "width": 204.27346801757812,
+        "x": 55.90909576416016,
+        "y": 101.97679138183594
+      }
+    },
+    "result": "10\nFAILURE\nTarget 20"
+  },
+  {
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "outcome": "success",
+    "front": "Hold your breath and cross the dark passage.\n\nCost: 1 energy · Check: Composure · Easy",
+    "geometry": {
+      "card": {
+        "height": 368,
+        "width": 276
+      },
+      "slot": {
+        "height": 367.9798889160156,
+        "width": 280.986572265625,
+        "x": 54.5067138671875,
+        "y": 183.08676147460935
+      },
+      "tray": {
+        "height": 224.1086883544922,
+        "width": 252.47607421875,
+        "x": 66.81169891357422,
+        "y": 199.1740570068359
+      }
+    },
+    "result": "25\nSUCCESS\nTarget 11"
+  },
+  {
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "outcome": "failure",
+    "front": "Hold your breath and cross the dark passage.\n\nCost: 1 energy · Check: Composure · Impossible",
+    "geometry": {
+      "card": {
+        "height": 368,
+        "width": 276
+      },
+      "slot": {
+        "height": 367.9798889160156,
+        "width": 280.986572265625,
+        "x": 54.5067138671875,
+        "y": 183.08676147460935
+      },
+      "tray": {
+        "height": 224.1086883544922,
+        "width": 252.47607421875,
+        "x": 66.81169891357422,
+        "y": 199.1740570068359
+      }
+    },
+    "result": "10\nFAILURE\nTarget 20"
+  },
+  {
+    "viewport": {
+      "width": 430,
+      "height": 932
+    },
+    "outcome": "success",
+    "front": "Hold your breath and cross the dark passage.\n\nCost: 1 energy · Check: Composure · Easy",
+    "geometry": {
+      "card": {
+        "height": 368,
+        "width": 276
+      },
+      "slot": {
+        "height": 367.9798889160156,
+        "width": 280.986572265625,
+        "x": 74.5067138671875,
+        "y": 227.63363647460935
+      },
+      "tray": {
+        "height": 224.1086883544922,
+        "width": 252.47607421875,
+        "x": 86.81169891357422,
+        "y": 243.7209320068359
+      }
+    },
+    "result": "24\nSUCCESS\nTarget 11"
+  },
+  {
+    "viewport": {
+      "width": 430,
+      "height": 932
+    },
+    "outcome": "failure",
+    "front": "Hold your breath and cross the dark passage.\n\nCost: 1 energy · Check: Composure · Impossible",
+    "geometry": {
+      "card": {
+        "height": 368,
+        "width": 276
+      },
+      "slot": {
+        "height": 367.9798889160156,
+        "width": 280.986572265625,
+        "x": 74.5067138671875,
+        "y": 227.63363647460935
+      },
+      "tray": {
+        "height": 224.1086883544922,
+        "width": 252.47607421875,
+        "x": 86.81169891357422,
+        "y": 243.7209320068359
+      }
+    },
+    "result": "12\nFAILURE\nTarget 20"
+  }
+]

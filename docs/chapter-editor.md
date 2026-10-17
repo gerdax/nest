@@ -4,6 +4,11 @@ Run `python3 serve.py` and open `http://127.0.0.1:8937/editor.html`. The studio 
 
 ## Library and placements
 
+Dice Actions now offer **Stat check** with Agility, Intelligence or Composure and
+difficulty 1–10, alongside the existing **Custom check** controls. Global stats
+start at 3 and stay out of the player HUD. The underlying card back hosts the
+dice and result after the Action leaves. See [Stats and card-based checks](stat-checks.md).
+
 Select a beat on the graph and press **Delete** or **Backspace** (Mac Delete) to
 remove it. The shortcut works while the graph is focused, ignores typing and
 active drags, and uses the same undoable action as **Delete beat**. Click **Undo**

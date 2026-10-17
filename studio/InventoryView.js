@@ -1,5 +1,5 @@
 import { conditionsMet } from '../project/state.js';
-import { cardSummary } from '../project/cards.js';
+import { playerCardSummary } from '../project/cards.js';
 import { applyArtworkColorize } from '../engine/artworkColorize.js';
 import { DrawerMotion } from './drawer-motion.js';
 import { dialogLayout } from './dialog-layout.js';
@@ -285,7 +285,7 @@ export class InventoryView {
     this.dialog.querySelector('[data-item-artwork]').hidden = !item.image;
     applyArtworkColorize(image);
     image.style.transform = item.flipImage ? 'scaleX(-1)' : '';
-    this.dialog.querySelector('[data-summary]').textContent = cardSummary(item, this.variables, this.library);
+    this.dialog.querySelector('[data-summary]').textContent = playerCardSummary(item, this.variables, this.library, this.values);
     this.dialog.querySelector('[data-description]').textContent = item.text || '';
     const use = this.dialog.querySelector('[data-use]'); use.hidden = !item.use; use.disabled = this.busy || !conditionsMet(item.use?.conditions, this.values, this.items);
     this.dialog.querySelector('[data-feedback]').textContent = '';

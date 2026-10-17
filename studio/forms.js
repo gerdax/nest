@@ -1,3 +1,4 @@
+import { isStatVariable, editorCheckSummary } from '../project/checks.js';
 import { esc, options } from '../editor/fields.js';
 
 export { esc };
@@ -44,8 +45,18 @@ export function actionFields(project,action,prefix='',scope='definition') {
  if(action.resolution==='check') {
   const check=action.check||{pool:[{sides:20,count:1}],modifier:0,target:10};
   html+='<div class="entry check-settings"><h3>Check settings</h3>';
-  html+=check.pool.map((die,i)=>select('Dice',String(die.sides),[4,6,8,10,12,20].map(n=>[String(n),`d${n}`]),p(`check.pool.${i}.sides`),scope)+field('Count',die.count,p(`check.pool.${i}.count`),scope,'number')+button('Remove dice','remove-rule',extras(scope,p('check.pool'),'dice')+` data-index="${i}"`)).join('');
-  html+=button('Add dice','add-rule',extras(scope,p('check.pool'),'dice'))+field('Modifier',check.modifier,p('check.modifier'),scope,'number')+select('Variable modifier',check.modifierVariable||'',[['','None'],...project.variables.filter(v=>v.type==='number').map(v=>[v.id,v.name||v.id])],p('check.modifierVariable'),scope)+field('Target',check.target,p('check.target'),scope,'number')+'</div>';
+  html+=select('Check type',check.mode||'custom',[['stat','Stat check'],['custom','Custom check']],p('check.mode'),scope);
+  if(check.mode==='stat') {
+   const stats=project.variables.filter(isStatVariable).map(v=>[v.id,v.name||v.id]);
+   if(check.modifierVariable&&!stats.some(([id])=>id===check.modifierVariable))stats.push([check.modifierVariable,check.modifierVariable]);
+   html+=select('Stat',check.modifierVariable||'',[['','Choose stat'],...stats],p('check.modifierVariable'),scope)+select('Difficulty',String(check.difficulty??1),Array.from({length:10},(_,i)=>[String(i+1),String(i+1)]),p('check.difficulty'),scope);
+   try { html+=`<p class="small check-diagnostic">${esc(editorCheckSummary(check,project.variables))}</p>`; }
+   catch { html+='<p class="small check-diagnostic">Choose a valid stat and difficulty. Stats use integer values from 1 to 10.</p>'; }
+  } else {
+  html+=(check.pool||[]).map((die,i)=>select('Dice',String(die.sides),[4,6,8,10,12,20].map(n=>[String(n),`d${n}`]),p(`check.pool.${i}.sides`),scope)+field('Count',die.count,p(`check.pool.${i}.count`),scope,'number')+button('Remove dice','remove-rule',extras(scope,p('check.pool'),'dice')+` data-index="${i}"`)).join('');
+  html+=button('Add dice','add-rule',extras(scope,p('check.pool'),'dice'))+field('Modifier',check.modifier,p('check.modifier'),scope,'number')+select('Variable modifier',check.modifierVariable||'',[['','None'],...project.variables.filter(v=>v.type==='number').map(v=>[v.id,v.name||v.id])],p('check.modifierVariable'),scope)+field('Target',check.target,p('check.target'),scope,'number');
+  }
+  html+='</div>';
   html+=rules(project,action.successEffects,p('successEffects'),scope,'effects',{label:'On success effects'})+rules(project,action.failureEffects,p('failureEffects'),scope,'effects',{label:'On failure effects'});
  }
  return html;

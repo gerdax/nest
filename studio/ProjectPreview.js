@@ -21,7 +21,7 @@ export class ProjectPreview {
     this.onGoToCard = typeof onGoToCard === 'function' ? onGoToCard : null;
     this.deckSettings = { ...deckSettings };
     this.presentationPolicy = { ...presentationPolicy };
-    this.root.innerHTML = '<section class="project-preview"><div class="chapter-preview-stage"><div class="player-resources" data-resources hidden><span class="player-resource" data-health aria-label="Health"><img src="./assets/img/hud-health.png" alt=""><span data-health-value></span></span><span class="player-resource" data-energy aria-label="Energy"><span data-energy-value></span><img src="./assets/img/hud-energy.png" alt=""></span></div><div class="chapter-preview-card-area"><div class="chapter-preview-deck" tabindex="0"></div></div></div><div class="preview-status-row"><p data-status role="status">Stopped.</p></div><footer class="preview-footer" data-preview-footer><details data-state hidden><summary>Run state</summary><pre></pre></details><div data-preview-actions></div></footer><section data-inventory></section><div class="check-overlay" hidden role="dialog" aria-modal="true" aria-label="Action check"><div class="check-panel"><h3>Resolving attempt</h3><div class="check-tray"></div><p data-result role="status"></p><button data-cancel type="button">Cancel attempt</button></div></div></section>';
+    this.root.innerHTML = '<section class="project-preview"><div class="chapter-preview-stage"><div class="player-resources" data-resources hidden><span class="player-resource" data-health aria-label="Health"><img src="./assets/img/hud-health.png" alt=""><span data-health-value></span></span><span class="player-resource" data-energy aria-label="Energy"><span data-energy-value></span><img src="./assets/img/hud-energy.png" alt=""></span></div><div class="chapter-preview-card-area"><div class="chapter-preview-deck" tabindex="0"></div></div></div><div class="preview-status-row"><p data-status role="status">Stopped.</p></div><footer class="preview-footer" data-preview-footer><details data-state hidden><summary>Run state</summary><pre></pre></details><div data-preview-actions></div></footer><section data-inventory></section><section class="check-surface" data-check-surface hidden aria-label="Action check"><div class="check-tray"></div><div class="check-result" data-result role="status" aria-live="polite"></div></section></section>';
     this.mount = root.querySelector('.chapter-preview-deck');
     this.status = root.querySelector('[data-status]');
     this.resources = root.querySelector('[data-resources]');
@@ -40,7 +40,7 @@ export class ProjectPreview {
         if (target && !this.root.closest?.('[inert]')) this.onGoToCard?.(target);
       };
     }
-    this.overlay = root.querySelector('.check-overlay');
+    this.overlay = root.querySelector('[data-check-surface]');
     this.result = root.querySelector('[data-result]');
     this.stateReadout = root.querySelector('[data-state]');
     const inventoryRoot = root.querySelector('[data-inventory]');
@@ -60,13 +60,7 @@ export class ProjectPreview {
     this.footerResize.observe(this.footer);
     if (!inventoryDock) root.querySelector('.project-preview').classList.add('project-preview--embedded');
     this.inventory = new InventoryView(inventoryRoot, { onUse: id => this.controller?.useItem(id), getBounds: () => this.inventorySurface.bounds(), onMotion: event => this.drawerTrace?.(event) });
-    this.cancelButton = root.querySelector('[data-cancel]');
-    this.cancelButton.onclick = () => this.controller?.cancelCheck();
-    this.cancelKey = event => {
-      if (this.root.closest?.('[inert]')) return;
-      if (event.key === 'Escape' && !this.overlay.hidden && !this.root.querySelector('[data-cancel]').disabled) { event.preventDefault(); this.controller?.cancelCheck(); }
-    };
-    document.addEventListener('keydown', this.cancelKey);
+
   }
   play(project, chapterId, startNode, { focus = true } = {}) {
     if (this.destroyed) throw new Error('Project preview has been destroyed');
@@ -146,7 +140,7 @@ export class ProjectPreview {
     const node = this.compiled?.nodes.find(node => node.id === state.activeNodeId);
     const nodeType = nodeTypeLabel(node?.type) || '';
     this.status.textContent = this.errorMessage || (state.completed ? 'Chapter complete.' : state.checking ? 'Resolving attempt…' : `Playing · ${node?.name || ''} · ${nodeType}`);
-    this.status.hidden = !this.errorMessage && !state.completed && !state.checking;
+    this.status.hidden = !this.errorMessage && !state.completed;
     this.stateReadout.hidden = !Object.keys(state.variables || {}).length;
     this.stateReadout.querySelector('pre').textContent = JSON.stringify(state.variables || {}, null, 2);
     this.inventory.update(state.collectedItems || [], { busy: !state.idle, variables: this.compiled?.variables || [], values: state.variables, library: this.compiled?.library || [] });
@@ -164,26 +158,47 @@ export class ProjectPreview {
     if (this.destroyed || signal?.aborted) throw new DOMException('Preview stopped.', 'AbortError');
     this.hideDice();
     const generation = this.diceGeneration;
+    const deck = this.deck;
+    const slot = await deck.waitForCheckSurface({ signal });
+    if (this.destroyed || generation !== this.diceGeneration || signal?.aborted) throw new DOMException('Preview stopped.', 'AbortError');
+    slot.append(this.overlay);
     this.overlay.hidden = false;
+    this.overlay.classList.remove('dice-fading');
+    this.result.replaceChildren();
+    this.result.removeAttribute('data-outcome');
     this.result.textContent = 'Rolling…';
-    this.root.querySelector('[data-cancel]').disabled = false;
-    const dice = this.dice = new DiceService().mount(this.root.querySelector('.check-tray'));
+    const dice = this.dice = new DiceService().mount(this.overlay.querySelector('.check-tray'));
     try { return await dice.roll(pool, { signal }); }
     catch (error) { if (generation === this.diceGeneration) this.hideDice(); throw error; }
+  }
+  pauseResult(milliseconds) {
+    return new Promise(resolve => {
+      this.resolveTimer = resolve;
+      this.resultTimer = setTimeout(() => { this.resultTimer = null; this.resolveTimer = null; resolve(); }, milliseconds);
+    });
   }
   async showResult(result) {
     if (this.destroyed || result.signal?.aborted) return;
     const generation = this.diceGeneration;
-    this.cancelButton.disabled = true;
-    this.result.textContent = `${result.total} / target ${result.target} · ${result.success ? 'Success' : 'Failure'}`;
+    const number = document.createElement('strong');
+    number.className = 'check-total'; number.textContent = String(result.total);
+    const outcome = document.createElement('span');
+    outcome.className = 'check-outcome'; outcome.textContent = result.success ? 'Success' : 'Failure';
+    const target = document.createElement('small'); target.textContent = `Target ${result.target}`;
+    this.result.textContent = '';
+    this.result.replaceChildren(number, outcome, target);
+    this.result.setAttribute('data-outcome', result.success ? 'success' : 'failure');
     const onAbort = () => { if (generation === this.diceGeneration) this.hideDice(); };
     result.signal?.addEventListener('abort', onAbort, { once: true });
     try {
-      await new Promise(resolve => {
-        this.resultTimer = setTimeout(() => { this.resultTimer = null; resolve(); }, 800);
-        this.resolveTimer = resolve;
-      });
-      if (generation === this.diceGeneration) this.hideDice();
+      await this.pauseResult(1000);
+      if (generation !== this.diceGeneration || result.signal?.aborted) return;
+      this.overlay.classList.add('dice-fading');
+      await this.pauseResult(200);
+      if (generation === this.diceGeneration) {
+        this.dice?.destroy(); this.dice = null;
+        // Keep the result on the back until the controller installs its successor.
+      }
     } finally { result.signal?.removeEventListener('abort', onAbort); }
   }
   hideDice() {
@@ -221,8 +236,6 @@ export class ProjectPreview {
       this.inventory.destroy(); this.inventory.onUse = () => {};
       this.footerResize.disconnect();
       this.inventorySurface.destroy();
-      document.removeEventListener('keydown', this.cancelKey);
-      this.cancelKey = null; this.cancelButton.onclick = null;
       if (this.goToCardButton) this.goToCardButton.onclick = null;
       this.onGoToCard = null;
       this.releaseDock?.(); this.releaseDock = null;

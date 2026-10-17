@@ -19,6 +19,7 @@ RUNTIME_FILES = (
     "editor/preview.js",
     "editor/storage.js",
     "engine/CardDeck.js",
+    "engine/CheckSurface.js",
     "engine/DeckInteractionMotion.js",
     "engine/DeckEntranceSequence.js",
     "engine/InventoryPickup.js",

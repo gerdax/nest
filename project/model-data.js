@@ -1,4 +1,5 @@
 import { createDefinition } from './cards.js';
+import { defaultStats } from './checks.js';
 
 // Shared document data operations; callers choose when to detach mutable data.
 export const cloneProject = value => JSON.parse(JSON.stringify(value));
@@ -45,7 +46,8 @@ export function createProject() {
     library: [event, item, action],
     variables: [
       {id: 'energy', type: 'number', initial: 3, min: 0, max: 10},
-      {id: 'health', name: 'Health', type: 'number', initial: 10, min: 0, max: 10}
+      {id: 'health', name: 'Health', type: 'number', initial: 10, min: 0, max: 10},
+      ...defaultStats()
     ],
     chapters: [{
       id: 'chapter-1',

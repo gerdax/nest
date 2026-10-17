@@ -39,8 +39,8 @@ test('dice frame keeps workers and WebGL alive across cached departures before t
     terminate() { this.terminations++; }
   };
   const document = {querySelectorAll: () => [{getContext: () => ({getExtension: () => ({loseContext() { lostContexts++; }})})}]};
-  const frameSource = source('../dice/frame.js').replace('import.meta.url', JSON.stringify(new URL('../dice/frame.js', import.meta.url).href));
-  runInNewContext(frameSource, {window, document, URL});
+  const frameSource = source('../dice/frame.js').replaceAll('import.meta.url', JSON.stringify(new URL('../dice/frame.js', import.meta.url).href));
+  runInNewContext(frameSource, {window, document, URL, cancelAnimationFrame() {}});
   new window.Worker();
   pagehide(window, true);
   new window.Worker();

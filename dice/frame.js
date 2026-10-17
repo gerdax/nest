@@ -8,9 +8,23 @@ const base = new URL('./vendor/dice-box/', import.meta.url);
 let box;
 let initialization;
 let disposed = false;
-const scale = () => (4400 / 1.5) / Math.max(1, document.getElementById('tray').clientHeight);
+let resizeObserver;
+let resizeFrame;
+const scale = () => {
+  const { clientWidth: width, clientHeight: height } = document.getElementById('tray');
+  // Keep the normal tray's readable pixel size, while leaving compact trays
+  // enough physical space for several dice to settle side by side.
+  return Math.min(12, (4400 / 1.5) / Math.max(1, height), 12 * Math.max(0.4, width / Math.max(1, height)));
+};
+async function resize() {
+  if (disposed || !box) return;
+  await box.updateConfig({ scale: scale() });
+  if (!disposed) window.dispatchEvent(new Event('resize'));
+}
 function dispose() {
   disposed = true;
+  resizeObserver?.disconnect();
+  cancelAnimationFrame(resizeFrame);
   for (const worker of workers) worker.terminate();
   workers.clear();
   for (const canvas of document.querySelectorAll('canvas')) {
@@ -30,7 +44,8 @@ window.NestDiceFrame = {
       if (disposed) throw new Error('Dice tray closed.');
       box = new DiceBox({
         container: '#tray', id: 'nest-dice-canvas', origin: base.origin,
-        assetPath: new URL('assets/', base).pathname, theme: 'default', themeColor: '#efe0bf',
+        assetPath: new URL('assets/', base).pathname, theme: 'nest',
+        externalThemes: { nest: new URL('./themes/nest', import.meta.url).href },
         offscreen: false, scale: scale(), settleTimeout: 2000,
         mass: 2.4, gravity: 2.3, friction: 0.95, restitution: 0.05,
         angularDamping: 0.78, linearDamping: 0.68, spinForce: 3, throwForce: 4,
@@ -38,12 +53,16 @@ window.NestDiceFrame = {
       });
       await box.init();
       if (disposed) throw new Error('Dice tray closed.');
+      resizeObserver = new ResizeObserver(() => {
+        cancelAnimationFrame(resizeFrame);
+        resizeFrame = requestAnimationFrame(() => { void resize(); });
+      });
+      resizeObserver.observe(document.getElementById('tray'));
     })();
     return initialization;
   },
   async roll(pool) {
-    await box.updateConfig({ scale: scale() });
-    window.dispatchEvent(new Event('resize'));
+    await resize();
     return box.roll(pool.map(({ sides, count }) => `${count}d${sides}`));
   },
   dispose

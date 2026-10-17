@@ -1,8 +1,10 @@
+import { isStatVariable } from './checks.js';
 /** Pure, atomic run-state operations. Inventory entries represent unique ownership. */
 export function initialValues(definitions = []) {
   return Object.fromEntries(definitions.map(d => [d.id, clamp(d.initial, d)]));
 }
 function clamp(value, definition) {
+  if (isStatVariable(definition) && !Number.isInteger(value)) throw new TypeError('Stat values must be integers.');
   if (typeof value === 'number') {
     if (!Number.isFinite(value)) throw new RangeError('Variable overflow');
     return Math.min(definition?.max ?? Infinity, Math.max(definition?.min ?? -Infinity, value));
@@ -41,6 +43,7 @@ function spend(values,inventory,costs,definitions = []) {
     else {
       if (!Number.isFinite(cost.amount) || cost.amount < 0) throw new TypeError('Invalid cost');
       if (typeof values[cost.key] !== 'number' || values[cost.key]-cost.amount < (defs.get(cost.key)?.min ?? 0)) throw new RangeError(`Insufficient variable: ${cost.key}`);
+      if (isStatVariable(defs.get(cost.key)) && !Number.isInteger(cost.amount)) throw new TypeError('Stat costs must be integers.');
       values[cost.key] -= cost.amount;
     }
   }

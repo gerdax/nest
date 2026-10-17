@@ -20,9 +20,9 @@ test('resource definitions and chapter overrides survive save and chapter export
  for (const candidate of [project,loaded,imported]) {
   assert.deepEqual(validateProject(candidate),[]);
   const compiled = compileChapter(candidate);
-  assert.deepEqual(compiled.variables,project.variables.map(variable=>({...variable,initial:project.chapters[0].initialValues[variable.id]})));
-  assert.deepEqual(initialValues(compiled.variables),{energy:7,health:true});
-  assert.deepEqual(transact(initialValues(compiled.variables),[],{effects:compiled.nodes[0].cards[0].effects},compiled.variables,compiled.library).variables,{energy:10,health:true});
+  assert.deepEqual(compiled.variables,project.variables.map(variable=>({...variable,initial:Object.hasOwn(project.chapters[0].initialValues,variable.id)?project.chapters[0].initialValues[variable.id]:variable.initial})));
+  assert.deepEqual(initialValues(compiled.variables),{energy:7,health:true,agility:3,intelligence:3,composure:3});
+  assert.deepEqual(transact(initialValues(compiled.variables),[],{effects:compiled.nodes[0].cards[0].effects},compiled.variables,compiled.library).variables,{energy:10,health:true,agility:3,intelligence:3,composure:3});
  }
 });
 

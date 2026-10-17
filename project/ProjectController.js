@@ -1,8 +1,9 @@
 import { initialValues, conditionsMet, affordCosts, transact, addInventory } from './state.js';
 import { cardBody, cardFace } from './presentation.js';
-import { cardSummary, isStoryKind, collectionEffects } from './cards.js';
+import { playerCardSummary, isStoryKind, collectionEffects } from './cards.js';
 import { selectPool } from '../chapter/random.js';
 import { isInventoryContext } from '../engine/inventoryContext.js';
+import { resolveCheck } from './checks.js';
 
 /** Playback only. CardDeck remains responsible for gestures and departure choreography. */
 export class ProjectController {
@@ -189,7 +190,7 @@ export class ProjectController {
   }
   adopt(destination,notify=true) {this.completed=!!destination.completed;if(!this.completed)this.location=destination;if(notify)this.notify();}
   body(card) {return cardBody(card);}
-  action(card) {const {context,...content}=card;const typed={...card,kind:card.kind ?? (this.type()==='container'?'item':'action')};return {...content,label:card.name ?? card.label ?? 'Continue',...cardFace(typed,this.compiled.variables,this.compiled.library)};}
+  action(card,values=this.variables) {const {context,...content}=card;const typed={...card,kind:card.kind ?? (this.type()==='container'?'item':'action')};return {...content,label:card.name ?? card.label ?? 'Continue',...cardFace(typed,this.compiled.variables,this.compiled.library,values)};}
   linearTransition(location, destination, source=this.card(location)) {
     return this.type(location)==='linear'&&!['action','item'].includes(source?.kind)&&destination&&!destination.completed&&this.key(location)===this.key(destination)&&destination.index>location.index?'reveal':'flip';
   }
@@ -199,10 +200,10 @@ export class ProjectController {
     if(fork)actions=this.choices(location).flatMap(c=>{
       if(c.contextItemId&&!conditionsMet([{source:'inventory',key:c.contextInventoryKey ?? c.contextItemId,op:'has'}],values,inventory))return [];
       const available=conditionsMet(c.conditions,values,inventory)&&affordCosts(values,inventory,c.costs,this.compiled.variables);
-      return !available&&c.unavailable==='hidden'?[]:[{...this.action(c),disabled:!available||this.departureBlocked(c,location,values,inventory)}];
+      return !available&&c.unavailable==='hidden'?[]:[{...this.action(c,values),disabled:!available||this.departureBlocked(c,location,values,inventory)}];
     });
-    else if(container)actions=this.items(location,values,inventory,excludedItem).map(c=>({...this.action(c),discardDisabled:this.departureBlocked(c,location,values,inventory,'discard',excludedItem),collectDisabled:this.departureBlocked(c,location,values,inventory,'collect',excludedItem)}));
-    else if(linearFace)actions=[{...this.action(card),disabled:!conditionsMet(card.conditions,values,inventory)||!affordCosts(values,inventory,card.kind==='action'?card.costs:[],this.compiled.variables)}];
+    else if(container)actions=this.items(location,values,inventory,excludedItem).map(c=>({...this.action(c,values),discardDisabled:this.departureBlocked(c,location,values,inventory,'discard',excludedItem),collectDisabled:this.departureBlocked(c,location,values,inventory,'collect',excludedItem)}));
+    else if(linearFace)actions=[{...this.action(card,values),disabled:!conditionsMet(card.conditions,values,inventory)||!affordCosts(values,inventory,card.kind==='action'?card.costs:[],this.compiled.variables)}];
     else actions=[{id:'continue',label:'Continue',image:card?.image,flipImage:!!card?.flipImage}];
     if(linearFace) {
       if(linearItem)Object.assign(actions[0],{discardDisabled:this.departureBlocked(card,location,values,inventory,'discard'),collectDisabled:this.departureBlocked(card,location,values,inventory,'collect')});
@@ -210,7 +211,7 @@ export class ProjectController {
     }
     if(container||linearItem)for(const action of actions)action.disabled ||= action.collectDisabled&&action.discardDisabled;
     if(!actions.length)actions=[{id:'unavailable',label:'No available choices',disabled:true}];
-    const payload={autoBrowse:fork||container,id:`${this.generation}:${++this.serial}`,cardBack:this.compiled.cardBack,backOperation:card?.resolution==='check'?'dice':null,title:card?.name ?? card?.title ?? '',heading:cardFace(card,this.compiled.variables,this.compiled.library).heading,text:this.body(card),cardKind:card?.kind ?? 'event',summary:card&&!isStoryKind(card.kind??card.cardKind)&&fork?cardSummary(card,this.compiled.variables,this.compiled.library):'',image:card?.image ?? '',imageScale:card?.imageScale??100,imageOffsetX:card?.imageOffsetX??0,imageOffsetY:card?.imageOffsetY??0,flipImage:!!card?.flipImage,actions,directAdvance:!fork&&!container&&!linearFace,decisionOnly:linearFace||fork&&(location.sequence?!!location.sequence.decisionOnly:this.presentation(location,values,inventory)==='open'),interaction:container||linearItem?'container':'choice',discardAll:container,allowClose:false};
+    const payload={autoBrowse:fork||container,id:`${this.generation}:${++this.serial}`,cardBack:this.compiled.cardBack,backOperation:card?.resolution==='check'?'dice':null,title:card?.name ?? card?.title ?? '',heading:cardFace(card,this.compiled.variables,this.compiled.library,values).heading,text:this.body(card),cardKind:card?.kind ?? 'event',summary:card&&!isStoryKind(card.kind??card.cardKind)&&fork?playerCardSummary(card,this.compiled.variables,this.compiled.library,values):'',image:card?.image ?? '',imageScale:card?.imageScale??100,imageOffsetX:card?.imageOffsetX??0,imageOffsetY:card?.imageOffsetY??0,flipImage:!!card?.flipImage,actions,directAdvance:!fork&&!container&&!linearFace,decisionOnly:linearFace||fork&&(location.sequence?!!location.sequence.decisionOnly:this.presentation(location,values,inventory)==='open'),interaction:container||linearItem?'container':'choice',discardAll:container,allowClose:false};
     if(fork)payload.choiceFollowerRatio=.82;
     payload.flipItemsOnReveal=container&&this.presentation(location,values,inventory)==='closed';
     if(payload.directAdvance){payload.nextTransition='flip';payload.advanceDisabled=this.departureBlocked(card,location,values,inventory);actions[0].disabled=payload.advanceDisabled;}
@@ -284,15 +285,16 @@ export class ProjectController {
     const generation=this.generation,abort=new AbortController();this.checking=abort;this.notify();
     try {
       if(!this.rollCheck)throw new Error('No dice roller supplied');
-      const result=await this.rollCheck(source.check.pool,{signal:abort.signal});
+      const check=resolveCheck(source.check,this.variables);
+      const result=await this.rollCheck(check.pool,{signal:abort.signal});
       if(abort.signal.aborted||generation!==this.generation||this.destroyed)return;
       const dice=Array.isArray(result)?result:result?.dice;
       const raw=typeof result==='number'?result:Array.isArray(dice)?dice.reduce((sum,d)=>sum+(typeof d==='number'?d:d.value),0):result?.total;
       if(!Number.isFinite(raw))throw new TypeError('Invalid dice result');
-      const modifier=(source.check.modifier??0)+(source.check.modifierVariable?this.variables[source.check.modifierVariable]:0);
+      const modifier=check.modifier;
       if(!Number.isFinite(modifier))throw new TypeError('Invalid check modifier');
-      const total=raw+modifier,success=total>=source.check.target;
-      await this.onCheckResult({total,target:source.check.target,success,dice:dice??[],signal:abort.signal});
+      const total=raw+modifier,success=total>=check.target;
+      await this.onCheckResult({total,target:check.target,success,dice:dice??[],signal:abort.signal});
       if(abort.signal.aborted||generation!==this.generation||this.destroyed)return;
       if(this.departureBlocked(source))throw new Error('Unlinked output');
       if(!this.available(source))throw new Error('Check requirements changed');

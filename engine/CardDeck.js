@@ -8,6 +8,7 @@ import { resolveBackAppearance, resolveBackOperation } from './cardBacks.js';
 import { InventoryPickup } from './InventoryPickup.js';
 import { PresentationReadiness } from './presentationReadiness.js';
 import { isInventoryContext } from './inventoryContext.js';
+import { CheckSurface } from './CheckSurface.js';
 export { DEFAULT_SETTINGS };
 
 function validate(content) {
@@ -1074,6 +1075,7 @@ export class CardDeck extends EventTarget {
     this.pending = null;
     this.forwardDeck?.cardLayers.forEach(layer => layer.remove());
     this.forwardDeck = null;
+    if (this.checkSurface && !this.commitMotion) { this.completeCommit(); return; }
     this.render();
   }
 
@@ -1252,6 +1254,7 @@ export class CardDeck extends EventTarget {
   }
 
   install(content, { faceDown = false, open = false, selectedId, staged = null, stagedDepth = staged ? 1 : 0, flipState = null, backTransition = null, takeRecession = 0, preserveInventoryContext = false } = {}) {
+    this.clearCheckSurface();
     this.preserveInventoryContext = preserveInventoryContext;
     ++this.presentationRevision;
     this.clearGrab();
@@ -1314,6 +1317,7 @@ export class CardDeck extends EventTarget {
   }
 
   completeCommit() {
+    if (this.destroyed || this.phase === 'ended') return;
     const takeRecession = this.nextTakeDepth || 0;
     const stagedDepth = 1 + takeRecession / 40;
     const backTransition = this.backTransition;
@@ -1334,6 +1338,7 @@ export class CardDeck extends EventTarget {
       if (this.destroyed || this.phase !== 'committing') return;
     }
     if (this.ending) {
+      this.clearCheckSurface();
       this.busy = false;
       this.open = false;
       this.phase = 'ended';
@@ -1384,7 +1389,21 @@ export class CardDeck extends EventTarget {
     } else {
       this.busy = true;
       this.render();
+      this.checkSurface?.settle();
     }
+  }
+
+  waitForCheckSurface({ signal } = {}) {
+    if (this.destroyed || signal?.aborted || this.phase !== 'committing' || this.operation === 'commit') return Promise.reject(new DOMException('No pending check departure.', 'AbortError'));
+    stageNextBack(this);
+    this.checkSurface ||= new CheckSurface(this.underlayBack);
+    if (!this.commitMotion) this.checkSurface.settle();
+    return this.checkSurface.wait(signal);
+  }
+
+  clearCheckSurface() {
+    this.checkSurface?.clear();
+    this.checkSurface = null;
   }
 
   updateSettings(patch) {
@@ -1402,6 +1421,7 @@ export class CardDeck extends EventTarget {
 
   reset({ preserveInventoryContext = false } = {}) {
     if (this.destroyed) return;
+    this.clearCheckSurface();
     this.preserveInventoryContext = preserveInventoryContext;
     this.pickup?.reset();
     this.input.cancel();
@@ -1660,6 +1680,7 @@ export class CardDeck extends EventTarget {
 
   destroy() {
     if (this.destroyed) return;
+    this.clearCheckSurface();
     this.pickup?.reset();
     this.pickup?.adapter.setContext(false);
     this.mount.removeAttribute('data-inventory-context');

@@ -1,3 +1,4 @@
+import { isStatVariable, validStatValue, compatibleStatVariable } from './checks.js';
 import { validateCardBack } from '../engine/cardBacks.js';
 import { cardKinds, resolvePlacement, canonicalCardKind, allowedCardKinds } from './cards.js';
 import { nodeTypeDescriptor } from './nodeTypes.js';
@@ -47,6 +48,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
   for (const v of variables) {
     if (!object(v)) continue;
     vars.set(v.id, v);
+    if (isStatVariable(v) && !compatibleStatVariable(v)) add(`Stat ${v.id} conflicts with the required integer 1–10 definition.`);
     if (!['flag', 'number'].includes(v.type) || (v.type === 'flag' ? typeof v.initial !== 'boolean': !Number.isFinite(v.initial))) add(`Variable ${v.id} needs a typed initial value.`);
     if (v.type === 'number') {
       if (v.min !== undefined && !Number.isFinite(v.min) || v.max !== undefined && !Number.isFinite(v.max)
@@ -102,6 +104,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
         if (!['set', 'add'].includes(e.op) || !validRef(e.key, vars) || !['number', 'boolean'].includes(typeof e.value)
           || typeof e.value === 'number' && !Number.isFinite(e.value) || e.op === 'add' && typeof e.value !== 'number'
           || v && (typeof e.value !== (v.type === 'flag' ? 'boolean': 'number') || e.op === 'add' && v.type !== 'number')) add(`${label}: invalid variable effect.`);
+        if (isStatVariable(v) && !Number.isInteger(e.value)) add(`${label}: stat changes must be integers.`);
         if (e.op === 'set' && v?.type === 'number' && (v.min !== undefined && e.value < v.min || v.max !== undefined
           && e.value > v.max)) add(`${label}: set effect is outside variable bounds.`);
       }
@@ -126,17 +129,24 @@ export function validateProject(project, {allowDraft = false} = {}) {
         if (!object(c) || !['variable', 'inventory'].includes(c.source) || typeof c.key !== 'string'
           || !Number.isFinite(c.amount) || c.amount <= 0 || c.source === 'inventory' && (!Number.isSafeInteger(c.amount)
           || !validRef(c.key, itemKeys)) || c.source === 'variable' && (!validRef(c.key, vars) || vars.has(c.key)
-          && vars.get(c.key).type !== 'number')) add(`${label}: invalid cost.`);
+          && (vars.get(c.key).type !== 'number' || isStatVariable(vars.get(c.key)) && !Number.isInteger(c.amount)))) add(`${label}: invalid cost.`);
       }
     }
     if (d.resolution !== undefined && !['direct', 'check'].includes(d.resolution)) add(`${label}: unknown resolution.`);
     if (d.resolution === 'check') {
       const c = d.check;
-      if (!object(c) || !Array.isArray(c.pool) || !c.pool.length || c.pool.some(d => !object(d) || ![4,
+      if (c?.mode === 'stat') {
+        const variable = vars.get(c.modifierVariable);
+        if (!validStatValue(c.difficulty) || typeof c.modifierVariable !== 'string' || !c.modifierVariable
+          || !validRef(c.modifierVariable, vars) || variable && (!isStatVariable(variable) || !compatibleStatVariable(variable))) add(`${label}: invalid stat check.`);
+      } else {
+        if (c?.mode !== undefined && c.mode !== 'custom') add(`${label}: unknown check mode.`);
+        if (!object(c) || !Array.isArray(c.pool) || !c.pool.length || c.pool.some(d => !object(d) || ![4,
         6, 8, 10, 12, 20].includes(d.sides) || !Number.isSafeInteger(d.count) || d.count < 1 || d.count > 30)
         || c.pool.reduce((a, d) => a+(d.count || 0), 0) > 30 || !Number.isFinite(c.modifier) || !Number.isFinite(c.target)
         || c.modifierVariable !== undefined && (!validRef(c.modifierVariable, vars) || vars.has(c.modifierVariable)
         && vars.get(c.modifierVariable).type !== 'number')) add(`${label}: invalid check.`);
+      }
     }
   }
   for (const d of library) {
@@ -166,6 +176,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
       if (!object(chapter.initialValues)) add('Initial values must be an object.', cid);
       else for (const [key, value]of Object.entries(chapter.initialValues)) {
         const v = vars.get(key);
+        if (isStatVariable(v) && !validStatValue(value)) add(`Invalid stat initial value: ${key}.`, cid);
         if (!validRef(key, vars) || v && (typeof value !== (v.type === 'flag' ? 'boolean': 'number')
           || v.type === 'number' && (!Number.isFinite(value) || v.min !== undefined && value < v.min || v.max !== undefined
           && value > v.max))) add(`Invalid initial value: ${key}.`, cid);

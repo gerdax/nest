@@ -40,7 +40,7 @@ function decorateBack(back, content = {}, temporary = false) {
   back.backOperation = null;
   back.className = 'nest-card nest-card-back';
   back.style.backgroundImage = `url(${JSON.stringify(appearance.background)})`;
-  back.replaceChildren(cardTexture());
+  back.replaceChildren(cardTexture(), ...(back.checkSlot ? [back.checkSlot] : []));
   back.backIcons = new Map();
   for (const [key, url] of Object.entries(appearance.icons)) {
     const icon = document.createElement('img');

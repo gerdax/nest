@@ -1,5 +1,10 @@
 # Architecture and working assumptions
 
+Stat resolution and probability labels live in `project/checks.js`. The deck's
+`CheckSurface` owns an accessible slot on the real underlying back after normal
+Action departure; `ProjectPreview` owns physical dice and result timing. The
+controller retains costs/effects/routing ownership. See [Stats and card-based checks](stat-checks.md).
+
 These working assumptions include the October 7 presentation discussion and implemented October 9 project-library mechanics. Preserve source documents and assets while evolving the runtime.
 
 ## Project mechanics and extensions

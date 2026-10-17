@@ -61,12 +61,12 @@ test('player preserves authored resources, bounds and chapter starts', () => {
   project.library.find(card=>card.id==='arrival').effects = [{op:'add',key:'energy',value:20}];
   preview.play(project);
   assert.deepEqual(preview.compiled.variables,compileChapter(project).variables);
-  assert.deepEqual(preview.state.variables,{energy:7,health:10});
+  assert.deepEqual(preview.state.variables,{energy:7,health:10,agility:3,intelligence:3,composure:3});
   assert.equal(root.querySelector('[data-health]').hidden,false);
   assert.equal(root.querySelector('[data-health]').getAttribute('aria-label'),'Health 10 out of 10');
   assert.equal(root.querySelector('[data-energy]').getAttribute('aria-label'),'Energy 7 out of 10');
   const result = preview.controller.transaction(preview.controller.card());
-  assert.deepEqual(result.variables,{energy:10,health:10});
+  assert.deepEqual(result.variables,{energy:10,health:10,agility:3,intelligence:3,composure:3});
   preview.update({...preview.state,variables:result.variables});
   assert.equal(preview.energyValue.textContent,10);
   preview.destroy();
@@ -87,7 +87,7 @@ test('resource HUD accepts flags, unbounded numbers and absent resource definiti
   preview.destroy();
 });
 
-test('hidden autoplay playback can skip focus and inert preview ignores Escape',()=>{
+test('hidden autoplay skips focus and committed checks ignore Escape',()=>{
   environment();
   const root=new Element(),preview=new ProjectPreview(root);
   let focused=0,canceled=0,inert=true;
@@ -96,10 +96,10 @@ test('hidden autoplay playback can skip focus and inert preview ignores Escape',
   preview.play(createProject(),undefined,undefined,{focus:false});
   assert.equal(focused,0);assert.ok(preview.controller);
   preview.controller.cancelCheck=()=>canceled++;
-  preview.overlay.hidden=false;preview.cancelButton.disabled=false;
+  preview.overlay.hidden=false;
   const escape=new Event('keydown',{cancelable:true});Object.defineProperty(escape,'key',{value:'Escape'});
   document.dispatchEvent(escape);assert.equal(canceled,0);
-  inert=false;document.dispatchEvent(escape);assert.equal(canceled,1);
+  inert=false;document.dispatchEvent(escape);assert.equal(canceled,0);
   preview.play(createProject());assert.equal(focused,1);preview.destroy();
 });
 
@@ -153,7 +153,6 @@ test('nested initial play keeps only the replacement controller and callbacks', 
 test('stop supports restart; destroy is terminal and releases retained data and callbacks', () => {
   environment(); let changes = 0;
   const preview = new ProjectPreview(new Element(), { inventoryDock: true, onChange: () => changes++ });
-  const button = preview.cancelButton;
   preview.play(createProject());
   const firstController = preview.controller, firstDeck = preview.deck;
   preview.stop();
@@ -167,8 +166,7 @@ test('stop supports restart; destroy is terminal and releases retained data and 
   preview.update({});
   assert.equal(changes, 2);
   assert.equal(controller.destroyed, true); assert.equal(deck.destroyed, true);
-  for (const key of ['project', 'compiled', 'state', 'controller', 'deck', 'cancelKey', 'releaseDock']) assert.equal(preview[key], null, key);
-  assert.equal(button.onclick, null);
+  for (const key of ['project', 'compiled', 'state', 'controller', 'deck', 'releaseDock']) assert.equal(preview[key], null, key);
   assert.equal(document.body.classList.contains('has-inventory-dock'), false);
   assert.throws(() => preview.play(createProject()), /destroyed/);
 });
@@ -196,9 +194,13 @@ test('an obsolete roll rejection cannot close the replacement dice tray', async 
   DiceService.prototype.roll = function () { return new Promise((resolve, reject) => pending.push({ resolve, reject })); };
   const preview = new ProjectPreview(new Element());
   try {
+    preview.deck = {waitForCheckSurface:async()=>new Element(),destroy(){}};
     const oldRoll = preview.roll([{ sides: 6 }]);
+    await Promise.resolve();
     preview.stop();
+    preview.deck = {waitForCheckSurface:async()=>new Element(),destroy(){}};
     const newRoll = preview.roll([{ sides: 6 }]);
+    await Promise.resolve();
     const newDice = preview.dice;
     pending[0].reject(new DOMException('Cancelled', 'AbortError'));
     await assert.rejects(oldRoll, { name: 'AbortError' });
@@ -220,7 +222,7 @@ test('stopped result completion cannot close a newer result presentation', async
   preview.overlay.hidden = false;
   await oldResult;
   assert.equal(preview.overlay.hidden, false);
-  assert.match(preview.result.textContent, /Success/);
+  assert.equal(preview.result.children[1].textContent, 'Success');
   abort.abort();
   await newResult;
   assert.equal(preview.overlay.hidden, true);
@@ -229,6 +231,26 @@ test('stopped result completion cannot close a newer result presentation', async
   preview.destroy();
   await preview.showResult({ total: 4, target: 2, success: true });
   await assert.rejects(preview.roll([{ sides: 6 }]), { name: 'AbortError' });
+});
+
+test('result holds one second, fades dice for 200ms and leaves the result for handoff', async () => {
+  environment();
+  const originalSet=globalThis.setTimeout,originalClear=globalThis.clearTimeout,jobs=[];
+  globalThis.setTimeout=(callback,delay)=>{jobs.push({callback,delay});return jobs.length;};
+  globalThis.clearTimeout=()=>{};
+  const preview=new ProjectPreview(new Element());let destroyed=0;
+  preview.overlay.hidden=false;preview.dice={destroy(){destroyed++;}};
+  try {
+    const result=preview.showResult({total:15,target:13,success:true});
+    assert.equal(jobs[0].delay,1000);assert.equal(destroyed,0);
+    jobs[0].callback();await Promise.resolve();
+    assert.equal(preview.overlay.classList.contains('dice-fading'),true);
+    assert.equal(jobs[1].delay,200);assert.equal(destroyed,0);
+    jobs[1].callback();await result;
+    assert.equal(destroyed,1);assert.equal(preview.overlay.hidden,false);
+    assert.equal(preview.result.children[0].textContent,'15');
+    assert.equal(preview.result.children[1].textContent,'Success');
+  } finally {preview.destroy();globalThis.setTimeout=originalSet;globalThis.clearTimeout=originalClear;}
 });
 
 test('card link is optional, starts enabled after controller assignment, and resolves fresh on click', () => {

@@ -1,3 +1,4 @@
+import { normalizeStats } from './checks.js';
 import { parseChapter } from '../chapter/model.js';
 import { canonicalCardKind } from './cards.js';
 import { definitionGraph } from './dependencies.js';
@@ -15,7 +16,7 @@ export function exportChapter(project, id = project.activeChapterId) {
     chapter});
   for (const definition of pkg.library) definition.kind = canonicalCardKind(definition.kind);
   discardPlacementContext({library: pkg.library, chapters: [pkg.chapter]});
-  return normalizeSingleItems(pkg);
+  return normalizeStats(normalizeSingleItems(pkg));
 }
 
 export function importChapter(project, pkgOrV1) {
@@ -105,7 +106,7 @@ export function importChapter(project, pkgOrV1) {
     next.chapters.push(c);
     next.activeChapterId = c.id;
   }
-  return normalizeSingleItems(discardPlacementContext(next));
+  return normalizeStats(normalizeSingleItems(discardPlacementContext(next)));
 }
 
 export function parseProject(text, {allowDraft = false} = {}) {
@@ -121,6 +122,7 @@ export function parseProject(text, {allowDraft = false} = {}) {
   for (const definition of list(value?.library)) if (object(definition)) definition.kind = canonicalCardKind(definition.kind);
   discardPlacementContext(value);
   normalizeSingleItems(value);
+  normalizeStats(value);
   for (const chapter of list(value?.chapters)) if (object(chapter)) delete chapter.backImage;
   const errors = validateProject(value, {allowDraft});
   if (errors.length) throw new TypeError(errors.map(e => e.message).join('\n'));
