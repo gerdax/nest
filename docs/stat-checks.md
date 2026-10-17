@@ -136,7 +136,5 @@ These field sizes are CSS-sized test frames, not physical devices or browser
 viewport emulation. The complete editor chrome, physical-phone touch behavior
 and Safari were not reverified for this update.
 
-Chapter cycles require no runtime change for this update: **Project variables
-and chapter settings → Allow beat cycles** already enables revisits for the
-selected chapter. See [chapter graph](chapter-editor.md#chapter-graph) for the
+**Project settings → Allow beat cycles** enables revisits across all chapters and is checked by default. See [chapter graph](chapter-editor.md#chapter-graph) for the
 runtime automatic-loop guard and legacy validation boundaries.

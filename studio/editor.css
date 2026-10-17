@@ -97,3 +97,6 @@ main {grid-template-columns:minmax(0,1fr) 430px;}
 @media(min-width:761px) {main:has(#canvas:not([hidden])) {grid-template-columns:minmax(0,1fr) 470px;}}
 
 #inspector label.field:has(> input[data-scope="node"][data-path="name"]) {margin-bottom:20px;}
+
+#settings .chapter-settings[open] > summary {margin-bottom:22px;}
+#project-settings-content > [data-image-picker] {margin-bottom:16px;}

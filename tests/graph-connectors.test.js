@@ -33,7 +33,7 @@ class Root extends Element {
 }
 function setup(){
  const nodes=[{id:'a',name:'A',type:'linear',cards:[],x:0,y:0,connections:{next:'b'}},{id:'b',name:'B',type:'linear',cards:[],x:400,y:50,connections:{next:null}},{id:'c',name:'C',type:'linear',cards:[],x:600,y:150,connections:{next:null}}];
- const chapter={nodes,startNode:'a'},project={library:[]},root=new Root(),calls=[],moves=[],selections=[],opened=[],deleted=[],creations=[];
+ const chapter={nodes,startNode:'a'},project={library:[],allowCycles:false},root=new Root(),calls=[],moves=[],selections=[],opened=[],deleted=[],creations=[];
  const graph=new GraphView(root,{onCreateConnected:request=>creations.push(request),onDelete:id=>deleted.push(id),onSelect:id=>selections.push(id),onOpenCard:(...args)=>opened.push(args),onConnect:(...args)=>calls.push(args),onMove:(...args)=>moves.push(args)});graph.render(project,chapter,'a','b');
  return {root,graph,chapter,calls,moves,selections,opened,deleted,creations,port:()=>root.node('a').children[0]};
 }
@@ -290,4 +290,13 @@ test('unlinked output click, outside drop and existing-node drop do not request 
   assert.deepEqual(s.creations,[]);
   assert.deepEqual(s.calls,kind==='node'?[['a','next','b']]:[]);
  }
+});
+
+
+test('self-target connections follow the project cycle setting, not legacy chapter flags',()=>{
+ const s=setup();
+ s.chapter.allowCycles=true;assert.equal(s.graph.validTarget('a','a'),false);
+ s.graph.project.allowCycles=true;s.chapter.allowCycles=false;assert.equal(s.graph.validTarget('a','a'),true);
+ delete s.graph.project.allowCycles;assert.equal(s.graph.validTarget('a','a'),true);
+ assert.equal(s.graph.validTarget('missing','a'),false);
 });

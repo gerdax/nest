@@ -1,4 +1,5 @@
 import { canonicalCardKind, resolvePlacement } from './cards.js';
+import { projectCardBack } from './card-backs.js';
 import { createLibraryIndex } from './library-index.js';
 import { cloneProject, legacyArtwork, list } from './model-data.js';
 import { discardPlacementContext, normalizeSingleItems } from './normalization.js';
@@ -11,8 +12,9 @@ export function compileChapter(project, chapterId = project.activeChapterId) {
   const chapter = project.chapters.find(c => c.id === chapterId);
   if (!chapter) throw new TypeError(`Unknown chapter: ${chapterId}`);
   const result = cloneProject(chapter);
+  result.allowCycles = project.allowCycles !== false;
   delete result.backImage;
-  result.cardBack = {...result.cardBack, switchIcons: project.switchCardBackIcons !== false};
+  result.cardBack = {...projectCardBack(project), switchIcons: project.switchCardBackIcons !== false};
   result.cardStyles = cloneProject(project.cardStyles || {});
   result.library = project.library.map(d => ({
     ...cloneProject(d),

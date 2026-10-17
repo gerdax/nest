@@ -42,6 +42,7 @@ export function createProject() {
     kind: 'nest-project',
     id: 'project-1',
     name: 'First expedition',
+    allowCycles: true,
     activeChapterId: 'chapter-1',
     library: [event, item, action],
     variables: [

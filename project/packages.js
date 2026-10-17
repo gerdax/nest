@@ -1,6 +1,7 @@
 import { normalizeStats } from './checks.js';
 import { parseChapter } from '../chapter/model.js';
 import { canonicalCardKind } from './cards.js';
+import { projectCardBack } from './card-backs.js';
 import { definitionGraph } from './dependencies.js';
 import { cloneProject, list, object, unique, walk } from './model-data.js';
 import { migrateChapter } from './migration.js';
@@ -12,7 +13,8 @@ export function exportChapter(project, id = project.activeChapterId) {
   if (!chapter) throw new TypeError('Unknown chapter.');
   const ids = definitionGraph(project).reachableFrom(chapter);
   const pkg = cloneProject({version: 2, kind: 'nest-chapter', library: project.library.filter(d => ids.has(d.id)),
-    variables: project.variables, cardStyles: project.cardStyles || {}, switchCardBackIcons: project.switchCardBackIcons,
+    variables: project.variables, allowCycles: project.allowCycles !== false,
+    cardStyles: project.cardStyles || {}, cardBack: projectCardBack(project), switchCardBackIcons: project.switchCardBackIcons,
     chapter});
   for (const definition of pkg.library) definition.kind = canonicalCardKind(definition.kind);
   discardPlacementContext({library: pkg.library, chapters: [pkg.chapter]});
@@ -117,7 +119,8 @@ export function parseProject(text, {allowDraft = false} = {}) {
   }
   else if (value?.version === 2 && value.kind === 'nest-chapter') value = {version: 2, kind: 'nest-project',
     id: `${value.chapter?.id || 'chapter'}-project`, name: value.chapter?.name, activeChapterId: value.chapter?.id,
-    library: value.library, variables: value.variables || [], cardStyles: value.cardStyles || {}, switchCardBackIcons: value.switchCardBackIcons,
+    library: value.library, variables: value.variables || [], allowCycles: value.allowCycles,
+    cardStyles: value.cardStyles || {}, cardBack: value.cardBack, switchCardBackIcons: value.switchCardBackIcons,
     chapters: [value.chapter]};
   for (const definition of list(value?.library)) if (object(definition)) definition.kind = canonicalCardKind(definition.kind);
   discardPlacementContext(value);

@@ -12,7 +12,9 @@ export function validateProject(project, {allowDraft = false} = {}) {
   const add = (message, chapterId, nodeId) => errors.push({message, ...(chapterId ? {chapterId}: {}), ...(nodeId ? {nodeId}: {})});
   if (!object(project)) return [{message: 'Project must be an object.'}];
   if (project.version !== 2 || project.kind !== 'nest-project') add('Project needs version 2 and kind nest-project.');
+  if (project.allowCycles !== undefined && typeof project.allowCycles !== 'boolean') add('Invalid allow beat cycles setting.');
   if (project.switchCardBackIcons !== undefined && typeof project.switchCardBackIcons !== 'boolean') add('Cardback icon switching must be a boolean.');
+  for (const message of validateCardBack(project.cardBack)) add(message);
   if (project.cardStyles !== undefined) {
     if (!object(project.cardStyles)) add('Invalid card text style sizes.');
     else for (const [key, value] of Object.entries(project.cardStyles)) {
@@ -168,7 +170,6 @@ export function validateProject(project, {allowDraft = false} = {}) {
       add('Invalid chapter structure.', cid);
       continue;
     }
-    for (const message of validateCardBack(chapter.cardBack)) add(message, cid);
     const nodeIds = seen(chapter.nodes, 'Beat');
     if (!allowDraft && !nodeIds.has(chapter.startNode)) add('Start beat must exist.', cid);
     if (chapter.allowCycles !== undefined && typeof chapter.allowCycles !== 'boolean') add('Invalid allow node cycles setting.', cid);
@@ -312,7 +313,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
       if (!allowDraft) for (const t of targets) if (t !== null && t !== false && !nodeIds.has(t)) add(`${label}: unknown target ${t}.`, cid, nid);
       edges.set(nid, targets.filter(t => t !== null && nodeIds.has(t)));
     }
-    if (!allowDraft && chapter.allowCycles !== true && hasDirectedCycle(nodeIds, edges)) add('Chapter has a beat cycle.', cid);
+    if (!allowDraft && project.allowCycles === false && hasDirectedCycle(nodeIds, edges)) add('Chapter has a beat cycle.', cid);
   }
   return errors;
 }

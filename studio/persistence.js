@@ -1,3 +1,4 @@
+import { projectCardBack } from '../project/card-backs.js';
 import { saveProject, acknowledgeRecovery } from '../project/storage.js';
 import { exportChapter, parseProject } from '../project/model.js';
 
@@ -44,7 +45,7 @@ export function exportStudioChapter(project, chapterId = project.activeChapterId
   if (!chapter) throw new TypeError('Unknown chapter.');
   // Dependency discovery only needs the selected chapter. Other chapters may
   // still be unfinished or contain malformed draft data.
-  const pkg = exportChapter({...project, chapters:[chapter]}, chapterId);
+  const pkg = exportChapter({...project, cardBack:projectCardBack(project), chapters:[chapter]}, chapterId);
   parseProject(JSON.stringify(pkg));
   return pkg;
 }

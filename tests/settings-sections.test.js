@@ -16,6 +16,8 @@ test('project settings contain project controls and variable definitions without
  assert.match(html,/<h3>Project variables<\/h3>/);
  assert.match(html,/data-scope="project" data-path="name"/);
  assert.match(html,/data-path="switchCardBackIcons"/);
+ for(const path of ['cardBack.background','cardBack.icons.default','cardBack.icons.container','cardBack.icons.dice','cardBack.icons.collect','cardBack.icons.discard'])assert.ok(html.includes(`data-scope="project" data-path="${path}"`));
+ assert.ok(html.lastIndexOf('<h3>Card backs</h3>')>html.lastIndexOf('data-command="add-variable"'));
  for(const key of ['small','big','medium']) {
   assert.match(html,new RegExp(`data-path="cardStyles\\.${key}"`));
   assert.match(html,new RegExp(`data-path="cardStyles\\.${key}Color"`));
@@ -35,7 +37,7 @@ test('chapter disclosure contains chapter controls and opaque initial overrides 
  assert.ok(html.endsWith('</details>'));
  assert.equal((html.match(/<details\b/g)||[]).length,1);
  assert.match(html,/data-scope="chapter" data-path="name"/);
- for(const path of ['cardBack.background','cardBack.icons.default','cardBack.icons.container','cardBack.icons.dice','cardBack.icons.collect','cardBack.icons.discard','allowCycles'])assert.ok(html.includes(`data-path="${path}"`));
+ assert.doesNotMatch(html,/data-path="cardBack\./);
  for(const id of ['flag','coins','agility'])assert.ok(html.includes(`data-scope="initial-toggle" data-path="${id}"`));
  for(const id of ['flag','coins'])assert.ok(html.includes(`data-scope="initial-value" data-path="${id}"`));
  assert.ok(!html.includes('data-scope="initial-value" data-path="agility"'));
@@ -47,7 +49,7 @@ test('both settings sections escape names, paths and authored values',()=>{
  const {project,chapter}=fixture(),unsafe='x" autofocus onfocus="evil() <script>&';
  project.name=unsafe;project.variables=[{id:unsafe,name:unsafe,type:'number',initial:1}];
  project.cardStyles={smallColor:unsafe};chapter.name=unsafe;
- chapter.cardBack={background:unsafe,icons:{default:unsafe}};
+ project.cardBack={background:unsafe,icons:{default:unsafe}};
  chapter.initialValues={[unsafe]:2};
  for(const html of [projectSettingsInspector(project),chapterSettingsInspector(project,chapter)]) {
   assert.ok(html.includes('&quot;'));
@@ -56,4 +58,17 @@ test('both settings sections escape names, paths and authored values',()=>{
   assert.doesNotMatch(html,/ onfocus="evil\(\)"|<script>/);
  }
  assert.ok(chapterSettingsInspector(project,chapter).includes('data-path="x&quot; autofocus onfocus=&quot;evil() &lt;script&gt;&amp;"'));
+});
+
+
+test('beat cycles are a checked-by-default project control and absent from chapter settings',()=>{
+ const project=createProject(),chapter=project.chapters[0];
+ for(const setting of [undefined,true,false]){
+  project.allowCycles=setting;
+  const projectHTML=projectSettingsInspector(project),chapterHTML=chapterSettingsInspector(project,chapter);
+  const control=projectHTML.match(/<input[^>]*data-path="allowCycles"[^>]*>/)?.[0];
+  assert.ok(control);assert.match(control,/data-scope="project"/);
+  assert.equal(/checked/.test(control),setting!==false);
+  assert.doesNotMatch(chapterHTML,/data-path="allowCycles"/);
+ }
 });

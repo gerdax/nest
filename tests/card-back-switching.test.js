@@ -6,10 +6,10 @@ import { variableInspector } from '../studio/inspectors.js';
 
 test('project toggle defaults on, applies to every chapter and preserves authored backs', () => {
   const project = createProject();
-  project.chapters[0].cardBack = { background: 'custom.png', icons: { default: 'nest.png', dice: 'dice.png' } };
+  project.cardBack = { background: 'custom.png', icons: { default: 'nest.png', dice: 'dice.png' } };
   project.chapters.push({ ...structuredClone(project.chapters[0]), id: 'second' });
   assert.equal(compileChapter(project).cardBack.switchIcons, true);
-  const backs = project.chapters.map(chapter => structuredClone(chapter.cardBack));
+  const backs = structuredClone(project.cardBack);
   project.switchCardBackIcons = false;
   for (const chapter of project.chapters) {
     const appearance = resolveBackAppearance({ cardBack: compileChapter(project, chapter.id).cardBack });
@@ -17,7 +17,7 @@ test('project toggle defaults on, applies to every chapter and preserves authore
       for (const distance of [0, 6, Infinity]) assert.equal(selectBackIcon(appearance, operation, 1, distance), 'nest.png');
     }
   }
-  assert.deepEqual(project.chapters.map(chapter => chapter.cardBack), backs);
+  assert.deepEqual(project.cardBack, backs);
   project.switchCardBackIcons = true;
   assert.equal(selectBackIcon(resolveBackAppearance({ cardBack: compileChapter(project).cardBack }), 'dice', 1, 6), 'dice.png');
 });

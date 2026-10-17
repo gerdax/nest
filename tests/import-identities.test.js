@@ -98,6 +98,7 @@ for(const renameOwner of [false,true])test(`import preserves aliases of an item 
 
 test('chapter cycle validation handles ten thousand beats and detects a closing edge',()=>{
   const project=createProject(),chapter=project.chapters[0],count=10000;
+  project.allowCycles=false;
   chapter.startNode='n0';chapter.nodes=Array.from({length:count},(_,i)=>({
     id:`n${i}`,name:'Beat',type:'linear',x:0,y:0,cards:[{id:'card',definitionId:'arrival'}],connections:{next:i+1<count?`n${i+1}`:null},
   }));

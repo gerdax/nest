@@ -12,7 +12,7 @@ test('placement overrides replace base arrays then append local rules',()=>{
  const p=createProject();p.library[2].effects=[{op:'add',key:'energy',value:1}];const placement={id:'a',definitionId:'explore',quantity:2,overrides:{effects:[{op:'set',key:'energy',value:2}]},effects:[{op:'add',key:'energy',value:-1}]};const card=resolvePlacement(p,placement);assert.deepEqual(card.effects,[{op:'set',key:'energy',value:2},{op:'add',key:'energy',value:-1}]);assert.equal(card.quantity,undefined);assert.equal(card.inventoryKey,'explore');assert.match(cardSummary(card,p.variables),/energy/);
 });
 test('check outputs and graph validation include random fallback',()=>{
- const p=createProject();p.library[2].resolution='check';const fork=p.chapters[0].nodes[2];assert.deepEqual(outputsForNode(p,fork),['explore-choice:success','explore-choice:failure']);assert.ok(validateProject(p).some(e=>e.message.includes('missing connection')));fork.connections={'explore-choice:success':'encounter','explore-choice:failure':null};p.chapters[0].nodes[3].fallback='arrival';assert.ok(validateProject(p).some(e=>e.message.includes('cycle')));p.chapters[0].nodes[3].fallback='missing';assert.ok(validateProject(p).some(e=>e.message.includes('unknown target')));assert.deepEqual(validateProject(p,{allowDraft:true}),[]);
+ const p=createProject();p.allowCycles=false;p.library[2].resolution='check';const fork=p.chapters[0].nodes[2];assert.deepEqual(outputsForNode(p,fork),['explore-choice:success','explore-choice:failure']);assert.ok(validateProject(p).some(e=>e.message.includes('missing connection')));fork.connections={'explore-choice:success':'encounter','explore-choice:failure':null};p.chapters[0].nodes[3].fallback='arrival';assert.ok(validateProject(p).some(e=>e.message.includes('cycle')));p.chapters[0].nodes[3].fallback='missing';assert.ok(validateProject(p).some(e=>e.message.includes('unknown target')));assert.deepEqual(validateProject(p,{allowDraft:true}),[]);
 });
 test('typed state, costs, quantities, dice and placement kinds are validated',()=>{
  const p=createProject();p.library[2].costs=[{source:'variable',key:'energy',amount:-1}];p.library[2].resolution='check';p.library[2].check.pool=[{sides:6,count:10000}];p.chapters[0].nodes[1].items[0].unavailable='invalid';p.variables[0].initial=20;const errors=validateProject(p);for(const term of ['cost','check','placement','bounds'])assert.ok(errors.some(e=>e.message.includes(term)),term);const q=createProject();q.chapters[0].nodes[1].items[0].definitionId='arrival';assert.ok(validateProject(q).some(e=>e.message.includes('incompatible')));
@@ -62,12 +62,13 @@ test('retired item quantities normalize away while numeric resource costs remain
  assert.equal(JSON.stringify(exportChapter(p)).includes('"quantity"'),false);
 });
 
-test('chapter node cycles are opt-in and survive project and chapter round trips',()=>{
+test('project beat cycles default enabled and survive project and chapter round trips',()=>{
  const project=createProject(),chapter=project.chapters[0];chapter.nodes[3].fallback=chapter.startNode;
- assert.ok(validateProject(project).some(e=>e.message.includes('beat cycle')));
- chapter.allowCycles=true;assert.deepEqual(validateProject(project),[]);
- assert.equal(parseProject(JSON.stringify(project)).chapters[0].allowCycles,true);
+ assert.deepEqual(validateProject(project),[]);
+ project.allowCycles=false;assert.ok(validateProject(project).some(e=>e.message.includes('beat cycle')));
+ project.allowCycles=true;
+ assert.equal(parseProject(JSON.stringify(project)).allowCycles,true);
  assert.equal(compileChapter(project).allowCycles,true);
- const imported=importChapter(createProject(),exportChapter(project));assert.equal(imported.chapters.at(-1).allowCycles,true);assert.deepEqual(validateProject(imported),[]);
+ const imported=importChapter(createProject(),exportChapter(project));assert.equal(imported.allowCycles,true);assert.deepEqual(validateProject(imported),[]);
  chapter.allowCycles='yes';assert.ok(validateProject(project).some(e=>e.message.includes('cycles setting')));
 });

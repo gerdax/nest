@@ -83,3 +83,15 @@ test('unscoped imports keep project, chapter and legacy compatibility', () => {
     assert.equal(imported.project.kind, 'nest-project');
   }
 });
+
+
+test('scoped chapter export keeps the shared project design when exporting a different chapter',()=>{
+ const project=createProject(),first=project.chapters[0];
+ project.cardBack={background:'shared-project.png'};
+ const second=structuredClone(first);second.id='second';
+ project.chapters.push(second);
+ const before=structuredClone(project);
+ const pkg=exportStudioChapter(project,'second');
+ assert.equal(pkg.cardBack.background,'shared-project.png');
+ assert.deepEqual(project,before);
+});

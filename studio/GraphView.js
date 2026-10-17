@@ -104,7 +104,7 @@ export class GraphView {
   this.root.querySelector('#edges').innerHTML=paths.join('');
  }
  transform(){this.root.querySelector('#world').style.transform=`translate(${this.view.x}px,${this.view.y}px) scale(${this.view.z})`;}
- validTarget(id,source) {return (id!==source||this.chapter.allowCycles===true)&&this.nodesById.has(id);}
+ validTarget(id,source) {return (id!==source||this.project.allowCycles!==false)&&this.nodesById.has(id);}
  dropTarget(e,source) {
   const r=this.root.getBoundingClientRect();
   if(e.clientX<r.left||e.clientX>=r.right||e.clientY<r.top||e.clientY>=r.bottom)return null;

@@ -6,7 +6,7 @@ The October 9, 2026 decisions below are implemented in project v2. The retained 
 
 A new Random node selects one eligible destination from a weighted list of nodes on the chapter canvas. Route conditions filter eligibility; a fallback handles no eligible route. After the jump, playback follows that node's ordinary connections. Branches converge only where the author connects them. Random does not regain control or count encounters.
 
-Imported v1 random pools become `legacyPool`: weighted selection without repetition, the old selection count and sequence return behavior are preserved. Deliberately replace that node to adopt the new route behavior. Authored, player-driven revisits are supported when chapter beat cycles are enabled. Automatic Director encounter-count/retry orchestration remains deferred; automatic routing-only loops are blocked by the runtime traversal guard, and legacy internal card cycles remain rejected by validation.
+Imported v1 random pools become `legacyPool`: weighted selection without repetition, the old selection count and sequence return behavior are preserved. Deliberately replace that node to adopt the new route behavior. Authored, player-driven revisits are supported when project beat cycles are enabled (the default). Automatic Director encounter-count/retry orchestration remains deferred; automatic routing-only loops are blocked by the runtime traversal guard, and legacy internal card cycles remain rejected by validation.
 
 ## Checks belong to action cards — implemented
 
