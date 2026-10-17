@@ -129,7 +129,7 @@ export function projectSettingsInspector(project) {
 }
 
 export function chapterSettingsInspector(project,chapter) {
- return `<details class="chapter-settings"><summary>Chapter settings</summary>${field('Chapter name',chapter.name,'name','chapter')}<h3>Chapter initial values</h3>${project.variables.map(v=>`<div class="entry">${checkbox(`Override ${v.name||v.id}`,Object.hasOwn(chapter.initialValues||{},v.id),v.id,'initial-toggle')}${Object.hasOwn(chapter.initialValues||{},v.id)?v.type==='flag'?select('Initial value',String(chapter.initialValues[v.id]),[['true','True'],['false','False']],v.id,'initial-value'):field('Initial value',chapter.initialValues[v.id],v.id,'initial-value','number'):''}</div>`).join('')}</details>`;
+ return `<details class="chapter-settings"><summary>Chapter settings</summary>${field('Chapter name',chapter.name,'name','chapter')}<h3>Chapter initial values</h3>${project.variables.map(v=>`<div class="entry">${checkbox(`Override ${v.name||v.id}`,Object.hasOwn(chapter.initialValues||{},v.id),v.id,'initial-toggle')}${Object.hasOwn(chapter.initialValues||{},v.id)?v.type==='flag'?select('Initial value',String(chapter.initialValues[v.id]),[['true','True'],['false','False']],v.id,'initial-value'):field('Initial value',chapter.initialValues[v.id],v.id,'initial-value','number'):''}</div>`).join('')}<div class="chapter-delete-action">${button('Delete chapter','delete-chapter',`class="danger" data-chapter="${esc(chapter.id)}" ${project.chapters.length<=1?'disabled title="The project must keep at least one chapter."':''}`)}</div></details>`;
 }
 
 export function variableInspector(project,chapter) {

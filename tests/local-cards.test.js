@@ -9,7 +9,7 @@ import {DocumentHistory} from '../editor/DocumentHistory.js';
 test('Fork introductions retain local authoring, toggle data, export and independent duplication',()=>{
  const project=createProject(),chapter=project.chapters[0],node=createNode(project,'fork');chapter.nodes.push(node);chapter.startNode=node.id;synchronizeConnections(project);
  const intro=project.library.find(d=>d.id===node.intro.definitionId);intro.text='Before the choice';
- assert.equal(intro.visibility,'local');assert.equal(node.introEnabled,true);assert.match(nodeInspector(project,chapter,node),/Fork introduction/);
+ assert.equal(intro.visibility,'local');assert.equal(node.introEnabled,false);assert.match(nodeInspector(project,chapter,node),/Fork introduction/);
  node.introEnabled=false;assert.doesNotMatch(nodeInspector(project,chapter,node),new RegExp(`data-placement="${node.intro.id}"`));assert.equal(intro.text,'Before the choice');
  node.introEnabled=true;assert.deepEqual(validateProject(project),[]);
  const imported=importChapter(createProject(),exportChapter(project));const restored=imported.chapters.at(-1).nodes.find(n=>n.name===node.name);
@@ -21,7 +21,7 @@ test('Fork introductions retain local authoring, toggle data, export and indepen
 test('every native card slot starts local, edits inline, and promotes without changing identity',()=>{
  const project=createProject(),chapter=project.chapters[0];
  for(const type of ['linear','fork','container']){
-  const n=createNode(project,type);chapter.nodes.push(n);
+  const n=createNode(project,type);if(n.intro)n.introEnabled=true;chapter.nodes.push(n);
   const ps=[...(n.cards||[]),...(n.choices||[]),...(n.items||[]),...(n.intro?[n.intro]:[])];
   for(const p of ps){
    const d=project.library.find(d=>d.id===p.definitionId);assert.equal(d.visibility,'local');
@@ -100,7 +100,7 @@ test('Show once defaults unchecked, disables with intro and survives chapter rou
  const project=createProject(),chapter=project.chapters[0];
  for(const type of ['fork','container']){
   const node=createNode(project,type);chapter.nodes.push(node);assert.equal(node.introOnce,false);
-  const html=nodeInspector(project,chapter,node);assert.match(html,/Show once/);assert.match(html,/data-path="introOnce"\s+>/);
+  const html=nodeInspector(project,chapter,node);assert.match(html,/Show once/);assert.match(html,/data-path="introOnce"\s+disabled/);
   node.introOnce=true;node.introEnabled=false;assert.match(nodeInspector(project,chapter,node),/data-path="introOnce" checked disabled/);
  }
  synchronizeConnections(project);const restored=parseProject(JSON.stringify(exportChapter(project)));

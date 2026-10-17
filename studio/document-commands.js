@@ -2,6 +2,7 @@ import { isStatVariable } from '../project/checks.js';
 import { createDefinition, allowedCardKinds } from '../project/cards.js';
 import { createChapter, importChapter, outputsForNode } from '../project/model.js';
 import { deleteDefinition, cleanupLocalDefinitions } from '../project/dependencies.js';
+import { pasteNodeClipboard } from './node-clipboard.js';
 import {
   uid, createNode, makePlacement, promoteCard, duplicateNode, duplicatePlacement,
   findPlacement, pathTarget, customizeAction, newRule, normalizeRule, addHealthVariable,
@@ -160,6 +161,15 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
       project.activeChapterId = target.id;
       return {selection:{chapterId:target.id, selected:target.startNode}};
     }
+    case 'delete-chapter': {
+      if (project.chapters.length <= 1) throw new Error('The project must keep at least one chapter.');
+      const index = project.chapters.findIndex(candidate => candidate.id === (data.id ?? selection.chapterId));
+      if (index < 0) throw new Error('The chapter no longer exists.');
+      project.chapters.splice(index, 1);
+      const next = project.chapters[Math.min(index, project.chapters.length - 1)];
+      project.activeChapterId = next.id;
+      return {selection:{chapterId:next.id, selected:next.startNode}};
+    }
     case 'add-chapter': {
       const added = createChapter(uid('chapter'), `Chapter ${project.chapters.length+1}`), first = createNode(project, 'linear');
       added.nodes.push(first); added.startNode = first.id; project.chapters.push(added); project.activeChapterId = added.id;
@@ -173,6 +183,10 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
       const added = createNode(project, data.type, data.position); chapter.nodes.push(added);
       if (!chapter.startNode) chapter.startNode = added.id;
       return {selection:{selected:added.id}};
+    }
+    case 'paste-node': {
+      const added = pasteNodeClipboard(project, chapter, data.clipboard, {position:data.position});
+      return {selection:{selected:added.id, mode:'chapter'}, value:added.id};
     }
     case 'create-connected-node': {
       const source = chapter?.nodes.find(candidate => candidate.id === data.id);

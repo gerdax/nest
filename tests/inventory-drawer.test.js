@@ -42,7 +42,7 @@ assert.deepEqual(await view.authorize({id:'c'},view.slotTarget(3)),{slot:3});
 view.update(items.slice(0,3)); assert.equal(view.slots[3].id,'c'); assert.equal(view.slots[2],null);
 view.update(items); assert.equal(view.slots[2].id,'d');
 view.preview(view.slotTarget(1));assert.equal(root.classList.contains('is-full-drag'),true);
-assert.match(view.slotElements[1].children[0].style.transform,/translateY\(-28px\)/);
+assert.match(view.slotElements[1].children[0].style.transform,/translateY\(-48px\)/);
 assert.equal(view.slotElements[0].children[0].style.transform,'');
 view.preview(null);assert.equal(root.classList.contains('is-full-drag'),false);
 assert.equal(view.slotElements[1].children[0].style.transform,'');
@@ -93,7 +93,7 @@ test('occupied-slot hover shifts only the queue toward the nearest gap and commi
     set([null,a,null,c]); view.preview(view.slotTarget(1));
     assert.deepEqual(transforms(),['','translateX(85px)','',''],'tie chooses right gap and leaves unrelated cards still');
     set([a,b,c,d]); view.preview(view.slotTarget(1));
-    assert.deepEqual(transforms(),['','translateY(-28px)','',''],'full row lifts only the hovered card toward the stack');
+    assert.deepEqual(transforms(),['','translateY(-48px)','',''],'full row lifts only the hovered card toward the stack');
     set([a,b,null,null]);
     const decision=await view.authorize(c,view.slotTarget(0));
     assert.deepEqual(decision,{slot:0,layout:['c','a','b',null]});

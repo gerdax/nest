@@ -17,7 +17,7 @@ test('active descriptors create independent valid defaults with the existing aut
  }
  const [linear,fork,container,random]=p.chapters[0].nodes;
  assert.equal(linear.cards.length,1);assert.equal(fork.choices.length,2);assert.equal(container.items.length,1);
- assert.equal(fork.introEnabled,true);assert.equal(container.introOnce,false);
+ assert.equal(fork.introEnabled,false);assert.equal(container.introEnabled,false);assert.equal(container.introOnce,false);
  assert.deepEqual(Object.keys(random),['id','name','type','x','y','routes','fallback']);
  assert.equal(random.routes[0].weight,1);assert.equal(random.fallback,false);
  assert.equal(p.library.length,6);

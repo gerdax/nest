@@ -6,7 +6,7 @@ const itemKinds = Object.freeze(['item']);
 const objects = value => Array.isArray(value) ? value.filter(v => v !== null && typeof v === 'object' && !Array.isArray(v)) : [];
 const nextOutput = () => ['next'];
 const legacyOutputs = node => Object.keys(node.connections || {});
-const introduction = makePlacement => ({introEnabled:true, introOnce:false, intro:makePlacement('event')});
+const introduction = makePlacement => ({introEnabled:false, introOnce:false, intro:makePlacement('event')});
 
 export const nodeTypes = Object.freeze({
  linear: Object.freeze({

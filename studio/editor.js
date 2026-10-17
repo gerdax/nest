@@ -1,3 +1,5 @@
+import { captureNodeClipboard } from './node-clipboard.js';
+import { mountNodeClipboardShortcuts } from './node-clipboard-shortcuts.js';
 import { applyCardStyles, parseCardColor } from '../project/card-styles.js';
 import { nodeTypeLabel } from '../project/nodeTypes.js';
 import { nodeIcon } from './node-icons.js';
@@ -28,6 +30,7 @@ import { mountHistoryShortcuts } from './history-shortcuts.js';
 
 const $=s=>document.querySelector(s),loaded=loadProject();
 let copiedArtwork = null;
+let nodeClipboard = null;
 const artworkClipboardKey = 'nest.artwork.clipboard';
 let project=loaded.project||createProject(),chapterId=project.activeChapterId,selected=project.chapters.find(c=>c.id===chapterId)?.startNode,definitionId=project.library.find(d=>d.visibility!=='local')?.id,mode='chapter';
 const history=new DocumentHistory(project);
@@ -78,7 +81,11 @@ function edit(type,data={}, {preserveProjectSettings=false}={}){
  const saved=saveProject(project);render({preserveProjectSettings});report(outcome.failure|| (saved.ok?'Saved in this browser':`Save failed: ${saved.error}`));
  return {ok:!outcome.failure&&saved.ok,value:outcome.result?.value};
 }
-function renderGraph(){if(mode==='chapter')graph.render(project,chapter(),selected,previewActiveNode(preview,chapter()));}
+function renderGraph(){
+ $('#copy-node').disabled=$('#cut-node').disabled=mode!=='chapter'||!node();
+ $('#paste-node').disabled=mode!=='chapter'||!nodeClipboard||nodeClipboard.projectId!==project.id;
+ if(mode==='chapter')graph.render(project,chapter(),selected,previewActiveNode(preview,chapter()));
+}
 function renderProjectSettings(){
  const root=$('#project-settings-content'),active=document.activeElement;
  const restore=root.contains(active),path=active?.dataset.path,scope=active?.dataset.scope;
@@ -122,6 +129,7 @@ function render({preserveProjectSettings=false}={}){
  $('#project-name').textContent=project.name;
  $('#chapter-selector').innerHTML=project.chapters.map(c=>`<option value="${esc(c.id)}" ${c.id===chapterId?'selected':''}>${esc(c.name)}</option>`).join('');
  $('#undo').disabled=!history.canUndo;$('#redo').disabled=!history.canRedo;
+
  $('#canvas').hidden=mode!=='chapter';$('#library-panel').hidden=mode!=='library';$('#node-tools').hidden=mode!=='chapter';
  $('#chapter-view').classList.toggle('active-tab',mode==='chapter');$('#library-view').classList.toggle('active-tab',mode==='library');
  const issues=validateProject(project);$('#errors').innerHTML=issues.map(e=>`<div>${esc(e.message)}</div>`).join('');
@@ -182,9 +190,16 @@ function command(event){const b=event.target.closest('[data-command]');if(!b)ret
   if(!settings){report('Copy image settings from a card first.');return;}
   edit('paste-artwork',{id:card.id,settings});return;
  }
+ if(cmd==='delete-chapter'){
+  if(b.disabled)return;
+  preview.stop();localDrafts.reset();
+  const result=edit('delete-chapter',{id:b.dataset.chapter});
+  if(result.ok){if(mode==='chapter')graph.fit();report('Chapter deleted. Undo restores it.');}
+  return;
+ }
  if(cmd==='edit-shared'){definitionId=b.dataset.definition;mode='library';render();return;}
  if(cmd==='jump-use'){chapterId=b.dataset.chapter;selected=b.dataset.node;mode='chapter';render();graph.fit();autoplay.select(selected);return;}
- edit('inspector',{...b.dataset});
+ edit('inspector',{...b.dataset,placement:b.dataset.placement??event.target.closest('[data-placement]')?.dataset.placement});
 }
 for(const root of [$('#inspector'),$('#settings'),$('#project-settings-content')])root.addEventListener('click',command);
 $('#library-list').onclick=e=>{const b=e.target.closest('[data-definition]');if(b){definitionId=b.dataset.definition;renderLibrary();renderInspector();}};
@@ -196,9 +211,37 @@ $('#cleanup-local').onclick=()=>{
 $('#chapter-view').onclick=()=>{mode='chapter';render();};$('#library-view').onclick=()=>{mode='library';render();};
 $('#chapter-selector').onchange=e=>{preview.stop();edit('select-chapter',{id:e.target.value});graph.fit();};
 $('#add-chapter').onclick=()=>edit('add-chapter');
+function copyBeat(cut=false){
+ if(mode!=='chapter'||!node())return false;
+ graph.cancel();
+ try{
+  const data=captureNodeClipboard(project,chapterId,selected,{cut});
+  nodeClipboard={projectId:project.id,data,pasteCount:0};
+  if(cut){preview.stop();edit('delete-node');}
+  render();report(cut?'Beat cut. Paste it into any chapter; Undo restores the original.':'Beat copied. Paste it into any chapter.');
+  return true;
+ }catch(error){report(`Copy failed: ${error.message}`);return false;}
+}
+function pasteBeat(){
+ if(mode!=='chapter'||!nodeClipboard||nodeClipboard.projectId!==project.id)return false;
+ const clipboard=nodeClipboard,offset=40*(clipboard.pasteCount+1);
+ const result=edit('paste-node',{clipboard:clipboard.data,position:{x:(clipboard.data.node.x||0)+offset,y:(clipboard.data.node.y||0)+offset}});
+ if(result.value){
+  clipboard.pasteCount++;clipboard.data={...clipboard.data,cut:false};
+  graph.centerOn(result.value);$('#canvas').focus({preventScroll:true});
+  if(result.ok)report('Beat pasted. Undo removes it.');
+ }
+ return true;
+}
+$('#copy-node').onclick=()=>copyBeat();$('#cut-node').onclick=()=>copyBeat(true);$('#paste-node').onclick=pasteBeat;
+function duplicateBeat(){
+ if(mode!=='chapter'||!node())return false;
+ edit('duplicate-node');graph.centerOn(selected);$('#canvas').focus({preventScroll:true});return true;
+}
+const stopNodeClipboardShortcuts=mountNodeClipboardShortcuts(document,{copy:()=>copyBeat(),cut:()=>copyBeat(true),paste:pasteBeat,duplicate:duplicateBeat,enabled:()=>mode==='chapter'});
 for(const b of document.querySelectorAll('[data-add-kind]'))b.onclick=()=>edit('add-definition',{kind:b.dataset.addKind});
 for(const b of document.querySelectorAll('[data-add]'))b.onclick=()=>{graph.cancel();edit('add-node',{type:b.dataset.add,position:{x:(150-graph.view.x)/graph.view.z,y:(140-graph.view.y)/graph.view.z}});};
-$('#duplicate').onclick=()=>{if(node())edit('duplicate-node');};
+$('#duplicate').onclick=duplicateBeat;
 $('#start').onclick=()=>{if(node())edit('set-start');};
 function travel(method){graph.cancel();localDrafts.reset();const result=travelHistory(history,method,persistence);if(result.changed)project=result.project;render();}
 $('#undo').onclick=()=>travel('undo');$('#redo').onclick=()=>travel('redo');
@@ -219,7 +262,7 @@ function bindImport(input,kind){
   const file=e.target.files[0];if(!file)return;
   try{
    const {raw,project:incoming}=parseStudioImport(await file.text(),{kind});
-   preview.stop();localDrafts.reset();
+   preview.stop();localDrafts.reset();if(kind==='project')nodeClipboard=null;
    const saved=edit('import',{raw,incoming}).ok;
    if(saved&&kind==='project'&&persistence.adopt().ok){recoveryDownload?.remove();report('Project imported and saved in this browser. Recovery backups retained.');}
    else if(saved&&kind==='chapter')report('Chapter imported and saved in this browser.');
@@ -232,5 +275,5 @@ bindImport($('#import'),'project');
 bindImport($('#import-chapter'),'chapter');
 function play(startNode,{restore=true}={}){try{previewWindow.show({restore});preview.play(project,chapterId,startNode,{focus:!previewWindow.minimized});report('Chapter ready.');return true;}catch(error){report(error.message);return false;}}
 $('#play').onclick=()=>play();$('#play-node').onclick=()=>play(selected);
-window.addEventListener('pagehide',event=>{if(event.persisted)return;stopHistoryShortcuts();stopDrawerDebug();autoplay.destroy();previewWindow.destroy();projectSettingsWindow.destroy();preview.destroy();});
+window.addEventListener('pagehide',event=>{if(event.persisted)return;stopHistoryShortcuts();stopNodeClipboardShortcuts();stopDrawerDebug();autoplay.destroy();previewWindow.destroy();projectSettingsWindow.destroy();preview.destroy();});
 render();graph.fit();if(loaded.error||loaded.recovery)report('');else if(loaded.migrated)report('Legacy save loaded; original browser save preserved.');else report(loaded.project?'Saved in this browser.':'Not saved yet.');

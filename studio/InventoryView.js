@@ -207,8 +207,8 @@ export class InventoryView {
         const sourceRect = shifted ? this.targetFor(index).rect : null;
         const scaleX = sourceRect && element.offsetWidth > 0 ? sourceRect.width / element.offsetWidth : 1;
         const dx = shifted ? (this.targetFor(destination).rect.left - sourceRect.left) / scaleX : 0;
-        card.style.transform = selected && replacing ? 'translateY(-28px)' : shifted ? `translateX(${dx}px)` : '';
-        card.style.opacity = selected && replacing ? '.7' : '';
+        card.style.transform = selected && replacing ? 'translateY(-48px)' : shifted ? `translateX(${dx}px)` : '';
+        card.style.opacity = selected && replacing ? '.55' : '';
       }
     }
     if (this.hint) this.hint.textContent = '';

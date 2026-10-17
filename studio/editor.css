@@ -101,3 +101,5 @@ main {grid-template-columns:minmax(0,1fr) 430px;}
 
 #settings .chapter-settings[open] > summary {margin-bottom:22px;}
 #project-settings-content > [data-image-picker] {margin-bottom:16px;}
+
+.chapter-delete-action {margin-top:20px;padding-top:16px;border-top:1px solid #394a4c;}
