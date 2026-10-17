@@ -196,6 +196,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
         cid, nid);
       if (node.type === 'fork' && (node.intro !== undefined && !object(node.intro) || node.introEnabled === true
         && !object(node.intro))) add(`${label}: missing introduction.`, cid, nid);
+      if (node.retainInventoryItems !== undefined && typeof node.retainInventoryItems !== 'boolean') add(`${label}: invalid inventory item persistence toggle.`, cid, nid);
       if (node.introOnce !== undefined && typeof node.introOnce !== 'boolean') add(`${label}: invalid show once toggle.`, cid, nid);
       if (node.introEnabled !== undefined && typeof node.introEnabled !== 'boolean') add(`${label}: invalid introduction toggle.`, cid, nid);
       const ps = placements(node), pids = new Set();

@@ -12,7 +12,7 @@ export const nodeTypes = Object.freeze({
  linear: Object.freeze({
   label:'Linear', iconPath:'M3 12H21', slots:Object.freeze({cards:linearKinds}), outputs:nextOutput,
   defaultKinds:Object.freeze({cards:'event'}),
-  create:({makePlacement}) => ({cards:[makePlacement('event')]})
+  create:({makePlacement}) => ({retainInventoryItems:false,cards:[makePlacement('event')]})
  }),
  fork: Object.freeze({
   label:'Fork', iconPath:'M3 12H10L14 7H21M10 12L14 17H21', slots:Object.freeze({intro:storyKinds, choices:branchKinds}),
@@ -26,7 +26,7 @@ export const nodeTypes = Object.freeze({
  container: Object.freeze({
   label:'Container', iconPath:'M6 6H18V18H6Z', slots:Object.freeze({intro:storyKinds, items:itemKinds}), outputs:nextOutput,
   defaultKinds:Object.freeze({intro:'event',items:'item'}),
-  create:({makePlacement}) => ({...introduction(makePlacement),items:[makePlacement('item')]})
+  create:({makePlacement}) => ({...introduction(makePlacement),retainInventoryItems:true,items:[makePlacement('item')]})
  }),
  random: Object.freeze({
   label:'Random', iconPath:'M3 7H6L18 17H21M3 17H6L18 7H21', slots:Object.freeze({}), outputs:node => [...objects(node.routes).map(r=>r.id),'fallback'],
@@ -47,4 +47,9 @@ export function nodeSlotCardKinds(type,slot) {
  const descriptor=nodeTypeDescriptor(type);
  // Existing callers use any non-intro fork slot as the branch policy.
  return [...((descriptor && Object.hasOwn(descriptor.slots,slot) ? descriptor.slots[slot] : undefined) || (type==='fork' && slot!=='intro' ? branchKinds : storyKinds))];
+}
+
+/** Items left by swaps persist by default only in containers. */
+export function retainsInventoryItems(node) {
+ return node?.retainInventoryItems ?? node?.type==='container';
 }

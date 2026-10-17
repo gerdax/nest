@@ -5,7 +5,7 @@ import { defaultCardStyles, defaultCardColors } from '../project/card-styles.js'
 import { cardKinds, resolvePlacement, cardSummary, cardSummaryParts, cardEditorTint, allowedCardKinds, isStoryKind } from '../project/cards.js';
 import { outputsForNode, labelForOutput } from '../project/model.js';
 import { definitionReferences } from '../project/dependencies.js';
-import { nodeTypeDescriptor, nodeTypeLabel } from '../project/nodeTypes.js';
+import { nodeTypeDescriptor, nodeTypeLabel, retainsInventoryItems } from '../project/nodeTypes.js';
 import { field, select, checkbox, button, rules, actionFields, imageField, esc } from './forms.js';
 
 function artworkEditor(definition,scope) {
@@ -116,6 +116,7 @@ export function nodeInspector(project,chapter,node) {
   }).join('');
   if(node.type==='legacyPool')html+=field('Legacy selections',node.count,'count','node','number');
  }
+ if(['container','linear'].includes(node.type))html+='<hr class="connections-divider inventory-persistence-divider">'+checkbox('Keep inventory items on revisit',retainsInventoryItems(node),'retainInventoryItems','node');
  html+='<hr class="connections-divider"><h3>Connections</h3>'+outputsForNode(project,node).map(exit=>{
   const target=node.type==='random'?(exit==='fallback'?node.fallback:node.routes.find(r=>r.id===exit)?.target):node.connections?.[exit];
   const value=target===null?'end':typeof target==='string'?`target:${target}`:'unlinked';

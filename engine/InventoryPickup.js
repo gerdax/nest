@@ -136,7 +136,11 @@ export class InventoryPickup {
       const destination = this.adapter.slotTarget(decision.slot);
       if (!destination) { this.adapter.clearDeposit?.(); this.cancel(); deck.cancelPickup(); return; }
       this.preview(destination);
-      deck.resolveItem('collect', velocity, { ...decision, target: destination });
+      if (decision.returnToStack) {
+        if (!this.adapter.exchange?.(action, decision)) {
+          this.adapter.clearDeposit?.(); this.cancel(); deck.cancelPickup();
+        }
+      } else deck.resolveItem('collect', velocity, { ...decision, target: destination });
     } catch (error) {
       if (serial === this.serial && !deck.destroyed) { if (!this.staged) this.adapter.clearDeposit?.(); this.cancel(); deck.cancelPickup(); deck.emit('inventoryerror', { message: error.message }); }
     }

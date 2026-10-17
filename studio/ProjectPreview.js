@@ -100,6 +100,7 @@ export class ProjectPreview {
           if (changed) this.drawerTrace?.('InventoryView.setContext:applied', { visible: !this.inventory.root.hidden, hidden: this.inventory.root.hidden, requestedVisible: this.inventory.visible });
         },
         cancelPending: () => this.inventory.cancelPending(),
+        exchange: (action, decision) => active() && this.controller?.exchangeCollection(action, decision),
         authorize: async (action, target) => {
           const decision = await this.inventory.authorize(action, target);
           return active() && decision && this.controller?.authorizeCollection(action, decision) ? decision : false;

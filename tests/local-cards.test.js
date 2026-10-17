@@ -200,3 +200,30 @@ test('local source templates follow allowed node types and preserve placement id
  assert.throws(()=>setCardSource(project,fork.choices[0],'local:item',{allowedKinds:['event','caption','action']}),/allowed in this beat/);
  assert.deepEqual(validateProject(project),[]);
 });
+
+test('returned-item persistence defaults and explicit overrides survive authoring and packaging',()=>{
+ const project=createProject(),chapter=project.chapters[0];
+ for(const type of ['container','linear']) {
+  const node=createNode(project,type);chapter.nodes.push(node);
+  assert.equal(node.retainInventoryItems,type==='container');
+  assert.match(nodeInspector(project,chapter,node),/Keep inventory items on revisit/);
+  assert.match(nodeInspector(project,chapter,node),new RegExp(`data-path="retainInventoryItems"${type==='container'?' checked':''}\\s*>`));
+  delete node.retainInventoryItems;
+  const before=structuredClone(project);
+  assert.equal(compileChapter(project).nodes.find(n=>n.id===node.id).retainInventoryItems,type==='container');
+  assert.deepEqual(project,before,'compiling missing defaults does not mutate authored data');
+  node.retainInventoryItems=type!=='container';
+  const copy=duplicateNode(project,node);assert.equal(copy.retainInventoryItems,node.retainInventoryItems);
+ }
+ synchronizeConnections(project);
+ const parsed=parseProject(JSON.stringify(project));
+ const imported=importChapter(createProject(),exportChapter(parsed));
+ const importedChapter=imported.chapters.at(-1);
+ for(const node of chapter.nodes.filter(n=>n.name.startsWith('New '))) {
+  const restored=importedChapter.nodes.find(n=>n.name===node.name);
+  assert.equal(restored.retainInventoryItems,node.retainInventoryItems);
+  assert.equal(compileChapter(imported,importedChapter.id).nodes.find(n=>n.id===restored.id).retainInventoryItems,node.retainInventoryItems);
+ }
+ const node=chapter.nodes.find(n=>n.type==='container');node.retainInventoryItems='false';
+ assert.ok(validateProject(project).some(e=>e.message.includes('inventory item persistence toggle')));
+});

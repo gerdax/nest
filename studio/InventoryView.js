@@ -207,8 +207,8 @@ export class InventoryView {
         const sourceRect = shifted ? this.targetFor(index).rect : null;
         const scaleX = sourceRect && element.offsetWidth > 0 ? sourceRect.width / element.offsetWidth : 1;
         const dx = shifted ? (this.targetFor(destination).rect.left - sourceRect.left) / scaleX : 0;
-        card.style.transform = selected && replacing ? 'translateY(28px) scale(.96)' : shifted ? `translateX(${dx}px)` : '';
-        card.style.opacity = selected && replacing ? '.5' : '';
+        card.style.transform = selected && replacing ? 'translateY(-28px)' : shifted ? `translateX(${dx}px)` : '';
+        card.style.opacity = selected && replacing ? '.7' : '';
       }
     }
     if (this.hint) this.hint.textContent = '';
@@ -221,6 +221,7 @@ export class InventoryView {
     if (owned >= 0) return { slot: owned };
     if (!target) target = this.getTarget({ keyboard: true });
     if (target && (!Number.isInteger(target.slot) || target.slot < 0 || target.slot > 3)) return false;
+    const directDrop = target?.snapped === true;
     if (target) target = this.targetFor(target.slot);
     if (target && !this.insertionLayout(target.slot).replacement) {
       const insertion = this.insertionLayout(target.slot);
@@ -231,6 +232,10 @@ export class InventoryView {
       }
       this.placement = { slot: target.slot, id: identity(action?.card || action?.item || action), layout: decision.layout };
       return decision;
+    }
+    if (target && directDrop) {
+      this.placement = { slot: target.slot, id: identity(action?.card || action?.item || action) };
+      return { slot: target.slot, replacementId: identity(target.item), returnToStack: true };
     }
     const dialog = this.collectDialog;
     if (!dialog?.showModal) return false;

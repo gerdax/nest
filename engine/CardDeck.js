@@ -164,6 +164,10 @@ export class CardDeck extends EventTarget {
   }
 
   emit(type, detail = {}) {
+    if (type === 'transitioncomplete' && detail.transition === 'cancel' && this.inventoryExchangeReturning) {
+      this.inventoryExchangeReturning = false;
+      this.busy = false;
+    }
     if (this.pickup?.adapter.traceEnabled?.()) {
       this.pickup.adapter.trace?.(`CardDeck.emit(${type})`, { ...this.state, transition: detail.transition, final: detail.final });
       this.pickup.traceReadiness('CardDeck.emit:readiness');
@@ -513,6 +517,45 @@ export class CardDeck extends EventTarget {
     if (this.phase !== 'closing') this.returnLift.target = 0;
     this.operation ||= 'settle';
     this.schedule();
+  }
+
+  refreshInventoryActions(actions) {
+    const selected = this.content.actions[this.index]?.id;
+    const updated = new Map(actions.map(action => [action.id, action]));
+    const previousIds = new Set(this.content.actions.map(action => action.id));
+    // Collection preserves painter order, which can differ from authored order.
+    const ordered = [...this.content.actions.flatMap(action => updated.has(action.id) ? [updated.get(action.id)] : []),
+      ...actions.filter(action => !previousIds.has(action.id))];
+    const changed = ordered.length !== this.cards.length || ordered.some((action,index) => action.id !== this.content.actions[index]?.id);
+    const poses = changed ? new Map(this.content.actions.map((action,index) => [action.id,cardPose(this,index)])) : null;
+    const content = validate({ ...this.content, actions: ordered });
+    const bundle = stageActionDeck(this,content,null,this);
+    this.content = content;
+    for (const field of ['cards','cardLayers','cardBacks','cardTitles']) this[field] = bundle[field];
+    if (changed) {
+      this.index = Math.max(0,ordered.findIndex(action => action.id === selected));
+      this.b = spring(this.index);
+      this.createReflow(poses);
+    }
+    this.render(); this.schedule();
+  }
+
+  exchangePickup(action, decision) {
+    if (this.destroyed || this.busy || this.drag || this.phase !== 'choices' || !this.pickup) return false;
+    const incoming = this.content.actions[this.index];
+    // The runtime placement keeps its identity and all captured poses. Only its
+    // face changes, so Cancel's existing springs return it to the same slot.
+    const content = validate({ ...this.content, actions: this.content.actions.map((old, index) => index === this.index ? action : old) });
+    const bundle = stageActionDeck(this, content, this.index, this);
+    this.content = content;
+    for (const field of ['cards', 'cardLayers', 'cardBacks', 'cardTitles']) this[field] = bundle[field];
+    this.pickup.accept(incoming, decision);
+    this.pickup.reset({ completed: true });
+    this.inventoryExchangeReturning = true;
+    this.busy = true;
+    this.cancelPickup();
+    this.announce();
+    return true;
   }
 
   cancelPickup() {
@@ -1425,6 +1468,7 @@ export class CardDeck extends EventTarget {
   reset({ preserveInventoryContext = false } = {}) {
     if (this.destroyed) return;
     this.clearCheckSurface();
+    this.inventoryExchangeReturning = false;
     this.preserveInventoryContext = preserveInventoryContext;
     this.pickup?.reset();
     this.input.cancel();

@@ -231,3 +231,170 @@ for(const type of ['linear','container'])for(const resize of [false,true])test(`
  assert.deepEqual(exits,[],'discard never drives an exit animation');
  assert.equal(controller.state.collectedItems.length,0);dispose(deck,controller);
 });
+
+
+for(const reduced of [false,true])for(const type of ['container','linear'])for(const count of (type==='linear'?[1]:[1,3]))test(`full drawer swaps in place: ${type}, count=${count}, reduced=${reduced}`,async()=>{
+ const {InventoryPickup}=await import('../engine/InventoryPickup.js');
+ const source=Array.from({length:count},(_,i)=>item(`incoming-${i}`,{onCollect:[{op:'add',key:'energy',value:1}]}));
+ const original=structuredClone(source),errors=[];
+ const node={id:'items',type,introEnabled:false,...(type==='linear'?{cards:source}:{items:source}),connections:{next:false}};
+ const {deck,controller}=real([node],{variables:energy},{onError:e=>errors.push(e)});deck.reduced=reduced;
+ document.body=new Element();
+ const target={slot:1,snapped:true,rect:{left:85,top:560,width:75,height:100}};
+ const staged=[],cleared=[];let currentSlot="b";
+ const adapter={getTarget:()=>target,slotTarget:()=>target,preview(){},setContext(){},cancelPending(){},stageDeposit:(a,d)=>{staged.push([a,d]);currentSlot=a.definitionId;},clearDeposit:()=>cleared.push(true),
+  authorize:action=>{const decision={slot:1,replacementId:currentSlot,returnToStack:true};return controller.authorizeCollection(action,decision)?decision:false;},
+  exchange:(action,decision)=>controller.exchangeCollection(action,decision)};
+ deck.pickup=new InventoryPickup(deck,adapter);
+ controller.inventory=['a','b','c','d'].map(id=>item(`owned-${id}`,{definitionId:id,conditions:[{source:'variable',key:'energy',op:'gte',value:99}]}));
+ controller.show({restore:true});settle();cleared.length=0;
+ if(count===3)key(deck,'ArrowRight');
+ const index=deck.index,placement=deck.content.actions[index].id,articles=[...deck.cards],layers=[...deck.cardLayers];
+ const gesture={axis:'y',x:0,y:260,vx:0,vy:600,clientX:115,clientY:600};
+ const rest=cardPose(deck,index);
+ for(let exchange=0;exchange<2;exchange++) {
+  assert.equal(deck.start(),true);deck.move(gesture);
+  const held=deck.cards.map((_,i)=>cardPose(deck,i));
+  deck.end(gesture);await flush();
+  assert.equal(deck.collectMotion,null,'swap never enters final collection or routing');
+  assert.equal(controller.pendingItem,null);assert.equal(controller.stagedDestination,null);
+  assert.equal(deck.index,index);assert.deepEqual(deck.cards,articles);assert.deepEqual(deck.cardLayers,layers);
+  assert.equal(deck.content.actions[index].id,placement,'runtime slot identity is stable');
+  assert.equal(deck.content.actions[index].definitionId,exchange===0?'b':source[index].definitionId);
+  if(!reduced)for(let i=0;i<deck.cards.length;i++)for(const field of ['x','y','z'])assert.ok(Math.abs(cardPose(deck,i)[field]-held[i][field])<1e-8,'release preserves held stack position');
+  if(!reduced) {
+   assert.equal(deck.start(),false,'return is protected from immediate re-grab');
+   deck.key({key:'ArrowRight',preventDefault(){}});assert.equal(deck.index,index);
+   deck.collect();assert.equal(deck.collectMotion,null);
+  }
+  settle();
+  assert.equal(controller.pendingExchange,null);
+  for(const field of ['x','y','z'])assert.ok(Math.abs(cardPose(deck,index)[field]-rest[field])<1e-8,'returned card settles in original position');
+  assert.equal(controller.inventory.length,4);assert.equal(controller.location.node.id,'items');
+  assert.equal(controller.items().length,type==='container'?count:0);
+  if(type==='linear')assert.equal(controller.card().definitionId,exchange===0?'b':source[index].definitionId);
+ }
+ assert.equal(staged.length,2);assert.equal(cleared.length,0,'accepted mini survives the return');
+ assert.equal(controller.variables.energy,5,'ordinary collection effects run once per collected item');
+ assert.deepEqual(source,original,'authored cards remain untouched');assert.deepEqual(errors,[]);
+ controller.restart();settle();assert.equal(controller.itemReplacements.size,0);assert.equal(controller.inventory.length,0);
+ dispose(deck,controller);
+});
+
+test('failed swap keeps ownership and runtime placement unchanged',async()=>{
+ const {InventoryPickup}=await import('../engine/InventoryPickup.js');
+ const incoming=item('incoming',{onCollect:[{op:'add',key:'missing',value:1}]});
+ const errors=[];
+ const {deck,controller}=real([{id:'box',type:'container',introEnabled:false,items:[incoming],connections:{next:null}}],{},{onError:e=>errors.push(e)});
+ deck.pickup=new InventoryPickup(deck,{setContext(){},preview(){},cancelPending(){},clearDeposit(){}});
+ controller.inventory=['a','b','c','d'].map(id=>item(id));
+ const before=[...controller.inventory],article=deck.cards[0];
+ assert.equal(controller.exchangeCollection(deck.content.actions[0],{slot:1,replacementId:'b',returnToStack:true}),false);
+ assert.deepEqual(controller.inventory,before);assert.equal(deck.cards[0],article);assert.equal(controller.itemReplacements.size,0);
+ assert.ok(errors.length);dispose(deck,controller);
+});
+
+for(const hidden of [false,true])test(`swap reconciles dependent cards and survives restart callbacks, hidden=${hidden}`,async()=>{
+ const {InventoryPickup}=await import('../engine/InventoryPickup.js');
+ const incoming=item('key');
+ const dependent=item('locked',{conditions:[{source:'inventory',key:'key',op:'has'}]});
+ const lost=item('needs-old',{conditions:[{source:'inventory',key:'old',op:'has'}]});
+ const {deck,controller}=real([{id:'box',type:'container',introEnabled:false,items:[incoming,dependent,lost],connections:{next:null}}]);
+ deck.pickup=new InventoryPickup(deck,{setContext(){},preview(){},cancelPending(){},stageDeposit(){},clearDeposit(){}});
+ controller.inventory=['old','b','c','d'].map(id=>item(id));controller.show({restore:true});settle();
+ assert.deepEqual(deck.content.actions.map(a=>a.id),['key','needs-old']);
+ document.hidden=hidden;
+ assert.equal(controller.exchangeCollection(deck.content.actions[0],{slot:0,replacementId:'old',returnToStack:true}),true);
+ settle();
+ assert.deepEqual(deck.content.actions.map(a=>a.id),['key','locked']);
+ assert.equal(deck.content.actions[0].definitionId,'old');
+ assert.equal(controller.pendingExchange,null);
+ let restarted=false;
+ controller.onChange=state=>{if(!restarted&&state.collectedItems.some(i=>i.definitionId==='old')){restarted=true;controller.restart();}};
+ assert.equal(controller.exchangeCollection(deck.content.actions[0],{slot:0,replacementId:'key',returnToStack:true}),true);
+ settle();
+ assert.equal(restarted,true);assert.equal(controller.inventory.length,0);assert.equal(controller.itemReplacements.size,0);
+ assert.equal(deck.content.actions[0].definitionId,'key');
+ document.hidden=false;dispose(deck,controller);
+});
+
+
+test('swap after ordinary collection preserves survivor order and orbit positions',async()=>{
+ const {InventoryPickup}=await import('../engine/InventoryPickup.js');
+ const source=Array.from({length:6},(_,i)=>item(`i-${i}`));
+ const {deck,controller}=real([{id:'box',type:'container',introEnabled:false,items:source,connections:{next:null}}]);
+ // Ordinary collection rearranges survivors by their painted rank.
+ key(deck,'ArrowRight');deck.collect();settle();
+ assert.notDeepEqual(deck.content.actions.map(a=>a.id),controller.items().map(a=>a.id));
+ deck.pickup=new InventoryPickup(deck,{setContext(){},preview(){},cancelPending(){},stageDeposit(){},clearDeposit(){}});
+ controller.inventory.push(...['b','c','d'].map(id=>item(id)));
+ key(deck,'ArrowRight');
+ const order=deck.content.actions.map(a=>a.id),articles=[...deck.cards],index=deck.index,browse=deck.b.x;
+ const before=deck.cards.map((_,i)=>cardPose(deck,i));
+ assert.equal(controller.exchangeCollection(deck.content.actions[index],{slot:1,replacementId:'b',returnToStack:true}),true);settle();
+ assert.deepEqual(deck.content.actions.map(a=>a.id),order);assert.deepEqual(deck.cards,articles);
+ assert.equal(deck.index,index);assert.equal(deck.b.x,browse);
+ for(let i=0;i<deck.cards.length;i++)for(const field of ['x','y','z'])assert.ok(Math.abs(cardPose(deck,i)[field]-before[i][field])<1e-8);
+ dispose(deck,controller);
+});
+
+for(const type of ['container','linear'])for(const retain of [undefined,true,false])for(const reduced of [false,true])test(`returned item revisit policy: ${type}, retain=${retain}, reduced=${reduced}`,async()=>{
+ const {InventoryPickup}=await import('../engine/InventoryPickup.js');
+ const node={id:'items',type,introEnabled:false,...(type==='container'?{items:[item('incoming'),item('original')]}:{cards:[item('incoming'),narrative('tail')]}),connections:{next:'return'}};
+ if(retain!==undefined)node.retainInventoryItems=retain;
+ const authored=structuredClone(node),errors=[];
+ const {deck,controller}=real([node,{id:'return',type:'linear',cards:[narrative('return')],connections:{next:'items'}}],{},{onError:e=>errors.push(e)});deck.reduced=reduced;
+ deck.pickup=new InventoryPickup(deck,{setContext(){},preview(){},cancelPending(){},stageDeposit(){},clearDeposit(){}});
+ controller.inventory=['old','b','c','d'].map(id=>item(id));
+ assert.equal(controller.exchangeCollection(deck.content.actions[0],{slot:0,replacementId:'old',returnToStack:true}),true);settle();
+ assert.equal(deck.content.actions[0].definitionId,'old','checkbox never changes the immediate second chance');
+ key(deck,'ArrowUp');
+ if(type==='linear'){assert.equal(controller.card().id,'tail');key(deck,'ArrowUp');}
+ assert.equal(controller.location.node.id,'return');key(deck,'ArrowUp');
+ const persists=retain??type==='container';
+ assert.equal(controller.location.node.id,'items');
+ if(type==='container')assert.deepEqual(deck.content.actions.map(a=>a.definitionId),persists?['old','original']:['original']);
+ else assert.equal(controller.card().id,persists?'incoming':'tail');
+ if(type==='linear'&&persists)assert.equal(controller.card().definitionId,'old');
+ assert.equal(controller.inventory.some(i=>i.definitionId==='incoming'),true);
+ assert.equal(controller.inventory.some(i=>i.definitionId==='old'),false);
+ assert.deepEqual(node,authored);assert.deepEqual(errors,[]);dispose(deck,controller);
+});
+
+for(const type of ['container','linear'])test(`transient returns are excluded from staged self-loop: ${type}`,async()=>{
+ const {InventoryPickup}=await import('../engine/InventoryPickup.js');
+ const node={id:'items',type,retainInventoryItems:false,introEnabled:false,...(type==='container'?{items:[item('incoming'),item('original')]}:{cards:[item('incoming'),narrative('tail')]}),connections:{next:'items'}};
+ const {deck,controller}=real([node]);
+ deck.pickup=new InventoryPickup(deck,{setContext(){},preview(){},cancelPending(){},stageDeposit(){},clearDeposit(){}});
+ controller.inventory=['old','b','c','d'].map(id=>item(id));
+ assert.equal(controller.exchangeCollection(deck.content.actions[0],{slot:0,replacementId:'old',returnToStack:true}),true);settle();
+ key(deck,'ArrowUp');
+ if(type==='linear'){assert.equal(controller.card().id,'tail');key(deck,'ArrowUp');assert.equal(controller.card().id,'tail');}
+ else assert.deepEqual(deck.content.actions.map(a=>a.id),['original']);
+ assert.equal(controller.itemReplacements.get('items:').has('incoming'),false);
+ assert.equal(controller.remaining.get('items:').some(i=>i.id==='incoming'),false);
+ dispose(deck,controller);
+});
+
+test('blocked or canceled departure preserves the transient returned item',async()=>{
+ const {InventoryPickup}=await import('../engine/InventoryPickup.js');
+ const {deck,controller}=real([{id:'box',type:'container',retainInventoryItems:false,introEnabled:false,items:[item('incoming')],connections:{next:false}}]);
+ deck.pickup=new InventoryPickup(deck,{setContext(){},preview(){},cancelPending(){},stageDeposit(){},clearDeposit(){}});
+ controller.inventory=['old','b','c','d'].map(id=>item(id));
+ assert.equal(controller.exchangeCollection(deck.content.actions[0],{slot:0,replacementId:'old',returnToStack:true}),true);settle();
+ const gesture={axis:'y',x:0,y:-80,vx:0,vy:0};deck.start();deck.move(gesture);deck.cancel();settle();
+ deck.discard();settle();assert.equal(controller.location.node.id,'box');
+ assert.equal(controller.items()[0].definitionId,'old');assert.equal(controller.remaining.has('box:'),false);
+ assert.equal(controller.itemReplacements.get('box:').has('incoming'),true);dispose(deck,controller);
+});
+
+
+test('container collection exclusions do not skip matching placements in another node',()=>{
+ const {deck,controller}=real([
+  {id:'box',type:'container',introEnabled:false,items:[item('shared',{definitionId:'first'})],connections:{next:'linear'}},
+  {id:'linear',type:'linear',cards:[item('shared',{definitionId:'second'}),narrative('tail')],connections:{next:null}}
+ ]);
+ key(deck,'ArrowDown');assert.equal(controller.location.node.id,'linear');
+ assert.equal(controller.card().definitionId,'second');assert.equal(deck.content.actions[0].definitionId,'second');
+ dispose(deck,controller);
+});

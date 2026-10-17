@@ -1,3 +1,4 @@
+import { retainsInventoryItems } from './nodeTypes.js';
 import { initialValues, conditionsMet, affordCosts, transact, addInventory } from './state.js';
 import { cardBody, cardFace } from './presentation.js';
 import { playerCardSummary, isStoryKind, collectionEffects } from './cards.js';
@@ -22,7 +23,7 @@ export class ProjectController {
     if(this.destroyed)return;
     ++this.generation; this.checking?.abort(); this.checking=null;
     this.deck.reset(); this.variables=initialValues(this.compiled.variables); this.inventory=[];
-    this.remaining=new Map(); this.accepted=new Set();this.revealedIntros=new Set();this.pendingIntro=null; this.pendingItem=null;this.stagedDestination=null;this.completed=false;
+    this.remaining=new Map(); this.itemReplacements=new Map(); this.accepted=new Set();this.revealedIntros=new Set();this.pendingIntro=null; this.pendingItem=null;this.pendingExchange=null;this.stagedDestination=null;this.completed=false;
     this.location=null;
     try {this.adopt(this.locate(this.compiled.startNode),false);this.show();} catch(error){
       this.location=null;this.completed=false;
@@ -32,30 +33,43 @@ export class ProjectController {
     }
   }
   type(location=this.location) {return location?.sequence?.type ?? location?.node.type;}
+  runtimeItem(card, location=this.location) {
+    return this.itemReplacements.get(this.key(location))?.get(card?.id) ?? card;
+  }
   card(location=this.location) {
     if(!location)return null;
     const type=this.type(location);
     if(type==='container')return location.sequence?.cards?.[0] ?? location.node.intro ?? null;
     if(type==='fork')return location.node.intro ?? null;
-    return (location.sequence?.cards ?? location.node.cards ?? [])[location.index];
+    return this.runtimeItem((location.sequence?.cards ?? location.node.cards ?? [])[location.index],location);
   }
   choices(location=this.location) {return location.sequence?.cards?.[location.index]?.choices ?? location.node.choices ?? [];}
   key(location=this.location) {return `${location.node.id}:${location.sequence?.id ?? ''}`;}
   introEnabled(location=this.location) {return location.node.type==='fork'?!!location.node.intro&&location.node.introEnabled!==false:location.node.type!=='container'||location.node.introEnabled!==false;}
   introShown(location=this.location) {return location.introRevealed===true || location.node.introOnce===true&&this.revealedIntros.has(this.key(location));}
+  discardedReturns(location=this.location, source=null) {
+    if(retainsInventoryItems(location.sequence ?? location.node))return [];
+    const ids=[...(this.itemReplacements.get(this.key(location))?.keys() ?? [])];
+    return this.type(location)==='linear'?ids.filter(id=>id===source?.id):ids;
+  }
+  itemExcluded(id,location,excluded) {
+    const key=this.key(location),pending=this.pendingItem;
+    return this.type(location)==='container'&&id===excluded || excluded?.key===key&&(excluded.itemId===id||excluded.itemIds?.includes(id)||excluded.all)
+      || pending?.key===key&&pending.removedIds?.includes(id);
+  }
   linearItemRemaining(card,location,excluded) {
     if(card.kind!=='item')return true;
     const key=this.key(location),pending=this.pendingItem;
     // Staged successors exclude a collected item before ownership commits.
     // Discard only advances this visit; the item stays available on return.
-    if((excluded?.key===key&&excluded.itemId===card.id)||(pending?.linearItem&&pending.transition==='collect'&&pending.key===key&&pending.item.id===card.id))return false;
+    if(this.itemExcluded(card.id,location,excluded)||(pending?.linearItem&&pending.transition==='collect'&&pending.key===key&&pending.item.id===card.id))return false;
     const remaining=this.remaining.get(key);
     return !remaining||remaining.some(item=>item.id===card.id);
   }
   items(location=this.location, values=this.variables, inventory=this.inventory, excluded=null) {
     if(excluded?.all&&excluded.key===this.key(location))return [];
     const raw=this.remaining.get(this.key(location)) ?? location.sequence?.items ?? location.node.items ?? [];
-    return raw.filter(i=>i.id!==excluded && conditionsMet(i.conditions,values,inventory));
+    return raw.map(i=>this.runtimeItem(i,location)).filter(i=>!this.itemExcluded(i.id,location,excluded) && conditionsMet(i.conditions,values,inventory));
   }
   weighted(routes) {
     if(!routes.length)return null;
@@ -130,14 +144,14 @@ export class ProjectController {
     if(type==='linear') {
       const cards=location.sequence?.cards ?? location.node.cards ?? [];
       while(location.index<cards.length) {
-        const card=cards[location.index];
+        const card=this.runtimeItem(cards[location.index],location);
         const hiddenAction=card.kind==='action'&&card.unavailable==='hidden'&&!affordCosts(values,inventory,card.costs,this.compiled.variables);
         if(this.linearItemRemaining(card,location,excluded)&&conditionsMet(card.conditions,values,inventory)&&!hiddenAction)break;
         location={...location,index:location.index+1};
       }
       if(location.index>=cards.length)return this.nextStep(location);
     }else if(type==='container'&&!this.items(location,values,inventory,excluded).length) {
-      const raw=excluded?.all&&excluded.key===this.key(location)?[]:(this.remaining.get(this.key(location))??location.sequence?.items??location.node.items??[]).filter(item=>item.id!==excluded);
+      const raw=excluded?.all&&excluded.key===this.key(location)?[]:(this.remaining.get(this.key(location))??location.sequence?.items??location.node.items??[]).filter(item=>!this.itemExcluded(item.id,location,excluded));
       // An introduction may unlock hidden items, but never revives an emptied container.
       const canUnlock=raw.length&&location.node.type==='container'&&this.introEnabled(location)&&!this.introShown(location)&&conditionsMet(this.card(location)?.conditions,values,inventory)&&this.card(location)?.effects?.length;
       if(!canUnlock)return this.nextStep(location);
@@ -177,10 +191,13 @@ export class ProjectController {
       for(const outcome of outcomes) {
         const collected=transition==='collect'?addInventory(inventory,{...source,text:this.body(source)}):inventory;
         const result=transact(values,collected,{costs:transition?[]:source.costs,effects:transition?(transition==='collect'?collectionEffects(source):[]):[...(source.effects??[]),...(outcome===undefined?[]:outcome?source.successEffects??[]:source.failureEffects??[])]},this.compiled.variables,this.compiled.library);
+        // A full drawer can exchange this item without leaving its stack slot.
+        if(transition==='collect'&&this.deck.pickup&&inventory.length>=4&&!inventory.some(owned=>(owned.definitionId??owned.id)===(source.definitionId??source.id)||source.inventoryKey&&owned.inventoryKey===source.inventoryKey))continue;
         if(this.type(location)==='container') {
           if(transition==='collect'&&this.items(location,result.variables,result.inventory,excludedItem).some(i=>i.id!==source.id))continue;
-          this.next(location,'next',result.variables,result.inventory,new Set(),transition==='discard'?null:source.id,true);
-        }else this.destination(source,outcome,result.variables,result.inventory,location,true,transition==='collect'?{key:this.key(location),itemId:source.id}:null);
+          const excluded=transition==='discard'?{key:this.key(location),itemIds:this.discardedReturns(location,source)}:{key:this.key(location),itemId:source.id};
+          this.next(location,'next',result.variables,result.inventory,new Set(),excluded,true);
+        }else this.destination(source,outcome,result.variables,result.inventory,location,true,transition==='collect'?{key:this.key(location),itemId:source.id}:{key:this.key(location),itemIds:this.discardedReturns(location,source)});
       }
       return false;
     }catch(error) {
@@ -330,11 +347,40 @@ export class ProjectController {
     if (!item || item.id !== action.id || !conditionsMet(item.conditions, this.variables, this.inventory)) return false;
     try {
       const inventory = this.collectionInventory(item, decision.replacementId);
-      if (this.departureBlocked(item, this.location, this.variables, inventory, 'collect')) return false;
+      if (!decision.returnToStack && this.departureBlocked(item, this.location, this.variables, inventory, 'collect')) return false;
       const collected = addInventory(inventory, {...item, text:this.body(item)});
       transact(this.variables, collected, {effects:collectionEffects(item)}, this.compiled.variables, this.compiled.library);
       return true;
     } catch (error) { this.error(error); return false; }
+  }
+  exchangeCollection(action, decision) {
+    if (!decision.returnToStack || !decision.replacementId || !this.authorizeCollection(action, decision)) return false;
+    const item = this.type()==='linear' ? this.card() : this.items().find(item=>item.id===action.id);
+    const displaced = this.inventory.find(owned=>(owned.definitionId??owned.id)===decision.replacementId);
+    if (!displaced || !item || !this.deck.pickup || this.deck.busy || this.deck.drag || this.deck.phase!=='choices') return false;
+    try {
+      const {context,...itemContent}=item;
+      const inventory=addInventory(this.collectionInventory(item,decision.replacementId),{...itemContent,text:this.body(item)});
+      const result=transact(this.variables,inventory,{effects:collectionEffects(item)},this.compiled.variables,this.compiled.library);
+      // Reuse this runtime placement, preserving the displaced definition. Spawn
+      // conditions have served their purpose; the returned owned item stays visible.
+      const returned={...displaced,id:item.id,definitionId:displaced.definitionId??displaced.id,conditions:[]};
+      const returnedAction={...this.action(returned,result.variables),discardDisabled:this.departureBlocked(returned,this.location,result.variables,result.inventory,'discard'),collectDisabled:false};
+      const key=this.key(),generation=this.generation;
+      const previous={variables:this.variables,inventory:this.inventory,replacement:this.itemReplacements.get(key)?.get(item.id)};
+      if (!this.itemReplacements.has(key)) this.itemReplacements.set(key,new Map());
+      this.itemReplacements.get(key).set(item.id,returned);
+      this.variables=result.variables;this.inventory=result.inventory;
+      this.pendingExchange={contentId:this.deck.content.id};
+      if (!this.deck.exchangePickup(returnedAction,decision)) {
+        this.variables=previous.variables;this.inventory=previous.inventory;this.pendingExchange=null;
+        if(previous.replacement)this.itemReplacements.get(key).set(item.id,previous.replacement);
+        else this.itemReplacements.get(key).delete(item.id);
+        return false;
+      }
+      if(this.generation===generation&&!this.destroyed)this.notify();
+      return true;
+    } catch(error) { this.error(error); return false; }
   }
   resolveItem(detail,transition) {
     const linearItem=this.type()==='linear'&&this.card()?.kind==='item';
@@ -350,10 +396,10 @@ export class ProjectController {
       const {context,...itemContent}=item;
       const inventory=transition==='collect'?addInventory(baseInventory,{...itemContent,text:this.body(item)}):this.inventory;
       const result=transact(this.variables,inventory,{effects:transition==='collect'?collectionEffects(item):[]},this.compiled.variables,this.compiled.library);
-      this.pendingItem={item,key:this.key(),linearItem,all,transition,contentId:detail.contentId,result};
+      this.pendingItem={item,key:this.key(),linearItem,all,transition,contentId:detail.contentId,result,removedIds:transition==='discard'?this.discardedReturns(this.location,item):[]};
       if(detail.final||linearItem||all) {
         const retainContainer=!linearItem&&!all&&this.items(this.location,result.variables,result.inventory,item.id).length>0;
-        const excluded=transition==='collect'?item.id:null;
+        const excluded=transition==='collect'?{key:this.key(),itemId:item.id}:null;
         this.stagedDestination=linearItem?this.destination(item,undefined,result.variables,result.inventory):retainContainer?this.location:this.next(this.location,'next',result.variables,result.inventory,new Set(),excluded);
         if(this.stagedDestination.completed)this.deck.endContent();
         else {
@@ -386,11 +432,21 @@ export class ProjectController {
       }catch(error){this.error(error);this.notify();}
       return;
     }
+    if(this.pendingExchange&&detail.transition==='cancel'&&detail.contentId===this.pendingExchange.contentId) {
+      this.pendingExchange=null;
+      // Ownership and collection effects can change sibling visibility or flags.
+      // Reconcile only after the returned face has reached its original slot.
+      this.deck.refreshInventoryActions(this.content().actions);
+      this.notify();
+      return;
+    }
     const pending=this.pendingItem;
     if(pending&&detail.transition===pending.transition&&detail.contentId===pending.contentId) {
-      if(pending.transition==='collect') {
+      if(pending.transition==='collect'||pending.removedIds.length) {
         const raw=this.remaining.get(pending.key)??(pending.linearItem?this.location.sequence?.cards??this.location.node.cards:this.location.sequence?.items??this.location.node.items)??[];
-        this.remaining.set(pending.key,raw.filter(i=>i.id!==pending.item.id));
+        const removed=new Set(pending.transition==='collect'?[pending.item.id]:pending.removedIds);
+        this.remaining.set(pending.key,raw.filter(i=>!removed.has(i.id)));
+        for(const id of removed)this.itemReplacements.get(pending.key)?.delete(id);
       }
       this.variables=pending.result.variables;this.inventory=pending.result.inventory;this.pendingItem=null;this.notify();
       if(!this.stagedDestination) {
