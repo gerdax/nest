@@ -66,7 +66,7 @@ export function createDrawerTraceFilter() {
 export function mountDrawerDebug(preview) {
   const panel = document.createElement('details');
   panel.dataset.drawerDebug = '';
-  panel.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:2147483647;box-sizing:border-box;width:max-content;max-width:calc(100vw - 24px);padding:8px 10px;background:#15191f;color:#edf2f7;border:1px solid #657080;border-radius:6px;box-shadow:0 3px 16px #0006;font:12px/1.45 monospace;text-align:left;';
+  panel.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:90;box-sizing:border-box;width:max-content;max-width:calc(100vw - 24px);padding:8px 10px;background:#15191f;color:#edf2f7;border:1px solid #657080;border-radius:6px;box-shadow:0 3px 16px #0006;font:12px/1.45 monospace;text-align:left;';
   const summary = document.createElement('summary');
   summary.textContent = 'Drawer trace';
   summary.style.cssText = 'cursor:pointer;user-select:none;';

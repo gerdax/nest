@@ -472,7 +472,7 @@ function editorHandlers(state, definitionId) {
     findPlacement:() => undefined
   };
   runInNewContext([
-    section('function edit(type,data={}){', 'function renderGraph()'),
+    section('function edit(type,data={},', 'function renderGraph()'),
     section('function changeField(event){', 'for(const root of'),
     section('function command(event){', 'for(const root of')
   ].join('\n'), context);

@@ -9,7 +9,7 @@
 }
 body.standalone-player.has-inventory-dock {padding-bottom:0;}
 .standalone-player .player-screen {
-  --playfield-safe-top:env(safe-area-inset-top,0px);
+  --playfield-safe-top:calc(60px + env(safe-area-inset-top,0px));
   --playfield-safe-bottom:env(safe-area-inset-bottom,0px);
   --playfield-safe-left:max(12px,env(safe-area-inset-left,0px));
   --playfield-safe-right:max(12px,env(safe-area-inset-right,0px));
@@ -35,3 +35,5 @@ body.standalone-player.has-inventory-dock {padding-bottom:0;}
 #chapter-name { margin:12px 0 4px;font-size:18px;overflow-wrap:anywhere; }
 #message { margin:4px 0 8px; }
 .player-tools-panel [data-state] pre { max-height:160px;overflow:auto;white-space:pre-wrap; }
+
+.player-studio-link {position:absolute;top:calc(24px + var(--player-safe-top));left:max(24px,var(--player-safe-left));z-index:4500;color:#efe0bf;font:16px/1.5 system-ui,sans-serif;}

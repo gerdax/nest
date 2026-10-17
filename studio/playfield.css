@@ -39,7 +39,7 @@
   container-type:size;min-width:0;min-height:0;align-self:stretch;justify-self:stretch;
   display:grid;place-items:center;
 }
-.nest-playfield #preview .chapter-preview-deck {
+.nest-playfield #preview .chapter-preview-card-layout {
   width:min(276px,100%,calc(100cqh * .75));height:auto;aspect-ratio:3/4;margin:0;
 }
 .nest-playfield .preview-status-row {

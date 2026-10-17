@@ -90,16 +90,20 @@ test('reset rejects an unfinished departure wait and never mounts a stale tray',
  assert.equal(deck.checkSurface,null);dispose(deck,controller);
 });
 
-test('using a stat-granting item updates the current Action label without replacing its card',()=>{
+test('using a stat-granting item updates the current Action check panel data without replacing its card',()=>{
  const source=action('try',{resolution:'check',check:{mode:'stat',modifierVariable:'composure',difficulty:5}});
  const booster=item('booster',{use:{effects:[{op:'add',key:'composure',value:4}]}});
  const {deck,controller}=real([{id:'f',type:'fork',choices:[source],connections:{'try:success':null,'try:failure':null}}],
  {variables:[{id:'composure',type:'number',initial:3,min:1,max:10,stat:true}],library:[booster]});
- assert.match(deck.content.actions[0].summary,/composure · Hard/);
+ assert.equal(deck.content.actions[0].summary,'');
+ assert.equal(deck.content.actions[0].checkInfo.chance,'37.5%');
+ assert.equal(deck.content.actions[0].checkInfo.formula,'composure 3 · 3d6 + 3 ≥ 15');
  const before=deck.cards[0];controller.inventory=[booster];
  assert.equal(controller.useItem('booster'),true);settle();
  assert.equal(controller.state.variables.composure,7);
- assert.match(deck.content.actions[0].summary,/composure · Easy/);
+ assert.equal(deck.content.actions[0].summary,'');
+ assert.equal(deck.content.actions[0].checkInfo.chance,'83.8%');
+ assert.equal(deck.content.actions[0].checkInfo.formula,'composure 7 · 3d6 + 7 ≥ 15');
  assert.equal(deck.cards[0],before);
  assert.equal(controller.inventory.length,0);dispose(deck,controller);
 });

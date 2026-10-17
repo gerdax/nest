@@ -33,9 +33,9 @@ class Root extends Element {
 }
 function setup(){
  const nodes=[{id:'a',name:'A',type:'linear',cards:[],x:0,y:0,connections:{next:'b'}},{id:'b',name:'B',type:'linear',cards:[],x:400,y:50,connections:{next:null}},{id:'c',name:'C',type:'linear',cards:[],x:600,y:150,connections:{next:null}}];
- const chapter={nodes,startNode:'a'},project={library:[]},root=new Root(),calls=[],moves=[],selections=[],opened=[],deleted=[];
- const graph=new GraphView(root,{onDelete:id=>deleted.push(id),onSelect:id=>selections.push(id),onOpenCard:(...args)=>opened.push(args),onConnect:(...args)=>calls.push(args),onMove:(...args)=>moves.push(args)});graph.render(project,chapter,'a','b');
- return {root,graph,chapter,calls,moves,selections,opened,deleted,port:()=>root.node('a').children[0]};
+ const chapter={nodes,startNode:'a'},project={library:[]},root=new Root(),calls=[],moves=[],selections=[],opened=[],deleted=[],creations=[];
+ const graph=new GraphView(root,{onCreateConnected:request=>creations.push(request),onDelete:id=>deleted.push(id),onSelect:id=>selections.push(id),onOpenCard:(...args)=>opened.push(args),onConnect:(...args)=>calls.push(args),onMove:(...args)=>moves.push(args)});graph.render(project,chapter,'a','b');
+ return {root,graph,chapter,calls,moves,selections,opened,deleted,creations,port:()=>root.node('a').children[0]};
 }
 test('Delete and Mac Backspace delete the selected beat through the graph callback',()=>{
  for(const key of ['Delete','Backspace']){
@@ -265,4 +265,29 @@ test('pending cancellation still restores graph markup',()=>{
  assert.equal(s.graph.pending,null);
  assert.notEqual(s.root.node('a'),node);
  assert.equal(s.root.node('b').classes.has('active'),true);
+});
+
+
+test('unlinked output blank drop requests creation at graph coordinates without an edit',()=>{
+ const s=setup();s.chapter.nodes[0].connections.next=false;
+ s.graph.view={x:30,y:40,z:.5};s.graph.render(s.graph.project,s.chapter,'a');
+ s.root.event('pointerdown',s.port(),200,100);s.root.hit=null;
+ s.root.event('pointerup',s.root,700,220);
+ assert.deepEqual(s.calls,[]);
+ assert.deepEqual(s.creations,[{id:'a',exit:'next',position:{x:1320,y:320},clientX:700,clientY:220}]);
+ assert.match(s.root.parts['#edges'].innerHTML,/edge-ghost/);
+ assert.equal(s.chapter.nodes[0].connections.next,false);
+ s.graph.cancel();assert.equal(s.graph.creation,null);
+ assert.doesNotMatch(s.root.parts['#edges'].innerHTML,/edge-ghost/);
+});
+
+test('unlinked output click, outside drop and existing-node drop do not request creation',()=>{
+ for(const kind of ['click','outside','node']){
+  const s=setup();s.chapter.nodes[0].connections.next=false;s.graph.render(s.graph.project,s.chapter,'a');
+  s.root.event('pointerdown',s.port(),200,100);
+  s.root.hit=kind==='node'?s.root.node('b'):null;
+  s.root.event('pointerup',s.root,kind==='click'?200:kind==='outside'?1200:700,kind==='click'?100:220);
+  assert.deepEqual(s.creations,[]);
+  assert.deepEqual(s.calls,kind==='node'?[['a','next','b']]:[]);
+ }
 });

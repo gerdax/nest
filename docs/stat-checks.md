@@ -12,21 +12,13 @@ Matching stat and difficulty succeeds on 135 of 216 outcomes (62.5%). There are
 no critical rolls, variable dice pools, automatic encounter scaling or hidden
 rerolls. Even certain/impossible tests physically roll three d6.
 
-The Action shows the selected stat name and current relative difficulty:
-
-| Label | Exact success chance |
-| --- | --- |
-| Easy | ≥80% |
-| Decent | ≥60%, <80% |
-| Medium | ≥40%, <60% |
-| Hard | ≥10%, <40% |
-| Nearly impossible | >0%, <10% |
-| Impossible | 0% |
-
-The same resolver computes the displayed label and actual check. Inventory use
-and earlier effects update the label from current run values. Editor summaries
-retain numerical diagnostics; automatic player summaries conceal stat values,
-odds and stat-changing rule breakdowns. Authored prose is preserved.
+The check card keeps its authored description. A prominent exact success
+probability, rounded to one decimal percentage point, appears by or below the
+card. A smaller contextual panel below it shows the stat name and current value
+with the formula, for example **Agility 3 · 3d6 + 3 ≥ 15**. The global player
+HUD remains limited to Health and Energy; stats and formulas are available in
+this check panel. The probability is calculated from all 216 possible 3d6
+results and updates from the current run state.
 
 Award +1 at meaningful milestones. Author later difficulty around expected
 growth, with easier/harder exceptions. A difficulty-5 check rises from 37.5% at
@@ -57,9 +49,9 @@ The deck owns motion and the held surface; ProjectPreview owns dice and result
 timing; ProjectController owns the accepted check snapshot, costs, effects and
 routing. Costs/common/outcome effects commit once after feedback and final
 validation. An awarded stat gain cannot improve its own check. Gameplay input
-is locked after commitment; there is no player cancel button or Escape reroll.
-Editor Stop/Restart abort safely. Technical failures restore the Action without
-charging costs. Resize/reduced motion can settle departure but cannot resolve
+is locked after commitment; Escape does not cancel a committed check.
+Editor Stop/Restart and technical errors abort without charging costs or
+applying effects. Resize/reduced motion can settle departure but cannot resolve
 the game check or reroll dice.
 
 Old checks retain their original dice, modifier and target in Custom check mode,
@@ -122,3 +114,29 @@ These checks do not establish physical-phone touch behavior, Safari rendering,
 GPU memory behavior, accessibility screen-reader behavior, or statistical
 fairness of the physical dice engine. Existing dice deadline/error recovery is
 retained; no invisible RNG fallback is introduced.
+
+## October 17 contextual check panel update
+
+Stat check fronts now retain only the authored fiction; the selected Action's
+one-decimal success percentage appears below the card, followed by its current
+stat value, formula and applicable resource-rule summary. These details track
+selection and inventory effects, disappear for non-stat actions and committed
+rolls, and reset on Stop/Restart. Custom checks keep their existing presentation.
+
+All 1,043 deterministic tests pass. Static staging to
+`/tmp/nest-check-ui-pages-20261017` passed HTML/module/CSS reference verification.
+An independent source review found no actionable issues and passed 43 focused
+tests. The reusable `tests/fixtures/check-details.html` exercised the shared
+ProjectPreview/playfield composition in the in-app browser at 320×568, 375×667
+and 390×844 field sizes. Visual checks covered panel placement, switching to a
+direct action and back, and an item raising Composure from 3 to 7 (37.5% to
+83.8%). A real dice attempt reached the failure consequence and charged one
+energy; the pre-roll panel disappeared during resolution and on the successor.
+These field sizes are CSS-sized test frames, not physical devices or browser
+viewport emulation. The complete editor chrome, physical-phone touch behavior
+and Safari were not reverified for this update.
+
+Chapter cycles require no runtime change for this update: **Project variables
+and chapter settings → Allow beat cycles** already enables revisits for the
+selected chapter. See [chapter graph](chapter-editor.md#chapter-graph) for the
+runtime automatic-loop guard and legacy validation boundaries.

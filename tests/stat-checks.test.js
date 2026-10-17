@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createProject, parseProject, importChapter, exportChapter, validateProject } from '../project/model.js';
-import { defaultStats, normalizeStats, resolveCheck, probabilityLabel, editorCheckSummary, playerCheckSummary } from '../project/checks.js';
+import { defaultStats, normalizeStats, resolveCheck, probabilityLabel, editorCheckSummary, playerCheckSummary, playerCheckPresentation } from '../project/checks.js';
 import { initialValues, transact } from '../project/state.js';
 import { cardSummary, playerCardSummary } from '../project/cards.js';
 import { cardFace } from '../project/presentation.js';
@@ -66,15 +66,16 @@ test('chapter packages preserve stat check refs including remapped override and 
  assert.deepEqual(validateProject(imported),[]);assert.equal(parseProject(JSON.stringify(imported)).chapters.at(-1).initialValues['agility-2'],7);
  assert.equal(pkg.chapter.nodes[2].choices[0].overrides.check.modifierVariable,'agility');
 });
-test('player summaries conceal stat numbers, follow current values, and retain unrelated rules and narrative',()=>{
+test('card summaries keep rules separate from numerical check presentation',()=>{
  const project=checkedProject(), card=action(project);card.text='Agility 3 is authored prose';
  card.conditions=[{source:'variable',key:'agility',op:'gte',value:7},{source:'variable',key:'energy',op:'gte',value:1}];
  card.costs=[{source:'variable',key:'agility',amount:2}];card.effects=[{op:'set',key:'agility',value:8},{op:'add',key:'energy',value:1}];
  const summary=playerCardSummary(card,project.variables,project.library,{agility:1});
  assert.match(summary,/energy ≥ 1/);assert.match(summary,/Restore up to 1 energy/);assert.doesNotMatch(summary,/Set Agility|Cost:|Agility ≥|3d6|Difficulty/);
- assert.notEqual(summary,playerCardSummary(card,project.variables,project.library,{agility:10}));
+ assert.equal(summary,playerCardSummary(card,project.variables,project.library,{agility:10}));
  assert.match(cardSummary(card,project.variables),/3d6/);assert.match(editorCheckSummary(card.check,project.variables),/Difficulty 5/);
- assert.doesNotMatch(playerCheckSummary(card.check,{agility:3},project.variables),/3d6|Difficulty/);
+ assert.equal(playerCheckSummary(card.check,{agility:3},project.variables),'Agility 3 · 3d6 + 3 ≥ 15');
+ assert.doesNotMatch(playerCheckSummary(card.check,{agility:3},project.variables),/Difficulty|Hard|Easy/);
  assert.equal(cardFace(card,project.variables,project.library,{agility:3}).text,card.text);
 });
 test('stat authoring exposes finite difficulty and formula diagnostic while custom checks retain original data',()=>{
@@ -92,4 +93,15 @@ test('custom checks retain invalid missing modifier references for the runtime e
  assert.equal(Number.isFinite(resolveCheck(check,{}).modifier),false);
  assert.equal(resolveCheck({...check,modifierVariable:undefined},{}).modifier,2);
  assert.equal(resolveCheck(check,{missing:0}).modifier,2);
+});
+
+test('contextual stat check percentages and formulas match live state, including extremes',()=>{
+ const definitions=defaultStats();
+ for(const [stat,chance] of [[3,'37.5%'],[5,'62.5%'],[7,'83.8%']]) {
+  assert.deepEqual(playerCheckPresentation(statCheck(),{agility:stat},definitions),
+   {chance,formula:`Agility ${stat} · 3d6 + ${stat} ≥ 15`});
+ }
+ assert.equal(playerCheckPresentation(statCheck(10),{agility:1},definitions).chance,'0.0%');
+ assert.equal(playerCheckPresentation(statCheck(1),{agility:10},definitions).chance,'100.0%');
+ assert.equal(playerCheckPresentation({pool:[{sides:20,count:1}],target:10}),null);
 });

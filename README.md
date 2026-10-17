@@ -16,7 +16,7 @@ Open `http://127.0.0.1:8937/`; use `--port 8938` for an alternative port. Serve 
 - `/editor.html` opens the project studio with Library and Chapter views.
 - `/dice.html` opens the independent 3D dice tray.
 
-The player includes an expandable Motion tuning panel with its Copy settings action inside. Tuning applies to the chapter being played and stays available across Play, Restart, and JSON imports. There is no fixture selector; author scenarios in the studio and play their project or chapter JSON.
+The player includes an expandable Motion tuning panel with its Copy settings action inside. Tuning applies to the chapter being played and stays available across Play, Restart, and JSON imports. There is no fixture selector; author scenarios in the studio and play their project or chapter JSON. Stat checks show their exact success probability to one decimal place by or below the card, with the stat value and formula in a smaller contextual panel. The global HUD displays Health and Energy.
 
 Run verification with `npm test` or `node --test tests/*.test.js`.
 
@@ -37,7 +37,7 @@ Keyboard controls on the focused deck:
 - Up reveals, chooses an ordinary action, or leaves an open container and discards its remaining items.
 - Down and Enter take a container item. Enter chooses an ordinary action elsewhere.
 - Left / Right browse.
-- Escape cancels an active gesture and does not close an opened container.
+- Escape cancels an active gesture and does not close an opened container. It cannot cancel a committed check.
 
 Short and canceled gestures restore the card without changing game state. Input stays blocked during accepted removal and the final flip. Reduced motion and tab suspension finish active presentations immediately. Physical touch-device behavior requires separate device verification.
 

@@ -5,15 +5,16 @@ import { artworkSettings, parseArtworkSettings } from './artwork-settings.js';
 import { DocumentHistory } from '../editor/DocumentHistory.js';
 import { LocalCardDrafts } from './local-card-drafts.js';
 import { cardKinds, cardEditorTint } from '../project/cards.js';
-import { createProject,validateProject,exportChapter } from '../project/model.js';
+import { createProject,validateProject } from '../project/model.js';
 import { definitionGraph } from '../project/dependencies.js';
 import { loadProject, readRecoveredSave } from '../project/storage.js';
-import { createPersistence, travelHistory, exportProjectDraft, parseStudioImport } from './persistence.js';
+import { createPersistence, travelHistory, exportProjectDraft, exportStudioChapter, parseStudioImport } from './persistence.js';
+import { mountNodeCreateMenu } from './node-create-menu.js';
 import { GraphView } from './GraphView.js';
 import { previewActiveNode, updatePreviewHighlight } from './preview-highlight.js';
 import { ProjectPreview } from './ProjectPreview.js';
 import { mountDrawerDebug } from './drawer-debug.js';
-import { definitionInspector,nodeInspector,variableInspector } from './inspectors.js';
+import { definitionInspector,nodeInspector,projectSettingsInspector,chapterSettingsInspector } from './inspectors.js';
 import { esc } from './forms.js';
 import { mountPreviewWindow } from './preview-window.js';
 import { mountAutoplay } from './autoplay.js';
@@ -22,6 +23,7 @@ import { renderCardPreviews } from './card-preview.js';
 import { bindImagePicker } from './image-picker.js';
 import { applyDocumentCommand, documentScope } from './document-commands.js';
 import { transactDocument } from './document-session.js';
+import { mountProjectSettingsWindow } from './project-settings-window.js';
 import { mountHistoryShortcuts } from './history-shortcuts.js';
 
 const $=s=>document.querySelector(s),loaded=loadProject();
@@ -36,8 +38,8 @@ const definition=()=>project.library.find(d=>d.id===definitionId);
 const preview=new ProjectPreview($('#preview'),{inventoryHost:$('.preview-window-body'),onChange:state=>updatePreviewHighlight(graph,preview,chapter(),state),onStop:()=>graph.setActive(null),onGoToCard:goToPreviewCard});
 const stopDrawerDebug=mountDrawerDebug(preview);
 const previewWindow=mountPreviewWindow($('#preview-window'),{onClose:()=>preview.stop()});
-$('#show-preview').onclick=()=>previewWindow.show();
 const autoplay=mountAutoplay($('#autoplay'),{getSelected:()=>selected,onPlay:id=>play(id,{restore:false})});
+const nodeCreateMenu=mountNodeCreateMenu({onChoose:(type,request)=>edit('create-connected-node',{...request,type}),onDismiss:()=>graph.cancelCreation(),returnFocus:$('#canvas')});
 const graph=new GraphView($('#canvas'),{
  onSelect:id=>{selected=id;renderInspector({collapseCards:true});renderGraph();autoplay.select(id);},
  onOpenCard:(id,target,exit)=>{
@@ -45,10 +47,13 @@ const graph=new GraphView($('#canvas'),{
   if(target)revealCardEntry($('#inspector'),target);
   else {const field=[...$('#inspector').querySelectorAll('[data-scope="connection"]')].find(el=>el.dataset.path===exit);field?.scrollIntoView({block:'center'});field?.focus({preventScroll:true});}
  },
+ onCreateConnected:request=>nodeCreateMenu.open(request),
+ onCancelCreate:()=>nodeCreateMenu.close(),
  onConnect:(id,exit,target)=>edit('connect',{id,exit,target}),
  onMove:(id,x,y)=>edit('move-node',{id,x,y}),
  onDelete:()=>{if(mode==='chapter'&&node())edit('delete-node');},
 });
+const projectSettingsWindow=mountProjectSettingsWindow($('#project-settings-overlay'),{trigger:$('#project-settings-toggle'),preview:$('#preview-window'),onOpen:()=>graph.cancel()});
 const persistence=createPersistence({loaded,onStatus:text=>{$('#save-status').textContent=text;}});
 const saveProject=project=>persistence.save(project);
 function report(text){persistence.report(text);}
@@ -61,7 +66,7 @@ function goToPreviewCard(target){
  if(!revealCardEntry($('#inspector'),target))report('This card is not currently shown in the panel. Its introduction may have been disabled since playback started.');
 }
 const selection=()=>({chapterId,selected,definitionId,mode});
-function edit(type,data={}){
+function edit(type,data={}, {preserveProjectSettings=false}={}){
  graph.cancel();
  const outcome=transactDocument(history,localDrafts,draft=>applyDocumentCommand(draft,selection(),type,data,localDrafts));
  project=outcome.project;
@@ -70,17 +75,29 @@ function edit(type,data={}){
  if('selected' in patch)selected=patch.selected;
  if('definitionId' in patch)definitionId=patch.definitionId;
  if('mode' in patch)mode=patch.mode;
- const saved=saveProject(project);render();report(outcome.failure|| (saved.ok?'Saved in this browser':`Save failed: ${saved.error}`));
+ const saved=saveProject(project);render({preserveProjectSettings});report(outcome.failure|| (saved.ok?'Saved in this browser':`Save failed: ${saved.error}`));
  return {ok:!outcome.failure&&saved.ok,value:outcome.result?.value};
 }
 function renderGraph(){if(mode==='chapter')graph.render(project,chapter(),selected,previewActiveNode(preview,chapter()));}
-function renderInspector({collapseCards=false}={}){
+function renderProjectSettings(){
+ const root=$('#project-settings-content'),active=document.activeElement;
+ const restore=root.contains(active),path=active?.dataset.path,scope=active?.dataset.scope;
+ const start=restore&&['text','search'].includes(active.type)?active.selectionStart:null;
+ const end=start===null?null:active.selectionEnd,scroll=root.scrollTop;
+ root.innerHTML=projectSettingsInspector(project);root.scrollTop=scroll;
+ if(restore&&path){
+  const next=[...root.querySelectorAll('[data-path]')].find(el=>el.dataset.path===path&&el.dataset.scope===scope);
+  next?.focus({preventScroll:true});if(next&&start!==null)next.setSelectionRange(start,end);
+ }
+}
+function renderInspector({collapseCards=false,preserveProjectSettings=false}={}){
  localDrafts.setContext(chapterId,selected);
  const settingsOpen=$('#settings').querySelector('details')?.open;
  const inspectorKey=`${mode}:${mode==='library'?definitionId:selected}`;
  const sameInspector=$('#inspector').dataset.key===inspectorKey;
  const expanded=sameInspector?[...$('#inspector').querySelectorAll('details')].map((el,i)=>el.open?i:-1):[];
- $('#settings').innerHTML=variableInspector(project,chapter());
+ $('#settings').innerHTML=chapterSettingsInspector(project,chapter());
+ if(!preserveProjectSettings)renderProjectSettings();
  $('#inspector').innerHTML=mode==='library'?definitionInspector(project,definition()):nodeInspector(project,chapter(),node());
  renderCardPreviews($('#inspector'),project,node());
  applyCardStyles(preview.mount,project.cardStyles);
@@ -90,6 +107,7 @@ function renderInspector({collapseCards=false}={}){
  $('#inspector').dataset.key=inspectorKey;
  if(!sameInspector)document.querySelector('aside').scrollTop=0;
  const panelLabel=mode==='library'?(cardKinds[definition()?.kind]?.label||'Library'):nodeTypeLabel(node()?.type)||'Beat';
+ $('#panel-title').closest('.tabs').hidden=mode==='library';
  $('#panel-title').innerHTML=`<span>${esc(panelLabel)}</span>${mode==='chapter'?nodeIcon(node()?.type):''}`;
 }
 function renderLibrary(){
@@ -97,7 +115,8 @@ function renderLibrary(){
  const dependencies=definitionGraph(project);
  $('#library-list').innerHTML=project.library.filter(d=>d.visibility!=='local'&&`${d.name} ${cardKinds[d.kind]?.label||d.kind} ${d.kind}`.toLowerCase().includes(query)).map(d=>`<button type="button" data-definition="${esc(d.id)}" class="library-entry card-panel ${d.id===definitionId?'selected':''}" data-card-type="${esc(d.kind)}" style="--card-editor-tint:${esc(cardEditorTint(d.kind))}"><strong>${esc(d.name)}</strong><span>${esc(cardKinds[d.kind]?.label||d.kind)} · ${dependencies.users(d.id).length} uses</span></button>`).join('');
 }
-function render(){
+function render({preserveProjectSettings=false}={}){
+ graph.cancelCreation();
  if(!project.chapters.some(c=>c.id===chapterId))chapterId=project.activeChapterId||project.chapters[0]?.id;
  if(!chapter()?.nodes.some(n=>n.id===selected))selected=chapter()?.startNode;
  $('#project-name').textContent=project.name;
@@ -106,7 +125,7 @@ function render(){
  $('#canvas').hidden=mode!=='chapter';$('#library-panel').hidden=mode!=='library';$('#node-tools').hidden=mode!=='chapter';
  $('#chapter-view').classList.toggle('active-tab',mode==='chapter');$('#library-view').classList.toggle('active-tab',mode==='library');
  const issues=validateProject(project);$('#errors').innerHTML=issues.map(e=>`<div>${esc(e.message)}</div>`).join('');
- renderGraph();renderLibrary();renderInspector();
+ renderGraph();renderLibrary();renderInspector({preserveProjectSettings});
 }
 function scopeRoot(scope,element){
  return documentScope(project,selection(),{scope,placementId:element.closest('[data-placement]')?.dataset.placement});
@@ -117,11 +136,13 @@ function changeField(event){const el=event.target,path=el.dataset.path,scope=el.
   try{color=el.value.trim()?parseCardColor(el.value):undefined;el.setCustomValidity('');}
   catch{el.setCustomValidity('Enter a 3- or 6-digit hex color, such as #A9BB86.');el.reportValidity();return;}
  }
+ // Keep blur-driven changes from replacing the next focus or click target.
+ const preserveProjectSettings=!!el.closest('#project-settings-content')&&!/^variables\.\d+\.type$/.test(path);
  edit('field',{scope,path,value:el.value,checked:el.checked,inputType:el.type,
-  placementId:el.closest('[data-placement]')?.dataset.placement,colorField,color});
+  placementId:el.closest('[data-placement]')?.dataset.placement,colorField,color},{preserveProjectSettings});
 }
-for(const root of [$('#inspector'),$('#settings')])root.addEventListener('change',changeField);
-$('#settings').addEventListener('input',event=>{
+for(const root of [$('#inspector'),$('#settings'),$('#project-settings-content')])root.addEventListener('change',changeField);
+$('#project-settings-content').addEventListener('input',event=>{
  const el=event.target;
  if(!el.matches('[data-card-style-slider],[data-card-style-color]'))return;
  const styles={...project.cardStyles},key=el.dataset.path.split('.')[1];
@@ -142,7 +163,7 @@ $('#inspector').addEventListener('input',event=>{
  renderCardPreviews($('#inspector'),draft,node());
 });
 
-for(const root of [$('#inspector'),$('#settings')])bindImagePicker(root,{
+for(const root of [$('#inspector'),$('#settings'),$('#project-settings-content')])bindImagePicker(root,{
  onSelect(scope,placementId,path,value){
   edit('image',{scope,placementId,path,value});
  },onError:report
@@ -165,7 +186,7 @@ function command(event){const b=event.target.closest('[data-command]');if(!b)ret
  if(cmd==='jump-use'){chapterId=b.dataset.chapter;selected=b.dataset.node;mode='chapter';render();graph.fit();autoplay.select(selected);return;}
  edit('inspector',{...b.dataset});
 }
-for(const root of [$('#inspector'),$('#settings')])root.addEventListener('click',command);
+for(const root of [$('#inspector'),$('#settings'),$('#project-settings-content')])root.addEventListener('click',command);
 $('#library-list').onclick=e=>{const b=e.target.closest('[data-definition]');if(b){definitionId=b.dataset.definition;renderLibrary();renderInspector();}};
 $('#library-search').oninput=renderLibrary;
 $('#cleanup-local').onclick=()=>{
@@ -178,8 +199,7 @@ $('#add-chapter').onclick=()=>edit('add-chapter');
 for(const b of document.querySelectorAll('[data-add-kind]'))b.onclick=()=>edit('add-definition',{kind:b.dataset.addKind});
 for(const b of document.querySelectorAll('[data-add]'))b.onclick=()=>{graph.cancel();edit('add-node',{type:b.dataset.add,position:{x:(150-graph.view.x)/graph.view.z,y:(140-graph.view.y)/graph.view.z}});};
 $('#duplicate').onclick=()=>{if(node())edit('duplicate-node');};
-$('#delete').onclick=()=>{if(node())edit('delete-node');};
-$('#start').onclick=()=>{if(node())edit('set-start');};$('#fit').onclick=()=>graph.fit();
+$('#start').onclick=()=>{if(node())edit('set-start');};
 function travel(method){graph.cancel();localDrafts.reset();const result=travelHistory(history,method,persistence);if(result.changed)project=result.project;render();}
 $('#undo').onclick=()=>travel('undo');$('#redo').onclick=()=>travel('redo');
 const stopHistoryShortcuts=mountHistoryShortcuts(document,{undo:()=>$('#undo').click(),redo:()=>$('#redo').click()});
@@ -191,11 +211,26 @@ if(loaded.recovery){
  recoveryDownload.onclick=()=>{const recovered=readRecoveredSave();if(!recovered.ok){report(`Recovery download failed: ${recovered.error}`);return;}downloadText(recovered.text,'nest-recovered-save.txt');report('Recovered save downloaded as exact original text. Recovery backup retained.');};
  $('#save-status').after(recoveryDownload);
 }
-$('#export-project').textContent='Export project draft';
-$('#export-project').onclick=()=>{try{download(exportProjectDraft(project),`${project.name.replace(/[^a-z0-9]+/gi,'-')}.nest.json`);report('Project draft exported. Import it in the studio to continue editing; playback requires validation errors to be fixed.');}catch(error){report(`Project export failed: ${error.message}`);}};
-$('#export-chapter').onclick=()=>{const errors=validateProject(project);if(errors.length){report('Fix validation errors before exporting.');return;}download(exportChapter(project,chapterId),`${chapter().name.replace(/[^a-z0-9]+/gi,'-')}.chapter.json`);};
-$('#import').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{const text=await file.text(),{raw,project:incoming}=parseStudioImport(text);preview.stop();localDrafts.reset();const saved=edit('import',{raw,incoming}).ok;if(saved&&raw.kind==='nest-project'&&persistence.adopt().ok){recoveryDownload?.remove();report('Project draft imported and saved in this browser. Recovery backups retained.');}graph.fit();}catch(error){report(`Import rejected: ${error.message}`);}e.target.value='';};
+$('#export-project').textContent='Export project';
+$('#export-project').onclick=()=>{try{download(exportProjectDraft(project),`${project.name.replace(/[^a-z0-9]+/gi,'-')}.nest.json`);report('Project exported. Unfinished work is included; playback requires validation errors to be fixed.');}catch(error){report(`Project export failed: ${error.message}`);}};
+$('#export-chapter').onclick=()=>{try{download(exportStudioChapter(project,chapterId),`${chapter().name.replace(/[^a-z0-9]+/gi,'-')}.chapter.json`);report('Chapter exported.');}catch(error){report(`Chapter export failed: ${error.message}`);}};
+function bindImport(input,kind){
+ input.onchange=async e=>{
+  const file=e.target.files[0];if(!file)return;
+  try{
+   const {raw,project:incoming}=parseStudioImport(await file.text(),{kind});
+   preview.stop();localDrafts.reset();
+   const saved=edit('import',{raw,incoming}).ok;
+   if(saved&&kind==='project'&&persistence.adopt().ok){recoveryDownload?.remove();report('Project imported and saved in this browser. Recovery backups retained.');}
+   else if(saved&&kind==='chapter')report('Chapter imported and saved in this browser.');
+   graph.fit();
+  }catch(error){report(`Import rejected: ${error.message}`);}
+  e.target.value='';
+ };
+}
+bindImport($('#import'),'project');
+bindImport($('#import-chapter'),'chapter');
 function play(startNode,{restore=true}={}){try{previewWindow.show({restore});preview.play(project,chapterId,startNode,{focus:!previewWindow.minimized});report('Chapter ready.');return true;}catch(error){report(error.message);return false;}}
-$('#play').onclick=()=>play();$('#play-node').onclick=()=>play(selected);$('#restart').onclick=()=>play();$('#stop').onclick=()=>preview.stop();
-window.addEventListener('pagehide',event=>{if(event.persisted)return;stopHistoryShortcuts();stopDrawerDebug();autoplay.destroy();previewWindow.destroy();preview.destroy();});
-render();graph.fit();if(loaded.error||loaded.recovery)report('');else if(loaded.migrated)report('Legacy save loaded; original browser save preserved.');
+$('#play').onclick=()=>play();$('#play-node').onclick=()=>play(selected);
+window.addEventListener('pagehide',event=>{if(event.persisted)return;stopHistoryShortcuts();stopDrawerDebug();autoplay.destroy();previewWindow.destroy();projectSettingsWindow.destroy();preview.destroy();});
+render();graph.fit();if(loaded.error||loaded.recovery)report('');else if(loaded.migrated)report('Legacy save loaded; original browser save preserved.');else report(loaded.project?'Saved in this browser.':'Not saved yet.');

@@ -1,5 +1,5 @@
 import { saveProject, acknowledgeRecovery } from '../project/storage.js';
-import { parseProject } from '../project/model.js';
+import { exportChapter, parseProject } from '../project/model.js';
 
 /** One status boundary for edits, history travel, imports and other messages. */
 export function createPersistence({loaded = {}, storage, onStatus = () => {}} = {}) {
@@ -39,7 +39,22 @@ export function travelHistory(history, method, persistence) {
 export function exportProjectDraft(project) {
   return parseProject(JSON.stringify(project), {allowDraft:true});
 }
-export function parseStudioImport(text) {
+export function exportStudioChapter(project, chapterId = project.activeChapterId) {
+  const chapter = project.chapters.find(chapter => chapter.id === chapterId);
+  if (!chapter) throw new TypeError('Unknown chapter.');
+  // Dependency discovery only needs the selected chapter. Other chapters may
+  // still be unfinished or contain malformed draft data.
+  const pkg = exportChapter({...project, chapters:[chapter]}, chapterId);
+  parseProject(JSON.stringify(pkg));
+  return pkg;
+}
+export function parseStudioImport(text, {kind} = {}) {
   const raw = JSON.parse(text);
+  if (kind !== undefined) {
+    if (!['project', 'chapter'].includes(kind)) throw new TypeError('Unknown studio import kind.');
+    if (raw?.version !== 2 || raw.kind !== `nest-${kind}`) {
+      throw new TypeError(`Expected a version 2 nest-${kind} file.`);
+    }
+  }
   return {raw,project:parseProject(text, {allowDraft:raw?.kind === 'nest-project'})};
 }

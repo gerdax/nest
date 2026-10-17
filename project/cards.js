@@ -1,10 +1,10 @@
-import { editorCheckSummary, playerCheckSummary, isStatVariable } from './checks.js';
+import { editorCheckSummary, isStatVariable } from './checks.js';
 import { nodeSlotCardKinds } from './nodeTypes.js';
 /** The library stores content; placements store chapter-specific behavior. */
 export const cardKinds = Object.freeze({
-  event: { label: 'Vignette', editorTint: '#b9fdef', validate: card => typeof card.text === 'string' ? [] : ['Vignette text must be a string.'] },
+  event: { label: 'Vignette', editorTint: '#b9fdc3', validate: card => typeof card.text === 'string' ? [] : ['Vignette text must be a string.'] },
   caption: { label: 'Caption', editorTint: '#e4ffeb', validate: card => typeof card.text === 'string' ? [] : ['Caption text must be a string.'] },
-  action: { label: 'Action', editorTint: '#d98181', validate: card => ['direct','check'].includes(card.resolution) ? [] : ['Action resolution must be direct or check.'] },
+  action: { label: 'Action', editorTint: '#a59bea', validate: card => ['direct','check'].includes(card.resolution) ? [] : ['Action resolution must be direct or check.'] },
   item: { label: 'Item', editorTint: '#dfcf78', validate: card => Array.isArray(card.onCollect) ? [] : ['Item collection effects must be a list.'] }
 });
 export const canonicalCardKind = kind => kind === 'narrative' ? 'event' : kind;
@@ -68,7 +68,7 @@ export function cardSummary(card, variables = [], library = []) {
   return cardSummaryParts(card,variables,library).join(' · ');
 }
 
-/** Gameplay summaries conceal numeric stat mechanics while preserving authored text. */
+/** Authored text and resource rules stay separate from the contextual stat-check panel. */
 export function playerCardSummary(card, variables = [], library = [], values = {}) {
   const concealed = key => isStatVariable(variables.find(v => v.id === key));
   const visible = rules => rules?.filter(rule => rule.source === 'inventory' || ['addItem','removeItem'].includes(rule.op) || !concealed(rule.key));
@@ -77,10 +77,6 @@ export function playerCardSummary(card, variables = [], library = [], values = {
   if (card.use) filtered.use = {...card.use, effects:visible(card.use.effects), conditions:visible(card.use.conditions)};
   if (card.check?.mode === 'stat') filtered.resolution = 'direct';
   const parts = cardSummaryParts(filtered, variables, library);
-  if (card.resolution === 'check' && card.check?.mode === 'stat') {
-    try { parts.push(`Check: ${playerCheckSummary(card.check, values, variables)}`); }
-    catch { parts.push('Check unavailable'); }
-  }
   return parts.join(' · ');
 }
 

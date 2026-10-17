@@ -22,8 +22,12 @@ export class ProjectPreview {
     this.onGoToCard = typeof onGoToCard === 'function' ? onGoToCard : null;
     this.deckSettings = { ...deckSettings };
     this.presentationPolicy = { ...presentationPolicy };
-    this.root.innerHTML = '<section class="project-preview"><div class="chapter-preview-stage"><div class="player-resources" data-resources hidden><span class="player-resource" data-health aria-label="Health"><img src="./assets/img/hud-health.png" alt=""><span data-health-value></span></span><span class="player-resource" data-energy aria-label="Energy"><span data-energy-value></span><img src="./assets/img/hud-energy.png" alt=""></span></div><div class="chapter-preview-card-area"><div class="chapter-preview-deck" tabindex="0"></div></div></div><div class="preview-status-row"><p data-status role="status">Stopped.</p></div><footer class="preview-footer" data-preview-footer><details data-state hidden><summary>Run state</summary><pre></pre></details><div data-preview-actions></div></footer><section data-inventory></section><section class="check-surface" data-check-surface hidden aria-label="Action check"><div class="check-tray"></div><div class="check-result" data-result role="status" aria-live="polite"></div></section></section>';
+    this.root.innerHTML = '<section class="project-preview"><div class="chapter-preview-stage"><div class="player-resources" data-resources hidden><span class="player-resource" data-health aria-label="Health"><img src="./assets/img/hud-health.png" alt=""><span data-health-value></span></span><span class="player-resource" data-energy aria-label="Energy"><span data-energy-value></span><img src="./assets/img/hud-energy.png" alt=""></span></div><div class="chapter-preview-card-area"><div class="chapter-preview-card-layout"><div class="chapter-preview-deck" tabindex="0"></div><section class="action-check-details" data-action-check hidden aria-label="Selected action check" aria-live="polite"><div class="action-check-chance"><strong data-check-chance></strong><span>chance of success</span></div><div class="action-check-meta"><p data-check-formula></p><p data-check-rules></p></div></section></div></div></div><div class="preview-status-row"><p data-status role="status">Stopped.</p></div><footer class="preview-footer" data-preview-footer><details data-state hidden><summary>Run state</summary><pre></pre></details><div data-preview-actions></div></footer><section data-inventory></section><section class="check-surface" data-check-surface hidden aria-label="Action check"><div class="check-tray"></div><div class="check-result" data-result role="status" aria-live="polite"></div></section></section>';
     this.mount = root.querySelector('.chapter-preview-deck');
+    this.checkDetails = root.querySelector('[data-action-check]');
+    this.checkChance = root.querySelector('[data-check-chance]');
+    this.checkFormula = root.querySelector('[data-check-formula]');
+    this.checkRules = root.querySelector('[data-check-rules]');
     this.status = root.querySelector('[data-status]');
     this.resources = root.querySelector('[data-resources]');
     this.healthValue = root.querySelector('[data-health-value]');
@@ -113,13 +117,12 @@ export class ProjectPreview {
       // Initial onChange runs before the controller constructor returns.
       if (!active()) { controller.destroy(); return; }
       this.controller = controller;
-      if (this.goToCardButton) {
-        this.cardLinkDeck = this.deck;
-        this.cardLinkListener = () => { if (active()) this.syncCardLink(); };
-        this.cardLinkEvents = ['selection', 'reveal', 'close', 'commit', 'collect', 'discard', 'transitioncomplete'];
-        for (const event of this.cardLinkEvents) this.deck.addEventListener(event, this.cardLinkListener);
-        this.syncCardLink();
-      }
+      this.cardLinkDeck = this.deck;
+      this.cardLinkListener = () => { if (active()) { this.syncCardLink(); this.syncCheckDetails(); } };
+      this.cardLinkEvents = ['selection', 'reveal', 'close', 'commit', 'collect', 'discard', 'transitioncomplete'];
+      for (const event of this.cardLinkEvents) this.deck.addEventListener(event, this.cardLinkListener);
+      this.syncCardLink();
+      this.syncCheckDetails();
       if (focus) this.mount.focus({ preventScroll: true });
     } catch (error) { if (active()) this.stop(); throw error; }
   }
@@ -146,6 +149,7 @@ export class ProjectPreview {
     this.stateReadout.querySelector('pre').textContent = JSON.stringify(state.variables || {}, null, 2);
     this.inventory.update(state.collectedItems || [], { busy: !state.idle, variables: this.compiled?.variables || [], values: state.variables, library: this.compiled?.library || [] });
     this.syncCardLink();
+    this.syncCheckDetails();
     this.onChange(state);
   }
   cardTarget() {
@@ -154,6 +158,16 @@ export class ProjectPreview {
   }
   syncCardLink() {
     if (this.goToCardButton) this.goToCardButton.disabled = !this.cardTarget();
+  }
+  syncCheckDetails() {
+    const deck = this.deck;
+    const action = deck?.content?.actions?.[deck.index ?? 0];
+    const info = !this.state?.completed && !this.state?.checking && deck?.phase === 'choices' ? action?.checkInfo : null;
+    this.checkDetails.hidden = !info;
+    this.checkChance.textContent = info?.chance ?? '';
+    this.checkFormula.textContent = info?.formula ?? '';
+    this.checkRules.textContent = info?.rules ?? '';
+    this.checkRules.hidden = !info?.rules;
   }
   async roll(pool, { signal, target } = {}) {
     if (this.destroyed || signal?.aborted) throw new DOMException('Preview stopped.', 'AbortError');
@@ -232,6 +246,7 @@ export class ProjectPreview {
     this.hideDice(); this.state = null; this.errorMessage = null; this.errorNode = null; this.compiled = null;
     this.mount.replaceChildren(); this.inventory.update([]); this.stateReadout.hidden = true;
     this.resources.hidden = true;
+    this.syncCheckDetails();
     this.status.textContent = 'Stopped.'; this.status.hidden = false;
     this.syncCardLink();
     if (hadPlayback) this.onStop();

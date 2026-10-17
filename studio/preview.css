@@ -17,7 +17,8 @@
 .check-target {right:12%;font-size:var(--card-medium-size,15px);color:var(--card-medium-color,#d2dfb6);}
 .check-outcome {position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:clamp(32px,calc(var(--card-font-size,21px) * 4),30cqw)/1 NestVitals,monospace;text-transform:uppercase;color:var(--card-text,#d2dfb6);}
 .check-result[data-outcome="failure"] .check-outcome {color:var(--card-medium-color,#d2dfb6);}
-.chapter-preview-deck { width:min(100%,276px);aspect-ratio:3/4; }
+.chapter-preview-card-layout { position:relative;width:min(100%,276px);aspect-ratio:3/4; }
+.chapter-preview-deck { width:100%;aspect-ratio:3/4; }
 .project-preview [data-status] { overflow-wrap:anywhere; }
 .project-preview [data-state] pre { white-space:pre-wrap; }
 .nest-inventory-item button { position:relative;width:100%;min-height:82px;padding:0;border:0;background:transparent;color:inherit;text-align:left; }
@@ -25,7 +26,7 @@
 .item-dialog::backdrop { background:#000b; }
 .item-dialog > .nest-image-vignette img { display:block;width:100%;max-height:220px;object-fit:cover; }
 .item-dialog [data-summary] { color:#c0d99b;white-space:pre-line; }
-@media(max-width:420px) { .chapter-preview-stage {padding-inline:22px;min-height:390px;} .chapter-preview-deck {width:min(100%,240px);} }
+@media(max-width:420px) { .chapter-preview-stage {padding-inline:22px;min-height:390px;} .chapter-preview-card-layout {width:min(100%,240px);} }
 
 @font-face {font-family:NestVitals;src:url('../assets/fonts/trotont.ttf') format('truetype');font-display:swap;}
 .player-resources {width:100%;display:flex;justify-content:space-between;align-items:center;color:#b6c99b;}
@@ -40,3 +41,13 @@
 .preview-footer [data-state] pre{max-height:160px;overflow:auto;margin:8px 0 0}
 .preview-footer [data-preview-actions]{margin-left:auto;flex-shrink:0}
 .preview-footer [data-go-to-card]{border:0;padding:0;background:transparent;color:inherit;text-decoration:underline;font:inherit;font-size:12px}
+
+/* Mechanical information lives below the fiction, outside the moving card. */
+.action-check-details {position:absolute;top:calc(100% + 12px);left:50%;transform:translateX(-50%);width:max(100%,220px);max-width:calc(100vw - 40px);text-align:center;pointer-events:none;color:#c6d5b4;z-index:21;}
+.action-check-details[hidden] {display:none!important;}
+.action-check-chance {display:flex;align-items:baseline;justify-content:center;gap:8px;line-height:1.15;}
+.action-check-chance strong {font:32px/1 NestVitals,monospace;font-variant-numeric:tabular-nums;color:#e3edda;}
+.action-check-chance span {font:11px/1.3 system-ui,sans-serif;}
+.action-check-meta {margin-top:8px;font:12px/1.4 system-ui,sans-serif;color:#a4b397;}
+.action-check-meta p {margin:0;overflow-wrap:anywhere;}
+.action-check-meta [data-check-rules] {margin-top:4px;font-size:11px;}

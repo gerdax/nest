@@ -390,3 +390,28 @@ test('an explicit inventory host is respected with dock ownership enabled',()=>{
  preview.destroy();
  assert.equal(document.body.classList.contains('has-inventory-dock'),false);
 });
+
+test('check information follows selection and hides for story, commit, stop and restart',()=>{
+ environment();
+ const project=createProject(),chapter=project.chapters[0];
+ const fork=chapter.nodes.find(node=>node.type==='fork');fork.introEnabled=false;
+ const source=project.library.find(card=>card.id===fork.choices[0].definitionId);
+ source.resolution='check';source.check={mode:'stat',modifierVariable:'agility',difficulty:5};
+ fork.connections={[`${fork.choices[0].id}:success`]:null,[`${fork.choices[0].id}:failure`]:null};
+ const preview=new ProjectPreview(new Element());preview.play(project,chapter.id,fork.id);
+ preview.deck.finishMotion();preview.syncCheckDetails();
+ assert.equal(preview.checkDetails.hidden,false);
+ assert.equal(preview.checkChance.textContent,'37.5%');
+ assert.equal(preview.checkFormula.textContent,'Agility 3 · 3d6 + 3 ≥ 15');
+ assert.equal(preview.deck.content.actions[0].summary,'');
+ preview.deck.content.actions.push({id:'direct',label:'Leave'});preview.deck.index=1;
+ preview.deck.dispatchEvent(new Event('selection'));
+ assert.equal(preview.checkDetails.hidden,true);assert.equal(preview.checkChance.textContent,'');
+ preview.deck.index=0;preview.deck.dispatchEvent(new Event('selection'));
+ assert.equal(preview.checkDetails.hidden,false);
+ preview.update({...preview.state,checking:true});assert.equal(preview.checkDetails.hidden,true);
+ preview.stop();assert.equal(preview.checkDetails.hidden,true);
+ preview.restart();preview.deck.finishMotion();preview.syncCheckDetails();
+ assert.equal(preview.checkChance.textContent,'37.5%');
+ preview.destroy();assert.equal(preview.checkDetails.hidden,true);
+});

@@ -3,7 +3,7 @@ import { cardBody, cardFace } from './presentation.js';
 import { playerCardSummary, isStoryKind, collectionEffects } from './cards.js';
 import { selectPool } from '../chapter/random.js';
 import { isInventoryContext } from '../engine/inventoryContext.js';
-import { resolveCheck } from './checks.js';
+import { resolveCheck, playerCheckPresentation } from './checks.js';
 
 /** Playback only. CardDeck remains responsible for gestures and departure choreography. */
 export class ProjectController {
@@ -190,7 +190,15 @@ export class ProjectController {
   }
   adopt(destination,notify=true) {this.completed=!!destination.completed;if(!this.completed)this.location=destination;if(notify)this.notify();}
   body(card) {return cardBody(card);}
-  action(card,values=this.variables) {const {context,...content}=card;const typed={...card,kind:card.kind ?? (this.type()==='container'?'item':'action')};return {...content,...(card.resolution==='check'?{checkTarget:resolveCheck(card.check,values).target}:{}),label:card.name ?? card.label ?? 'Continue',...cardFace(typed,this.compiled.variables,this.compiled.library,values)};}
+  action(card,values=this.variables) {
+    const {context,...content}=card;
+    const typed={...card,kind:card.kind ?? (this.type()==='container'?'item':'action')};
+    const face=cardFace(typed,this.compiled.variables,this.compiled.library,values);
+    const checkInfo=card.resolution==='check'?playerCheckPresentation(card.check,values,this.compiled.variables):null;
+    return {...content,...(card.resolution==='check'?{checkTarget:resolveCheck(card.check,values).target}:{}),
+      label:card.name ?? card.label ?? 'Continue',...face,
+      ...(checkInfo?{checkInfo:{...checkInfo,rules:face.summary},summary:''}:{} )};
+  }
   linearTransition(location, destination, source=this.card(location)) {
     return this.type(location)==='linear'&&!['action','item'].includes(source?.kind)&&destination&&!destination.completed&&this.key(location)===this.key(destination)&&destination.index>location.index?'reveal':'flip';
   }

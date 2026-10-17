@@ -1,6 +1,6 @@
 import { isStatVariable } from '../project/checks.js';
 import { createDefinition, allowedCardKinds } from '../project/cards.js';
-import { createChapter, importChapter } from '../project/model.js';
+import { createChapter, importChapter, outputsForNode } from '../project/model.js';
 import { deleteDefinition, cleanupLocalDefinitions } from '../project/dependencies.js';
 import {
   uid, createNode, makePlacement, promoteCard, duplicateNode, duplicatePlacement,
@@ -172,6 +172,15 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
     case 'add-node': {
       const added = createNode(project, data.type, data.position); chapter.nodes.push(added);
       if (!chapter.startNode) chapter.startNode = added.id;
+      return {selection:{selected:added.id}};
+    }
+    case 'create-connected-node': {
+      const source = chapter?.nodes.find(candidate => candidate.id === data.id);
+      if (!source) throw new Error('The source beat no longer exists.');
+      if (!outputsForNode(project, source).includes(data.exit)) throw new Error('The source output no longer exists.');
+      const added = createNode(project, data.type, data.position);
+      chapter.nodes.push(added);
+      setConnection(source, data.exit, added.id);
       return {selection:{selected:added.id}};
     }
     case 'duplicate-node': {

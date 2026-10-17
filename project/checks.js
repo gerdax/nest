@@ -41,7 +41,15 @@ function summary(check, values, definitions, diagnostic) {
   if (check.mode !== 'stat') return '';
   const name = definitions.find(v => v.id === check.modifierVariable)?.name || check.modifierVariable;
   const chance = `${resolved.label} (${(resolved.probability*100).toFixed(1)}%)`;
-  return diagnostic ? `${name} ${resolved.modifier} · Difficulty ${check.difficulty} · 3d6 + ${resolved.modifier} ≥ ${resolved.target} · ${chance}` : `${name} · ${resolved.label}`;
+  return diagnostic ? `${name} ${resolved.modifier} · Difficulty ${check.difficulty} · 3d6 + ${resolved.modifier} ≥ ${resolved.target} · ${chance}` : `${name} ${resolved.modifier} · 3d6 + ${resolved.modifier} ≥ ${resolved.target}`;
 }
 export const editorCheckSummary = (check, definitions = []) => summary(check, definitions, definitions, true);
 export const playerCheckSummary = (check, values = {}, definitions = []) => summary(check, values, definitions, false);
+
+/** Contextual check UI uses the same resolved state as the actual roll. */
+export function playerCheckPresentation(check, values = {}, definitions = []) {
+  if (check?.mode !== 'stat') return null;
+  const resolved = resolveCheck(check, values);
+  return { chance: `${(resolved.probability * 100).toFixed(1)}%`,
+    formula: playerCheckSummary(check, values, definitions) };
+}

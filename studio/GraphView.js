@@ -9,7 +9,8 @@ import { createLibraryIndex } from '../project/library-index.js';
 
 /** Canvas interaction owns selection/pan, and emits completed document edits. */
 export class GraphView {
- constructor(root,{onSelect,onConnect,onMove,onOpenCard=()=>{},onDelete=()=>{}}) {
+ constructor(root,{onSelect,onConnect,onMove,onOpenCard=()=>{},onDelete=()=>{},onCreateConnected=()=>{},onCancelCreate=()=>{}}) {
+  this.onCreateConnected=onCreateConnected;this.onCancelCreate=onCancelCreate;this.creation=null;
   this.root=root;this.onSelect=onSelect;this.onConnect=onConnect;this.onMove=onMove;this.onOpenCard=onOpenCard;this.lastPortClick=null;
   this.view={x:50,y:50,z:1};this.pending=null;this.drag=null;
   root.innerHTML='<div id="world"><svg id="edges"></svg><div id="nodes"></div></div>';
@@ -36,7 +37,7 @@ export class GraphView {
    e.preventDefault();this.lastPortClick=null;
    this.onConnect(edge.dataset.source,edge.dataset.exit,false);
   });
-  root.addEventListener('wheel',e=>{e.preventDefault();const r=root.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top,old=this.view.z;this.view.z=Math.max(.25,Math.min(1.6,old*Math.exp(-e.deltaY*.001)));this.view.x=x-(x-this.view.x)*this.view.z/old;this.view.y=y-(y-this.view.y)*this.view.z/old;this.transform();},{passive:false});
+  root.addEventListener('wheel',e=>{this.cancelCreation();e.preventDefault();const r=root.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top,old=this.view.z;this.view.z=Math.max(.25,Math.min(1.6,old*Math.exp(-e.deltaY*.001)));this.view.x=x-(x-this.view.x)*this.view.z/old;this.view.y=y-(y-this.view.y)*this.view.z/old;this.transform();},{passive:false});
  }
  render(project,chapter,selected,active) {
   this.project=project;this.chapter=chapter;this.selected=selected;this.active=active;
@@ -99,7 +100,7 @@ export class GraphView {
    const {x,y}=this.outputPoint(n,exit),to=this.position(t),path=this.wire(x,y,to.x,to.y+40);
    return `<path class="edge-line" d="${path}"/><path class="edge-hit" data-source="${esc(n.id)}" data-exit="${esc(exit)}" d="${path}"/>`;
   }));
-  const d=this.drag;if(d?.kind==='connect'&&d.moved){const n=this.nodesById.get(d.nodeId);if(n){const {x,y}=this.outputPoint(n,d.exit);paths.push(`<path class="edge-ghost" d="${this.wire(x,y,d.px,d.py)}"/>`);}}
+  const d=this.creation||this.drag;if(d?.kind==='connect'&&d.moved){const n=this.nodesById.get(d.nodeId);if(n){const {x,y}=this.outputPoint(n,d.exit);paths.push(`<path class="edge-ghost" d="${this.wire(x,y,d.px,d.py)}"/>`);}}
   this.root.querySelector('#edges').innerHTML=paths.join('');
  }
  transform(){this.root.querySelector('#world').style.transform=`translate(${this.view.x}px,${this.view.y}px) scale(${this.view.z})`;}
@@ -113,6 +114,7 @@ export class GraphView {
  hoverTarget(id) {for(const el of this.root.querySelectorAll('.node'))el.classList.toggle('connection-target',el.dataset.id===id);}
  down(e) {
   if(e.button!==0||this.drag)return;
+  this.cancelCreation();
   const el=e.target.closest('.node'),port=e.target.closest('.port'),edge=e.target.closest('.edge-hit');
   if(!port)this.lastPortClick=null;
   if(edge||e.target.closest('.graph-card-name'))return;
@@ -147,12 +149,19 @@ export class GraphView {
    if(d.moved)this.pending=null;
    this.render(this.project,this.chapter,this.selected,this.active);
    if(target)this.onConnect(d.nodeId,d.exit,target);
-   else if(d.moved&&this.blankDrop(e))this.onConnect(d.nodeId,d.exit,false);
+   else if(d.moved&&this.blankDrop(e)){
+    if(this.unlinked(this.nodesById.get(d.nodeId),d.exit)){
+     const position=this.point(e);
+     this.creation={...d,px:position.x,py:position.y};this.edges();
+     this.onCreateConnected({id:d.nodeId,exit:d.exit,position,clientX:e.clientX,clientY:e.clientY});
+    }else this.onConnect(d.nodeId,d.exit,false);
+   }
    else if(!d.moved&&d.fromPort)this.activatePort(d.nodeId,d.exit,e.timeStamp??performance.now(),e.clientX,e.clientY);
    if(d.moved)this.lastPortClick=null;
   }else if(d.kind==='node')this.onMove(d.id,d.px,d.py);
  }
- cancel(){const d=this.drag,hadPending=!!this.pending;this.drag=null;this.pending=null;this.lastPortClick=null;if(d?.kind==='pan'){this.view.x=d.ox;this.view.y=d.oy;}if(d&&this.root.hasPointerCapture(d.pointer))this.root.releasePointerCapture(d.pointer);if(this.project&&(d||hadPending))this.render(this.project,this.chapter,this.selected,this.active);}
+ cancelCreation(){if(!this.creation)return;this.creation=null;this.onCancelCreate();this.edges();}
+ cancel(){this.cancelCreation();const d=this.drag,hadPending=!!this.pending;this.drag=null;this.pending=null;this.lastPortClick=null;if(d?.kind==='pan'){this.view.x=d.ox;this.view.y=d.oy;}if(d&&this.root.hasPointerCapture(d.pointer))this.root.releasePointerCapture(d.pointer);if(this.project&&(d||hadPending))this.render(this.project,this.chapter,this.selected,this.active);}
  openCard(nodeId,placementId){
   if(!this.nodesById.has(nodeId)||!placementId)return;
   this.onOpenCard(nodeId,{chapterId:this.chapter.id,nodeId,placementId});

@@ -1,0 +1,32 @@
+<!doctype html>
+<meta charset="utf-8">
+<base href="../../">
+<title>Contextual stat check UI verification</title>
+<link rel="stylesheet" href="../../engine/card-deck.css">
+<link rel="stylesheet" href="../../demo/inventory.css">
+<link rel="stylesheet" href="../../studio/preview.css">
+<link rel="stylesheet" href="../../studio/playfield.css">
+<style>
+body{margin:0;background:#20251e;color:#e3edda;font:14px system-ui}nav{padding:12px;display:flex;gap:12px;flex-wrap:wrap}button,select{font:inherit}#frame{margin:0 auto;overflow:hidden}#preview{height:100%}
+</style>
+<nav aria-label="Verification controls">
+<label>Viewport <select id="size"><option>320×568</option><option>375×667</option><option selected>390×844</option><option>430×932</option></select></label>
+<label>Stat <select id="stat"><option selected>3</option><option>5</option><option>7</option><option>10</option></select></label>
+<button id="restart">Restart</button><button id="boost">Use stat booster</button>
+</nav>
+<main id="frame" class="nest-playfield"><div id="preview"></div></main>
+<script type="module">
+import {ProjectPreview} from '../../studio/ProjectPreview.js';
+import {createStatCheckProject} from './tests/fixtures/stat-check-project.js';
+import {createDefinition} from '../../project/cards.js';
+const frame=document.querySelector('#frame'),size=document.querySelector('#size'),stat=document.querySelector('#stat');
+const preview=new ProjectPreview(document.querySelector('#preview'),{inventoryHost:frame});
+const project=createStatCheckProject({multiple:true});
+const action=project.library.find(card=>card.id==='explore');action.check.difficulty=5;
+const booster={...createDefinition('item','booster'),name:'Stat booster',use:{conditions:[],effects:[{op:'add',key:'composure',value:4}]}};
+project.library.push(booster);
+function play(){const [width,height]=size.value.split('×');frame.style.width=`${width}px`;frame.style.height=`${height}px`;project.chapters[0].initialValues.composure=Number(stat.value);preview.play(project);preview.controller.inventory=[{...booster,definitionId:'booster'}];preview.controller.notify();}
+size.onchange=play;stat.onchange=play;document.querySelector('#restart').onclick=play;
+document.querySelector('#boost').onclick=()=>preview.controller.useItem('booster');
+play();
+</script>
