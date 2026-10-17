@@ -10,7 +10,7 @@ export class DiceLayer {
     this.host.className = 'nest-dice-layer';
     this.host.setAttribute('aria-hidden', 'true');
     Object.assign(this.host.style, { position:'fixed', inset:'0', width:'100vw', height:'100vh', margin:'0', padding:'0', border:'0',
-      background:'transparent', overflow:'visible', pointerEvents:'none', zIndex:'2147483647' });
+      colorScheme:'dark', background:'transparent', overflow:'visible', pointerEvents:'none', zIndex:'2147483647' });
     this.tray = doc.createElement('div');
     this.tray.className = 'nest-floating-dice-tray';
     Object.assign(this.tray.style, { position:'absolute', pointerEvents:'none' });

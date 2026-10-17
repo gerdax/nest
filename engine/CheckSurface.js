@@ -8,7 +8,8 @@ export class CheckSurface {
     this.slot = document.createElement('section');
     this.slot.className = 'nest-check-slot';
     this.slot.setAttribute('aria-label', 'Action check');
-    this.slot.hidden = true;
+    this.slot.hidden = false;
+    back.classList.add('nest-check-active');
     back.checkSlot = this.slot;
     back.append(this.slot);
   }

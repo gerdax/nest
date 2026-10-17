@@ -40,10 +40,15 @@ for(const reduced of [false,true]) for(const success of [false,true]) test(`chec
  {id:'win',type:'linear',cards:[narrative('win')],connections:{next:null}},{id:'lose',type:'linear',cards:[narrative('lose')],connections:{next:null}}];
  let deck;
  const current=real(nodes,{variables:[...energy,{id:'composure',type:'number',initial:3,min:1,max:10,stat:true}]},{
-  rollCheck:async(_,options)=>{started=true;const slot=await deck.waitForCheckSurface(options);assert.equal(slot,deck.underlayBack.checkSlot);rolled=true;return roll;},
+  rollCheck:async(_,options)=>{started=true;const slot=await deck.waitForCheckSurface({...options,prepare:slot=>{assert.equal(slot.hidden,false);assert.equal(options.target,13);}});assert.equal(slot,deck.underlayBack.checkSlot);rolled=true;return roll;},
   onCheckResult:result=>{feedback=result;return hold;}
  });
  deck=current.deck;const controller=current.controller;deck.reduced=reduced;
+ // Prepare the same target during the initial swipe, before commitment.
+ const {stageNextBack,renderDeck}=await import('../engine/renderer.js');
+ stageNextBack(deck);renderDeck(deck);
+ assert.equal(deck.underlayBack.checkPreview.textContent,'Target: 13');
+ assert.equal(deck.underlayBack.checkPreview.hidden,false);
  deck.commit();assert.equal(started,true);assert.equal(rolled,false);assert.equal(controller.state.checking,true);
  settle();await flush();assert.equal(rolled,true);assert.equal(deck.checkSurface.ready,true);
  assert.equal(deck.underlayBack.checkSlot.hidden,false);assert.equal(deck.underlayBack.style.visibility,'visible');

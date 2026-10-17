@@ -233,6 +233,25 @@ test('stopped result completion cannot close a newer result presentation', async
   await assert.rejects(preview.roll([{ sides: 6 }]), { name: 'AbortError' });
 });
 
+test('target is prepared before departure settles, without revealing a total or outcome', async () => {
+  environment();
+  const preview = new ProjectPreview(new Element()), slot = new Element();
+  let settle;
+  preview.deck = { waitForCheckSurface({ prepare }) {
+    prepare(slot);
+    return new Promise(resolve => { settle = () => resolve(slot); });
+  }, destroy() {} };
+  const roll = preview.roll([{ sides: 6, count: 3 }], { target: 14 });
+  assert.equal(preview.overlay.hidden, false);
+  assert.equal(preview.result.children.length, 1);
+  assert.equal(preview.result.children[0].className, 'check-target');
+  assert.equal(preview.result.children[0].textContent, 'Target: 14');
+  assert.equal(preview.dice, null, 'no dice until normal departure settles');
+  preview.stop(); settle();
+  await assert.rejects(roll, { name: 'AbortError' });
+  preview.destroy();
+});
+
 test('result holds one second, fades dice for 200ms and leaves the result for handoff', async () => {
   environment();
   const originalSet=globalThis.setTimeout,originalClear=globalThis.clearTimeout,jobs=[];

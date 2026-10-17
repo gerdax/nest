@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { inflateSync } from 'node:zlib';
+import { defaultCardColors } from '../project/card-styles.js';
 
 const themeURL = new URL('../dice/themes/nest/', import.meta.url);
 const theme = JSON.parse(await readFile(new URL('theme.config.json', themeURL)));
@@ -11,12 +12,12 @@ test('Nest covers every numeric die and resolves its local material assets', asy
   // Omission intentionally uses the loader's default mesh and face map.
   assert.equal(theme.meshFile, undefined);
   assert.equal(theme.material.type, 'standard');
-  for (const field of ['diffuseTexture', 'bumpTexture']) {
-    assert.ok((await readFile(new URL(theme.material[field], themeURL))).length > 0);
-  }
   const svg = await readFile(new URL(theme.material.diffuseTexture, themeURL), 'utf8');
-  assert.match(svg, /fill="#0b1610"/);
-  assert.match(svg, /fill="#8de8a4"/);
+  assert.ok(svg.includes(`fill="${defaultCardColors.big}"`));
+  assert.equal(defaultCardColors.big, defaultCardColors.medium);
+  assert.match(svg, /fill="#000000"/);
+  // The default bump atlas would emboss the old d6 digits through the pips.
+  assert.equal(theme.material.bumpTexture, undefined);
   assert.doesNotMatch(svg, /<(?:image|text|script)\b|(?:href|filter)=/);
 });
 
@@ -61,7 +62,9 @@ function defaultAtlasAlpha(png) {
   return pixels;
 }
 
-test('Nest vector markings preserve every default numeric UV silhouette', async () => {
+const d6Cells = [[850, 310, 174, 180], [395, 15, 174, 180], [220, 15, 174, 180], [850, 490, 174, 180], [850, 670, 174, 180], [850, 850, 174, 174]];
+
+test('Nest preserves every numeric UV silhouette outside the six d6 cells', async () => {
   const original = defaultAtlasAlpha(await readFile(new URL('../dice/vendor/dice-box/assets/themes/default/diffuse-light.png', import.meta.url)));
   const svg = await readFile(new URL('numbers.svg', themeURL), 'utf8');
   const vector = Buffer.alloc(original.length);
@@ -72,5 +75,59 @@ test('Nest vector markings preserve every default numeric UV silhouette', async 
       vector.fill(Math.round(Number(opacity) * 255), start, start + Number(width));
     }
   }
+  let replacedPixels = 0;
+  for (const [x, y, width, height] of d6Cells) {
+    for (let row = y; row < y + height; row++) {
+      const start = row * 1024 + x;
+      replacedPixels += original.subarray(start, start + width).filter(Boolean).length;
+      assert.ok(vector.subarray(start, start + width).every(pixel => pixel === 0), 'd6 has no leftover numeric spans');
+      original.fill(0, start, start + width);
+    }
+  }
+  assert.ok(replacedPixels > 10000, 'the six numeric faces were replaced');
   assert.deepEqual(vector, original);
+});
+
+
+test('d6 pip counts and locations agree with the unchanged default collider face values', async () => {
+  const meshData = JSON.parse(await readFile(new URL('../dice/vendor/dice-box/assets/themes/default/default.json', import.meta.url)));
+  const mesh = meshData.meshes.find(mesh => mesh.name === 'd6');
+  const collider = meshData.meshes.find(mesh => mesh.name === 'd6_collider');
+  const svg = await readFile(new URL('numbers.svg', themeURL), 'utf8');
+  function triangles(mesh) {
+    return Array.from({ length: mesh.indices.length / 3 }, (_, index) => {
+      const ids = mesh.indices.slice(index * 3, index * 3 + 3);
+      const positions = ids.map(id => mesh.positions.slice(id * 3, id * 3 + 3));
+      const a = positions[1].map((v, i) => v - positions[0][i]);
+      const b = positions[2].map((v, i) => v - positions[0][i]);
+      const normal = [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
+      const area = Math.hypot(...normal);
+      const axis = normal.findIndex(v => Math.abs(v) === Math.max(...normal.map(Math.abs)));
+      return { index, ids, area, direction: `${axis}:${Math.sign(normal[axis])}` };
+    });
+  }
+  const surface = triangles(mesh).filter(triangle => triangle.area > 0.01);
+  const groups = [...svg.matchAll(/<g id="d6-face-(\d)">([\s\S]*?)<\/g>/g)];
+  assert.equal(groups.length, 6);
+  for (const [index, [, value, content]] of groups.entries()) {
+    assert.equal(Number(value), index + 1);
+    const dots = [...content.matchAll(/<circle cx="(\d+)" cy="(\d+)" r="(\d+)"\/>/g)].map(match => match.slice(1).map(Number));
+    assert.equal(dots.length, Number(value));
+    assert.equal(new Set(dots.map(([x, y]) => `${x},${y}`)).size, Number(value));
+    const [x, y, width, height] = d6Cells[index];
+    for (const [cx, cy, radius] of dots) {
+      assert.equal(radius, 11);
+      assert.ok(cx-radius > x && cx+radius < x+width && cy-radius > y && cy+radius < y+height);
+    }
+    const face = surface.filter(triangle => triangle.ids.every(id => {
+      const u = mesh.uvs[id * 2] * 1024, v = (1 - mesh.uvs[id * 2 + 1]) * 1024;
+      return u >= x && u <= x+width && v >= y && v <= y+height;
+    }));
+    assert.equal(face.length, 2, 'each pip group covers exactly one square face');
+    const colliderFaces = triangles(collider).filter(triangle => triangle.direction === face[0].direction);
+    assert.equal(colliderFaces.length, 2, 'both collider triangles cover this visible face');
+    for (const triangle of colliderFaces) {
+      assert.equal(meshData.colliderFaceMap.d6[triangle.index], Number(value), 'visible pips match the physics result');
+    }
+  }
 });

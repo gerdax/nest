@@ -1393,10 +1393,11 @@ export class CardDeck extends EventTarget {
     }
   }
 
-  waitForCheckSurface({ signal } = {}) {
+  waitForCheckSurface({ signal, prepare } = {}) {
     if (this.destroyed || signal?.aborted || this.phase !== 'committing' || this.operation === 'commit') return Promise.reject(new DOMException('No pending check departure.', 'AbortError'));
     stageNextBack(this);
     this.checkSurface ||= new CheckSurface(this.underlayBack);
+    prepare?.(this.checkSurface.slot);
     if (!this.commitMotion) this.checkSurface.settle();
     return this.checkSurface.wait(signal);
   }

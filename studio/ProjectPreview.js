@@ -155,18 +155,25 @@ export class ProjectPreview {
   syncCardLink() {
     if (this.goToCardButton) this.goToCardButton.disabled = !this.cardTarget();
   }
-  async roll(pool, { signal } = {}) {
+  async roll(pool, { signal, target } = {}) {
     if (this.destroyed || signal?.aborted) throw new DOMException('Preview stopped.', 'AbortError');
     this.hideDice();
     const generation = this.diceGeneration;
     const deck = this.deck;
-    const slot = await deck.waitForCheckSurface({ signal });
+    const prepare = slot => {
+      slot.append(this.overlay);
+      this.overlay.hidden = false;
+      this.result.replaceChildren();
+      this.result.removeAttribute('data-outcome');
+      this.result.textContent = '';
+      const targetText = document.createElement('small');
+      targetText.className = 'check-target'; targetText.textContent = `Target: ${target}`;
+      this.result.append(targetText);
+    };
+    const slot = await deck.waitForCheckSurface({ signal, prepare });
     if (this.destroyed || generation !== this.diceGeneration || signal?.aborted) throw new DOMException('Preview stopped.', 'AbortError');
-    slot.append(this.overlay);
-    this.overlay.hidden = false;
-    this.result.replaceChildren();
-    this.result.removeAttribute('data-outcome');
-    this.result.textContent = 'Rolling…';
+    // Hosts implementing only the readiness contract can prepare after settling.
+    if (this.overlay.parentNode !== slot) prepare(slot);
     this.diceLayer = new DiceLayer(this.overlay.querySelector('.check-tray'));
     const dice = this.dice = new DiceService({ appearance: this.diceLayer.appearance }).mount(this.diceLayer.tray);
     try { return await dice.roll(pool, { signal }); }
@@ -184,8 +191,8 @@ export class ProjectPreview {
     const number = document.createElement('strong');
     number.className = 'check-total'; number.textContent = String(result.total);
     const outcome = document.createElement('span');
-    outcome.className = 'check-outcome'; outcome.textContent = result.success ? 'Success' : 'Failure';
-    const target = document.createElement('small'); target.textContent = `Target ${result.target}`;
+    outcome.className = 'check-outcome'; outcome.textContent = result.success ? 'Success' : 'Fail';
+    const target = document.createElement('small'); target.className = 'check-target'; target.textContent = `Target: ${result.target}`;
     this.result.textContent = '';
     this.result.replaceChildren(number, outcome, target);
     this.result.setAttribute('data-outcome', result.success ? 'success' : 'failure');

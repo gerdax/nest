@@ -53,7 +53,9 @@ window.NestDiceFrame = {
         container: '#tray', id: 'nest-dice-canvas', origin: base.origin,
         assetPath: new URL('assets/', base).pathname, theme: 'nest',
         externalThemes: { nest: new URL('./themes/nest', import.meta.url).href },
-        offscreen: false, scale: scale(), settleTimeout: 2000,
+        // Leave camera clearance at the walls and start rolls near the surface.
+        // This changes the throw envelope without shrinking the dice.
+        offscreen: false, size: 7, startingHeight: 2, scale: scale(), settleTimeout: 2000,
         mass: 2.4, gravity: 2.3, friction: 0.95, restitution: 0.05,
         angularDamping: 0.78, linearDamping: 0.68, spinForce: 3, throwForce: 4,
         enableShadows: true, lightIntensity: 1.2, suspendSimulation: false

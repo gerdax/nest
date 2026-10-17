@@ -190,7 +190,7 @@ export class ProjectController {
   }
   adopt(destination,notify=true) {this.completed=!!destination.completed;if(!this.completed)this.location=destination;if(notify)this.notify();}
   body(card) {return cardBody(card);}
-  action(card,values=this.variables) {const {context,...content}=card;const typed={...card,kind:card.kind ?? (this.type()==='container'?'item':'action')};return {...content,label:card.name ?? card.label ?? 'Continue',...cardFace(typed,this.compiled.variables,this.compiled.library,values)};}
+  action(card,values=this.variables) {const {context,...content}=card;const typed={...card,kind:card.kind ?? (this.type()==='container'?'item':'action')};return {...content,...(card.resolution==='check'?{checkTarget:resolveCheck(card.check,values).target}:{}),label:card.name ?? card.label ?? 'Continue',...cardFace(typed,this.compiled.variables,this.compiled.library,values)};}
   linearTransition(location, destination, source=this.card(location)) {
     return this.type(location)==='linear'&&!['action','item'].includes(source?.kind)&&destination&&!destination.completed&&this.key(location)===this.key(destination)&&destination.index>location.index?'reveal':'flip';
   }
@@ -286,7 +286,7 @@ export class ProjectController {
     try {
       if(!this.rollCheck)throw new Error('No dice roller supplied');
       const check=resolveCheck(source.check,this.variables);
-      const result=await this.rollCheck(check.pool,{signal:abort.signal});
+      const result=await this.rollCheck(check.pool,{signal:abort.signal,target:check.target});
       if(abort.signal.aborted||generation!==this.generation||this.destroyed)return;
       const dice=Array.isArray(result)?result:result?.dice;
       const raw=typeof result==='number'?result:Array.isArray(dice)?dice.reduce((sum,d)=>sum+(typeof d==='number'?d:d.value),0):result?.total;

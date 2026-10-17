@@ -43,6 +43,8 @@ for (const floating of [false,true]) test(`compact sizing and resize preserve ph
   vm.runInContext(source.replaceAll('import.meta.url', JSON.stringify(url.href)).replace(vendorImport, 'Promise.resolve({ default: FakeDiceBox })'), context);
   await window.NestDiceFrame.init();
   assert.equal(box.config.theme, 'nest');
+  assert.equal(box.config.size, 7, 'physics walls leave a camera safety inset');
+  assert.equal(box.config.startingHeight, 2, 'throws begin close to the camera-safe surface');
   assert.match(box.config.externalThemes.nest, /\/dice\/themes\/nest$/);
   assert.equal(box.config.scale, floating ? 9.6 : 12);
   tray.clientWidth = 900;

@@ -4,17 +4,19 @@
 .chapter-preview-card-area {width:100%;min-width:0;display:grid;place-items:center;}
 .nest-check-slot {position:absolute;inset:0;z-index:5;container-type:size;}
 .nest-check-slot[hidden],.check-surface[hidden] {display:none!important;}
-.nest-check-active .nest-back-icon {display:none!important;}
-.check-surface {position:absolute;inset:0;box-sizing:border-box;color:#b6c99b;font:16px/1.2 NestLetter,monospace;}
-/* This is only a stable measuring anchor: the physical dice live above the page. */
+.nest-check-active .nest-back-icon,.nest-check-prepared .nest-back-icon {display:none!important;}
+.nest-check-active .nest-check-preview {display:none!important;}
+.check-surface {position:absolute;inset:0;box-sizing:border-box;color:var(--card-text,#d2dfb6);font-family:var(--card-font,NestLetter,monospace);}
+/* The measuring anchor never changes when the result arrives. */
 .check-surface .check-tray {position:absolute;inset:16px 12px 130px;border:0;pointer-events:none;}
-.check-surface .check-result {position:absolute;left:12px;right:12px;bottom:22px;height:130px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;text-align:center;}
+.check-result {position:absolute;inset:0;}
 .nest-floating-dice-tray {background:transparent;transition:opacity 200ms linear;}
 .nest-dice-layer.dice-fading .nest-floating-dice-tray {opacity:0;}
-.check-total {font:clamp(36px,22cqw,72px)/1 NestVitals,monospace;}
-.check-outcome {font-size:clamp(18px,8cqw,26px);text-transform:uppercase;letter-spacing:.08em;}
-.check-result[data-outcome="failure"] {color:#d2aa6d;}
-.check-result small {font-size:13px;}
+.check-total,.check-target {position:absolute;bottom:12%;font-family:var(--card-font,NestLetter,monospace);font-weight:normal;line-height:1.2;}
+.check-total {left:12%;font-size:var(--card-font-size,21px);color:var(--card-text,#d2dfb6);}
+.check-target {right:12%;font-size:var(--card-medium-size,15px);color:var(--card-medium-color,#d2dfb6);}
+.check-outcome {position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:clamp(32px,calc(var(--card-font-size,21px) * 4),30cqw)/1 NestVitals,monospace;text-transform:uppercase;color:var(--card-text,#d2dfb6);}
+.check-result[data-outcome="failure"] .check-outcome {color:var(--card-medium-color,#d2dfb6);}
 .chapter-preview-deck { width:min(100%,276px);aspect-ratio:3/4; }
 .project-preview [data-status] { overflow-wrap:anywhere; }
 .project-preview [data-state] pre { white-space:pre-wrap; }

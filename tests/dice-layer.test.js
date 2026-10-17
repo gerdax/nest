@@ -21,6 +21,7 @@ for (const popover of [true,false]) test(`dice escape the card stack and follow 
     layer=new DiceLayer(anchor);
     assert.equal(layer.host.parentNode,doc.body);
     assert.equal(layer.host.style.pointerEvents,'none');
+    assert.equal(layer.host.style.colorScheme,'dark','iframe transparency uses the same color scheme in editor and player');
     assert.equal(layer.host.style.zIndex,'2147483647');
     assert.equal(layer.host.topLayer, popover?true:undefined);
     assert.deepEqual(layer.appearance,{sizeMultiplier:1.2,referenceWidth:250,referenceHeight:200});
