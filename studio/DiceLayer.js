@@ -1,5 +1,5 @@
 const WIDTH = 1.6, HEIGHT = 1.5;
-export const floatingDiceAppearance = Object.freeze({ sizeMultiplier: 1.2 });
+export const floatingDiceAppearance = Object.freeze({ sizeMultiplier: 1.2, renderOverscan: 2 });
 
 /** A noninteractive top-layer canvas, measured independently of result copy. */
 export class DiceLayer {
@@ -31,11 +31,14 @@ export class DiceLayer {
       const width = Math.min(rect.width * WIDTH, viewportWidth), height = Math.min(rect.height * HEIGHT, viewportHeight);
       const left = Math.max(0, Math.min(viewportWidth - width, rect.left - (width - rect.width) / 2));
       const top = Math.max(0, Math.min(viewportHeight - height, rect.top - (height - rect.height) / 2));
-      const bounds = [left, top, width, height];
+      // Enlarge only the render viewport; the logical tray and physical scale
+      // remain unchanged. The iframe widens its camera by the same factor.
+      const overscan = floatingDiceAppearance.renderOverscan;
+      const bounds = [left - width * (overscan - 1) / 2, top - height * (overscan - 1) / 2, width * overscan, height * overscan];
       const signature = bounds.join(':');
       if (signature !== this.signature) {
         this.signature = signature;
-        Object.assign(this.tray.style, { left:`${bounds[0]}px`, top:`${bounds[1]}px`, width:`${width}px`, height:`${height}px` });
+        Object.assign(this.tray.style, { left:`${bounds[0]}px`, top:`${bounds[1]}px`, width:`${bounds[2]}px`, height:`${bounds[3]}px` });
       }
       this.frame = requestAnimationFrame(this.track);
     };

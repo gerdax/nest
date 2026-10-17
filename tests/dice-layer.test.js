@@ -24,17 +24,17 @@ for (const popover of [true,false]) test(`dice escape the card stack and follow 
     assert.equal(layer.host.style.colorScheme,'dark','iframe transparency uses the same color scheme in editor and player');
     assert.equal(layer.host.style.zIndex,'2147483647');
     assert.equal(layer.host.topLayer, popover?true:undefined);
-    assert.deepEqual(layer.appearance,{sizeMultiplier:1.2,referenceWidth:250,referenceHeight:200});
-    assert.deepEqual([layer.tray.style.left,layer.tray.style.top,layer.tray.style.width,layer.tray.style.height],['25px','70px','400px','300px']);
+    assert.deepEqual(layer.appearance,{sizeMultiplier:1.2,renderOverscan:2,referenceWidth:250,referenceHeight:200});
+    assert.deepEqual([layer.tray.style.left,layer.tray.style.top,layer.tray.style.width,layer.tray.style.height],['-175px','-80px','800px','600px']);
     const stable={...layer.tray.style};layer.fade();
     assert.deepEqual(layer.tray.style,stable,'result fade changes opacity, not canvas geometry');
     assert.equal(layer.host.classes.has('dice-fading'),true);
     rect={...rect,left:160,top:90};const callback=frames.get(layer.frame);frames.delete(layer.frame);callback();
-    assert.equal(layer.tray.style.left,'85px');assert.equal(layer.tray.style.top,'40px');
+    assert.equal(layer.tray.style.left,'-115px');assert.equal(layer.tray.style.top,'-110px');
     doc.documentElement={clientWidth:320,clientHeight:568};
     const resize=frames.get(layer.frame);frames.delete(layer.frame);resize();
-    assert.equal(layer.tray.style.width,'320px');assert.equal(layer.tray.style.left,'0px');
-    assert.deepEqual(layer.appearance,{sizeMultiplier:1.2,referenceWidth:250,referenceHeight:200},'viewport clamping cannot change captured dice size');
+    assert.equal(layer.tray.style.width,'640px');assert.equal(layer.tray.style.left,'-160px');
+    assert.deepEqual(layer.appearance,{sizeMultiplier:1.2,renderOverscan:2,referenceWidth:250,referenceHeight:200},'viewport clamping cannot change captured dice size');
     layer.destroy();layer.destroy();assert.equal(frames.size,0);assert.equal(layer.host.removed,true);
     if(popover)assert.equal(layer.host.topLayer,false);
   } finally {layer?.destroy();globalThis.requestAnimationFrame=previousRequest;globalThis.cancelAnimationFrame=previousCancel;}

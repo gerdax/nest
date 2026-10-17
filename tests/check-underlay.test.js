@@ -32,12 +32,12 @@ function real(nodes,extra={},options={}){const deck=new CardDeck(new Element(),{
 function dispose(deck,controller){controller.destroy();deck.destroy();settle();}
 
 
-for(const reduced of [false,true]) for(const success of [false,true]) test(`check waits on real underlying back then advances once, reduced=${reduced}, success=${success}`,async()=>{
+for(const reduced of [false,true]) for(const success of [false,true]) for(const successor of ['story','fork']) test(`check waits on real underlying back then advances once, reduced=${reduced}, success=${success}, successor=${successor}`,async()=>{
  let resolveRoll,resolveFeedback,started=false,rolled=false,feedback;
  const roll=new Promise(resolve=>resolveRoll=resolve),hold=new Promise(resolve=>resolveFeedback=resolve);
  const source=action('try',{resolution:'check',check:{mode:'stat',modifierVariable:'composure',difficulty:3},costs:[{source:'variable',key:'energy',amount:1}],successEffects:[{op:'add',key:'composure',value:1}]});
  const nodes=[{id:'fork',type:'fork',choices:[source,action('other')],connections:{'try:success':'win','try:failure':'lose',other:null}},
- {id:'win',type:'linear',cards:[narrative('win')],connections:{next:null}},{id:'lose',type:'linear',cards:[narrative('lose')],connections:{next:null}}];
+ ...['win','lose'].map(id=>successor==='fork'?{id,type:'fork',introEnabled:false,choices:[action(id)],connections:{[id]:null}}:{id,type:'linear',cards:[narrative(id)],connections:{next:null}})];
  let deck;
  const current=real(nodes,{variables:[...energy,{id:'composure',type:'number',initial:3,min:1,max:10,stat:true}]},{
   rollCheck:async(_,options)=>{started=true;const slot=await deck.waitForCheckSurface({...options,prepare:slot=>{assert.equal(slot.hidden,false);assert.equal(options.target,13);}});assert.equal(slot,deck.underlayBack.checkSlot);rolled=true;return roll;},
@@ -57,9 +57,18 @@ for(const reduced of [false,true]) for(const success of [false,true]) test(`chec
  deck.finishMotion();await flush();assert.equal(controller.state.checking,true);assert.equal(deck.pending,null);
  resolveRoll(success?[4,4,4]:[1,1,1]);await flush();assert.equal(feedback.success,success);assert.equal(feedback.total,success?15:6);assert.equal(controller.state.variables.composure,3);assert.equal(controller.state.variables.energy,4);
  assert.equal(controller.state.activeNodeId,'fork');
- resolveFeedback();await flush();settle();assert.equal(controller.state.activeNodeId,success?'win':'lose');
+ const surface=deck.checkSurface, slot=surface.slot, background=surface.back.style.backgroundImage;
+ resolveFeedback();await flush();
+ if(!reduced){
+   assert.equal(deck.checkSurface,surface,'check surface survives successor installation');
+   assert.equal(surface.turning,true);
+   assert.equal(surface.slot,slot);
+   assert.equal(slot.parentNode,deck.content.decisionOnly?deck.cardBacks[deck.index]:deck.sceneBack);
+   assert.equal(surface.back.style.backgroundImage,background,'check background stays until turn finishes');
+ }
+ settle();assert.equal(controller.state.activeNodeId,success?'win':'lose');
  assert.equal(controller.state.variables.energy,3);assert.equal(controller.state.variables.composure,success?4:3);
- assert.equal(deck.checkSurface,null);assert.equal(deck.content.text,success?'win':'lose');
+ assert.equal(deck.checkSurface,null);assert.equal(successor==='fork'?deck.content.actions[0].text:deck.content.text,success?'win':'lose');
  dispose(deck,controller);
 });
 

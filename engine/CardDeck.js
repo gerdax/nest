@@ -1254,7 +1254,8 @@ export class CardDeck extends EventTarget {
   }
 
   install(content, { faceDown = false, open = false, selectedId, staged = null, stagedDepth = staged ? 1 : 0, flipState = null, backTransition = null, takeRecession = 0, preserveInventoryContext = false } = {}) {
-    this.clearCheckSurface();
+    const heldCheck = this.checkSurface?.ready && (faceDown || flipState?.x > 0) ? this.checkSurface : null;
+    if (!heldCheck) this.clearCheckSurface();
     this.preserveInventoryContext = preserveInventoryContext;
     ++this.presentationRevision;
     this.clearGrab();
@@ -1299,6 +1300,7 @@ export class CardDeck extends EventTarget {
     this.operation = this.open ? 'reveal' : null;
     this.rotationOwner = 'situation';
     this.build(staged);
+    if (heldCheck) heldCheck.transfer(this.content.decisionOnly ? this.cardBacks[this.index] : this.sceneBack);
     if (this.content.flipItemsOnReveal) {
       this.forwardDeck = stageActionDeck(this, { ...this.content, flipItemsOnReveal: false, decisionOnly: true });
     }
@@ -1462,6 +1464,7 @@ export class CardDeck extends EventTarget {
   }
 
   finishCommitTransition() {
+    if (this.checkSurface?.turning) this.clearCheckSurface();
     this.backTransition = null;
     restoreBacks(this);
     if (this.open && this.entrances.size) {

@@ -31,6 +31,8 @@ function layerFor(deck, card, className = '') {
 }
 
 function decorateBack(back, content = {}, temporary = false) {
+  // A pending check owns this visible reverse through the successor turn.
+  if (back.checkSlot) return;
   const appearance = resolveBackAppearance(content);
   if (!temporary) back.baseAppearance = appearance;
   const signature = JSON.stringify(appearance);

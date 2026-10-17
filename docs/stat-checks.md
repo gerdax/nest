@@ -48,7 +48,9 @@ layer above the cards and editor preview, with 20% larger dice and room beyond
 the card edges. Their size is captured at the start of each roll; result copy
 cannot resize or reposition their canvas. After a 1,000ms result hold, dice fade for
 200ms and are destroyed before the back turns into the actual successor.
-The result remains until successor installation. No modal or fake story node
+The result surface transfers to the successor’s reverse and remains there
+through the final turn. It is released only when the turn finishes. Decorative
+icon switching is independent of this lifecycle and cannot replace the result. No modal or fake story node
 is inserted. Both editor and player use ProjectPreview for this composition.
 
 The deck owns motion and the held surface; ProjectPreview owns dice and result
@@ -74,7 +76,7 @@ over the back. Tray resizing updates the existing dice world without rerolling.
 
 ## Verification
 
-The integrated suite passed **1,037 tests**. Static staging verified local HTML,
+The integrated suite passed **1,041 tests**. Static staging verified local HTML,
 module and CSS references and copied the owned theme. Astra independently passed
 43 targeted tests, rejected nine malformed import cases, and found no remaining
 acceptance-blocking issue in source review after the reported fixes.
@@ -110,9 +112,11 @@ use guaranteed/impossible odds while retaining physical dice rolls.
 
 The pip/result update was checked in editor preview and in the player at
 320×568, 390×844 and 430×932, including target-only preparation before outcome,
-transparent compositing, and successor installation. Physical walls are inset
-and the initial throw height lowered to leave camera clearance without shrinking
-dice. Large custom pools and every possible airborne collision remain unverified.
+transparent compositing, and successor installation. Original physics arena and throw height are retained. Rendering uses a larger
+transparent viewport and a proportionally wider camera; logical dice scale and
+aspect remain unchanged. Desktop player verification captured the result on the turning reverse with
+all decorative icons hidden. Large custom pools and every possible airborne
+collision remain unverified; the physical screen edge still limits visibility.
 
 These checks do not establish physical-phone touch behavior, Safari rendering,
 GPU memory behavior, accessibility screen-reader behavior, or statistical

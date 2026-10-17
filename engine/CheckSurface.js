@@ -38,6 +38,22 @@ export class CheckSurface {
     }
     this.waiters.clear();
   }
+  transfer(back) {
+    // The successor's front is new, but its visible reverse must remain the
+    // accepted check surface until the turn has finished.
+    const background = this.back.style.backgroundImage;
+    delete this.back.checkSlot;
+    this.back.classList.remove('nest-check-active');
+    this.back = back;
+    this.restoreBackground = back.style.backgroundImage;
+    back.style.backgroundImage = background;
+    back.checkSlot = this.slot;
+    back.classList.add('nest-check-active');
+    back.removeAttribute('aria-hidden');
+    back.append(this.slot);
+    this.turning = true;
+    this.slot.setAttribute('data-check-phase', 'turning');
+  }
   clear() {
     this.closed = true;
     for (const waiter of this.waiters) {
@@ -48,6 +64,7 @@ export class CheckSurface {
     this.slot.remove();
     delete this.back.checkSlot;
     this.back.classList.remove('nest-check-active');
+    if (this.restoreBackground !== undefined) this.back.style.backgroundImage = this.restoreBackground;
     this.back.setAttribute('aria-hidden', 'true');
   }
 }
