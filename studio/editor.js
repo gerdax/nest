@@ -1,3 +1,5 @@
+import { remapVariableClipboard, variableRenamesBetween } from './variable-ids.js';
+import { captureCardClipboard, canPasteCard } from './card-clipboard.js';
 import { captureNodeClipboard } from './node-clipboard.js';
 import { mountNodeClipboardShortcuts } from './node-clipboard-shortcuts.js';
 import { applyCardStyles, parseCardColor } from '../project/card-styles.js';
@@ -23,6 +25,7 @@ import { mountAutoplay } from './autoplay.js';
 import { sourceCard, revealCardEntry } from './card-navigation.js';
 import { renderCardPreviews } from './card-preview.js';
 import { bindImagePicker } from './image-picker.js';
+import { findPlacement } from './commands.js';
 import { applyDocumentCommand, documentScope } from './document-commands.js';
 import { transactDocument } from './document-session.js';
 import { mountProjectSettingsWindow } from './project-settings-window.js';
@@ -31,6 +34,7 @@ import { mountHistoryShortcuts } from './history-shortcuts.js';
 const $=s=>document.querySelector(s),loaded=loadProject();
 let copiedArtwork = null;
 let nodeClipboard = null;
+let cardClipboard = null;
 const artworkClipboardKey = 'nest.artwork.clipboard';
 let project=loaded.project||createProject(),chapterId=project.activeChapterId,selected=project.chapters.find(c=>c.id===chapterId)?.startNode,definitionId=project.library.find(d=>d.visibility!=='local')?.id,mode='chapter';
 const history=new DocumentHistory(project);
@@ -74,6 +78,10 @@ function edit(type,data={}, {preserveProjectSettings=false,refresh=true}={}){
  graph.cancel();
  const outcome=transactDocument(history,localDrafts,draft=>applyDocumentCommand(draft,selection(),type,data,localDrafts));
  project=outcome.project;
+ if(outcome.result?.variableRename){
+  remapVariableClipboard(cardClipboard,outcome.result.variableRename);
+  remapVariableClipboard(nodeClipboard?.data,outcome.result.variableRename);
+ }
  const patch=outcome.result?.selection||{};
  if('chapterId' in patch)chapterId=patch.chapterId;
  if('selected' in patch)selected=patch.selected;
@@ -123,10 +131,11 @@ function renderInspector({collapseCards=false,preserveProjectSettings=false}={})
  if(!preserveProjectSettings)renderProjectSettings();
  $('#inspector').innerHTML=mode==='library'?definitionInspector(project,definition()):nodeInspector(project,chapter(),node());
  renderCardPreviews($('#inspector'),project,node(),chapterId);
+ refreshCardClipboardButtons();
  applyCardStyles(preview.mount,project.cardStyles);
- if(settingsOpen&&sameInspector&&!collapseCards)$('#settings').querySelector('details').open=true;
- if(sameInspector&&globalInitialValuesOpen)settings.querySelector('[data-global-initial-values]').open=true;
- if(sameInspector&&chapterVariablesOpen)settings.querySelector('[data-chapter-variables]').open=true;
+ if(settingsOpen)$('#settings').querySelector('details').open=true;
+ if(globalInitialValuesOpen)settings.querySelector('[data-global-initial-values]').open=true;
+ if(chapterVariablesOpen)settings.querySelector('[data-chapter-variables]').open=true;
  if(sameInspector)[...$('#inspector').querySelectorAll('details')].forEach((el,i)=>{el.open=expanded.includes(i);});
  if(collapseCards)for(const entry of $('#inspector').querySelectorAll('details[data-placement],details[data-sequence]')){entry.open=false;entry.classList.remove('card-navigation-target');}
  $('#inspector').dataset.key=inspectorKey;
@@ -187,12 +196,6 @@ function changeField(event){const el=event.target,path=el.dataset.path,scope=el.
  }
 }
 for(const root of [$('#inspector'),$('#settings'),$('#project-settings-content')])root.addEventListener('change',changeField);
-$('#inspector').addEventListener('click',event=>{
- const summary=event.target.closest('summary');
- if(summary?.parentElement.matches('details[data-placement],details[data-sequence]')){
-  $('#settings').querySelector('details').open=false;
- }
-});
 $('#project-settings-content').addEventListener('input',event=>{
  const el=event.target;
  if(!el.matches('[data-card-style-slider],[data-card-style-color]'))return;
@@ -219,7 +222,26 @@ for(const root of [$('#inspector'),$('#settings'),$('#project-settings-content')
   edit('image',{scope,placementId,path,value});
  },onError:report
 });
+function refreshCardClipboardButtons(){
+ for(const button of $('#inspector').querySelectorAll('[data-command="paste-card"]')){
+  const placement=node()&&findPlacement(node(),button.dataset.placement);
+  button.disabled=mode!=='chapter'||!placement||!canPasteCard(project,node(),placement,cardClipboard);
+  button.title=button.disabled?'Copy a compatible card from this project first.':'Replace this card with the copied card. Undo restores it.';
+ }
+}
 function command(event){const b=event.target.closest('[data-command]');if(!b)return;const cmd=b.dataset.command;
+ if(cmd==='copy-card'){
+  try{cardClipboard=captureCardClipboard(project,chapterId,selected,b.dataset.placement);refreshCardClipboardButtons();report('Card copied.');}
+  catch(error){report(error.message);}
+  return;
+ }
+ if(cmd==='paste-card'){
+  if(b.disabled)return;
+  preview.stop();
+  const result=edit('paste-card',{placementId:b.dataset.placement,clipboard:cardClipboard});
+  if(result.ok)report('Card pasted. Undo restores the previous card.');
+  return;
+ }
  if(cmd==='copy-artwork'){
   const card=scopeRoot(b.dataset.scope,b);if(!card)return;
   copiedArtwork=artworkSettings(card);
@@ -286,7 +308,16 @@ for(const b of document.querySelectorAll('[data-add-kind]'))b.onclick=()=>edit('
 for(const b of document.querySelectorAll('[data-add]'))b.onclick=()=>{graph.cancel();edit('add-node',{type:b.dataset.add,position:{x:(150-graph.view.x)/graph.view.z,y:(140-graph.view.y)/graph.view.z}});};
 $('#duplicate').onclick=duplicateBeat;
 $('#start').onclick=()=>{if(node())edit('set-start');};
-function travel(method){graph.cancel();localDrafts.reset();const result=travelHistory(history,method,persistence);if(result.changed)project=result.project;render();}
+function travel(method){
+ graph.cancel();localDrafts.reset();const result=travelHistory(history,method,persistence);
+ if(result.changed){
+  for(const rename of variableRenamesBetween(project,result.project)){
+   remapVariableClipboard(cardClipboard,rename);remapVariableClipboard(nodeClipboard?.data,rename);
+  }
+  project=result.project;
+ }
+ render();
+}
 $('#undo').onclick=()=>travel('undo');$('#redo').onclick=()=>travel('redo');
 const stopHistoryShortcuts=mountHistoryShortcuts(document,{undo:()=>$('#undo').click(),redo:()=>$('#redo').click()});
 function download(value,name){downloadText(JSON.stringify(value,null,2),name,'application/json');}

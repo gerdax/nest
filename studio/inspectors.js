@@ -62,8 +62,11 @@ export function placementInspector(project,p,kind,index,slot,count=Infinity) {
  const attr=`data-placement="${esc(p.id)}"`;
  html+=`<p class="small">${cardSummaryParts(card||{},project.variables,project.library).map(esc).join('<br>')}</p>`;
  html+=select('Card source',local?`local:${kind}`:p.definitionId,[...localSources,...defs],'definitionId','placement');
- if(local)html+=`<div class="row">${button('Add to library','promote-card',attr)}${button('Clear','clear-card',attr)}</div>`+cardFields(project,definition,'local-definition',false,false);
- else html+=`<div class="row">${button('Edit shared','edit-shared',`data-definition="${esc(p.definitionId)}" data-card-placement="${esc(p.id)}"`)}${button('Convert to local','local-copy',`${attr} data-kind="${kind}"`)}</div>`;
+ html+='<div class="card-source-actions"><div class="card-source-primary">';
+ if(local)html+=button('Add to library','promote-card',attr)+button('Clear','clear-card',attr);
+ else html+=button('Edit shared','edit-shared',`data-definition="${esc(p.definitionId)}" data-card-placement="${esc(p.id)}"`)+button('Convert to local','local-copy',`${attr} data-kind="${kind}"`);
+ html+=`</div><div class="card-source-clipboard">${button('Copy','copy-card',`${attr} aria-label="Copy card"`)}${button('Paste','paste-card',`${attr} aria-label="Paste card" disabled title="Copy a compatible card first."`)}</div></div>`;
+ if(local)html+=cardFields(project,definition,'local-definition',false,false);
  // Placement fields use a dedicated scope and are selected by their stable ID.
  html+=`<div class="placement-fields" ${attr}>`;
  if(slot==='choices'&&kind==='action')html+=select('Inventory trigger',p.contextItemId||'',[['','None'],...project.library.filter(d=>d.kind==='item').map(d=>[d.id,d.name])],'contextItemId','placement');

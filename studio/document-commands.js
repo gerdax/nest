@@ -1,3 +1,5 @@
+import { allocateVariableId, renameVariable } from './variable-ids.js';
+import { pasteCardClipboard } from './card-clipboard.js';
 import { isStatVariable } from '../project/checks.js';
 import { createDefinition, allowedCardKinds, isStoryKind } from '../project/cards.js';
 import { chapterVariables, createChapter, importChapter, outputsForNode } from '../project/model.js';
@@ -70,6 +72,9 @@ function changeField(project, selection, field, localDrafts) {
     return;
   }
   const {parent, key} = pathTarget(root, path);
+  if(['project','chapter'].includes(scope)&&/^variables\.\d+\.name$/.test(path)){
+    return {variableRename:renameVariable(project,parent,raw,scope==='chapter'?chapter:undefined)};
+  }
   if (colorField) {
     if (color === undefined) delete parent[key];
     else parent[key] = color;
@@ -137,9 +142,9 @@ function inspectorCommand(project, selection, data, localDrafts) {
       deleteDefinition(project, selection.definitionId);
       return {selection:{definitionId:project.library.find(card => card.visibility !== 'local')?.id}};
     case 'add-health': addHealthVariable(project); break;
-    case 'add-chapter-variable': (chapterFor(project, selection).variables ||= []).push({id:uid('chapter-variable'),name:'New variable',type:'number',initial:0}); break;
+    case 'add-chapter-variable': (chapterFor(project, selection).variables ||= []).push({id:allocateVariableId(project,'New variable'),name:'New variable',type:'number',initial:0}); break;
     case 'remove-chapter-variable': chapterFor(project, selection).variables.splice(Number(data.index), 1); break;
-    case 'add-variable': project.variables.push({id:uid('variable'),name:'New variable',type:'number',initial:0}); break;
+    case 'add-variable': project.variables.push({id:allocateVariableId(project,'New variable'),name:'New variable',type:'number',initial:0}); break;
     case 'remove-variable': project.variables.splice(Number(data.index), 1); break;
   }
 }
@@ -193,6 +198,13 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
       const added = createNode(project, data.type, data.position, chapter.id); chapter.nodes.push(added);
       if (!chapter.startNode) chapter.startNode = added.id;
       return {selection:{selected:added.id}};
+    }
+    case 'paste-card': {
+      const placement=findPlacement(node||{},data.placementId);
+      if(!placement)throw new Error('The destination card no longer exists.');
+      const pasted=pasteCardClipboard(project,chapter,node,placement,data.clipboard);
+      localDrafts.drafts.delete(placement.id);
+      return {value:pasted.id};
     }
     case 'paste-node': {
       const added = pasteNodeClipboard(project, chapter, data.clipboard, {position:data.position});
