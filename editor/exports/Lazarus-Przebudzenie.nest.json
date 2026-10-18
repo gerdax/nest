@@ -66,7 +66,8 @@
       "text": "Najpierw czujesz beton pod policzkiem. Potem smak krwi. Gdzieś w ciemności woda uderza o metal. Próbujesz przypomnieć sobie ostatnią rzecz przed upadkiem. Nie ma nic.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_wake2",
@@ -76,7 +77,8 @@
       "text": "Lazarus. To imię przychodzi bez wysiłku. Wszystko inne wymaga odpowiedzi, których nie masz. Kieszenie kurtki są puste. Nad tobą zionie poszarpany otwór w stropie. Dalej jest tylko czarny szyb.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_wake3",
@@ -86,7 +88,8 @@
       "text": "Podnosisz kamień i rzucasz w górę. Uderzenie. Drugie. Kamień wraca z gruzem. Nie ma drabiny ani liny. Spadłeś przez przewód techniczny; jego górna część jest zawalona. Nawet gdybyś pamiętał drogę, tędy nie wrócisz.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_first_intro",
@@ -96,7 +99,8 @@
       "text": "Czerwona lampka nad drzwiami zapala się co kilka sekund. W jej świetle widzisz dwie rzeczy: ślady własnego upadku i opatrunek na swoim przedramieniu. Bandaż jest czysty. Nie pamiętasz, kto go założył.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_look_up",
@@ -111,7 +115,8 @@
       "conditions": [],
       "costs": [],
       "successEffects": [],
-      "failureEffects": []
+      "failureEffects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_look_self",
@@ -126,7 +131,8 @@
       "conditions": [],
       "costs": [],
       "successEffects": [],
-      "failureEffects": []
+      "failureEffects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_shaft1",
@@ -136,7 +142,8 @@
       "text": "Na fragmencie przewodu jest tabliczka: „NEST / SEKTOR MEDYCZNY / 08”. Ósmy poziom. Jeśli numeracja zaczyna się przy powierzchni, nad tobą jest co najmniej siedem pięter betonu.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_shaft2",
@@ -151,7 +158,8 @@
           "op": "addItem",
           "key": "lz_rod"
         }
-      ]
+      ],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_bandage1",
@@ -161,7 +169,8 @@
       "text": "Opatrunek zawiązano z tyłu ręki. Tak równo, że sam nie zrobiłbyś tego drugą dłonią. Pod nim jest płytkie rozcięcie. Świeże. Ktoś zajął się tobą po upadku.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_bandage2",
@@ -177,7 +186,8 @@
           "key": "composure",
           "value": 1
         }
-      ]
+      ],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_rod",
@@ -187,7 +197,8 @@
       "text": "Krótki pręt wyrwany z przewodu. Jeden koniec jest spłaszczony. Nada się do podważenia osłony lub zasuwy.",
       "image": "",
       "showName": true,
-      "onCollect": []
+      "onCollect": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_supplies_intro",
@@ -197,7 +208,8 @@
       "text": "Drzwi ustępują pod barkiem. Za nimi jest punkt ratunkowy: dwa krzesła, zaschnięta filiżanka i otwarta szafka. W powietrzu unosi się zapach środka odkażającego. Możesz zabrać to, co uznasz za przydatne.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_water",
@@ -217,7 +229,8 @@
             "value": 2
           }
         ]
-      }
+      },
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_wedge",
@@ -227,7 +240,8 @@
       "text": "Ciężki gumowy klin do blokowania drzwi. Możesz nim zatrzymać drzwi, które zamykają się na sprężynie.",
       "image": "",
       "showName": true,
-      "onCollect": []
+      "onCollect": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_tag",
@@ -237,7 +251,8 @@
       "text": "ADA SHULZ / INFIRMARY. Pasek jest naderwany. Na odwrocie ktoś dopisał ołówkiem: „Oskar — maszynownia”. Karta może otworzyć przejście medyczne.",
       "image": "",
       "showName": true,
-      "onCollect": []
+      "onCollect": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_hub_intro",
@@ -247,7 +262,8 @@
       "text": "Na ścianie: „THE NEST — INFIRMARY”. Rząd krzeseł stoi pod tablicą dyżurów. Na końcu korytarza widać drzwi techniczne. Po drugiej stronie coś regularnie stuka. Możesz rozejrzeć się tutaj albo iść do drzwi.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_records",
@@ -275,7 +291,8 @@
       ],
       "costs": [],
       "successEffects": [],
-      "failureEffects": []
+      "failureEffects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_locker",
@@ -303,7 +320,8 @@
       ],
       "costs": [],
       "successEffects": [],
-      "failureEffects": []
+      "failureEffects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_stairs",
@@ -331,7 +349,8 @@
       ],
       "costs": [],
       "successEffects": [],
-      "failureEffects": []
+      "failureEffects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_go_door",
@@ -346,7 +365,8 @@
       "conditions": [],
       "costs": [],
       "successEffects": [],
-      "failureEffects": []
+      "failureEffects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_records1",
@@ -356,7 +376,8 @@
       "text": "KARTA PACJENTA: VICTOR KOGLER. 14.01.2041. „Ból głowy. Narastająca agresja. Gwałtowny rozrost tkanek. Pacjent krzyczy o motylach. Prośba o konsultację: dr Steinfeld”.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_records2",
@@ -366,7 +387,8 @@
       "text": "Niżej jest komunikat ochrony: „Cały dostępny personel na poziom 8. Przybyć z bronią. To nie są ćwiczenia”. Zegar terminala zatrzymał się na 03:17. Nie wiesz, czy ta data oznacza wczoraj, czy świat, którego już nie ma.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_records3",
@@ -382,7 +404,8 @@
           "key": "lz_quiet",
           "value": true
         }
-      ]
+      ],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_ada1",
@@ -392,7 +415,8 @@
       "text": "W szafce siedzi martwa kobieta. Na fartuchu ma wyszyte imię: Ada. Pusta szlufka po identyfikatorze. Ciało wygląda, jakby minęło kilka godzin. Kurz na klamce jest gruby na palec.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_ada2",
@@ -402,7 +426,8 @@
       "text": "W kieszeni fartucha dotykasz przycisku małego rejestratora. „Wyłączyłam windy. Schody są zabarykadowane. Oskar poszedł do maszynowni sprawdzić zasilanie głównych wrót. Miał wrócić dziesięć godzin temu”.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_ada3",
@@ -412,7 +437,8 @@
       "text": "„Nie ma wyjścia. Słychać ich coraz bliżej”. Potem szelest materiału. Nagranie się urywa. Zamykasz szafkę delikatnie, przytrzymując metalowe drzwiczki aż do samego końca.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_stairs1",
@@ -422,7 +448,8 @@
       "text": "Klatka kończy się po dwóch biegach. Nad tobą leży przewrócona płyta stropowa. Drzwi windy są rozchylone, ale kabiny nie ma; w szybie wiszą urwane przewody. Nie zobaczysz stąd powierzchni.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_stairs2",
@@ -432,7 +459,8 @@
       "text": "Na pulpicie świeci napis: „LOCKDOWN. Połączenia zewnętrzne zablokowane. Sterowanie lokalne nieaktywne”. Poniżej schemat: linia zasilania biegnie z maszynowni w dół kompleksu. Wracasz do poczekalni. Przynajmniej przestajesz nasłuchiwać wiatru.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_pressure_intro",
@@ -442,7 +470,8 @@
       "text": "Przy drzwiach technicznych dostajesz mdłości. Beton drży pod palcami, choć rury milczą. Przez sekundę jesteś pewien, że za ścianą ktoś oddycha dokładnie w twoim rytmie.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_steady",
@@ -462,7 +491,8 @@
         "mode": "stat",
         "modifierVariable": "composure",
         "difficulty": 2
-      }
+      },
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_retreat",
@@ -483,7 +513,8 @@
       "conditions": [],
       "costs": [],
       "successEffects": [],
-      "failureEffects": []
+      "failureEffects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_steady_ok1",
@@ -499,7 +530,8 @@
           "key": "lz_listening",
           "value": true
         }
-      ]
+      ],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_steady_bad1",
@@ -515,7 +547,8 @@
           "key": "energy",
           "value": -1
         }
-      ]
+      ],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_steady_wait1",
@@ -525,7 +558,8 @@
       "text": "Siedzisz tak długo, aż metalowy posmak znika. Z dala od ściany jest łatwiej. Poprawiając rękaw, zauważasz na mankiecie napis: „NIE ZASYPIAJ PRZY ŚCIANIE”. Ktoś już to sprawdził. Wstajesz powoli.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_courier_intro",
@@ -535,7 +569,8 @@
       "text": "Za szybą drzwi człowiek w mundurze krąży wokół wózka z paczkami. Jeden rękaw jest pusty. Na karku ma narośl, która porusza się z opóźnieniem względem reszty ciała. Co czwarty krok uderza wózek biodrem. Stąd to stukanie.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_quiet_pass",
@@ -557,7 +592,8 @@
       ],
       "costs": [],
       "successEffects": [],
-      "failureEffects": []
+      "failureEffects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_listen_pass",
@@ -579,7 +615,8 @@
       ],
       "costs": [],
       "successEffects": [],
-      "failureEffects": []
+      "failureEffects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_sneak",
@@ -599,7 +636,8 @@
         "mode": "stat",
         "modifierVariable": "agility",
         "difficulty": 3
-      }
+      },
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_detour",
@@ -620,7 +658,8 @@
       "conditions": [],
       "costs": [],
       "successEffects": [],
-      "failureEffects": []
+      "failureEffects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_pass1",
@@ -630,7 +669,8 @@
       "text": "Mijasz wózek. Na paczce czytasz: „Sektor medyczny — doręczyć do rąk własnych”. Kurier zatrzymuje się przy ścianie. Przez chwilę wygląda jak człowiek, który zapomniał, po co wszedł do pokoju. Nie czekasz, aż sobie przypomni.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_chase1",
@@ -646,7 +686,8 @@
           "key": "energy",
           "value": -2
         }
-      ]
+      ],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_chase2",
@@ -656,7 +697,8 @@
       "text": "Drzwi zatrzaskują się za tobą. Coś uderza w nie od drugiej strony, raz i jeszcze raz. Trzymasz klamkę, dopóki nie zapada cisza. Ręka krwawi. Żyjesz.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_drain1",
@@ -666,7 +708,8 @@
       "text": "Kanał pachnie rdzą. Ciągniesz ranną rękę przy piersi. Nad tobą raz po raz stuka wózek. Przy ostatniej kracie dźwięk cichnie. Wyciągasz się na podłogę za drzwiami technicznymi, kilka metrów przed śluzą medyczną.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_gate_intro",
@@ -676,7 +719,8 @@
       "text": "Śluza do zaplecza jest zamknięta. Czytnik identyfikatorów świeci bursztynowo. Obok wisi otwarta osłona napędu. Pod ścianą jest też niski przepust na brudną pościel — ciasny, lecz drożny.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_use_tag",
@@ -697,7 +741,8 @@
       ],
       "costs": [],
       "successEffects": [],
-      "failureEffects": []
+      "failureEffects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_use_rod",
@@ -718,7 +763,8 @@
       ],
       "costs": [],
       "successEffects": [],
-      "failureEffects": []
+      "failureEffects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_rewire",
@@ -744,7 +790,8 @@
         "mode": "stat",
         "modifierVariable": "intelligence",
         "difficulty": 3
-      }
+      },
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_laundry",
@@ -765,7 +812,8 @@
       "conditions": [],
       "costs": [],
       "successEffects": [],
-      "failureEffects": []
+      "failureEffects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_tag_open1",
@@ -775,7 +823,8 @@
       "text": "„WITAJ, ADA SHULZ”. Czytnik rozpoznaje kartę od razu. Drzwi otwierają się z cichym sykiem. Przez moment czekasz, aż system zauważy pomyłkę. Nic takiego się nie dzieje.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_rod_open1",
@@ -785,7 +834,8 @@
       "text": "Pręt wygina się pod ciężarem zasuwy. Wystarczy kilka milimetrów. Przeciskasz się przez drzwi, zanim metal odskoczy. Po drugiej stronie słyszysz przeciągły sygnał, jak wywołanie bez odpowiedzi.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_wire_open1",
@@ -795,7 +845,8 @@
       "text": "Wybierasz właściwe przewody, zanim potrafisz wyjaśnić dlaczego. Zasuwa odskakuje. Nie pamiętasz, kim byłeś. Twoje dłonie najwyraźniej coś pamiętają.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_wire_fail1",
@@ -811,7 +862,8 @@
           "key": "energy",
           "value": -1
         }
-      ]
+      ],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_laundry1",
@@ -821,7 +873,8 @@
       "text": "Długo przesuwasz się na kolanach. W ciemności wyczuwasz porzucony chodak. Odsuwasz go i pchasz kratę barkiem. Wypadasz na zaplecze. Z bliska sygnał wywołania brzmi niemal jak głos.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_radio1",
@@ -831,7 +884,8 @@
       "text": "Zaplecze mieści stary terminal łączności. Zielona linia drży na ekranie. Dotykasz klawisza. Sygnał urywa się w połowie nuty. „Czy ktoś mnie słyszy? Tu Juno-1. Emma Krause”.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_radio2",
@@ -841,7 +895,8 @@
       "text": "— Halo? — odpowiadasz.\n\nDługi wdech po drugiej stronie.\n\n— Ada?\n— Nie. Lazarus.\n— Jesteś w Nest?\n\nPatrzysz na znak nad drzwiami.\n\n— Chyba tak. Nie wiem, jak się tu znalazłem.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_radio3",
@@ -851,7 +906,8 @@
       "text": "— Schowałam się na statku, gdy to się zaczęło. Potem ruszyła sekwencja kriogeniczna. Od dwóch dni próbuję się z kimś połączyć.\n\n— Z którego poziomu dzwonisz?\n\n— Poziomu? Lazarus, ja jestem na Juno. Na orbicie.\n\nZa twoimi plecami coś naciska klamkę.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_emma_intro",
@@ -861,7 +917,8 @@
       "text": "— Muszę zejść na kanał awaryjny — mówi Emma. — Jeśli jesteś w lecznicy, jest tam Ada Shulz. Znasz ją? Proszę, powiedz mi, że ktoś jeszcze tam żyje.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_tell_ada",
@@ -889,7 +946,8 @@
       ],
       "costs": [],
       "successEffects": [],
-      "failureEffects": []
+      "failureEffects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_dont_know",
@@ -911,7 +969,8 @@
       ],
       "costs": [],
       "successEffects": [],
-      "failureEffects": []
+      "failureEffects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_promise",
@@ -926,7 +985,8 @@
       "conditions": [],
       "costs": [],
       "successEffects": [],
-      "failureEffects": []
+      "failureEffects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_truth1",
@@ -936,7 +996,8 @@
       "text": "Emma długo milczy.\n\n— Nazywała mnie Em. Nikt inny tak nie mówił.\n\nPotem wraca jej rzeczowy głos.\n\n— Dziękuję, że powiedziałeś. Posłuchaj mnie teraz uważnie. Nie idź do głównych wind.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_uncertain1",
@@ -946,7 +1007,8 @@
       "text": "— Rozumiem — mówi Emma, choć słyszysz, że liczyła na inne słowo. — Jeśli ją spotkasz, powiedz, że czekałam.\n\nKlamka za tobą opada znowu.\n\n— Lazarus? Co to było? Nie idź do głównych wind.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_promise1",
@@ -956,7 +1018,8 @@
       "text": "— Dobrze. Tylko nie ryzykuj teraz.\n\nEmma wierzy ci tak łatwo, że przez chwilę nie potrafisz odpowiedzieć.\n\n— Najpierw znajdź bezpieczne miejsce — dodaje. — Nie idź do głównych wind.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_instructions1",
@@ -966,7 +1029,8 @@
       "text": "— Lockdown zamknął przejścia zewnętrzne. Nie otworzysz ich stąd — mówi Emma. — Oskar próbował przywrócić zasilanie wrót. Szukaj żółtych przewodów serwisowych. Biegną do maszynowni.\n\n— Czyli w dół?\n\n— Na razie w dół.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_instructions2",
@@ -976,7 +1040,8 @@
       "text": "— Jeśli dotrzesz do rozdzielni, uruchom kanał siedem. Będę nasłu…\n\nGłos rozciąga się i znika. Na ekranie zostaje: „JUNO-1 / BRAK SYNCHRONIZACJI CZASU”. Obok drzwi zauważasz właz z żółtym przewodem. W przeciwnej ścianie mieści się magazyn bielizny.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_last_intro",
@@ -986,7 +1051,8 @@
       "text": "Klamka opada po raz trzeci. Możesz zejść włazem serwisowym albo skryć się w magazynie. Droga na górę jest zamknięta. Ta decyzja dotyczy tylko tego, jak przeżyjesz najbliższe godziny.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_descend",
@@ -1001,7 +1067,8 @@
       "conditions": [],
       "costs": [],
       "successEffects": [],
-      "failureEffects": []
+      "failureEffects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_secure",
@@ -1028,7 +1095,8 @@
         }
       ],
       "successEffects": [],
-      "failureEffects": []
+      "failureEffects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_shelter",
@@ -1043,7 +1111,8 @@
       "conditions": [],
       "costs": [],
       "successEffects": [],
-      "failureEffects": []
+      "failureEffects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_end_descent1",
@@ -1053,7 +1122,8 @@
       "text": "Schodzisz do włazu. Gdy masz głowę poniżej podłogi, drzwi zaplecza otwierają się z hukiem. Nie patrzysz w górę. Żółty przewód znika między kolejnymi szczeblami.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_end_descent2",
@@ -1063,7 +1133,8 @@
       "text": "Nie odzyskałeś pamięci. Nie znalazłeś wyjścia. Ale gdzieś nad ziemią kobieta o imieniu Emma czeka na twój głos. Powtarzasz w myślach: kanał siedem.\n\nKoniec rozdziału: PRZEBUDZENIE.\nDalszy cel: dotrzeć do maszynowni.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_end_secure1",
@@ -1073,7 +1144,8 @@
       "text": "Wbijasz klin obcasem. Kiedy coś napiera na drzwi, guma piszczy, ale trzyma. Schodzisz spokojniej, sprawdzając każdy szczebel. Po raz pierwszy od przebudzenia to ty decydujesz, kiedy ruszyć dalej.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_end_secure2",
@@ -1083,7 +1155,8 @@
       "text": "Na dole słyszysz dwa uderzenia. Potem ciszę. Masz kilka minut przewagi. Podążasz za żółtym przewodem. Emma będzie nasłuchiwać na kanale siedem.\n\nKoniec rozdziału: PRZEBUDZENIE.\nDalszy cel: dotrzeć do maszynowni.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_end_shelter1",
@@ -1099,7 +1172,8 @@
           "key": "energy",
           "value": 1
         }
-      ]
+      ],
+      "chapterId": "lazarus_przebudzenie"
     },
     {
       "id": "lz_end_shelter2",
@@ -1109,7 +1183,8 @@
       "text": "Nie wiesz, czy pod ziemią istnieje coś takiego jak rano. Mimo to ustalasz plan: odpoczynek, żółty przewód, maszynownia, kanał siedem. Powtarzasz go, żeby nie zgubić kolejnej rzeczy.\n\nKoniec rozdziału: PRZEBUDZENIE.\nDalszy cel: dotrzeć do maszynowni.",
       "image": "",
       "showName": false,
-      "effects": []
+      "effects": [],
+      "chapterId": "lazarus_przebudzenie"
     }
   ],
   "chapter": {

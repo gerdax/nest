@@ -9,6 +9,7 @@ import { captureNodeClipboard, pasteNodeClipboard } from '../studio/node-clipboa
 import { applyDocumentCommand } from '../studio/document-commands.js';
 import { cleanupLocalDefinitions } from '../project/dependencies.js';
 import { DocumentHistory } from '../editor/DocumentHistory.js';
+import { normalizeLocalOwnership } from '../project/local-ownership.js';
 
 function localFixture() {
   const project = createProject(), chapter = project.chapters[0], node = createNode(project, 'fork');
@@ -118,6 +119,9 @@ test('missing global inventory dependencies restore snapshot identity while unre
   source.choices.push({id:'local-choice',definitionId:localAction.id});
   source.connections['local-choice'] = null;
   source.choices[0].contextItemId = item.id;
+  normalizeLocalOwnership(project);
+  assert.equal(item.visibility,'shared');
+  assert.equal(Object.hasOwn(item,'chapterId'),false);
   const clipboard = captureNodeClipboard(project,chapter.id,source.id);
   project.library = project.library.filter(definition => definition !== item);
   const pasted = pasteNodeClipboard(project,chapter,clipboard);
@@ -132,7 +136,7 @@ test('missing global inventory dependencies restore snapshot identity while unre
   assert.deepEqual(validateProject(project),[]);
 });
 
-test('missing shared definitions and their cleaned local inventory dependencies restore exact snapshots', () => {
+test('missing shared definitions and their promoted inventory dependencies restore exact snapshots', () => {
   const project = createProject(), chapter = project.chapters[0], source = chapter.nodes.find(node => node.type === 'fork');
   const sharedAction = project.library.find(definition => definition.id === source.choices[0].definitionId);
   const item = {...createDefinition('item','local-key'),visibility:'local',inventoryKey:'key-ownership'};
@@ -140,6 +144,9 @@ test('missing shared definitions and their cleaned local inventory dependencies 
   sharedAction.conditions = [{source:'inventory',key:item.id,op:'has'},{source:'inventory',key:item.inventoryKey,op:'has'}];
   sharedAction.effects = [{op:'removeItem',key:item.id}];
   source.choices[0].contextItemId = item.id;
+  normalizeLocalOwnership(project);
+  assert.equal(item.visibility,'shared');
+  assert.equal(Object.hasOwn(item,'chapterId'),false);
   const clipboard = captureNodeClipboard(project,chapter.id,source.id);
   project.library = project.library.filter(definition => ![sharedAction.id,item.id].includes(definition.id));
   const pasted = pasteNodeClipboard(project,chapter,clipboard), choice = pasted.choices[0];
@@ -172,7 +179,7 @@ test('copy restores a cleaned dependency closure as fresh local definitions', ()
   assert.equal(project.library.find(definition => definition.id === pasted.choices[0].definitionId).effects[0].key,pasted.choices[0].contextItemId);
 });
 
-test('cut retains beat and local identities after delete and cleanup, but refreshes placements and clears cross-chapter wires', () => {
+test('cross-chapter cut retains beat identity, clones owned local definitions, and clears cross-chapter wires', () => {
   const {project,chapter,node,action,item} = localFixture(), clipboard = captureNodeClipboard(project,chapter.id,node.id,{cut:true});
   applyDocumentCommand(project,{chapterId:chapter.id,selected:node.id},'delete-node');
   assert.ok(cleanupLocalDefinitions(project) > 0);
@@ -182,15 +189,23 @@ test('cut retains beat and local identities after delete and cleanup, but refres
   project.chapters.push(destination);
   const pasted = pasteNodeClipboard(project,destination,clipboard);
   assert.equal(pasted.id,node.id);
-  assert.equal(pasted.choices[0].definitionId,action.id);
-  assert.equal(pasted.choices[0].contextItemId,item.id);
-  assert.equal(project.library.find(definition => definition.id === item.id).inventoryKey,item.inventoryKey);
+  assert.notEqual(pasted.choices[0].definitionId,action.id);
+  assert.notEqual(pasted.choices[0].contextItemId,item.id);
+  const pastedAction = project.library.find(definition => definition.id === pasted.choices[0].definitionId);
+  const pastedItem = project.library.find(definition => definition.id === pasted.choices[0].contextItemId);
+  assert.equal(pastedAction.chapterId,destination.id);
+  assert.equal(pastedItem.chapterId,destination.id);
+  assert.equal(pastedItem.inventoryKey,undefined);
+  assert.equal(pastedAction.effects[0].key,pastedItem.id);
+  assert.equal(pastedItem.onCollect[0].key,pastedItem.id);
   assert.notEqual(pasted.choices[0].id,node.choices[0].id);
   assert.equal(pasted.connections[`${pasted.choices[0].id}:success`],pasted.id);
   assert.equal(pasted.connections[`${pasted.choices[0].id}:failure`],false);
   assert.equal(destination.startNode,pasted.id);
   const colliding = pasteNodeClipboard(project,destination,clipboard);
   assert.notEqual(colliding.id,pasted.id);
+  assert.notEqual(colliding.choices[0].definitionId,pasted.choices[0].definitionId);
+  assert.notEqual(colliding.choices[0].contextItemId,pasted.choices[0].contextItemId);
   assert.equal(colliding.connections[`${colliding.choices[0].id}:success`],colliding.id);
 });
 

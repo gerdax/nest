@@ -1,4 +1,4 @@
-import { discardPlacementContext } from '../project/model.js';
+import { discardPlacementContext, normalizeLocalOwnership } from '../project/model.js';
 import { synchronizeConnections } from './commands.js';
 
 /** Commit one document command. UI selection, rendering and persistence stay in the host. */
@@ -10,6 +10,7 @@ export function transactDocument(history, localDrafts, command) {
     history.transact(draft => {
       result = command(draft) ?? {};
       const next = result.project ?? draft;
+      normalizeLocalOwnership(next);
       discardPlacementContext(next);
       synchronizeConnections(next);
       localDrafts.refreshChangedDefinitions(next, previousLibrary);

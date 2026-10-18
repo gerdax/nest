@@ -1,4 +1,4 @@
-import { createDefinition, resolvePlacement } from '../project/cards.js';
+import { createDefinition, resolvePlacement, isStoryKind } from '../project/cards.js';
 import { chapterVariables,outputsForNode,connectionForOutput } from '../project/model.js';
 import { createNodeDefaults } from '../project/nodeTypes.js';
 import { definitionGraph } from '../project/dependencies.js';
@@ -11,8 +11,14 @@ export function addHealthVariable(project) {
 export function makeDefinition(project,kind,name) {
  const definition=createDefinition(kind,uid(kind));if(name)definition.name=name;project.library.push(definition);return definition;
 }
-export function makePlacement(project,kind,name) {
- const definition=makeDefinition(project,kind,name);definition.visibility='local';
+function owningChapterId(project,value,chapterId) {
+ if(chapterId)return chapterId;
+ for(const chapter of project.chapters||[])for(const node of chapter.nodes||[])if(node===value||placements(node).includes(value))return chapter.id;
+ const placement=value?.definitionId?value:placements(value||{}).find(p=>project.library.find(d=>d.id===p.definitionId)?.visibility==='local');
+ return project.library.find(d=>d.id===placement?.definitionId)?.chapterId||project.activeChapterId||project.chapters?.[0]?.id;
+}
+export function makePlacement(project,kind,name,chapterId) {
+ const definition=makeDefinition(project,kind,name);definition.visibility='local';definition.chapterId=owningChapterId(project,null,chapterId);
  return {id:uid('placement'),definitionId:definition.id};
 }
 export function remapInventory(value,ids) {
@@ -23,9 +29,25 @@ export function remapInventory(value,ids) {
   Object.values(value).forEach(v=>remapInventory(v,ids));
  }
 }
-export function replaceCard(project,placement,kind,{copy=false}={}) {
+/** Keep copied Item variants in one fresh inventory ownership group. */
+export function preserveCopiedInventoryAliases(sources,copies,inventoryIds) {
+ const groups=new Map();
+ for(const source of sources)if(source.kind==='item'&&copies.has(source.id)){
+  const key=source.inventoryKey??source.id;
+  if(!groups.has(key))groups.set(key,[]);groups.get(key).push(source);
+ }
+ for(const [key,group] of groups){
+  // An alias may itself be a definition ID. Keep that definition's remap,
+  // rather than letting the last variant overwrite its independent identity.
+  const anchor=group.find(source=>source.id===key)||group[0],alias=copies.get(anchor.id).id;
+  if(!inventoryIds.has(key))inventoryIds.set(key,alias);
+  if(group.length>1)for(const source of group)copies.get(source.id).inventoryKey=alias;
+ }
+}
+export function replaceCard(project,placement,kind,{copy=false,chapterId}={}) {
  const source=project.library.find(d=>d.id===placement.definitionId);
  const definition=copy?{...structuredClone(source),...structuredClone(placement.overrides||{}),id:uid(kind),visibility:'local'}:{...createDefinition(kind,uid(kind)),visibility:'local'};
+ definition.chapterId=owningChapterId(project,placement,chapterId);
  if(copy){delete definition.inventoryKey;remapInventory(definition,new Map([[source.id,definition.id],...(source.inventoryKey?[[source.inventoryKey,definition.id]]:[])]));}
  project.library.push(definition);placement.definitionId=definition.id;delete placement.overrides;if(definition.kind!=='action'){delete placement.contextItemId;delete placement.contextOverrideImage;}return definition;
 }
@@ -59,19 +81,15 @@ export function promoteCard(project,placement) {
  };
  const dependencies=definitionGraph(project).reachableFrom({definitionId:definition.id});
  for(const dependency of project.library)if(dependencies.has(dependency.id))inspect(dependency);
- definition.visibility='shared';return definition;
+ for(const dependency of project.library)if(dependencies.has(dependency.id)){dependency.visibility='shared';delete dependency.chapterId;}
+ return definition;
 }
 export function duplicatePlacement(project,node,placement) {
  const slot=['cards','choices','items'].find(key=>node[key]?.includes(placement));
  if(!slot)throw new Error('This card slot cannot be duplicated.');
  const copy={...structuredClone(placement),id:uid('placement')};
- const source=project.library.find(d=>d.id===placement.definitionId);
- if(source?.visibility==='local'){
-  const definition={...structuredClone(source),id:uid(source.kind),name:`${source.name} copy`};
-  delete definition.inventoryKey;
-  const ids=new Map([[source.id,definition.id],...(source.inventoryKey?[[source.inventoryKey,definition.id]]:[])]);
-  remapInventory(definition,ids);remapInventory(copy,ids);copy.definitionId=definition.id;project.library.push(definition);
- }
+ const copies=cloneLocalDefinitions(project,copy,owningChapterId(project,node));
+ const definition=copies.get(placement.definitionId);if(definition)definition.name+=' copy';
  node[slot].splice(node[slot].indexOf(placement)+1,0,copy);
  if(slot==='choices')for(const output of outputsForNode(project,node).filter(exit=>exit===copy.id||exit.startsWith(`${copy.id}:`))){
   const original=placement.id+output.slice(copy.id.length);node.connections[output]=Object.hasOwn(node.connections,original)?node.connections[original]:false;
@@ -80,18 +98,26 @@ export function duplicatePlacement(project,node,placement) {
 }
 export function duplicateNode(project,source) {
  const node=structuredClone(source);node.id=uid('node');node.name+=' copy';node.x+=40;node.y+=40;
- const copies=new Map(),ids=new Map();
- for(const p of placements(node)){
-  const d=project.library.find(d=>d.id===p.definitionId);
-  if(d?.visibility!=='local')continue;
-  if(!copies.has(d.id)){const copy={...structuredClone(d),id:uid(d.kind)};delete copy.inventoryKey;copies.set(d.id,copy);ids.set(d.id,copy.id);if(d.inventoryKey)ids.set(d.inventoryKey,copy.id);}
-  p.definitionId=copies.get(d.id).id;
- }
- remapInventory(node,ids);for(const copy of copies.values()){remapInventory(copy,ids);project.library.push(copy);}
+ cloneLocalDefinitions(project,node,owningChapterId(project,source));
  return node;
 }
-export function createNode(project,type,position={x:100,y:100}) {
- const defaults=createNodeDefaults(type,{makePlacement:kind=>makePlacement(project,kind),uid});
+function cloneLocalDefinitions(project,value,chapterId) {
+ const reachable=definitionGraph(project).reachableFrom(value),copies=new Map(),inventoryIds=new Map();
+ for(const source of project.library)if(reachable.has(source.id)&&source.visibility==='local'){
+  const copy={...structuredClone(source),id:uid(source.kind),chapterId};delete copy.inventoryKey;
+  copies.set(source.id,copy);if(source.kind==='item')inventoryIds.set(source.id,copy.id);
+ }
+ preserveCopiedInventoryAliases(project.library,copies,inventoryIds);
+ const remap=value=>{
+  if(Array.isArray(value))value.forEach(remap);
+  else if(value&&typeof value==='object'){if(copies.has(value.definitionId))value.definitionId=copies.get(value.definitionId).id;Object.values(value).forEach(remap);}
+ };
+ for(const entry of [value,...copies.values()]){remap(entry);remapInventory(entry,inventoryIds);}
+ project.library.push(...copies.values());
+ return copies;
+}
+export function createNode(project,type,position={x:100,y:100},chapterId) {
+ const defaults=createNodeDefaults(type,{makePlacement:kind=>makePlacement(project,kind,undefined,chapterId),uid});
  const node={id:uid('node'),name:`New ${type}`,type,...position,connections:{},...defaults};
  if(type==='random')delete node.connections;
  return node;
@@ -121,6 +147,14 @@ export function customizeItem(project,placement) {
  if(definition?.kind!=='item')throw new Error('Custom Item rules need an Item definition.');
  const card=resolvePlacement(project,placement);
  placement.overrides={onCollect:structuredClone(card.onCollect??[]),permability:card.permability??0};
+ delete placement.effects;
+}
+export function customizeStory(project,placement) {
+ const definition=project.library.find(d=>d.id===placement.definitionId);
+ if(definition?.visibility==='local'){delete placement.overrides;return;}
+ if(!isStoryKind(definition?.kind))throw new Error('Custom progression rules need a Vignette or Caption.');
+ const card=resolvePlacement(project,placement);
+ placement.overrides={effects:structuredClone(card.effects??[])};
  delete placement.effects;
 }
 export function newRule(project,kind,chapter) {

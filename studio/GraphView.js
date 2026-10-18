@@ -6,6 +6,7 @@ import { nodeTypeDescriptor } from '../project/nodeTypes.js';
 import { nodeIcon } from './node-icons.js';
 import { cardEditorTint,canonicalCardKind } from '../project/cards.js';
 import { createLibraryIndex } from '../project/library-index.js';
+import { cardRuleIndicators } from './card-rule-indicators.js';
 
 
 /** Canvas interaction owns selection/pan, and emits completed document edits. */
@@ -79,9 +80,12 @@ export class GraphView {
     const definition=this.definitionsById.get(placement.definitionId)||placement;
     const kind=canonicalCardKind(definition.kind||definition.cardKind||descriptor.defaultKinds[slot]);
     const name=this.definitionsById.has(placement.definitionId)?(definition.name?.trim()||'Untitled'):'Missing card';
+    const indicators=cardRuleIndicators(this.project,placement,this.libraryIndex);
+    const indicatorText=indicators.map(([letter])=>letter).join('');
+    const indicatorLabel=indicators.map(([letter,label])=>`${letter}: ${label}`).join('; ');
     const exits=slot==='choices'?outputs.filter(exit=>exit===placement.id||exit===`${placement.id}:success`||exit===`${placement.id}:failure`):[];
     for(const exit of exits)used.add(exit);
-    html+=`<hr class="graph-card-divider"><div class="graph-card-row ${exits.length?'has-outputs':''}" data-card-slot="${esc(slot)}" data-card-placement="${esc(placement.id||'')}" data-card-type="${esc(kind)}" style="--card-editor-tint:${esc(cardEditorTint(kind))}"><button type="button" class="graph-card-name">${slot==='intro'?'<small>Introduction</small>':''}${esc(name)}</button>`;
+    html+=`<hr class="graph-card-divider"><div class="graph-card-row ${exits.length?'has-outputs':''}" data-card-slot="${esc(slot)}" data-card-placement="${esc(placement.id||'')}" data-card-type="${esc(kind)}" style="--card-editor-tint:${esc(cardEditorTint(kind))}"><div class="graph-card-label"><button type="button" class="graph-card-name">${slot==='intro'?'<small>Introduction</small>':''}${esc(name)}</button>${indicatorText?`<small class="graph-card-rules" role="img" aria-label="${esc(indicatorLabel)}" title="${esc(indicatorLabel)}">${indicatorText}</small>`:''}</div>`;
     if(exits.length)html+=`<div class="graph-card-outputs">${exits.map(exit=>this.port(node,exit,exit.endsWith(':success')?'Success':exit.endsWith(':failure')?'Failure':'')).join('')}</div>`;
     html+='</div>';
    }

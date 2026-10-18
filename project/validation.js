@@ -173,10 +173,20 @@ export function validateProject(project, {allowDraft = false} = {}) {
       && typeof d.showName !== 'boolean' || d.flipImage !== undefined && typeof d.flipImage !== 'boolean'
       || d.inventoryKey !== undefined && !named(d.inventoryKey)) add(`Definition ${d.id} has invalid content.`);
     for (const message of cardKinds[canonicalCardKind(d.kind)]?.validate(d) || []) add(`Definition ${d.id}: ${message}`);
+    if (d.visibility !== 'local' && d.chapterId !== undefined) add(`Shared definition ${d.id} cannot have a chapter owner.`);
     if (d.visibility === 'local') {
+      const owner = chapters.find(chapter => chapter?.id === d.chapterId);
+      if (d.chapterId !== undefined && (!named(d.chapterId) || !owner)) add(`Local definition ${d.id} has an invalid chapter owner.`);
       const users = [...scopes].filter(([, ids]) => ids.has(d.id)).map(([chapter]) => chapter);
       // Unplaced definitions still receive type/shape validation, without inventing a chapter owner.
-      const contexts = sharedDependencies.has(d.id) ? [{variables: []}, ...users]
+      if (d.chapterId !== undefined) {
+        if (sharedDependencies.has(d.id)) add(`Local definition ${d.id} is referenced by a shared definition.`);
+        for (const chapter of users) if (chapter.id !== d.chapterId) add(`Local definition ${d.id} belongs to chapter ${d.chapterId}, not ${chapter.id}.`, chapter.id);
+      }
+      // Missing ownership remains readable for legacy callers; parsing and all
+      // authoring transactions assign explicit owners before saving.
+      const contexts = d.chapterId !== undefined && owner ? [owner]
+        : sharedDependencies.has(d.id) ? [{variables: []}, ...users]
         : users.length ? users : [{variables: chapters.flatMap(chapter => list(chapter?.variables))}];
       for (const chapter of contexts) {
         vars = new Map(chapterVariables(project, chapter).filter(object).map(v => [v.id, v]));
@@ -254,7 +264,8 @@ export function validateProject(project, {allowDraft = false} = {}) {
           // to spread an invalid collection override while collecting errors.
           const collectionValid = canonicalCardKind(d.kind) !== 'item' || p.overrides?.onCollect === undefined
             || Array.isArray(p.overrides.onCollect);
-          if (contextValid && collectionValid) inspectCard(resolvePlacement(project, p, index), label);
+          const effectsValid = p.overrides?.effects === undefined || Array.isArray(p.overrides.effects);
+          if (contextValid && collectionValid && effectsValid) inspectCard(resolvePlacement(project, p, index), label);
         }
       }
       let targets = [];

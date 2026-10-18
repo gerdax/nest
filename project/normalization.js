@@ -1,6 +1,6 @@
-import { resolvePlacement } from './cards.js';
+import { resolvePlacement, isStoryKind } from './cards.js';
 import { createLibraryIndex } from './library-index.js';
-import { cloneProject, list, object, placements, legacyArtwork, walk } from './model-data.js';
+import { cloneProject, list, object, placements, legacyArtwork, walk, unique } from './model-data.js';
 import { outputsForNode, connectionForOutput } from './graph.js';
 
 export function normalizeSingleItems(project) {
@@ -19,6 +19,14 @@ export function normalizeSingleItems(project) {
 }
 export function discardPlacementContext(project, index = createLibraryIndex(list(project?.library))) {
   const localIds = new Set(list(project?.library).filter(d => d?.visibility === 'local').map(d => d.id));
+  const definitionIds = new Set(list(project?.library).map(d => d?.id));
+  const placementUsers = new Map();
+  for (const chapter of list(project?.chapters)) for (const node of list(chapter?.nodes).filter(object)) {
+    for (const p of new Set([...placements(node), ...legacyArtwork(node)])) {
+      if (!placementUsers.has(p.definitionId)) placementUsers.set(p.definitionId, new Set());
+      placementUsers.get(p.definitionId).add(p);
+    }
+  }
   for (const chapter of list(project?.chapters)) for (const node of list(chapter?.nodes).filter(object)) {
     let resetResolution = false;
     for (const p of [...placements(node), ...legacyArtwork(node)]) {
@@ -29,6 +37,29 @@ export function discardPlacementContext(project, index = createLibraryIndex(list
         delete p.overrides;
       }
       const definition = index.byId.get(p.definitionId);
+      // Older story placements added progression rules beside the source rules.
+      // Fold that effective list into the source for local cards, or into the
+      // placement's replacement rules for shared cards. Appearance stays local.
+      if (isStoryKind(definition?.kind) && Array.isArray(p.effects)
+        && [definition.effects, definition.visibility === 'local' ? undefined : p.overrides?.effects]
+          .every(value => value === undefined || Array.isArray(value))) {
+        if (p.effects.length) {
+          const effects = cloneProject(resolvePlacement(project, {...p, contextItemId: undefined}, index).effects);
+          if (definition.visibility === 'local') {
+            // Imported projects may reuse a local definition. Keep every other
+            // placement on its original rules when absorbing this one's additions.
+            if (placementUsers.get(definition.id)?.size > 1) {
+              const copy = {...cloneProject(definition), id: unique(definition.id, definitionIds), effects};
+              project.library.push(copy);
+              index.byId.set(copy.id, copy);
+              localIds.add(copy.id);
+              p.definitionId = copy.id;
+            } else definition.effects = effects;
+          }
+          else p.overrides = {...p.overrides, effects};
+        }
+        delete p.effects;
+      }
       if (definition?.kind === 'action' && ['linear', 'fork'].includes(node.type) && [p.conditions, p.effects].every(v => v === undefined
         || Array.isArray(v))) {
         if (p.conditions?.length || p.effects?.length) {

@@ -53,3 +53,30 @@ test('Delete chapter is last in chapter settings, disabled only for a single cha
   assert.match(html,/Delete chapter<\/button><\/div><\/details>$/);
  }
 });
+
+test('chapter deletion removes only its orphaned local dependency closure and undoes atomically',()=>{
+ const s=session(2),project=s.project,chapter=project.chapters[0],other=project.chapters[1];
+ chapter.variables=[{id:'found',type:'flag',initial:false}];
+ const local=(id,extra={})=>({id,kind:'event',visibility:'local',name:id,text:'',image:'',effects:[],...extra});
+ project.library.push(
+  local('deleted-story',{effects:[{op:'set',key:'found',value:true},{op:'addItem',key:'deleted-item'}]}),
+  local('deleted-item',{kind:'item',onCollect:[{op:'addItem',key:'deleted-item'}]}),
+  local('still-placed'),local('shared-dependency'),local('unrelated-draft'),
+  local('shared-anchor',{visibility:'shared',effects:[{op:'addItem',key:'retained-item'}]}),
+  local('retained-item',{kind:'item',onCollect:[]})
+ );
+ chapter.nodes[0].cards.push({id:'deleted-placement',definitionId:'deleted-story'},
+  {id:'placed-elsewhere',definitionId:'still-placed'},
+  {id:'dependency-placement',definitionId:'retained-item'});
+ other.nodes[0].cards.push({id:'retained-placement',definitionId:'still-placed'});
+ // Recreate history after preparing the fixture, preserving session's undo path.
+ const history=new DocumentHistory(project),drafts=new LocalCardDrafts(),before=structuredClone(project);
+ const outcome=transactDocument(history,drafts,draft=>applyDocumentCommand(draft,{chapterId:chapter.id},'delete-chapter',{id:chapter.id},drafts));
+ assert.equal(outcome.failure,undefined);
+ const ids=new Set(outcome.project.library.map(d=>d.id));
+ for(const id of ['deleted-story','deleted-item'])assert.equal(ids.has(id),false,id);
+ for(const id of ['still-placed','shared-dependency','unrelated-draft','shared-anchor','retained-item'])assert.equal(ids.has(id),true,id);
+ assert.deepEqual(validateProject(outcome.project),[]);
+ history.undo();assert.deepEqual(history.document,before);
+ history.redo();assert.deepEqual(history.document,outcome.project);
+});

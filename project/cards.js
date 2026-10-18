@@ -15,7 +15,8 @@ export const isStoryKind = kind => ['event','caption'].includes(canonicalCardKin
 export const collectionEffects = card => card.onCollect ?? card.effects ?? [];
 const actionOverrideKeys = Object.freeze(['conditions', 'costs', 'effects', 'resolution', 'check', 'successEffects', 'failureEffects']);
 const itemOverrideKeys = Object.freeze(['onCollect', 'permability']);
-export const placementOverrideKeys = kind => canonicalCardKind(kind) === 'item' ? itemOverrideKeys : actionOverrideKeys;
+const storyOverrideKeys = Object.freeze(['effects']);
+export const placementOverrideKeys = kind => canonicalCardKind(kind) === 'item' ? itemOverrideKeys : isStoryKind(kind) ? storyOverrideKeys : actionOverrideKeys;
 export function createDefinition(kind, id) {
   kind = canonicalCardKind(kind);
   if (!Object.hasOwn(cardKinds, kind)) throw new TypeError(`Unknown card kind: ${kind}`);

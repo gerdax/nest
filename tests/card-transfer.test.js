@@ -6,6 +6,7 @@ import {createNode, synchronizeConnections} from '../studio/commands.js';
 import {cardTransferSlot, transferCard} from '../studio/card-transfer.js';
 import {applyDocumentCommand} from '../studio/document-commands.js';
 import {DocumentHistory} from '../editor/DocumentHistory.js';
+import {normalizeLocalOwnership} from '../project/local-ownership.js';
 import {LocalCardDrafts} from '../studio/local-card-drafts.js';
 import {transactDocument} from '../studio/document-session.js';
 
@@ -177,6 +178,7 @@ for (const copy of [false, true]) test(`transfer-card command is one undoable tr
   const f = fixture('fork','fork','action');
   f.source.connections = {[f.placement.id]:null};
   synchronizeConnections(f.project);
+  normalizeLocalOwnership(f.project);
   const history = new DocumentHistory(f.project), drafts = new LocalCardDrafts();
   const selection = {chapterId:f.chapter.id, selected:f.source.id, mode:'chapter'};
   const run = data => transactDocument(history, drafts, draft => applyDocumentCommand(draft, selection, 'transfer-card', data, drafts));

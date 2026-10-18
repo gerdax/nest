@@ -1,7 +1,7 @@
 import { definitionGraph } from '../project/dependencies.js';
 import { walk } from '../project/model-data.js';
 import { outputsForNode, connectionForOutput } from '../project/graph.js';
-import { uid, remapInventory } from './commands.js';
+import { uid, remapInventory, preserveCopiedInventoryAliases } from './commands.js';
 
 function variableReferences(value) {
   const ids = new Set();
@@ -53,7 +53,8 @@ export function pasteNodeClipboard(project, chapter, payload, {position} = {}) {
     variableIds.set(source.id, variable.id);
     variables.push(variable);
   }
-  const cloneLocal = !payload.cut || (crossChapter && variableIds.size > 0);
+  const cloneLocal = !payload.cut || crossChapter;
+  const clonedDefinitions = new Map();
   const currentDefinitions = new Map(project.library.map(definition => [definition.id, definition]));
   const graph = definitionGraph({...project, library:[...payload.definitions.filter(definition => !currentDefinitions.has(definition.id)), ...project.library]});
   const sharedDependencies = new Set();
@@ -63,20 +64,23 @@ export function pasteNodeClipboard(project, chapter, payload, {position} = {}) {
   }
   for (const source of payload.definitions) {
     const existing = currentDefinitions.get(source.id);
-    // Shared rules make these Items global inventory dependencies regardless of
-    // authoring visibility. Reuse or restore their exact definition identity.
-    const sharedInventoryDependency = source.kind === 'item' && sharedDependencies.has(source.id);
+    // Preserve legacy shared inventory identity within its chapter. Across
+    // chapters every local definition receives an independent destination owner.
+    const sharedInventoryDependency = !crossChapter && source.kind === 'item' && sharedDependencies.has(source.id);
     if ((!cloneLocal || source.visibility !== 'local' || sharedInventoryDependency) && existing) continue;
     const definition = structuredClone(source);
     if (cloneLocal && source.visibility === 'local' && !sharedInventoryDependency) {
       definition.id = uid(source.kind);
       delete definition.inventoryKey;
       definitionIds.set(source.id, definition.id);
-      inventoryIds.set(source.id, definition.id);
-      if (source.inventoryKey) inventoryIds.set(source.inventoryKey, definition.id);
+      if (source.kind === 'item') inventoryIds.set(source.id, definition.id);
+      clonedDefinitions.set(source.id, definition);
     }
+    if (definition.visibility === 'local') definition.chapterId = chapter.id;
+    else delete definition.chapterId;
     definitions.push(definition);
   }
+  preserveCopiedInventoryAliases(payload.definitions, clonedDefinitions, inventoryIds);
   for (const value of [node, ...definitions]) {
     walk(value, entry => {
       if (definitionIds.has(entry.definitionId)) entry.definitionId = definitionIds.get(entry.definitionId);

@@ -28,10 +28,13 @@ export function cardFields(project,definition,scope='definition',showPreview=tru
 function cardRuleFields(project,definition,scope) {
  let html='';
  if(definition.kind==='action')html+=actionFields(project,definition,'',scope);
- if(isStoryKind(definition.kind))html+=rules(project,definition.effects,'effects',scope,'effects',{label:'On progression effects',help:'Apply when this card is advanced or selected.'});
+ if(isStoryKind(definition.kind))html+=progressionRuleFields(project,definition,'',scope);
  if(definition.kind==='item')html+=itemRuleFields(project,definition,'',scope);
 
  return html;
+}
+function progressionRuleFields(project,card,prefix,scope) {
+ return rules(project,card.effects,`${prefix}effects`,scope,'effects',{label:'On progression effects',help:'Apply when this card is advanced or selected.'});
 }
 function itemRuleFields(project,item,prefix,scope) {
  return rules(project,item.onCollect,`${prefix}onCollect`,scope,'effects',{label:'On collect effects',help:'Taking this item grants ownership automatically and applies these effects. Discarding it applies none.'})
@@ -67,11 +70,14 @@ export function placementInspector(project,p,kind,index,slot,count=Infinity) {
  if(local&&kind==='action')html+=cardRuleFields(project,definition,'local-definition');
  if(kind!=='action')html+=rules(project,p.conditions,'conditions','placement','conditions',{label:'Appearance conditions',help:kind==='item'?'All conditions must pass for this item to appear here. They do not limit Action triggers after collection.':'All conditions must pass for this card to appear here.'});
  if(local&&kind!=='action')html+=cardRuleFields(project,definition,'local-definition');
- if(kind!=='item'&&kind!=='action')html+=rules(project,p.effects,'effects','placement','effects',{label:'Additional effects',help:'Apply only to this placement when it completes, in addition to its source effects.'});
- if(['action','item'].includes(kind)&&!local&&definition) {
+ if((['action','item'].includes(kind)||isStoryKind(kind))&&!local&&definition) {
   if(!p.overrides)html+=`<p class="small">Using source rules · ${esc(cardSummary(definition,project.variables,project.library)||'No requirements, costs or effects')}${kind==='action'?` · Resolution: ${definition.resolution==='check'?'Dice check':'Direct'}`:''}</p>`;
   html+=checkbox('Use custom rules',!!p.overrides,'useCustomRules','placement');
-  if(p.overrides)html+=kind==='action'?actionFields(project,{...card,...p.overrides},'overrides.','placement'):itemRuleFields(project,{...definition,...p.overrides},'overrides.','placement');
+  if(p.overrides){
+   if(kind==='action')html+=actionFields(project,{...card,...p.overrides},'overrides.','placement');
+   else if(kind==='item')html+=itemRuleFields(project,{...definition,...p.overrides},'overrides.','placement');
+   else html+=progressionRuleFields(project,{...definition,...p.overrides},'overrides.','placement');
+  }
  }
  html+='</div>';
  html+=`<div class="inspector-card-preview" data-card-preview data-preview-placement="${esc(p.id)}"></div>`;

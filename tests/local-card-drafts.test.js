@@ -1,3 +1,4 @@
+import { normalizeLocalOwnership } from '../project/local-ownership.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -178,7 +179,7 @@ test('Clear is one undoable edit, defaults local rules/settings and preserves ID
   }), true);
   const after = history.document, clearedNode = after.chapters[0].nodes.find(n => n.id === node.id), p = clearedNode.choices[0];
   assert.deepEqual(p, {id, definitionId});
-  assert.deepEqual(definition(after, p), {...createDefinition('action', definitionId), visibility:'local'});
+  assert.deepEqual(definition(after, p), {...createDefinition('action', definitionId), visibility:'local', chapterId:project.chapters[0].id});
   assert.equal(clearedNode.connections[id], 'arrival');
   assert.equal(history.undo(), true); assert.deepEqual(history.document, before);
   assert.equal(history.redo(), true); assert.deepEqual(history.document, after);
@@ -453,6 +454,8 @@ test('repeated type and Library switching bounds local definitions and respects 
   state.chapter.nodes.push(other); other.cards[0].definitionId = alsoUsed.id;
   switchTo(state, 'local:caption');
   assert.ok(state.project.library.some(d => d.id === alsoUsed.id));
+  normalizeLocalOwnership(state.project);
+  assert.equal(state.project.library.find(d=>d.id===retained.id).visibility,'shared');
   synchronizeConnections(state.project);
   assert.deepEqual(validateProject(state.project), []);
 });

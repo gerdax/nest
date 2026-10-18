@@ -1,3 +1,4 @@
+import { normalizeLocalOwnership } from './local-ownership.js';
 import { retainsInventoryItems } from './nodeTypes.js';
 import { canonicalCardKind, resolvePlacement } from './cards.js';
 import { projectCardBack } from './card-backs.js';
@@ -8,7 +9,7 @@ import { discardPlacementContext, normalizeSingleItems } from './normalization.j
 
 export function compileChapter(project, chapterId = project.activeChapterId) {
   // All resolved mechanics and normalization must operate on detached data.
-  project = cloneProject(project);
+  project = normalizeLocalOwnership(cloneProject(project));
   const index = createLibraryIndex(list(project?.library));
   discardPlacementContext(project, index);
   const chapter = project.chapters.find(c => c.id === chapterId);

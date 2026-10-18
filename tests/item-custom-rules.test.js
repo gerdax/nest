@@ -1,3 +1,4 @@
+import { normalizeLocalOwnership } from '../project/local-ownership.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createProject, compileChapter, validateProject, parseProject, exportChapter, importChapter } from '../project/model.js';
@@ -155,6 +156,7 @@ test('serialization, portable dependency export and conflict import preserve and
   chapter.variables = [{id:'local-energy', type:'number', initial:1}];
   project.library.push({...createDefinition('item', 'battery'), visibility:'local', onCollect:[{op:'addItem', key:'spare'}]}, {...createDefinition('item', 'spare'), visibility:'local'});
   placement.overrides.onCollect = [{op:'addItem', key:'battery'}, {op:'add', key:'local-energy', value:2}];
+  normalizeLocalOwnership(project);
   assert.deepEqual(validateProject(project), []);
   assert.deepEqual(parseProject(JSON.stringify(project)), project);
   const pkg = exportChapter(project), before = structuredClone(pkg);

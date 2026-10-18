@@ -15,6 +15,8 @@
 #canvas .graph-card-name {display:block;min-width:0;width:fit-content;max-width:100%;border:0;border-radius:0;padding:0;text-align:left;background:transparent;color:var(--card-editor-tint);overflow-wrap:anywhere;font-size:12px;line-height:1.6;cursor:pointer;}
 #canvas .graph-card-name:hover {text-decoration:underline;}
 #canvas .graph-card-name small {display:block;color:#a9b9b7;font-size:10px;}
+#canvas .graph-card-label {min-width:0;}
+#canvas .graph-card-rules {display:block;color:#e1e8e6;font-size:10px;line-height:1.4;}
 #canvas .graph-card-outputs .port {display:flex;align-items:center;justify-content:flex-end;gap:4px;border:0;padding:0 0 0 4px;min-height:20px;font-size:11px;border-radius:0;overflow-wrap:anywhere;}
 #canvas .graph-card-outputs .port::after {flex:none;}
 #canvas .graph-card-outputs .port + .port {margin-top:5px;}

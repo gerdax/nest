@@ -1,3 +1,4 @@
+import { normalizeLocalOwnership } from './local-ownership.js';
 import { normalizeStats } from './checks.js';
 import { parseChapter } from '../chapter/model.js';
 import { canonicalCardKind } from './cards.js';
@@ -9,6 +10,7 @@ import { discardPlacementContext, normalizeSingleItems } from './normalization.j
 import { validateProject } from './validation.js';
 
 export function exportChapter(project, id = project.activeChapterId) {
+  project = normalizeLocalOwnership(cloneProject(project));
   const chapter = project.chapters.find(c => c.id === id);
   if (!chapter) throw new TypeError('Unknown chapter.');
   const ids = definitionGraph(project).reachableFrom(chapter);
@@ -24,14 +26,16 @@ export function exportChapter(project, id = project.activeChapterId) {
 }
 
 export function importChapter(project, pkgOrV1) {
-  const next = cloneProject(project);
+  const next = normalizeLocalOwnership(cloneProject(project));
   const imported = pkgOrV1.version === 1 ? migrateChapter(pkgOrV1) : pkgOrV1.kind === 'nest-project' ? cloneProject(pkgOrV1) : {library: cloneProject(pkgOrV1.library),
     variables: cloneProject(pkgOrV1.variables || []), chapters: [cloneProject(pkgOrV1.chapter)]};
+  normalizeLocalOwnership(imported);
   if (next.switchCardBackIcons === undefined && pkgOrV1.switchCardBackIcons !== undefined) next.switchCardBackIcons = pkgOrV1.switchCardBackIcons;
   if (!next.cardStyles && pkgOrV1.cardStyles) next.cardStyles = cloneProject(pkgOrV1.cardStyles);
   for (const definition of imported.library) definition.kind = canonicalCardKind(definition.kind);
   const defMap = new Map(), varMap = new Map(), chapterIds = new Set(next.chapters.map(c => c.id)), defs = new Set(next.library.map(d => d.id)),
     vars = new Set([...next.variables, ...next.chapters.flatMap(c => list(c.variables))].map(v => v.id));
+  const chapterMap = new Map(imported.chapters.map(chapter => [chapter.id, unique(chapter.id, chapterIds)]));
   const inventoryUsed = new Set(next.library.filter(d => d.kind === 'item').flatMap(d => [d.id, d.inventoryKey].filter(Boolean)));
   const allocateDefinition = d => {
     const used = d.kind === 'item' ? new Set([...defs, ...inventoryUsed]): defs;
@@ -103,6 +107,7 @@ export function importChapter(project, pkgOrV1) {
     if (reused.has(old)) continue;
     remap(d);
     d.id = defMap.get(old);
+    if (d.visibility === 'local') d.chapterId = chapterMap.get(d.chapterId) || d.chapterId;
     if (d.inventoryKey) d.inventoryKey = aliases.get(d.inventoryKey) || d.inventoryKey;
     next.library.push(d);
   }
@@ -114,11 +119,11 @@ export function importChapter(project, pkgOrV1) {
     remap(c);
     for (const variable of list(c.variables)) variable.id = localVarMap.get(variable.id) || variable.id;
     if (c.initialValues) c.initialValues = Object.fromEntries(Object.entries(c.initialValues).map(([k, v]) => [ruleVarMap.get(k) || k, v]));
-    c.id = unique(c.id, chapterIds);
+    c.id = chapterMap.get(c.id);
     next.chapters.push(c);
     next.activeChapterId = c.id;
   }
-  return normalizeStats(normalizeSingleItems(discardPlacementContext(next)));
+  return normalizeStats(normalizeSingleItems(discardPlacementContext(normalizeLocalOwnership(next))));
 }
 
 export function parseProject(text, {allowDraft = false} = {}) {
@@ -134,6 +139,7 @@ export function parseProject(text, {allowDraft = false} = {}) {
     cardStyles: value.cardStyles || {}, cardBack: value.cardBack, switchCardBackIcons: value.switchCardBackIcons,
     chapters: [value.chapter]};
   for (const definition of list(value?.library)) if (object(definition)) definition.kind = canonicalCardKind(definition.kind);
+  normalizeLocalOwnership(value);
   discardPlacementContext(value);
   normalizeSingleItems(value);
   normalizeStats(value);

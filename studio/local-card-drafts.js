@@ -99,6 +99,7 @@ export class LocalCardDrafts {
   const template=snapshot?.definition || (source.kind===kind?{...source,...p.overrides}:null);
   const previousPlacement=pick(p,placementKeys);
   let definition=replaceCard(project,p,kind);
+  const chapterId=definition.chapterId;
   if(snapshot){
    const existing=project.library.find(d=>d.id===snapshot.definition.id);
    if(!existing||existing.visibility==='local'){
@@ -115,6 +116,7 @@ export class LocalCardDrafts {
    Object.assign(definition,structuredClone(template),{id,kind,visibility:'local'});
    if(!snapshot||id!==snapshot.definition.id)delete definition.inventoryKey;
   }
+  definition.chapterId=chapterId;
   for(const key of commonKeys)delete definition[key];
   Object.assign(definition,draft?.common||pick(source,commonKeys));
   for(const key of placementKeys)delete p[key];
@@ -139,6 +141,7 @@ export class LocalCardDrafts {
   const defaults=createDefinition(source.kind,source.id);
   // Inventory aliases are identity, rather than an editable field.
   if(source.inventoryKey!==undefined)defaults.inventoryKey=source.inventoryKey;
+  if(source.chapterId!==undefined)defaults.chapterId=source.chapterId;
   for(const key of Object.keys(source))delete source[key];
   Object.assign(source,defaults,{visibility:'local'});
   for(const key of Object.keys(p))if(!['id','definitionId'].includes(key))delete p[key];

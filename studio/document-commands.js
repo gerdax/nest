@@ -1,12 +1,12 @@
 import { isStatVariable } from '../project/checks.js';
-import { createDefinition, allowedCardKinds } from '../project/cards.js';
+import { createDefinition, allowedCardKinds, isStoryKind } from '../project/cards.js';
 import { chapterVariables, createChapter, importChapter, outputsForNode } from '../project/model.js';
-import { deleteDefinition, cleanupLocalDefinitions } from '../project/dependencies.js';
+import { deleteDefinition, cleanupLocalDefinitions, definitionGraph } from '../project/dependencies.js';
 import { pasteNodeClipboard } from './node-clipboard.js';
 import { transferCard } from './card-transfer.js';
 import {
   uid, createNode, makePlacement, promoteCard, duplicateNode, duplicatePlacement,
-  findPlacement, pathTarget, customizeAction, customizeItem, newRule, normalizeRule, addHealthVariable,
+  findPlacement, pathTarget, customizeAction, customizeItem, customizeStory, newRule, normalizeRule, addHealthVariable,
 } from './commands.js';
 
 function chapterFor(project, selection) {
@@ -58,12 +58,13 @@ function changeField(project, selection, field, localDrafts) {
     if (checked) {
       const definition=project.library.find(card=>card.id===root.definitionId);
       if(definition?.kind==='item')customizeItem(project,root);
+      else if(isStoryKind(definition?.kind))customizeStory(project,root);
       else customizeAction(project,root);
     }
     else delete root.overrides;
     return;
   }
-  if (scope === 'node' && path === 'introEnabled' && checked && root.type === 'fork' && !root.intro) root.intro = makePlacement(project, 'event');
+  if (scope === 'node' && path === 'introEnabled' && checked && root.type === 'fork' && !root.intro) root.intro = makePlacement(project, 'event', undefined, chapterFor(project, selection).id);
   if (scope === 'placement' && path === 'definitionId') {
     localDrafts.switchSource(project, root, raw, {allowedKinds:allowedCardKinds(node.type, node.intro === root ? 'intro' : node.type === 'container' ? 'items' : 'cards')});
     return;
@@ -118,7 +119,7 @@ function inspectorCommand(project, selection, data, localDrafts) {
     case 'local-copy': localDrafts.convert(project, placement); break;
     case 'clear-card': localDrafts.clear(project, placement); break;
     case 'promote-card': promoteCard(project, placement); localDrafts.drafts.delete(placement.id); break;
-    case 'add-placement': node[data.slot].push(makePlacement(project, data.kind)); break;
+    case 'add-placement': node[data.slot].push(makePlacement(project, data.kind, undefined, chapterFor(project, selection).id)); break;
     case 'duplicate-placement': duplicatePlacement(project, node, placement); break;
     case 'remove-placement':
       localDrafts.removePlacement(project, placement);
@@ -169,13 +170,18 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
       if (project.chapters.length <= 1) throw new Error('The project must keep at least one chapter.');
       const index = project.chapters.findIndex(candidate => candidate.id === (data.id ?? selection.chapterId));
       if (index < 0) throw new Error('The chapter no longer exists.');
+      const removedChapterId = project.chapters[index].id;
+      const removedDefinitions = definitionGraph(project).reachableFrom(project.chapters[index]);
       project.chapters.splice(index, 1);
+      const retained = definitionGraph(project).retained();
+      project.library = project.library.filter(card => card.visibility !== 'local'
+        || !removedDefinitions.has(card.id) && card.chapterId !== removedChapterId || retained.has(card.id));
       const next = project.chapters[Math.min(index, project.chapters.length - 1)];
       project.activeChapterId = next.id;
       return {selection:{chapterId:next.id, selected:next.startNode}};
     }
     case 'add-chapter': {
-      const added = createChapter(uid('chapter'), `Chapter ${project.chapters.length+1}`), first = createNode(project, 'linear');
+      const added = createChapter(uid('chapter'), `Chapter ${project.chapters.length+1}`), first = createNode(project, 'linear', undefined, added.id);
       added.nodes.push(first); added.startNode = first.id; project.chapters.push(added); project.activeChapterId = added.id;
       return {selection:{chapterId:added.id, selected:first.id}};
     }
@@ -184,7 +190,7 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
       return {selection:{definitionId:added.id, mode:'library'}};
     }
     case 'add-node': {
-      const added = createNode(project, data.type, data.position); chapter.nodes.push(added);
+      const added = createNode(project, data.type, data.position, chapter.id); chapter.nodes.push(added);
       if (!chapter.startNode) chapter.startNode = added.id;
       return {selection:{selected:added.id}};
     }
@@ -200,7 +206,7 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
       const source = chapter?.nodes.find(candidate => candidate.id === data.id);
       if (!source) throw new Error('The source beat no longer exists.');
       if (!outputsForNode(project, source).includes(data.exit)) throw new Error('The source output no longer exists.');
-      const added = createNode(project, data.type, data.position);
+      const added = createNode(project, data.type, data.position, chapter.id);
       chapter.nodes.push(added);
       setConnection(source, data.exit, added.id);
       return {selection:{selected:added.id}};

@@ -19,7 +19,7 @@ test('switching checked Action to Narrative preserves success destination as its
  const {project,node,p}=setup(),d=project.library.find(d=>d.id===p.definitionId);d.resolution='check';synchronizeConnections(project);
  const destination=node.connections[p.id+':success'];setCardSource(project,p,'arrival',{allowedKinds:allowedCardKinds('fork')});synchronizeConnections(project);
  assert.deepEqual(outputsForNode(project,node),[p.id]);assert.equal(node.connections[p.id],destination);assert.equal(node.connections[p.id+':failure'],undefined);
- const html=nodeInspector(project,project.chapters[0],node);assert.doesNotMatch(html,/Use custom rules/);assert.doesNotMatch(html,/If requirements not met/);
+ const html=nodeInspector(project,project.chapters[0],node);assert.match(html,/Use custom rules/);assert.doesNotMatch(html,/If requirements not met|overrides.resolution/);
 });
 
 test('mixed Fork resolves only selected Narrative effects and follows its branch',()=>{

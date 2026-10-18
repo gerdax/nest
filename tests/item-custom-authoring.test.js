@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createProject } from '../project/model.js';
 import { resolvePlacement } from '../project/cards.js';
-import { nodeInspector } from '../studio/inspectors.js';
+import { nodeInspector, placementInspector } from '../studio/inspectors.js';
 import { applyDocumentCommand } from '../studio/document-commands.js';
 import { LocalCardDrafts } from '../studio/local-card-drafts.js';
 import { DocumentHistory } from '../editor/DocumentHistory.js';
@@ -50,7 +50,7 @@ test('local Item conversion preserves custom values and edits its own rules dire
  assert.equal(local.visibility,'local');assert.equal(local.permability,1);
  assert.deepEqual(local.onCollect,[{op:'add',key:'energy',value:4}]);
  assert.equal(definition.permability,3);
- const html=nodeInspector(project,chapter,node);
+ const html=placementInspector(project,placement,'item',0,'items');
  assert.match(html,/data-scope="local-definition" data-path="permability"/);
  assert.doesNotMatch(html,/Use custom rules|data-path="overrides\./);
 });
