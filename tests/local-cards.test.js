@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createProject,compileChapter,exportChapter,importChapter,validateProject,parseProject,discardPlacementContext} from '../project/model.js';
 import {createNode,replaceCard,promoteCard,synchronizeConnections,duplicateNode,duplicatePlacement,setCardSource,customizeAction} from '../studio/commands.js';
-import {nodeInspector} from '../studio/inspectors.js';
+import {nodeInspector,projectSettingsInspector} from '../studio/inspectors.js';
 import {saveProject,loadProject} from '../project/storage.js';
 import {DocumentHistory} from '../editor/DocumentHistory.js';
 
@@ -237,4 +237,26 @@ test('unnamed existing cards show Untitled in the inspector, distinct from missi
  }
  project.library=project.library.filter(d=>d!==definition);
  assert.match(nodeInspector(project,chapter,node),/Missing definition/);
+});
+
+test('project availability policies render globally and survive project/chapter round trips',()=>{
+ const project=createProject();
+ const settings=projectSettingsInspector(project);
+ assert.match(settings,/data-scope="project" data-path="ownedItemsVisibility"/);assert.match(settings,/data-scope="project" data-path="unavailableActions"/);
+ assert.equal(project.ownedItemsVisibility,'disabled');assert.equal(project.unavailableActions,'disabled');
+ project.ownedItemsVisibility='hidden';project.unavailableActions='hidden';
+ const parsed=parseProject(JSON.stringify(project)),chapterParsed=parseProject(JSON.stringify(exportChapter(project)));
+ for(const restored of [parsed,chapterParsed]) {
+  const compiled=compileChapter(restored);assert.equal(compiled.ownedItemsVisibility,'hidden');assert.equal(compiled.unavailableActions,'hidden');
+ }
+ const destination=createProject();destination.ownedItemsVisibility='disabled';destination.unavailableActions='disabled';
+ const imported=importChapter(destination,exportChapter(project));
+ assert.equal(imported.ownedItemsVisibility,'disabled');assert.equal(imported.unavailableActions,'disabled');
+ const before=structuredClone(project);delete project.ownedItemsVisibility;delete project.unavailableActions;
+ assert.equal(compileChapter(project).ownedItemsVisibility,'disabled');assert.equal(compileChapter(project).unavailableActions,'disabled');
+ assert.equal(project.ownedItemsVisibility,undefined);assert.equal(project.unavailableActions,undefined);
+ for(const key of ['ownedItemsVisibility','unavailableActions']) {
+  project[key]='invalid';assert.ok(validateProject(project).some(e=>e.message.includes(key)));delete project[key];
+ }
+ assert.equal(before.ownedItemsVisibility,'hidden');
 });

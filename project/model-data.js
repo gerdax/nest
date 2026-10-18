@@ -43,6 +43,8 @@ export function createProject() {
     id: 'project-1',
     name: 'First expedition',
     allowCycles: true,
+    ownedItemsVisibility: 'disabled',
+    unavailableActions: 'disabled',
     activeChapterId: 'chapter-1',
     library: [event, item, action],
     variables: [

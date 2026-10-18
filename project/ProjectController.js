@@ -33,6 +33,13 @@ export class ProjectController {
     }
   }
   type(location=this.location) {return location?.sequence?.type ?? location?.node.type;}
+  ownsItem(item, inventory=this.inventory) {
+    return inventory.some(owned => (owned.definitionId ?? owned.id) === (item.definitionId ?? item.id)
+      || item.inventoryKey != null && owned.inventoryKey === item.inventoryKey);
+  }
+  hidesOwnedItem(item, inventory=this.inventory) {
+    return this.compiled.ownedItemsVisibility === 'hidden' && this.ownsItem(item, inventory);
+  }
   runtimeItem(card, location=this.location) {
     return this.itemReplacements.get(this.key(location))?.get(card?.id) ?? card;
   }
@@ -69,7 +76,7 @@ export class ProjectController {
   items(location=this.location, values=this.variables, inventory=this.inventory, excluded=null) {
     if(excluded?.all&&excluded.key===this.key(location))return [];
     const raw=this.remaining.get(this.key(location)) ?? location.sequence?.items ?? location.node.items ?? [];
-    return raw.map(i=>this.runtimeItem(i,location)).filter(i=>!this.itemExcluded(i.id,location,excluded) && conditionsMet(i.conditions,values,inventory));
+    return raw.map(i=>this.runtimeItem(i,location)).filter(i=>!this.itemExcluded(i.id,location,excluded) && conditionsMet(i.conditions,values,inventory) && !this.hidesOwnedItem(i,inventory));
   }
   weighted(routes) {
     if(!routes.length)return null;
@@ -145,8 +152,10 @@ export class ProjectController {
       const cards=location.sequence?.cards ?? location.node.cards ?? [];
       while(location.index<cards.length) {
         const card=this.runtimeItem(cards[location.index],location);
-        const hiddenAction=card.kind==='action'&&card.unavailable==='hidden'&&!affordCosts(values,inventory,card.costs,this.compiled.variables);
-        if(this.linearItemRemaining(card,location,excluded)&&conditionsMet(card.conditions,values,inventory)&&!hiddenAction)break;
+        const available=conditionsMet(card.conditions,values,inventory);
+        const hiddenAction=card.kind==='action'&&this.compiled.unavailableActions==='hidden'&&(!available||!affordCosts(values,inventory,card.costs,this.compiled.variables));
+        const hiddenItem=card.kind==='item'&&this.hidesOwnedItem(card,inventory);
+        if(this.linearItemRemaining(card,location,excluded)&&(available||card.kind==='action')&&!hiddenAction&&!hiddenItem)break;
         location={...location,index:location.index+1};
       }
       if(location.index>=cards.length)return this.nextStep(location);
@@ -186,6 +195,7 @@ export class ProjectController {
     return this.next(location,output,values,inventory,new Set(),null,preview);
   }
   departureBlocked(source,location=this.location,values=this.variables,inventory=this.inventory,transition=null,excludedItem=null) {
+    if(transition==='collect'&&this.ownsItem(source,inventory))return true;
     try {
       const outcomes=source.resolution==='check'?[true,false]:[undefined];
       for(const outcome of outcomes) {
@@ -225,13 +235,13 @@ export class ProjectController {
     if(fork)actions=this.choices(location).flatMap(c=>{
       if(c.contextItemId&&!conditionsMet([{source:'inventory',key:c.contextInventoryKey ?? c.contextItemId,op:'has'}],values,inventory))return [];
       const available=conditionsMet(c.conditions,values,inventory)&&affordCosts(values,inventory,c.costs,this.compiled.variables);
-      return !available&&c.unavailable==='hidden'?[]:[{...this.action(c,values),disabled:!available||this.departureBlocked(c,location,values,inventory)}];
+      return !available&&this.compiled.unavailableActions==='hidden'?[]:[{...this.action(c,values),disabled:!available||this.departureBlocked(c,location,values,inventory)}];
     });
-    else if(container)actions=this.items(location,values,inventory,excludedItem).map(c=>({...this.action(c,values),discardDisabled:this.departureBlocked(c,location,values,inventory,'discard',excludedItem),collectDisabled:this.departureBlocked(c,location,values,inventory,'collect',excludedItem)}));
+    else if(container)actions=this.items(location,values,inventory,excludedItem).map(c=>({...this.action(c,values),alreadyOwned:this.ownsItem(c,inventory),discardDisabled:this.departureBlocked(c,location,values,inventory,'discard',excludedItem),collectDisabled:this.departureBlocked(c,location,values,inventory,'collect',excludedItem)}));
     else if(linearFace)actions=[{...this.action(card,values),disabled:!conditionsMet(card.conditions,values,inventory)||!affordCosts(values,inventory,card.kind==='action'?card.costs:[],this.compiled.variables)}];
     else actions=[{id:'continue',label:'Continue',image:card?.image,flipImage:!!card?.flipImage}];
     if(linearFace) {
-      if(linearItem)Object.assign(actions[0],{discardDisabled:this.departureBlocked(card,location,values,inventory,'discard'),collectDisabled:this.departureBlocked(card,location,values,inventory,'collect')});
+      if(linearItem)Object.assign(actions[0],{alreadyOwned:this.ownsItem(card,inventory),discardDisabled:this.departureBlocked(card,location,values,inventory,'discard'),collectDisabled:this.departureBlocked(card,location,values,inventory,'collect')});
       else actions[0].disabled ||= this.departureBlocked(card,location,values,inventory);
     }
     if(container||linearItem)for(const action of actions)action.disabled ||= action.collectDisabled&&action.discardDisabled;
@@ -332,13 +342,13 @@ export class ProjectController {
   }
   cancelCheck() {if(!this.checking)return false;this.checking.abort();this.checking=null;++this.generation;this.show({restore:true});return true;}
   collectionInventory(item, replacementId) {
-    const existing = this.inventory.some(owned => (owned.definitionId ?? owned.id) === (item.definitionId ?? item.id) || item.inventoryKey && owned.inventoryKey === item.inventoryKey);
+    if (this.ownsItem(item)) throw new Error('Item is already owned');
     let inventory = this.inventory;
-    if (replacementId && !existing) {
+    if (replacementId) {
       if (inventory.length < 4 || !inventory.some(owned => (owned.definitionId ?? owned.id) === replacementId)) throw new Error('Inventory replacement is no longer available');
       inventory = inventory.filter(owned => (owned.definitionId ?? owned.id) !== replacementId);
     }
-    if (!existing && !replacementId && inventory.length >= 4 && this.deck.pickup) throw new Error('Choose an inventory item to replace');
+    if (!replacementId && inventory.length >= 4 && this.deck.pickup) throw new Error('Choose an inventory item to replace');
     return inventory;
   }
   authorizeCollection(action, decision) {

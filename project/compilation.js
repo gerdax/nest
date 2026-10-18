@@ -14,6 +14,8 @@ export function compileChapter(project, chapterId = project.activeChapterId) {
   if (!chapter) throw new TypeError(`Unknown chapter: ${chapterId}`);
   const result = cloneProject(chapter);
   result.allowCycles = project.allowCycles !== false;
+  result.ownedItemsVisibility = project.ownedItemsVisibility ?? 'disabled';
+  result.unavailableActions = project.unavailableActions ?? 'disabled';
   delete result.backImage;
   result.cardBack = {...projectCardBack(project), switchIcons: project.switchCardBackIcons !== false};
   result.cardStyles = cloneProject(project.cardStyles || {});

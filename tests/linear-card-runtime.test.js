@@ -65,8 +65,9 @@ test('Linear collection removes only that placement and preserves story replay',
   {id:'other',type:'linear',cards:[item('shared')],connections:{next:'linear'}}];
  const {deck,controller}=real(nodes);
  key(deck,'ArrowUp');deck.collect();settle();assert.equal(controller.state.activeNodeId,'other','same ID in another node stays available');
- deck.collect();settle();assert.equal(controller.state.cardId,'story');assert.equal(deck.content.nextDeckPreview.content.text,'story','preview skips exhausted item nodes');
- key(deck,'ArrowUp');assert.equal(controller.state.cardId,'story','narrative remains replayable while items stay removed');
+ assert.equal(deck.content.actions[0].collectDisabled,true,'another placement of an owned item cannot be collected');
+ deck.discard();settle();assert.equal(controller.state.cardId,'story');assert.equal(deck.content.nextDeckPreview.content.actions[0].collectDisabled,true,'preview keeps the uncollected owned placement unavailable');
+ key(deck,'ArrowUp');assert.equal(controller.state.activeNodeId,'other');deck.discard();settle();assert.equal(controller.state.cardId,'story','narrative remains replayable while collected placements stay removed');
  dispose(deck,controller);
 });
 
@@ -140,8 +141,8 @@ for(const resolution of ['collect','discard'])test(`terminal Linear item ${resol
  deck[resolution]();assert.equal(controller.state.completed,false);assert.equal(controller.state.collectedItems.length,0);assert.equal(controller.state.variables.energy,4);settle();assert.equal(controller.state.completed,true);assert.equal(deck.phase,'ended');assert.equal(controller.state.collectedItems.length,resolution==='collect'?1:0);assert.equal(controller.state.variables.energy,resolution==='collect'?6:4);dispose(deck,controller);
 });
 
-test('Linear conditions skip cards, hidden costs skip actions, and disabled costs can unlock through inventory use',()=>{
- const errors=[];const {deck,controller}=real(linear([{...item('skipped'),conditions:[{source:'variable',key:'energy',op:'gte',value:10}]},action('hidden',{unavailable:'hidden',costs:[{source:'variable',key:'energy',amount:8}]}),action('disabled',{costs:[{source:'variable',key:'energy',amount:5}]}),narrative('after')]),{variables:energy},{onError:e=>errors.push(e)});
+test('Linear conditions skip item cards and visible unavailable actions can unlock through inventory use',()=>{
+ const errors=[];const {deck,controller}=real(linear([{...item('skipped'),conditions:[{source:'variable',key:'energy',op:'gte',value:10}]},action('disabled',{costs:[{source:'variable',key:'energy',amount:5}]}),narrative('after')]),{variables:energy},{onError:e=>errors.push(e)});
  assert.equal(controller.state.cardId,'disabled');assert.equal(deck.phase,'choices');assert.equal(deck.content.actions[0].disabled,true);assert.equal(deck.content.nextDeckPreview,undefined);assert.equal(errors.length,1);key(deck,'ArrowUp');assert.equal(controller.state.cardId,'disabled');
  controller.inventory=[item('boost',{use:{effects:[{op:'add',key:'energy',value:2}]}})];assert.equal(controller.useItem('boost'),true);settle();assert.equal(deck.content.actions[0].disabled,false);key(deck,'ArrowUp');assert.equal(controller.state.cardId,'after');assert.equal(controller.state.variables.energy,1);dispose(deck,controller);
 });
@@ -396,5 +397,95 @@ test('container collection exclusions do not skip matching placements in another
  ]);
  key(deck,'ArrowDown');assert.equal(controller.location.node.id,'linear');
  assert.equal(controller.card().definitionId,'second');assert.equal(deck.content.actions[0].definitionId,'second');
+ dispose(deck,controller);
+});
+
+for(const type of ['container','linear'])for(const alias of [false,true])test(`visible owned items resist collection but permit leaving: ${type}, alias=${alias}`,()=>{
+ const duplicate=item('placement',{definitionId:alias?'alternate':'owned',inventoryKey:'shared-key',onCollect:[{op:'add',key:'energy',value:9}]});
+ const node={id:'items',type,introEnabled:false,...(type==='container'?{items:[duplicate]}:{cards:[duplicate]}),connections:{next:'after'}};
+ const errors=[];const {deck,controller}=real([node,{id:'after',type:'linear',cards:[narrative('after')],connections:{next:null}}],{variables:energy},{onError:e=>errors.push(e)});
+ controller.inventory=[item('owned',{inventoryKey:'shared-key'})];controller.show({restore:true});settle();
+ assert.equal(deck.content.actions[0].collectDisabled,true);assert.equal(deck.content.actions[0].alreadyOwned,true);
+ assert.equal(deck.content.actions[0].discardDisabled,false);assert.equal(deck.cards[0].getAttribute('aria-disabled'),'true');
+ key(deck,'ArrowDown');assert.equal(controller.location.node.id,'items');assert.equal(controller.variables.energy,4);
+ const gesture={axis:'y',x:0,y:260,vx:0,vy:700};assert.equal(deck.start(),true);deck.move(gesture);deck.end(gesture);settle();
+ assert.equal(controller.variables.energy,4);assert.equal(controller.inventory.length,1);assert.equal(controller.pendingItem,null);
+ assert.equal(controller.authorizeCollection(duplicate,{}),false);
+ controller.resolveItem({contentId:deck.content.id,action:duplicate,final:true},'collect');settle();
+ assert.equal(controller.variables.energy,4);assert.equal(controller.inventory.length,1);
+ key(deck,'ArrowUp');assert.equal(controller.location.node.id,'after');dispose(deck,controller);
+});
+
+for(const type of ['container','linear'])test(`project hidden owned items skip fully owned nodes: ${type}`,()=>{
+ const source=item('placement',{definitionId:'owned'});
+ const nodes=[{id:'items',type,introEnabled:false,...(type==='container'?{items:[source]}:{cards:[source]}),connections:{next:'after'}},
+  {id:'after',type:'linear',cards:[narrative('after')],connections:{next:null}}];
+ const {deck,controller}=real(nodes,{ownedItemsVisibility:'hidden'});
+ controller.inventory=[item('owned')];controller.adopt(controller.locate('items'),false);controller.show({restore:true});settle();
+ assert.equal(controller.location.node.id,'after');assert.equal(controller.remaining.has('items:'),false,'visibility does not consume the source placement');
+ controller.inventory=[];controller.adopt(controller.locate('items'),false);controller.show({restore:true});settle();
+ assert.equal(controller.location.node.id,'items');assert.equal(deck.content.actions[0].collectDisabled,false);
+ dispose(deck,controller);
+});
+
+for(const visibility of ['disabled','hidden'])test(`using an owned item refreshes sibling collection availability, visibility=${visibility}`,()=>{
+ const nodes=[{id:'items',type:'container',introEnabled:false,items:[item('duplicate',{definitionId:'owned'}),item('new')],connections:{next:null}}];
+ const {deck,controller}=real(nodes,{ownedItemsVisibility:visibility});
+ controller.inventory=[item('owned',{use:{effects:[]}})];controller.show({restore:true});settle();
+ assert.deepEqual(deck.content.actions.map(a=>a.id),visibility==='hidden'?['new']:['duplicate','new']);
+ assert.equal(controller.useItem('owned'),true);settle();
+ assert.deepEqual(deck.content.actions.map(a=>a.id),['duplicate','new']);assert.equal(deck.content.actions[0].collectDisabled,false);
+ key(deck,'ArrowDown');assert.equal(controller.inventory[0].definitionId,'owned');dispose(deck,controller);
+});
+
+for(const visibility of ['disabled','hidden'])test(`collecting one placement updates owned duplicates before routing, visibility=${visibility}`,()=>{
+ const nodes=[{id:'items',type:'container',introEnabled:false,items:[item('one',{definitionId:'owned'}),item('two',{definitionId:'owned'})],connections:{next:'after'}},
+  {id:'after',type:'linear',cards:[narrative('after')],connections:{next:null}}];
+ const {deck,controller}=real(nodes,{ownedItemsVisibility:visibility});
+ key(deck,'ArrowDown');assert.equal(controller.inventory.length,1);
+ if(visibility==='hidden')assert.equal(controller.location.node.id,'after');
+ else {assert.equal(controller.location.node.id,'items');assert.equal(deck.content.actions[0].id,'two');assert.equal(deck.content.actions[0].collectDisabled,true);}
+ assert.equal(controller.remaining.get('items:').some(i=>i.id==='two'),true);
+ dispose(deck,controller);
+});
+
+for(const type of ['linear','fork'])for(const visibility of ['disabled','hidden'])for(const requirement of ['conditions','costs'])test(`project unavailable-action policy overrides saved card settings: ${type}, visibility=${visibility}, requirement=${requirement}`,()=>{
+ const unavailable=action('blocked',{unavailable:visibility==='hidden'?'disabled':'hidden',...(requirement==='conditions'?{conditions:[{source:'variable',key:'energy',op:'gte',value:7}]}:{costs:[{source:'variable',key:'energy',amount:6}]})});
+ const node=type==='linear'?{id:'actions',type,cards:[unavailable,narrative('after')],connections:{next:null}}
+  :{id:'actions',type,choices:[unavailable,action('available')],connections:{blocked:null,available:null}};
+ const {deck,controller}=real([node],{variables:energy,unavailableActions:visibility});
+ if(type==='linear'&&visibility==='hidden')assert.equal(controller.card().id,'after');
+ else {
+  assert.equal(deck.content.actions.some(a=>a.id==='blocked'),visibility==='disabled');
+  if(visibility==='disabled'){assert.equal(deck.content.actions[0].disabled,true);key(deck,'ArrowUp');assert.equal(controller.location.node.id,'actions');assert.equal(controller.variables.energy,4);}
+ }
+ dispose(deck,controller);
+});
+
+
+test('hidden owned container items can be made available by their introduction',()=>{
+ const node={id:'items',type:'container',intro:{...narrative('intro'),effects:[{op:'removeItem',key:'owned'}]},items:[item('placement',{definitionId:'owned'})],connections:{next:null}};
+ const {deck,controller}=real([node],{ownedItemsVisibility:'hidden'});
+ controller.inventory=[item('owned')];controller.adopt(controller.locate('items'),false);controller.show({restore:true});settle();
+ assert.equal(controller.location.node.id,'items');assert.equal(controller.completed,false);assert.equal(deck.open,false);
+ key(deck,'ArrowUp');assert.equal(controller.inventory.length,0);assert.equal(deck.content.actions[0].id,'placement');
+ assert.equal(deck.content.actions[0].collectDisabled,false);dispose(deck,controller);
+});
+
+test('owned-item hiding detects an automatic cycle without consuming sources or inventory',()=>{
+ const node={id:'items',type:'container',introEnabled:false,items:[item('placement',{definitionId:'owned'})],connections:{next:'items'}};
+ const {deck,controller}=real([node],{ownedItemsVisibility:'hidden'});controller.inventory=[item('owned')];
+ assert.throws(()=>controller.locate('items'),/Automatic routing cycle/);
+ assert.equal(controller.inventory.length,1);assert.equal(controller.remaining.size,0);dispose(deck,controller);
+});
+
+
+for(const visibility of ['disabled','hidden'])test(`collection effects refresh ownership of other item definitions, visibility=${visibility}`,()=>{
+ const nodes=[{id:'items',type:'container',introEnabled:false,items:[item('prize',{onCollect:[{op:'addItem',key:'owned'}]}),item('duplicate',{definitionId:'owned',onCollect:[{op:'add',key:'energy',value:9}]})],connections:{next:'after'}},
+  {id:'after',type:'linear',cards:[narrative('after')],connections:{next:null}}];
+ const {deck,controller}=real(nodes,{ownedItemsVisibility:visibility,variables:energy,library:[item('owned')]});
+ key(deck,'ArrowDown');assert.deepEqual(controller.inventory.map(i=>i.definitionId),['prize','owned']);assert.equal(controller.variables.energy,4);
+ if(visibility==='hidden')assert.equal(controller.location.node.id,'after');
+ else {assert.equal(deck.content.actions[0].collectDisabled,true);key(deck,'ArrowDown');assert.equal(controller.variables.energy,4);}
  dispose(deck,controller);
 });

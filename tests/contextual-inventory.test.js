@@ -72,7 +72,7 @@ test('missing linked ownership always hides; owned cards keep disabled/hidden ru
   assert.equal(deck.content.actions[0].disabled,false);assert.equal(deck.content.actions[2].disabled,true);
   const pry=controller.choices().find(c=>c.id==='pry-choice');pry.conditions.push({source:'variable',key:'energy',op:'gte',value:3});
   controller.show();assert.equal(deck.content.actions.find(a=>a.id==='pry-choice').disabled,true);
-  pry.unavailable='hidden';controller.show();assert.equal(ids(deck).includes('pry-choice'),false);
+  pry.unavailable='disabled';controller.compiled.unavailableActions='hidden';controller.show();assert.equal(ids(deck).includes('pry-choice'),false);
   controller.destroy();
 });
 

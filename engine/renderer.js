@@ -267,7 +267,7 @@ export function announceDeck(deck) {
     : deck.busy && deck.flip.x > 0 ? 'Turning next card…' : deck.busy ? (deck.pending || deck.operation === 'commit' ? 'Revealing next card…' : 'Waiting for next card…')
     : deck.phase === 'revealing' ? (deck.content.interaction === 'container' ? 'Uncovering items…' : 'Uncovering choices…')
       : deck.phase === 'closing' ? 'Returning cover…'
-      : deck.open && action ? `${deck.entranceAnnouncement || ''}${deck.index + 1} of ${deck.cards.length}: ${action.disabled ? 'Unavailable choice' : action.accessibleLabel || action.label}`
+      : deck.open && action ? `${deck.entranceAnnouncement || ''}${deck.index + 1} of ${deck.cards.length}: ${action.alreadyOwned ? `Already owned: ${action.label}` : action.disabled ? 'Unavailable choice' : action.accessibleLabel || action.label}`
       : deck.content.title || 'Situation';
   if (deck.live && deck.live.textContent !== message) deck.live.textContent = message;
 }
@@ -553,7 +553,7 @@ export function renderDeck(deck, time = performance.now()) {
       applyPose(deck, deck.cardBacks[index], deck.cardLayers[index], { ...poses[index], face: 360 }, order, deck.fan.x > 0);
     }
     if (deck.content.decisionOnly && deck.cardBacks[index]) applyPose(deck, deck.cardBacks[index], deck.cardLayers[index], backPose(poses[index]), order, deck.fan.x > 0);
-    deck.cards[index].setAttribute('aria-disabled', String(!!deck.content.actions[index].disabled));
+    deck.cards[index].setAttribute('aria-disabled', String(!!(deck.content.actions[index].disabled || deck.content.actions[index].alreadyOwned)));
     if (deck.content.actions[index].faceDown) deck.cards[index].setAttribute('aria-label', deck.content.actions[index].accessibleLabel || 'Unavailable choice');
     else deck.cards[index].removeAttribute('aria-label');
     deck.cards[index].setAttribute('aria-hidden', String(deck.phase !== 'choices' || deck.busy || index !== deck.index));

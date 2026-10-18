@@ -14,6 +14,7 @@ export function exportChapter(project, id = project.activeChapterId) {
   const ids = definitionGraph(project).reachableFrom(chapter);
   const pkg = cloneProject({version: 2, kind: 'nest-chapter', library: project.library.filter(d => ids.has(d.id)),
     variables: project.variables, allowCycles: project.allowCycles !== false,
+    ownedItemsVisibility: project.ownedItemsVisibility ?? 'disabled', unavailableActions: project.unavailableActions ?? 'disabled',
     cardStyles: project.cardStyles || {}, cardBack: projectCardBack(project), switchCardBackIcons: project.switchCardBackIcons,
     chapter});
   for (const definition of pkg.library) definition.kind = canonicalCardKind(definition.kind);
@@ -120,6 +121,7 @@ export function parseProject(text, {allowDraft = false} = {}) {
   else if (value?.version === 2 && value.kind === 'nest-chapter') value = {version: 2, kind: 'nest-project',
     id: `${value.chapter?.id || 'chapter'}-project`, name: value.chapter?.name, activeChapterId: value.chapter?.id,
     library: value.library, variables: value.variables || [], allowCycles: value.allowCycles,
+    ownedItemsVisibility: value.ownedItemsVisibility, unavailableActions: value.unavailableActions,
     cardStyles: value.cardStyles || {}, cardBack: value.cardBack, switchCardBackIcons: value.switchCardBackIcons,
     chapters: [value.chapter]};
   for (const definition of list(value?.library)) if (object(definition)) definition.kind = canonicalCardKind(definition.kind);

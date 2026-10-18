@@ -14,6 +14,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
   if (project.version !== 2 || project.kind !== 'nest-project') add('Project needs version 2 and kind nest-project.');
   if (project.allowCycles !== undefined && typeof project.allowCycles !== 'boolean') add('Invalid allow beat cycles setting.');
   if (project.switchCardBackIcons !== undefined && typeof project.switchCardBackIcons !== 'boolean') add('Cardback icon switching must be a boolean.');
+  for (const key of ['ownedItemsVisibility','unavailableActions']) if (project[key] !== undefined && !['disabled','hidden'].includes(project[key])) add(`Invalid ${key} setting.`);
   for (const message of validateCardBack(project.cardBack)) add(message);
   if (project.cardStyles !== undefined) {
     if (!object(project.cardStyles)) add('Invalid card text style sizes.');
