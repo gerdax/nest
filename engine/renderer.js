@@ -312,7 +312,7 @@ function orbitRadius(deck, width, height, count = deck.cards.length) {
 }
 
 function takeProgress(deck, time, height, selected, distanceRatio = .5) {
-  if (deck.content.interaction !== 'container' || !selected || selected.disabled) return 0;
+  if (deck.content.interaction !== 'container' || !selected || selected.disabled || selected.collectDisabled) return 0;
   let distance = (deck.liftStart - deck.l.x) * height;
   if (deck.collectMotion) distance += deck.collectMotion.direction * departureDistance(deck.collectMotion, time);
   const progress = clamp(distance / (height * distanceRatio), 0, 1);

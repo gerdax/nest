@@ -368,7 +368,8 @@ export class CardDeck extends EventTarget {
     const recognizedVertical = gesture.axis === 'y' && this.drag.axis !== 'y';
     this.drag.axis = gesture.axis;
     const disabledDown = gesture.axis === 'y' && gesture.y > 0
-      && this.content.interaction === 'choice' && this.content.actions[this.index]?.disabled;
+      && (this.content.interaction === 'choice' && this.content.actions[this.index]?.disabled
+        || this.drag.ready && this.content.interaction === 'container' && (this.content.actions[this.index]?.disabled || this.content.actions[this.index]?.collectDisabled));
     if (recognizedVertical || disabledDown) this.beginGrab(performance.now(), disabledDown);
     if (gesture.axis === 'y' && gesture.y < 0 && this.drag.ready
       && this.content.interaction === 'choice' && this.content.actions[this.index]?.disabled) this.releaseGrab();
@@ -399,6 +400,17 @@ export class CardDeck extends EventTarget {
         } else {
           this.clearGroupLift();
           this.captureItemPose(action);
+        }
+        if (disabled && gesture.y > 0) {
+          // Match a story card's downward feedback: pickup depth only, with
+          // no travel toward the drawer and no pointer-driven tilt.
+          this.l.x = this.drag.l;
+          this.l.v = 0;
+          this.rotationX.target = this.rotationY.target = this.rotationZ.target = 0;
+          this.pickup?.preview(null);
+          this.sampleChoices();
+          this.render(); this.schedule();
+          return;
         }
         this.l.x = disabled ? clamp(this.drag.l - gesture.y / height, -24 / height, 24 / height)
           : this.drag.l - gesture.y / height;
@@ -470,6 +482,11 @@ export class CardDeck extends EventTarget {
     this.drag = null;
     const { width, height } = this.mount.getBoundingClientRect();
     this.releaseRotation(gesture);
+    if (drag.ready && this.content.interaction === 'container' && gesture.axis === 'y' && gesture.y > 0
+      && (this.content.actions[this.index]?.disabled || this.content.actions[this.index]?.collectDisabled)) {
+      this.pickup?.cancel(); this.cancelPickup();
+      return;
+    }
     if (this.pickup && drag.ready && this.content.interaction === 'container' && gesture.axis === 'y' && gesture.y > 0) {
       const target = this.pickup.targetFor(gesture);
       const action = this.content.actions[this.index];
@@ -846,6 +863,7 @@ export class CardDeck extends EventTarget {
   }
 
   blockedAction(direction=-1) {
+    this.releaseGrab();
     if (!this.liftPoses) {
       this.liftPoses = new Map(this.content.actions.map((a, i) => [a.id, this.unpickedCardPose(i)]));
       this.liftRotation = { x: this.rotationX.x, y: this.rotationY.x, z: this.rotationZ.x };
