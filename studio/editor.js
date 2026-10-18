@@ -54,6 +54,7 @@ const graph=new GraphView($('#canvas'),{
  onCancelCreate:()=>nodeCreateMenu.close(),
  onConnect:(id,exit,target)=>edit('connect',{id,exit,target}),
  onMove:(id,x,y)=>edit('move-node',{id,x,y}),
+ onTransferCard:data=>{preview.stop();edit('transfer-card',data);},
  onDelete:()=>{if(mode==='chapter'&&node())edit('delete-node');},
 });
 const projectSettingsWindow=mountProjectSettingsWindow($('#project-settings-overlay'),{trigger:$('#project-settings-toggle'),preview:$('#preview-window'),onOpen:()=>graph.cancel()});
@@ -275,5 +276,5 @@ bindImport($('#import'),'project');
 bindImport($('#import-chapter'),'chapter');
 function play(startNode,{restore=true}={}){try{previewWindow.show({restore});preview.play(project,chapterId,startNode,{focus:!previewWindow.minimized});report('Chapter ready.');return true;}catch(error){report(error.message);return false;}}
 $('#play').onclick=()=>play();$('#play-node').onclick=()=>play(selected);
-window.addEventListener('pagehide',event=>{if(event.persisted)return;stopHistoryShortcuts();stopNodeClipboardShortcuts();stopDrawerDebug();autoplay.destroy();previewWindow.destroy();projectSettingsWindow.destroy();preview.destroy();});
+window.addEventListener('pagehide',event=>{if(event.persisted)return;graph.cancel();stopHistoryShortcuts();stopNodeClipboardShortcuts();stopDrawerDebug();autoplay.destroy();previewWindow.destroy();projectSettingsWindow.destroy();preview.destroy();});
 render();graph.fit();if(loaded.error||loaded.recovery)report('');else if(loaded.migrated)report('Legacy save loaded; original browser save preserved.');else report(loaded.project?'Saved in this browser.':'Not saved yet.');

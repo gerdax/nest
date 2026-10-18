@@ -14,12 +14,12 @@ function pagehide(window, persisted) {
 // tests cover cleanup policy, not browser back/forward-cache eligibility or UI.
 for (const [name, path, cleanupNames] of [
   ['player', '../studio/player.js', ['stopPerformanceTuning', 'preview']],
-  ['editor', '../studio/editor.js', ['stopHistoryShortcuts', 'stopNodeClipboardShortcuts', 'stopDrawerDebug', 'autoplay', 'previewWindow', 'projectSettingsWindow', 'preview']]
+  ['editor', '../studio/editor.js', ['graph', 'stopHistoryShortcuts', 'stopNodeClipboardShortcuts', 'stopDrawerDebug', 'autoplay', 'previewWindow', 'projectSettingsWindow', 'preview']]
 ]) test(`${name} retains live resources on cached departures and cleans up a later terminal departure`, () => {
   const window = new EventTarget(), calls = [], context = {window};
   for (const name of cleanupNames) {
     const cleanup = () => calls.push(name);
-    context[name] = name.startsWith('stop') ? cleanup : {destroy: cleanup};
+    context[name] = name.startsWith('stop') ? cleanup : name==='graph' ? {cancel:cleanup} : {destroy: cleanup};
   }
   const registration = source(path).split('\n').find(line => line.includes("window.addEventListener('pagehide'"));
   assert.ok(registration, `${path} registers pagehide cleanup`);

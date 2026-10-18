@@ -3,6 +3,7 @@ import { createDefinition, allowedCardKinds } from '../project/cards.js';
 import { createChapter, importChapter, outputsForNode } from '../project/model.js';
 import { deleteDefinition, cleanupLocalDefinitions } from '../project/dependencies.js';
 import { pasteNodeClipboard } from './node-clipboard.js';
+import { transferCard } from './card-transfer.js';
 import {
   uid, createNode, makePlacement, promoteCard, duplicateNode, duplicatePlacement,
   findPlacement, pathTarget, customizeAction, newRule, normalizeRule, addHealthVariable,
@@ -187,6 +188,10 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
     case 'paste-node': {
       const added = pasteNodeClipboard(project, chapter, data.clipboard, {position:data.position});
       return {selection:{selected:added.id, mode:'chapter'}, value:added.id};
+    }
+    case 'transfer-card': {
+      const transferred = transferCard(project, chapter, data);
+      return transferred ? {selection:{selected:data.targetNodeId, mode:'chapter'}, value:transferred.id} : {};
     }
     case 'create-connected-node': {
       const source = chapter?.nodes.find(candidate => candidate.id === data.id);

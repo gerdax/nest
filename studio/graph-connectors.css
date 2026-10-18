@@ -12,7 +12,7 @@
 #canvas .graph-beat-icon {position:absolute;right:12px;top:50%;transform:translateY(-50%);width:26px;height:26px;fill:none;stroke:#e1e8e6;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;pointer-events:none;}
 #canvas .graph-card-row {padding:9px 12px;background:color-mix(in srgb,var(--card-editor-tint) 14%,#202b2e);}
 #canvas .graph-card-row.has-outputs {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:8px;align-items:start;}
-#canvas .graph-card-name {display:block;min-width:0;width:100%;border:0;border-radius:0;padding:0;text-align:left;background:transparent;color:var(--card-editor-tint);overflow-wrap:anywhere;font-size:12px;line-height:1.6;cursor:pointer;}
+#canvas .graph-card-name {display:block;min-width:0;width:fit-content;max-width:100%;border:0;border-radius:0;padding:0;text-align:left;background:transparent;color:var(--card-editor-tint);overflow-wrap:anywhere;font-size:12px;line-height:1.6;cursor:pointer;}
 #canvas .graph-card-name:hover {text-decoration:underline;}
 #canvas .graph-card-name small {display:block;color:#a9b9b7;font-size:10px;}
 #canvas .graph-card-outputs .port {display:flex;align-items:center;justify-content:flex-end;gap:4px;border:0;padding:0 0 0 4px;min-height:20px;font-size:11px;border-radius:0;overflow-wrap:anywhere;}
@@ -29,3 +29,10 @@
 .node-create-types button {display:flex;flex-direction:column;align-items:center;gap:6px;min-width:54px;padding:8px 6px;border:1px solid transparent;background:transparent;font-size:10px;}
 .node-create-types button:hover,.node-create-types button:focus-visible {background:#3a4d4e;border-color:#a2d3c3;outline:none;color:#e9eee9;}
 .node-create-menu .graph-beat-icon {position:static;transform:none;width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;pointer-events:none;}
+
+/* Card moves use the name; introductions remain fixed. */
+#canvas .graph-card-row:not([data-card-slot="intro"]) .graph-card-name {touch-action:none;user-select:none;}
+#canvas .node.card-drop-target {outline:2px solid #b7e4d3;}
+#canvas .node.card-drop-invalid {outline:2px solid #c67979;}
+.card-drag-ghost {position:fixed;z-index:1100;pointer-events:none;max-width:260px;padding:8px 12px;border:1px solid #91b8ab;border-radius:6px;background:#263735e8;color:#e1e8e6;font-size:12px;box-shadow:0 4px 16px #0006;}
+.card-drop-line {position:fixed;z-index:1099;height:1px;background:#a2d3c3;pointer-events:none;}

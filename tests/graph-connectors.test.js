@@ -27,7 +27,7 @@ class Root extends Element {
  setPointerCapture(id){this.capture=id;}
  hasPointerCapture(id){return this.capture===id;}
  releasePointerCapture(id){this.capture=null;this.handlers.lostpointercapture({pointerId:id});}
- focus(){}
+ focus(){this.focused=true;}
  node(id){return this.nodes.find(n=>n.dataset.id===id);}
  event(name,target,x=300,y=200,pointerId=1){this.handlers[name]({target,clientX:x,clientY:y,pointerId,button:0,preventDefault(){}});}
 }
@@ -116,8 +116,9 @@ test('slow clicks or canceled interactions do not trigger target navigation',()=
 test('clicking or keyboard activating a card name opens that exact card without dragging',()=>{
  for(const detail of [0,1]){
   const s=setup(),row=new Element('graph-card-row',{cardPlacement:'chosen-card'},s.root.node('a')),name=new Element('graph-card-name',{},row);
-  s.root.event('pointerdown',name);assert.equal(s.graph.drag,null);assert.equal(s.root.capture,null);
-  s.root.handlers.click({detail,target:name});
+  if(detail){s.root.event('pointerdown',name);assert.equal(s.graph.drag.kind,'card');assert.equal(s.root.capture,1);
+  s.root.event('pointerup',name);}
+  s.root.handlers.click({detail,target:name,preventDefault(){}});
   assert.deepEqual(s.opened,[['a',{chapterId:undefined,nodeId:'a',placementId:'chosen-card'}]]);
   assert.deepEqual(s.selections,[]);assert.deepEqual(s.calls,[]);
  }
@@ -299,4 +300,34 @@ test('self-target connections follow the project cycle setting, not legacy chapt
  s.graph.project.allowCycles=true;s.chapter.allowCycles=false;assert.equal(s.graph.validTarget('a','a'),true);
  delete s.graph.project.allowCycles;assert.equal(s.graph.validTarget('a','a'),true);
  assert.equal(s.graph.validTarget('missing','a'),false);
+});
+
+test('card drag focuses the canvas, emits one transfer, and suppresses its follow-up click',()=>{
+ const s=setup(),transfers=[];s.graph.cardDrag.onTransfer=data=>transfers.push(data);
+ const row=new Element('graph-card-row',{cardPlacement:'chosen-card',cardSlot:'cards',cardType:'event'},s.root.node('a')),name=new Element('graph-card-name',{},row);
+ s.root.event('pointerdown',name);assert.equal(s.root.focused,true);
+ s.graph.drag.moved=true;s.graph.cardDrag.suppressClick=true;s.root.hit=s.root.node('b');
+ s.root.event('pointerup',s.root,500,300);
+ s.root.handlers.click({detail:0,target:name,preventDefault(){}});
+ assert.deepEqual(transfers,[{sourceNodeId:'a',placementId:'chosen-card',targetNodeId:'b',index:0,copy:false}]);
+ assert.deepEqual(s.opened,[]);assert.equal(s.root.capture,null);
+});
+test('Escape and capture loss cancel card drags without transfer or node movement',()=>{
+ for(const event of ['Escape','pointercancel','lostpointercapture']){
+  const s=setup(),transfers=[];s.graph.cardDrag.onTransfer=data=>transfers.push(data);
+  const row=new Element('graph-card-row',{cardPlacement:'chosen-card',cardSlot:'cards',cardType:'event'},s.root.node('a')),name=new Element('graph-card-name',{},row);
+  s.root.event('pointerdown',name);s.graph.drag.moved=true;
+  if(event==='Escape')s.root.handlers.keydown({key:'Escape',target:s.root});else s.root.event(event,s.root);
+  assert.equal(s.graph.drag,null);assert.deepEqual(transfers,[]);assert.deepEqual(s.moves,[]);
+ }
+});
+
+ test('existing unnamed graph cards are Untitled while absent definitions remain Missing card',()=>{
+ const s=setup(),card=createDefinition('event','untitled');
+ s.chapter.nodes[0].cards=[{id:'placement',definitionId:card.id}];
+ for(const name of ['', '   ']){
+  card.name=name;s.graph.render({library:[card]},s.chapter,'a');
+  assert.match(s.root.parts['#nodes'].rendered,/>Untitled<\/button>/);assert.doesNotMatch(s.root.parts['#nodes'].rendered,/Missing card/);
+ }
+ s.graph.render({library:[]},s.chapter,'a');assert.match(s.root.parts['#nodes'].rendered,/>Missing card<\/button>/);
 });

@@ -54,7 +54,7 @@ export function placementInspector(project,p,kind,index,slot,count=Infinity) {
  const compareLabels=(a,b)=>a.localeCompare(b,undefined,{sensitivity:'base',numeric:true});
  const localSources=kinds.map(k=>[`local:${k}`,`local [${cardKinds[k]?.label||k}]`]).sort((a,b)=>compareLabels(a[1],b[1]));
  const defs=project.library.filter(d=>kinds.includes(d.kind)&&d.visibility!=='local').map(d=>[d.id,`${cardKinds[d.kind]?.label||d.kind}: ${d.name}`]).sort((a,b)=>compareLabels(a[1],b[1]));
- let html=`<details class="entry card-panel" data-card-type="${esc(kind)}" style="--card-editor-tint:${esc(cardEditorTint(kind))}" data-placement="${esc(p.id)}"><summary><span class="card-type-label" data-card-type="${esc(kind)}">${esc(cardKinds[kind]?.label||kind)}</span>${esc(card?.name||'Missing definition')}</summary>`;
+ let html=`<details class="entry card-panel" data-card-type="${esc(kind)}" style="--card-editor-tint:${esc(cardEditorTint(kind))}" data-placement="${esc(p.id)}"><summary><span class="card-type-label" data-card-type="${esc(kind)}">${esc(cardKinds[kind]?.label||kind)}</span>${esc(definition?(card?.name?.trim()||'Untitled'):'Missing definition')}</summary>`;
  const attr=`data-placement="${esc(p.id)}"`;
  html+=`<p class="small">${cardSummaryParts(card||{},project.variables,project.library).map(esc).join('<br>')}</p>`;
  html+=select('Card source',local?`local:${kind}`:p.definitionId,[...localSources,...defs],'definitionId','placement');

@@ -1,3 +1,4 @@
+import { CardDrag } from './card-drag.js';
 import { esc } from './forms.js';
 import { outputsForNode, labelForOutput } from '../project/model.js';
 import { nodeTypeLabel } from '../project/nodeTypes.js';
@@ -9,9 +10,10 @@ import { createLibraryIndex } from '../project/library-index.js';
 
 /** Canvas interaction owns selection/pan, and emits completed document edits. */
 export class GraphView {
- constructor(root,{onSelect,onConnect,onMove,onOpenCard=()=>{},onDelete=()=>{},onCreateConnected=()=>{},onCancelCreate=()=>{}}) {
+ constructor(root,{onSelect,onConnect,onMove,onOpenCard=()=>{},onTransferCard=()=>{},onDelete=()=>{},onCreateConnected=()=>{},onCancelCreate=()=>{}}) {
   this.onCreateConnected=onCreateConnected;this.onCancelCreate=onCancelCreate;this.creation=null;
   this.root=root;this.onSelect=onSelect;this.onConnect=onConnect;this.onMove=onMove;this.onOpenCard=onOpenCard;this.lastPortClick=null;
+  this.cardDrag=new CardDrag(this,onTransferCard);
   this.view={x:50,y:50,z:1};this.pending=null;this.drag=null;
   root.innerHTML='<div id="world"><svg id="edges"></svg><div id="nodes"></div></div>';
   root.addEventListener('pointerdown',e=>this.down(e));
@@ -19,6 +21,7 @@ export class GraphView {
   root.addEventListener('pointerup',e=>this.up(e));
   for(const event of ['pointercancel','lostpointercapture'])root.addEventListener(event,e=>{if(this.drag?.pointer===e.pointerId)this.cancel();});
   root.addEventListener('keydown',e=>{
+   if(['Enter',' '].includes(e.key))this.cardDrag.suppressClick=false;
    if(e.key==='Escape')this.cancel();
    if(!['Delete','Backspace'].includes(e.key)||e.defaultPrevented||e.repeat||e.isComposing||e.ctrlKey||e.metaKey||e.altKey||e.shiftKey||this.drag)return;
    if(e.target?.closest('input,textarea,select,[contenteditable]:not([contenteditable="false"]),[role="textbox"]'))return;
@@ -28,6 +31,7 @@ export class GraphView {
    root.focus({preventScroll:true});
   });
   root.addEventListener('click',e=>{
+   if(this.cardDrag.consumeClick()){e.preventDefault();return;}
    const name=e.target.closest('.graph-card-name'),node=name?.closest('.node'),row=name?.closest('.graph-card-row');
    if(node&&row){this.lastPortClick=null;this.openCard(node.dataset.id,row.dataset.cardPlacement);}
   });
@@ -74,10 +78,10 @@ export class GraphView {
    for(const placement of placements){
     const definition=this.definitionsById.get(placement.definitionId)||placement;
     const kind=canonicalCardKind(definition.kind||definition.cardKind||descriptor.defaultKinds[slot]);
-    const name=definition.name||definition.label||definition.title||'Missing card';
+    const name=this.definitionsById.has(placement.definitionId)?(definition.name?.trim()||'Untitled'):'Missing card';
     const exits=slot==='choices'?outputs.filter(exit=>exit===placement.id||exit===`${placement.id}:success`||exit===`${placement.id}:failure`):[];
     for(const exit of exits)used.add(exit);
-    html+=`<hr class="graph-card-divider"><div class="graph-card-row ${exits.length?'has-outputs':''}" data-card-placement="${esc(placement.id||'')}" data-card-type="${esc(kind)}" style="--card-editor-tint:${esc(cardEditorTint(kind))}"><button type="button" class="graph-card-name">${slot==='intro'?'<small>Introduction</small>':''}${esc(name)}</button>`;
+    html+=`<hr class="graph-card-divider"><div class="graph-card-row ${exits.length?'has-outputs':''}" data-card-slot="${esc(slot)}" data-card-placement="${esc(placement.id||'')}" data-card-type="${esc(kind)}" style="--card-editor-tint:${esc(cardEditorTint(kind))}"><button type="button" class="graph-card-name">${slot==='intro'?'<small>Introduction</small>':''}${esc(name)}</button>`;
     if(exits.length)html+=`<div class="graph-card-outputs">${exits.map(exit=>this.port(node,exit,exit.endsWith(':success')?'Success':exit.endsWith(':failure')?'Failure':'')).join('')}</div>`;
     html+='</div>';
    }
@@ -117,7 +121,10 @@ export class GraphView {
   this.cancelCreation();
   const el=e.target.closest('.node'),port=e.target.closest('.port'),edge=e.target.closest('.edge-hit');
   if(!port)this.lastPortClick=null;
-  if(edge||e.target.closest('.graph-card-name'))return;
+  const name=e.target.closest('.graph-card-name');
+  if(name){this.cardDrag.start(e,name);return;}
+  this.cardDrag.suppressClick=false;
+  if(edge)return;
   if(port){
    const nodeId=el.dataset.id,exit=port.dataset.exit;
    this.pending=null;const p=this.point(e);
@@ -133,6 +140,7 @@ export class GraphView {
  }
  move(e) {
   const d=this.drag;if(!d||d.pointer!==e.pointerId)return;
+  if(d.kind==='card'){this.cardDrag.move(e);return;}
   if(d.kind==='connect'){
    d.moved ||= Math.hypot(e.clientX-d.x,e.clientY-d.y)>4;
    const p=this.point(e);d.px=p.x;d.py=p.y;this.hoverTarget(d.moved?this.dropTarget(e,d.nodeId):null);this.edges();
@@ -145,6 +153,7 @@ export class GraphView {
   const target=d.kind==='connect'&&d.moved?this.dropTarget(e,d.nodeId):null;
   this.drag=null;
   if(this.root.hasPointerCapture(e.pointerId))this.root.releasePointerCapture(e.pointerId);
+  if(d.kind==='card'){this.cardDrag.finish(e,d);return;}
   if(d.kind==='connect'){
    if(d.moved)this.pending=null;
    this.render(this.project,this.chapter,this.selected,this.active);
@@ -161,7 +170,7 @@ export class GraphView {
   }else if(d.kind==='node')this.onMove(d.id,d.px,d.py);
  }
  cancelCreation(){if(!this.creation)return;this.creation=null;this.onCancelCreate();this.edges();}
- cancel(){this.cancelCreation();const d=this.drag,hadPending=!!this.pending;this.drag=null;this.pending=null;this.lastPortClick=null;if(d?.kind==='pan'){this.view.x=d.ox;this.view.y=d.oy;}if(d&&this.root.hasPointerCapture(d.pointer))this.root.releasePointerCapture(d.pointer);if(this.project&&(d||hadPending))this.render(this.project,this.chapter,this.selected,this.active);}
+ cancel(){this.cardDrag.clear();this.cancelCreation();const d=this.drag,hadPending=!!this.pending;this.drag=null;this.pending=null;this.lastPortClick=null;if(d?.kind==='pan'){this.view.x=d.ox;this.view.y=d.oy;}if(d&&this.root.hasPointerCapture(d.pointer))this.root.releasePointerCapture(d.pointer);if(this.project&&(d||hadPending))this.render(this.project,this.chapter,this.selected,this.active);}
  openCard(nodeId,placementId){
   if(!this.nodesById.has(nodeId)||!placementId)return;
   this.onOpenCard(nodeId,{chapterId:this.chapter.id,nodeId,placementId});
