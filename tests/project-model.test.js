@@ -47,8 +47,8 @@ test('variant targets only its selected occurrence even when placement IDs repea
 test('unsupported dice and malformed draft arrays reject deterministically',()=>{
  const p=createProject();p.library[2].resolution='check';p.library[2].check.pool=[{sides:7,count:1}];assert.ok(validateProject(p).some(e=>e.message.includes('invalid check')));p.chapters[0].nodes[0].cards={};assert.doesNotThrow(()=>validateProject(p,{allowDraft:true}));assert.throws(()=>parseProject(JSON.stringify(p),{allowDraft:true}));
 });
-test('legacy compilation follows shared item use metadata without losing topology',()=>{
- const p=migrateChapter(createLegacyStarterChapter());const d=p.library.find(d=>d.kind==='item');d.use={conditions:[],effects:[{op:'removeItem',key:d.id,quantity:1}]};const legacy=compileChapter(p).nodes[2].sequences[0];assert.equal(legacy.cards[0].choices[0].target,'card:exit');const holder=p.chapters[0].nodes[2];holder.sequences.push({id:'legacy-box',name:'Box',type:'container',exits:['next'],cards:[],items:[{id:'flashlight',label:'Old name',image:'',definitionId:d.id}]});const item=compileChapter(p).nodes[2].sequences.at(-1).items[0];assert.deepEqual(item.use,{...d.use,effects:d.use.effects.map(({quantity,...effect})=>effect)});assert.equal(item.id,'flashlight');assert.equal(item.inventoryKey,'chapter-1:flashlight');
+test('legacy compilation strips obsolete item use metadata without losing topology',()=>{
+ const p=migrateChapter(createLegacyStarterChapter());const d=p.library.find(d=>d.kind==='item');d.use={conditions:[],effects:[{op:'removeItem',key:d.id,quantity:1}]};const legacy=compileChapter(p).nodes[2].sequences[0];assert.equal(legacy.cards[0].choices[0].target,'card:exit');const holder=p.chapters[0].nodes[2];holder.sequences.push({id:'legacy-box',name:'Box',type:'container',exits:['next'],cards:[],items:[{id:'flashlight',label:'Old name',image:'',definitionId:d.id}]});const item=compileChapter(p).nodes[2].sequences.at(-1).items[0];assert.equal(item.use,undefined);assert.equal(item.id,'flashlight');assert.equal(item.inventoryKey,'chapter-1:flashlight');
 });
 
 
@@ -71,4 +71,31 @@ test('project beat cycles default enabled and survive project and chapter round 
  assert.equal(compileChapter(project).allowCycles,true);
  const imported=importChapter(createProject(),exportChapter(project));assert.equal(imported.allowCycles,true);assert.deepEqual(validateProject(imported),[]);
  chapter.allowCycles='yes';assert.ok(validateProject(project).some(e=>e.message.includes('cycles setting')));
+});
+
+
+test('item permability defaults to permanent and validates only nonnegative safe integers',()=>{
+ assert.equal(createDefinition('item','tool').permability,0);
+ for(const value of [undefined,0,1,Number.MAX_SAFE_INTEGER]){
+  const p=createProject();p.library.find(d=>d.kind==='item').permability=value;assert.deepEqual(validateProject(p),[]);
+ }
+ for(const value of [-1,1.5,'2',null,NaN,Infinity,Number.MAX_SAFE_INTEGER+1]){
+  const p=createProject();p.library.find(d=>d.kind==='item').permability=value;assert.ok(validateProject(p).some(e=>e.message.includes('permability')));
+ }
+});
+test('obsolete direct item use is discarded during parse and compilation without migrating effects',()=>{
+ const p=createProject(),item=p.library.find(d=>d.kind==='item');item.use={conditions:[],effects:[{op:'add',key:'energy',value:2}]};
+ const before=cloneProject(p);const parsed=parseProject(JSON.stringify(p)),compiled=compileChapter(p);
+ assert.deepEqual(p,before);for(const output of [parsed,compiled]){const d=output.library.find(d=>d.id===item.id);assert.equal(d.use,undefined);assert.deepEqual(d.onCollect,[]);assert.equal(d.permability,0);}
+ assert.match(cardSummary(item),/Action triggers: permanent/);assert.doesNotMatch(cardSummary(item),/Use:/);assert.match(cardSummary({...item,permability:2}),/Action triggers: 2 remaining/);assert.match(cardSummary({...item,permability:2,remainingTriggers:1}),/Action triggers: 1 remaining/);
+});
+
+test('saved item definitions cannot override a fresh ownership trigger budget',()=>{
+ const project=createProject(),item=project.library.find(d=>d.kind==='item');
+ item.permability=2;item.remainingTriggers=99;
+ for(const output of [parseProject(JSON.stringify(project)),compileChapter(project),exportChapter(project)]){
+  assert.equal(output.library.find(d=>d.id===item.id).remainingTriggers,undefined);
+  assert.equal(output.library.find(d=>d.id===item.id).permability,2);
+ }
+ assert.equal(item.remainingTriggers,99);
 });

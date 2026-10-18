@@ -141,10 +141,10 @@ for(const resolution of ['collect','discard'])test(`terminal Linear item ${resol
  deck[resolution]();assert.equal(controller.state.completed,false);assert.equal(controller.state.collectedItems.length,0);assert.equal(controller.state.variables.energy,4);settle();assert.equal(controller.state.completed,true);assert.equal(deck.phase,'ended');assert.equal(controller.state.collectedItems.length,resolution==='collect'?1:0);assert.equal(controller.state.variables.energy,resolution==='collect'?6:4);dispose(deck,controller);
 });
 
-test('Linear conditions skip item cards and visible unavailable actions can unlock through inventory use',()=>{
+test('Linear conditions skip item cards and visible unavailable actions can unlock after explicit variable refresh',()=>{
  const errors=[];const {deck,controller}=real(linear([{...item('skipped'),conditions:[{source:'variable',key:'energy',op:'gte',value:10}]},action('disabled',{costs:[{source:'variable',key:'energy',amount:5}]}),narrative('after')]),{variables:energy},{onError:e=>errors.push(e)});
  assert.equal(controller.state.cardId,'disabled');assert.equal(deck.phase,'choices');assert.equal(deck.content.actions[0].disabled,true);assert.equal(deck.content.nextDeckPreview,undefined);assert.equal(errors.length,1);key(deck,'ArrowUp');assert.equal(controller.state.cardId,'disabled');
- controller.inventory=[item('boost',{use:{effects:[{op:'add',key:'energy',value:2}]}})];assert.equal(controller.useItem('boost'),true);settle();assert.equal(deck.content.actions[0].disabled,false);key(deck,'ArrowUp');assert.equal(controller.state.cardId,'after');assert.equal(controller.state.variables.energy,1);dispose(deck,controller);
+ controller.variables.energy+=2;controller.show({restore:true});settle();assert.equal(deck.content.actions[0].disabled,false);key(deck,'ArrowUp');assert.equal(controller.state.cardId,'after');assert.equal(controller.state.variables.energy,1);dispose(deck,controller);
 });
 
 test('Linear item take and discard route using resolved state without speculative random draws',()=>{
@@ -429,12 +429,12 @@ for(const type of ['container','linear'])test(`project hidden owned items skip f
  dispose(deck,controller);
 });
 
-for(const visibility of ['disabled','hidden'])test(`using an owned item refreshes sibling collection availability, visibility=${visibility}`,()=>{
+for(const visibility of ['disabled','hidden'])test(`external ownership removal refreshes sibling collection availability, visibility=${visibility}`,()=>{
  const nodes=[{id:'items',type:'container',introEnabled:false,items:[item('duplicate',{definitionId:'owned'}),item('new')],connections:{next:null}}];
  const {deck,controller}=real(nodes,{ownedItemsVisibility:visibility});
- controller.inventory=[item('owned',{use:{effects:[]}})];controller.show({restore:true});settle();
+ controller.inventory=[item('owned')];controller.show({restore:true});settle();
  assert.deepEqual(deck.content.actions.map(a=>a.id),visibility==='hidden'?['new']:['duplicate','new']);
- assert.equal(controller.useItem('owned'),true);settle();
+ controller.inventory=[];controller.show({restore:true});settle();
  assert.deepEqual(deck.content.actions.map(a=>a.id),['duplicate','new']);assert.equal(deck.content.actions[0].collectDisabled,false);
  key(deck,'ArrowDown');assert.equal(controller.inventory[0].definitionId,'owned');dispose(deck,controller);
 });

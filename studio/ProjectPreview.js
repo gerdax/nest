@@ -64,7 +64,7 @@ export class ProjectPreview {
     });
     this.footerResize.observe(this.footer);
     if (!inventoryDock) root.querySelector('.project-preview').classList.add('project-preview--embedded');
-    this.inventory = new InventoryView(inventoryRoot, { onUse: id => this.controller?.useItem(id), getBounds: () => this.inventorySurface.bounds(), onMotion: event => this.drawerTrace?.(event) });
+    this.inventory = new InventoryView(inventoryRoot, { getBounds: () => this.inventorySurface.bounds(), onMotion: event => this.drawerTrace?.(event) });
 
   }
   play(project, chapterId, startNode, { focus = true } = {}) {
@@ -264,7 +264,7 @@ export class ProjectPreview {
       this.stop();
     } finally {
       this.destroyed = true;
-      this.inventory.destroy(); this.inventory.onUse = () => {};
+      this.inventory.destroy();
       this.footerResize.disconnect();
       this.inventorySurface.destroy();
       if (this.goToCardButton) this.goToCardButton.onclick = null;

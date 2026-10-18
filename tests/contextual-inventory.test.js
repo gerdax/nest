@@ -99,18 +99,18 @@ test('pending contextual check rechecks ownership before transaction',async()=>{
   assert.equal(controller.completed,false);assert.equal(controller.variables.energy,2);assert.match(errors[0].message,/requirements changed/);assert.equal(ids(deck).includes('pry-choice'),false);controller.destroy();
 });
 
-for(const presentation of ['open','closed'])test(`consumable use reconciles the same native fork without resetting its ${presentation} presentation`,()=>{
+for(const presentation of ['open','closed'])test(`explicit state refresh reconciles the same native fork without resetting its ${presentation} presentation`,()=>{
   const {deck,controller,own}=runtime();own('key','potion');controller.show({presentation});
   const before={id:deck.content.id,resets:deck.resets,phase:deck.phase};
-  assert.equal(controller.useItem('potion'),true);assert.equal(deck.updates,1);assert.equal(deck.content.id,before.id);assert.equal(deck.resets,before.resets);assert.equal(deck.phase,before.phase);
+  controller.variables.energy=5;controller.inventory=controller.inventory.filter(i=>i.definitionId!=='potion');deck.updateActions(controller.content().actions);assert.equal(deck.updates,1);assert.equal(deck.content.id,before.id);assert.equal(deck.resets,before.resets);assert.equal(deck.phase,before.phase);
   assert.equal(deck.content.actions.find(a=>a.id==='force-choice').disabled,false);assert.equal(controller.inventory.length,1);
-  controller.inventory=[{...controller.inventory[0],use:{effects:[]}}];
-  assert.equal(controller.useItem('key'),true);assert.equal(ids(deck).includes('key-choice'),false);controller.destroy();
+  controller.inventory=[];deck.updateActions(controller.content().actions);
+ assert.equal(ids(deck).includes('key-choice'),false);controller.destroy();
 });
 
 test('context item dependencies export transitively, remap collisions and protect local cleanup/deletion',()=>{
   const project=fixture();project.chapters[0].nodes=project.chapters[0].nodes.filter(n=>n.id==='door');project.chapters[0].startNode='door';
-  const key=project.library.find(d=>d.id==='key');key.visibility='local';key.use={effects:[{op:'addItem',key:'potion'}]};
+  const key=project.library.find(d=>d.id==='key');key.visibility='local';key.onCollect=[{op:'addItem',key:'potion'}];
   const references=definitionReferences(project,'key');assert.equal(references.some(r=>r.kind==='contextItem'),true);
   assert.throws(()=>deleteDefinition(project,'key'),/still used/);assert.equal(cleanupLocalDefinitions(project),0);
   const pkg=exportChapter(project);assert.ok(pkg.library.some(d=>d.id==='key'));assert.ok(pkg.library.some(d=>d.id==='potion'));
@@ -129,15 +129,6 @@ test('editor explicitly offers None and items only for Action choice placements'
   assert.doesNotMatch(placementInspector(project,door(project).choices[3],'event',3,'choices'),/data-path="contextItemId"/);
 });
 
-test('dragging or unsettled fork presentation rejects inventory use before state changes',()=>{
-  const {deck,controller,own}=runtime();own('potion');
-  const initial=controller.state;
-  deck.drag={axis:'x'};assert.equal(controller.state.idle,false);assert.equal(controller.useItem('potion'),false);
-  assert.deepEqual(controller.variables,initial.variables);assert.deepEqual(controller.inventory,initial.collectedItems);assert.equal(deck.updates,undefined);
-  deck.drag=null;deck.phase='opening';assert.equal(controller.useItem('potion'),false);
-  assert.deepEqual(controller.variables,initial.variables);assert.deepEqual(controller.inventory,initial.collectedItems);
-  deck.phase='choices';assert.equal(controller.useItem('potion'),true);assert.equal(controller.variables.energy,5);controller.destroy();
-});
 
 test('fork introduction gain effects reconcile linked choices after reveal without replacing content',()=>{
   const {deck,controller}=runtime();
@@ -150,13 +141,6 @@ test('fork introduction gain effects reconcile linked choices after reveal witho
   controller.reveal({contentId:before.id});assert.equal(controller.inventory.length,1,'introduction applies once');controller.destroy();
 });
 
-test('inventory use that advances a linear location stages the successor through normal show',()=>{
-  const {deck,controller,compiled}=runtime();
-  const node={id:'conditional',type:'linear',cards:[{id:'wait',kind:'event',conditions:[{source:'inventory',key:'potion',op:'has'}]}],connections:{next:'door'}};
-  controller.nodes.set(node.id,node);controller.inventory=addInventory([],compiled.library.find(d=>d.id==='potion'));
-  controller.adopt(controller.locate(node.id),false);controller.show();const resets=deck.resets;
-  assert.equal(controller.useItem('potion'),true);assert.equal(controller.state.activeNodeId,'door');assert.equal(deck.updates,undefined);assert.ok(deck.resets>resets);controller.destroy();
-});
 
 test('contextual action defaults to its own artwork and transforms, including a blank image',()=>{
  const project=fixture(),placement=door(project).choices[0],definition=project.library.find(d=>d.id===placement.definitionId);

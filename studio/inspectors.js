@@ -29,12 +29,13 @@ function cardRuleFields(project,definition,scope) {
  let html='';
  if(definition.kind==='action')html+=actionFields(project,definition,'',scope);
  if(isStoryKind(definition.kind))html+=rules(project,definition.effects,'effects',scope,'effects',{label:'On progression effects',help:'Apply when this card is advanced or selected.'});
- if(definition.kind==='item') {
-  html+=rules(project,definition.onCollect,'onCollect',scope,'effects',{label:'On collect effects',help:'Taking this item grants ownership automatically and applies these effects. Discarding it applies none.'});
-  html+=select('Item behaviour',definition.use?'consumable':'key',[['key','Collectible or key item'],['consumable','Consumable']], 'itemBehaviour',scope);
-  if(definition.use)html+=rules(project,definition.use.conditions,'use.conditions',scope,'conditions',{label:'Use requirements',help:'All requirements must pass to use this owned item from inventory. These do not control where it appears.'})+rules(project,definition.use.effects,'use.effects',scope,'effects',{label:'On use effects',help:'Using this consumable removes it from inventory and applies these effects.'});
- }
+ if(definition.kind==='item')html+=itemRuleFields(project,definition,'',scope);
+
  return html;
+}
+function itemRuleFields(project,item,prefix,scope) {
+ return rules(project,item.onCollect,`${prefix}onCollect`,scope,'effects',{label:'On collect effects',help:'Taking this item grants ownership automatically and applies these effects. Discarding it applies none.'})
+  +`<label class="field">Permability<input data-scope="${esc(scope)}" data-path="${esc(prefix)}permability" type="number" min="0" step="1" value="${esc(item.permability??0)}"></label><p class="small">0 = permanent; positive values limit Action triggers. Successful and failed committed attempts both count.</p>`;
 }
 export function definitionInspector(project,definition) {
  if(!definition)return '<p>Select a definition in the Library.</p>';
@@ -64,13 +65,13 @@ export function placementInspector(project,p,kind,index,slot,count=Infinity) {
  html+=`<div class="placement-fields" ${attr}>`;
  if(slot==='choices'&&kind==='action')html+=select('Inventory trigger',p.contextItemId||'',[['','None'],...project.library.filter(d=>d.kind==='item').map(d=>[d.id,d.name])],'contextItemId','placement');
  if(local&&kind==='action')html+=cardRuleFields(project,definition,'local-definition');
- if(kind!=='action')html+=rules(project,p.conditions,'conditions','placement','conditions',{label:'Appearance conditions',help:kind==='item'?'All conditions must pass for this item to appear here. They do not restrict using it after collection.':'All conditions must pass for this card to appear here.'});
+ if(kind!=='action')html+=rules(project,p.conditions,'conditions','placement','conditions',{label:'Appearance conditions',help:kind==='item'?'All conditions must pass for this item to appear here. They do not limit Action triggers after collection.':'All conditions must pass for this card to appear here.'});
  if(local&&kind!=='action')html+=cardRuleFields(project,definition,'local-definition');
  if(kind!=='item'&&kind!=='action')html+=rules(project,p.effects,'effects','placement','effects',{label:'Additional effects',help:'Apply only to this placement when it completes, in addition to its source effects.'});
- if(kind==='action'&&!local&&definition) {
-  if(!p.overrides)html+=`<p class="small">Using source rules · ${esc(cardSummary(definition,project.variables,project.library)||'No requirements, costs or effects')} · Resolution: ${definition.resolution==='check'?'Dice check':'Direct'}</p>`;
+ if(['action','item'].includes(kind)&&!local&&definition) {
+  if(!p.overrides)html+=`<p class="small">Using source rules · ${esc(cardSummary(definition,project.variables,project.library)||'No requirements, costs or effects')}${kind==='action'?` · Resolution: ${definition.resolution==='check'?'Dice check':'Direct'}`:''}</p>`;
   html+=checkbox('Use custom rules',!!p.overrides,'useCustomRules','placement');
-  if(p.overrides)html+=actionFields(project,{...card,...p.overrides},'overrides.','placement');
+  if(p.overrides)html+=kind==='action'?actionFields(project,{...card,...p.overrides},'overrides.','placement'):itemRuleFields(project,{...definition,...p.overrides},'overrides.','placement');
  }
  html+='</div>';
  html+=`<div class="inspector-card-preview" data-card-preview data-preview-placement="${esc(p.id)}"></div>`;

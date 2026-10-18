@@ -76,12 +76,12 @@ test('disabled intro panel retains data and existing saves default to shared and
 test('copies and duplicated nodes remap item self references and legacy inventory aliases',()=>{
  const project=createProject(),n=createNode(project,'container');project.chapters[0].nodes.push(n);
  const p=n.items[0],source=project.library.find(d=>d.id===p.definitionId);source.inventoryKey='self-alias';
- source.use={conditions:[{source:'inventory',key:source.id,op:'has'},{source:'inventory',key:'self-alias',op:'has'}],effects:[{op:'addItem',key:source.id}]};
+ source.conditions=[{source:'inventory',key:source.id,op:'has'},{source:'inventory',key:'self-alias',op:'has'}];source.onCollect=[{op:'addItem',key:source.id}];
  const copy=replaceCard(project,p,'item',{copy:true});
- assert.ok(copy.use.conditions.every(c=>c.key===copy.id));assert.equal(copy.use.effects[0].key,copy.id);
- copy.inventoryKey='copied-alias';copy.use.conditions.push({source:'inventory',key:'copied-alias',op:'has'});
+ assert.ok(copy.conditions.every(c=>c.key===copy.id));assert.equal(copy.onCollect[0].key,copy.id);
+ copy.inventoryKey='copied-alias';copy.conditions.push({source:'inventory',key:'copied-alias',op:'has'});
  const duplicated=duplicateNode(project,n),d=project.library.find(d=>d.id===duplicated.items[0].definitionId);
- assert.notEqual(d.id,copy.id);assert.ok(d.use.conditions.every(c=>c.key===d.id));assert.equal(d.use.effects[0].key,d.id);assert.equal(d.inventoryKey,undefined);
+ assert.notEqual(d.id,copy.id);assert.ok(d.conditions.every(c=>c.key===d.id));assert.equal(d.onCollect[0].key,d.id);assert.equal(d.inventoryKey,undefined);
  d.name='Independent';assert.notEqual(copy.name,d.name);
 });
 

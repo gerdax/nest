@@ -13,18 +13,25 @@ export const isStoryKind = kind => ['event','caption'].includes(canonicalCardKin
 // Compiled placements include their added effects in onCollect. Legacy callers
 // may still supply collection mechanics under effects instead.
 export const collectionEffects = card => card.onCollect ?? card.effects ?? [];
+const actionOverrideKeys = Object.freeze(['conditions', 'costs', 'effects', 'resolution', 'check', 'successEffects', 'failureEffects']);
+const itemOverrideKeys = Object.freeze(['onCollect', 'permability']);
+export const placementOverrideKeys = kind => canonicalCardKind(kind) === 'item' ? itemOverrideKeys : actionOverrideKeys;
 export function createDefinition(kind, id) {
   kind = canonicalCardKind(kind);
   if (!Object.hasOwn(cardKinds, kind)) throw new TypeError(`Unknown card kind: ${kind}`);
   const base = { id, kind, name: `New ${cardKinds[kind].label}`, showName:kind==='item', text: '', image: '' };
   if (isStoryKind(kind)) return { ...base, effects: [] };
-  if (kind === 'item') return { ...base, onCollect: [] };
+  if (kind === 'item') return { ...base, onCollect: [], permability: 0 };
   return { ...base, conditions: [], costs: [], effects: [], resolution: 'direct', check: {pool: [{sides:20,count:1}], modifier:0,target:10}, successEffects: [], failureEffects: [] };
 }
 export function resolvePlacement(project, placement, index) {
   const definition = index && index.usable !== false ? index.byId.get(placement.definitionId) : project.library.find(d => d?.id === placement.definitionId);
   if (!definition) throw new TypeError(`Unknown definition: ${placement.definitionId}`);
-  const base = {...definition, ...(definition.visibility==='local'?{}:placement.overrides), kind:canonicalCardKind(definition.kind)};
+  const overrides = definition.visibility === 'local' ? {} : Object.fromEntries(
+    placementOverrideKeys(definition.kind).filter(key => Object.hasOwn(placement.overrides ?? {}, key))
+      .map(key => [key, placement.overrides[key]])
+  );
+  const base = {...definition, ...overrides, kind:canonicalCardKind(definition.kind)};
   const resolved = {...base, conditions:[...(base.conditions || []),...(placement.conditions || [])], effects:[...(base.effects || []),...(placement.effects || [])], id:placement.id, definitionId:definition.id, unavailable:placement.unavailable ?? 'disabled', inventoryKey:definition.inventoryKey ?? definition.id};
   if (base.kind === 'item') resolved.onCollect = [...collectionEffects(base), ...(placement.effects || [])];
   if (placement.contextItemId) {
@@ -61,7 +68,7 @@ export function cardSummaryParts(card, variables = [], library = []) {
   if(card.onCollect?.length) parts.push(`Collect: ${effects(card.onCollect)}`);
   if(card.successEffects?.length) parts.push(`Success: ${effects(card.successEffects)}`);
   if(card.failureEffects?.length) parts.push(`Failure: ${effects(card.failureEffects)}`);
-  if(card.use) parts.push(`Use: ${effects(card.use.effects) || 'No effects'}`);
+  if(card.kind === 'item') parts.push(`Action triggers: ${card.permability > 0 ? (card.remainingTriggers ?? card.permability) + ' remaining' : 'permanent'}`);
   return parts;
 }
 export function cardSummary(card, variables = [], library = []) {
@@ -74,7 +81,6 @@ export function playerCardSummary(card, variables = [], library = [], values = {
   const visible = rules => rules?.filter(rule => rule.source === 'inventory' || ['addItem','removeItem'].includes(rule.op) || !concealed(rule.key));
   const filtered = {...card};
   for (const key of ['conditions','explicitConditions','costs','effects','onCollect','successEffects','failureEffects']) if (card[key]) filtered[key] = visible(card[key]);
-  if (card.use) filtered.use = {...card.use, effects:visible(card.use.effects), conditions:visible(card.use.conditions)};
   if (card.check?.mode === 'stat') filtered.resolution = 'direct';
   const parts = cardSummaryParts(filtered, variables, library);
   return parts.join(' · ');

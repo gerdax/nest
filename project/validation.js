@@ -1,6 +1,6 @@
 import { isStatVariable, validStatValue, compatibleStatVariable } from './checks.js';
 import { validateCardBack } from '../engine/cardBacks.js';
-import { cardKinds, resolvePlacement, canonicalCardKind, allowedCardKinds } from './cards.js';
+import { cardKinds, resolvePlacement, canonicalCardKind, allowedCardKinds, placementOverrideKeys } from './cards.js';
 import { nodeTypeDescriptor } from './nodeTypes.js';
 import { isCardColor } from './card-styles.js';
 import { object, named, list, placements, legacyArtwork, chapterVariables } from './model-data.js';
@@ -137,13 +137,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
       || d[key] < (key === 'imageScale' ? 10: -100) || d[key] > (key === 'imageScale' ? 400: 100))) add(`${label}: invalid image scale or position.`);
     inspectConditions(d.conditions, label);
     for (const key of ['effects', 'onCollect', 'successEffects', 'failureEffects']) inspectEffects(d[key], label);
-    if (d.use !== undefined) {
-      if (!object(d.use)) add(`${label}: invalid item use.`);
-      else {
-        inspectConditions(d.use.conditions, label);
-        inspectEffects(d.use.effects, label);
-      }
-    }
+    if (d.permability !== undefined && (!Number.isSafeInteger(d.permability) || d.permability < 0)) add(`${label}: permability must be a nonnegative safe integer.`);
     if (d.costs !== undefined) {
       if (!Array.isArray(d.costs)) add(`${label}: costs must be a list.`);
       else for (const c of d.costs) {
@@ -241,12 +235,11 @@ export function validateProject(project, {allowDraft = false} = {}) {
         if (p.unavailable !== undefined && !['hidden', 'disabled'].includes(p.unavailable) || p.overrides !== undefined
           && !object(p.overrides)) add(`${label}: invalid placement options.`, cid, nid);
         inspectCard(p, label);
+        const d = definitions.get(p.definitionId);
         if (object(p.overrides)) {
-          if (Object.keys(p.overrides).some(k => !['conditions', 'costs', 'effects', 'resolution', 'check',
-            'successEffects', 'failureEffects'].includes(k))) add(`${label}: unsupported override.`, cid, nid);
+          if (Object.keys(p.overrides).some(k => !placementOverrideKeys(d?.kind).includes(k))) add(`${label}: unsupported override.`, cid, nid);
           inspectCard(p.overrides, label);
         }
-        const d = definitions.get(p.definitionId);
         if (p.contextOverrideImage !== undefined && !(node.type === 'fork' && list(node.choices).includes(p)
           && canonicalCardKind(d?.kind) === 'action')) add(`${label}: Override img belongs to a native fork Action choice.`,
           cid, nid);
@@ -257,7 +250,11 @@ export function validateProject(project, {allowDraft = false} = {}) {
         if (d) {
           if (['linear', 'fork', 'container'].includes(node.type) && !allowedCardKinds(node.type, p === node.intro ? 'intro': list(node.choices).includes(p) ? 'choices': list(node.items).includes(p) ? 'items': 'cards').includes(canonicalCardKind(d.kind))) add(`${label}: incompatible card kind.`,
             cid, nid);
-          if (contextValid) inspectCard(resolvePlacement(project, p, index), label);
+          // Raw rule validation above reports malformed custom lists; do not try
+          // to spread an invalid collection override while collecting errors.
+          const collectionValid = canonicalCardKind(d.kind) !== 'item' || p.overrides?.onCollect === undefined
+            || Array.isArray(p.overrides.onCollect);
+          if (contextValid && collectionValid) inspectCard(resolvePlacement(project, p, index), label);
         }
       }
       let targets = [];

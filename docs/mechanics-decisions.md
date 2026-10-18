@@ -16,8 +16,8 @@ Custom checks default to `1d20`, fixed modifier `0`, target `10`; configurable d
 
 A cabinet can therefore offer Use key (Direct), Pick lock (Check with Success/Failure), and Leave (Direct). Each placement owns its destinations. Local action settings can override shared requirements, costs, effects and check configuration; Create variant separates content as well.
 
-## Shared cards, quantities and consumables — implemented
+## Shared cards, item ownership and Permability — implemented
 
-The project Library contains explicit Narrative, Action and Item definitions shared across chapters. Placements own added rules, chapter wiring. Project variables provide defaults and bounds; chapters may override their initial values. Inventory tracks ownership by item definition and supports inspection. Collecting applies `onCollect` effects after take completion; consumable use removes the owned item and applies use effects atomically. At full resource bounds the copy is still consumed and the result is clamped.
+The project Library contains explicit Narrative, Action and Item definitions shared across chapters. Placements own added rules, chapter wiring. Project variables provide defaults and bounds; chapters may override their initial values. Inventory tracks ownership by item definition and supports inspection. Collecting applies `onCollect` effects after take completion. Item Permability limits accepted inventory-triggered Actions: 0 is permanent, positive values share one remaining-trigger budget per owned item. Both check outcomes count; the last trigger removes the item. Direct consumable use has been removed; consumables are deferred as a separate card type.
 
-Combat, equipment, persistent cross-run inventory, automatic chapter destinations and 4d6 advantage remain deferred. These features are not implied by Random routing, checks or consumables.
+Combat, equipment, persistent cross-run inventory, automatic chapter destinations and 4d6 advantage remain deferred. These features are not implied by Random routing, checks or item trigger limits.

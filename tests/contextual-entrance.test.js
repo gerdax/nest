@@ -177,18 +177,11 @@ function doorRun(project=doorFixture()) {
  ready(deck);return {deck,controller};
 }
 
-test('real controller rejects item use during drag without consuming ownership or effects', () => {
- const {deck,controller}=doorRun();
- const before=JSON.stringify(controller.state);
- assert.equal(deck.start(),true);assert.equal(controller.state.idle,false);
- assert.equal(controller.useItem('potion'),false);
- deck.cancel();settle();assert.equal(JSON.stringify(controller.state),before);dispose(deck,controller);
-});
 
-test('real controller inventory use reconciles fork without rebuilding cover or selected action', () => {
+test('explicit fork state refresh preserves cover and selected action', () => {
  const {deck,controller}=doorRun();
  const scene=deck.scene, selected=deck.cards[deck.index], id=deck.content.actions[deck.index].id;
- assert.equal(controller.useItem('potion'),true);settle();
+ controller.variables.energy=5;controller.inventory=controller.inventory.filter(i=>i.definitionId!=='potion');deck.updateActions(controller.content().actions);settle();
  assert.equal(deck.scene,scene);assert.equal(deck.cards[deck.index],selected);assert.equal(deck.content.actions[deck.index].id,id);
  assert.equal(controller.inventory.some(i=>i.definitionId==='key'),true);dispose(deck,controller);
 });

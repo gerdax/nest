@@ -6,7 +6,7 @@ import { pasteNodeClipboard } from './node-clipboard.js';
 import { transferCard } from './card-transfer.js';
 import {
   uid, createNode, makePlacement, promoteCard, duplicateNode, duplicatePlacement,
-  findPlacement, pathTarget, customizeAction, newRule, normalizeRule, addHealthVariable,
+  findPlacement, pathTarget, customizeAction, customizeItem, newRule, normalizeRule, addHealthVariable,
 } from './commands.js';
 
 function chapterFor(project, selection) {
@@ -55,18 +55,17 @@ function changeField(project, selection, field, localDrafts) {
   const root = documentScope(project, selection, field);
   if (!root) return;
   if (scope === 'placement' && path === 'useCustomRules') {
-    if (checked) customizeAction(project, root);
+    if (checked) {
+      const definition=project.library.find(card=>card.id===root.definitionId);
+      if(definition?.kind==='item')customizeItem(project,root);
+      else customizeAction(project,root);
+    }
     else delete root.overrides;
     return;
   }
   if (scope === 'node' && path === 'introEnabled' && checked && root.type === 'fork' && !root.intro) root.intro = makePlacement(project, 'event');
   if (scope === 'placement' && path === 'definitionId') {
     localDrafts.switchSource(project, root, raw, {allowedKinds:allowedCardKinds(node.type, node.intro === root ? 'intro' : node.type === 'container' ? 'items' : 'cards')});
-    return;
-  }
-  if (path === 'itemBehaviour') {
-    if (raw === 'consumable') root.use = {effects:[], conditions:[]};
-    else delete root.use;
     return;
   }
   const {parent, key} = pathTarget(root, path);

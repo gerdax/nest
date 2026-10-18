@@ -56,18 +56,18 @@ test('Action and Item restore independent definition rules and placement setting
   assert.equal(item.resolution, undefined);
   assert.equal(item.costs, undefined);
   assert.equal(placement.unavailable, undefined);
-  item.onCollect = [effect(1)]; item.use = {conditions:[condition(1)], effects:[effect(-1)]};
+  item.onCollect = [effect(1)]; item.permability = 2;
   placement.conditions = [condition(8)];
   switchTo(state, 'local:action');
   const action = definition(project, placement);
-  assert.equal(action.onCollect, undefined); assert.equal(action.use, undefined);
+  assert.equal(action.onCollect, undefined); assert.equal(action.permability, undefined);
   assert.deepEqual(action.conditions, [condition(2)]); assert.deepEqual(action.effects, [effect(-2)]);
   assert.equal(action.resolution, 'check'); assert.equal(action.check.modifier, 3);
   assert.deepEqual(action.successEffects, [effect(3)]);
   assert.equal(placement.unavailable, 'hidden'); assert.equal(placement.conditions, undefined);
   switchTo(state, 'local:item');
   assert.deepEqual(definition(project, placement).onCollect, [effect(1)]);
-  assert.deepEqual(definition(project, placement).use.effects, [effect(-1)]);
+  assert.equal(definition(project, placement).permability, 2);
   assert.deepEqual(placement.conditions, [condition(8)]);
 });
 
@@ -199,24 +199,24 @@ test('restored and converted Item drafts remap inventory self references and ali
   const state = setup(); switchTo(state, 'local:item');
   const item = definition(state.project, state.placement);
   item.inventoryKey = 'draft-alias';
-  item.use = {conditions:[{source:'inventory',key:item.id,op:'has'}, {source:'inventory',key:'draft-alias',op:'has'}],
-    effects:[{op:'removeItem',key:item.id}]};
+  item.conditions = [{source:'inventory',key:item.id,op:'has'}, {source:'inventory',key:'draft-alias',op:'has'}];
+  item.onCollect = [{op:'removeItem',key:item.id}];
   state.placement.conditions = [{source:'inventory',key:'draft-alias',op:'has'}];
   switchTo(state, 'local:action'); switchTo(state, 'local:item');
   const restored = definition(state.project, state.placement);
   assert.equal(restored.id, item.id);
-  assert.ok(restored.use.conditions.every(c => c.key === restored.id));
-  assert.equal(restored.use.effects[0].key, restored.id);
+  assert.ok(restored.conditions.every(c => c.key === restored.id));
+  assert.equal(restored.onCollect[0].key, restored.id);
   assert.equal(state.placement.conditions[0].key, restored.id);
   const shared = state.project.library.find(d => d.id === 'flashlight');
-  shared.inventoryKey = 'shared-alias'; shared.use = {conditions:[{source:'inventory',key:'shared-alias',op:'has'}],
-    effects:[{op:'addItem',key:shared.id}]};
+  shared.inventoryKey = 'shared-alias'; shared.conditions = [{source:'inventory',key:'shared-alias',op:'has'}];
+  shared.onCollect = [{op:'addItem',key:shared.id}];
   switchTo(state, shared.id); state.drafts.convert(state.project, state.placement);
   const converted = definition(state.project, state.placement);
   assert.notEqual(converted.id, shared.id);
   assert.equal(converted.inventoryKey, undefined);
-  assert.equal(converted.use.conditions[0].key, converted.id);
-  assert.equal(converted.use.effects[0].key, converted.id);
+  assert.equal(converted.conditions[0].key, converted.id);
+  assert.equal(converted.onCollect[0].key, converted.id);
 });
 
 test('Reset positioning on current type removes obsolete positioning from restored Action', () => {
@@ -293,7 +293,7 @@ function cachedItemAction() {
   drafts.switchSource(project, itemPlacement, 'local:item', {allowedKinds});
   const item = definition(project, itemPlacement);
   item.inventoryKey = 'cleared-item-alias'; item.onCollect = [effect(9)];
-  item.use = {effects:[effect(4)]};
+  item.permability = 4;
   switchTo(state, 'local:action');
   definition(project, state.placement).effects = [{op:'addItem',key:item.id}];
   switchTo(state, 'local:caption');
@@ -350,8 +350,8 @@ test('removal refreshes newly added transitive dependencies in the same beat bef
   switchTo(state, 'local:caption');
   const nextPlacement = makePlacement(project, 'item'); node.cards.push(nextPlacement);
   const next = definition(project, nextPlacement);
-  item.use = {effects:[{op:'addItem',key:next.id}]};
-  next.use = {effects:[{op:'addItem',key:item.id}]};
+  item.onCollect = [{op:'addItem',key:next.id}];
+  next.onCollect = [{op:'addItem',key:item.id}];
   const expected = [structuredClone(item), structuredClone(next)];
   for(const p of [itemPlacement, nextPlacement]){
     drafts.removePlacement(project, p); node.cards = node.cards.filter(card => card.id !== p.id);
@@ -367,7 +367,7 @@ test('Clear removes obsolete transitive dependencies from cached Item closures',
   const state = sameBeatItemAction(), {project, node, drafts, itemPlacement, item} = state;
   const nextPlacement = makePlacement(project, 'item'); node.cards.push(nextPlacement);
   const next = definition(project, nextPlacement);
-  item.use = {effects:[{op:'addItem',key:next.id}]};
+  item.onCollect = [{op:'addItem',key:next.id}];
   switchTo(state, 'local:caption');
   drafts.clear(project, itemPlacement);
   const cleared = structuredClone(definition(project, itemPlacement));

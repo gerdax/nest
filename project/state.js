@@ -12,6 +12,20 @@ function clamp(value, definition) {
   return value;
 }
 const matches = (item, key) => item.definitionId === key || item.inventoryKey === key || item.id === key;
+export function itemTriggersRemaining(item) {
+  return (item.permability ?? 0) === 0 ? Infinity : (item.remainingTriggers ?? item.permability);
+}
+export function canTriggerItem(inventory = [], key) {
+  return inventory.some(item => matches(item,key) && itemTriggersRemaining(item) > 0);
+}
+function trigger(inventory, original, key) {
+  if (!canTriggerItem(original,key)) throw new RangeError(`Unavailable inventory trigger: ${key}`);
+  return inventory.flatMap(item => {
+    if (!matches(item,key)) return [item];
+    const remaining = itemTriggersRemaining(item);
+    return remaining === Infinity ? [item] : remaining > 1 ? [{...item,remainingTriggers:remaining-1}] : [];
+  });
+}
 export function inventoryQuantity(inventory = [], key) {
   return inventory.some(item => matches(item,key)) ? 1 : 0;
 }
@@ -64,15 +78,27 @@ function ownedInventory(inventory) {
 export function addInventory(inventory, definition) {
   if (!definition) throw new TypeError('Invalid item definition');
   const id = definition.definitionId ?? definition.id;
-  return ownedInventory([...inventory,{...definition,id,definitionId:id,inventoryKey:definition.inventoryKey ?? id}]);
+  const permability = definition.permability ?? 0;
+  if (!Number.isSafeInteger(permability) || permability < 0) throw new TypeError('Invalid item permability');
+  const {remainingTriggers = permability, ...content} = definition;
+  if (permability > 0 && (!Number.isSafeInteger(remainingTriggers) || remainingTriggers < 1 || remainingTriggers > permability)) throw new TypeError('Invalid remaining item triggers');
+  return ownedInventory([...inventory,{...content,id,definitionId:id,inventoryKey:definition.inventoryKey ?? id,
+    ...(permability > 0 ? {remainingTriggers} : {})}]);
 }
-export function transact(values, inventory = [], { costs = [], effects = [] } = {}, definitions = [], library = []) {
+export function transact(values, inventory = [], { costs = [], effects = [], triggerItem } = {}, definitions = [], library = []) {
   const variables = {...values};
+  const triggeringItem = triggerItem && inventory.find(item => matches(item,triggerItem));
+  if (triggerItem && !canTriggerItem(inventory,triggerItem)) throw new RangeError(`Unavailable inventory trigger: ${triggerItem}`);
   let items = spend(variables,ownedInventory(inventory),costs,definitions);
+  let originalTriggerOwned = triggerItem && items.some(item => matches(item,triggerItem));
   const defs = new Map(definitions.map(d=>[d.id,d]));
   const entries = library instanceof Map ? [...library.values()] : Array.isArray(library) ? library : Object.values(library);
   for (const effect of effects) {
-    if (effect.op === 'removeItem') { items = remove(items,effect.key); continue; }
+    if (effect.op === 'removeItem') {
+      items = remove(items,effect.key);
+      if (triggeringItem && matches(triggeringItem,effect.key)) originalTriggerOwned = false;
+      continue;
+    }
     if (effect.op === 'addItem') {
       const definition = entries.find(d=>(d.definitionId ?? d.id) === effect.key && d.kind === 'item');
       items = addInventory(items,definition); continue;
@@ -84,6 +110,8 @@ export function transact(values, inventory = [], { costs = [], effects = [] } = 
     if (typeof value !== expected || (effect.op === 'add' && expected !== 'number')) throw new TypeError(`Invalid variable type: ${effect.key}`);
     variables[effect.key] = clamp(value,def);
   }
+  // Explicit removal already spends ownership. A later grant is a fresh item.
+  if (originalTriggerOwned) items = trigger(items,inventory,triggerItem);
   for (const [key,value] of Object.entries(variables)) variables[key] = clamp(value,defs.get(key));
   return {variables,inventory:items};
 }

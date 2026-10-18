@@ -1,5 +1,3 @@
-import { conditionsMet } from '../project/state.js';
-import { playerCardSummary } from '../project/cards.js';
 import { applyArtworkColorize } from '../engine/artworkColorize.js';
 import { DrawerMotion } from './drawer-motion.js';
 import { dialogLayout } from './dialog-layout.js';
@@ -9,16 +7,15 @@ const name = item => item?.name || item?.label || 'Item';
 
 /** Inventory presentation; the controller alone mutates ownership and effects. */
 export class InventoryView {
-  constructor(root, { onUse = () => {}, getBounds = () => null, onMotion = () => {} } = {}) {
+  constructor(root, { getBounds = () => null, onMotion = () => {} } = {}) {
     this.root = root;
-    this.onUse = onUse;
     this.getBounds = getBounds;
     this.items = [];
     this.slots = Array(4).fill(null);
     this.visible = null;
     root.classList.add('nest-inventory');
     root.classList.add('nest-inventory-drawer');
-    root.innerHTML = '<span data-count hidden aria-hidden="true"></span><ul class="nest-inventory-cards" aria-label="Inventory slots"></ul><p data-drawer-feedback role="status" hidden></p><dialog class="item-dialog"><h3></h3><div class="nest-image-vignette" data-item-artwork><img alt=""></div><p data-summary></p><p data-description></p><div class="row"><button type="button" data-use>Use</button><button type="button" data-close>Close</button></div><p data-feedback role="status"></p><section data-overflow hidden><h4>Other owned items</h4><ul class="nest-inventory-overflow"></ul></section></dialog><dialog class="item-dialog nest-inventory-confirm" data-collect-dialog><h3>Collect item</h3><p data-collect-message></p><div data-slot-picker class="nest-inventory-picker"></div><div class="row"><button type="button" data-confirm>Replace</button><button type="button" data-cancel>Cancel</button></div></dialog>';
+    root.innerHTML = '<span data-count hidden aria-hidden="true"></span><ul class="nest-inventory-cards" aria-label="Inventory slots"></ul><p data-drawer-feedback role="status" hidden></p><dialog class="item-dialog"><h3></h3><div class="nest-image-vignette" data-item-artwork><img alt=""></div><p data-summary></p><p data-description></p><div class="row"><button type="button" data-close>Close</button></div><section data-overflow hidden><h4>Other owned items</h4><ul class="nest-inventory-overflow"></ul></section></dialog><dialog class="item-dialog nest-inventory-confirm" data-collect-dialog><h3>Collect item</h3><p data-collect-message></p><div data-slot-picker class="nest-inventory-picker"></div><div class="row"><button type="button" data-confirm>Replace</button><button type="button" data-cancel>Cancel</button></div></dialog>';
     this.dialog = root.querySelector('dialog');
     this.collectDialog = root.querySelector('[data-collect-dialog]');
     this.view = root.ownerDocument?.defaultView ?? globalThis;
@@ -31,15 +28,6 @@ export class InventoryView {
     this.list = root.querySelector('ul');
     this.hint = root.querySelector('[data-drawer-feedback]');
     root.querySelector('[data-close]').onclick = () => this.dialog.close();
-    root.querySelector('[data-use]').onclick = () => {
-      if (this.pending || this.deposited) return;
-      const id = this.selected;
-      try {
-        const result = this.onUse(id);
-        root.querySelector('[data-feedback]').textContent = result === false ? 'Item cannot be used right now.' : 'Item used.';
-        if (!this.items.some(item => identity(item) === id)) this.dialog.close();
-      } catch (error) { root.querySelector('[data-feedback]').textContent = error.message; }
-    };
     this.motion = new DrawerMotion(root, { onMotion, onIdle: () => { if (this.needsSlotRender) this.renderSlots(); } });
     this.setContext(false, { immediate: true });
     this.renderSlots();
@@ -64,7 +52,7 @@ export class InventoryView {
     this.busy = busy;
     this.variables = variables; this.values = values; this.library = library;
     this.root.querySelector('[data-count]').textContent = String(items.length);
-    // Keep surviving cards in place, including a hole left by a consumed item.
+    // Keep surviving cards in place, including a hole left by an exhausted item.
     if (this.placement?.layout) {
       this.slots = this.placement.layout.map(id => items.find(item => identity(item) === id) || null);
     }
@@ -290,10 +278,11 @@ export class InventoryView {
     this.dialog.querySelector('[data-item-artwork]').hidden = !item.image;
     applyArtworkColorize(image);
     image.style.transform = item.flipImage ? 'scaleX(-1)' : '';
-    this.dialog.querySelector('[data-summary]').textContent = playerCardSummary(item, this.variables, this.library, this.values);
+    const remaining = item.remainingTriggers ?? item.permability ?? 0;
+    this.dialog.querySelector('[data-summary]').textContent = remaining === 0 && (item.permability ?? 0) === 0
+      ? 'Permanent · unlimited Action triggers'
+      : `${remaining} Action ${remaining === 1 ? 'trigger' : 'triggers'} remaining`;
     this.dialog.querySelector('[data-description]').textContent = item.text || '';
-    const use = this.dialog.querySelector('[data-use]'); use.hidden = !item.use; use.disabled = this.busy || !conditionsMet(item.use?.conditions, this.values, this.items);
-    this.dialog.querySelector('[data-feedback]').textContent = '';
     const overflow = this.root.querySelector('[data-overflow]');
     const list = this.root.querySelector('.nest-inventory-overflow');
     if (overflow && list) {
@@ -311,6 +300,5 @@ export class InventoryView {
     this.cancelPending();
     if (this.dialog.open) this.dialog.close();
     this.root.replaceChildren(); this.items = []; this.slots = []; this.slotElements = [];
-    this.onUse = () => {};
   }
 }

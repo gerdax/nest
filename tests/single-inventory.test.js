@@ -66,7 +66,7 @@ test('add and remove effects ignore legacy quantity and normalize preexisting du
   assert.equal(inventory[0].quantity,12);
 });
 
-test('inventory view keeps accessible item names without mini labels and a single Use action',()=>{
+test('inventory view keeps accessible item names without mini labels or a direct Use action',()=>{
   class Element {
     constructor() { this.children=[]; this.style={}; this.attributes={}; this.classList={add(){},remove(){}}; }
     append(...children) { this.children.push(...children); }
@@ -86,9 +86,9 @@ test('inventory view keeps accessible item names without mini labels and a singl
   globalThis.document={createElement:()=>new Element(),body:new Element()};
   try {
     const view=new InventoryView(root);
-    assert.match(root.innerHTML,/data-use>Use<\/button>/);
+    assert.doesNotMatch(root.innerHTML,/data-use/);
     assert.doesNotMatch(root.innerHTML,/data-count-detail|Use one/);
-    view.update([{...apple,definitionId:'apple',quantity:100,text:'Fresh.',image:'apple.png',flipImage:true,use:{effects:[]}}]);
+    view.update([{...apple,definitionId:'apple',quantity:100,text:'Fresh.',image:'apple.png',flipImage:true,permability:2}]);
     assert.equal(root.nodes['[data-count]'].textContent,'1');
     const button=root.nodes.ul.children[0].children[0];
     assert.equal(button.attributes['aria-label'],'Apple');
@@ -99,7 +99,7 @@ test('inventory view keeps accessible item names without mini labels and a singl
     assert.equal(dialog.nodes.h3.textContent,'Apple');
     assert.equal(dialog.nodes.img.style.filter,'url("#nest-artwork-colorize")');
     assert.equal(dialog.nodes['[data-description]'].textContent,'Fresh.');
-    assert.equal(dialog.nodes['[data-use]'].hidden,false);
+    assert.match(dialog.nodes['[data-summary]'].textContent,/2 Action triggers remaining/);
     view.update([]);
     assert.equal(root.nodes['[data-count]'].textContent,'0');
     assert.equal(dialog.open,false);

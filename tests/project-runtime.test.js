@@ -47,9 +47,9 @@ test('cancel and restart abort late check completion without spending or duplica
  deck.accept();controller.restart();assert.equal(signals[1].aborted,true);resolves[1]([6]);await flush();assert.equal(controller.state.variables.energy,2);assert.equal(controller.state.completed,false);controller.destroy();
 });
 test('collect commits exact placement after departure and stages route using predicted inventory',()=>{
- let draws=0;const item={id:'placement',definitionId:'apple',kind:'item',name:'Apple',quantity:2,onCollect:[{op:'add',key:'energy',value:1}],use:{effects:[{op:'add',key:'energy',value:5}]}};
+ let draws=0;const item={id:'placement',definitionId:'apple',kind:'item',name:'Apple',quantity:2,onCollect:[{op:'add',key:'energy',value:1}]};
  const {deck,controller}=fixture([{id:'c',type:'container',intro:narrative('box'),items:[item],connections:{next:'r'}},{id:'r',type:'random',routes:[{id:'has',target:'a',weight:1,conditions:[{source:'inventory',key:'apple',op:'gte',value:2}]}]},{id:'a',type:'linear',cards:[narrative('after')]}],{variables:[{id:'energy',type:'number',initial:3,max:4}]},{rng:()=>{draws++;return 0;}});
- deck.take('placement',true);assert.equal(controller.state.collectedItems.length,0);assert.equal(controller.state.activeNodeId,'c');assert.equal(deck.pending.text,'after');deck.finish();assert.equal(controller.state.collectedItems.length,1);assert.equal(Object.hasOwn(controller.state.collectedItems[0],'quantity'),false);assert.equal(controller.state.variables.energy,4);assert.equal(controller.state.activeNodeId,'a');assert.equal(draws,1);assert.equal(controller.useItem('apple'),true);assert.equal(controller.state.collectedItems.length,0);assert.equal(controller.state.variables.energy,4);controller.destroy();
+ deck.take('placement',true);assert.equal(controller.state.collectedItems.length,0);assert.equal(controller.state.activeNodeId,'c');assert.equal(deck.pending.text,'after');deck.finish();assert.equal(controller.state.collectedItems.length,1);assert.equal(Object.hasOwn(controller.state.collectedItems[0],'quantity'),false);assert.equal(controller.state.variables.energy,4);assert.equal(controller.state.activeNodeId,'a');assert.equal(draws,1);controller.destroy();
 });
 test('restart ignores stale item transition and addItem uses definition library',()=>{
  const item={id:'placement',definitionId:'apple',kind:'item',name:'Apple'};const {deck,controller}=fixture([{id:'c',type:'container',intro:narrative('box'),items:[item],connections:{}}],{library:[{id:'apple',kind:'item',name:'Apple'}]});
@@ -105,41 +105,6 @@ test('unaffordable actions hide or disable and failed dice restores unchanged st
  const {deck,controller}=fixture(nodes,{variables:[{id:'energy',type:'number',initial:2}]},{rollCheck:async()=>{throw new Error('roller unavailable');},onError:e=>errors.push(e)});
  assert.deepEqual(deck.content.actions.map(a=>a.id),['hidden','disabled','roll'],'project default shows both unavailable actions regardless of old per-card settings');assert.equal(deck.content.actions[0].disabled,true);deck.accept('disabled');assert.equal(controller.state.variables.energy,2);deck.accept('roll');await flush();assert.equal(controller.state.checking,false);assert.equal(controller.state.variables.energy,2);assert.equal(deck.options.presentation,'open');assert.equal(errors.length,1);controller.destroy();
 });
-test('use-item failure is atomic and refresh can unlock a choice at variable maximum',()=>{
- const use={effects:[{op:'add',key:'energy',value:2}]},apple={id:'apple',definitionId:'apple',kind:'item',use};
- const {deck,controller}=fixture([{id:'f',type:'fork',choices:[action('choose',{conditions:[{source:'inventory',key:'apple',op:'missing'}]})],connections:{choose:null}}],{variables:[{id:'energy',type:'number',initial:5,max:5}]});controller.inventory=[apple];controller.show();assert.equal(deck.content.actions[0].disabled,true);deck.busy=true;assert.equal(controller.useItem('apple'),false);deck.busy=false;assert.equal(controller.useItem('apple'),true);assert.equal(controller.state.variables.energy,5);assert.equal(controller.state.collectedItems.length,0);assert.equal(deck.content.actions[0].disabled,false);
- controller.inventory=[{...apple,use:{effects:[{op:'removeItem',key:'absent',quantity:1}]}}];assert.equal(controller.useItem('apple'),false);assert.equal(controller.state.collectedItems.length,1);controller.destroy();
-});
-test('use-item routing failure preserves the item, variables, location and presented card',()=>{
- const project=createProject(),chapter=project.chapters[0];
- project.variables=[{id:'visible',type:'flag',initial:true}];
- project.library.find(d=>d.id==='arrival').conditions=[{source:'variable',key:'visible',op:'eq',value:true}];
- const potion=project.library.find(d=>d.kind==='item');
- potion.id='potion';potion.use={conditions:[],effects:[{op:'set',key:'visible',value:false}]};
- chapter.nodes=[chapter.nodes[0]];chapter.nodes[0].connections.next=chapter.startNode;chapter.allowCycles=true;
- assert.deepEqual(validateProject(project),[]);
- const compiled=compileChapter(project),deck=new Deck(),errors=[];
- const controller=new ProjectController(deck,compiled,{onError:(error,state)=>errors.push({error,state})});
- controller.inventory=transact(controller.variables,[],{effects:[{op:'addItem',key:'potion'}]},compiled.variables,compiled.library).inventory;
- const before=controller.state,location=controller.location,content=deck.content;
- assert.equal(controller.useItem('potion'),false);
- assert.equal(errors.length,1);assert.match(errors[0].error.message,/Automatic routing cycle/);
- assert.deepEqual(controller.state,before);assert.deepEqual(errors[0].state,before);
- assert.equal(controller.location,location);assert.equal(deck.content,content);
- controller.destroy();
-});
-test('use-item routing evaluates the changed flag and consumed inventory before committing',()=>{
- const condition=(key,value)=>({source:'variable',key,op:'eq',value});
- const {controller}=fixture([{id:'story',type:'linear',cards:[
-  {...narrative('before'),conditions:[condition('visible',true)]},
-  {...narrative('after'),conditions:[condition('visible',false),{source:'inventory',key:'potion',op:'missing'}]}
- ],connections:{next:null}}],{variables:[{id:'visible',type:'flag',initial:true}]});
- controller.inventory=[{id:'potion',definitionId:'potion',kind:'item',use:{effects:[{op:'set',key:'visible',value:false}]}}];
- assert.equal(controller.useItem('potion'),true);
- assert.equal(controller.state.cardId,'after');assert.equal(controller.state.variables.visible,false);
- assert.deepEqual(controller.state.collectedItems,[]);assert.equal(controller.state.completed,false);
- controller.destroy();
-});
 test('legacy pool container completes queue after exact collection and skips empty linear',()=>{
  const sequences=[{id:'box',type:'container',cards:[narrative('intro')],items:[{id:'legacy-item',definitionId:'def',inventoryKey:'chapter:item',label:'Item',effects:[{op:'set',key:'taken',value:true}]}],exits:['other']},{id:'empty',type:'linear',cards:[],exits:['next']},{id:'story',type:'linear',cards:[narrative('queued')],exits:['next']}];
  const {deck,controller}=fixture([{id:'pool',type:'legacyPool',sequences,pool:sequences.map(s=>({sequenceId:s.id,weight:1})),count:3,connections:{next:null}}],{variables:[{id:'taken',type:'flag',initial:false}]},{rng:()=>0});deck.take('legacy-item',true);assert.equal(controller.state.variables.taken,false);assert.equal(deck.pending.text,'queued');deck.finish();assert.equal(controller.state.cardId,'queued');assert.equal(controller.state.variables.taken,true);assert.equal(conditionsMet([{source:'inventory',key:'chapter:item',op:'has'}],{},controller.state.collectedItems),true);deck.accept();assert.equal(controller.state.completed,true);controller.destroy();
@@ -166,7 +131,7 @@ test('linear previews stop before random selection while deterministic transpare
 });
 test('blocked fork reports actionable error without leaking speculative preview errors',()=>{
  const errors=[];const {deck,controller}=fixture([{id:'story',type:'linear',cards:[narrative('story')],connections:{next:'fork'}},{id:'fork',name:'Locked door',type:'fork',choices:[action('choice',{unavailable:'hidden',conditions:[{source:'variable',key:'flag',op:'eq',value:true}]})],connections:{}}],{variables:[{id:'flag',type:'flag',initial:false}]},{onError:e=>errors.push(e.message)});
- assert.equal(errors.length,0);assert.equal(deck.content.nextDeckPreview.content.actions[0].disabled,true);deck.accept();assert.equal(errors.length,1);assert.match(errors[0],/Locked door/);assert.match(errors[0],/requirements and costs/);controller.destroy();
+ assert.equal(errors.length,0);assert.equal(deck.content.nextDeckPreview.content.actions[0].disabled,true);deck.accept();assert.equal(errors.length,1);assert.match(errors[0],/Locked door/);assert.match(errors[0],/requirements, costs and inventory triggers/);controller.destroy();
 });
 test('false container intro bypasses cover and never applies intro effects',()=>{
  const intro={...narrative('intro'),conditions:[{source:'variable',key:'flag',op:'eq',value:true}],effects:[{op:'set',key:'flag',value:true}]};
@@ -226,8 +191,8 @@ test('false intro with no eligible items skips node; legacy intro effects remain
  const skipped=fixture([{id:'box',type:'container',intro:{...narrative('intro'),conditions:falseCondition,effects:[{op:'set',key:'flag',value:true}]},items:[{id:'item',kind:'item',definitionId:'apple',conditions:falseCondition}],connections:{next:'after'}},{id:'after',type:'linear',cards:[narrative('after')]}],{variables:[{id:'flag',type:'flag',initial:false}]});assert.equal(skipped.controller.state.activeNodeId,'after');assert.equal(skipped.controller.state.variables.flag,false);skipped.controller.destroy();
  const legacy=real([{id:'old',type:'legacySequence',sequence:{id:'old-box',type:'container',cards:[{...narrative('intro'),effects:[{op:'set',key:'flag',value:true}]}],items:[{id:'item',kind:'item',definitionId:'apple',label:'Apple'}],exits:['next']},connections:{}}],{variables:[{id:'flag',type:'flag',initial:false}]});key(legacy.deck,'ArrowUp');assert.equal(legacy.controller.state.variables.flag,false);dispose(legacy.deck,legacy.controller);
 });
-test('using an item in revealed container refreshes actions without reapplying intro',()=>{
- const {deck,controller}=real([{id:'box',type:'container',intro:{...narrative('intro'),effects:[{op:'add',key:'energy',value:1}]},items:[{id:'a',kind:'item',definitionId:'a',name:'A'},{id:'b',kind:'item',definitionId:'b',name:'B'}],connections:{}}],{variables:[{id:'energy',type:'number',initial:0}]});key(deck,'ArrowUp');controller.inventory=[{id:'potion',definitionId:'potion',kind:'item',use:{effects:[{op:'add',key:'energy',value:1}]}}];assert.equal(controller.useItem('potion'),true);settle();assert.equal(controller.state.variables.energy,2);assert.equal(deck.phase,'choices');deck.emit('reveal');assert.equal(controller.state.variables.energy,2);dispose(deck,controller);
+test('explicit variable refresh in revealed container does not reapply intro',()=>{
+ const {deck,controller}=real([{id:'box',type:'container',intro:{...narrative('intro'),effects:[{op:'add',key:'energy',value:1}]},items:[{id:'a',kind:'item',definitionId:'a',name:'A'},{id:'b',kind:'item',definitionId:'b',name:'B'}],connections:{}}],{variables:[{id:'energy',type:'number',initial:0}]});key(deck,'ArrowUp');controller.variables.energy=2;controller.show({restore:true});settle();assert.equal(controller.state.variables.energy,2);assert.equal(deck.phase,'choices');deck.emit('reveal');assert.equal(controller.state.variables.energy,2);dispose(deck,controller);
 });
 for(const reduced of [false,true])test(`final visible collection retains container when it unlocks another item, reduced=${reduced}`,()=>{
  const nodes=[{id:'box',type:'container',intro:narrative('box'),items:[{id:'a',definitionId:'key',kind:'item',name:'Key'},{id:'b',definitionId:'prize',kind:'item',name:'Prize',conditions:[{source:'inventory',key:'key',op:'has'}]}],connections:{next:'after'}},{id:'after',type:'linear',cards:[narrative('after')]}];

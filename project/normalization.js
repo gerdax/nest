@@ -6,6 +6,8 @@ import { outputsForNode, connectionForOutput } from './graph.js';
 export function normalizeSingleItems(project) {
   walk(project, value => {
     delete value.quantity;
+    delete value.use;
+    delete value.remainingTriggers;
     if (value.source === 'inventory') {
       if (value.op === 'gte') value.op = 'has';
       if (value.op === 'lte') value.op = 'missing';

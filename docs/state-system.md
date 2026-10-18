@@ -14,18 +14,17 @@ An Action can use a **Stat check** (`3d6 + Agility/Intelligence/Composure ≥ 10
 
 New Random routes filter their weighted destinations using conditions. Narrative cards whose placement conditions fail are skipped; ineligible container items are omitted. Empty eligible containers continue. **Project settings → Allow beat cycles** enables revisits across all chapters and is checked by default. A runtime traversal guard blocks automatic routing-only loops with an **Automatic routing cycle** error; internal card cycles in legacy sequences are rejected by validation.
 
-## Items and consumables
+## Items and Action triggers
 
-The item inspector separates rules by when they apply:
+The item inspector separates collection rules from the owned item's lifetime. Shared Items in the chapter panel default to their Library rules. Enable **Use custom rules** to replace **On collect effects** and **Permability** for that placement only; disable it to return to the source values. Custom collection effects may use the current chapter's variables. Appearance conditions remain separate placement rules. Local Items edit these rules directly, without a custom-rules toggle:
 
-- **Appearance conditions** belong to a placement (the item instance in a story beat). All must pass for the item to appear at that location. They do not restrict inventory use after collection.
+- **Appearance conditions** belong to a placement. All must pass for the item to appear at that location. They do not limit Action triggers after collection.
 - **On collect effects** belong to the source definition (`onCollect`). Taking the item grants ownership automatically and applies these additional effects; discarding it applies none.
-- **Use requirements** belong to a consumable's source definition (`use.conditions`). All must pass to use the owned item from inventory.
-- **On use effects** belong to a consumable's source definition (`use.effects`). Using it removes ownership and applies these effects atomically.
+- **Permability** defaults to the source definition (`permability`) and can be overridden per shared Item placement and is a nonnegative integer. The default `0` means permanent. Positive values limit how many accepted Action triggers the owned item can perform: `1` permits one trigger, `2` permits two, and so on.
 
-For example, two placements can reference the same potion source. One appears only when a chest is opened; another appears only when a merchant is met. Both share the potion's collection effects, use requirements and use effects. Editing the shared source changes all its placements; editing appearance conditions changes only that placement.
+Actions select an **Inventory trigger** (`contextItemId`) to refer to an owned item. All such Actions share that item's remaining count. Each committed Action attempt consumes one trigger, whether a check succeeds or fails. Blocked, canceled or interrupted attempts do not consume triggers. The final trigger removes the item from inventory. Permanent items remain owned until another rule removes them. Item effects are authored on Actions; inventory inspection has no direct Use action.
 
-A collectible/key item has no `use` field. A consumable adds `use.conditions` and `use.effects`. Unmet use requirements or transaction failure leave ownership and values unchanged. At a variable maximum, use still consumes the item and clamps the effect. There is no automatic refusal because the resource is full. Inventory use is unavailable during card transitions, checks or after completion.
+For example, two placements can reference the same tonic source. One appears only when a chest is opened; another appears only when a merchant is met. Both share the tonic's collection effects and Permability. Editing the shared source changes all its placements; editing appearance conditions changes only that placement.
 
 ```json
 {
@@ -33,19 +32,19 @@ A collectible/key item has no `use` field. A consumable adds `use.conditions` an
   "kind": "item",
   "name": "Tonic",
   "heading": "",
-  "text": "Restores energy.",
+  "text": "Triggers a restorative Action once.",
   "image": "./assets/img/pack.png",
   "onCollect": [],
-  "use": {"conditions": [], "effects": [{"op": "add", "key": "energy", "value": 2}]}
+  "permability": 1
 }
 ```
 
-This is a Library definition; a container placement might be `{"id":"tonic-loot","definitionId":"tonic"}`. Project variables must define `energy` as a number. `project/state.js` owns pure condition/transaction operations; `ProjectController` owns live state and timing; `studio/InventoryView.js` presents inspection/use without mutating state itself.
+This is a Library definition; a container placement might be `{"id":"tonic-loot","definitionId":"tonic"}`. An Action placement can reference `"contextItemId":"tonic"` and apply its own effects. `project/state.js` owns pure condition/transaction operations; `ProjectController` owns live state and timing; `studio/InventoryView.js` presents inspection and remaining triggers without mutating state itself.
 
 ## Validation and compatibility
 
 Unknown variables/items, wrong types, out-of-bound initial values and invalid quantities block playback/import/export. Draft autosave retains incomplete references for repair. Removing definitions does not silently rewrite mechanics. Project variable names are display labels; stable IDs identify references.
 
-V1 chapters load through migration with prefixed variable IDs and stable inventory aliases. The retained `chapter/state.js` and chapter controller still support v1 integrations. V1 saves lack the new item-use interface until migrated. Equip slots, combat, arbitrary scripts and persistent cross-run state are deferred. Deterministic tests cover rule calculations and timing contracts; they do not establish editor/browser/device behavior.
+V1 chapters load through migration with prefixed variable IDs and stable inventory aliases. The retained `chapter/state.js` and chapter controller still support v1 integrations. Equip slots, combat, arbitrary scripts and persistent cross-run state are deferred. Deterministic tests cover rule calculations and timing contracts; they do not establish editor/browser/device behavior.
 
 Item quantities are currently disabled: each collected card grants one owned item, repeated collection does not stack, and item effects/costs add or remove that ownership. Existing quantity fields are discarded on load/export; former inventory quantity comparisons become Owned/Missing requirements. Numeric resource amounts remain configurable.

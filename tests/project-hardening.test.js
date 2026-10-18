@@ -8,22 +8,22 @@ import { definitionInspector } from '../studio/inspectors.js';
 import { makePlacement, replaceCard } from '../studio/commands.js';
 import { DocumentHistory } from '../editor/DocumentHistory.js';
 
-test('compilation isolates nested checks, overrides, item use, conditions and effects in both directions', () => {
+test('compilation isolates nested checks, overrides, collection rules, conditions and effects in both directions', () => {
   const project = createProject(), action = project.library.find(d => d.kind === 'action'), item = project.library.find(d => d.kind === 'item');
   action.resolution = 'check';
   action.effects = [{ op: 'add', key: 'energy', value: 1 }];
   item.onCollect = [{ op: 'add', key: 'energy', value: 2 }];
-  item.use = { conditions: [{ source: 'inventory', key: item.id, op: 'has' }], effects: [{ op: 'add', key: 'energy', value: 3 }] };
+  item.conditions = [{ source: 'inventory', key: item.id, op: 'has' }];
   const placement = project.chapters[0].nodes.find(n => n.type === 'fork').choices[0];
   placement.conditions = [{ source: 'variable', key: 'energy', op: 'gte', value: 1 }];
   placement.overrides = { check: { pool: [{ sides: 6, count: 1 }], modifier: 0, target: 4 } };
   const before = structuredClone(project), compiled = compileChapter(project);
   const choice = compiled.nodes.find(n => n.type === 'fork').choices[0], taken = compiled.nodes.find(n => n.type === 'container').items[0];
   choice.check.pool[0].count = 2; choice.conditions[0].value = 2; choice.effects[0].value = 9;
-  taken.onCollect[0].value = 7; taken.use.conditions[0].op = 'missing'; taken.use.effects[0].value = 8;
+  taken.onCollect[0].value = 7; taken.conditions[0].op = 'missing';
   assert.deepEqual(project, before);
-  placement.overrides.check.target = 100; action.effects[0].value = 12; item.use.effects[0].value = 15;
-  assert.equal(choice.check.target, 4); assert.equal(choice.effects[0].value, 9); assert.equal(taken.use.effects[0].value, 8);
+  placement.overrides.check.target = 100; action.effects[0].value = 12; item.onCollect[0].value = 15;
+  assert.equal(choice.check.target, 4); assert.equal(choice.effects[0].value, 9); assert.equal(taken.onCollect[0].value, 7);
   const other = compileChapter(before); other.nodes[0].cards[0].effects.push({ op: 'add', key: 'energy', value: 1 });
   assert.deepEqual(before.chapters[0].nodes[0].cards[0].effects, undefined);
 });
@@ -67,7 +67,7 @@ test('local cleanup retains transitive dependencies of every chapter and shared 
   const project = createProject(), chapter = project.chapters[0];
   const tool = { ...createDefinition('item', 'tool'), visibility: 'local', inventoryKey: 'old-tool' };
   const battery = { ...createDefinition('item', 'battery'), visibility: 'local' };
-  tool.use = { effects: [{ op: 'addItem', key: battery.id }] };
+  tool.onCollect = [{ op: 'addItem', key: battery.id }];
   project.library.push(tool, battery);
   const placement = makePlacement(project, 'event'); chapter.nodes[0].cards.push(placement);
   project.library.find(d => d.id === placement.definitionId).effects = [{ op: 'addItem', key: tool.id }];
@@ -99,7 +99,8 @@ test('cleanup removes unreachable local dependency cycles, preserves shared card
 
 test('self-references do not block deletion of an otherwise unused definition', () => {
   const project = createProject(), item = { ...createDefinition('item', 'self'), visibility: 'shared' };
-  item.use = { conditions: [{ source: 'inventory', key: item.id, op: 'has' }], effects: [{ op: 'removeItem', key: item.id }] };
+  item.conditions = [{ source: 'inventory', key: item.id, op: 'has' }];
+  item.onCollect = [{ op: 'removeItem', key: item.id }];
   project.library.push(item);
   assert.deepEqual(definitionReferences(project, item.id), []);
   deleteDefinition(project, item.id);
@@ -114,4 +115,22 @@ test('replaced local definitions remain recoverable until explicit cleanup', () 
   assert.ok(unusedLocalDefinitions(project).some(d => d.id === originalId));
   assert.ok(definitionGraph(project).retained().has(placement.definitionId));
   assert.equal(cleanupLocalDefinitions(project), 1);
+});
+
+
+test('obsolete direct-use rules do not retain dependencies or block deletion', () => {
+  const project = createProject(), item = project.library.find(d => d.kind === 'item');
+  const obsolete = {...createDefinition('item', 'obsolete-use-only'), visibility:'local'};
+  project.library.push(obsolete);
+  item.use = {effects:[{op:'addItem',key:obsolete.id}]};
+  const before = structuredClone(project);
+  assert.deepEqual(definitionReferences(project, obsolete.id), []);
+  assert.ok(unusedLocalDefinitions(project).some(d => d.id === obsolete.id));
+  for (const output of [compileChapter(project), exportChapter(project)]) {
+    assert.equal(output.library.some(d => d.id === obsolete.id), false);
+    assert.equal(output.library.find(d => d.id === item.id).use, undefined);
+  }
+  assert.deepEqual(project, before);
+  deleteDefinition(project, obsolete.id);
+  assert.equal(project.library.some(d => d.id === obsolete.id), false);
 });

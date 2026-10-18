@@ -115,6 +115,14 @@ export function customizeAction(project,placement) {
  placement.overrides=Object.fromEntries(['conditions','costs','effects','resolution','check','successEffects','failureEffects'].map(key=>[key,structuredClone(card[key]??(key==='resolution'?'direct':key==='check'?{pool:[{sides:20,count:1}],modifier:0,target:10}:[]))]));
  delete placement.conditions;delete placement.effects;
 }
+export function customizeItem(project,placement) {
+ const definition=project.library.find(d=>d.id===placement.definitionId);
+ if(definition?.visibility==='local'){delete placement.overrides;return;}
+ if(definition?.kind!=='item')throw new Error('Custom Item rules need an Item definition.');
+ const card=resolvePlacement(project,placement);
+ placement.overrides={onCollect:structuredClone(card.onCollect??[]),permability:card.permability??0};
+ delete placement.effects;
+}
 export function newRule(project,kind,chapter) {
  const variables=chapterVariables(project,chapter);
  if(kind==='dice')return {sides:20,count:1};

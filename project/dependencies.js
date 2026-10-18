@@ -5,7 +5,7 @@ function walk(value, visit, path = []) {
   if (Array.isArray(value)) value.forEach((entry, index) => walk(entry, visit, [...path, index]));
   else if (value && typeof value === 'object') {
     visit(value, path);
-    for (const [key, entry] of Object.entries(value)) walk(entry, visit, [...path, key]);
+    for (const [key, entry] of Object.entries(value)) if (key !== 'use') walk(entry, visit, [...path, key]);
   }
 }
 
