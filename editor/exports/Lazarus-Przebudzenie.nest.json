@@ -11,16 +11,24 @@
   "unavailableActions": "hidden",
   "variables": [
     {
-      "id": "energy",
-      "name": "Siły",
+      "id": "health",
+      "name": "health",
       "type": "number",
-      "initial": 4,
+      "initial": 10,
       "min": 0,
-      "max": 6
+      "max": 10
+    },
+    {
+      "id": "energy",
+      "type": "number",
+      "initial": 3,
+      "min": 0,
+      "max": 10,
+      "name": "energy"
     },
     {
       "id": "agility",
-      "name": "Zwinność",
+      "name": "agility",
       "type": "number",
       "initial": 3,
       "min": 1,
@@ -30,7 +38,7 @@
     },
     {
       "id": "intelligence",
-      "name": "Inteligencja",
+      "name": "intelligence",
       "type": "number",
       "initial": 3,
       "min": 1,
@@ -40,7 +48,7 @@
     },
     {
       "id": "composure",
-      "name": "Opanowanie",
+      "name": "composure",
       "type": "number",
       "initial": 3,
       "min": 1,
@@ -1108,7 +1116,9 @@
     "id": "lazarus_przebudzenie",
     "name": "Lazarus — Przebudzenie",
     "startNode": "wake",
-    "initialValues": {},
+    "initialValues": {
+      "energy": 4
+    },
     "nodes": [
       {
         "id": "wake",
