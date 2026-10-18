@@ -110,6 +110,7 @@
   pointer-events: none;
 }
 .nest-copy p {
+  white-space: pre-wrap;
   font-size: var(--card-font-size, clamp(16px, 4vw, 21px));
   line-height: 1.45;
   margin: 12px 0 0;

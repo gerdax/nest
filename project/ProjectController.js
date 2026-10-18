@@ -464,7 +464,12 @@ export class ProjectController {
         else {
           const visible=this.items().map(i=>i.id),shown=this.deck.content.actions.map(a=>a.id);
           const updated=this.content();
-          if(visible.length!==shown.length||visible.some(id=>!shown.includes(id))||updated.actions.some(a=>{const old=this.deck.content.actions.find(c=>c.id===a.id);return old?.collectDisabled!==a.collectDisabled||old?.discardDisabled!==a.discardDisabled;}))this.show({presentation:'open',animate:false,autoBrowse:false,preserveInventoryContext:true});
+          if(visible.length!==shown.length||visible.some(id=>!shown.includes(id))||updated.actions.some(a=>{const old=this.deck.content.actions.find(c=>c.id===a.id);return old?.collectDisabled!==a.collectDisabled||old?.discardDisabled!==a.discardDisabled||old?.alreadyOwned!==a.alreadyOwned||old?.disabled!==a.disabled;})) {
+            // Ownership can disable/hide another placement of this item. Keep
+            // surviving articles and their presentation instead of reinstalling.
+            if(typeof this.deck.refreshInventoryActions==='function')this.deck.refreshInventoryActions(updated.actions);
+            else this.show({presentation:'open',animate:false,autoBrowse:false,preserveInventoryContext:true});
+          }
         }
       }
     }else if(detail.transition==='commit'&&this.stagedDestination){const destination=this.stagedDestination;this.stagedDestination=null;this.adopt(destination);if(!this.completed)this.reportBlocked();}

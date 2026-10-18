@@ -1,6 +1,7 @@
 import { createDefinition, resolvePlacement } from '../project/cards.js';
-import { outputsForNode,connectionForOutput } from '../project/model.js';
+import { chapterVariables,outputsForNode,connectionForOutput } from '../project/model.js';
 import { createNodeDefaults } from '../project/nodeTypes.js';
+import { definitionGraph } from '../project/dependencies.js';
 export const uid = prefix => `${prefix}-${crypto.randomUUID().slice(0,8)}`;
 export function addHealthVariable(project) {
  if(project.variables.some(variable=>variable.id==='health'))return false;
@@ -49,6 +50,15 @@ export function setCardSource(project,placement,definitionId,{allowedKinds}={}) 
 }
 export function promoteCard(project,placement) {
  const definition=project.library.find(d=>d.id===placement.definitionId);
+ const globals=new Set(project.variables.map(v=>v.id));
+ const inspect=value=>{
+  if(!value||typeof value!=='object')return;
+  if((value.source==='variable'||['set','add'].includes(value.op))&&!globals.has(value.key)
+   ||value.modifierVariable&&!globals.has(value.modifierVariable))throw new Error('Replace Chapter variables with Global variables before adding this card to the Library.');
+  Object.values(value).forEach(inspect);
+ };
+ const dependencies=definitionGraph(project).reachableFrom({definitionId:definition.id});
+ for(const dependency of project.library)if(dependencies.has(dependency.id))inspect(dependency);
  definition.visibility='shared';return definition;
 }
 export function duplicatePlacement(project,node,placement) {
@@ -105,19 +115,21 @@ export function customizeAction(project,placement) {
  placement.overrides=Object.fromEntries(['conditions','costs','effects','resolution','check','successEffects','failureEffects'].map(key=>[key,structuredClone(card[key]??(key==='resolution'?'direct':key==='check'?{pool:[{sides:20,count:1}],modifier:0,target:10}:[]))]));
  delete placement.conditions;delete placement.effects;
 }
-export function newRule(project,kind) {
+export function newRule(project,kind,chapter) {
+ const variables=chapterVariables(project,chapter);
  if(kind==='dice')return {sides:20,count:1};
- let variable=project.variables[0];
- if(!variable&&kind!=='costs'){variable={id:uid('variable'),name:'New variable',type:'number',initial:0};project.variables.push(variable);}
+ let variable=variables[0];
+ if(!variable&&kind!=='costs'){variable={id:uid('variable'),name:'New variable',type:'number',initial:0};(chapter?(chapter.variables ||= []):project.variables).push(variable);}
  if(kind==='conditions')return variable?{source:'variable',key:variable.id,op:'eq',value:variable.initial}:{source:'inventory',key:project.library.find(d=>d.kind==='item')?.id||'',op:'has'};
- if(kind==='costs')return {source:'variable',key:project.variables.find(v=>v.type==='number')?.id||'',amount:1};
+ if(kind==='costs')return {source:'variable',key:variables.find(v=>v.type==='number')?.id||'',amount:1};
  return {op:'set',key:variable?.id||'',value:variable?.initial??0};
 }
-export function normalizeRule(project,rule,leaf) {
- const item=project.library.find(d=>d.kind==='item'),variable=project.variables.find(v=>v.type==='number')||project.variables[0];
+export function normalizeRule(project,rule,leaf,chapter) {
+ const variables=chapterVariables(project,chapter);
+ const item=project.library.find(d=>d.kind==='item'),variable=variables.find(v=>v.type==='number')||variables[0];
  if(leaf==='source') {if(rule.source==='inventory'&&'amount'in rule)rule.amount=1;rule.key=rule.source==='inventory'?item?.id||'':variable?.id||'';if('op'in rule){rule.op=rule.source==='inventory'?'has':'eq';if(rule.source==='inventory')delete rule.value;else rule.value=variable?.initial??0;}}
  if(leaf==='op'&&['addItem','removeItem'].includes(rule.op)){rule.key=item?.id||'';delete rule.quantity;delete rule.value;}
  if(leaf==='op'&&['set','add'].includes(rule.op)){rule.key=variable?.id||'';rule.value=variable?.type==='flag'?false:0;delete rule.quantity;}
- if(leaf==='key'&&'op'in rule&&rule.source!=='inventory'&&!['addItem','removeItem'].includes(rule.op)){const v=project.variables.find(v=>v.id===rule.key);rule.value=v?.type==='flag'?false:0;if(v?.type==='flag'&&!['eq','neq','set'].includes(rule.op))rule.op=rule.source==='variable'?'eq':'set';}
+ if(leaf==='key'&&'op'in rule&&rule.source!=='inventory'&&!['addItem','removeItem'].includes(rule.op)){const v=variables.find(v=>v.id===rule.key);rule.value=v?.type==='flag'?false:0;if(v?.type==='flag'&&!['eq','neq','set'].includes(rule.op))rule.op=rule.source==='variable'?'eq':'set';}
  if(leaf==='op'&&['gte','lte'].includes(rule.op)&&rule.source==='inventory')rule.value=1;
 }

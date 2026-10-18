@@ -17,6 +17,7 @@ export function exportChapter(project, id = project.activeChapterId) {
     ownedItemsVisibility: project.ownedItemsVisibility ?? 'disabled', unavailableActions: project.unavailableActions ?? 'disabled',
     cardStyles: project.cardStyles || {}, cardBack: projectCardBack(project), switchCardBackIcons: project.switchCardBackIcons,
     chapter});
+  pkg.chapter.variables ??= [];
   for (const definition of pkg.library) definition.kind = canonicalCardKind(definition.kind);
   discardPlacementContext({library: pkg.library, chapters: [pkg.chapter]});
   return normalizeStats(normalizeSingleItems(pkg));
@@ -30,7 +31,7 @@ export function importChapter(project, pkgOrV1) {
   if (!next.cardStyles && pkgOrV1.cardStyles) next.cardStyles = cloneProject(pkgOrV1.cardStyles);
   for (const definition of imported.library) definition.kind = canonicalCardKind(definition.kind);
   const defMap = new Map(), varMap = new Map(), chapterIds = new Set(next.chapters.map(c => c.id)), defs = new Set(next.library.map(d => d.id)),
-    vars = new Set(next.variables.map(v => v.id));
+    vars = new Set([...next.variables, ...next.chapters.flatMap(c => list(c.variables))].map(v => v.id));
   const inventoryUsed = new Set(next.library.filter(d => d.kind === 'item').flatMap(d => [d.id, d.inventoryKey].filter(Boolean)));
   const allocateDefinition = d => {
     const used = d.kind === 'item' ? new Set([...defs, ...inventoryUsed]): defs;
@@ -44,7 +45,14 @@ export function importChapter(project, pkgOrV1) {
     const existing = next.variables.find(x => x.id === v.id);
     varMap.set(v.id, existing && same(existing, v) ? v.id: unique(v.id, vars));
   }
-  const variablesUnchanged = [...varMap].every(([a, b]) => a === b);
+  // Local identities remain local, but allocate around every target identity so imported
+  // definitions can be remapped once even when used by multiple imported chapters.
+  const localVarMap = new Map();
+  for (const chapter of imported.chapters) for (const variable of list(chapter.variables)) {
+    if (!localVarMap.has(variable.id)) localVarMap.set(variable.id, unique(variable.id, vars));
+  }
+  const ruleVarMap = new Map([...varMap, ...localVarMap]);
+  const variablesUnchanged = [...ruleVarMap].every(([a, b]) => a === b);
   const reused = new Set();
   for (const d of imported.library) {
     const existing = next.library.find(x => x.id === d.id);
@@ -86,9 +94,9 @@ export function importChapter(project, pkgOrV1) {
     if (v.contextItemId && defMap.has(v.contextItemId)) v.contextItemId = defMap.get(v.contextItemId);
     if (v.key) {
       if (v.source === 'inventory' || ['addItem', 'removeItem'].includes(v.op)) v.key = itemMap.get(v.key) || aliases.get(v.key) || v.key;
-      else v.key = varMap.get(v.key) || v.key;
+      else v.key = ruleVarMap.get(v.key) || v.key;
     }
-    if (v.modifierVariable) v.modifierVariable = varMap.get(v.modifierVariable) || v.modifierVariable;
+    if (v.modifierVariable) v.modifierVariable = ruleVarMap.get(v.modifierVariable) || v.modifierVariable;
   });
   for (const d of imported.library) {
     const old = d.id;
@@ -104,7 +112,8 @@ export function importChapter(project, pkgOrV1) {
   }
   for (const c of imported.chapters) {
     remap(c);
-    if (c.initialValues) c.initialValues = Object.fromEntries(Object.entries(c.initialValues).map(([k, v]) => [varMap.get(k) || k, v]));
+    for (const variable of list(c.variables)) variable.id = localVarMap.get(variable.id) || variable.id;
+    if (c.initialValues) c.initialValues = Object.fromEntries(Object.entries(c.initialValues).map(([k, v]) => [ruleVarMap.get(k) || k, v]));
     c.id = unique(c.id, chapterIds);
     next.chapters.push(c);
     next.activeChapterId = c.id;
@@ -128,7 +137,10 @@ export function parseProject(text, {allowDraft = false} = {}) {
   discardPlacementContext(value);
   normalizeSingleItems(value);
   normalizeStats(value);
-  for (const chapter of list(value?.chapters)) if (object(chapter)) delete chapter.backImage;
+  for (const chapter of list(value?.chapters)) if (object(chapter)) {
+    delete chapter.backImage;
+    chapter.variables ??= [];
+  }
   const errors = validateProject(value, {allowDraft});
   if (errors.length) throw new TypeError(errors.map(e => e.message).join('\n'));
   return value;

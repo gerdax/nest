@@ -46,7 +46,7 @@ test('project validation rejects invalid colors, sizes and unknown style keys',(
 });
 test('settings expose small/big/medium sliders and only new items show names by default',()=>{
  const project=createProject(),html=variableInspector(project,project.chapters[0]);
- assert.ok(html.includes('<h3>Card text styles</h3>'));assert.equal(html.includes('Card text sizes'),false);
+ assert.ok(html.includes('<details class="state-panel" data-project-card-styles><summary>Card text styles</summary>'));assert.equal(html.includes('Card text sizes'),false);
  for(const key of ['small','big','medium']){assert.ok(html.includes(`data-path="cardStyles.${key}"`));assert.ok(html.includes(`data-path="cardStyles.${key}Color"`));}
  assert.equal((html.match(/data-card-style-color/g)||[]).length,3);
  for(const kind of ['event','caption','action','item'])assert.equal(createDefinition(kind,kind).name,'New '+(kind==='event'?'Vignette':kind[0].toUpperCase()+kind.slice(1)));

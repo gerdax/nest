@@ -36,6 +36,26 @@ function environment() {
   globalThis.cancelAnimationFrame = () => {};
 }
 
+test('run state includes all owned items and refreshes when ownership clears', () => {
+  environment();
+  const preview = new ProjectPreview(new Element());
+  const items = Array.from({length: 5}, (_, index) => ({
+    id: `placement-${index}`, definitionId: `item-${index}`, name: `Item ${index}`,
+  }));
+  const update = (variables, collectedItems) => preview.update({variables, collectedItems, idle: true});
+  update({}, items);
+  assert.equal(preview.stateReadout.hidden, false);
+  const readout = () => preview.stateReadout.querySelector('pre').textContent;
+  assert.deepEqual(JSON.parse(readout().split('Owned items\n')[1]), items.map(item => ({id: item.definitionId, name: item.name})));
+  update({energy: 3}, []);
+  assert.equal(preview.stateReadout.hidden, false);
+  assert.equal(readout(), 'Variables\n{\n  "energy": 3\n}\n\nOwned items\n[]');
+  update({}, []);
+  assert.equal(preview.stateReadout.hidden, true);
+  assert.ok(!readout().includes('item-0'));
+  preview.destroy();
+});
+
 test('unavailable choices stay disabled without a player banner; real errors remain visible', () => {
   environment();
   const project=createProject(),chapter=project.chapters[0];

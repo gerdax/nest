@@ -1,8 +1,9 @@
 import { retainsInventoryItems } from './nodeTypes.js';
 import { canonicalCardKind, resolvePlacement } from './cards.js';
 import { projectCardBack } from './card-backs.js';
+import { definitionGraph } from './dependencies.js';
 import { createLibraryIndex } from './library-index.js';
-import { cloneProject, legacyArtwork, list } from './model-data.js';
+import { cloneProject, legacyArtwork, list, chapterVariables } from './model-data.js';
 import { discardPlacementContext, normalizeSingleItems } from './normalization.js';
 
 export function compileChapter(project, chapterId = project.activeChapterId) {
@@ -19,13 +20,15 @@ export function compileChapter(project, chapterId = project.activeChapterId) {
   delete result.backImage;
   result.cardBack = {...projectCardBack(project), switchIcons: project.switchCardBackIcons !== false};
   result.cardStyles = cloneProject(project.cardStyles || {});
-  result.library = project.library.map(d => ({
+  const graph = definitionGraph(project);
+  const reachable = graph.reachableFrom([chapter, ...project.library.filter(d => d.visibility !== 'local')]);
+  result.library = project.library.filter(d => d.visibility !== 'local' || reachable.has(d.id)).map(d => ({
     ...cloneProject(d),
     kind: canonicalCardKind(d.kind),
     definitionId: d.id,
     ...(d.kind === 'item' ? {inventoryKey: d.inventoryKey ?? d.id} : {})
   }));
-  result.variables = project.variables.map(variable => ({
+  result.variables = chapterVariables(project, chapter).map(variable => ({
     ...variable,
     initial: Object.hasOwn(chapter.initialValues ?? {}, variable.id)
       ? chapter.initialValues[variable.id]

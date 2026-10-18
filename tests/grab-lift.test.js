@@ -1,6 +1,5 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { InventoryPickup } from '../engine/InventoryPickup.js';
 import { CardDeck, DEFAULT_SETTINGS } from '../engine/CardDeck.js';
 import { cardPose, scenePose } from '../engine/renderer.js';
 import { projectedBounds, turningBounds } from '../engine/geometry.js';
@@ -219,35 +218,26 @@ test('closing an accepted uncover before clearance releases cover pickup', () =>
 });
 
 
-for (const count of [1,3]) for (const reduced of [false,true]) for(const fullyDisabled of [false,true]) for(const drawer of [false,true]) test(`disabled item down swipe matches Chapter 3 story pickup: count=${count}, reduced=${reduced}, disabled=${fullyDisabled}, drawer=${drawer}`, () => {
+for (const count of [1,3]) for (const reduced of [false,true]) test(`blocked item down swipe mirrors unlinked linear resistance without collection depth, count=${count}, reduced=${reduced}`, () => {
   const reference = new CardDeck(new Element(), { content: { ...fixture(1), directAdvance:true, advanceDisabled:true } });
-  const d = make(count,'container');
-  d.content.actions[0][fullyDisabled?'disabled':'collectDisabled'] = true;
+  const d = make(count,'container'); d.content.actions[0].collectDisabled = true;
   d.reduced = reference.reduced = reduced; ready(d);
-  let targets=0;
-  if(drawer)d.pickup=new InventoryPickup(d,{setContext(){},preview(){},cancelPending(){},clearDeposit(){},getTarget(){targets++;return null;}});
-  const before = d.cards.map((_,i)=>cardPose(d,i)), cover=scenePose(reference); let collects=0;
+  const before = d.cards.map((_,i)=>cardPose(d,i)); let collects=0;
   d.addEventListener('collect',()=>collects++);
   reference.start(); d.start();
   for (const distance of [10,45,90,180,400]) {
-    reference.move(g(distance)); d.move(g(distance));
-    near(d.l.x,0,'no downward travel');
+    reference.move(g(-distance)); d.move(g(distance));
+    near(-d.l.x*453,reference.p.x*reference.departureTravel(),'same mirrored soft resistance');
+    assert.ok(-d.l.x*453<24,'resistance approaches its limit smoothly');
     for(let i=0;i<100;i++)step();
-    const held=cardPose(d,0), story=scenePose(reference);
-    near(held.y,before[0].y,'selected item stays in place');
-    near(held.z-before[0].z,story.z-cover.z,'same bounded pickup as reference');
-    near(held.z-before[0].z,d.grabAmount('a0'),'normal pickup is the only depth change');
-    for(const field of ['rx','ry','rz'])near(held[field],before[0][field],'no pointer-driven tilt');
+    const held=cardPose(d,0);
+    near(held.y-before[0].y,-d.l.x*453,'only the bounded resisted travel');
+    near(held.z-before[0].z,d.grabAmount('a0'),'no take-depth approach beyond normal pickup');
     for(let i=1;i<count;i++)for(const field of ['x','y','z','rx','ry','rz'])near(cardPose(d,i)[field],before[i][field],'followers stay in place');
     assert.equal(d.nextTakeDepth,0);assert.equal(d.collectMotion,null);
   }
-  d.end({...g(400),vy:1800});reference.end({...g(400),vy:1800});
-  for(let i=0;frames.size&&i<2000;i++) {
-    step();
-    near(cardPose(d,0).y,before[0].y,'release does not introduce a downward nudge');
-  }
-  assert.equal(frames.size,0,'animation converges');
-  assert.equal(collects,0);assert.equal(targets,0);assert.equal(d.grabCards.size,0);assert.equal(d.l.x,0);
+  d.end({...g(400),vy:1800});reference.cancel();settle();
+  assert.equal(collects,0);assert.equal(d.grabCards.size,0);assert.equal(d.l.x,0);
   for(let i=0;i<count;i++)for(const field of ['x','y','z','rx','ry','rz'])near(cardPose(d,i)[field],before[i][field],'blocked release returns fully');
   dispose(d,reference);
 });

@@ -51,3 +51,6 @@
 .action-check-meta {margin-top:8px;font:12px/1.4 system-ui,sans-serif;color:#a4b397;}
 .action-check-meta p {margin:0;overflow-wrap:anywhere;}
 .action-check-meta [data-check-rules] {margin-top:4px;font-size:11px;}
+
+/* Keep authored line and paragraph breaks in inventory descriptions too. */
+.item-dialog [data-description] { white-space:pre-wrap; }

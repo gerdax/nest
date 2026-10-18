@@ -41,6 +41,8 @@ main {grid-template-columns:minmax(0,1fr) 430px;}
 #panel-title {display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;}
 #panel-title .graph-beat-icon {position:static;float:none;width:20px;height:20px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
 #settings .chapter-settings {margin:0;}
+/* Revealing override fields must not move the sidebar's viewport. */
+aside {overflow-anchor:none;}
 @media(max-width:700px) {main{grid-template-columns:1fr;overflow:auto;} .workspace{min-height:400px;} aside{min-height:400px;} header .brand span{display:none;} .chapter-picker select{width:140px;}}
 
 /* Same face renderer, styles and nominal width as the chapter player. */
@@ -100,6 +102,7 @@ main {grid-template-columns:minmax(0,1fr) 430px;}
 #inspector label.field:has(> input[data-scope="node"][data-path="name"]) {margin-bottom:20px;}
 
 #settings .chapter-settings[open] > summary {margin-bottom:22px;}
-#project-settings-content > [data-image-picker] {margin-bottom:16px;}
+#project-settings-content [data-project-card-backs][open] > summary {margin-bottom:18px;}
+#project-settings-content [data-project-card-backs] > [data-image-picker] {margin-bottom:16px;}
 
 .chapter-delete-action {margin-top:20px;padding-top:16px;border-top:1px solid #394a4c;}

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {cardFace} from '../project/presentation.js';
 import {renderCardPreviews} from '../studio/card-preview.js';
-import {createProject,parseProject,compileChapter,exportChapter} from '../project/model.js';
+import {createProject,parseProject,compileChapter,exportChapter,importChapter} from '../project/model.js';
 import {createDefinition,resolvePlacement} from '../project/cards.js';
 import {decorateCard} from '../engine/renderer.js';
 import {ProjectController} from '../project/ProjectController.js';
@@ -15,6 +15,16 @@ class Element {
 }
 globalThis.document={createElement:()=>new Element(),body:new Element()};
 class Deck extends EventTarget {reset(){}replaceContent(content){this.content=content;}endContent(){}}
+
+test('imported chapters with matching node IDs use their own variable definitions in previews',()=>{
+ const source=createProject();
+ source.chapters[0].variables=[{id:'focus',name:'Focus',type:'number',initial:3,max:10}];
+ source.chapters[0].nodes[2].choices[0].overrides={conditions:[],costs:[],effects:[{op:'add',key:'focus',value:1}]};
+ const project=importChapter(createProject(),exportChapter(source)),chapter=project.chapters.at(-1),node=chapter.nodes[2];
+ const mount=new Element();mount.dataset.previewPlacement=node.choices[0].id;
+ renderCardPreviews({querySelectorAll:()=>[mount]},project,node,chapter.id);
+ assert.equal(mount.children[0].children[0].children[2].textContent,'Effects: Restore up to 1 Focus');
+});
 
 test('inspector preview and player use identical narrative heading/body/artwork, without context',()=>{
  const project=createProject(),node=project.chapters[0].nodes.find(n=>n.type==='container');project.chapters[0].startNode=node.id;

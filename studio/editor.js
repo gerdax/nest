@@ -17,7 +17,7 @@ import { previewActiveNode, updatePreviewHighlight } from './preview-highlight.j
 import { ProjectPreview } from './ProjectPreview.js';
 import { mountDrawerDebug } from './drawer-debug.js';
 import { definitionInspector,nodeInspector,projectSettingsInspector,chapterSettingsInspector } from './inspectors.js';
-import { esc } from './forms.js';
+import { esc, field, select } from './forms.js';
 import { mountPreviewWindow } from './preview-window.js';
 import { mountAutoplay } from './autoplay.js';
 import { sourceCard, revealCardEntry } from './card-navigation.js';
@@ -70,7 +70,7 @@ function goToPreviewCard(target){
  if(!revealCardEntry($('#inspector'),target))report('This card is not currently shown in the panel. Its introduction may have been disabled since playback started.');
 }
 const selection=()=>({chapterId,selected,definitionId,mode});
-function edit(type,data={}, {preserveProjectSettings=false}={}){
+function edit(type,data={}, {preserveProjectSettings=false,refresh=true}={}){
  graph.cancel();
  const outcome=transactDocument(history,localDrafts,draft=>applyDocumentCommand(draft,selection(),type,data,localDrafts));
  project=outcome.project;
@@ -79,7 +79,13 @@ function edit(type,data={}, {preserveProjectSettings=false}={}){
  if('selected' in patch)selected=patch.selected;
  if('definitionId' in patch)definitionId=patch.definitionId;
  if('mode' in patch)mode=patch.mode;
- const saved=saveProject(project);render({preserveProjectSettings});report(outcome.failure|| (saved.ok?'Saved in this browser':`Save failed: ${saved.error}`));
+ const saved=saveProject(project);
+ if(refresh)render({preserveProjectSettings});
+ else {
+  $('#undo').disabled=!history.canUndo;$('#redo').disabled=!history.canRedo;
+  $('#errors').innerHTML=validateProject(project).map(e=>`<div>${esc(e.message)}</div>`).join('');
+ }
+ report(outcome.failure|| (saved.ok?'Saved in this browser':`Save failed: ${saved.error}`));
  return {ok:!outcome.failure&&saved.ok,value:outcome.result?.value};
 }
 function renderGraph(){
@@ -92,7 +98,11 @@ function renderProjectSettings(){
  const restore=root.contains(active),path=active?.dataset.path,scope=active?.dataset.scope;
  const start=restore&&['text','search'].includes(active.type)?active.selectionStart:null;
  const end=start===null?null:active.selectionEnd,scroll=root.scrollTop;
- root.innerHTML=projectSettingsInspector(project);root.scrollTop=scroll;
+ const sections=['data-project-variables','data-project-card-styles','data-project-card-backs'];
+ const expanded=sections.filter(key=>root.querySelector(`[${key}]`)?.open);
+ root.innerHTML=projectSettingsInspector(project);
+ for(const key of expanded)root.querySelector(`[${key}]`).open=true;
+ root.scrollTop=scroll;
  if(restore&&path){
   const next=[...root.querySelectorAll('[data-path]')].find(el=>el.dataset.path===path&&el.dataset.scope===scope);
   next?.focus({preventScroll:true});if(next&&start!==null)next.setSelectionRange(start,end);
@@ -100,23 +110,36 @@ function renderProjectSettings(){
 }
 function renderInspector({collapseCards=false,preserveProjectSettings=false}={}){
  localDrafts.setContext(chapterId,selected);
+ const sidebar=document.querySelector('aside'),scroll=sidebar.scrollTop;
+ const settings=$('#settings'),active=document.activeElement;
+ const focusedSetting=settings.contains(active)?{scope:active.dataset.scope,path:active.dataset.path}:null;
  const settingsOpen=$('#settings').querySelector('details')?.open;
- const inspectorKey=`${mode}:${mode==='library'?definitionId:selected}`;
+ const globalInitialValuesOpen=settings.querySelector('[data-global-initial-values]')?.open;
+ const chapterVariablesOpen=settings.querySelector('[data-chapter-variables]')?.open;
+ const inspectorKey=`${mode}:${mode==='library'?definitionId:`${chapterId}:${selected}`}`;
  const sameInspector=$('#inspector').dataset.key===inspectorKey;
  const expanded=sameInspector?[...$('#inspector').querySelectorAll('details')].map((el,i)=>el.open?i:-1):[];
  $('#settings').innerHTML=chapterSettingsInspector(project,chapter());
  if(!preserveProjectSettings)renderProjectSettings();
  $('#inspector').innerHTML=mode==='library'?definitionInspector(project,definition()):nodeInspector(project,chapter(),node());
- renderCardPreviews($('#inspector'),project,node());
+ renderCardPreviews($('#inspector'),project,node(),chapterId);
  applyCardStyles(preview.mount,project.cardStyles);
- if(settingsOpen)$('#settings').querySelector('details').open=true;
+ if(settingsOpen&&sameInspector&&!collapseCards)$('#settings').querySelector('details').open=true;
+ if(sameInspector&&globalInitialValuesOpen)settings.querySelector('[data-global-initial-values]').open=true;
+ if(sameInspector&&chapterVariablesOpen)settings.querySelector('[data-chapter-variables]').open=true;
  if(sameInspector)[...$('#inspector').querySelectorAll('details')].forEach((el,i)=>{el.open=expanded.includes(i);});
  if(collapseCards)for(const entry of $('#inspector').querySelectorAll('details[data-placement],details[data-sequence]')){entry.open=false;entry.classList.remove('card-navigation-target');}
  $('#inspector').dataset.key=inspectorKey;
- if(!sameInspector)document.querySelector('aside').scrollTop=0;
  const panelLabel=mode==='library'?(cardKinds[definition()?.kind]?.label||'Library'):nodeTypeLabel(node()?.type)||'Beat';
  $('#panel-title').closest('.tabs').hidden=mode==='library';
  $('#panel-title').innerHTML=`<span>${esc(panelLabel)}</span>${mode==='chapter'?nodeIcon(node()?.type):''}`;
+ if(sameInspector&&focusedSetting){
+  const next=[...settings.querySelectorAll('[data-path]')].find(el=>el.dataset.scope===focusedSetting.scope&&el.dataset.path===focusedSetting.path);
+  next?.focus({preventScroll:true});
+ }
+ // Replacing and reopening details can change the browser's scroll anchor.
+ // Restore only after the entire sidebar has its final layout.
+ sidebar.scrollTop=sameInspector?scroll:0;
 }
 function renderLibrary(){
  const query=$('#library-search').value.toLowerCase();
@@ -147,10 +170,29 @@ function changeField(event){const el=event.target,path=el.dataset.path,scope=el.
  }
  // Keep blur-driven changes from replacing the next focus or click target.
  const preserveProjectSettings=!!el.closest('#project-settings-content')&&!/^variables\.\d+\.type$/.test(path);
+ const initialValue=scope==='initial-toggle'||scope==='initial-value';
  edit('field',{scope,path,value:el.value,checked:el.checked,inputType:el.type,
-  placementId:el.closest('[data-placement]')?.dataset.placement,colorField,color},{preserveProjectSettings});
+  placementId:el.closest('[data-placement]')?.dataset.placement,colorField,color},{preserveProjectSettings,refresh:!initialValue});
+ if(scope==='initial-toggle'){
+  // Keep the clicked checkbox and sidebar mounted; only its value field changes.
+  const entry=el.closest('.entry'),variable=project.variables.find(v=>v.id===path);
+  entry.querySelector('[data-scope="initial-value"]')?.closest('.field').remove();
+  el.checked=Object.hasOwn(chapter().initialValues||{},path);
+  if(el.checked){
+   const value=chapter().initialValues[path];
+   entry.insertAdjacentHTML('beforeend',variable.type==='flag'
+    ?select('Initial value',String(value),[['true','True'],['false','False']],path,'initial-value')
+    :field('Initial value',value,path,'initial-value','number'));
+  }
+ }
 }
 for(const root of [$('#inspector'),$('#settings'),$('#project-settings-content')])root.addEventListener('change',changeField);
+$('#inspector').addEventListener('click',event=>{
+ const summary=event.target.closest('summary');
+ if(summary?.parentElement.matches('details[data-placement],details[data-sequence]')){
+  $('#settings').querySelector('details').open=false;
+ }
+});
 $('#project-settings-content').addEventListener('input',event=>{
  const el=event.target;
  if(!el.matches('[data-card-style-slider],[data-card-style-color]'))return;
@@ -162,14 +204,14 @@ $('#project-settings-content').addEventListener('input',event=>{
   el.closest('label').querySelector('output').textContent=`${el.value}px`;
   styles[key]=Number(el.value);
  }
- renderCardPreviews($('#inspector'),{...project,cardStyles:styles},node());applyCardStyles(preview.mount,styles);
+ renderCardPreviews($('#inspector'),{...project,cardStyles:styles},node(),chapterId);applyCardStyles(preview.mount,styles);
 });
 $('#inspector').addEventListener('input',event=>{
  const el=event.target;if(!el.matches('[data-artwork-slider]'))return;
  el.closest('label').querySelector('output').textContent=`${el.value}%`;
  const source=scopeRoot(el.dataset.scope,el);if(!source)return;
  const draft={...project,library:project.library.map(d=>d.id===source.id?{...d,[el.dataset.path]:Number(el.value)}:d)};
- renderCardPreviews($('#inspector'),draft,node());
+ renderCardPreviews($('#inspector'),draft,node(),chapterId);
 });
 
 for(const root of [$('#inspector'),$('#settings'),$('#project-settings-content')])bindImagePicker(root,{

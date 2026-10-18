@@ -2,6 +2,7 @@ import { isStatVariable, editorCheckSummary } from '../project/checks.js';
 import { esc, options } from '../editor/fields.js';
 
 export { esc };
+export const variableLabel = variable => `${variable.variableScope === 'chapter' ? 'Chapter' : 'Global'}: ${variable.name || variable.id}`;
 export const field = (label,value,path,scope='definition',type='text') => `<label class="field">${esc(label)}${type==='textarea'?`<textarea data-scope="${esc(scope)}" data-path="${esc(path)}">${esc(value??'')}</textarea>`:`<input data-scope="${esc(scope)}" data-path="${esc(path)}" type="${type}" ${type==='number'?'step="any"':''} value="${esc(value??'')}">`}</label>`;
 export const select = (label,value,choices,path,scope='definition') => `<label class="field">${esc(label)}<select data-scope="${esc(scope)}" data-path="${esc(path)}">${options(choices,value)}</select></label>`;
 export const checkbox = (label,value,path,scope='definition',disabled=false) => `<label class="field check-field"><input type="checkbox" data-scope="${esc(scope)}" data-path="${esc(path)}" ${value?'checked':''} ${disabled?'disabled':''}>${esc(label)}</label>`;
@@ -9,7 +10,7 @@ export const button = (label,cmd,attrs='') => `<button type="button" data-comman
 export const imageField=(label,value,path,scope='definition')=>field(label,value,path,scope)+`<button type="button" data-image-picker data-scope="${esc(scope)}" data-path="${esc(path)}">Choose image file</button>`;
 const extras=(scope,path,kind)=>`data-scope="${esc(scope)}" data-path="${esc(path)}" data-rule-kind="${kind}"`;
 export function rules(project,list=[],path,scope,kind,{label,help}={}) {
- const vars=project.variables.map(v=>[v.id,v.name||v.id]);
+ const vars=project.variables.map(v=>[v.id,variableLabel(v)]);
  const items=project.library.filter(d=>d.kind==='item').map(d=>[d.id,d.name]);
  let html=`<details class="state-panel"><summary>${esc(label || kind[0].toUpperCase()+kind.slice(1))} · ${list.length}</summary>`;
  if(help)html+=`<p class="small">${esc(help)}</p>`;
@@ -26,7 +27,7 @@ export function rules(project,list=[],path,scope,kind,{label,help}={}) {
     fields+=flag?select('Value',String(rule.value),[['true','True'],['false','False']],`${p}.value`,scope):field('Value',rule.value,`${p}.value`,scope,'number');
    }
   } else if(kind==='costs') {
-   const resources=project.variables.filter(variable=>variable.type==='number').map(variable=>[variable.id,variable.name||variable.id]);
+   const resources=project.variables.filter(variable=>variable.type==='number').map(variable=>[variable.id,variableLabel(variable)]);
    fields=select('Spend',rule.source,[['variable','Resource'],['inventory','Item']],`${p}.source`,scope)+select('Resource or item',rule.key,rule.source==='inventory'?items:resources,`${p}.key`,scope)+(rule.source==='inventory'?'<p class="small">Consumes this item.</p>':field('Amount',rule.amount,`${p}.amount`,scope,'number'));
   } else {
    const inventory=['addItem','removeItem'].includes(rule.op);
@@ -47,14 +48,14 @@ export function actionFields(project,action,prefix='',scope='definition') {
   html+='<div class="entry check-settings"><h3>Check settings</h3>';
   html+=select('Check type',check.mode||'custom',[['stat','Stat check'],['custom','Custom check']],p('check.mode'),scope);
   if(check.mode==='stat') {
-   const stats=project.variables.filter(isStatVariable).map(v=>[v.id,v.name||v.id]);
+   const stats=project.variables.filter(isStatVariable).map(v=>[v.id,variableLabel(v)]);
    if(check.modifierVariable&&!stats.some(([id])=>id===check.modifierVariable))stats.push([check.modifierVariable,check.modifierVariable]);
    html+=select('Stat',check.modifierVariable||'',[['','Choose stat'],...stats],p('check.modifierVariable'),scope)+select('Difficulty',String(check.difficulty??1),Array.from({length:10},(_,i)=>[String(i+1),String(i+1)]),p('check.difficulty'),scope);
    try { html+=`<p class="small check-diagnostic">${esc(editorCheckSummary(check,project.variables))}</p>`; }
    catch { html+='<p class="small check-diagnostic">Choose a valid stat and difficulty. Stats use integer values from 1 to 10.</p>'; }
   } else {
   html+=(check.pool||[]).map((die,i)=>select('Dice',String(die.sides),[4,6,8,10,12,20].map(n=>[String(n),`d${n}`]),p(`check.pool.${i}.sides`),scope)+field('Count',die.count,p(`check.pool.${i}.count`),scope,'number')+button('Remove dice','remove-rule',extras(scope,p('check.pool'),'dice')+` data-index="${i}"`)).join('');
-  html+=button('Add dice','add-rule',extras(scope,p('check.pool'),'dice'))+field('Modifier',check.modifier,p('check.modifier'),scope,'number')+select('Variable modifier',check.modifierVariable||'',[['','None'],...project.variables.filter(v=>v.type==='number').map(v=>[v.id,v.name||v.id])],p('check.modifierVariable'),scope)+field('Target',check.target,p('check.target'),scope,'number');
+  html+=button('Add dice','add-rule',extras(scope,p('check.pool'),'dice'))+field('Modifier',check.modifier,p('check.modifier'),scope,'number')+select('Variable modifier',check.modifierVariable||'',[['','None'],...project.variables.filter(v=>v.type==='number').map(v=>[v.id,variableLabel(v)])],p('check.modifierVariable'),scope)+field('Target',check.target,p('check.target'),scope,'number');
   }
   html+='</div>';
   html+=rules(project,action.successEffects,p('successEffects'),scope,'effects',{label:'On success effects'})+rules(project,action.failureEffects,p('failureEffects'),scope,'effects',{label:'On failure effects'});

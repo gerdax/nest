@@ -3,8 +3,9 @@ import { validateCardBack } from '../engine/cardBacks.js';
 import { cardKinds, resolvePlacement, canonicalCardKind, allowedCardKinds } from './cards.js';
 import { nodeTypeDescriptor } from './nodeTypes.js';
 import { isCardColor } from './card-styles.js';
-import { object, named, list, placements, legacyArtwork } from './model-data.js';
+import { object, named, list, placements, legacyArtwork, chapterVariables } from './model-data.js';
 import { hasDirectedCycle, outputsForNode } from './graph.js';
+import { definitionGraph } from './dependencies.js';
 import { createLibraryIndex } from './library-index.js';
 
 export function validateProject(project, {allowDraft = false} = {}) {
@@ -31,7 +32,8 @@ export function validateProject(project, {allowDraft = false} = {}) {
     chapters = Array.isArray(project.chapters) ? project.chapters: [];
   // Resolution uses first matches; validation maps below intentionally use last matches.
   const index = createLibraryIndex(library);
-  const definitions = new Map(), vars = new Map();
+  const definitions = new Map();
+  let vars = new Map();
   const seen = (list, label) => {
     const ids = new Set();
     for (const v of list) {
@@ -48,17 +50,33 @@ export function validateProject(project, {allowDraft = false} = {}) {
   seen(variables, 'Variable');
   const chapterIds = seen(chapters, 'Chapter');
   for (const d of library) if (object(d)) definitions.set(d.id, d);
-  for (const v of variables) {
-    if (!object(v)) continue;
-    vars.set(v.id, v);
-    if (isStatVariable(v) && !compatibleStatVariable(v)) add(`Stat ${v.id} conflicts with the required integer 1–10 definition.`);
-    if (!['flag', 'number'].includes(v.type) || (v.type === 'flag' ? typeof v.initial !== 'boolean': !Number.isFinite(v.initial))) add(`Variable ${v.id} needs a typed initial value.`);
-    if (v.type === 'number') {
-      if (v.min !== undefined && !Number.isFinite(v.min) || v.max !== undefined && !Number.isFinite(v.max)
-        || v.min !== undefined && v.max !== undefined && v.min > v.max || v.min !== undefined && v.initial < v.min
-        || v.max !== undefined && v.initial > v.max) add(`Variable ${v.id} has invalid bounds.`);
-    } else if (v.min !== undefined || v.max !== undefined) add(`Flag ${v.id} cannot have numeric bounds.`);
+  const report = add;
+  function inspectVariables(variables, chapterId) {
+    const add = message => report(message, chapterId);
+    for (const v of variables) {
+      if (!object(v)) continue;
+
+      if (isStatVariable(v) && !compatibleStatVariable(v)) add(`Stat ${v.id} conflicts with the required integer 1–10 definition.`);
+      if (!['flag', 'number'].includes(v.type) || (v.type === 'flag' ? typeof v.initial !== 'boolean': !Number.isFinite(v.initial))) add(`Variable ${v.id} needs a typed initial value.`);
+      if (v.type === 'number') {
+        if (v.min !== undefined && !Number.isFinite(v.min) || v.max !== undefined && !Number.isFinite(v.max)
+          || v.min !== undefined && v.max !== undefined && v.min > v.max || v.min !== undefined && v.initial < v.min
+          || v.max !== undefined && v.initial > v.max) add(`Variable ${v.id} has invalid bounds.`);
+      } else if (v.min !== undefined || v.max !== undefined) add(`Flag ${v.id} cannot have numeric bounds.`);
+    }
   }
+  inspectVariables(variables);
+  const globals = new Map(variables.filter(object).map(v => [v.id, v]));
+  vars = globals;
+  for (const chapter of chapters.filter(object)) {
+    if (chapter.variables !== undefined && !Array.isArray(chapter.variables)) add('Chapter variables must be a list.', chapter.id);
+    seen(list(chapter.variables), 'Chapter variable');
+    inspectVariables(list(chapter.variables), chapter.id);
+    for (const variable of list(chapter.variables).filter(object)) if (globals.has(variable.id)) add(`Chapter variable ${variable.id} conflicts with a global variable.`, chapter.id);
+  }
+  const graph = definitionGraph({...project, library: library.filter(object), chapters: chapters.filter(object).map(chapter => ({...chapter, nodes: list(chapter.nodes)}))});
+  const sharedDependencies = graph.reachableFrom(library.filter(d => object(d) && d.visibility !== 'local'));
+  const scopes = new Map(chapters.filter(object).map(chapter => [chapter, graph.reachableFrom(chapter)]));
   const itemKeys = new Set(library.filter(d => d?.kind === 'item').flatMap(d => [d.id, d.inventoryKey].filter(Boolean)));
   const itemsById = new Map(library.filter(d => d?.kind === 'item').map(d => [d.id, d]));
   const itemDefinitionIds = new Set(itemsById.keys());
@@ -161,12 +179,23 @@ export function validateProject(project, {allowDraft = false} = {}) {
       && typeof d.showName !== 'boolean' || d.flipImage !== undefined && typeof d.flipImage !== 'boolean'
       || d.inventoryKey !== undefined && !named(d.inventoryKey)) add(`Definition ${d.id} has invalid content.`);
     for (const message of cardKinds[canonicalCardKind(d.kind)]?.validate(d) || []) add(`Definition ${d.id}: ${message}`);
-    inspectCard(d, `Definition ${d.id}`);
+    if (d.visibility === 'local') {
+      const users = [...scopes].filter(([, ids]) => ids.has(d.id)).map(([chapter]) => chapter);
+      // Unplaced definitions still receive type/shape validation, without inventing a chapter owner.
+      const contexts = sharedDependencies.has(d.id) ? [{variables: []}, ...users]
+        : users.length ? users : [{variables: chapters.flatMap(chapter => list(chapter?.variables))}];
+      for (const chapter of contexts) {
+        vars = new Map(chapterVariables(project, chapter).filter(object).map(v => [v.id, v]));
+        inspectCard(d, `Definition ${d.id}${chapter.id ? ` in chapter ${chapter.id}` : ''}`);
+      }
+      vars = globals;
+    } else inspectCard(d, `Definition ${d.id}`);
   }
   if (!allowDraft && !chapterIds.has(project.activeChapterId)) add('Active chapter must exist.');
   for (const chapter of chapters) {
     if (!object(chapter)) continue;
     const cid = chapter.id;
+    vars = new Map(chapterVariables(project, chapter).filter(object).map(v => [v.id, v]));
     if (typeof chapter.name !== 'string' || !Array.isArray(chapter.nodes) || typeof chapter.startNode !== 'string') {
       add('Invalid chapter structure.', cid);
       continue;

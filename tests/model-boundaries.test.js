@@ -13,6 +13,7 @@ import * as normalization from '../project/normalization.js';
 const owners = {
   cloneProject: data,
   createChapter: data,
+  chapterVariables: data,
   createProject: data,
   definitionUsers: data,
   createVariant: data,

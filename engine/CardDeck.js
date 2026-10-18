@@ -82,6 +82,7 @@ export class CardDeck extends EventTarget {
     this.groupLeaveActive = false;
     this.reflowOrder = null;
     this.liftPoses = null;
+    this.itemReturn = null;
     this.pendingPresentation = 'closed';
     this.pendingTransition = 'flip';
     this.commitTransition = 'commit';
@@ -338,6 +339,7 @@ export class CardDeck extends EventTarget {
   start(event) {
     if (this.pickup?.pending || this.pickup?.mix.x > .001 || this.destroyed || this.busy || this.openingCommit || this.openingReturn || ['closing', 'revealing', 'ended'].includes(this.phase)) return false;
     this.cancelPresentationHint();
+    if (this.itemReturn) this.restoreLiftPoses();
     this.mount.focus({ preventScroll: true });
     const bounds = this.mount.getBoundingClientRect();
     const grab = {
@@ -368,8 +370,7 @@ export class CardDeck extends EventTarget {
     const recognizedVertical = gesture.axis === 'y' && this.drag.axis !== 'y';
     this.drag.axis = gesture.axis;
     const disabledDown = gesture.axis === 'y' && gesture.y > 0
-      && (this.content.interaction === 'choice' && this.content.actions[this.index]?.disabled
-        || this.drag.ready && this.content.interaction === 'container' && (this.content.actions[this.index]?.disabled || this.content.actions[this.index]?.collectDisabled));
+      && this.content.interaction === 'choice' && this.content.actions[this.index]?.disabled;
     if (recognizedVertical || disabledDown) this.beginGrab(performance.now(), disabledDown);
     if (gesture.axis === 'y' && gesture.y < 0 && this.drag.ready
       && this.content.interaction === 'choice' && this.content.actions[this.index]?.disabled) this.releaseGrab();
@@ -401,18 +402,9 @@ export class CardDeck extends EventTarget {
           this.clearGroupLift();
           this.captureItemPose(action);
         }
-        if (disabled && gesture.y > 0) {
-          // Match a story card's downward feedback: pickup depth only, with
-          // no travel toward the drawer and no pointer-driven tilt.
-          this.l.x = this.drag.l;
-          this.l.v = 0;
-          this.rotationX.target = this.rotationY.target = this.rotationZ.target = 0;
-          this.pickup?.preview(null);
-          this.sampleChoices();
-          this.render(); this.schedule();
-          return;
-        }
-        this.l.x = disabled ? clamp(this.drag.l - gesture.y / height, -24 / height, 24 / height)
+        // Mirror the soft resistance of a blocked linear-card departure.
+        const travel = disabled && gesture.y > 0 ? 24 * (1 - Math.exp(-gesture.y / 90)) : gesture.y;
+        this.l.x = disabled ? clamp(this.drag.l - travel / height, -24 / height, 24 / height)
           : this.drag.l - gesture.y / height;
         if (!disabled && (group || this.cards.length === 1) && this.l.x !== 0) stageNextBack(this);
       } else if (gesture.y > 0) {
@@ -482,11 +474,6 @@ export class CardDeck extends EventTarget {
     this.drag = null;
     const { width, height } = this.mount.getBoundingClientRect();
     this.releaseRotation(gesture);
-    if (drag.ready && this.content.interaction === 'container' && gesture.axis === 'y' && gesture.y > 0
-      && (this.content.actions[this.index]?.disabled || this.content.actions[this.index]?.collectDisabled)) {
-      this.pickup?.cancel(); this.cancelPickup();
-      return;
-    }
     if (this.pickup && drag.ready && this.content.interaction === 'container' && gesture.axis === 'y' && gesture.y > 0) {
       const target = this.pickup.targetFor(gesture);
       const action = this.content.actions[this.index];
@@ -530,6 +517,7 @@ export class CardDeck extends EventTarget {
     // Accepted cover departure keeps its pickup until safely offscreen.
     if (!(gesture.axis === 'y' && !drag.open && this.open)) this.releaseGrab();
     if (this.phase !== 'closing') this.p.target = this.open ? 1 : 0;
+    this.beginItemReturn();
     this.l.target = 0;
     if (this.phase !== 'closing') this.returnLift.target = 0;
     this.operation ||= 'settle';
@@ -575,7 +563,17 @@ export class CardDeck extends EventTarget {
     return true;
   }
 
+  beginItemReturn() {
+    const action = this.content.actions.find(action => action.id === this.liftId);
+    const distance = this.liftStart - this.l.x;
+    if (this.itemReturn || this.collectMotion || this.content.interaction !== 'container' || !this.liftPoses
+      || !action || action.disabled || action.collectDisabled || !(distance > 0) || !(this.l.x < -.000001)) return;
+    const progress = clamp(distance / .5, 0, 1);
+    this.itemReturn = { id: action.id, startLift: this.l.x, depth: 1 - (1 - progress) ** 3 };
+  }
+
   cancelPickup() {
+    this.beginItemReturn();
     this.releaseGrab(); this.releaseRotation();
     this.l.target = 0; this.operation = 'cancel'; this.render(); this.schedule();
   }
@@ -583,6 +581,7 @@ export class CardDeck extends EventTarget {
   cancel() {
     this.pickup?.cancel();
     if (!this.drag) return;
+    this.beginItemReturn();
     this.drag = null;
     this.releaseGrab();
     this.releaseRotation();
@@ -895,6 +894,7 @@ export class CardDeck extends EventTarget {
   }
 
   captureItemPose(action) {
+    if (this.itemReturn) this.restoreLiftPoses();
     if (this.liftPoses || !action) return;
     this.liftPoses = new Map(this.content.actions.map((a, i) => [a.id, this.unpickedCardPose(i)]));
     this.liftRotation = { x: this.rotationX.x, y: this.rotationY.x, z: this.rotationZ.x };
@@ -903,6 +903,7 @@ export class CardDeck extends EventTarget {
   }
 
   beginGroupLift() {
+    if (this.itemReturn) this.restoreLiftPoses();
     // A downward item lift freezes untouched followers. Its selected-card
     // displacement must never become their delayed group-history baseline.
     const preserveLeader = !this.drag || this.drag.l < 0;
@@ -911,6 +912,7 @@ export class CardDeck extends EventTarget {
         ? [] : [[action.id, this.unpickedCardPose(index)]])) : null;
     this.groupLeaveActive = true;
     this.liftPoses = null;
+    this.itemReturn = null;
     if (poses) {
       this.l.x = this.l.v = 0;
       if (this.drag) this.drag.l = 0;
@@ -928,6 +930,7 @@ export class CardDeck extends EventTarget {
     this.interactionMotion.clearFollowers();
     this.reflowOffsets.clear();
     this.liftPoses = null;
+    this.itemReturn = null;
     this.clearGrab();
     this.l = spring();
     if (this.drag) this.drag.l = 0;
@@ -1024,6 +1027,7 @@ export class CardDeck extends EventTarget {
     if (!this.liftPoses) return;
     const poses = new Map(this.content.actions.map((a, i) => [a.id, cardPose(this, i)]));
     this.liftPoses = null;
+    this.itemReturn = null;
     this.l = spring();
     if (this.drag) this.drag.l = 0;
     this.createReflow(poses);
@@ -1061,6 +1065,7 @@ export class CardDeck extends EventTarget {
     this.rotationY = spring();
     this.rotationZ = spring();
     this.liftPoses = null;
+    this.itemReturn = null;
     this.createReflow(poses);
     this.reflowOrder = oldOrder;
     this.operation = motion.transition;
@@ -1353,6 +1358,7 @@ export class CardDeck extends EventTarget {
     this.forwardOwner = this.returnContent = this.returnSelectedId = null;
     this.interactionMotion.clearReflow();
     this.liftPoses = null;
+    this.itemReturn = null;
     this.reflowOrder = null;
     this.cardBacks = [];
     this.rotationX = spring();
@@ -1761,7 +1767,7 @@ export class CardDeck extends EventTarget {
     this.backTransition = null;
     this.nextTakeDepth = 0;
     this.takeDepthRatio = 0;
-    this.collectMotion = this.commitMotion = this.drag = this.pending = this.liftPoses = null;
+    this.collectMotion = this.commitMotion = this.drag = this.pending = this.liftPoses = this.itemReturn = null;
     this.groupLeaveActive = false;
     this.reflowOffsets.clear();
     this.entranceSequence.clear();

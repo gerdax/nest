@@ -1,0 +1,1884 @@
+{
+  "version": 2,
+  "kind": "nest-chapter",
+  "cardStyles": {
+    "big": 17,
+    "medium": 14,
+    "small": 10
+  },
+  "allowCycles": true,
+  "ownedItemsVisibility": "disabled",
+  "unavailableActions": "hidden",
+  "variables": [
+    {
+      "id": "energy",
+      "name": "Siły",
+      "type": "number",
+      "initial": 4,
+      "min": 0,
+      "max": 6
+    },
+    {
+      "id": "agility",
+      "name": "Zwinność",
+      "type": "number",
+      "initial": 3,
+      "min": 1,
+      "max": 10,
+      "stat": true,
+      "showInHud": false
+    },
+    {
+      "id": "intelligence",
+      "name": "Inteligencja",
+      "type": "number",
+      "initial": 3,
+      "min": 1,
+      "max": 10,
+      "stat": true,
+      "showInHud": false
+    },
+    {
+      "id": "composure",
+      "name": "Opanowanie",
+      "type": "number",
+      "initial": 3,
+      "min": 1,
+      "max": 10,
+      "stat": true,
+      "showInHud": false
+    }
+  ],
+  "library": [
+    {
+      "id": "lz_wake1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Beton",
+      "text": "Najpierw czujesz beton pod policzkiem. Potem smak krwi. Gdzieś w ciemności woda uderza o metal. Próbujesz przypomnieć sobie ostatnią rzecz przed upadkiem. Nie ma nic.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    },
+    {
+      "id": "lz_wake2",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Imię",
+      "text": "Lazarus. To imię przychodzi bez wysiłku. Wszystko inne wymaga odpowiedzi, których nie masz. Kieszenie kurtki są puste. Nad tobą zionie poszarpany otwór w stropie. Dalej jest tylko czarny szyb.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    },
+    {
+      "id": "lz_wake3",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Bez nieba",
+      "text": "Podnosisz kamień i rzucasz w górę. Uderzenie. Drugie. Kamień wraca z gruzem. Nie ma drabiny ani liny. Spadłeś przez przewód techniczny; jego górna część jest zawalona. Nawet gdybyś pamiętał drogę, tędy nie wrócisz.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    },
+    {
+      "id": "lz_first_intro",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Czerwone światło",
+      "text": "Czerwona lampka nad drzwiami zapala się co kilka sekund. W jej świetle widzisz dwie rzeczy: ślady własnego upadku i opatrunek na swoim przedramieniu. Bandaż jest czysty. Nie pamiętasz, kto go założył.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    },
+    {
+      "id": "lz_look_up",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Zbadaj miejsce upadku",
+      "text": "Sprawdź, czy w gruzie zostało coś, co powie ci, skąd przyszedłeś.",
+      "image": "",
+      "showName": true,
+      "effects": [],
+      "resolution": "direct",
+      "conditions": [],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": []
+    },
+    {
+      "id": "lz_look_self",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Sprawdź opatrunek",
+      "text": "Zacznij od własnego ciała. Ono było tutaj przez cały czas.",
+      "image": "",
+      "showName": true,
+      "effects": [],
+      "resolution": "direct",
+      "conditions": [],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": []
+    },
+    {
+      "id": "lz_shaft1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Osiem",
+      "text": "Na fragmencie przewodu jest tabliczka: „NEST / SEKTOR MEDYCZNY / 08”. Ósmy poziom. Jeśli numeracja zaczyna się przy powierzchni, nad tobą jest co najmniej siedem pięter betonu.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    },
+    {
+      "id": "lz_shaft2",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Ślad",
+      "text": "Przez kurz biegnie pojedyncza bruzda. Kończy się pod twoimi plecami. Próbujesz odtworzyć upadek i czujesz pustkę, jakbyś szukał stopnia, którego nie ma. Zabierasz z gruzu krótki metalowy pręt.",
+      "image": "",
+      "showName": false,
+      "effects": [
+        {
+          "op": "addItem",
+          "key": "lz_rod"
+        }
+      ]
+    },
+    {
+      "id": "lz_bandage1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Węzeł",
+      "text": "Opatrunek zawiązano z tyłu ręki. Tak równo, że sam nie zrobiłbyś tego drugą dłonią. Pod nim jest płytkie rozcięcie. Świeże. Ktoś zajął się tobą po upadku.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    },
+    {
+      "id": "lz_bandage2",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Nie zasypiaj",
+      "text": "Na wewnętrznej stronie mankietu widzisz napis: „NIE ZASYPIAJ PRZY ŚCIANIE”. Litery są nierówne, ale znajome. Twoje? Skupiasz się na oddechu. Ból staje się czymś, co potrafisz utrzymać w granicach.",
+      "image": "",
+      "showName": false,
+      "effects": [
+        {
+          "op": "add",
+          "key": "composure",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": "lz_rod",
+      "kind": "item",
+      "visibility": "local",
+      "name": "Metalowy pręt",
+      "text": "Krótki pręt wyrwany z przewodu. Jeden koniec jest spłaszczony. Nada się do podważenia osłony lub zasuwy.",
+      "image": "",
+      "showName": true,
+      "onCollect": []
+    },
+    {
+      "id": "lz_supplies_intro",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Ostatni dyżur",
+      "text": "Drzwi ustępują pod barkiem. Za nimi jest punkt ratunkowy: dwa krzesła, zaschnięta filiżanka i otwarta szafka. W powietrzu unosi się zapach środka odkażającego. Możesz zabrać to, co uznasz za przydatne.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    },
+    {
+      "id": "lz_water",
+      "kind": "item",
+      "visibility": "local",
+      "name": "Woda w ampułce",
+      "text": "Przezroczysta ampułka z nienaruszoną plombą. Etykieta obiecuje wodę i elektrolity. Możesz ją wypić z ekwipunku, aby odzyskać do 2 punktów sił.",
+      "image": "",
+      "showName": true,
+      "onCollect": [],
+      "use": {
+        "conditions": [],
+        "effects": [
+          {
+            "op": "add",
+            "key": "energy",
+            "value": 2
+          }
+        ]
+      }
+    },
+    {
+      "id": "lz_wedge",
+      "kind": "item",
+      "visibility": "local",
+      "name": "Gumowy klin",
+      "text": "Ciężki gumowy klin do blokowania drzwi. Możesz nim zatrzymać drzwi, które zamykają się na sprężynie.",
+      "image": "",
+      "showName": true,
+      "onCollect": []
+    },
+    {
+      "id": "lz_tag",
+      "kind": "item",
+      "visibility": "local",
+      "name": "Identyfikator Ady",
+      "text": "ADA SHULZ / INFIRMARY. Pasek jest naderwany. Na odwrocie ktoś dopisał ołówkiem: „Oskar — maszynownia”. Karta może otworzyć przejście medyczne.",
+      "image": "",
+      "showName": true,
+      "onCollect": []
+    },
+    {
+      "id": "lz_hub_intro",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Nest",
+      "text": "Na ścianie: „THE NEST — INFIRMARY”. Rząd krzeseł stoi pod tablicą dyżurów. Na końcu korytarza widać drzwi techniczne. Po drugiej stronie coś regularnie stuka. Możesz rozejrzeć się tutaj albo iść do drzwi.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    },
+    {
+      "id": "lz_records",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Przeczytaj terminal dyżurnego",
+      "text": "Zielony kursor wciąż miga. Sprawdź, co wydarzyło się w lecznicy.",
+      "image": "",
+      "showName": true,
+      "effects": [
+        {
+          "op": "set",
+          "key": "lz_records",
+          "value": true
+        }
+      ],
+      "resolution": "direct",
+      "conditions": [
+        {
+          "source": "variable",
+          "key": "lz_records",
+          "op": "eq",
+          "value": false
+        }
+      ],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": []
+    },
+    {
+      "id": "lz_locker",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Zajrzyj do szatni",
+      "text": "Spod niedomkniętej szafki wystaje rękaw lekarskiego fartucha.",
+      "image": "",
+      "showName": true,
+      "effects": [
+        {
+          "op": "set",
+          "key": "lz_ada",
+          "value": true
+        }
+      ],
+      "resolution": "direct",
+      "conditions": [
+        {
+          "source": "variable",
+          "key": "lz_ada",
+          "op": "eq",
+          "value": false
+        }
+      ],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": []
+    },
+    {
+      "id": "lz_stairs",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Sprawdź schody w górę",
+      "text": "Niebieska strzałka wskazuje klatkę schodową. Musisz przynajmniej spróbować.",
+      "image": "",
+      "showName": true,
+      "effects": [
+        {
+          "op": "set",
+          "key": "lz_stairs",
+          "value": true
+        }
+      ],
+      "resolution": "direct",
+      "conditions": [
+        {
+          "source": "variable",
+          "key": "lz_stairs",
+          "op": "eq",
+          "value": false
+        }
+      ],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": []
+    },
+    {
+      "id": "lz_go_door",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Podejdź do drzwi technicznych",
+      "text": "Zostaw poczekalnię i znajdź przejście dalej.",
+      "image": "",
+      "showName": true,
+      "effects": [],
+      "resolution": "direct",
+      "conditions": [],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": []
+    },
+    {
+      "id": "lz_records1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Kogler",
+      "text": "KARTA PACJENTA: VICTOR KOGLER. 14.01.2041. „Ból głowy. Narastająca agresja. Gwałtowny rozrost tkanek. Pacjent krzyczy o motylach. Prośba o konsultację: dr Steinfeld”.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    },
+    {
+      "id": "lz_records2",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Alarm",
+      "text": "Niżej jest komunikat ochrony: „Cały dostępny personel na poziom 8. Przybyć z bronią. To nie są ćwiczenia”. Zegar terminala zatrzymał się na 03:17. Nie wiesz, czy ta data oznacza wczoraj, czy świat, którego już nie ma.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    },
+    {
+      "id": "lz_records3",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Zalecenie",
+      "text": "Na marginesie karty ktoś dopisał: „Reagują na dźwięk. Nie próbować uspokajać głosem”. Zapamiętujesz to zdanie.",
+      "image": "",
+      "showName": false,
+      "effects": [
+        {
+          "op": "set",
+          "key": "lz_quiet",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "lz_ada1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Ada",
+      "text": "W szafce siedzi martwa kobieta. Na fartuchu ma wyszyte imię: Ada. Pusta szlufka po identyfikatorze. Ciało wygląda, jakby minęło kilka godzin. Kurz na klamce jest gruby na palec.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    },
+    {
+      "id": "lz_ada2",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Ostatnie nagranie",
+      "text": "W kieszeni fartucha dotykasz przycisku małego rejestratora. „Wyłączyłam windy. Schody są zabarykadowane. Oskar poszedł do maszynowni sprawdzić zasilanie głównych wrót. Miał wrócić dziesięć godzin temu”.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    },
+    {
+      "id": "lz_ada3",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Cisza po głosie",
+      "text": "„Nie ma wyjścia. Słychać ich coraz bliżej”. Potem szelest materiału. Nagranie się urywa. Zamykasz szafkę delikatnie, przytrzymując metalowe drzwiczki aż do samego końca.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    },
+    {
+      "id": "lz_stairs1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Zaspawane",
+      "text": "Klatka kończy się po dwóch biegach. Nad tobą leży przewrócona płyta stropowa. Drzwi windy są rozchylone, ale kabiny nie ma; w szybie wiszą urwane przewody. Nie zobaczysz stąd powierzchni.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    },
+    {
+      "id": "lz_stairs2",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Protokół",
+      "text": "Na pulpicie świeci napis: „LOCKDOWN. Połączenia zewnętrzne zablokowane. Sterowanie lokalne nieaktywne”. Poniżej schemat: linia zasilania biegnie z maszynowni w dół kompleksu. Wracasz do poczekalni. Przynajmniej przestajesz nasłuchiwać wiatru.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    },
+    {
+      "id": "lz_pressure_intro",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Drżenie",
+      "text": "Przy drzwiach technicznych dostajesz mdłości. Beton drży pod palcami, choć rury milczą. Przez sekundę jesteś pewien, że za ścianą ktoś oddycha dokładnie w twoim rytmie.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    },
+    {
+      "id": "lz_steady",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Policz własne oddechy",
+      "text": "Spróbuj odróżnić to, co czujesz, od tego, co naprawdę słyszysz.",
+      "image": "",
+      "showName": true,
+      "effects": [],
+      "resolution": "check",
+      "conditions": [],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": [],
+      "check": {
+        "mode": "stat",
+        "modifierVariable": "composure",
+        "difficulty": 2
+      }
+    },
+    {
+      "id": "lz_retreat",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Odsuń się i przeczekaj",
+      "text": "Usiądź na środku korytarza. Stracisz trochę sił, ale nie musisz opierać się temu z bliska.",
+      "image": "",
+      "showName": true,
+      "effects": [
+        {
+          "op": "add",
+          "key": "energy",
+          "value": -1
+        }
+      ],
+      "resolution": "direct",
+      "conditions": [],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": []
+    },
+    {
+      "id": "lz_steady_ok1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Oddech",
+      "text": "Wdech. Wydech. Po chwili rytmy się rozchodzą. Jeden z nich był twój. Drugi dochodzi z przewodu wentylacyjnego. Mdłości ustępują. Wiesz już, czego słuchać.",
+      "image": "",
+      "showName": false,
+      "effects": [
+        {
+          "op": "set",
+          "key": "lz_listening",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "lz_steady_bad1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Lazarus",
+      "text": "Słyszysz swoje imię. Odwracasz się za szybko, zahaczając raną o framugę. Korytarz jest pusty. Przygryzasz wargę i czekasz, aż obraz przestanie drżeć. Ten głos nie był wspomnieniem.",
+      "image": "",
+      "showName": false,
+      "effects": [
+        {
+          "op": "add",
+          "key": "energy",
+          "value": -1
+        }
+      ]
+    },
+    {
+      "id": "lz_steady_wait1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Dystans",
+      "text": "Siedzisz tak długo, aż metalowy posmak znika. Z dala od ściany jest łatwiej. Poprawiając rękaw, zauważasz na mankiecie napis: „NIE ZASYPIAJ PRZY ŚCIANIE”. Ktoś już to sprawdził. Wstajesz powoli.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    },
+    {
+      "id": "lz_courier_intro",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Kurier",
+      "text": "Za szybą drzwi człowiek w mundurze krąży wokół wózka z paczkami. Jeden rękaw jest pusty. Na karku ma narośl, która porusza się z opóźnieniem względem reszty ciała. Co czwarty krok uderza wózek biodrem. Stąd to stukanie.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    },
+    {
+      "id": "lz_quiet_pass",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Przejdź w rytmie stuknięć",
+      "text": "Z notatki wiesz, żeby nie mówić. Stawiaj kroki tylko wtedy, gdy wózek uderza o ścianę.",
+      "image": "",
+      "showName": true,
+      "effects": [],
+      "resolution": "direct",
+      "conditions": [
+        {
+          "source": "variable",
+          "key": "lz_quiet",
+          "op": "eq",
+          "value": true
+        }
+      ],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": []
+    },
+    {
+      "id": "lz_listen_pass",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Wyczekaj przerwę w oddechu",
+      "text": "Rozpoznajesz rytm z wentylacji. Omiń kuriera, gdy zatrzyma się nabrać powietrza.",
+      "image": "",
+      "showName": true,
+      "effects": [],
+      "resolution": "direct",
+      "conditions": [
+        {
+          "source": "variable",
+          "key": "lz_listening",
+          "op": "eq",
+          "value": true
+        }
+      ],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": []
+    },
+    {
+      "id": "lz_sneak",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Przemknij za wózkiem",
+      "text": "Zaryzykuj przejście blisko niego, zanim znów się obróci.",
+      "image": "",
+      "showName": true,
+      "effects": [],
+      "resolution": "check",
+      "conditions": [],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": [],
+      "check": {
+        "mode": "stat",
+        "modifierVariable": "agility",
+        "difficulty": 3
+      }
+    },
+    {
+      "id": "lz_detour",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Wciśnij się w kanał odpływowy",
+      "text": "Krata jest luźna. Kanał omija drzwi, ale czołganie nadweręży ranną rękę.",
+      "image": "",
+      "showName": true,
+      "effects": [
+        {
+          "op": "add",
+          "key": "energy",
+          "value": -1
+        }
+      ],
+      "resolution": "direct",
+      "conditions": [],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": []
+    },
+    {
+      "id": "lz_pass1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Dostawa",
+      "text": "Mijasz wózek. Na paczce czytasz: „Sektor medyczny — doręczyć do rąk własnych”. Kurier zatrzymuje się przy ścianie. Przez chwilę wygląda jak człowiek, który zapomniał, po co wszedł do pokoju. Nie czekasz, aż sobie przypomni.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    },
+    {
+      "id": "lz_chase1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Ruch",
+      "text": "But zahacza o opakowanie. Kurier odwraca głowę. Zanim zdążysz wyprostować plecy, jest przy tobie. Zasłaniasz się wózkiem i wpadasz w boczne przejście.",
+      "image": "",
+      "showName": false,
+      "effects": [
+        {
+          "op": "add",
+          "key": "energy",
+          "value": -2
+        }
+      ]
+    },
+    {
+      "id": "lz_chase2",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Sprężyna",
+      "text": "Drzwi zatrzaskują się za tobą. Coś uderza w nie od drugiej strony, raz i jeszcze raz. Trzymasz klamkę, dopóki nie zapada cisza. Ręka krwawi. Żyjesz.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    },
+    {
+      "id": "lz_drain1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Kanał",
+      "text": "Kanał pachnie rdzą. Ciągniesz ranną rękę przy piersi. Nad tobą raz po raz stuka wózek. Przy ostatniej kracie dźwięk cichnie. Wyciągasz się na podłogę za drzwiami technicznymi, kilka metrów przed śluzą medyczną.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    },
+    {
+      "id": "lz_gate_intro",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Zasuwa",
+      "text": "Śluza do zaplecza jest zamknięta. Czytnik identyfikatorów świeci bursztynowo. Obok wisi otwarta osłona napędu. Pod ścianą jest też niski przepust na brudną pościel — ciasny, lecz drożny.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    },
+    {
+      "id": "lz_use_tag",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Przyłóż identyfikator Ady",
+      "text": "Czytnik wciąż działa. Sprawdź, czy pamięta swoją właścicielkę.",
+      "image": "",
+      "showName": true,
+      "effects": [],
+      "resolution": "direct",
+      "conditions": [
+        {
+          "source": "inventory",
+          "key": "lz_tag",
+          "op": "has"
+        }
+      ],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": []
+    },
+    {
+      "id": "lz_use_rod",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Podważ zasuwę prętem",
+      "text": "Wsuń płaski koniec w szczelinę napędu. Metal powinien wytrzymać.",
+      "image": "",
+      "showName": true,
+      "effects": [],
+      "resolution": "direct",
+      "conditions": [
+        {
+          "source": "inventory",
+          "key": "lz_rod",
+          "op": "has"
+        }
+      ],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": []
+    },
+    {
+      "id": "lz_rewire",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Zewrzyj obwód awaryjny",
+      "text": "Prześledź przewody i spróbuj zasilić rygiel. Wymaga 1 punktu sił.",
+      "image": "",
+      "showName": true,
+      "effects": [],
+      "resolution": "check",
+      "conditions": [],
+      "costs": [
+        {
+          "source": "variable",
+          "key": "energy",
+          "amount": 1
+        }
+      ],
+      "successEffects": [],
+      "failureEffects": [],
+      "check": {
+        "mode": "stat",
+        "modifierVariable": "intelligence",
+        "difficulty": 3
+      }
+    },
+    {
+      "id": "lz_laundry",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Przeczołgaj się przepustem",
+      "text": "Zostaw śluzę w spokoju. Ciasne przejście będzie kosztować cię trochę sił.",
+      "image": "",
+      "showName": true,
+      "effects": [
+        {
+          "op": "add",
+          "key": "energy",
+          "value": -1
+        }
+      ],
+      "resolution": "direct",
+      "conditions": [],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": []
+    },
+    {
+      "id": "lz_tag_open1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Witaj",
+      "text": "„WITAJ, ADA SHULZ”. Czytnik rozpoznaje kartę od razu. Drzwi otwierają się z cichym sykiem. Przez moment czekasz, aż system zauważy pomyłkę. Nic takiego się nie dzieje.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    },
+    {
+      "id": "lz_rod_open1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Ciężar",
+      "text": "Pręt wygina się pod ciężarem zasuwy. Wystarczy kilka milimetrów. Przeciskasz się przez drzwi, zanim metal odskoczy. Po drugiej stronie słyszysz przeciągły sygnał, jak wywołanie bez odpowiedzi.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    },
+    {
+      "id": "lz_wire_open1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Pamięć dłoni",
+      "text": "Wybierasz właściwe przewody, zanim potrafisz wyjaśnić dlaczego. Zasuwa odskakuje. Nie pamiętasz, kim byłeś. Twoje dłonie najwyraźniej coś pamiętają.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    },
+    {
+      "id": "lz_wire_fail1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Iskra",
+      "text": "Iskra parzy palce. Napęd milknie. Czekasz, aż zapach izolacji osłabnie, po czym wciskasz się do przepustu na pościel. Po drugiej stronie odpoczywasz na zimnych kafelkach.",
+      "image": "",
+      "showName": false,
+      "effects": [
+        {
+          "op": "add",
+          "key": "energy",
+          "value": -1
+        }
+      ]
+    },
+    {
+      "id": "lz_laundry1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Na kolanach",
+      "text": "Długo przesuwasz się na kolanach. W ciemności wyczuwasz porzucony chodak. Odsuwasz go i pchasz kratę barkiem. Wypadasz na zaplecze. Z bliska sygnał wywołania brzmi niemal jak głos.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    },
+    {
+      "id": "lz_radio1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Połączenie",
+      "text": "Zaplecze mieści stary terminal łączności. Zielona linia drży na ekranie. Dotykasz klawisza. Sygnał urywa się w połowie nuty. „Czy ktoś mnie słyszy? Tu Juno-1. Emma Krause”.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    },
+    {
+      "id": "lz_radio2",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Ktoś",
+      "text": "— Halo? — odpowiadasz.\n\nDługi wdech po drugiej stronie.\n\n— Ada?\n— Nie. Lazarus.\n— Jesteś w Nest?\n\nPatrzysz na znak nad drzwiami.\n\n— Chyba tak. Nie wiem, jak się tu znalazłem.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    },
+    {
+      "id": "lz_radio3",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Dwa dni",
+      "text": "— Schowałam się na statku, gdy to się zaczęło. Potem ruszyła sekwencja kriogeniczna. Od dwóch dni próbuję się z kimś połączyć.\n\n— Z którego poziomu dzwonisz?\n\n— Poziomu? Lazarus, ja jestem na Juno. Na orbicie.\n\nZa twoimi plecami coś naciska klamkę.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    },
+    {
+      "id": "lz_emma_intro",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Pytanie",
+      "text": "— Muszę zejść na kanał awaryjny — mówi Emma. — Jeśli jesteś w lecznicy, jest tam Ada Shulz. Znasz ją? Proszę, powiedz mi, że ktoś jeszcze tam żyje.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    },
+    {
+      "id": "lz_tell_ada",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Powiedz, co znalazłeś",
+      "text": "„Znalazłem Adę w szatni. Przykro mi”. Nie dawaj Emmie nadziei, której sam nie masz.",
+      "image": "",
+      "showName": true,
+      "effects": [
+        {
+          "op": "set",
+          "key": "lz_truth",
+          "value": true
+        }
+      ],
+      "resolution": "direct",
+      "conditions": [
+        {
+          "source": "variable",
+          "key": "lz_ada",
+          "op": "eq",
+          "value": true
+        }
+      ],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": []
+    },
+    {
+      "id": "lz_dont_know",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Powiedz, że nie wiesz",
+      "text": "„Nie znalazłem nikogo, z kim mogę porozmawiać”. Pozostań przy tym, co wiesz.",
+      "image": "",
+      "showName": true,
+      "effects": [],
+      "resolution": "direct",
+      "conditions": [
+        {
+          "source": "variable",
+          "key": "lz_ada",
+          "op": "eq",
+          "value": false
+        }
+      ],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": []
+    },
+    {
+      "id": "lz_promise",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Obiecaj jej poszukać",
+      "text": "„Sprawdzę lecznicę, kiedy będę mógł bezpiecznie wrócić”. Teraz musisz odsunąć się od tych drzwi.",
+      "image": "",
+      "showName": true,
+      "effects": [],
+      "resolution": "direct",
+      "conditions": [],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": []
+    },
+    {
+      "id": "lz_truth1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Imię",
+      "text": "Emma długo milczy.\n\n— Nazywała mnie Em. Nikt inny tak nie mówił.\n\nPotem wraca jej rzeczowy głos.\n\n— Dziękuję, że powiedziałeś. Posłuchaj mnie teraz uważnie. Nie idź do głównych wind.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    },
+    {
+      "id": "lz_uncertain1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Uczciwie",
+      "text": "— Rozumiem — mówi Emma, choć słyszysz, że liczyła na inne słowo. — Jeśli ją spotkasz, powiedz, że czekałam.\n\nKlamka za tobą opada znowu.\n\n— Lazarus? Co to było? Nie idź do głównych wind.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    },
+    {
+      "id": "lz_promise1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Później",
+      "text": "— Dobrze. Tylko nie ryzykuj teraz.\n\nEmma wierzy ci tak łatwo, że przez chwilę nie potrafisz odpowiedzieć.\n\n— Najpierw znajdź bezpieczne miejsce — dodaje. — Nie idź do głównych wind.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    },
+    {
+      "id": "lz_instructions1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Maszynownia",
+      "text": "— Lockdown zamknął przejścia zewnętrzne. Nie otworzysz ich stąd — mówi Emma. — Oskar próbował przywrócić zasilanie wrót. Szukaj żółtych przewodów serwisowych. Biegną do maszynowni.\n\n— Czyli w dół?\n\n— Na razie w dół.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    },
+    {
+      "id": "lz_instructions2",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Kanał awaryjny",
+      "text": "— Jeśli dotrzesz do rozdzielni, uruchom kanał siedem. Będę nasłu…\n\nGłos rozciąga się i znika. Na ekranie zostaje: „JUNO-1 / BRAK SYNCHRONIZACJI CZASU”. Obok drzwi zauważasz właz z żółtym przewodem. W przeciwnej ścianie mieści się magazyn bielizny.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    },
+    {
+      "id": "lz_last_intro",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Klamka",
+      "text": "Klamka opada po raz trzeci. Możesz zejść włazem serwisowym albo skryć się w magazynie. Droga na górę jest zamknięta. Ta decyzja dotyczy tylko tego, jak przeżyjesz najbliższe godziny.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    },
+    {
+      "id": "lz_descend",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Zejdź za żółtym przewodem",
+      "text": "Zostaw terminal. Emma podała ci kierunek i powód, żeby iść.",
+      "image": "",
+      "showName": true,
+      "effects": [],
+      "resolution": "direct",
+      "conditions": [],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": []
+    },
+    {
+      "id": "lz_secure",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Zablokuj drzwi klinem i zejdź",
+      "text": "Wciśnij klin pod drzwi, żeby zyskać czas. Zostawisz go tutaj.",
+      "image": "",
+      "showName": true,
+      "effects": [],
+      "resolution": "direct",
+      "conditions": [
+        {
+          "source": "inventory",
+          "key": "lz_wedge",
+          "op": "has"
+        }
+      ],
+      "costs": [
+        {
+          "source": "inventory",
+          "key": "lz_wedge",
+          "amount": 1
+        }
+      ],
+      "successEffects": [],
+      "failureEffects": []
+    },
+    {
+      "id": "lz_shelter",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Ukryj się w magazynie",
+      "text": "Przysuń regał do wejścia. Odpocznij, zanim spróbujesz dotrzeć do maszynowni.",
+      "image": "",
+      "showName": true,
+      "effects": [],
+      "resolution": "direct",
+      "conditions": [],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": []
+    },
+    {
+      "id": "lz_end_descent1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Ósmy poziom",
+      "text": "Schodzisz do włazu. Gdy masz głowę poniżej podłogi, drzwi zaplecza otwierają się z hukiem. Nie patrzysz w górę. Żółty przewód znika między kolejnymi szczeblami.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    },
+    {
+      "id": "lz_end_descent2",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Ktoś czeka",
+      "text": "Nie odzyskałeś pamięci. Nie znalazłeś wyjścia. Ale gdzieś nad ziemią kobieta o imieniu Emma czeka na twój głos. Powtarzasz w myślach: kanał siedem.\n\nKoniec rozdziału: PRZEBUDZENIE.\nDalszy cel: dotrzeć do maszynowni.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    },
+    {
+      "id": "lz_end_secure1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Klin",
+      "text": "Wbijasz klin obcasem. Kiedy coś napiera na drzwi, guma piszczy, ale trzyma. Schodzisz spokojniej, sprawdzając każdy szczebel. Po raz pierwszy od przebudzenia to ty decydujesz, kiedy ruszyć dalej.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    },
+    {
+      "id": "lz_end_secure2",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Siedem",
+      "text": "Na dole słyszysz dwa uderzenia. Potem ciszę. Masz kilka minut przewagi. Podążasz za żółtym przewodem. Emma będzie nasłuchiwać na kanale siedem.\n\nKoniec rozdziału: PRZEBUDZENIE.\nDalszy cel: dotrzeć do maszynowni.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    },
+    {
+      "id": "lz_end_shelter1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Schronienie",
+      "text": "W magazynie zasuwasz regał przed drzwi. Siadasz na złożonych prześcieradłach, z dala od ściany. Z korytarza dochodzą kroki. Zatrzymują się przy terminalu. Czekasz, aż odejdą.",
+      "image": "",
+      "showName": false,
+      "effects": [
+        {
+          "op": "add",
+          "key": "energy",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": "lz_end_shelter2",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Plan",
+      "text": "Nie wiesz, czy pod ziemią istnieje coś takiego jak rano. Mimo to ustalasz plan: odpoczynek, żółty przewód, maszynownia, kanał siedem. Powtarzasz go, żeby nie zgubić kolejnej rzeczy.\n\nKoniec rozdziału: PRZEBUDZENIE.\nDalszy cel: dotrzeć do maszynowni.",
+      "image": "",
+      "showName": false,
+      "effects": []
+    }
+  ],
+  "chapter": {
+    "id": "lazarus_przebudzenie",
+    "name": "Lazarus — Przebudzenie",
+    "startNode": "wake",
+    "initialValues": {},
+    "nodes": [
+      {
+        "id": "wake",
+        "name": "01 · Przebudzenie",
+        "type": "linear",
+        "cards": [
+          {
+            "id": "p_wake1",
+            "definitionId": "lz_wake1"
+          },
+          {
+            "id": "p_wake2",
+            "definitionId": "lz_wake2"
+          },
+          {
+            "id": "p_wake3",
+            "definitionId": "lz_wake3"
+          }
+        ],
+        "connections": {
+          "next": "first_choice"
+        },
+        "x": 0,
+        "y": 0
+      },
+      {
+        "id": "first_choice",
+        "name": "02 · Pierwszy odruch",
+        "type": "fork",
+        "intro": {
+          "id": "p_first_intro",
+          "definitionId": "lz_first_intro"
+        },
+        "introEnabled": true,
+        "introOnce": false,
+        "choices": [
+          {
+            "id": "p_look_up",
+            "definitionId": "lz_look_up"
+          },
+          {
+            "id": "p_look_self",
+            "definitionId": "lz_look_self"
+          }
+        ],
+        "connections": {
+          "p_look_up": "shaft",
+          "p_look_self": "bandage"
+        },
+        "x": 400,
+        "y": 0
+      },
+      {
+        "id": "shaft",
+        "name": "03A · Zawalone przejście",
+        "type": "linear",
+        "cards": [
+          {
+            "id": "p_shaft1",
+            "definitionId": "lz_shaft1"
+          },
+          {
+            "id": "p_shaft2",
+            "definitionId": "lz_shaft2"
+          }
+        ],
+        "connections": {
+          "next": "supplies"
+        },
+        "x": 800,
+        "y": -240
+      },
+      {
+        "id": "bandage",
+        "name": "03B · Obca pomoc",
+        "type": "linear",
+        "cards": [
+          {
+            "id": "p_bandage1",
+            "definitionId": "lz_bandage1"
+          },
+          {
+            "id": "p_bandage2",
+            "definitionId": "lz_bandage2"
+          }
+        ],
+        "connections": {
+          "next": "supplies"
+        },
+        "x": 800,
+        "y": 250
+      },
+      {
+        "id": "supplies",
+        "name": "04 · Szafka ratunkowa",
+        "type": "container",
+        "intro": {
+          "id": "p_supplies_intro",
+          "definitionId": "lz_supplies_intro"
+        },
+        "introEnabled": true,
+        "items": [
+          {
+            "id": "p_water",
+            "definitionId": "lz_water"
+          },
+          {
+            "id": "p_wedge",
+            "definitionId": "lz_wedge"
+          },
+          {
+            "id": "p_tag",
+            "definitionId": "lz_tag"
+          }
+        ],
+        "connections": {
+          "next": "hub"
+        },
+        "x": 1200,
+        "y": 0
+      },
+      {
+        "id": "hub",
+        "name": "05 · Poczekalnia",
+        "type": "fork",
+        "intro": {
+          "id": "p_hub_intro",
+          "definitionId": "lz_hub_intro"
+        },
+        "introEnabled": true,
+        "introOnce": true,
+        "choices": [
+          {
+            "id": "p_records",
+            "definitionId": "lz_records"
+          },
+          {
+            "id": "p_locker",
+            "definitionId": "lz_locker"
+          },
+          {
+            "id": "p_stairs",
+            "definitionId": "lz_stairs"
+          },
+          {
+            "id": "p_go_door",
+            "definitionId": "lz_go_door"
+          }
+        ],
+        "connections": {
+          "p_records": "records",
+          "p_locker": "ada",
+          "p_stairs": "stairs",
+          "p_go_door": "pressure"
+        },
+        "x": 1600,
+        "y": 0
+      },
+      {
+        "id": "records",
+        "name": "06A · 14 stycznia 2041",
+        "type": "linear",
+        "cards": [
+          {
+            "id": "p_records1",
+            "definitionId": "lz_records1"
+          },
+          {
+            "id": "p_records2",
+            "definitionId": "lz_records2"
+          },
+          {
+            "id": "p_records3",
+            "definitionId": "lz_records3"
+          }
+        ],
+        "connections": {
+          "next": "hub"
+        },
+        "x": 2000,
+        "y": -620
+      },
+      {
+        "id": "ada",
+        "name": "06B · Szafka 12",
+        "type": "linear",
+        "cards": [
+          {
+            "id": "p_ada1",
+            "definitionId": "lz_ada1"
+          },
+          {
+            "id": "p_ada2",
+            "definitionId": "lz_ada2"
+          },
+          {
+            "id": "p_ada3",
+            "definitionId": "lz_ada3"
+          }
+        ],
+        "connections": {
+          "next": "hub"
+        },
+        "x": 2000,
+        "y": -260
+      },
+      {
+        "id": "stairs",
+        "name": "06C · Droga w górę",
+        "type": "linear",
+        "cards": [
+          {
+            "id": "p_stairs1",
+            "definitionId": "lz_stairs1"
+          },
+          {
+            "id": "p_stairs2",
+            "definitionId": "lz_stairs2"
+          }
+        ],
+        "connections": {
+          "next": "hub"
+        },
+        "x": 2000,
+        "y": 240
+      },
+      {
+        "id": "pressure",
+        "name": "07 · Ściana oddycha",
+        "type": "fork",
+        "intro": {
+          "id": "p_pressure_intro",
+          "definitionId": "lz_pressure_intro"
+        },
+        "introEnabled": true,
+        "introOnce": false,
+        "choices": [
+          {
+            "id": "p_steady",
+            "definitionId": "lz_steady"
+          },
+          {
+            "id": "p_retreat",
+            "definitionId": "lz_retreat"
+          }
+        ],
+        "connections": {
+          "p_steady:success": "steady_ok",
+          "p_steady:failure": "steady_bad",
+          "p_retreat": "steady_wait"
+        },
+        "x": 2400,
+        "y": 0
+      },
+      {
+        "id": "steady_ok",
+        "name": "08A · Własny rytm",
+        "type": "linear",
+        "cards": [
+          {
+            "id": "p_steady_ok1",
+            "definitionId": "lz_steady_ok1"
+          }
+        ],
+        "connections": {
+          "next": "courier"
+        },
+        "x": 2800,
+        "y": -340
+      },
+      {
+        "id": "steady_bad",
+        "name": "08B · Nie twój głos",
+        "type": "linear",
+        "cards": [
+          {
+            "id": "p_steady_bad1",
+            "definitionId": "lz_steady_bad1"
+          }
+        ],
+        "connections": {
+          "next": "courier"
+        },
+        "x": 2800,
+        "y": 0
+      },
+      {
+        "id": "steady_wait",
+        "name": "08C · Na środku podłogi",
+        "type": "linear",
+        "cards": [
+          {
+            "id": "p_steady_wait1",
+            "definitionId": "lz_steady_wait1"
+          }
+        ],
+        "connections": {
+          "next": "courier"
+        },
+        "x": 2800,
+        "y": 340
+      },
+      {
+        "id": "courier",
+        "name": "09 · Niedostarczona przesyłka",
+        "type": "fork",
+        "intro": {
+          "id": "p_courier_intro",
+          "definitionId": "lz_courier_intro"
+        },
+        "introEnabled": true,
+        "introOnce": false,
+        "choices": [
+          {
+            "id": "p_quiet_pass",
+            "definitionId": "lz_quiet_pass"
+          },
+          {
+            "id": "p_listen_pass",
+            "definitionId": "lz_listen_pass"
+          },
+          {
+            "id": "p_sneak",
+            "definitionId": "lz_sneak"
+          },
+          {
+            "id": "p_detour",
+            "definitionId": "lz_detour"
+          }
+        ],
+        "connections": {
+          "p_quiet_pass": "pass",
+          "p_listen_pass": "pass",
+          "p_sneak:success": "pass",
+          "p_sneak:failure": "chase",
+          "p_detour": "drain"
+        },
+        "x": 3200,
+        "y": 0
+      },
+      {
+        "id": "pass",
+        "name": "10A · Nie budź",
+        "type": "linear",
+        "cards": [
+          {
+            "id": "p_pass1",
+            "definitionId": "lz_pass1"
+          }
+        ],
+        "connections": {
+          "next": "gate"
+        },
+        "x": 3600,
+        "y": -340
+      },
+      {
+        "id": "chase",
+        "name": "10B · Za blisko",
+        "type": "linear",
+        "cards": [
+          {
+            "id": "p_chase1",
+            "definitionId": "lz_chase1"
+          },
+          {
+            "id": "p_chase2",
+            "definitionId": "lz_chase2"
+          }
+        ],
+        "connections": {
+          "next": "gate"
+        },
+        "x": 3600,
+        "y": 0
+      },
+      {
+        "id": "drain",
+        "name": "10C · Pod podłogą",
+        "type": "linear",
+        "cards": [
+          {
+            "id": "p_drain1",
+            "definitionId": "lz_drain1"
+          }
+        ],
+        "connections": {
+          "next": "gate"
+        },
+        "x": 3600,
+        "y": 340
+      },
+      {
+        "id": "gate",
+        "name": "11 · Śluza medyczna",
+        "type": "fork",
+        "intro": {
+          "id": "p_gate_intro",
+          "definitionId": "lz_gate_intro"
+        },
+        "introEnabled": true,
+        "introOnce": false,
+        "choices": [
+          {
+            "id": "p_use_tag",
+            "definitionId": "lz_use_tag"
+          },
+          {
+            "id": "p_use_rod",
+            "definitionId": "lz_use_rod"
+          },
+          {
+            "id": "p_rewire",
+            "definitionId": "lz_rewire"
+          },
+          {
+            "id": "p_laundry",
+            "definitionId": "lz_laundry"
+          }
+        ],
+        "connections": {
+          "p_use_tag": "tag_open",
+          "p_use_rod": "rod_open",
+          "p_rewire:success": "wire_open",
+          "p_rewire:failure": "wire_fail",
+          "p_laundry": "laundry"
+        },
+        "x": 4000,
+        "y": 0
+      },
+      {
+        "id": "tag_open",
+        "name": "12A · Powrót na dyżur",
+        "type": "linear",
+        "cards": [
+          {
+            "id": "p_tag_open1",
+            "definitionId": "lz_tag_open1"
+          }
+        ],
+        "connections": {
+          "next": "radio"
+        },
+        "x": 4400,
+        "y": -700
+      },
+      {
+        "id": "rod_open",
+        "name": "12B · Mechanika",
+        "type": "linear",
+        "cards": [
+          {
+            "id": "p_rod_open1",
+            "definitionId": "lz_rod_open1"
+          }
+        ],
+        "connections": {
+          "next": "radio"
+        },
+        "x": 4400,
+        "y": -350
+      },
+      {
+        "id": "wire_open",
+        "name": "12C · Nawyki",
+        "type": "linear",
+        "cards": [
+          {
+            "id": "p_wire_open1",
+            "definitionId": "lz_wire_open1"
+          }
+        ],
+        "connections": {
+          "next": "radio"
+        },
+        "x": 4400,
+        "y": 0
+      },
+      {
+        "id": "wire_fail",
+        "name": "12D · Awaria",
+        "type": "linear",
+        "cards": [
+          {
+            "id": "p_wire_fail1",
+            "definitionId": "lz_wire_fail1"
+          }
+        ],
+        "connections": {
+          "next": "radio"
+        },
+        "x": 4400,
+        "y": 350
+      },
+      {
+        "id": "laundry",
+        "name": "12E · Przepust",
+        "type": "linear",
+        "cards": [
+          {
+            "id": "p_laundry1",
+            "definitionId": "lz_laundry1"
+          }
+        ],
+        "connections": {
+          "next": "radio"
+        },
+        "x": 4400,
+        "y": 700
+      },
+      {
+        "id": "radio",
+        "name": "13 · Juno-1",
+        "type": "linear",
+        "cards": [
+          {
+            "id": "p_radio1",
+            "definitionId": "lz_radio1"
+          },
+          {
+            "id": "p_radio2",
+            "definitionId": "lz_radio2"
+          },
+          {
+            "id": "p_radio3",
+            "definitionId": "lz_radio3"
+          }
+        ],
+        "connections": {
+          "next": "emma_choice"
+        },
+        "x": 4800,
+        "y": 0
+      },
+      {
+        "id": "emma_choice",
+        "name": "14 · Odpowiedź",
+        "type": "fork",
+        "intro": {
+          "id": "p_emma_intro",
+          "definitionId": "lz_emma_intro"
+        },
+        "introEnabled": true,
+        "introOnce": false,
+        "choices": [
+          {
+            "id": "p_tell_ada",
+            "definitionId": "lz_tell_ada"
+          },
+          {
+            "id": "p_dont_know",
+            "definitionId": "lz_dont_know"
+          },
+          {
+            "id": "p_promise",
+            "definitionId": "lz_promise"
+          }
+        ],
+        "connections": {
+          "p_tell_ada": "truth",
+          "p_dont_know": "uncertain",
+          "p_promise": "promise"
+        },
+        "x": 5200,
+        "y": 0
+      },
+      {
+        "id": "truth",
+        "name": "15A · Prawda",
+        "type": "linear",
+        "cards": [
+          {
+            "id": "p_truth1",
+            "definitionId": "lz_truth1"
+          }
+        ],
+        "connections": {
+          "next": "instructions"
+        },
+        "x": 5600,
+        "y": -340
+      },
+      {
+        "id": "uncertain",
+        "name": "15B · Nie wiem",
+        "type": "linear",
+        "cards": [
+          {
+            "id": "p_uncertain1",
+            "definitionId": "lz_uncertain1"
+          }
+        ],
+        "connections": {
+          "next": "instructions"
+        },
+        "x": 5600,
+        "y": 0
+      },
+      {
+        "id": "promise",
+        "name": "15C · Obietnica",
+        "type": "linear",
+        "cards": [
+          {
+            "id": "p_promise1",
+            "definitionId": "lz_promise1"
+          }
+        ],
+        "connections": {
+          "next": "instructions"
+        },
+        "x": 5600,
+        "y": 340
+      },
+      {
+        "id": "instructions",
+        "name": "16 · Dokąd prowadzą przewody",
+        "type": "linear",
+        "cards": [
+          {
+            "id": "p_instructions1",
+            "definitionId": "lz_instructions1"
+          },
+          {
+            "id": "p_instructions2",
+            "definitionId": "lz_instructions2"
+          }
+        ],
+        "connections": {
+          "next": "last_choice"
+        },
+        "x": 6000,
+        "y": 0
+      },
+      {
+        "id": "last_choice",
+        "name": "17 · Pierwsza noc",
+        "type": "fork",
+        "intro": {
+          "id": "p_last_intro",
+          "definitionId": "lz_last_intro"
+        },
+        "introEnabled": true,
+        "introOnce": false,
+        "choices": [
+          {
+            "id": "p_descend",
+            "definitionId": "lz_descend"
+          },
+          {
+            "id": "p_secure",
+            "definitionId": "lz_secure"
+          },
+          {
+            "id": "p_shelter",
+            "definitionId": "lz_shelter"
+          }
+        ],
+        "connections": {
+          "p_descend": "end_descent",
+          "p_secure": "end_secure",
+          "p_shelter": "end_shelter"
+        },
+        "x": 6400,
+        "y": 0
+      },
+      {
+        "id": "end_descent",
+        "name": "18A · W dół",
+        "type": "linear",
+        "cards": [
+          {
+            "id": "p_end_descent1",
+            "definitionId": "lz_end_descent1"
+          },
+          {
+            "id": "p_end_descent2",
+            "definitionId": "lz_end_descent2"
+          }
+        ],
+        "connections": {
+          "next": null
+        },
+        "x": 6800,
+        "y": -380
+      },
+      {
+        "id": "end_secure",
+        "name": "18B · Kilka minut",
+        "type": "linear",
+        "cards": [
+          {
+            "id": "p_end_secure1",
+            "definitionId": "lz_end_secure1"
+          },
+          {
+            "id": "p_end_secure2",
+            "definitionId": "lz_end_secure2"
+          }
+        ],
+        "connections": {
+          "next": null
+        },
+        "x": 6800,
+        "y": 0
+      },
+      {
+        "id": "end_shelter",
+        "name": "18C · Do rana",
+        "type": "linear",
+        "cards": [
+          {
+            "id": "p_end_shelter1",
+            "definitionId": "lz_end_shelter1"
+          },
+          {
+            "id": "p_end_shelter2",
+            "definitionId": "lz_end_shelter2"
+          }
+        ],
+        "connections": {
+          "next": null
+        },
+        "x": 6800,
+        "y": 380
+      }
+    ],
+    "variables": [
+      {
+        "id": "lz_records",
+        "name": "Terminal przeczytany",
+        "type": "flag",
+        "initial": false,
+        "showInHud": false
+      },
+      {
+        "id": "lz_ada",
+        "name": "Los Ady poznany",
+        "type": "flag",
+        "initial": false,
+        "showInHud": false
+      },
+      {
+        "id": "lz_stairs",
+        "name": "Schody sprawdzone",
+        "type": "flag",
+        "initial": false,
+        "showInHud": false
+      },
+      {
+        "id": "lz_quiet",
+        "name": "Wiedza o dźwięku",
+        "type": "flag",
+        "initial": false,
+        "showInHud": false
+      },
+      {
+        "id": "lz_listening",
+        "name": "Rozpoznany rytm",
+        "type": "flag",
+        "initial": false,
+        "showInHud": false
+      },
+      {
+        "id": "lz_truth",
+        "name": "Prawda powiedziana Emmie",
+        "type": "flag",
+        "initial": false,
+        "showInHud": false
+      }
+    ]
+  }
+}

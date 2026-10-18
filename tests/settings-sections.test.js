@@ -10,14 +10,18 @@ function fixture() {
  return {project,chapter};
 }
 
-test('project settings contain project controls and variable definitions without a disclosure',()=>{
+test('project settings keep variable controls in a collapsed disclosure',()=>{
  const {project}=fixture(),html=projectSettingsInspector(project);
- assert.doesNotMatch(html,/<\/?(?:details|summary)\b/);
- assert.match(html,/<h3>Project variables<\/h3>/);
+ assert.match(html,/<details class="state-panel" data-project-variables><summary>Project variables<\/summary>/);
+ const variables=html.match(/<details class="state-panel" data-project-variables>([\s\S]*?)<\/details>/)?.[1];
+ assert.ok(variables);
+ assert.match(variables,/data-command="add-variable"/);
+ assert.match(variables,/data-command="add-health"/);
+ assert.doesNotMatch(variables,/cardBack\.|switchCardBackIcons/);
  assert.match(html,/data-scope="project" data-path="name"/);
  assert.match(html,/data-path="switchCardBackIcons"/);
  for(const path of ['cardBack.background','cardBack.icons.default','cardBack.icons.container','cardBack.icons.dice','cardBack.icons.collect','cardBack.icons.discard'])assert.ok(html.includes(`data-scope="project" data-path="${path}"`));
- assert.ok(html.lastIndexOf('<h3>Card backs</h3>')>html.lastIndexOf('data-command="add-variable"'));
+ assert.ok(html.lastIndexOf('<summary>Card backs</summary>')>html.lastIndexOf('data-command="add-variable"'));
  for(const key of ['small','big','medium']) {
   assert.match(html,new RegExp(`data-path="cardStyles\\.${key}"`));
   assert.match(html,new RegExp(`data-path="cardStyles\\.${key}Color"`));
@@ -35,7 +39,8 @@ test('chapter disclosure contains chapter controls and opaque initial overrides 
  const {project,chapter}=fixture(),html=chapterSettingsInspector(project,chapter);
  assert.ok(html.startsWith('<details class="chapter-settings"><summary>Chapter settings</summary>'));
  assert.ok(html.endsWith('</details>'));
- assert.equal((html.match(/<details\b/g)||[]).length,1);
+ assert.equal((html.match(/<details\b/g)||[]).length,3);
+ assert.match(html,/<details class="state-panel" data-chapter-variables><summary>Chapter variables<\/summary>/);
  assert.match(html,/data-scope="chapter" data-path="name"/);
  assert.doesNotMatch(html,/data-path="cardBack\./);
  for(const id of ['flag','coins','agility'])assert.ok(html.includes(`data-scope="initial-toggle" data-path="${id}"`));

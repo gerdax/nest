@@ -1,6 +1,6 @@
 import { isStatVariable } from '../project/checks.js';
 import { createDefinition, allowedCardKinds } from '../project/cards.js';
-import { createChapter, importChapter, outputsForNode } from '../project/model.js';
+import { chapterVariables, createChapter, importChapter, outputsForNode } from '../project/model.js';
 import { deleteDefinition, cleanupLocalDefinitions } from '../project/dependencies.js';
 import { pasteNodeClipboard } from './node-clipboard.js';
 import { transferCard } from './card-transfer.js';
@@ -50,6 +50,8 @@ function changeField(project, selection, field, localDrafts) {
     chapter.initialValues = {...(chapter.initialValues || {}), [path]:variable.type === 'flag' ? raw === 'true' : Number(raw)};
     return;
   }
+  const ruleChapter = ['node','placement','local-definition'].includes(scope) ? chapter : undefined;
+  const variables = chapterVariables(project, ruleChapter);
   const root = documentScope(project, selection, field);
   if (!root) return;
   if (scope === 'placement' && path === 'useCustomRules') {
@@ -83,13 +85,13 @@ function changeField(project, selection, field, localDrafts) {
   if (key === 'resolution' && value === 'check') parent.check ||= {pool:[{sides:20,count:1}],modifier:0,target:10};
   if (key === 'mode' && value === 'stat') {
     parent.difficulty ??= 1;
-    if (!project.variables.some(v => v.id === parent.modifierVariable && isStatVariable(v))) parent.modifierVariable = project.variables.find(isStatVariable)?.id;
+    if (!variables.some(v => v.id === parent.modifierVariable && isStatVariable(v))) parent.modifierVariable = variables.find(isStatVariable)?.id;
   }
   if (key === 'mode' && value === 'custom') {
     parent.pool ||= [{sides:20,count:1}]; parent.modifier ??= 0; parent.target ??= 10;
   }
   if (key === 'type' && ['flag','number'].includes(value)) { parent.initial = value === 'flag' ? false : 0; delete parent.min; delete parent.max; }
-  if (['source','op','key'].includes(key)) normalizeRule(project, parent, key);
+  if (['source','op','key'].includes(key)) normalizeRule(project, parent, key, ruleChapter);
 }
 function clampArtwork(key, value) {
   return Math.max(key === 'imageScale' ? 10 : -100, Math.min(key === 'imageScale' ? 400 : 100, value));
@@ -106,7 +108,7 @@ function inspectorCommand(project, selection, data, localDrafts) {
     case 'add-rule': {
       const {parent, key} = pathTarget(documentScope(project, selection, descriptor), data.path);
       parent[key] ||= [];
-      parent[key].push(newRule(project, data.ruleKind));
+      parent[key].push(newRule(project, data.ruleKind, ['node','placement','local-definition'].includes(data.scope) ? chapterFor(project, selection) : undefined));
       break;
     }
     case 'remove-rule': {
@@ -135,6 +137,8 @@ function inspectorCommand(project, selection, data, localDrafts) {
       deleteDefinition(project, selection.definitionId);
       return {selection:{definitionId:project.library.find(card => card.visibility !== 'local')?.id}};
     case 'add-health': addHealthVariable(project); break;
+    case 'add-chapter-variable': (chapterFor(project, selection).variables ||= []).push({id:uid('chapter-variable'),name:'New variable',type:'number',initial:0}); break;
+    case 'remove-chapter-variable': chapterFor(project, selection).variables.splice(Number(data.index), 1); break;
     case 'add-variable': project.variables.push({id:uid('variable'),name:'New variable',type:'number',initial:0}); break;
     case 'remove-variable': project.variables.splice(Number(data.index), 1); break;
   }

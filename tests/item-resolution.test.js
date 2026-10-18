@@ -572,3 +572,52 @@ test('visual readiness excludes compressed targets, departures and queued entran
  deck.updatePresentationReadiness();assert.equal(deck.presentationState.visualReady,false,'closing is never an entrance');
  deck.destroy();
 });
+
+for(const distance of [100,360])test(`returning item shrinks early without changing its travel or followers, distance=${distance}`,()=>{
+ const deck=make();ready(deck);
+ const resting=poses(deck);
+ deck.start();deck.move(gesture(distance));settle();
+ const held=poses(deck);
+ deck.cancel();
+ const returning=deck.itemReturn;assert.ok(returning);
+ for(const [id,pose] of poses(deck))samePose(pose,held.get(id),'release boundary is continuous');
+ deck.cancelPickup();assert.equal(deck.itemReturn,returning,'repeated cancel does not restart the easing');
+ const initialDepth=held.get('item-0').z-resting.get('item-0').z;
+ let previous=held.get('item-0').z,compared=false;
+ for(let i=0;frames.size&&i<2000;i++) {
+  step();
+  const current=cardPose(deck,0);
+  assert.ok(current.z<=previous+1e-8,'return shrinks monotonically');previous=current.z;
+  if(deck.itemReturn&&deck.l.x/returning.startLift<.75&&!compared) {
+   const marker=deck.itemReturn;deck.itemReturn=null;
+   const old=poses(deck);deck.itemReturn=marker;
+   const updated=poses(deck);
+   assert.ok(old.get('item-0').z-current.z>initialDepth*.1,'a noticeable part of the shrink happens earlier');
+   for(const field of ['x','y','rx','ry','rz'])assert.equal(current[field],old.get('item-0')[field],'travel and tilt are unchanged');
+   for(const [id,pose]of updated)if(id!=='item-0')samePose(pose,old.get(id),'follower motion is unchanged');
+   compared=true;
+  }
+ }
+ assert.equal(compared,true);assert.equal(frames.size,0);assert.equal(deck.itemReturn,null);
+ for(const[id,pose]of poses(deck))samePose(pose,resting.get(id),'returns to original stack pose');
+ dispose(deck);
+});
+
+test('re-grabbing a returning item preserves the displayed pose and settles to its original size',()=>{
+ const deck=make();ready(deck);const resting=poses(deck);
+ deck.start();deck.move(gesture(250));settle();deck.cancel();step(64);
+ assert.ok(deck.itemReturn);const before=poses(deck);
+ assert.equal(deck.start(),true);assert.equal(deck.itemReturn,null);
+ for(const[id,pose]of poses(deck))samePose(pose,before.get(id),'re-grab boundary is continuous');
+ deck.move(gesture(120));deck.cancel();settle();
+ assert.equal(deck.itemReturn,null);
+ for(const[id,pose]of poses(deck))samePose(pose,resting.get(id),'interrupted return settles to original size');
+ dispose(deck);
+});
+
+for(const mode of ['reset','reduced','hidden'])test(`item return easing cleans up with ${mode}`,()=>{
+ const deck=make();ready(deck);
+ deck.start();deck.move(gesture(240));settle();deck.cancel();assert.ok(deck.itemReturn);
+ if(mode==='reset')deck.reset();else {if(mode==='reduced')deck.reduced=true;else document.hidden=true;deck.finishMotion();}
+ settle();assert.equal(deck.itemReturn,null);dispose(deck);
+});

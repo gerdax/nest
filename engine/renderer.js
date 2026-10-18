@@ -320,6 +320,15 @@ function takeProgress(deck, time, height, selected, distanceRatio = .5) {
   return 1 - (1 - progress) ** 3;
 }
 
+function returningItemDepth(deck, time, height, selected) {
+  const returning = deck.itemReturn;
+  if (!returning || returning.id !== selected?.id) return takeProgress(deck, time, height, selected);
+  // Keep the release boundary continuous, then lose most of the approach
+  // depth early. Translation and follower recession retain their own springs.
+  const remaining = clamp(deck.l.x / returning.startLift, 0, 1);
+  return returning.depth * remaining ** 3;
+}
+
 // Share layout and slot indexes only within one synchronous render. Entrances,
 // settings and selection may change before the next frame or standalone query.
 function poseContext(deck, time) {
@@ -353,7 +362,7 @@ function baseCardPose(deck, index, time, context) {
       pose.y -= lift;
       if (deck.collectMotion && !deck.collectMotion.deposit) pose.y += deck.collectMotion.direction * departureDistance(deck.collectMotion, time);
       pose.z += Math.min(Math.max(0, lift) * .1, deck.settings.liftHeight);
-      pose.z += Math.min(height * .25, deck.settings.perspective * .16) * takeProgress(deck, time, height, selected);
+      pose.z += Math.min(height * .25, deck.settings.perspective * .16) * returningItemDepth(deck, time, height, selected);
       pose.rx += deck.rotationX.x - deck.liftRotation.x;
       pose.ry += deck.rotationY.x - deck.liftRotation.y;
       pose.rz += deck.rotationZ.x - deck.liftRotation.z;

@@ -258,6 +258,7 @@ for(const reduced of [false,true])for(const type of ['container','linear'])for(c
   const held=deck.cards.map((_,i)=>cardPose(deck,i));
   deck.end(gesture);await flush();
   assert.equal(deck.collectMotion,null,'swap never enters final collection or routing');
+  if(!reduced)assert.ok(deck.itemReturn,'swap uses the separate item return-scale easing');
   assert.equal(controller.pendingItem,null);assert.equal(controller.stagedDestination,null);
   assert.equal(deck.index,index);assert.deepEqual(deck.cards,articles);assert.deepEqual(deck.cardLayers,layers);
   assert.equal(deck.content.actions[index].id,placement,'runtime slot identity is stable');
@@ -488,4 +489,32 @@ for(const visibility of ['disabled','hidden'])test(`collection effects refresh o
  if(visibility==='hidden')assert.equal(controller.location.node.id,'after');
  else {assert.equal(deck.content.actions[0].collectDisabled,true);key(deck,'ArrowDown');assert.equal(controller.variables.energy,4);}
  dispose(deck,controller);
+});
+
+for(const visibility of ['disabled','hidden'])for(const drawer of [false,true])test(`collecting one visor upgrade preserves survivor cards and drawer presentation: visibility=${visibility}, drawer=${drawer}`,async()=>{
+ const {InventoryPickup}=await import('../engine/InventoryPickup.js');
+ const items=[item('lockpick'),item('mackerels'),item('visor-one',{definitionId:'visor'}),item('visor-two',{definitionId:'visor'}),item('flashlight'),item('battery')];
+ const {deck,controller}=real([{id:'box',type:'container',introEnabled:false,items,connections:{next:null}}],{ownedItemsVisibility:visibility});
+ const contexts=[];
+ if(drawer) {
+  document.body=new Element();const target={slot:0,snapped:true,rect:{left:0,top:560,width:75,height:100}};
+  deck.pickup=new InventoryPickup(deck,{getTarget:()=>target,slotTarget:()=>target,preview(){},setContext:value=>contexts.push(value),cancelPending(){},stageDeposit(){},clearDeposit(){},authorize:action=>controller.authorizeCollection(action,{slot:0})?{slot:0}:false});
+  deck.render();
+ }
+ key(deck,'ArrowRight');key(deck,'ArrowRight');assert.equal(deck.content.actions[deck.index].id,'visor-one');
+ const surviving=new Map(deck.content.actions.map((action,index)=>[action.id,{card:deck.cards[index],layer:deck.cardLayers[index],title:deck.cardTitles[index]}]));
+ const revision=deck.presentationRevision,contentId=deck.content.id;
+ let replacements=0;const replace=deck.replaceContent.bind(deck);deck.replaceContent=(...args)=>{replacements++;return replace(...args);};
+ contexts.length=0;deck.collect();await flush();settle();
+ assert.equal(controller.inventory[0].definitionId,'visor');
+ assert.equal(replacements,0,'changing duplicate availability must not reinstall the deck');
+ assert.equal(deck.presentationRevision,revision,'collection keeps the same presentation');assert.equal(deck.content.id,contentId);
+ for(let index=0;index<deck.cards.length;index++) {
+  const action=deck.content.actions[index],before=surviving.get(action.id);
+  assert.equal(deck.cards[index],before.card,'surviving article is retained');assert.equal(deck.cardLayers[index],before.layer,'surviving layer is retained');assert.equal(deck.cardTitles[index],before.title,'surviving face content is retained');
+ }
+ if(visibility==='disabled')assert.equal(deck.content.actions.find(action=>action.id==='visor-two').collectDisabled,true);
+ else assert.equal(deck.content.actions.some(action=>action.id==='visor-two'),false);
+ if(drawer)assert.equal(contexts.includes(false),false,'drawer never restarts its entrance');
+ assert.equal(deck.phase,'choices');dispose(deck,controller);
 });

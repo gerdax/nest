@@ -146,8 +146,13 @@ export class ProjectPreview {
     const nodeType = nodeTypeLabel(node?.type) || '';
     this.status.textContent = this.errorMessage || (state.completed ? 'Chapter complete.' : state.checking ? 'Resolving attempt…' : `Playing · ${node?.name || ''} · ${nodeType}`);
     this.status.hidden = !this.errorMessage && !state.completed;
-    this.stateReadout.hidden = !Object.keys(state.variables || {}).length;
-    this.stateReadout.querySelector('pre').textContent = JSON.stringify(state.variables || {}, null, 2);
+    const variables = state.variables || {};
+    const ownedItems = (state.collectedItems || []).map(item => ({
+      id: item.definitionId ?? item.id,
+      name: item.name || item.label || 'Item',
+    }));
+    this.stateReadout.hidden = !Object.keys(variables).length && !ownedItems.length;
+    this.stateReadout.querySelector('pre').textContent = `Variables\n${JSON.stringify(variables, null, 2)}\n\nOwned items\n${JSON.stringify(ownedItems, null, 2)}`;
     this.inventory.update(state.collectedItems || [], { busy: !state.idle, variables: this.compiled?.variables || [], values: state.variables, library: this.compiled?.library || [] });
     this.syncCardLink();
     this.syncCheckDetails();

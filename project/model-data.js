@@ -30,7 +30,11 @@ export function walk(value, fn) {
 }
 
 export function createChapter(id = 'chapter-1', name = 'First chapter') {
-  return {id, name, startNode: '', nodes: []};
+  return {id, name, startNode: '', variables: [], nodes: []};
+}
+/** Definitions visible to a chapter. The returned list is detached from both scopes. */
+export function chapterVariables(project, chapter) {
+  return [...list(project?.variables), ...list(chapter?.variables)];
 }
 export function createProject() {
   const event = {...createDefinition('event', 'arrival'), name: 'Arrival', heading: '', text: 'Your expedition begins at the edge of the city.',
@@ -55,6 +59,7 @@ export function createProject() {
     chapters: [{
       id: 'chapter-1',
       name: 'First expedition',
+      variables: [],
       startNode: 'arrival',
       nodes: [
         {id: 'arrival', name: 'Arrival', type: 'linear', x: 80, y: 100,

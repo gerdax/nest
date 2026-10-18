@@ -3,13 +3,37 @@ import { walk } from '../project/model-data.js';
 import { outputsForNode, connectionForOutput } from '../project/graph.js';
 import { uid, remapInventory } from './commands.js';
 
+function variableReferences(value) {
+  const ids = new Set();
+  walk(value, entry => {
+    if (typeof entry.key === 'string' && (entry.source === 'variable' || ['set', 'add'].includes(entry.op))) ids.add(entry.key);
+    if (typeof entry.modifierVariable === 'string') ids.add(entry.modifierVariable);
+  });
+  return ids;
+}
+
+/** Snapshot only referenced chapter variables, including rules on local dependencies. */
+export function captureClipboardVariables(chapter, node, definitions) {
+  const ids = variableReferences([node, ...definitions.filter(definition => definition.visibility === 'local')]);
+  return structuredClone((chapter.variables || []).filter(variable => ids.has(variable.id)));
+}
+
+function remapVariables(value, ids) {
+  walk(value, entry => {
+    if (ids.has(entry.key) && (entry.source === 'variable' || ['set', 'add'].includes(entry.op))) entry.key = ids.get(entry.key);
+    if (ids.has(entry.modifierVariable)) entry.modifierVariable = ids.get(entry.modifierVariable);
+  });
+}
+
 /** A detached, session-local snapshot, including definitions cleanup may remove. */
 export function captureNodeClipboard(project, chapterId, nodeId, {cut = false} = {}) {
-  const node = project.chapters.find(chapter => chapter.id === chapterId)?.nodes.find(node => node.id === nodeId);
+  const chapter = project.chapters.find(chapter => chapter.id === chapterId);
+  const node = chapter?.nodes.find(node => node.id === nodeId);
   if (!node) throw new Error('The selected beat no longer exists.');
   const dependencies = definitionGraph(project).reachableFrom(node);
-  return structuredClone({kind:'nest-node-clipboard', projectId:project.id, chapterId, node,
-    definitions:project.library.filter(definition => dependencies.has(definition.id)), cut:!!cut});
+  const definitions = project.library.filter(definition => dependencies.has(definition.id));
+  return structuredClone({kind:'nest-node-clipboard', projectId:project.id, chapterId, node, definitions,
+    variables:captureClipboardVariables(chapter, node, definitions), cut:!!cut});
 }
 
 /** Mutate only a document draft; never consume or modify the clipboard itself. */
@@ -20,6 +44,16 @@ export function pasteNodeClipboard(project, chapter, payload, {position} = {}) {
   if (!project.id || payload.projectId !== project.id) throw new Error('Copied beats belong to a different project.');
   if (!project.chapters.includes(chapter)) throw new Error('The destination chapter no longer exists.');
   const node = structuredClone(payload.node), definitions = [], definitionIds = new Map(), inventoryIds = new Map();
+  const crossChapter = chapter.id !== payload.chapterId;
+  const variables = [], variableIds = new Map();
+  for (const source of payload.variables || []) {
+    if (!crossChapter && chapter.variables?.some(variable => variable.id === source.id)) continue;
+    const variable = structuredClone(source);
+    if (crossChapter) variable.id = uid('variable');
+    variableIds.set(source.id, variable.id);
+    variables.push(variable);
+  }
+  const cloneLocal = !payload.cut || (crossChapter && variableIds.size > 0);
   const currentDefinitions = new Map(project.library.map(definition => [definition.id, definition]));
   const graph = definitionGraph({...project, library:[...payload.definitions.filter(definition => !currentDefinitions.has(definition.id)), ...project.library]});
   const sharedDependencies = new Set();
@@ -32,9 +66,9 @@ export function pasteNodeClipboard(project, chapter, payload, {position} = {}) {
     // Shared rules make these Items global inventory dependencies regardless of
     // authoring visibility. Reuse or restore their exact definition identity.
     const sharedInventoryDependency = source.kind === 'item' && sharedDependencies.has(source.id);
-    if ((payload.cut || source.visibility !== 'local' || sharedInventoryDependency) && existing) continue;
+    if ((!cloneLocal || source.visibility !== 'local' || sharedInventoryDependency) && existing) continue;
     const definition = structuredClone(source);
-    if (!payload.cut && source.visibility === 'local' && !sharedInventoryDependency) {
+    if (cloneLocal && source.visibility === 'local' && !sharedInventoryDependency) {
       definition.id = uid(source.kind);
       delete definition.inventoryKey;
       definitionIds.set(source.id, definition.id);
@@ -48,6 +82,7 @@ export function pasteNodeClipboard(project, chapter, payload, {position} = {}) {
       if (definitionIds.has(entry.definitionId)) entry.definitionId = definitionIds.get(entry.definitionId);
     });
     remapInventory(value, inventoryIds);
+    if (value === node || value.visibility === 'local') remapVariables(value, variableIds);
   }
 
   // Every placement and route gets a fresh identity, including nested legacy
@@ -88,6 +123,10 @@ export function pasteNodeClipboard(project, chapter, payload, {position} = {}) {
   if (node.type === 'random') {
     for (const route of node.routes || []) route.target = target(route.target);
     node.fallback = target(node.fallback);
+  }
+  if (variables.length) {
+    chapter.variables ||= [];
+    chapter.variables.push(...variables);
   }
   project.library.push(...definitions);
   chapter.nodes.push(node);
