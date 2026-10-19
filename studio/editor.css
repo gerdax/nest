@@ -110,3 +110,6 @@ aside {overflow-anchor:none;}
 .card-source-actions {display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:8px 0;}
 .card-source-primary,.card-source-clipboard {display:flex;flex-wrap:wrap;gap:6px;}
 .card-source-clipboard {margin-left:auto;}
+
+.project-start-controls {margin-top:20px;padding-top:16px;border-top:1px solid #394a4c;}
+.project-start-controls .play-from-start {display:block;width:100%;margin-top:16px;padding:12px;}

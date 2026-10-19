@@ -1,7 +1,10 @@
+import { nextChapter } from '../project/chapter-navigation.js';
 import { CardDeck } from '../engine/CardDeck.js';
 import { DiceService } from '../dice/DiceService.js';
 import { compileChapter, validateProject } from '../project/model.js';
 import { ProjectController } from '../project/ProjectController.js';
+import { chapterEntryState } from '../project/chapter-entry.js';
+import { InventoryCardPreview } from './InventoryCardPreview.js';
 import { InventoryView } from './InventoryView.js';
 import { InventorySurface } from './InventorySurface.js';
 import { applyCardStyles } from '../project/card-styles.js';
@@ -29,6 +32,13 @@ export class ProjectPreview {
     this.checkFormula = root.querySelector('[data-check-formula]');
     this.checkRules = root.querySelector('[data-check-rules]');
     this.status = root.querySelector('[data-status]');
+    this.nextChapterButton = document.createElement('button');
+    this.nextChapterButton.type = 'button';
+    this.nextChapterButton.textContent = 'Next chapter';
+    this.nextChapterButton.setAttribute('data-next-chapter', '');
+    this.nextChapterButton.hidden = true;
+    this.nextChapterButton.onclick = () => this.nextChapter();
+    root.querySelector('[data-preview-actions]').append(this.nextChapterButton);
     this.resources = root.querySelector('[data-resources]');
     this.healthValue = root.querySelector('[data-health-value]');
     this.energyValue = root.querySelector('[data-energy-value]');
@@ -64,10 +74,11 @@ export class ProjectPreview {
     });
     this.footerResize.observe(this.footer);
     if (!inventoryDock) root.querySelector('.project-preview').classList.add('project-preview--embedded');
-    this.inventory = new InventoryView(inventoryRoot, { getBounds: () => this.inventorySurface.bounds(), onMotion: event => this.drawerTrace?.(event) });
+    this.inventoryCardPreview = new InventoryCardPreview(this.mount);
+    this.inventory = new InventoryView(inventoryRoot, { getBounds: () => this.inventorySurface.bounds(), onHold: item => this.inventoryCardPreview.show(item), onMotion: event => this.drawerTrace?.(event) });
 
   }
-  play(project, chapterId, startNode, { focus = true } = {}) {
+  play(project, chapterId, startNode, { focus = true, initialState = null } = {}) {
     if (this.destroyed) throw new Error('Project preview has been destroyed');
     if (this.destroying) return;
     if (chapterId === undefined) chapterId = project.activeChapterId;
@@ -83,6 +94,7 @@ export class ProjectPreview {
     const active = () => !this.destroyed && this.generation === generation;
     applyCardStyles(this.mount, chapter.cardStyles);
     this.project = structuredClone(project); this.chapterId = chapterId; this.startNode = startNode; this.compiled = chapter;
+    this.initialState = initialState ? structuredClone(initialState) : null;
     try {
       this.deck = new CardDeck(this.mount, { settings: this.deckSettings, presentationPolicy: this.presentationPolicy, inventoryDrawer: {
         getTarget: options => this.inventory.getTarget(options),
@@ -107,6 +119,7 @@ export class ProjectPreview {
         }
       }, content: { id:'project-loading',text:'',actions:[{id:'wait',label:'Loading',disabled:true}] } });
       const controller = new ProjectController(this.deck, chapter, {
+        initialState:this.initialState,
         onChange: state => { if (active()) this.update(state); },
         onError: (error,state) => { if (!active() || error.code === 'NO_AVAILABLE_CHOICES') return; this.hideDice(); this.errorNode = state?.activeNodeId; this.errorMessage = error.message || String(error); this.status.textContent = this.errorMessage; this.status.hidden = false; },
         rollCheck: (pool, options) => {
@@ -131,6 +144,7 @@ export class ProjectPreview {
     if (this.destroyed) return;
     if (state.checking || (this.errorMessage && this.errorNode !== state.activeNodeId)) this.errorMessage = null;
     this.state = state;
+    this.nextChapterButton.hidden = !state.completed || !this.followingChapter();
     let visibleResources = 0;
     for (const [id, label, valueElement] of [['health', 'Health', this.healthValue], ['energy', 'Energy', this.energyValue]]) {
       const definition = this.compiled?.variables.find(variable => variable.id === id);
@@ -238,7 +252,17 @@ export class ProjectPreview {
     this.diceLayer?.destroy(); this.diceLayer = null;
     this.overlay.hidden = true;
   }
-  restart() { if (!this.destroyed && this.project) this.play(this.project, this.chapterId, this.startNode); }
+  followingChapter() {
+    return this.project ? nextChapter(this.project, this.chapterId) : undefined;
+  }
+  nextChapter() {
+    const next = this.followingChapter();
+    if (this.destroyed || !this.state?.completed || !this.controller || !next) return false;
+    const initialState = chapterEntryState(this.project, next.id, this.controller.state);
+    this.play(this.project, next.id, undefined, {initialState});
+    return this.chapterId === next.id;
+  }
+  restart() { if (!this.destroyed && this.project) this.play(this.project, this.chapterId, this.startNode, {initialState:this.initialState}); }
   stop() {
     if (this.destroyed) return;
     const hadPlayback = !!(this.controller || this.deck || this.state);
@@ -247,11 +271,16 @@ export class ProjectPreview {
     this.cardLinkDeck = null; this.cardLinkListener = null; this.cardLinkEvents = null;
     const controller = this.controller, deck = this.deck;
     this.controller = null; this.deck = null;
+    this.inventory.endHold?.();
+    this.inventoryCardPreview.reset();
     controller?.destroy(); deck?.destroy();
+    this.inventoryCardPreview.card = null;
+    this.inventoryCardPreview.distance = null;
     this.inventory.cancelPending?.(); this.inventory.setContext?.(false, { immediate: true });
     this.hideDice(); this.state = null; this.errorMessage = null; this.errorNode = null; this.compiled = null;
     this.mount.replaceChildren(); this.inventory.update([]); this.stateReadout.hidden = true;
     this.resources.hidden = true;
+    this.nextChapterButton.hidden = true;
     this.syncCheckDetails();
     this.status.textContent = 'Stopped.'; this.status.hidden = false;
     this.syncCardLink();
@@ -265,6 +294,7 @@ export class ProjectPreview {
     } finally {
       this.destroyed = true;
       this.inventory.destroy();
+      this.inventoryCardPreview.destroy();
       this.footerResize.disconnect();
       this.inventorySurface.destroy();
       if (this.goToCardButton) this.goToCardButton.onclick = null;

@@ -1,3 +1,4 @@
+import { sortedChapters, startChapter } from '../project/chapter-navigation.js';
 import { projectCardBack } from '../project/card-backs.js';
 import { isStatVariable } from '../project/checks.js';
 import { defaultCardBack } from '../engine/cardBacks.js';
@@ -6,6 +7,7 @@ import { cardKinds, resolvePlacement, cardSummary, cardSummaryParts, cardEditorT
 import { chapterVariables, outputsForNode, labelForOutput } from '../project/model.js';
 import { definitionReferences } from '../project/dependencies.js';
 import { nodeTypeDescriptor, nodeTypeLabel, retainsInventoryItems } from '../project/nodeTypes.js';
+import { inventoryItemOptions } from './item-options.js';
 import { field, select, checkbox, button, rules, actionFields, imageField, esc } from './forms.js';
 
 function artworkEditor(definition,scope) {
@@ -16,28 +18,28 @@ function artworkControls(definition,scope) {
  return definition.kind==='caption'?'':imageField('Artwork path',definition.image,'image',scope)+artworkEditor(definition,scope);
 }
 
-export function cardFields(project,definition,scope='definition',showPreview=true,showRules=true) {
+export function cardFields(project,definition,scope='definition',showPreview=true,showRules=true,chapter) {
  const nameId=`card-name-${scope}-${definition.id}`;
  let html=`<div class="card-name-field"><div class="card-name-heading"><label for="${esc(nameId)}">Name</label>${definition.kind==='item'?checkbox('Show name on card',definition.showName===true,'showName',scope):''}</div><input id="${esc(nameId)}" data-scope="${esc(scope)}" data-path="name" type="text" value="${esc(definition.name)}"></div>`;
  if(scope==='definition'&&isStoryKind(definition.kind))html+=select('Card type',definition.kind,[['event','Vignette'],['caption','Caption']],'kind',scope);
  html+=field('Description',definition.text,'text',scope,'textarea');
- if(showRules)html+=cardRuleFields(project,definition,scope);
+ if(showRules)html+=cardRuleFields(project,definition,scope,chapter);
  if(showPreview)html+=`<div class="inspector-card-preview" data-card-preview data-preview-definition="${esc(definition.id)}"></div>`+artworkControls(definition,scope);
  return html;
 }
-function cardRuleFields(project,definition,scope) {
+function cardRuleFields(project,definition,scope,chapter) {
  let html='';
- if(definition.kind==='action')html+=actionFields(project,definition,'',scope);
- if(isStoryKind(definition.kind))html+=progressionRuleFields(project,definition,'',scope);
- if(definition.kind==='item')html+=itemRuleFields(project,definition,'',scope);
+ if(definition.kind==='action')html+=actionFields(project,definition,'',scope,chapter);
+ if(isStoryKind(definition.kind))html+=progressionRuleFields(project,definition,'',scope,chapter);
+ if(definition.kind==='item')html+=itemRuleFields(project,definition,'',scope,chapter);
 
  return html;
 }
-function progressionRuleFields(project,card,prefix,scope) {
- return rules(project,card.effects,`${prefix}effects`,scope,'effects',{label:'On progression effects',help:'Apply when this card is advanced or selected.'});
+function progressionRuleFields(project,card,prefix,scope,chapter) {
+ return rules(project,card.effects,`${prefix}effects`,scope,'effects',{chapter,label:'On progression effects',help:'Apply when this card is advanced or selected.'});
 }
-function itemRuleFields(project,item,prefix,scope) {
- return rules(project,item.onCollect,`${prefix}onCollect`,scope,'effects',{label:'On collect effects',help:'Taking this item grants ownership automatically and applies these effects. Discarding it applies none.'})
+function itemRuleFields(project,item,prefix,scope,chapter) {
+ return rules(project,item.onCollect,`${prefix}onCollect`,scope,'effects',{chapter,label:'On collect effects',help:'Taking this item grants ownership automatically and applies these effects. Discarding it applies none.'})
   +`<label class="field">Permability<input data-scope="${esc(scope)}" data-path="${esc(prefix)}permability" type="number" min="0" step="1" value="${esc(item.permability??0)}"></label><p class="small">0 = permanent; positive values limit Action triggers. Successful and failed committed attempts both count.</p>`;
 }
 export function definitionInspector(project,definition) {
@@ -49,7 +51,7 @@ export function definitionInspector(project,definition) {
   u.node?button(`${u.chapter.name} → ${u.node.name}${u.kind==='inventory'?' · gameplay rule':''}`,'jump-use',`data-chapter="${esc(u.chapterId)}" data-node="${esc(u.nodeId)}"`):esc(`${u.chapter.name} · gameplay rule`)}</p>`).join(''):'<p class="small">Not referenced yet.</p>');
  return html+button('Delete definition','delete-definition',users.length?'disabled':'')+'</section>';
 }
-export function placementInspector(project,p,kind,index,slot,count=Infinity) {
+export function placementInspector(project,p,kind,index,slot,count=Infinity,chapter) {
  let card;try{card=resolvePlacement(project,p);}catch{}
  const definition=project.library.find(d=>d.id===p.definitionId),local=definition?.visibility==='local';
  const nodeType=slot==='choices'?'fork':slot==='items'?'container':'linear';
@@ -66,20 +68,20 @@ export function placementInspector(project,p,kind,index,slot,count=Infinity) {
  if(local)html+=button('Add to library','promote-card',attr)+button('Clear','clear-card',attr);
  else html+=button('Edit shared','edit-shared',`data-definition="${esc(p.definitionId)}" data-card-placement="${esc(p.id)}"`)+button('Convert to local','local-copy',`${attr} data-kind="${kind}"`);
  html+=`</div><div class="card-source-clipboard">${button('Copy','copy-card',`${attr} aria-label="Copy card"`)}${button('Paste','paste-card',`${attr} aria-label="Paste card" disabled title="Copy a compatible card first."`)}</div></div>`;
- if(local)html+=cardFields(project,definition,'local-definition',false,false);
+ if(local)html+=cardFields(project,definition,'local-definition',false,false,chapter);
  // Placement fields use a dedicated scope and are selected by their stable ID.
  html+=`<div class="placement-fields" ${attr}>`;
- if(slot==='choices'&&kind==='action')html+=select('Inventory trigger',p.contextItemId||'',[['','None'],...project.library.filter(d=>d.kind==='item').map(d=>[d.id,d.name])],'contextItemId','placement');
- if(local&&kind==='action')html+=cardRuleFields(project,definition,'local-definition');
- if(kind!=='action')html+=rules(project,p.conditions,'conditions','placement','conditions',{label:'Appearance conditions',help:kind==='item'?'All conditions must pass for this item to appear here. They do not limit Action triggers after collection.':'All conditions must pass for this card to appear here.'});
- if(local&&kind!=='action')html+=cardRuleFields(project,definition,'local-definition');
+ if(slot==='choices'&&kind==='action')html+=select('Inventory trigger',p.contextItemId||'',inventoryItemOptions(project,chapter,p.contextItemId,{allowNone:true}),'contextItemId','placement');
+ if(local&&kind==='action')html+=cardRuleFields(project,definition,'local-definition',chapter);
+ if(kind!=='action')html+=rules(project,p.conditions,'conditions','placement','conditions',{chapter,label:'Appearance conditions',help:kind==='item'?'All conditions must pass for this item to appear here. They do not limit Action triggers after collection.':'All conditions must pass for this card to appear here.'});
+ if(local&&kind!=='action')html+=cardRuleFields(project,definition,'local-definition',chapter);
  if((['action','item'].includes(kind)||isStoryKind(kind))&&!local&&definition) {
   if(!p.overrides)html+=`<p class="small">Using source rules · ${esc(cardSummary(definition,project.variables,project.library)||'No requirements, costs or effects')}${kind==='action'?` · Resolution: ${definition.resolution==='check'?'Dice check':'Direct'}`:''}</p>`;
   html+=checkbox('Use custom rules',!!p.overrides,'useCustomRules','placement');
   if(p.overrides){
-   if(kind==='action')html+=actionFields(project,{...card,...p.overrides},'overrides.','placement');
-   else if(kind==='item')html+=itemRuleFields(project,{...definition,...p.overrides},'overrides.','placement');
-   else html+=progressionRuleFields(project,{...definition,...p.overrides},'overrides.','placement');
+   if(kind==='action')html+=actionFields(project,{...card,...p.overrides},'overrides.','placement',chapter);
+   else if(kind==='item')html+=itemRuleFields(project,{...definition,...p.overrides},'overrides.','placement',chapter);
+   else html+=progressionRuleFields(project,{...definition,...p.overrides},'overrides.','placement',chapter);
   }
  }
  html+='</div>';
@@ -105,16 +107,16 @@ export function nodeInspector(project,chapter,node) {
   const kind=descriptor.defaultKinds[slot];
   if(slot==='intro') {
    html+=`<h3>${esc(nodeTypeLabel(node.type))} introduction</h3>`+introductionControls(node);
-   if(node.intro&&node.introEnabled!==false)html+=placementInspector(project,node.intro,kind,0,slot);
+   if(node.intro&&node.introEnabled!==false)html+=placementInspector(project,node.intro,kind,0,slot,Infinity,chapter);
   }else {
    if(slot!=='cards')html+=`<h3>${esc(slot[0].toUpperCase()+slot.slice(1))}</h3>`;
-   html+=(node[slot]||[]).map((p,i)=>placementInspector(project,p,kind,i,slot,node[slot].length)).join('');
+   html+=(node[slot]||[]).map((p,i)=>placementInspector(project,p,kind,i,slot,node[slot].length,chapter)).join('');
    html+='<div class="add-card-buttons">'+[kind,...kinds.filter(k=>k!==kind)].map(k=>button(`+ ${cardKinds[k]?.label||k}`,'add-placement',`data-slot="${esc(slot)}" data-kind="${esc(k)}" style="--card-editor-tint:${esc(cardEditorTint(k))}"`)).join('')+'</div>';
   }
  }
  if(node.type==='random') {
   html+='<p class="small">Select one eligible route, then follow its normal connections.</p>';
-  html+=node.routes.map((r,i)=>`<div class="entry">${field('Route label',r.name||r.id,`routes.${i}.name`,'node')}${field('Weight',r.weight,`routes.${i}.weight`,'node','number')}${rules(project,r.conditions,`routes.${i}.conditions`,'node','conditions')}${button('Remove route','remove-route',`data-index="${i}"`)}</div>`).join('')+button('Add route','add-route');
+  html+=node.routes.map((r,i)=>`<div class="entry">${field('Route label',r.name||r.id,`routes.${i}.name`,'node')}${field('Weight',r.weight,`routes.${i}.weight`,'node','number')}${rules(project,r.conditions,`routes.${i}.conditions`,'node','conditions',{chapter})}${button('Remove route','remove-route',`data-index="${i}"`)}</div>`).join('')+button('Add route','add-route');
  }
  if(node.type.startsWith('legacy')) {
   html+='<p class="small">Imported sequence behaviour is preserved. Replace this beat deliberately to use the new mechanics.</p>';
@@ -133,12 +135,18 @@ export function nodeInspector(project,chapter,node) {
  }).join('');
  return html+'<p class="small">Connect outcomes on the canvas or here. Enable beat cycles in Project settings to allow loops.</p>';
 }
+function chapterOptions(project, selected, allowNone=false) {
+ const choices=sortedChapters(project).map(chapter=>[chapter.id,chapter.name]);
+ if(allowNone)choices.unshift(['','None · End game']);
+ if(selected&&!choices.some(([id])=>id===selected))choices.push([selected,`${selected} (unavailable)`]);
+ return choices;
+}
 export function projectSettingsInspector(project) {
- return `${field('Project name',project.name,'name','project')}${select('Already-owned items',project.ownedItemsVisibility??'disabled',[['disabled','Show unavailable'],['hidden','Skip / hide']],'ownedItemsVisibility','project')}${select('Unavailable actions',project.unavailableActions??'disabled',[['disabled','Show unavailable'],['hidden','Skip / hide']],'unavailableActions','project')}${checkbox('Allow beat cycles',project.allowCycles!==false,'allowCycles','project')}<p class="small">Allow routes to revisit beats in all chapters. Automatic routing loops still stop playback.</p><details class="state-panel" data-project-variables><summary>Project variables</summary>${project.variables.map((v,i)=>`<div class="entry">${field('Variable name',v.name||v.id,`variables.${i}.name`,'project')}${isStatVariable(v)?'<p class="small">Stat · Integer 1–10 · Shown in the action check panel</p>':select('Type',v.type,[['flag','Flag'],['number','Number']],`variables.${i}.type`,'project')}${v.type==='flag'?select('Default',String(v.initial),[['true','True'],['false','False']],`variables.${i}.initial`,'project'):field('Default',v.initial,`variables.${i}.initial`,'project','number')}${v.type==='number'&&!isStatVariable(v)?field('Minimum optional',v.min,`variables.${i}.min`,'project','number')+field('Maximum optional',v.max,`variables.${i}.max`,'project','number'):''}${isStatVariable(v)?'':button('Remove variable','remove-variable',`data-index="${i}"`)}</div>`).join('')}${button('Add variable','add-variable')}${project.variables.some(v=>v.id==='health')?'':button('Add health','add-health')}</details><details class="state-panel" data-project-card-backs><summary>Card backs</summary>${cardBackFields(project)}${checkbox('Switch cardback icons during interactions',project.switchCardBackIcons!==false,'switchCardBackIcons','project')}<p class="small">When off, cardbacks always show the default icon. Applies to all chapters.</p></details><details class="state-panel" data-project-card-styles><summary>Card text styles</summary>${['small','big','medium'].map(key=>`<div class="card-style-row"><label class="field artwork-slider">${key[0].toUpperCase()+key.slice(1)}<output>${project.cardStyles?.[key]??defaultCardStyles[key]}px</output><input type="range" min="6" max="72" step="1" value="${project.cardStyles?.[key]??defaultCardStyles[key]}" data-scope="project" data-path="cardStyles.${key}" data-card-style-slider></label><label class="field card-style-color">Color (HEX)<input type="text" spellcheck="false" maxlength="7" pattern="#?[0-9a-fA-F]{3}([0-9a-fA-F]{3})?" aria-label="${key[0].toUpperCase()+key.slice(1)} text color hex" value="${esc(project.cardStyles?.[`${key}Color`]??defaultCardColors[key])}" placeholder="${defaultCardColors[key]}" data-scope="project" data-path="cardStyles.${key}Color" data-card-style-color></label></div>`).join('')}<p class="small">Small: ACTION and ITEM labels. Big: vignette/action/caption descriptions and item names. Medium: item descriptions and inventory action requirements/labels. Applies across the project.</p></details>`;
+ return `${field('Project name',project.name,'name','project')}${select('Already-owned items',project.ownedItemsVisibility??'disabled',[['disabled','Show unavailable'],['hidden','Skip / hide']],'ownedItemsVisibility','project')}${select('Unavailable actions',project.unavailableActions??'disabled',[['disabled','Show unavailable'],['hidden','Skip / hide']],'unavailableActions','project')}${checkbox('Allow beat cycles',project.allowCycles!==false,'allowCycles','project')}<p class="small">Allow routes to revisit beats in all chapters. Automatic routing loops still stop playback.</p><details class="state-panel" data-project-variables><summary>Project variables</summary>${project.variables.map((v,i)=>`<div class="entry">${field('Variable name',v.name||v.id,`variables.${i}.name`,'project')}${isStatVariable(v)?'<p class="small">Stat · Integer 1–10 · Shown in the action check panel</p>':select('Type',v.type,[['flag','Flag'],['number','Number']],`variables.${i}.type`,'project')}${v.type==='flag'?select('Default',String(v.initial),[['true','True'],['false','False']],`variables.${i}.initial`,'project'):field('Default',v.initial,`variables.${i}.initial`,'project','number')}${v.type==='number'&&!isStatVariable(v)?field('Minimum optional',v.min,`variables.${i}.min`,'project','number')+field('Maximum optional',v.max,`variables.${i}.max`,'project','number'):''}${isStatVariable(v)?'':button('Remove variable','remove-variable',`data-index="${i}"`)}</div>`).join('')}${button('Add variable','add-variable')}${project.variables.some(v=>v.id==='health')?'':button('Add health','add-health')}</details><details class="state-panel" data-project-card-backs><summary>Card backs</summary>${cardBackFields(project)}${checkbox('Switch cardback icons during interactions',project.switchCardBackIcons!==false,'switchCardBackIcons','project')}<p class="small">When off, cardbacks always show the default icon. Applies to all chapters.</p></details><details class="state-panel" data-project-card-styles><summary>Card text styles</summary>${['small','big','medium'].map(key=>`<div class="card-style-row"><label class="field artwork-slider">${key[0].toUpperCase()+key.slice(1)}<output>${project.cardStyles?.[key]??defaultCardStyles[key]}px</output><input type="range" min="6" max="72" step="1" value="${project.cardStyles?.[key]??defaultCardStyles[key]}" data-scope="project" data-path="cardStyles.${key}" data-card-style-slider></label><label class="field card-style-color">Color (HEX)<input type="text" spellcheck="false" maxlength="7" pattern="#?[0-9a-fA-F]{3}([0-9a-fA-F]{3})?" aria-label="${key[0].toUpperCase()+key.slice(1)} text color hex" value="${esc(project.cardStyles?.[`${key}Color`]??defaultCardColors[key])}" placeholder="${defaultCardColors[key]}" data-scope="project" data-path="cardStyles.${key}Color" data-card-style-color></label></div>`).join('')}<p class="small">Small: ACTION and ITEM labels. Big: vignette/action/caption descriptions and item names. Medium: item descriptions and inventory action requirements/labels. Applies across the project.</p></details><div class="project-start-controls">${select('Start chapter',project.startChapterId??startChapter(project)?.id,chapterOptions(project,project.startChapterId),'startChapterId','project')}${button('Play from the start','play-from-start','class="play-from-start"')}</div>`;
 }
 
 export function chapterSettingsInspector(project,chapter) {
- return `<details class="chapter-settings"><summary>Chapter settings</summary>${field('Chapter name',chapter.name,'name','chapter')}<details class="state-panel" data-chapter-variables><summary>Chapter variables</summary><p class="small">Available only in this chapter. Local cards, placement rules and routes can use them.</p>${(chapter.variables||[]).map((v,i)=>`<div class="entry">${field('Variable name',v.name||v.id,`variables.${i}.name`,'chapter')}${isStatVariable(v)?'<p class="small">Stat · Integer 1–10 · Shown in the action check panel</p>':select('Type',v.type,[['flag','Flag'],['number','Number']],`variables.${i}.type`,'chapter')}${v.type==='flag'?select('Default',String(v.initial),[['true','True'],['false','False']],`variables.${i}.initial`,'chapter'):field('Default',v.initial,`variables.${i}.initial`,'chapter','number')}${v.type==='number'&&!isStatVariable(v)?field('Minimum optional',v.min,`variables.${i}.min`,'chapter','number')+field('Maximum optional',v.max,`variables.${i}.max`,'chapter','number'):''}${isStatVariable(v)?'':button('Remove variable','remove-chapter-variable',`data-index="${i}"`)}</div>`).join('')}${button('Add variable','add-chapter-variable')}</details><details class="state-panel" data-global-initial-values><summary>Global variables overrides</summary>${project.variables.map(v=>`<div class="entry">${checkbox(`Override ${v.name||v.id}`,Object.hasOwn(chapter.initialValues||{},v.id),v.id,'initial-toggle')}${Object.hasOwn(chapter.initialValues||{},v.id)?v.type==='flag'?select('Initial value',String(chapter.initialValues[v.id]),[['true','True'],['false','False']],v.id,'initial-value'):field('Initial value',chapter.initialValues[v.id],v.id,'initial-value','number'):''}</div>`).join('')}</details><div class="chapter-delete-action">${button('Delete chapter','delete-chapter',`class="danger" data-chapter="${esc(chapter.id)}" ${project.chapters.length<=1?'disabled title="The project must keep at least one chapter."':''}`)}</div></details>`;
+ return `<details class="chapter-settings"><summary>Chapter settings</summary>${field('Chapter name',chapter.name,'name','chapter')}${select('Next chapter',chapter.nextChapterId??'',chapterOptions(project,chapter.nextChapterId,true),'nextChapterId','chapter')}<p class="small">Used by all End chapter outputs. None ends the game.</p><details class="state-panel" data-chapter-variables><summary>Chapter variables</summary><p class="small">Available only in this chapter. Local cards, placement rules and routes can use them.</p>${(chapter.variables||[]).map((v,i)=>`<div class="entry">${field('Variable name',v.name||v.id,`variables.${i}.name`,'chapter')}${isStatVariable(v)?'<p class="small">Stat · Integer 1–10 · Shown in the action check panel</p>':select('Type',v.type,[['flag','Flag'],['number','Number']],`variables.${i}.type`,'chapter')}${v.type==='flag'?select('Default',String(v.initial),[['true','True'],['false','False']],`variables.${i}.initial`,'chapter'):field('Default',v.initial,`variables.${i}.initial`,'chapter','number')}${v.type==='number'&&!isStatVariable(v)?field('Minimum optional',v.min,`variables.${i}.min`,'chapter','number')+field('Maximum optional',v.max,`variables.${i}.max`,'chapter','number'):''}${isStatVariable(v)?'':button('Remove variable','remove-chapter-variable',`data-index="${i}"`)}</div>`).join('')}${button('Add variable','add-chapter-variable')}</details><details class="state-panel" data-global-initial-values><summary>Global variables overrides</summary>${project.variables.map(v=>`<div class="entry">${checkbox(`Override ${v.name||v.id}`,Object.hasOwn(chapter.initialValues||{},v.id),v.id,'initial-toggle')}${Object.hasOwn(chapter.initialValues||{},v.id)?v.type==='flag'?select('Initial value',String(chapter.initialValues[v.id]),[['true','True'],['false','False']],v.id,'initial-value'):field('Initial value',chapter.initialValues[v.id],v.id,'initial-value','number'):''}</div>`).join('')}</details><div class="chapter-delete-action">${button('Delete chapter','delete-chapter',`class="danger" data-chapter="${esc(chapter.id)}" ${project.chapters.length<=1?'disabled title="The project must keep at least one chapter."':''}`)}</div></details>`;
 }
 
 export function variableInspector(project,chapter) {

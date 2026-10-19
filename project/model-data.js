@@ -50,6 +50,7 @@ export function createProject() {
     ownedItemsVisibility: 'disabled',
     unavailableActions: 'disabled',
     activeChapterId: 'chapter-1',
+    startChapterId: 'chapter-1',
     library: [event, item, action],
     variables: [
       {id: 'energy', type: 'number', initial: 3, min: 0, max: 10},
@@ -59,6 +60,7 @@ export function createProject() {
     chapters: [{
       id: 'chapter-1',
       name: 'First expedition',
+      nextChapterId: null,
       variables: [],
       startNode: 'arrival',
       nodes: [

@@ -1,3 +1,4 @@
+import { eligibleInventoryItems } from './item-options.js';
 import { createDefinition, resolvePlacement, isStoryKind } from '../project/cards.js';
 import { chapterVariables,outputsForNode,connectionForOutput } from '../project/model.js';
 import { createNodeDefaults } from '../project/nodeTypes.js';
@@ -162,13 +163,13 @@ export function newRule(project,kind,chapter) {
  if(kind==='dice')return {sides:20,count:1};
  let variable=variables[0];
  if(!variable&&kind!=='costs'){variable={id:uid('variable'),name:'New variable',type:'number',initial:0};(chapter?(chapter.variables ||= []):project.variables).push(variable);}
- if(kind==='conditions')return variable?{source:'variable',key:variable.id,op:'eq',value:variable.initial}:{source:'inventory',key:project.library.find(d=>d.kind==='item')?.id||'',op:'has'};
+ if(kind==='conditions')return variable?{source:'variable',key:variable.id,op:'eq',value:variable.initial}:{source:'inventory',key:eligibleInventoryItems(project,chapter)[0]?.id||'',op:'has'};
  if(kind==='costs')return {source:'variable',key:variables.find(v=>v.type==='number')?.id||'',amount:1};
  return {op:'set',key:variable?.id||'',value:variable?.initial??0};
 }
 export function normalizeRule(project,rule,leaf,chapter) {
  const variables=chapterVariables(project,chapter);
- const item=project.library.find(d=>d.kind==='item'),variable=variables.find(v=>v.type==='number')||variables[0];
+ const item=eligibleInventoryItems(project,chapter)[0],variable=variables.find(v=>v.type==='number')||variables[0];
  if(leaf==='source') {if(rule.source==='inventory'&&'amount'in rule)rule.amount=1;rule.key=rule.source==='inventory'?item?.id||'':variable?.id||'';if('op'in rule){rule.op=rule.source==='inventory'?'has':'eq';if(rule.source==='inventory')delete rule.value;else rule.value=variable?.initial??0;}}
  if(leaf==='op'&&['addItem','removeItem'].includes(rule.op)){rule.key=item?.id||'';delete rule.quantity;delete rule.value;}
  if(leaf==='op'&&['set','add'].includes(rule.op)){rule.key=variable?.id||'';rule.value=variable?.type==='flag'?false:0;delete rule.quantity;}

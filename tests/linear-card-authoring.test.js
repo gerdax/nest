@@ -27,7 +27,11 @@ test('Linear authors every card kind, accepts library sources and keeps one Next
 test('Forks still exclude items from authoring and validation',()=>{
  const project=createProject(),chapter=project.chapters[0],fork=chapter.nodes.find(n=>n.type==='fork');
  assert.deepEqual(allowedCardKinds('fork','choices'),['event','caption','action']);
- assert.doesNotMatch(nodeInspector(project,chapter,fork),/\+ Item|Item: Flashlight/);
+ const html=nodeInspector(project,chapter,fork);
+ assert.doesNotMatch(html,/\+ Item/);
+ const sources=[...html.matchAll(/<select[^>]*data-path="definitionId"[^>]*>([\s\S]*?)<\/select>/g)];
+ assert.ok(sources.length>0);
+ for(const source of sources)assert.doesNotMatch(source[1],/Item: Flashlight/);
  fork.choices.push({id:'item-choice',definitionId:'flashlight'});
  assert.ok(validateProject(project).some(error=>error.nodeId===fork.id&&error.message.includes('incompatible card kind')));
 });

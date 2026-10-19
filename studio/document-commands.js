@@ -6,6 +6,7 @@ import { chapterVariables, createChapter, importChapter, outputsForNode } from '
 import { deleteDefinition, cleanupLocalDefinitions, definitionGraph } from '../project/dependencies.js';
 import { pasteNodeClipboard } from './node-clipboard.js';
 import { transferCard } from './card-transfer.js';
+import { sortedChapters } from '../project/chapter-navigation.js';
 import {
   uid, createNode, makePlacement, promoteCard, duplicateNode, duplicatePlacement,
   findPlacement, pathTarget, customizeAction, customizeItem, customizeStory, newRule, normalizeRule, addHealthVariable,
@@ -56,6 +57,10 @@ function changeField(project, selection, field, localDrafts) {
   const variables = chapterVariables(project, ruleChapter);
   const root = documentScope(project, selection, field);
   if (!root) return;
+  if (scope === 'chapter' && path === 'nextChapterId' && raw === '') {
+    delete root.nextChapterId;
+    return;
+  }
   if (scope === 'placement' && path === 'useCustomRules') {
     if (checked) {
       const definition=project.library.find(card=>card.id===root.definitionId);
@@ -178,6 +183,8 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
       const removedChapterId = project.chapters[index].id;
       const removedDefinitions = definitionGraph(project).reachableFrom(project.chapters[index]);
       project.chapters.splice(index, 1);
+      for (const remaining of project.chapters) if (remaining.nextChapterId === removedChapterId) delete remaining.nextChapterId;
+      if (project.startChapterId === removedChapterId) project.startChapterId = sortedChapters(project)[0].id;
       const retained = definitionGraph(project).retained();
       project.library = project.library.filter(card => card.visibility !== 'local'
         || !removedDefinitions.has(card.id) && card.chapterId !== removedChapterId || retained.has(card.id));

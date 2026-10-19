@@ -36,6 +36,41 @@ function environment() {
   globalThis.cancelAnimationFrame = () => {};
 }
 
+test('next chapter requires completion and carries only shared inventory; restart retains entry state',()=>{
+  environment();
+  const project=createProject(), first=project.chapters[0], second=structuredClone(first);
+  second.id='second';second.name='Second';second.variables=[{id:'chapter_flag',type:'flag',initial:false}];second.initialValues={energy:7};
+  project.chapters.push(second);first.nextChapterId=second.id;
+  project.library.push({id:'chapter-wedge',kind:'item',visibility:'local',chapterId:first.id,name:'Wedge',text:'',image:'',permability:0,onCollect:[]});
+  project.library.push({id:'shared-key',kind:'item',name:'Key',text:'',image:'',permability:2,onCollect:[]});
+  const preview=new ProjectPreview(new Element());preview.play(project);
+  assert.equal(preview.nextChapter(),false);assert.equal(preview.nextChapterButton.hidden,true);
+  preview.controller.variables.health=5;preview.controller.variables.energy=1;
+  preview.controller.inventory=[{id:'chapter-wedge',definitionId:'chapter-wedge',name:'Wedge'}, {id:'shared-key',definitionId:'shared-key',name:'Key',permability:2,remainingTriggers:1}];
+  preview.controller.completed=true;preview.controller.notify();
+  assert.equal(preview.nextChapterButton.hidden,false);assert.equal(preview.nextChapter(),true);
+  assert.equal(preview.chapterId,second.id);assert.equal(preview.state.variables.health,5);assert.equal(preview.state.variables.energy,7);
+  assert.equal(preview.state.variables.chapter_flag,false);assert.deepEqual(preview.state.collectedItems.map(item=>item.definitionId),['shared-key']);
+  assert.equal(preview.nextChapterButton.hidden,true);
+  preview.controller.variables.health=2;preview.controller.inventory=[];preview.restart();
+  assert.equal(preview.state.variables.health,5);assert.equal(preview.state.collectedItems[0].remainingTriggers,1);
+  preview.controller.completed=true;preview.controller.notify();assert.equal(preview.nextChapter(),false);
+  preview.destroy();
+});
+
+test('chapter completion follows only its explicit target, independent of stored or alphabetical order',()=>{
+  environment();
+  const project=createProject(), first=project.chapters[0], second=structuredClone(first),third=structuredClone(first);
+  second.id='second';second.name='Alpha';third.id='third';third.name='Zulu';project.chapters.push(second,third);
+  const preview=new ProjectPreview(new Element());preview.play(project);
+  preview.controller.completed=true;preview.controller.notify();
+  assert.equal(preview.nextChapterButton.hidden,true);assert.equal(preview.nextChapter(),false);
+  first.nextChapterId=third.id;preview.play(project);
+  preview.controller.completed=true;preview.controller.notify();
+  assert.equal(preview.nextChapter(),true);assert.equal(preview.chapterId,third.id);
+  preview.destroy();
+});
+
 test('run state includes all owned items and refreshes when ownership clears', () => {
   environment();
   const preview = new ProjectPreview(new Element());
@@ -301,7 +336,7 @@ test('card link is optional, starts enabled after controller assignment, and res
   root.querySelector('[data-preview-actions]').append = button => inserted.push(button);
   const preview = new ProjectPreview(root, { onGoToCard: target => targets.push(target) });
   const button = preview.goToCardButton;
-  assert.equal(button.disabled, true); assert.deepEqual(inserted, [button]);
+  assert.equal(button.disabled, true); assert.deepEqual(inserted, [preview.nextChapterButton, button]);
   preview.play(createProject());
   assert.equal(button.disabled, false);
   button.onclick();

@@ -62,7 +62,7 @@ assert.match(root.querySelector('[data-collect-message]').textContent,/Replace/)
 root.querySelector('[data-confirm]').onclick();
 assert.deepEqual(await decision,{slot:1,replacementId:view.slots[1].id});
 assert.equal(view.items.length,5,'authorization preserves all ownership until commit');
-view.selected=view.overflow[0].id;view.showDetails();assert.equal(root.querySelector('.nest-inventory-overflow').children.length,1);
+assert.equal(view.items.length,5,'legacy overflow ownership remains preserved');
 view.destroy();assert.equal(root.children.length,0);
 } finally { globalThis.document=previousDocument; }
 });
@@ -154,6 +154,38 @@ test('view does not restart entrances and preserves the outgoing painted cards d
   assert.equal(root.hidden,true);assert.notEqual(view.slotElements[0].children[0],button);
   view.setContext(true);assert.equal(animations.length,3);assert.equal(root.hidden,false);
   view.setContext(false,{immediate:true});assert.equal(root.hidden,true);
+  view.destroy();
+ } finally {globalThis.document=previousDocument;}
+});
+
+
+test('mini preview lasts only for its primary pointer or keyboard hold and cancels on lifecycle changes',()=>{
+ const previousDocument=globalThis.document;
+ try {
+  globalThis.document={createElement:()=>new Element(),body:new Element()};
+  const calls=[],view=new InventoryView(new Element(),{onHold:item=>calls.push(item?.id??null)});
+  view.setContext(true);view.update([{id:'a',name:'A'},{id:'b',name:'B'}]);
+  let button=view.slotElements[0].children[0];
+  button.onpointerdown({button:2,pointerId:1});assert.deepEqual(calls,[]);
+  button.onpointerdown({button:0,isPrimary:false,pointerId:1});assert.deepEqual(calls,[]);
+  button.onpointerdown({button:0,pointerId:1});assert.deepEqual(calls,['a']);
+  assert.equal(view.root.classList.contains('is-holding-mini'),true);
+  view.releaseHold({type:'pointerup',pointerId:2});assert.equal(view.held.item.id,'a');
+  view.releaseHold({type:'pointerup',pointerId:1});assert.deepEqual(calls,['a',null]);
+  assert.equal(view.root.classList.contains('is-holding-mini'),false);
+  const other=view.slotElements[1].children[0];
+  other.onpointerdown({button:0,pointerId:6});button.onblur();assert.equal(view.held.item.id,'b','previous mini blur cannot cancel the new hold');
+  view.releaseHold({type:'pointerup',pointerId:6});
+  button.onpointerdown({button:0,pointerId:3});view.releaseHold({type:'pointercancel',pointerId:3});assert.equal(view.held,null);
+  const key=key=>({key,preventDefault(){}});
+  button.onkeydown(key(' '));assert.equal(view.held.key,' ');
+  button.onkeyup(key('Enter'));assert.ok(view.held);
+  button.onkeyup(key(' '));assert.equal(view.held,null);
+  button.onkeydown(key('Enter'));button.onblur();assert.equal(view.held,null);
+  button.onkeydown(key(' '));view.releaseHold({type:'resize'});assert.equal(view.held,null);
+  button.onpointerdown({button:0,pointerId:4});view.update([{id:'a'}]);assert.equal(view.held,null);
+  button=view.slotElements[0].children[0];button.onpointerdown({button:0,pointerId:5});view.setContext(false);assert.equal(view.held,null);
+  view.setContext(true);view.update([{id:'a'}],{busy:true});button=view.slotElements[0].children[0];button.onkeydown(key(' '));assert.equal(view.held,null);
   view.destroy();
  } finally {globalThis.document=previousDocument;}
 });

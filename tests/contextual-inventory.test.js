@@ -123,7 +123,7 @@ test('context item dependencies export transitively, remap collisions and protec
 
 test('editor explicitly offers None and items only for Action choice placements',()=>{
   const project=fixture(),choice=door(project).choices[0],html=placementInspector(project,choice,'action',0,'choices');
-  assert.match(html,/Inventory trigger/);assert.match(html,/data-path="contextItemId"/);assert.match(html,/<option value=""\s*>None<\/option>/);assert.match(html,/<option value="key" selected>Lockpick<\/option>/);
+  assert.match(html,/Inventory trigger/);assert.match(html,/data-path="contextItemId"/);assert.match(html,/<option value=""\s*>None<\/option>/);assert.match(html,/<option value="key" selected>Item: Lockpick<\/option>/);
   const selector=html.match(/<select[^>]*data-path="contextItemId"[^>]*>(.*?)<\/select>/s)[1];assert.doesNotMatch(selector,/value="unlock"|value="door-intro"/);
   assert.doesNotMatch(placementInspector(project,{id:'linear',definitionId:'unlock'},'action',0,'cards'),/data-path="contextItemId"/);
   assert.doesNotMatch(placementInspector(project,door(project).choices[3],'event',3,'choices'),/data-path="contextItemId"/);

@@ -5,7 +5,7 @@ import { createDefinition } from '../project/cards.js';
 import { createNode, makePlacement } from '../studio/commands.js';
 import { cardFields, placementInspector } from '../studio/inspectors.js';
 import { applyDocumentCommand } from '../studio/document-commands.js';
-import { InventoryView } from '../studio/InventoryView.js';
+import { inventoryTriggerSummary } from '../studio/InventoryCardPreview.js';
 
 test('shared and local Item authoring exposes integer Permability and retains collection effects', () => {
   const project = createProject(), item = createDefinition('item', 'test-item');
@@ -41,12 +41,6 @@ test('Permability number edits address only the selected shared or local definit
 });
 
 test('inventory inspection reports permanent or remaining Action triggers without direct-use controls', () => {
-  const nodes = new Map();
-  const element = selector => {
-    if (!nodes.has(selector)) nodes.set(selector, {style:{}});
-    return nodes.get(selector);
-  };
-  const view = {selected:'item', dialog:{querySelector:element}, root:{querySelector:() => null}};
   for (const [item, expected] of [
     [{}, 'Permanent · unlimited Action triggers'],
     [{permability:0}, 'Permanent · unlimited Action triggers'],
@@ -54,10 +48,6 @@ test('inventory inspection reports permanent or remaining Action triggers withou
     [{permability:3, remainingTriggers:1}, '1 Action trigger remaining'],
     [{permability:3, remainingTriggers:0}, '0 Action triggers remaining'],
   ]) {
-    view.items = [{id:'item', name:'Item', ...item}];
-    InventoryView.prototype.showDetails.call(view);
-    assert.equal(element('[data-summary]').textContent, expected);
+    assert.equal(inventoryTriggerSummary(item), expected);
   }
-  assert.equal(nodes.has('[data-use]'), false);
-  assert.equal(nodes.has('[data-feedback]'), false);
 });

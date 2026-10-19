@@ -1,4 +1,5 @@
 import { isStatVariable, editorCheckSummary } from '../project/checks.js';
+import { inventoryItemOptions } from './item-options.js';
 import { esc, options } from '../editor/fields.js';
 
 export { esc };
@@ -9,14 +10,14 @@ export const checkbox = (label,value,path,scope='definition',disabled=false) => 
 export const button = (label,cmd,attrs='') => `<button type="button" data-command="${cmd}" ${attrs}>${esc(label)}</button>`;
 export const imageField=(label,value,path,scope='definition')=>field(label,value,path,scope)+`<button type="button" data-image-picker data-scope="${esc(scope)}" data-path="${esc(path)}">Choose image file</button>`;
 const extras=(scope,path,kind)=>`data-scope="${esc(scope)}" data-path="${esc(path)}" data-rule-kind="${kind}"`;
-export function rules(project,list=[],path,scope,kind,{label,help}={}) {
+export function rules(project,list=[],path,scope,kind,{label,help,chapter}={}) {
  const vars=project.variables.map(v=>[v.id,variableLabel(v)]);
- const items=project.library.filter(d=>d.kind==='item').map(d=>[d.id,d.name]);
  let html=`<details class="state-panel"><summary>${esc(label || kind[0].toUpperCase()+kind.slice(1))} · ${list.length}</summary>`;
  if(help)html+=`<p class="small">${esc(help)}</p>`;
  html+=list.map((rule,i)=>{
   const p=`${esc(path)}.${i}`;
   let fields='';
+  const items=inventoryItemOptions(project,chapter,rule.key);
   if(kind==='conditions') {
    const inventory=rule.source==='inventory';
    const candidates=inventory?items:vars;
@@ -39,9 +40,9 @@ export function rules(project,list=[],path,scope,kind,{label,help}={}) {
  }).join('');
  return html+button(`Add ${kind==='conditions'?'condition':kind==='costs'?'cost':'effect'}`,'add-rule',extras(scope,path,kind))+'</details>';
 }
-export function actionFields(project,action,prefix='',scope='definition') {
+export function actionFields(project,action,prefix='',scope='definition',chapter) {
  const p=key=>prefix+key;
- let html=rules(project,action.conditions,p('conditions'),scope,'conditions',{label:'Requirements',help:'All requirements must pass before this action can be selected. Requirements do not spend resources.'})+rules(project,action.costs,p('costs'),scope,'costs')+rules(project,action.effects,p('effects'),scope,'effects',{label:'Effects',help:'Apply when the action completes. For a dice check, these apply on either outcome.'});
+ let html=rules(project,action.conditions,p('conditions'),scope,'conditions',{chapter,label:'Requirements',help:'All requirements must pass before this action can be selected. Requirements do not spend resources.'})+rules(project,action.costs,p('costs'),scope,'costs',{chapter})+rules(project,action.effects,p('effects'),scope,'effects',{chapter,label:'Effects',help:'Apply when the action completes. For a dice check, these apply on either outcome.'});
  html+=select('Resolution',action.resolution||'direct',[['direct','Direct'],['check','Dice check']],p('resolution'),scope);
  if(action.resolution==='check') {
   const check=action.check||{pool:[{sides:20,count:1}],modifier:0,target:10};
@@ -58,7 +59,7 @@ export function actionFields(project,action,prefix='',scope='definition') {
   html+=button('Add dice','add-rule',extras(scope,p('check.pool'),'dice'))+field('Modifier',check.modifier,p('check.modifier'),scope,'number')+select('Variable modifier',check.modifierVariable||'',[['','None'],...project.variables.filter(v=>v.type==='number').map(v=>[v.id,variableLabel(v)])],p('check.modifierVariable'),scope)+field('Target',check.target,p('check.target'),scope,'number');
   }
   html+='</div>';
-  html+=rules(project,action.successEffects,p('successEffects'),scope,'effects',{label:'On success effects'})+rules(project,action.failureEffects,p('failureEffects'),scope,'effects',{label:'On failure effects'});
+  html+=rules(project,action.successEffects,p('successEffects'),scope,'effects',{chapter,label:'On success effects'})+rules(project,action.failureEffects,p('failureEffects'),scope,'effects',{chapter,label:'On failure effects'});
  }
  return html;
 }

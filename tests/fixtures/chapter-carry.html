@@ -1,0 +1,41 @@
+<!doctype html>
+<meta charset="utf-8">
+<base href="../../">
+<title>Chapter carry verification</title>
+<link rel="stylesheet" href="engine/card-deck.css">
+<link rel="stylesheet" href="demo/inventory.css">
+<link rel="stylesheet" href="studio/preview.css">
+<link rel="stylesheet" href="studio/playfield.css">
+<style>
+body{margin:0;background:#111c1c;color:#d4dfd5;font:15px system-ui}main{display:flex;gap:24px;padding:20px}#frame{position:relative;width:390px;height:700px;flex:none}#preview{height:100%}aside{max-width:500px}select,button{padding:8px;background:#263838;color:#e3edda}pre{white-space:pre-wrap}summary{cursor:pointer}label{display:block;margin:12px 0}
+</style>
+<main><section id="frame" class="nest-playfield"><div id="preview"></div></section><aside>
+<h1>Chapter carry verification</h1><button id="restart">Restart chapter</button>
+<p>Advance the first card, then choose Next chapter. The Library key stays, the local wedge disappears, health stays 5, energy is overridden to 7, and the chapter flag resets.</p>
+<h2 id="chapter"></h2><pre id="state"></pre><h2>Chapter 2 item requirements</h2><div id="rules"></div>
+</aside></main>
+<script type="module">
+import {ProjectPreview} from './studio/ProjectPreview.js';
+import {createProject,createChapter} from './project/model.js';
+import {createDefinition} from './project/cards.js';
+import {rules} from './studio/forms.js';
+const project=createProject(), first=project.chapters[0], second=createChapter('second');
+project.chapters.push(second);first.nextChapterId=second.id;first.name='Chapter 1';second.name='Chapter 2';
+first.variables=[{id:'first_flag',name:'First flag',type:'flag',initial:false}];
+second.variables=[{id:'second_flag',name:'Second flag',type:'flag',initial:false}];second.initialValues={energy:7};
+const key={...createDefinition('item','shared-key'),name:'Key',permability:3};
+const wedge={...createDefinition('item','wedge'),name:'Wedge',visibility:'local',chapterId:first.id};
+const local2={...createDefinition('item','local-second'),name:'Local chapter 2 item',visibility:'local',chapterId:second.id};
+const start={...createDefinition('caption','start'),visibility:'local',chapterId:first.id,text:'Take a Library key and a local wedge. Finish this chapter to continue.',effects:[{op:'set',key:'health',value:5},{op:'set',key:'first_flag',value:true},{op:'addItem',key:key.id},{op:'addItem',key:wedge.id}]};
+const end={...createDefinition('caption','end'),text:'Chapter 2: your Library key remains. The local wedge is gone.'};
+project.library=[key,wedge,local2,start,end];
+for(const [chapter,definitionId] of [[first,start.id],[second,end.id]]){chapter.nodes=[{id:'story',type:'linear',name:'Story',x:0,y:0,cards:[{id:'story-card',definitionId}],connections:{next:null}}];chapter.startNode='story';}
+const preview=new ProjectPreview(document.querySelector('#preview'),{onChange:state=>{
+ document.querySelector('#chapter').textContent=preview.chapterId===first.id?'Chapter 1':'Chapter 2';
+ document.querySelector('#state').textContent=JSON.stringify({variables:state.variables,items:state.collectedItems.map(item=>item.name),completed:state.completed},null,2);
+}});
+document.querySelector('#rules').innerHTML=rules(project,[{source:'inventory',key:key.id,op:'has'}],'conditions','placement','conditions',{chapter:second});
+document.querySelector('#rules details').open=true;
+document.querySelector('#restart').onclick=()=>preview.restart();
+preview.play(project);
+</script>

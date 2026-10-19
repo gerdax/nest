@@ -4,7 +4,7 @@ import { parseChapter } from '../chapter/model.js';
 import { canonicalCardKind } from './cards.js';
 import { projectCardBack } from './card-backs.js';
 import { definitionGraph } from './dependencies.js';
-import { cloneProject, list, object, unique, walk } from './model-data.js';
+import { cloneProject, list, named, object, unique, walk } from './model-data.js';
 import { migrateChapter } from './migration.js';
 import { discardPlacementContext, normalizeSingleItems } from './normalization.js';
 import { validateProject } from './validation.js';
@@ -20,6 +20,7 @@ export function exportChapter(project, id = project.activeChapterId) {
     cardStyles: project.cardStyles || {}, cardBack: projectCardBack(project), switchCardBackIcons: project.switchCardBackIcons,
     chapter});
   pkg.chapter.variables ??= [];
+  if (named(pkg.chapter.nextChapterId) && pkg.chapter.nextChapterId !== pkg.chapter.id) delete pkg.chapter.nextChapterId;
   for (const definition of pkg.library) definition.kind = canonicalCardKind(definition.kind);
   discardPlacementContext({library: pkg.library, chapters: [pkg.chapter]});
   return normalizeStats(normalizeSingleItems(pkg));
@@ -119,6 +120,10 @@ export function importChapter(project, pkgOrV1) {
     remap(c);
     for (const variable of list(c.variables)) variable.id = localVarMap.get(variable.id) || variable.id;
     if (c.initialValues) c.initialValues = Object.fromEntries(Object.entries(c.initialValues).map(([k, v]) => [ruleVarMap.get(k) || k, v]));
+    if (named(c.nextChapterId)) {
+      if (chapterMap.has(c.nextChapterId)) c.nextChapterId = chapterMap.get(c.nextChapterId);
+      else delete c.nextChapterId;
+    }
     c.id = chapterMap.get(c.id);
     next.chapters.push(c);
     next.activeChapterId = c.id;
@@ -132,12 +137,15 @@ export function parseProject(text, {allowDraft = false} = {}) {
     parseChapter(text, {allowDraft});
     value = migrateChapter(value);
   }
-  else if (value?.version === 2 && value.kind === 'nest-chapter') value = {version: 2, kind: 'nest-project',
-    id: `${value.chapter?.id || 'chapter'}-project`, name: value.chapter?.name, activeChapterId: value.chapter?.id,
+  else if (value?.version === 2 && value.kind === 'nest-chapter') {
+    if (named(value.chapter?.nextChapterId) && value.chapter.nextChapterId !== value.chapter.id) delete value.chapter.nextChapterId;
+    value = {version: 2, kind: 'nest-project',
+    id: `${value.chapter?.id || 'chapter'}-project`, name: value.chapter?.name, activeChapterId: value.chapter?.id, startChapterId: value.chapter?.id,
     library: value.library, variables: value.variables || [], allowCycles: value.allowCycles,
     ownedItemsVisibility: value.ownedItemsVisibility, unavailableActions: value.unavailableActions,
     cardStyles: value.cardStyles || {}, cardBack: value.cardBack, switchCardBackIcons: value.switchCardBackIcons,
     chapters: [value.chapter]};
+  }
   for (const definition of list(value?.library)) if (object(definition)) definition.kind = canonicalCardKind(definition.kind);
   normalizeLocalOwnership(value);
   discardPlacementContext(value);

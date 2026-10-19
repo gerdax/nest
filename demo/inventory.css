@@ -82,3 +82,8 @@
 .nest-inventory-drawer .nest-inventory-slot>button,
 .nest-inventory-drawer .nest-inventory-overflow button,
 .nest-inventory-drag-preview{background:#000}
+
+/* Keep the pressed mini fixed under the pointer throughout the camera move. */
+.nest-inventory-drawer.is-holding-mini .nest-inventory-slot {opacity:0;pointer-events:none}
+.nest-inventory-drawer.is-holding-mini .nest-inventory-slot:has(>.is-held-mini) {opacity:1;pointer-events:auto}
+.nest-inventory-drawer .nest-inventory-slot>button {touch-action:none;-webkit-touch-callout:none;user-select:none}

@@ -49,6 +49,11 @@ export function validateProject(project, {allowDraft = false} = {}) {
   seen(library, 'Definition');
   seen(variables, 'Variable');
   const chapterIds = seen(chapters, 'Chapter');
+  if (project.startChapterId !== undefined && (!named(project.startChapterId) || !chapterIds.has(project.startChapterId))) add('Start chapter must exist.');
+  for (const chapter of chapters.filter(object)) {
+    if (chapter.nextChapterId !== undefined && chapter.nextChapterId !== null
+      && (!named(chapter.nextChapterId) || !chapterIds.has(chapter.nextChapterId))) add('Next chapter must exist.', chapter.id);
+  }
   for (const d of library) if (object(d)) definitions.set(d.id, d);
   const report = add;
   function inspectVariables(variables, chapterId) {

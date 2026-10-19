@@ -1,3 +1,4 @@
+import { sortedChapters, startChapter } from '../project/chapter-navigation.js';
 import { remapVariableClipboard, variableRenamesBetween } from './variable-ids.js';
 import { captureCardClipboard, canPasteCard } from './card-clipboard.js';
 import { captureNodeClipboard } from './node-clipboard.js';
@@ -160,7 +161,7 @@ function render({preserveProjectSettings=false}={}){
  if(!project.chapters.some(c=>c.id===chapterId))chapterId=project.activeChapterId||project.chapters[0]?.id;
  if(!chapter()?.nodes.some(n=>n.id===selected))selected=chapter()?.startNode;
  $('#project-name').textContent=project.name;
- $('#chapter-selector').innerHTML=project.chapters.map(c=>`<option value="${esc(c.id)}" ${c.id===chapterId?'selected':''}>${esc(c.name)}</option>`).join('');
+ $('#chapter-selector').innerHTML=sortedChapters(project).map(c=>`<option value="${esc(c.id)}" ${c.id===chapterId?'selected':''}>${esc(c.name)}</option>`).join('');
  $('#undo').disabled=!history.canUndo;$('#redo').disabled=!history.canRedo;
 
  $('#canvas').hidden=mode!=='chapter';$('#library-panel').hidden=mode!=='library';$('#node-tools').hidden=mode!=='chapter';
@@ -230,6 +231,11 @@ function refreshCardClipboardButtons(){
  }
 }
 function command(event){const b=event.target.closest('[data-command]');if(!b)return;const cmd=b.dataset.command;
+ if(cmd==='play-from-start'){
+  const target=startChapter(project);
+  if(target){projectSettingsWindow.close();play(undefined,{chapterId:target.id});}
+  return;
+ }
  if(cmd==='copy-card'){
   try{cardClipboard=captureCardClipboard(project,chapterId,selected,b.dataset.placement);refreshCardClipboardButtons();report('Card copied.');}
   catch(error){report(error.message);}
@@ -347,7 +353,7 @@ function bindImport(input,kind){
 }
 bindImport($('#import'),'project');
 bindImport($('#import-chapter'),'chapter');
-function play(startNode,{restore=true}={}){try{previewWindow.show({restore});preview.play(project,chapterId,startNode,{focus:!previewWindow.minimized});report('Chapter ready.');return true;}catch(error){report(error.message);return false;}}
+function play(startNode,{restore=true,chapterId:targetChapterId=chapterId}={}){try{previewWindow.show({restore});preview.play(project,targetChapterId,startNode,{focus:!previewWindow.minimized});report('Chapter ready.');return true;}catch(error){report(error.message);return false;}}
 $('#play').onclick=()=>play();$('#play-node').onclick=()=>play(selected);
 window.addEventListener('pagehide',event=>{if(event.persisted)return;graph.cancel();stopHistoryShortcuts();stopNodeClipboardShortcuts();stopDrawerDebug();autoplay.destroy();previewWindow.destroy();projectSettingsWindow.destroy();preview.destroy();});
 render();graph.fit();if(loaded.error||loaded.recovery)report('');else if(loaded.migrated)report('Legacy save loaded; original browser save preserved.');else report(loaded.project?'Saved in this browser.':'Not saved yet.');

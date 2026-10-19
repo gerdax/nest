@@ -4,7 +4,7 @@ import { cloneProject, unique, walk } from './model-data.js';
 export function migrateChapter(v1) {
   const source = cloneProject(v1), id = source.id || 'chapter-1';
   const library = [], used = new Set();
-  const project = {version: 2, kind: 'nest-project', id: `${id}-project`, name: source.name, activeChapterId: id,
+  const project = {version: 2, kind: 'nest-project', id: `${id}-project`, name: source.name, activeChapterId: id, startChapterId: id,
     library, variables: source.variables || [], chapters: []};
   const bind = (raw, kind, seq) => {
     const definitionId = unique(`${seq.id}-${kind}-${raw.id}`, used);

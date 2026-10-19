@@ -8,9 +8,10 @@ import { resolveCheck, playerCheckPresentation } from './checks.js';
 
 /** Playback only. CardDeck remains responsible for gestures and departure choreography. */
 export class ProjectController {
-  constructor(deck, compiled, {onChange=()=>{},rng=Math.random,rollCheck,onCheckResult=()=>{},onError=()=>{}} = {}) {
+  constructor(deck, compiled, {onChange=()=>{},rng=Math.random,rollCheck,onCheckResult=()=>{},onError=()=>{},initialState} = {}) {
     this.deck=deck; this.compiled=compiled; this.nodes=new Map(compiled.nodes.map(n=>[n.id,n]));
     Object.assign(this,{onChange,rng,rollCheck,onCheckResult,onError});
+    this.initialState = initialState ? structuredClone(initialState) : null;
     this.generation=0; this.serial=0; this.destroyed=false;
     this.listeners={reveal:e=>this.reveal(e.detail),commit:e=>this.commit(e.detail),collect:e=>this.resolveItem(e.detail,'collect'),discard:e=>this.resolveItem(e.detail,'discard'),transitioncomplete:e=>this.transitionComplete(e.detail)};
     for(const [name,listener] of Object.entries(this.listeners)) deck.addEventListener(name,listener);
@@ -22,7 +23,9 @@ export class ProjectController {
   restart() {
     if(this.destroyed)return;
     ++this.generation; this.checking?.abort(); this.checking=null;
-    this.deck.reset(); this.variables=initialValues(this.compiled.variables); this.inventory=[];
+    this.deck.reset();
+    this.variables=transact(initialValues(this.compiled.variables),[],{effects:Object.entries(this.initialState?.variables || {}).map(([key,value])=>({op:'set',key,value}))},this.compiled.variables).variables;
+    this.inventory=(this.initialState?.inventory || []).reduce((items,item)=>addInventory(items,structuredClone(item)),[]);
     this.remaining=new Map(); this.itemReplacements=new Map(); this.accepted=new Set();this.revealedIntros=new Set();this.pendingIntro=null; this.pendingItem=null;this.pendingExchange=null;this.stagedDestination=null;this.completed=false;
     this.location=null;
     try {this.adopt(this.locate(this.compiled.startNode),false);this.show();} catch(error){

@@ -53,6 +53,7 @@ test('switching an action to a check preserves its direct destination as success
 test('a fresh blocked-node error survives the playback status update',()=>{
  const preview=Object.create(ProjectPreview.prototype);
  Object.assign(preview,{state:{activeNodeId:'before'},errorMessage:'No available choices',errorNode:'blocked',compiled:{nodes:[{id:'blocked',name:'Locked door'}],variables:[]},root:{querySelector:()=>({setAttribute(){}})},resources:{},healthValue:{},energyValue:{},checkDetails:{},checkChance:{},checkFormula:{},checkRules:{},status:{},stateReadout:{querySelector:()=>({})},inventory:{update(){}},onChange(){}});
+ preview.nextChapterButton={};
  preview.update({activeNodeId:'blocked',variables:{},collectedItems:[],checking:false,idle:true});
  assert.equal(preview.status.textContent,'No available choices');
  preview.update({activeNodeId:'after',variables:{},collectedItems:[],checking:false,idle:true});

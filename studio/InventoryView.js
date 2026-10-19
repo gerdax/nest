@@ -7,27 +7,31 @@ const name = item => item?.name || item?.label || 'Item';
 
 /** Inventory presentation; the controller alone mutates ownership and effects. */
 export class InventoryView {
-  constructor(root, { getBounds = () => null, onMotion = () => {} } = {}) {
+  constructor(root, { getBounds = () => null, onMotion = () => {}, onHold = () => {} } = {}) {
     this.root = root;
     this.getBounds = getBounds;
+    this.onHold = onHold;
     this.items = [];
     this.slots = Array(4).fill(null);
     this.visible = null;
     root.classList.add('nest-inventory');
     root.classList.add('nest-inventory-drawer');
-    root.innerHTML = '<span data-count hidden aria-hidden="true"></span><ul class="nest-inventory-cards" aria-label="Inventory slots"></ul><p data-drawer-feedback role="status" hidden></p><dialog class="item-dialog"><h3></h3><div class="nest-image-vignette" data-item-artwork><img alt=""></div><p data-summary></p><p data-description></p><div class="row"><button type="button" data-close>Close</button></div><section data-overflow hidden><h4>Other owned items</h4><ul class="nest-inventory-overflow"></ul></section></dialog><dialog class="item-dialog nest-inventory-confirm" data-collect-dialog><h3>Collect item</h3><p data-collect-message></p><div data-slot-picker class="nest-inventory-picker"></div><div class="row"><button type="button" data-confirm>Replace</button><button type="button" data-cancel>Cancel</button></div></dialog>';
-    this.dialog = root.querySelector('dialog');
+    root.innerHTML = '<span data-count hidden aria-hidden="true"></span><ul class="nest-inventory-cards" aria-label="Inventory slots"></ul><p data-drawer-feedback role="status" hidden></p><dialog class="item-dialog nest-inventory-confirm" data-collect-dialog><h3>Collect item</h3><p data-collect-message></p><div data-slot-picker class="nest-inventory-picker"></div><div class="row"><button type="button" data-confirm>Replace</button><button type="button" data-cancel>Cancel</button></div></dialog>';
     this.collectDialog = root.querySelector('[data-collect-dialog]');
     this.view = root.ownerDocument?.defaultView ?? globalThis;
     this.layoutDialogs = () => {
       const layout = dialogLayout(this.getBounds(), this.view.innerWidth, this.view.innerHeight);
-      if (layout) for (const dialog of [this.dialog, this.collectDialog]) Object.assign(dialog.style, layout);
+      if (layout) for (const dialog of [this.collectDialog]) Object.assign(dialog.style, layout);
     };
     this.view.addEventListener?.('resize', this.layoutDialogs);
     this.view.addEventListener?.('scroll', this.layoutDialogs, true);
     this.list = root.querySelector('ul');
     this.hint = root.querySelector('[data-drawer-feedback]');
-    root.querySelector('[data-close]').onclick = () => this.dialog.close();
+    this.releaseHold = event => {
+      if (!event || event.type === 'blur' || event.type === 'resize' || event.type === 'visibilitychange' || event.pointerId === this.held?.pointerId) this.endHold();
+    };
+    for (const type of ['pointerup', 'pointercancel', 'blur', 'resize']) this.view.addEventListener?.(type, this.releaseHold);
+    root.ownerDocument?.addEventListener?.('visibilitychange', this.releaseHold);
     this.motion = new DrawerMotion(root, { onMotion, onIdle: () => { if (this.needsSlotRender) this.renderSlots(); } });
     this.setContext(false, { immediate: true });
     this.renderSlots();
@@ -43,7 +47,7 @@ export class InventoryView {
     else {
       this.cancelPending();
       this.preview(null);
-      if (this.dialog.open) this.dialog.close();
+      this.endHold();
     }
   }
   update(items = [], { busy = false, variables = [], values = {}, library = [] } = {}) {
@@ -71,7 +75,7 @@ export class InventoryView {
     }
     this.overflow = remaining;
     this.renderSlots();
-    if (this.dialog.open) this.showDetails();
+
     if (this.pending) this.cancelPending();
   }
   itemButton(item) {
@@ -79,6 +83,7 @@ export class InventoryView {
     button.type = 'button'; button.disabled = this.busy || !!this.deposited;
     button.draggable = false;
     button.setAttribute('aria-label', name(item));
+    button.setAttribute('aria-pressed', 'false');
     if (item.image) {
       const image = document.createElement('img'); image.src = item.image; image.alt = ''; image.draggable = false;
       applyArtworkColorize(image);
@@ -86,8 +91,43 @@ export class InventoryView {
       const artwork = document.createElement('div'); artwork.className = 'nest-image-vignette';
       artwork.append(image); button.append(artwork);
     }
-    button.onclick = () => { if (this.pending || this.deposited) return; this.selected = identity(item); this.showDetails(); this.layoutDialogs(); this.dialog.showModal(); };
+    button.onpointerdown = event => {
+      if (event.button !== 0 || event.isPrimary === false) return;
+      if (this.beginHold(item, button, { pointerId: event.pointerId })) button.setPointerCapture?.(event.pointerId);
+    };
+    button.onlostpointercapture = event => this.releaseHold(event);
+    button.onkeydown = event => {
+      if (![' ', 'Enter'].includes(event.key)) return;
+      event.preventDefault();
+      if (!event.repeat) this.beginHold(item, button, { key: event.key });
+    };
+    button.onkeyup = event => {
+      if (event.key !== this.held?.key) return;
+      event.preventDefault(); this.endHold();
+    };
+    button.onblur = () => { if (this.held?.button === button) this.endHold(); };
+    button.oncontextmenu = event => event.preventDefault();
+    button.onclick = event => event.preventDefault();
     return button;
+  }
+  beginHold(item, button, input) {
+    if (this.held || !this.visible || this.busy || this.pending || this.deposited || this.root.closest?.('[inert]')) return false;
+    this.held = { item, button, ...input };
+    this.root.classList.add('is-holding-mini');
+    button.classList.add('is-held-mini');
+    button.setAttribute('aria-pressed', 'true');
+    this.onHold(item);
+    return true;
+  }
+  endHold() {
+    if (!this.held) return;
+    const { button, pointerId } = this.held;
+    this.held = null;
+    this.root.classList.remove('is-holding-mini');
+    button.classList.remove('is-held-mini');
+    button.setAttribute('aria-pressed', 'false');
+    if (pointerId !== undefined && button.hasPointerCapture?.(pointerId)) button.releasePointerCapture(pointerId);
+    this.onHold(null);
   }
   stageDeposit(action, decision) {
     const layout = decision.layout?.map(id => id === identity(action) ? action : this.items.find(item => identity(item) === id) || null);
@@ -117,6 +157,7 @@ export class InventoryView {
     return { layout, replacement: false };
   }
   renderSlots() {
+    this.endHold();
     if (this.motion?.exiting) { this.needsSlotRender = true; return; }
     this.needsSlotRender = false;
     const incoming = this.deposited?.item;
@@ -270,35 +311,14 @@ export class InventoryView {
     });
   }
   cancelPending() { this.pending?.(); }
-  showDetails() {
-    const item = this.items.find(item => identity(item) === this.selected);
-    if (!item) { if (this.dialog.open) this.dialog.close(); return; }
-    this.dialog.querySelector('h3').textContent = name(item);
-    const image = this.dialog.querySelector('img'); image.src = item.image || ''; image.hidden = !item.image;
-    this.dialog.querySelector('[data-item-artwork]').hidden = !item.image;
-    applyArtworkColorize(image);
-    image.style.transform = item.flipImage ? 'scaleX(-1)' : '';
-    const remaining = item.remainingTriggers ?? item.permability ?? 0;
-    this.dialog.querySelector('[data-summary]').textContent = remaining === 0 && (item.permability ?? 0) === 0
-      ? 'Permanent · unlimited Action triggers'
-      : `${remaining} Action ${remaining === 1 ? 'trigger' : 'triggers'} remaining`;
-    this.dialog.querySelector('[data-description]').textContent = item.text || '';
-    const overflow = this.root.querySelector('[data-overflow]');
-    const list = this.root.querySelector('.nest-inventory-overflow');
-    if (overflow && list) {
-      overflow.hidden = !this.overflow?.length;
-      list.replaceChildren();
-      for (const other of this.overflow || []) {
-        const entry = document.createElement('li'); entry.append(this.itemButton(other)); list.append(entry);
-      }
-    }
-  }
   destroy() {
+    this.endHold();
+    for (const type of ['pointerup', 'pointercancel', 'blur', 'resize']) this.view.removeEventListener?.(type, this.releaseHold);
+    this.root.ownerDocument?.removeEventListener?.('visibilitychange', this.releaseHold);
     this.view.removeEventListener?.('resize', this.layoutDialogs);
     this.view.removeEventListener?.('scroll', this.layoutDialogs, true);
     this.motion.destroy();
     this.cancelPending();
-    if (this.dialog.open) this.dialog.close();
     this.root.replaceChildren(); this.items = []; this.slots = []; this.slotElements = [];
   }
 }

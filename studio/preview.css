@@ -54,3 +54,13 @@
 
 /* Keep authored line and paragraph breaks in inventory descriptions too. */
 .item-dialog [data-description] { white-space:pre-wrap; }
+
+/* Both the stack and the inventory card occupy one vertical camera plane. */
+.chapter-preview-card-layout {translate:0 var(--inventory-camera-offset,0px);transition:translate 240ms cubic-bezier(.3,.15,.3,1)}
+.chapter-preview-card-layout.is-inventory-preview .chapter-preview-deck {pointer-events:none}
+.chapter-preview-card-layout.is-inventory-preview .action-check-details {visibility:hidden}
+.nest-inventory-held-card {pointer-events:none;user-select:none}
+@media(prefers-reduced-motion:reduce){.chapter-preview-card-layout{transition:none}}
+.nest-inventory-held-card {visibility:hidden;transition:visibility 0s 240ms}
+.is-inventory-preview .nest-inventory-held-card {visibility:visible;transition-delay:0s}
+@media(prefers-reduced-motion:reduce){.nest-inventory-held-card{transition:none}}

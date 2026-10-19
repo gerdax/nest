@@ -16,6 +16,8 @@ body.standalone-player.has-inventory-dock {padding-bottom:0;}
   box-sizing:border-box;width:100%;max-width:none;height:100%;margin:0;padding:0;
 }
 .standalone-player .nest-inventory-surface .preview-footer {display:none;}
+.standalone-player .nest-inventory-surface .preview-footer:has([data-next-chapter]:not([hidden])) {display:flex;justify-content:center;}
+.standalone-player .preview-footer [data-preview-actions] {margin-left:0;}
 
 /* Auxiliary controls stay reachable without occupying the game composition. */
 .player-tools { position:fixed;right:var(--player-safe-right);bottom:calc(4px + var(--player-safe-bottom));z-index:4500; }

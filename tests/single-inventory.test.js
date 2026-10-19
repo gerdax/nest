@@ -95,14 +95,12 @@ test('inventory view keeps accessible item names without mini labels or a direct
     assert.equal(button.children[0].children[0].style.filter,'url("#nest-artwork-colorize")');
     assert.equal(button.children[0].children[0].style.transform,'scaleX(-1)');
     assert.equal(button.children.length,1);
-    button.onclick();
-    assert.equal(dialog.nodes.h3.textContent,'Apple');
-    assert.equal(dialog.nodes.img.style.filter,'url("#nest-artwork-colorize")');
-    assert.equal(dialog.nodes['[data-description]'].textContent,'Fresh.');
-    assert.match(dialog.nodes['[data-summary]'].textContent,/2 Action triggers remaining/);
+    button.onclick({preventDefault(){}});
+    assert.equal(dialog.open,undefined,'click does not open the removed popup');
+    assert.doesNotMatch(root.innerHTML,/data-description|data-item-artwork/);
     view.update([]);
     assert.equal(root.nodes['[data-count]'].textContent,'0');
-    assert.equal(dialog.open,false);
+    assert.equal(dialog.open,undefined);
     view.destroy();
   } finally { globalThis.document=previousDocument; }
 });
