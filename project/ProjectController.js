@@ -40,8 +40,9 @@ export class ProjectController {
     return inventory.some(owned => (owned.definitionId ?? owned.id) === (item.definitionId ?? item.id)
       || item.inventoryKey != null && owned.inventoryKey === item.inventoryKey);
   }
-  hidesOwnedItem(item, inventory=this.inventory) {
-    return this.compiled.ownedItemsVisibility === 'hidden' && this.ownsItem(item, inventory);
+  hidesOwnedItem(item, inventory=this.inventory, location=null) {
+    return this.compiled.ownedItemsVisibility === 'hidden' && this.ownsItem(item, inventory)
+      && (this.type(location)!=='container' || this.ownsItem(item,location.ownedItemsAtEntry ?? inventory));
   }
   runtimeItem(card, location=this.location) {
     return this.itemReplacements.get(this.key(location))?.get(card?.id) ?? card;
@@ -79,7 +80,7 @@ export class ProjectController {
   items(location=this.location, values=this.variables, inventory=this.inventory, excluded=null) {
     if(excluded?.all&&excluded.key===this.key(location))return [];
     const raw=this.remaining.get(this.key(location)) ?? location.sequence?.items ?? location.node.items ?? [];
-    return raw.map(i=>this.runtimeItem(i,location)).filter(i=>!this.itemExcluded(i.id,location,excluded) && conditionsMet(i.conditions,values,inventory) && !this.hidesOwnedItem(i,inventory));
+    return raw.map(i=>this.runtimeItem(i,location)).filter(i=>!this.itemExcluded(i.id,location,excluded) && conditionsMet(i.conditions,values,inventory) && !this.hidesOwnedItem(i,inventory,location));
   }
   weighted(routes) {
     if(!routes.length)return null;
@@ -151,6 +152,9 @@ export class ProjectController {
   }
   seekStep(location,values,inventory,excluded) {
     const type=this.type(location);
+    // Ownership acquired during this carousel visit only disables collection.
+    // Apply hiding against a fresh inventory snapshot on each container entry.
+    if(type==='container'&&!location.ownedItemsAtEntry)location={...location,ownedItemsAtEntry:[...inventory]};
     if(type==='linear') {
       const cards=location.sequence?.cards ?? location.node.cards ?? [];
       while(location.index<cards.length) {
@@ -173,7 +177,7 @@ export class ProjectController {
   nextStep(location,output='next') {
     if(location.queue?.length) {
       const queue=[...location.queue],id=queue.shift();
-      return {location:{...location,sequence:location.node.sequences.find(s=>s.id===id),queue,index:0}};
+      return {location:{...location,sequence:location.node.sequences.find(s=>s.id===id),queue,index:0,ownedItemsAtEntry:undefined}};
     }
     const key=location.node.type==='legacyPool'?'next':output;
     return {id:location.node.connections?.[key]};
