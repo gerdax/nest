@@ -11,7 +11,7 @@ export class CardDrag {
  start(e,name){
   this.suppressClick=false;
   const row=name.closest('.graph-card-row'),node=name.closest('.node');
-  if(!row||row.dataset.cardSlot==='intro'||!node)return false;
+  if(!row||!node)return false;
   const g=this.graph;
   g.root.focus({preventScroll:true});
   g.drag={kind:'card',sourceNodeId:node.dataset.id,placementId:row.dataset.cardPlacement,cardKind:row.dataset.cardType,name:name.textContent,x:e.clientX,y:e.clientY,clientX:e.clientX,clientY:e.clientY,pointer:e.pointerId,moved:false,copy:!!e.altKey};
@@ -24,9 +24,25 @@ export class CardDrag {
   if(e.clientX<r.left||e.clientX>=r.right||e.clientY<r.top||e.clientY>=r.bottom)return null;
   const nodeEl=g.root.ownerDocument.elementFromPoint(e.clientX,e.clientY)?.closest('.node');
   if(!nodeEl||!g.root.contains(nodeEl))return null;
-  const node=g.nodesById.get(nodeEl.dataset.id),slot=cardDropSlot(node?.type,d.cardKind);
+  const node=g.nodesById.get(nodeEl.dataset.id);
+  const header=nodeEl.querySelector?.('.node-heading'),headerBounds=header?.getBoundingClientRect();
+  if(headerBounds&&e.clientY>=headerBounds.top&&e.clientY<headerBounds.bottom){
+   const compatible=nodeTypeDescriptor(node?.type)?.slots.intro?.includes(d.cardKind);
+   const self=node?.id===d.sourceNodeId&&node.intro?.id===d.placementId;
+   return {nodeEl,header,slot:'intro',targetNodeId:node?.id,invalid:!compatible||self};
+  }
+  const allRows=[...nodeEl.querySelectorAll('.graph-card-row')];
+  // Row centres replace; narrow bands along their edges keep insertion available.
+  const row=allRows.find(row=>{const r=row.getBoundingClientRect(),edge=Math.min(8,r.height*.2);return e.clientY>=r.top+edge&&e.clientY<r.bottom-edge;});
+  if(row){
+   const slot=row.dataset.cardSlot,targetPlacementId=row.dataset.cardPlacement;
+   const compatible=nodeTypeDescriptor(node?.type)?.slots[slot]?.includes(d.cardKind);
+   const self=node.id===d.sourceNodeId&&targetPlacementId===d.placementId;
+   return {nodeEl,row,slot,targetNodeId:node.id,targetPlacementId,invalid:!compatible||self};
+  }
+  const slot=cardDropSlot(node?.type,d.cardKind);
   if(!slot)return {nodeEl,invalid:true};
-  const rows=[...nodeEl.querySelectorAll('.graph-card-row')].filter(row=>row.dataset.cardSlot===slot);
+  const rows=allRows.filter(row=>row.dataset.cardSlot===slot);
   const index=rows.findIndex(row=>{const r=row.getBoundingClientRect();return e.clientY<r.top+r.height/2;});
   return {nodeEl,slot,index:index<0?rows.length:index,rows,targetNodeId:node.id};
  }
@@ -48,11 +64,14 @@ export class CardDrag {
  paint(d){
   const g=this.graph;
   for(const el of g.root.querySelectorAll('.node')){el.classList.toggle('card-drop-target',false);el.classList.toggle('card-drop-invalid',false);}
+  for(const el of g.root.querySelectorAll('.graph-card-row,.node-heading')){el.classList.toggle('card-drop-replace',false);el.classList.toggle('card-drop-invalid',false);}
   const target=this.target(d,d);d.target=target;
-  this.ghost.textContent=`${d.copy?'+ Copy':'Move'} · ${d.name}`;
+  this.ghost.textContent=`${target?.header?'Introduction'+(d.copy?' (copy)':''):target?.targetPlacementId?'Replace'+(d.copy?' with copy':''):d.copy?'+ Copy':'Move'} · ${d.name}`;
   this.ghost.style.left=`${d.clientX+14}px`;this.ghost.style.top=`${d.clientY+14}px`;
   this.line.hidden=true;
   if(!target)return;
+  if(target.header){target.header.classList.toggle(target.invalid?'card-drop-invalid':'card-drop-replace',true);return;}
+  if(target.row){target.row.classList.toggle(target.invalid?'card-drop-invalid':'card-drop-replace',true);return;}
   target.nodeEl.classList.toggle(target.invalid?'card-drop-invalid':'card-drop-target',true);
   if(target.invalid)return;
   const bounds=target.nodeEl.getBoundingClientRect(),row=target.rows[target.index],last=target.rows.at(-1);
@@ -76,7 +95,7 @@ export class CardDrag {
   if(d.moved){
    const target=this.target(e,d);
    this.clear();
-   if(target&&!target.invalid)this.onTransfer({sourceNodeId:d.sourceNodeId,placementId:d.placementId,targetNodeId:target.targetNodeId,index:target.index,copy:!!e.altKey});
+   if(target&&!target.invalid)this.onTransfer({sourceNodeId:d.sourceNodeId,placementId:d.placementId,targetNodeId:target.targetNodeId,...(target.header?{targetSlot:'intro'}:target.targetPlacementId?{targetPlacementId:target.targetPlacementId}:{index:target.index}),copy:!!e.altKey});
    this.graph.root.focus({preventScroll:true});
   }else {
    this.clear();this.suppressClick=true;
@@ -87,6 +106,7 @@ export class CardDrag {
   if(this.frame)this.graph.root.ownerDocument.defaultView.cancelAnimationFrame(this.frame);
   this.frame=null;this.ghost?.remove();this.line?.remove();this.ghost=null;this.line=null;
   for(const el of this.graph.root.querySelectorAll('.node')){el.classList.toggle('card-drop-target',false);el.classList.toggle('card-drop-invalid',false);}
+  for(const el of this.graph.root.querySelectorAll('.graph-card-row,.node-heading')){el.classList.toggle('card-drop-replace',false);el.classList.toggle('card-drop-invalid',false);}
  }
  consumeClick(){const suppress=this.suppressClick;this.suppressClick=false;return suppress;}
 }

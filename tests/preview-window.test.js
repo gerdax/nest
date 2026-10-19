@@ -40,12 +40,25 @@ test('minimization keeps layout dimensions, hides interactions and focuses its t
  emit(f.toggle,'click');assert.equal(f.api.minimized,false);assert.equal(f.body.inert,false);assert.equal(f.body.getAttribute('aria-hidden'),null);assert.equal(f.root.styles.has('--preview-body-height'),false);assert.equal(f.toggle.getAttribute('aria-expanded'),'true');assert.equal(f.closes,0);f.api.destroy();
 });
 
-test('automatic show preserves minimization; manual show restores; close resets and calls onClose',()=>{
- const f=fixture();f.api.minimize();assert.equal(f.api.minimized,false);
- f.api.show();f.api.minimize();f.api.show({restore:false});assert.equal(f.api.minimized,true);assert.equal(f.body.inert,true);assert.equal(f.closes,0);
- f.api.show();assert.equal(f.api.minimized,false);assert.equal(f.body.inert,false);
- f.api.minimize();emit(f.close,'click');assert.equal(f.closes,1);assert.equal(f.root.hidden,true);assert.equal(f.api.minimized,false);assert.equal(f.body.inert,false);assert.equal(f.root.styles.has('--preview-body-height'),false);
- f.api.show({restore:false});assert.equal(f.root.hidden,false);assert.equal(f.api.minimized,false);f.api.destroy();assert.equal(f.closes,1);
+test('expanded close and reopen stays expanded; visible reports host visibility',()=>{
+ const f=fixture();assert.equal(f.api.visible,false);f.api.show();assert.equal(f.api.visible,true);
+ emit(f.close,'click');assert.equal(f.closes,1);assert.equal(f.api.visible,false);assert.equal(f.api.minimized,false);
+ f.api.show();assert.equal(f.api.visible,true);assert.equal(f.api.minimized,false);assert.equal(f.body.inert,false);f.api.destroy();
+});
+
+test('manual and autoplay minimized close/reopen preserve state; explicit show restore expands',()=>{
+ for(const mode of ['manual','autoplay']){
+  const f=fixture();f.api.show();f.api.minimize();assert.equal(f.api.minimized,true);
+  if(mode==='manual')emit(f.close,'click');else f.api.hide();
+  assert.equal(f.api.visible,false);assert.equal(f.api.minimized,true);assert.equal(f.body.inert,true);
+  f.api.show();assert.equal(f.api.visible,true);assert.equal(f.api.minimized,true);assert.equal(f.body.inert,true);assert.equal(f.closes,1);
+  assert.equal(f.root.styles.get('--preview-body-height'),'440px');
+  f.api.show({restore:true});assert.equal(f.api.minimized,false);assert.equal(f.body.inert,false);assert.equal(f.root.styles.has('--preview-body-height'),false);f.api.destroy();
+ }
+});
+
+test('toggle API changes minimized state',()=>{
+ const f=fixture();f.api.show();f.api.toggle();assert.equal(f.api.minimized,true);f.api.toggle();assert.equal(f.api.minimized,false);f.api.destroy();
 });
 
 test('minimized header drags and keyboard movement clamps to its own bounds',()=>{
@@ -64,6 +77,16 @@ test('resize keeps minimized state and body height current; restore clamps expan
  emit(f.viewport,'resize');assert.equal(f.api.minimized,true);assert.equal(f.body.inert,true);assert.equal(f.root.styles.get('--preview-body-height'),'234px');assert.equal(f.root.style.left,'8px');assert.equal(f.root.style.top,'242px');assert.equal(f.body.style.visibility,undefined);
  f.api.restore();assert.equal(f.root.style.top,'8px');assert.equal(f.body.inert,false);assert.equal(f.root.styles.has('--preview-body-height'),false);
  f.api.hide();f.root.style.top='123px';emit(f.viewport,'resize');assert.equal(f.root.style.top,'123px');f.api.destroy();
+});
+
+test('reopening after hidden viewport resize refreshes body height and clamps without restoring',()=>{
+ const f=fixture();f.api.show();f.api.minimize();f.api.hide();
+ f.viewport.innerWidth=360;f.viewport.innerHeight=300;emit(f.viewport,'resize');
+ assert.equal(f.root.styles.get('--preview-body-height'),'440px');assert.equal(f.root.style.top,'100px');
+ f.root.style.left='900px';f.root.style.top='700px';f.api.show();
+ assert.equal(f.api.minimized,true);assert.equal(f.body.inert,true);assert.equal(f.body.getAttribute('aria-hidden'),'true');
+ assert.equal(f.root.styles.get('--preview-body-height'),'234px');assert.equal(f.root.style.left,'8px');assert.equal(f.root.style.top,'242px');assert.equal(f.body.style.visibility,undefined);
+ f.api.destroy();
 });
 
 test('non-primary input is ignored and close/destroy safely release capture and remove listeners',()=>{

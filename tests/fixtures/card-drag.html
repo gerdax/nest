@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Graph card transfer verification</title>
+<link rel="stylesheet" href="../../editor/editor.css">
+<link rel="stylesheet" href="../../studio/editor.css">
+<link rel="stylesheet" href="../../studio/graph-connectors.css">
+<style>body{display:block}header{padding:12px}#canvas{height:900px;width:100%}#result{display:block;padding:12px;white-space:pre-wrap}</style>
+<header><strong>Card transfer fixture</strong><button id="undo">Undo</button><button id="reset">Reset</button></header>
+<p>Drag names: centres replace, edges insert. Drop vignette/caption on a header to set its introduction. No project storage is used.</p>
+<div id="canvas" tabindex="0" aria-label="Chapter graph"></div><output id="result"></output>
+<script type="module">
+import {GraphView} from '../../studio/GraphView.js';
+import {createProject} from '../../project/model.js';
+import {createDefinition} from '../../project/cards.js';
+import {validateProject} from '../../project/validation.js';
+import {transactDocument} from '../../studio/document-session.js';
+import {applyDocumentCommand} from '../../studio/document-commands.js';
+import {LocalCardDrafts} from '../../studio/local-card-drafts.js';
+import {DocumentHistory} from '../../editor/DocumentHistory.js';
+const initial=createProject();
+initial.chapters[0].startNode='linear';
+initial.library=[['caption','caption','Caption'],['story','event','Vignette'],['item','item','Item'],['intro','event','Old introduction'],['fork-intro','caption','Fork introduction'],['choice','action','Action']].map(([id,kind,name])=>({...createDefinition(kind,id),name,visibility:'local',chapterId:initial.chapters[0].id}));
+const p=id=>({id:`p-${id}`,definitionId:id});
+initial.chapters[0].nodes=[
+{id:'linear',type:'linear',name:'Source',x:0,y:0,cards:[p('caption'),p('story'),p('item')],connections:{next:false}},
+{id:'container',type:'container',name:'Container',x:0,y:260,intro:p('intro'),introEnabled:true,items:[],connections:{next:false}},
+{id:'fork',type:'fork',name:'Fork',x:0,y:480,intro:p('fork-intro'),introEnabled:true,choices:[p('choice')],connections:{'p-choice':false}},
+];
+let history=new DocumentHistory(initial);
+const drafts=new LocalCardDrafts();
+const graph=new GraphView(document.querySelector('#canvas'),{onSelect(){},onConnect(){},onMove(){},onTransferCard(request){
+ const selection={chapterId:initial.chapters[0].id,selected:request.sourceNodeId,mode:'chapter'};
+ const {failure}=transactDocument(history,drafts,project=>applyDocumentCommand(project,selection,'transfer-card',request,drafts));
+ if(failure)throw new Error(failure);
+ render();
+}});
+function render(){const project=history.document;graph.render(project,project.chapters[0]);const issues=validateProject(project,{allowDraft:true});document.querySelector('#result').textContent=(issues.length?JSON.stringify(issues):'Valid project')+'\n'+JSON.stringify(project.chapters[0].nodes.map(({id,intro,introEnabled,cards,choices,items})=>({id,intro:introEnabled?intro?.id:null,cards:(cards||choices||items).map(p=>p.id)})),null,2);}
+document.querySelector('#undo').onclick=()=>{history.undo();render();};
+document.querySelector('#reset').onclick=()=>{history=new DocumentHistory(initial);render();};
+render();
+</script>
+</html>

@@ -9,6 +9,7 @@ import {DocumentHistory} from '../editor/DocumentHistory.js';
 import {normalizeLocalOwnership} from '../project/local-ownership.js';
 import {LocalCardDrafts} from '../studio/local-card-drafts.js';
 import {transactDocument} from '../studio/document-session.js';
+import {validateProject} from '../project/validation.js';
 
 function fixture(sourceType = 'linear', targetType = 'linear', kind = 'event') {
   const project = createProject(), chapter = project.chapters[0];
@@ -196,4 +197,377 @@ for (const copy of [false, true]) test(`transfer-card command is one undoable tr
   assert.equal(history.canRedo, true);
   assert.equal(history.redo(), true);
   assert.deepEqual(history.document, after);
+});
+
+for (const [from, to] of [[0,2], [2,0], [1,2], [2,1]]) {
+  test(`same-node replacement ${from} -> ${to} removes the displaced card without index drift`, () => {
+    const f = fixture();
+    const cards = ['a','b','c'].map(id => ({...f.placement, id}));
+    f.source.cards = [...cards];
+    const moved = transferCard(f.project, f.chapter, request(f, {
+      placementId:cards[from].id, targetNodeId:f.source.id, targetPlacementId:cards[to].id,
+    }));
+    assert.equal(moved, cards[from]);
+    assert.deepEqual(f.source.cards, cards.map((card, i) => i === to ? cards[from] : card).filter((_, i) => i !== from));
+  });
+}
+
+for (const copy of [false, true]) test(`dropping a card onto itself is unchanged (copy=${copy})`, () => {
+  const f = fixture(), before = structuredClone(f.project);
+  assert.equal(transferCard(f.project, f.chapter, request(f, {
+    targetNodeId:f.source.id, targetPlacementId:f.placement.id, copy,
+  })), null);
+  assert.deepEqual(f.project, before);
+});
+
+for (const kind of ['event', 'caption']) for (const type of ['fork','container']) {
+  test(`${kind} replaces ${type} introduction as a slot and enables it`, () => {
+    const f = fixture('linear', type, kind), displaced = f.target.intro;
+    assert.equal(transferCard(f.project, f.chapter, request(f, {targetPlacementId:displaced.id, index:undefined})), f.placement);
+    assert.equal(f.target.intro, f.placement);
+    assert.equal(f.target.introEnabled, true);
+    assert.equal(f.definition.kind, kind);
+    assert.deepEqual(f.source.cards, []);
+    assert.equal(f.target[cardTransferSlot(f.target)].some(p => p.id === displaced.id), false);
+  });
+}
+
+for (const copy of [false,true]) test(`incompatible introduction replacement has no mutations (copy=${copy})`, () => {
+  const f = fixture('linear','fork','action'), before = structuredClone(f.project);
+  assert.equal(transferCard(f.project, f.chapter, request(f, {targetPlacementId:f.target.intro.id, copy})), null);
+  assert.deepEqual(f.project, before);
+});
+
+test('unknown replacement id rejects before copy preparation', () => {
+  const f = fixture(), before = structuredClone(f.project);
+  assert.equal(transferCard(f.project, f.chapter, request(f, {targetPlacementId:'missing', copy:true})), null);
+  assert.deepEqual(f.project, before);
+});
+
+for (const copy of [false,true]) for (const replace of [false,true]) {
+  test(`introduction transfers to an array (copy=${copy}, replacement=${replace})`, () => {
+    const f = fixture('fork','linear','event'), intro = f.source.intro;
+    f.source.introEnabled = true;
+    const targetCard = f.target.cards[0];
+    const moved = transferCard(f.project, f.chapter, request(f, {
+      placementId:intro.id, copy, ...(replace ? {targetPlacementId:targetCard.id} : {}),
+    }));
+    assert.ok(moved);
+    assert.equal(f.target.cards[0], moved);
+    assert.equal(f.target.cards.length, replace ? 1 : 2);
+    if (copy) {
+      assert.equal(f.source.intro, intro);
+      assert.equal(f.source.introEnabled, true);
+      assert.notEqual(moved.id, intro.id);
+    } else {
+      assert.equal(moved, intro);
+      assert.equal(f.source.intro, undefined);
+      assert.equal(f.source.introEnabled, false);
+    }
+  });
+}
+
+for (const copy of [false,true]) test(`introduction replaces introduction (copy=${copy})`, () => {
+  const f = fixture('container','fork','item'), intro = f.source.intro;
+  f.source.introEnabled = true;
+  const moved = transferCard(f.project, f.chapter, request(f, {
+    placementId:intro.id, targetPlacementId:f.target.intro.id, copy,
+  }));
+  assert.ok(moved);
+  assert.equal(f.target.intro, moved);
+  assert.equal(f.target.introEnabled, true);
+  assert.equal(f.source.introEnabled, copy);
+  if (copy) assert.equal(f.source.intro, intro);
+  else {
+    assert.ok(f.source.intro);
+    assert.notEqual(f.source.intro.id, intro.id);
+    assert.notEqual(f.source.intro.definitionId, intro.definitionId);
+  }
+  assert.equal(Object.hasOwn(f.target.connections, moved.id), false);
+});
+
+for (const reverse of [false,true]) test(`same Fork transfer between intro and choices (reverse=${reverse})`, () => {
+  const f = fixture('fork','fork','event'), intro = f.source.intro;
+  f.source.connections = {[f.placement.id]:'arrival', [`${f.placement.id}:stale`]:'stale'};
+  const moved = transferCard(f.project, f.chapter, request(f, {
+    targetNodeId:f.source.id, placementId:reverse ? intro.id : f.placement.id,
+    targetPlacementId:reverse ? f.placement.id : intro.id,
+  }));
+  assert.ok(moved);
+  if (reverse) {
+    assert.equal(f.source.intro, undefined);
+    assert.equal(f.source.introEnabled, false);
+    assert.deepEqual(f.source.choices, [intro]);
+    assert.deepEqual(f.source.connections, {[intro.id]:false});
+  } else {
+    assert.equal(f.source.intro, f.placement);
+    assert.equal(f.source.introEnabled, true);
+    assert.deepEqual(f.source.choices, []);
+    assert.deepEqual(f.source.connections, {});
+  }
+});
+
+for (const sameNode of [false,true]) for (const copy of [false,true]) {
+  test(`Fork replacement cleans displaced edges and carries only moved choice edges (sameNode=${sameNode}, copy=${copy})`, () => {
+    const f = fixture('fork','fork','action');
+    f.definition.resolution = 'check';
+    const target = sameNode ? f.source : f.target;
+    const displaced = {...f.placement, id:'displaced'};
+    target.choices.push(displaced);
+    f.source.connections = {[`${f.placement.id}:success`]:'arrival', [`${f.placement.id}:failure`]:null};
+    target.connections = {...target.connections, displaced:'old', 'displaced:success':'old', 'displaced:failure':null, keep:false};
+    const moved = transferCard(f.project, f.chapter, request(f, {
+      targetNodeId:target.id, targetPlacementId:displaced.id, copy,
+    }));
+    assert.ok(moved);
+    assert.equal(target.choices.includes(displaced), false);
+    assert.equal(Object.keys(target.connections).some(key => key.startsWith('displaced')), false);
+    assert.equal(target.connections[`${moved.id}:success`], copy ? false : 'arrival');
+    assert.equal(target.connections[`${moved.id}:failure`], copy ? false : null);
+    assert.equal(target.connections.keep, false);
+    if (!copy && !sameNode) assert.deepEqual(f.source.connections, {});
+    if (copy) assert.equal(f.source.connections[`${f.placement.id}:success`], 'arrival');
+  });
+}
+
+for (const intro of [false,true]) test(`replacement command restores displaced placement and edges on undo (intro=${intro})`, () => {
+  const f = fixture('linear','fork', intro ? 'caption' : 'action');
+  const displaced = intro ? f.target.intro : f.target.choices[0];
+  f.target.connections[displaced.id] = null;
+  normalizeLocalOwnership(f.project);
+  const history = new DocumentHistory(f.project), drafts = new LocalCardDrafts();
+  const selection = {chapterId:f.chapter.id, selected:f.source.id, mode:'chapter'};
+  const before = structuredClone(history.document);
+  const {result, failure} = transactDocument(history, drafts, draft => applyDocumentCommand(draft, selection,
+    'transfer-card', request(f, {targetPlacementId:displaced.id}), drafts));
+  assert.equal(failure, undefined);
+  assert.ok(result.value);
+  const after = structuredClone(history.document);
+  assert.equal(history.undo(), true);
+  assert.deepEqual(history.document, before);
+  assert.equal(history.redo(), true);
+  assert.deepEqual(history.document, after);
+});
+
+for (const copy of [false,true]) test(`cross-chapter intro replacement preserves move/copy behavior and does not create choice edges (copy=${copy})`, () => {
+  const f = fixture('fork','fork','event');
+  f.source.intro = f.placement;
+  f.source.choices = [];
+  f.source.introEnabled = true;
+  const destination = createChapter('destination');
+  f.chapter.nodes.splice(f.chapter.nodes.indexOf(f.target), 1);
+  destination.nodes.push(f.target);
+  f.project.chapters.push(destination);
+  const moved = transferCard(f.project, destination, request(f, {
+    sourceChapterId:f.chapter.id, targetPlacementId:f.target.intro.id, copy,
+  }));
+  assert.ok(moved);
+  assert.equal(f.target.intro, moved);
+  assert.equal(f.target.introEnabled, true);
+  assert.equal(f.source.introEnabled, copy);
+  assert.equal(f.source.intro, copy ? f.placement : undefined);
+  assert.equal(Object.hasOwn(f.target.connections, moved.id), false);
+  if (copy) assert.notEqual(moved.definitionId, f.definition.id);
+});
+
+
+for (const replace of [false,true]) test(`moving a Container introduction preserves a fresh hidden valid slot (replacement=${replace})`, () => {
+  const f = fixture('container','linear','item'), intro = f.source.intro;
+  f.source.introEnabled = true;
+  normalizeLocalOwnership(f.project);
+  synchronizeConnections(f.project);
+  assert.deepEqual(validateProject(f.project, {allowDraft:true}), []);
+  const targetCard = f.target.cards[0];
+  const moved = transferCard(f.project, f.chapter, request(f, {
+    placementId:intro.id, ...(replace ? {targetPlacementId:targetCard.id} : {}),
+  }));
+  assert.equal(moved, intro);
+  const fresh = f.source.intro;
+  assert.ok(fresh);
+  assert.notEqual(fresh.id, moved.id);
+  assert.notEqual(fresh.definitionId, moved.definitionId);
+  assert.equal(f.source.introEnabled, false);
+  const definition = f.project.library.find(card => card.id === fresh.definitionId);
+  assert.equal(definition.kind, 'event');
+  assert.equal(definition.text, '');
+  assert.equal(definition.visibility, 'local');
+  assert.equal(definition.chapterId, f.chapter.id);
+  assert.deepEqual(validateProject(f.project, {allowDraft:true}), []);
+  const selection = {chapterId:f.chapter.id, selected:f.source.id, mode:'chapter'};
+  applyDocumentCommand(f.project, selection, 'field', {
+    scope:'node', path:'introEnabled', checked:true, inputType:'checkbox',
+  }, new LocalCardDrafts());
+  assert.equal(f.source.introEnabled, true);
+  assert.equal(f.source.intro, fresh);
+  assert.deepEqual(validateProject(f.project, {allowDraft:true}), []);
+});
+
+const headerRequest = (f, extra = {}) => ({
+  sourceNodeId:f.source.id, placementId:f.placement.id, targetNodeId:f.target.id, targetSlot:'intro', ...extra,
+});
+
+for (const type of ['fork','container']) for (const kind of ['event','caption']) {
+  for (const state of ['enabled','disabled','missing']) for (const copy of [false,true]) {
+    test(`header ${kind} ${copy ? 'copy' : 'move'} targets ${state} ${type} introduction`, () => {
+      const f = fixture('linear', type, kind);
+      if (state === 'missing') delete f.target.intro;
+      f.target.introEnabled = state === 'enabled';
+      const sourceBefore = structuredClone(f.source);
+      const moved = transferCard(f.project, f.chapter, headerRequest(f, {copy}));
+      assert.ok(moved);
+      assert.equal(f.target.intro, moved);
+      assert.equal(f.target.introEnabled, true);
+      assert.equal(f.project.library.find(d => d.id === moved.definitionId).kind, kind);
+      assert.equal(Object.hasOwn(f.target.connections, moved.id), false);
+      if (copy) {
+        assert.deepEqual(f.source, sourceBefore);
+        assert.notEqual(moved.id, f.placement.id);
+        assert.notEqual(moved.definitionId, f.definition.id);
+      } else {
+        assert.equal(moved, f.placement);
+        assert.deepEqual(f.source.cards, []);
+      }
+    });
+  }
+}
+
+for (const sourceType of ['fork','container']) for (const copy of [false,true]) {
+  test(`${sourceType} introduction ${copy ? 'copy' : 'move'} onto missing Fork header`, () => {
+    const f = fixture(sourceType, 'fork'), intro = f.source.intro;
+    delete f.target.intro;
+    f.source.introEnabled = true;
+    const moved = transferCard(f.project, f.chapter, headerRequest(f, {placementId:intro.id, copy}));
+    assert.ok(moved);
+    assert.equal(f.target.intro, moved);
+    assert.equal(f.target.introEnabled, true);
+    if (copy) {
+      assert.equal(f.source.intro, intro);
+      assert.notEqual(moved.id, intro.id);
+    } else {
+      assert.equal(moved, intro);
+      assert.equal(f.source.introEnabled, false);
+      if (sourceType === 'container') {
+        assert.ok(f.source.intro);
+        assert.notEqual(f.source.intro.id, intro.id);
+        assert.equal(f.project.library.find(d => d.id === f.source.intro.definitionId).kind, 'event');
+      } else assert.equal(f.source.intro, undefined);
+    }
+  });
+}
+
+for (const type of ['fork','container']) for (const enabled of [false,true]) for (const copy of [false,true]) {
+  test(`own ${type} introduction header is unchanged (enabled=${enabled}, copy=${copy})`, () => {
+    const f = fixture(type, type);
+    f.source.introEnabled = enabled;
+    const before = structuredClone(f.project);
+    assert.equal(transferCard(f.project, f.chapter, headerRequest(f, {
+      targetNodeId:f.source.id, placementId:f.source.intro.id, copy,
+    })), null);
+    assert.deepEqual(f.project, before);
+  });
+}
+
+for (const copy of [false,true]) test(`invalid header requests reject without mutations (copy=${copy})`, () => {
+  for (const kind of ['action','item','health','energy']) {
+    const f = fixture('linear','fork',kind), before = structuredClone(f.project);
+    assert.equal(transferCard(f.project, f.chapter, headerRequest(f, {copy})), null);
+    assert.deepEqual(f.project, before);
+  }
+  for (const type of ['linear','random','legacySequence','unknown']) {
+    const f = fixture();
+    f.target.type = type;
+    // Even an intro-shaped property cannot add an unsupported node slot.
+    f.target.intro = {...f.placement, id:'fake-intro'};
+    const before = structuredClone(f.project);
+    assert.equal(transferCard(f.project, f.chapter, headerRequest(f, {copy})), null);
+    assert.deepEqual(f.project, before);
+  }
+  for (const extra of [
+    {targetSlot:'choices'}, {targetSlot:'cards'}, {targetSlot:null}, {targetSlot:''},
+    {targetPlacementId:'missing'}, {targetPlacementId:'choice'},
+  ]) {
+    const f = fixture('linear','fork');
+    f.target.choices[0].id = 'choice';
+    const before = structuredClone(f.project);
+    assert.equal(transferCard(f.project, f.chapter, headerRequest(f, {...extra, copy})), null);
+    assert.deepEqual(f.project, before);
+  }
+});
+
+test('header accepts a matching introduction replacement id', () => {
+  const f = fixture('linear','fork');
+  assert.equal(transferCard(f.project, f.chapter, headerRequest(f, {targetPlacementId:f.target.intro.id})), f.placement);
+  assert.equal(f.target.intro, f.placement);
+});
+
+for (const copy of [false,true]) test(`same Fork choice to header cleans only moved outputs (copy=${copy})`, () => {
+  const f = fixture('fork','fork');
+  delete f.source.intro;
+  f.source.connections = {[f.placement.id]:'arrival', [`${f.placement.id}:stale`]:null, keep:false};
+  const before = structuredClone(f.source.connections);
+  const moved = transferCard(f.project, f.chapter, headerRequest(f, {targetNodeId:f.source.id, copy}));
+  assert.ok(moved);
+  assert.equal(f.source.intro, moved);
+  assert.equal(f.source.introEnabled, true);
+  assert.deepEqual(f.source.choices, copy ? [f.placement] : []);
+  assert.deepEqual(f.source.connections, copy ? before : {keep:false});
+});
+
+for (const state of ['enabled','disabled','missing']) for (const copy of [false,true]) {
+  test(`header transfer command validates and restores ${state} introduction (copy=${copy})`, () => {
+    const f = fixture('linear','fork','caption');
+    if (state === 'missing') delete f.target.intro;
+    f.target.introEnabled = state === 'enabled';
+    normalizeLocalOwnership(f.project);
+    synchronizeConnections(f.project);
+    assert.deepEqual(validateProject(f.project, {allowDraft:true}), []);
+    const history = new DocumentHistory(f.project), drafts = new LocalCardDrafts();
+    const selection = {chapterId:f.chapter.id, selected:f.source.id, mode:'chapter'};
+    const before = structuredClone(history.document);
+    const {result, failure} = transactDocument(history, drafts, draft => applyDocumentCommand(draft, selection,
+      'transfer-card', headerRequest(f, {copy}), drafts));
+    assert.equal(failure, undefined);
+    assert.ok(result.value);
+    assert.deepEqual(result.selection, {selected:f.target.id, mode:'chapter'});
+    assert.deepEqual(validateProject(history.document, {allowDraft:true}), []);
+    const after = structuredClone(history.document);
+    assert.equal(history.undo(), true);
+    assert.deepEqual(history.document, before);
+    assert.equal(history.redo(), true);
+    assert.deepEqual(history.document, after);
+    assert.deepEqual(validateProject(history.document, {allowDraft:true}), []);
+  });
+}
+
+for (const copy of [false,true]) test(`cross-chapter header transfer remaps dependencies and variables (copy=${copy})`, () => {
+  const f = fixture('linear','fork');
+  const variable = {id:'header-flag', name:'Header flag', type:'flag', initial:false};
+  f.chapter.variables = [variable];
+  const item = {...createDefinition('item','header-item'), visibility:'local', chapterId:f.chapter.id,
+    onCollect:[{op:'set', key:variable.id, value:true}]};
+  f.project.library.push(item);
+  f.definition.effects = [{op:'addItem', key:item.id}];
+  f.placement.conditions = [{source:'variable', key:variable.id, op:'eq', value:true}];
+  const destination = createChapter('header-destination');
+  f.chapter.nodes.splice(f.chapter.nodes.indexOf(f.target), 1);
+  destination.nodes.push(f.target);
+  delete f.target.intro;
+  f.project.chapters.push(destination);
+  const sourceBefore = structuredClone([f.source, f.definition, item]);
+  const moved = transferCard(f.project, destination, headerRequest(f, {sourceChapterId:f.chapter.id, copy}));
+  assert.ok(moved);
+  assert.equal(f.target.intro, moved);
+  assert.equal(f.target.introEnabled, true);
+  assert.equal(moved.id === f.placement.id, !copy);
+  const movedDefinition = f.project.library.find(d => d.id === moved.definitionId);
+  const movedItem = f.project.library.find(d => d.id === movedDefinition.effects[0].key);
+  assert.notEqual(movedDefinition.id, f.definition.id);
+  assert.notEqual(movedItem.id, item.id);
+  assert.notEqual(destination.variables[0].id, variable.id);
+  assert.equal(moved.conditions[0].key, destination.variables[0].id);
+  assert.equal(movedItem.onCollect[0].key, destination.variables[0].id);
+  assert.deepEqual([f.definition, item], sourceBefore.slice(1));
+  if (copy) assert.deepEqual(f.source, sourceBefore[0]);
+  else assert.deepEqual(f.source.cards, []);
+  assert.equal(Object.hasOwn(f.target.connections, moved.id), false);
 });

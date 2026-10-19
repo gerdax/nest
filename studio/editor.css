@@ -27,7 +27,10 @@ main {grid-template-columns:minmax(0,1fr) 430px;}
 #preview [data-go-to-card]:hover {color:#dce5ce;}
 #library-panel { height:100%;overflow:auto;padding:24px; }
 #library-panel h1 {font-size:22px;margin-top:0;}
-#library-search { max-width:480px;margin-bottom:18px; }
+.library-search-controls {display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:18px;}
+#library-search {flex:1 1 220px;max-width:480px;margin:0;}
+.library-search-controls .check-field {white-space:nowrap;}
+.library-entry.library-entry-incompatible {filter:grayscale(1);opacity:.4;}
 #library-list { display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px; }
 .library-entry { text-align:left;min-height:90px;display:flex;flex-direction:column;gap:12px; }
 .library-entry span {font-size:12px;color:#9fb7af;}

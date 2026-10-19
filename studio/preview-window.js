@@ -27,6 +27,12 @@ export function mountPreviewWindow(root,{onClose=()=>{}}={}) {
   // Preserve the expanded viewport for the still-running deck while the host collapses.
   root.style.setProperty('--preview-body-height',`${body.getBoundingClientRect().height}px`);
  };
+ const measureMinimizedBody=()=>{
+  if(!minimized)return;
+  // Read the natural height at the current viewport without changing state or focus.
+  root.classList.remove('minimized');body.style.visibility='hidden';
+  measureBody();root.classList.add('minimized');body.style.removeProperty('visibility');
+ };
  const restore=()=>{
   minimized=false;updateState();root.style.removeProperty('--preview-body-height');
   if(!root.hidden)clamp();
@@ -35,9 +41,10 @@ export function mountPreviewWindow(root,{onClose=()=>{}}={}) {
   if(root.hidden||minimized)return;
   measureBody();minimized=true;updateState();toggle.focus();clamp();
  };
- const show=({restore:shouldRestore=true}={})=>{
+ const show=({restore:shouldRestore=false}={})=>{
   root.hidden=false;measureBar();
   if(shouldRestore)restore();
+  else measureMinimizedBody();
   if(!placed){position(400,100);placed=true;}
   else clamp();
  };
@@ -46,7 +53,7 @@ export function mountPreviewWindow(root,{onClose=()=>{}}={}) {
   const previous=drag;drag=null;root.classList.remove('dragging');
   if(previous&&handle.hasPointerCapture(previous.id))handle.releasePointerCapture(previous.id);
  };
- const hide=()=>{cancel();onClose();root.hidden=true;restore();};
+ const hide=()=>{cancel();onClose();root.hidden=true;};
  const down=e=>{
   if(e.button!==0||e.isPrimary===false)return;
   const rect=root.getBoundingClientRect();drag={id:e.pointerId,x:e.clientX,y:e.clientY,left:rect.left,top:rect.top};
@@ -61,11 +68,7 @@ export function mountPreviewWindow(root,{onClose=()=>{}}={}) {
  };
  const resize=()=>{
   if(root.hidden)return;
-  if(minimized){
-   // Read the new natural body height without showing it or changing focus/state.
-   root.classList.remove('minimized');body.style.visibility='hidden';
-   measureBody();root.classList.add('minimized');body.style.removeProperty('visibility');
-  }
+  measureMinimizedBody();
   clamp();
  };
  const toggleState=()=>{if(minimized)restore();else minimize();};
@@ -73,5 +76,5 @@ export function mountPreviewWindow(root,{onClose=()=>{}}={}) {
  handle.addEventListener('pointerdown',down);handle.addEventListener('pointermove',move);
  for(const name of ['pointerup','pointercancel','lostpointercapture'])handle.addEventListener(name,up);
  handle.addEventListener('keydown',key);close.addEventListener('click',hide);toggle.addEventListener('click',toggleState);window.addEventListener('resize',resize);
- return {show,hide,minimize,restore,get minimized(){return minimized;},destroy(){cancel();barObserver?.disconnect();root.style.removeProperty('--preview-bar-height');handle.removeEventListener('pointerdown',down);handle.removeEventListener('pointermove',move);for(const name of ['pointerup','pointercancel','lostpointercapture'])handle.removeEventListener(name,up);handle.removeEventListener('keydown',key);close.removeEventListener('click',hide);toggle.removeEventListener('click',toggleState);window.removeEventListener('resize',resize);}};
+ return {show,hide,minimize,restore,toggle:toggleState,get minimized(){return minimized;},get visible(){return !root.hidden;},destroy(){cancel();barObserver?.disconnect();root.style.removeProperty('--preview-bar-height');handle.removeEventListener('pointerdown',down);handle.removeEventListener('pointermove',move);for(const name of ['pointerup','pointercancel','lostpointercapture'])handle.removeEventListener(name,up);handle.removeEventListener('keydown',key);close.removeEventListener('click',hide);toggle.removeEventListener('click',toggleState);window.removeEventListener('resize',resize);}};
 }

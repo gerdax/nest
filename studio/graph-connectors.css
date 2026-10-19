@@ -32,8 +32,12 @@
 .node-create-types button:hover,.node-create-types button:focus-visible {background:#3a4d4e;border-color:#a2d3c3;outline:none;color:#e9eee9;}
 .node-create-menu .graph-beat-icon {position:static;transform:none;width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;pointer-events:none;}
 
-/* Card moves use the name; introductions remain fixed. */
-#canvas .graph-card-row:not([data-card-slot="intro"]) .graph-card-name {touch-action:none;user-select:none;}
+/* Card names drag both ordinary cards and introductions. */
+#canvas .graph-card-name {touch-action:none;user-select:none;}
+#canvas .graph-card-row.card-drop-replace {box-shadow:inset 0 0 0 2px #b7e4d3;background:color-mix(in srgb,var(--card-editor-tint) 30%,#202b2e);}
+#canvas .graph-card-row.card-drop-invalid {box-shadow:inset 0 0 0 2px #c67979;}
+#canvas .node-heading.card-drop-replace {box-shadow:inset 0 0 0 2px #b7e4d3;background:#314641;}
+#canvas .node-heading.card-drop-invalid {box-shadow:inset 0 0 0 2px #c67979;}
 #canvas .node.card-drop-target {outline:2px solid #b7e4d3;}
 #canvas .node.card-drop-invalid {outline:2px solid #c67979;}
 .card-drag-ghost {position:fixed;z-index:1100;pointer-events:none;max-width:260px;padding:8px 12px;border:1px solid #91b8ab;border-radius:6px;background:#263735e8;color:#e1e8e6;font-size:12px;box-shadow:0 4px 16px #0006;}

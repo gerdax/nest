@@ -6,6 +6,7 @@ import { chapterVariables, createChapter, importChapter, outputsForNode } from '
 import { deleteDefinition, cleanupLocalDefinitions, definitionGraph } from '../project/dependencies.js';
 import { pasteNodeClipboard } from './node-clipboard.js';
 import { transferCard } from './card-transfer.js';
+import { appendLibraryCard } from './library-cards.js';
 import { sortedChapters } from '../project/chapter-navigation.js';
 import {
   uid, createNode, makePlacement, promoteCard, duplicateNode, duplicatePlacement,
@@ -172,6 +173,10 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
     }
     case 'paste-artwork': Object.assign(project.library.find(card => card.id === data.id), data.settings); break;
     case 'cleanup-local': return {value:cleanupLocalDefinitions(project)};
+    case 'add-library-card': {
+      const added = appendLibraryCard(project, chapter, node, data.definitionId);
+      return added ? {value:added.id} : {};
+    }
     case 'select-chapter': {
       const target = project.chapters.find(c => c.id === data.id);
       project.activeChapterId = target.id;

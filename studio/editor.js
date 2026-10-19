@@ -31,6 +31,8 @@ import { applyDocumentCommand, documentScope } from './document-commands.js';
 import { transactDocument } from './document-session.js';
 import { mountProjectSettingsWindow } from './project-settings-window.js';
 import { mountHistoryShortcuts } from './history-shortcuts.js';
+import { libraryCardSlot, mountLibraryCardActions } from './library-cards.js';
+import { mountViewShortcuts } from './view-shortcuts.js';
 
 const $=s=>document.querySelector(s),loaded=loadProject();
 let copiedArtwork = null;
@@ -154,7 +156,12 @@ function renderInspector({collapseCards=false,preserveProjectSettings=false}={})
 function renderLibrary(){
  const query=$('#library-search').value.toLowerCase();
  const dependencies=definitionGraph(project);
- $('#library-list').innerHTML=project.library.filter(d=>d.visibility!=='local'&&`${d.name} ${cardKinds[d.kind]?.label||d.kind} ${d.kind}`.toLowerCase().includes(query)).map(d=>`<button type="button" data-definition="${esc(d.id)}" class="library-entry card-panel ${d.id===definitionId?'selected':''}" data-card-type="${esc(d.kind)}" style="--card-editor-tint:${esc(cardEditorTint(d.kind))}"><strong>${esc(d.name)}</strong><span>${esc(cardKinds[d.kind]?.label||d.kind)} · ${dependencies.users(d.id).length} uses</span></button>`).join('');
+ const match=$('#library-match-beat').checked;
+ $('#library-list').innerHTML=project.library.filter(d=>d.visibility!=='local'&&`${d.name} ${cardKinds[d.kind]?.label||d.kind} ${d.kind}`.toLowerCase().includes(query)).map(d=>{
+  const compatible=!!libraryCardSlot(node(),d);
+  const hint=compatible?`Double-click to add to ${node().name}`:node()?'Cannot add this card type to the selected beat. Click to inspect.':'Select a beat to add this card. Click to inspect.';
+  return `<button type="button" data-definition="${esc(d.id)}" class="library-entry card-panel ${d.id===definitionId?'selected':''} ${match&&!compatible?'library-entry-incompatible':''}" data-card-type="${esc(d.kind)}" title="${esc(hint)}" style="--card-editor-tint:${esc(cardEditorTint(d.kind))}"><strong>${esc(d.name)}</strong><span>${esc(cardKinds[d.kind]?.label||d.kind)} · ${dependencies.users(d.id).length} uses</span></button>`;
+ }).join('');
 }
 function render({preserveProjectSettings=false}={}){
  graph.cancelCreation();
@@ -273,8 +280,21 @@ function command(event){const b=event.target.closest('[data-command]');if(!b)ret
  edit('inspector',{...b.dataset,placement:b.dataset.placement??event.target.closest('[data-placement]')?.dataset.placement});
 }
 for(const root of [$('#inspector'),$('#settings'),$('#project-settings-content')])root.addEventListener('click',command);
-$('#library-list').onclick=e=>{const b=e.target.closest('[data-definition]');if(b){definitionId=b.dataset.definition;renderLibrary();renderInspector();}};
+mountLibraryCardActions($('#library-list'),{
+ onOpen:id=>{
+  definitionId=id;
+  // Keep the clicked element mounted so the browser can deliver its dblclick.
+  for(const entry of $('#library-list').querySelectorAll('[data-definition]'))entry.classList.toggle('selected',entry.dataset.definition===id);
+  renderInspector();
+ },
+ onAdd:id=>{
+  const card=project.library.find(d=>d.id===id);
+  if(!libraryCardSlot(node(),card))return;
+  preview.stop();edit('add-library-card',{definitionId:id});
+ },
+});
 $('#library-search').oninput=renderLibrary;
+$('#library-match-beat').onchange=renderLibrary;
 $('#cleanup-local').onclick=()=>{
  const result=edit('cleanup-local');
  if(result.ok)report(result.value?`Removed ${result.value} unused local card${result.value===1?'':'s'}. Undo restores them.`:'No unused local cards.');
@@ -326,6 +346,15 @@ function travel(method){
 }
 $('#undo').onclick=()=>travel('undo');$('#redo').onclick=()=>travel('redo');
 const stopHistoryShortcuts=mountHistoryShortcuts(document,{undo:()=>$('#undo').click(),redo:()=>$('#redo').click()});
+const stopViewShortcuts=mountViewShortcuts(document,{
+ libraryActive:()=>mode==='library',
+ enabled:()=>$('#project-settings-overlay').hidden&&!graph.drag&&!graph.pending&&!graph.creation&&!preview.deck?.input?.active,
+ switchView:()=>{
+  graph.cancel();mode=mode==='chapter'?'library':'chapter';render();
+  $(mode==='chapter'?'#canvas':'#library-panel').focus({preventScroll:true});
+ },
+ togglePreview:()=>{if(!previewWindow.visible)return false;previewWindow.toggle();},
+});
 function download(value,name){downloadText(JSON.stringify(value,null,2),name,'application/json');}
 function downloadText(text,name,type='text/plain'){const url=URL.createObjectURL(new Blob([text],{type}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 let recoveryDownload;
@@ -353,7 +382,7 @@ function bindImport(input,kind){
 }
 bindImport($('#import'),'project');
 bindImport($('#import-chapter'),'chapter');
-function play(startNode,{restore=true,chapterId:targetChapterId=chapterId}={}){try{previewWindow.show({restore});preview.play(project,targetChapterId,startNode,{focus:!previewWindow.minimized});report('Chapter ready.');return true;}catch(error){report(error.message);return false;}}
+function play(startNode,{restore=false,chapterId:targetChapterId=chapterId}={}){try{previewWindow.show({restore});preview.play(project,targetChapterId,startNode,{focus:!previewWindow.minimized});report('Chapter ready.');return true;}catch(error){report(error.message);return false;}}
 $('#play').onclick=()=>play();$('#play-node').onclick=()=>play(selected);
-window.addEventListener('pagehide',event=>{if(event.persisted)return;graph.cancel();stopHistoryShortcuts();stopNodeClipboardShortcuts();stopDrawerDebug();autoplay.destroy();previewWindow.destroy();projectSettingsWindow.destroy();preview.destroy();});
+window.addEventListener('pagehide',event=>{if(event.persisted)return;graph.cancel();stopHistoryShortcuts();stopNodeClipboardShortcuts();stopViewShortcuts();stopDrawerDebug();autoplay.destroy();previewWindow.destroy();projectSettingsWindow.destroy();preview.destroy();});
 render();graph.fit();if(loaded.error||loaded.recovery)report('');else if(loaded.migrated)report('Legacy save loaded; original browser save preserved.');else report(loaded.project?'Saved in this browser.':'Not saved yet.');
