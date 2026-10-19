@@ -119,7 +119,7 @@ export function stageActionDeck(deck, content, selectedIndex = null, previous = 
       const card = previous.cards[oldIndex], layer = previous.cardLayers[oldIndex];
       const oldAction = previous.content.actions[oldIndex];
       let title = previous.cardTitles[oldIndex], back = previous.cardBacks[oldIndex];
-      if (oldAction.label !== action.label || oldAction.heading !== action.heading || oldAction.inventoryLabel !== action.inventoryLabel || oldAction.summary !== action.summary || oldAction.text !== action.text || oldAction.cardKind !== action.cardKind || (oldAction.image ?? previous.content.image ?? '') !== (action.image ?? content.image ?? '') || flipped(oldAction) !== flipped(action) || ['imageScale','imageOffsetX','imageOffsetY'].some(key=>oldAction[key]!==action[key])) {
+      if (oldAction.label !== action.label || oldAction.heading !== action.heading || oldAction.inventoryLabel !== action.inventoryLabel || oldAction.summary !== action.summary || oldAction.text !== action.text || oldAction.cardKind !== action.cardKind || oldAction.value !== action.value || (oldAction.image ?? previous.content.image ?? '') !== (action.image ?? content.image ?? '') || flipped(oldAction) !== flipped(action) || ['imageScale','imageOffsetX','imageOffsetY'].some(key=>oldAction[key]!==action[key])) {
         card.replaceChildren();
         card.style.backgroundImage = '';
         title = deck.decorate(card, action.image ?? content.image ?? '', action.heading || '', action.cardKind ? action.text || '' : action.label, flipped(action), action);
@@ -223,11 +223,18 @@ export function decorateCard(deck, element, image, title, text, flipImage = fals
   }
   if (!actionCard) copy.append(body);
   element.append(copy, artwork, cardTexture());
-  if (['action','item'].includes(presentation.cardKind)) {
+  if (['action','item','health','energy'].includes(presentation.cardKind)) {
     const typeLabel = document.createElement('span');
     typeLabel.className = 'nest-card-type';
     typeLabel.textContent = presentation.cardKind.toUpperCase();
     element.append(typeLabel);
+  }
+  if (['health','energy'].includes(presentation.cardKind)) {
+    const value = document.createElement('span');
+    value.className = 'nest-card-value';
+    value.textContent = `${presentation.value >= 0 ? '+' : ''}${presentation.value ?? 0}`;
+    value.setAttribute('aria-label', `${presentation.cardKind} ${value.textContent}`);
+    element.append(value);
   }
   return heading;
 }

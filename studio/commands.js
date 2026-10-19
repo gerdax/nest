@@ -1,5 +1,5 @@
 import { eligibleInventoryItems } from './item-options.js';
-import { createDefinition, resolvePlacement, isStoryKind } from '../project/cards.js';
+import { createDefinition, resolvePlacement, isStoryKind, isConsumableKind } from '../project/cards.js';
 import { chapterVariables,outputsForNode,connectionForOutput } from '../project/model.js';
 import { createNodeDefaults } from '../project/nodeTypes.js';
 import { definitionGraph } from '../project/dependencies.js';
@@ -148,6 +148,16 @@ export function customizeItem(project,placement) {
  if(definition?.kind!=='item')throw new Error('Custom Item rules need an Item definition.');
  const card=resolvePlacement(project,placement);
  placement.overrides={onCollect:structuredClone(card.onCollect??[]),permability:card.permability??0};
+ delete placement.effects;
+}
+export function customizeConsumable(project,placement) {
+ const definition=project.library.find(d=>d.id===placement.definitionId);
+ if(definition?.visibility==='local'){delete placement.overrides;return;}
+ if(!isConsumableKind(definition?.kind))throw new Error('Custom collection rules need a Health or Energy definition.');
+ // Resolved collection effects already contain the automatic resource gain.
+ // Copy only authored effects so toggling custom rules cannot add it twice.
+ const card={...definition,...placement.overrides};
+ placement.overrides={value:card.value??1,onCollect:structuredClone([...(card.onCollect??[]),...(placement.effects??[])])};
  delete placement.effects;
 }
 export function customizeStory(project,placement) {

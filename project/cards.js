@@ -5,8 +5,16 @@ export const cardKinds = Object.freeze({
   event: { label: 'Vignette', editorTint: '#b9fdc3', validate: card => typeof card.text === 'string' ? [] : ['Vignette text must be a string.'] },
   caption: { label: 'Caption', editorTint: '#e4ffeb', validate: card => typeof card.text === 'string' ? [] : ['Caption text must be a string.'] },
   action: { label: 'Action', editorTint: '#a59bea', validate: card => ['direct','check'].includes(card.resolution) ? [] : ['Action resolution must be direct or check.'] },
+  health: { label: 'Health', editorTint: '#efa3a3', validate: validateResourceCard },
+  energy: { label: 'Energy', editorTint: '#9edcff', validate: validateResourceCard },
   item: { label: 'Item', editorTint: '#dfcf78', validate: card => Array.isArray(card.onCollect) ? [] : ['Item collection effects must be a list.'] }
 });
+function validateResourceCard(card) {
+  return [...(Number.isFinite(card.value) ? [] : ['Value must be a finite number.']),
+    ...(Array.isArray(card.onCollect) ? [] : ['Collection effects must be a list.'])];
+}
+export const isConsumableKind = kind => ['health','energy'].includes(kind);
+export const resourceCollectionEffects = card => [{op:'add', key:card.kind, value:card.value}, ...(Array.isArray(card.onCollect) ? card.onCollect : [])];
 export const canonicalCardKind = kind => kind === 'narrative' ? 'event' : kind;
 export const cardEditorTint = kind => cardKinds[canonicalCardKind(kind)]?.editorTint || '#aab8bb';
 export const isStoryKind = kind => ['event','caption'].includes(canonicalCardKind(kind));
@@ -15,13 +23,15 @@ export const isStoryKind = kind => ['event','caption'].includes(canonicalCardKin
 export const collectionEffects = card => card.onCollect ?? card.effects ?? [];
 const actionOverrideKeys = Object.freeze(['conditions', 'costs', 'effects', 'resolution', 'check', 'successEffects', 'failureEffects']);
 const itemOverrideKeys = Object.freeze(['onCollect', 'permability']);
+const resourceOverrideKeys = Object.freeze(['value', 'onCollect']);
 const storyOverrideKeys = Object.freeze(['effects']);
-export const placementOverrideKeys = kind => canonicalCardKind(kind) === 'item' ? itemOverrideKeys : isStoryKind(kind) ? storyOverrideKeys : actionOverrideKeys;
+export const placementOverrideKeys = kind => isConsumableKind(kind) ? resourceOverrideKeys : canonicalCardKind(kind) === 'item' ? itemOverrideKeys : isStoryKind(kind) ? storyOverrideKeys : actionOverrideKeys;
 export function createDefinition(kind, id) {
   kind = canonicalCardKind(kind);
   if (!Object.hasOwn(cardKinds, kind)) throw new TypeError(`Unknown card kind: ${kind}`);
-  const base = { id, kind, name: `New ${cardKinds[kind].label}`, showName:kind==='item', text: '', image: '' };
+  const base = { id, kind, name: `New ${cardKinds[kind].label}`, showName:kind==='item'||isConsumableKind(kind), text: '', image: '' };
   if (isStoryKind(kind)) return { ...base, effects: [] };
+  if (isConsumableKind(kind)) return { ...base, value: 1, onCollect: [] };
   if (kind === 'item') return { ...base, onCollect: [], permability: 0 };
   return { ...base, conditions: [], costs: [], effects: [], resolution: 'direct', check: {pool: [{sides:20,count:1}], modifier:0,target:10}, successEffects: [], failureEffects: [] };
 }
@@ -34,6 +44,10 @@ export function resolvePlacement(project, placement, index) {
   );
   const base = {...definition, ...overrides, kind:canonicalCardKind(definition.kind)};
   const resolved = {...base, conditions:[...(base.conditions || []),...(placement.conditions || [])], effects:[...(base.effects || []),...(placement.effects || [])], id:placement.id, definitionId:definition.id, unavailable:placement.unavailable ?? 'disabled', inventoryKey:definition.inventoryKey ?? definition.id};
+  if (isConsumableKind(base.kind)) {
+    resolved.onCollect = [...resourceCollectionEffects(base), ...(placement.effects || [])];
+    resolved.effects = resolved.onCollect;
+  }
   if (base.kind === 'item') resolved.onCollect = [...collectionEffects(base), ...(placement.effects || [])];
   if (placement.contextItemId) {
     const item = index && index.usable !== false ? index.itemsById.get(placement.contextItemId) : project.library.find(d => d.id === placement.contextItemId && d.kind === 'item');
@@ -65,8 +79,9 @@ export function cardSummaryParts(card, variables = [], library = []) {
   if (requirements.length) parts.push(`Requires: ${requirements.join(', ')}`);
   if (card.costs?.length) parts.push(`Cost: ${card.costs.map(c=>c.source==='inventory'?name(c.key):`${c.amount} ${name(c.key)}`).join(', ')}`);
   if (card.resolution === 'check') { const c = card.check; if(c?.mode === 'stat') { try { parts.push(`Check: ${editorCheckSummary(c, variables)}`); } catch { parts.push('Check: Invalid stat check'); } } else if(c) parts.push(`Check: ${(c.pool || []).map(d=>`${d.count}d${d.sides}`).join(' + ')}${c.modifier ? ` ${c.modifier >= 0 ? '+' : ''}${c.modifier}` : ''}${c.modifierVariable ? ` + ${name(c.modifierVariable)}` : ''} ≥ ${c.target}`); }
-  if(card.effects?.length) parts.push(`Effects: ${effects(card.effects)}`);
-  if(card.onCollect?.length) parts.push(`Collect: ${effects(card.onCollect)}`);
+  if(!isConsumableKind(card.kind)&&card.effects?.length) parts.push(`Effects: ${effects(card.effects)}`);
+  const collect = isConsumableKind(card.kind) ? (card.effects ?? resourceCollectionEffects(card)) : card.onCollect;
+  if(collect?.length) parts.push(`Collect: ${effects(collect)}`);
   if(card.successEffects?.length) parts.push(`Success: ${effects(card.successEffects)}`);
   if(card.failureEffects?.length) parts.push(`Failure: ${effects(card.failureEffects)}`);
   if(card.kind === 'item') parts.push(`Action triggers: ${card.permability > 0 ? (card.remainingTriggers ?? card.permability) + ' remaining' : 'permanent'}`);

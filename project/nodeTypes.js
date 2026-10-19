@@ -1,6 +1,6 @@
 /** Node authoring metadata; callbacks keep this module independent of cards and model. */
 const storyKinds = Object.freeze(['event', 'caption']);
-const linearKinds = Object.freeze(['event', 'caption', 'action', 'item']);
+const linearKinds = Object.freeze(['event', 'caption', 'action', 'item', 'health', 'energy']);
 const branchKinds = Object.freeze(['event', 'caption', 'action']);
 const itemKinds = Object.freeze(['item']);
 const objects = value => Array.isArray(value) ? value.filter(v => v !== null && typeof v === 'object' && !Array.isArray(v)) : [];

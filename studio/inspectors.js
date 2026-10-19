@@ -3,7 +3,7 @@ import { projectCardBack } from '../project/card-backs.js';
 import { isStatVariable } from '../project/checks.js';
 import { defaultCardBack } from '../engine/cardBacks.js';
 import { defaultCardStyles, defaultCardColors } from '../project/card-styles.js';
-import { cardKinds, resolvePlacement, cardSummary, cardSummaryParts, cardEditorTint, allowedCardKinds, isStoryKind } from '../project/cards.js';
+import { cardKinds, resolvePlacement, cardSummary, cardSummaryParts, cardEditorTint, allowedCardKinds, isStoryKind, isConsumableKind } from '../project/cards.js';
 import { chapterVariables, outputsForNode, labelForOutput } from '../project/model.js';
 import { definitionReferences } from '../project/dependencies.js';
 import { nodeTypeDescriptor, nodeTypeLabel, retainsInventoryItems } from '../project/nodeTypes.js';
@@ -20,7 +20,7 @@ function artworkControls(definition,scope) {
 
 export function cardFields(project,definition,scope='definition',showPreview=true,showRules=true,chapter) {
  const nameId=`card-name-${scope}-${definition.id}`;
- let html=`<div class="card-name-field"><div class="card-name-heading"><label for="${esc(nameId)}">Name</label>${definition.kind==='item'?checkbox('Show name on card',definition.showName===true,'showName',scope):''}</div><input id="${esc(nameId)}" data-scope="${esc(scope)}" data-path="name" type="text" value="${esc(definition.name)}"></div>`;
+ let html=`<div class="card-name-field"><div class="card-name-heading"><label for="${esc(nameId)}">Name</label>${(definition.kind==='item'||isConsumableKind(definition.kind))?checkbox('Show name on card',definition.showName===true,'showName',scope):''}</div><input id="${esc(nameId)}" data-scope="${esc(scope)}" data-path="name" type="text" value="${esc(definition.name)}"></div>`;
  if(scope==='definition'&&isStoryKind(definition.kind))html+=select('Card type',definition.kind,[['event','Vignette'],['caption','Caption']],'kind',scope);
  html+=field('Description',definition.text,'text',scope,'textarea');
  if(showRules)html+=cardRuleFields(project,definition,scope,chapter);
@@ -32,6 +32,7 @@ function cardRuleFields(project,definition,scope,chapter) {
  if(definition.kind==='action')html+=actionFields(project,definition,'',scope,chapter);
  if(isStoryKind(definition.kind))html+=progressionRuleFields(project,definition,'',scope,chapter);
  if(definition.kind==='item')html+=itemRuleFields(project,definition,'',scope,chapter);
+ if(isConsumableKind(definition.kind))html+=consumableRuleFields(project,definition,'',scope,chapter);
 
  return html;
 }
@@ -41,6 +42,10 @@ function progressionRuleFields(project,card,prefix,scope,chapter) {
 function itemRuleFields(project,item,prefix,scope,chapter) {
  return rules(project,item.onCollect,`${prefix}onCollect`,scope,'effects',{chapter,label:'On collect effects',help:'Taking this item grants ownership automatically and applies these effects. Discarding it applies none.'})
   +`<label class="field">Permability<input data-scope="${esc(scope)}" data-path="${esc(prefix)}permability" type="number" min="0" step="1" value="${esc(item.permability??0)}"></label><p class="small">0 = permanent; positive values limit Action triggers. Successful and failed committed attempts both count.</p>`;
+}
+function consumableRuleFields(project,card,prefix,scope,chapter) {
+ return field('Value',card.value??1,`${prefix}value`,scope,'number')
+  +rules(project,card.onCollect,`${prefix}onCollect`,scope,'effects',{chapter,label:'On collect effects',help:`Swipe up to consume this card. It adds its Value to ${card.kind==='health'?'Health':'Energy'} and applies these additional effects. It does not enter inventory.`});
 }
 export function definitionInspector(project,definition) {
  if(!definition)return '<p>Select a definition in the Library.</p>';
@@ -75,12 +80,13 @@ export function placementInspector(project,p,kind,index,slot,count=Infinity,chap
  if(local&&kind==='action')html+=cardRuleFields(project,definition,'local-definition',chapter);
  if(kind!=='action')html+=rules(project,p.conditions,'conditions','placement','conditions',{chapter,label:'Appearance conditions',help:kind==='item'?'All conditions must pass for this item to appear here. They do not limit Action triggers after collection.':'All conditions must pass for this card to appear here.'});
  if(local&&kind!=='action')html+=cardRuleFields(project,definition,'local-definition',chapter);
- if((['action','item'].includes(kind)||isStoryKind(kind))&&!local&&definition) {
+ if((['action','item'].includes(kind)||isStoryKind(kind)||isConsumableKind(kind))&&!local&&definition) {
   if(!p.overrides)html+=`<p class="small">Using source rules · ${esc(cardSummary(definition,project.variables,project.library)||'No requirements, costs or effects')}${kind==='action'?` · Resolution: ${definition.resolution==='check'?'Dice check':'Direct'}`:''}</p>`;
   html+=checkbox('Use custom rules',!!p.overrides,'useCustomRules','placement');
   if(p.overrides){
    if(kind==='action')html+=actionFields(project,{...card,...p.overrides},'overrides.','placement',chapter);
    else if(kind==='item')html+=itemRuleFields(project,{...definition,...p.overrides},'overrides.','placement',chapter);
+   else if(isConsumableKind(kind))html+=consumableRuleFields(project,{...definition,...p.overrides},'overrides.','placement',chapter);
    else html+=progressionRuleFields(project,{...definition,...p.overrides},'overrides.','placement',chapter);
   }
  }

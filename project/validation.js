@@ -1,6 +1,6 @@
 import { isStatVariable, validStatValue, compatibleStatVariable } from './checks.js';
 import { validateCardBack } from '../engine/cardBacks.js';
-import { cardKinds, resolvePlacement, canonicalCardKind, allowedCardKinds, placementOverrideKeys } from './cards.js';
+import { cardKinds, resolvePlacement, canonicalCardKind, allowedCardKinds, placementOverrideKeys, isConsumableKind } from './cards.js';
 import { nodeTypeDescriptor } from './nodeTypes.js';
 import { isCardColor } from './card-styles.js';
 import { object, named, list, placements, legacyArtwork, chapterVariables } from './model-data.js';
@@ -140,6 +140,8 @@ export function validateProject(project, {allowDraft = false} = {}) {
     if (d.contextOverrideImage !== undefined && typeof d.contextOverrideImage !== 'boolean') add(`${label}: Override img must be a boolean.`);
     for (const key of ['imageScale', 'imageOffsetX', 'imageOffsetY']) if (d[key] !== undefined && (!Number.isFinite(d[key])
       || d[key] < (key === 'imageScale' ? 10: -100) || d[key] > (key === 'imageScale' ? 400: 100))) add(`${label}: invalid image scale or position.`);
+    if (d.value !== undefined && !Number.isFinite(d.value)) add(`${label}: Value must be a finite number.`);
+    if (isConsumableKind(d.kind)) inspectEffects([{op:'add',key:d.kind,value:d.value}], label);
     inspectConditions(d.conditions, label);
     for (const key of ['effects', 'onCollect', 'successEffects', 'failureEffects']) inspectEffects(d[key], label);
     if (d.permability !== undefined && (!Number.isSafeInteger(d.permability) || d.permability < 0)) add(`${label}: permability must be a nonnegative safe integer.`);
@@ -173,7 +175,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
     if (!object(d)) continue;
     if (d.contextItemId !== undefined || d.contextOverrideImage !== undefined) add(`Definition ${d.id}: inventory context belongs to a fork choice placement.`);
     if (d.visibility !== undefined && !['local', 'shared'].includes(d.visibility) || !['event', 'caption',
-      'narrative', 'action', 'item'].includes(d.kind) || typeof d.name !== 'string' || typeof d.text !== 'string'
+      'narrative', 'action', 'item', 'health', 'energy'].includes(d.kind) || typeof d.name !== 'string' || typeof d.text !== 'string'
       || typeof d.image !== 'string' || d.heading !== undefined && typeof d.heading !== 'string' || d.showName !== undefined
       && typeof d.showName !== 'boolean' || d.flipImage !== undefined && typeof d.flipImage !== 'boolean'
       || d.inventoryKey !== undefined && !named(d.inventoryKey)) add(`Definition ${d.id} has invalid content.`);
@@ -267,7 +269,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
             cid, nid);
           // Raw rule validation above reports malformed custom lists; do not try
           // to spread an invalid collection override while collecting errors.
-          const collectionValid = canonicalCardKind(d.kind) !== 'item' || p.overrides?.onCollect === undefined
+          const collectionValid = !(canonicalCardKind(d.kind) === 'item' || isConsumableKind(d.kind)) || p.overrides?.onCollect === undefined
             || Array.isArray(p.overrides.onCollect);
           const effectsValid = p.overrides?.effects === undefined || Array.isArray(p.overrides.effects);
           if (contextValid && collectionValid && effectsValid) inspectCard(resolvePlacement(project, p, index), label);

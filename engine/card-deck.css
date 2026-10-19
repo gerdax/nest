@@ -176,6 +176,7 @@
 
 
 /* Typed content supplies headings and summaries; legacy narrative remains plain. */
+.nest-card:is([data-card-kind="health"], [data-card-kind="energy"]) .nest-card-title,
 .nest-card[data-card-kind="item"] .nest-card-title {
   font-family: var(--card-font, NestLetter, monospace);
   font-size: var(--card-font-size, clamp(16px, 4vw, 21px));
@@ -188,9 +189,11 @@
   text-wrap: pretty;
   overflow-wrap: anywhere;
 }
+.nest-card:is([data-card-kind="health"], [data-card-kind="energy"]) .nest-copy,
 .nest-card[data-card-kind="item"] .nest-copy {
   padding-bottom: var(--card-padding, 26px);
 }
+.nest-card:is([data-card-kind="health"], [data-card-kind="energy"]) .nest-copy > p:empty,
 .nest-card[data-card-kind="item"] .nest-copy > p:empty { display: none; }
 .nest-copy p.nest-card-summary {
   font: 13px/1.4 system-ui, sans-serif;
@@ -198,6 +201,7 @@
   margin-top: 9px;
   white-space: pre-line;
 }
+.nest-card:is([data-card-kind="health"], [data-card-kind="energy"]) .nest-copy > p:not(.nest-card-summary),
 .nest-card[data-card-kind="item"] .nest-copy > p:not(.nest-card-summary) {
   font-size: var(--card-medium-size, 15px);
   color: var(--card-medium-color, var(--card-text, #d2dfb6));
@@ -235,4 +239,16 @@
 
 .nest-card[data-inventory-action="true"] .nest-copy p.nest-card-summary + p.nest-card-inventory {
   margin-top: 0;
+}
+
+/* Resource cards keep item typography and expose their immediate gain. */
+.nest-card:is([data-card-kind="health"], [data-card-kind="energy"]) .nest-card-type { padding-right: 60px; }
+.nest-card-value {
+  position: absolute;
+  top: var(--card-padding, 26px);
+  right: var(--card-padding, 26px);
+  z-index: 1;
+  color: var(--card-text, #d2dfb6);
+  font: var(--card-font-size, 21px)/1 var(--card-font, NestLetter, monospace);
+  pointer-events: none;
 }

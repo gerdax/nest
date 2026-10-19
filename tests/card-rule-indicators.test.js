@@ -78,7 +78,7 @@ test('graph places the indicators below the clean card-name button with explanat
   const graph=Object.assign(Object.create(GraphView.prototype),{project,libraryIndex:createLibraryIndex(project.library),definitionsById:new Map(project.library.map(card=>[card.id,card])),nodesById:new Map([[node.id,node]])});
   const html=graph.cardRows(node);
   assert.match(html,/<button type="button" class="graph-card-name">Pick &lt;lock&gt;<\/button><small class="graph-card-rules"/);
-  assert.match(html,/title="T: Inventory trigger; R: Requirements; C: Costs; E: Effects">TRCE<\/small>/);
+  assert.match(html,/title="T: Inventory trigger; R: Requirements; C: Costs; E: Effects">T · R · C · E<\/small>/);
   assert.equal((html.match(/class="port /g)||[]).length,1);
   definition.conditions=[];definition.costs=[];definition.effects=[];delete placement.contextItemId;
   assert.doesNotMatch(graph.cardRows(node),/graph-card-rules/);
@@ -88,4 +88,20 @@ test('missing definitions and malformed draft rules do not break graph indicator
   assert.deepEqual(cardRuleIndicators({library:[]},{definitionId:'missing'}),[]);
   const {project,placement,definition}=fixture();definition.conditions={};
   assert.deepEqual(cardRuleIndicators(project,placement),[]);
+});
+
+
+for(const kind of ['health','energy'])for(const visibility of ['shared','local'])test(`${kind} ${visibility} graph shows Value and only additional collection effects as E`,()=>{
+  const {project,placement,definition}=fixture(kind,visibility);definition.value=2;
+  const node={id:'node',type:'linear',cards:[placement],connections:{next:null}};
+  const graph=Object.assign(Object.create(GraphView.prototype),{project,libraryIndex:createLibraryIndex(project.library),definitionsById:new Map(project.library.map(card=>[card.id,card])),nodesById:new Map([[node.id,node]])});
+  const text=()=>graph.cardRows(node).match(/class="graph-card-rules"[^>]*>([^<]*)<\/small>/)[1];
+  assert.equal(text(),'2');
+  definition.onCollect=[effect];assert.equal(text(),'2 · E');
+  placement.overrides={value:0,onCollect:[]};
+  assert.equal(text(),visibility==='shared'?'0':'2 · E');
+  if(visibility==='local')definition.onCollect=[];
+  placement.effects=[effect];assert.equal(text(),visibility==='shared'?'0 · E':'2 · E');
+  delete placement.effects;delete placement.overrides;definition.onCollect=[];definition.value=-2;
+  assert.equal(text(),'-2');
 });

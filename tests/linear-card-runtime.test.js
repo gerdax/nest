@@ -518,3 +518,27 @@ for(const visibility of ['disabled','hidden'])for(const drawer of [false,true])t
  if(drawer)assert.equal(contexts.includes(false),false,'drawer never restarts its entrance');
  assert.equal(deck.phase,'choices');dispose(deck,controller);
 });
+
+// Resource cards use the real Action gesture path and never the inventory path.
+const {createDefinition:resourceDefinition,resolvePlacement:resolveResource}=await import('../project/cards.js');
+for(const kind of ['health','energy'])for(const reduced of [false,true])test(`${kind} swipe consumes once with bounds and additional effects, reduced=${reduced}`,()=>{
+ const definition={...resourceDefinition(kind,`def-${kind}`),value:4,onCollect:[{op:'add',key:'bonus',value:1}]};
+ const resource=resolveResource({library:[definition]},{id:`p-${kind}`,definitionId:definition.id});
+ const {deck,controller}=real(linear([resource,narrative('after')]),{variables:[{id:kind,type:'number',initial:8,min:0,max:10},{id:'bonus',type:'number',initial:0}]});deck.reduced=reduced;
+ assert.equal(deck.phase,'choices');assert.equal(deck.content.interaction,'choice');assert.equal(deck.content.actions[0].value,4);
+ assert.equal(controller.state.variables[kind],8,'prediction does not spend or gain');
+ const gesture={axis:'y',x:0,y:-10,vx:0,vy:0};assert.equal(deck.start(),true);deck.move(gesture);deck.end(gesture);settle();
+ assert.equal(controller.state.cardId,resource.id);assert.equal(controller.state.variables.bonus,0,'canceled swipe applies nothing');
+ key(deck,'ArrowDown');assert.equal(controller.state.cardId,resource.id,'down cannot collect or discard a resource card');
+ const contentId=deck.content.id,selected=deck.content.actions[0];
+ key(deck,'ArrowUp');assert.equal(controller.state.cardId,'after');assert.equal(controller.state.variables[kind],10);assert.equal(controller.state.variables.bonus,1);
+ controller.commit({contentId,action:selected});assert.equal(controller.state.variables.bonus,1,'duplicate event is ignored');
+ assert.deepEqual(controller.state.collectedItems,[]);
+ dispose(deck,controller);
+});
+for(const kind of ['health','energy'])test(`${kind} cannot consume through an unlinked final output`,()=>{
+ const definition={...resourceDefinition(kind,kind),value:3};const resource=resolveResource({library:[definition]},{id:'resource',definitionId:kind});
+ const {deck,controller}=real([{id:'linear',type:'linear',cards:[resource],connections:{next:false}}],{variables:[{id:kind,type:'number',initial:1}]});
+ assert.equal(deck.content.actions[0].disabled,true);key(deck,'ArrowUp');assert.equal(controller.state.variables[kind],1);assert.equal(controller.state.cardId,'resource');
+ dispose(deck,controller);
+});

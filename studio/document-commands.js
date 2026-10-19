@@ -1,7 +1,7 @@
 import { allocateVariableId, renameVariable } from './variable-ids.js';
 import { pasteCardClipboard } from './card-clipboard.js';
 import { isStatVariable } from '../project/checks.js';
-import { createDefinition, allowedCardKinds, isStoryKind } from '../project/cards.js';
+import { createDefinition, allowedCardKinds, isStoryKind, isConsumableKind } from '../project/cards.js';
 import { chapterVariables, createChapter, importChapter, outputsForNode } from '../project/model.js';
 import { deleteDefinition, cleanupLocalDefinitions, definitionGraph } from '../project/dependencies.js';
 import { pasteNodeClipboard } from './node-clipboard.js';
@@ -9,7 +9,7 @@ import { transferCard } from './card-transfer.js';
 import { sortedChapters } from '../project/chapter-navigation.js';
 import {
   uid, createNode, makePlacement, promoteCard, duplicateNode, duplicatePlacement,
-  findPlacement, pathTarget, customizeAction, customizeItem, customizeStory, newRule, normalizeRule, addHealthVariable,
+  findPlacement, pathTarget, customizeAction, customizeItem, customizeConsumable, customizeStory, newRule, normalizeRule, addHealthVariable,
 } from './commands.js';
 
 function chapterFor(project, selection) {
@@ -65,6 +65,7 @@ function changeField(project, selection, field, localDrafts) {
     if (checked) {
       const definition=project.library.find(card=>card.id===root.definitionId);
       if(definition?.kind==='item')customizeItem(project,root);
+      else if(isConsumableKind(definition?.kind))customizeConsumable(project,root);
       else if(isStoryKind(definition?.kind))customizeStory(project,root);
       else customizeAction(project,root);
     }
