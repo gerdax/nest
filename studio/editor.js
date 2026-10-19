@@ -18,7 +18,6 @@ import { mountNodeCreateMenu } from './node-create-menu.js';
 import { GraphView } from './GraphView.js';
 import { previewActiveNode, updatePreviewHighlight } from './preview-highlight.js';
 import { ProjectPreview } from './ProjectPreview.js';
-import { mountDrawerDebug } from './drawer-debug.js';
 import { definitionInspector,nodeInspector,projectSettingsInspector,chapterSettingsInspector } from './inspectors.js';
 import { esc, field, select } from './forms.js';
 import { mountPreviewWindow } from './preview-window.js';
@@ -47,7 +46,6 @@ const chapter=()=>project.chapters.find(c=>c.id===chapterId)||project.chapters[0
 const node=()=>chapter().nodes.find(n=>n.id===selected);
 const definition=()=>project.library.find(d=>d.id===definitionId);
 const preview=new ProjectPreview($('#preview'),{inventoryHost:$('.preview-window-body'),onChange:state=>updatePreviewHighlight(graph,preview,chapter(),state),onStop:()=>graph.setActive(null),onGoToCard:goToPreviewCard});
-const stopDrawerDebug=mountDrawerDebug(preview);
 const previewWindow=mountPreviewWindow($('#preview-window'),{onClose:()=>preview.stop()});
 const autoplay=mountAutoplay($('#autoplay'),{getSelected:()=>selected,onPlay:id=>play(id,{restore:false})});
 const nodeCreateMenu=mountNodeCreateMenu({onChoose:(type,request)=>edit('create-connected-node',{...request,type}),onDismiss:()=>graph.cancelCreation(),returnFocus:$('#canvas')});
@@ -403,5 +401,5 @@ bindImport($('#import'),'project');
 bindImport($('#import-chapter'),'chapter');
 function play(startNode,{restore=false,chapterId:targetChapterId=chapterId}={}){try{previewWindow.show({restore});preview.play(project,targetChapterId,startNode,{focus:!previewWindow.minimized});report('Chapter ready.');return true;}catch(error){report(error.message);return false;}}
 $('#play').onclick=()=>play();$('#play-node').onclick=()=>play(selected);
-window.addEventListener('pagehide',event=>{if(event.persisted)return;graph.cancel();stopHistoryShortcuts();stopNodeClipboardShortcuts();stopViewShortcuts();stopDrawerDebug();autoplay.destroy();previewWindow.destroy();projectSettingsWindow.destroy();preview.destroy();});
+window.addEventListener('pagehide',event=>{if(event.persisted)return;graph.cancel();stopHistoryShortcuts();stopNodeClipboardShortcuts();stopViewShortcuts();autoplay.destroy();previewWindow.destroy();projectSettingsWindow.destroy();preview.destroy();});
 render();graph.fit();if(loaded.error||loaded.recovery)report('');else if(loaded.migrated)report('Legacy save loaded; original browser save preserved.');else report(loaded.project?'Saved in this browser.':'Not saved yet.');
