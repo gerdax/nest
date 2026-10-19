@@ -111,7 +111,12 @@ export class GraphView {
   const d=this.creation||this.drag;if(d?.kind==='connect'&&d.moved){const n=this.nodesById.get(d.nodeId);if(n){const {x,y}=this.outputPoint(n,d.exit);paths.push(`<path class="edge-ghost" d="${this.wire(x,y,d.px,d.py)}"/>`);}}
   this.root.querySelector('#edges').innerHTML=paths.join('');
  }
- transform(){this.root.querySelector('#world').style.transform=`translate(${this.view.x}px,${this.view.y}px) scale(${this.view.z})`;}
+ transform(){
+  const world=this.root.querySelector('#world');
+  world.style.transform=`translate(${this.view.x}px,${this.view.y}px) scale(${this.view.z})`;
+  // Compensate for the world scale so selection stays two screen pixels wide.
+  world.style.setProperty('--graph-selection-width',`${2/this.view.z}px`);
+ }
  validTarget(id,source) {return (id!==source||this.project.allowCycles!==false)&&this.nodesById.has(id);}
  dropTarget(e,source) {
   const r=this.root.getBoundingClientRect();

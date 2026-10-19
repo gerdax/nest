@@ -48,7 +48,9 @@ test('effect-only dependencies prevent deletion and appear in the shared definit
   assert.throws(() => deleteDefinition(project, 'flashlight'), /gameplay rules/);
   assert.deepEqual(project, before);
   const html = definitionInspector(project, project.library.find(d => d.id === 'flashlight'));
-  assert.match(html, /Arrival · gameplay rule/);
+  assert.match(html, /<h3>Referenced in<\/h3>/);
+  assert.match(html, /data-command="edit-shared" data-definition="arrival"/);
+  assert.match(html, /aria-label="E: Effects"/);
   assert.match(html, /data-command="delete-definition" disabled/);
 });
 

@@ -42,3 +42,14 @@
 #canvas .node.card-drop-invalid {outline:2px solid #c67979;}
 .card-drag-ghost {position:fixed;z-index:1100;pointer-events:none;max-width:260px;padding:8px 12px;border:1px solid #91b8ab;border-radius:6px;background:#263735e8;color:#e1e8e6;font-size:12px;box-shadow:0 4px 16px #0006;}
 .card-drop-line {position:fixed;z-index:1099;height:1px;background:#a2d3c3;pointer-events:none;}
+
+/* A shadow spread preserves fractional widths that CSS outlines round away. */
+#canvas .node.active {
+  --playing-glow:0 0 calc(var(--graph-selection-width,2px) * 4.5) calc(var(--graph-selection-width,2px) * 2.25) #f0cc5b85,
+    0 0 calc(var(--graph-selection-width,2px) * 13.5) calc(var(--graph-selection-width,2px) * 3.5) #f0cc5b45;
+  box-shadow:var(--playing-glow);
+}
+#canvas .node.selected {outline:none;box-shadow:0 0 0 var(--graph-selection-width,2px) var(--graph-selection-color,#a2d3c3),0 6px 20px #0005;}
+#canvas .node.selected.active {box-shadow:0 0 0 var(--graph-selection-width,2px) var(--graph-selection-color,#a2d3c3),var(--playing-glow);}
+#canvas .node.selected.connection-target,#canvas .node.selected.card-drop-target {--graph-selection-color:#b7e4d3;}
+#canvas .node.selected.card-drop-invalid {--graph-selection-color:#c67979;}

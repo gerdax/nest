@@ -33,6 +33,7 @@ import { mountProjectSettingsWindow } from './project-settings-window.js';
 import { mountHistoryShortcuts } from './history-shortcuts.js';
 import { libraryCardSlot, mountLibraryCardActions } from './library-cards.js';
 import { mountViewShortcuts } from './view-shortcuts.js';
+import { confirmLibraryRemoval } from './library-removal-confirmation.js';
 
 const $=s=>document.querySelector(s),loaded=loadProject();
 let copiedArtwork = null;
@@ -238,6 +239,13 @@ function refreshCardClipboardButtons(){
  }
 }
 function command(event){const b=event.target.closest('[data-command]');if(!b)return;const cmd=b.dataset.command;
+ if(cmd==='delete-definition'){
+  if(b.disabled||!confirmLibraryRemoval(project,definitionId,{report}))return;
+  preview.stop();
+  const result=edit('inspector',{command:cmd});
+  if(result.ok)report(result.value?`Removed from Library. ${result.value} placement${result.value===1?'':'s'} converted to local cards. Undo restores the shared links.`:'Removed from Library. Undo restores it.');
+  return;
+ }
  if(cmd==='play-from-start'){
   const target=startChapter(project);
   if(target){projectSettingsWindow.close();play(undefined,{chapterId:target.id});}
@@ -276,7 +284,18 @@ function command(event){const b=event.target.closest('[data-command]');if(!b)ret
   return;
  }
  if(cmd==='edit-shared'){definitionId=b.dataset.definition;mode='library';render();return;}
- if(cmd==='jump-use'){chapterId=b.dataset.chapter;selected=b.dataset.node;mode='chapter';render();graph.fit();autoplay.select(selected);return;}
+ if(cmd==='jump-use'){
+  if(b.disabled)return;
+  if(b.dataset.placement){
+   goToPreviewCard({chapterId:b.dataset.chapter,nodeId:b.dataset.node,placementId:b.dataset.placement,
+    ...(b.dataset.sequence?{sequenceId:b.dataset.sequence,slot:b.dataset.slot,parentCardId:b.dataset.parent}: {})});
+   graph.fit();
+  }else{
+   chapterId=b.dataset.chapter;selected=b.dataset.node||project.chapters.find(c=>c.id===chapterId)?.startNode;mode='chapter';render();graph.fit();
+   if(!b.dataset.node){const settings=$('#settings').querySelector('details');if(settings){settings.open=true;settings.scrollIntoView({block:'start'});}}
+  }
+  return;
+ }
  edit('inspector',{...b.dataset,placement:b.dataset.placement??event.target.closest('[data-placement]')?.dataset.placement});
 }
 for(const root of [$('#inspector'),$('#settings'),$('#project-settings-content')])root.addEventListener('click',command);

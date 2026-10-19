@@ -3,7 +3,8 @@ import { pasteCardClipboard } from './card-clipboard.js';
 import { isStatVariable } from '../project/checks.js';
 import { createDefinition, allowedCardKinds, isStoryKind, isConsumableKind } from '../project/cards.js';
 import { chapterVariables, createChapter, importChapter, outputsForNode } from '../project/model.js';
-import { deleteDefinition, cleanupLocalDefinitions, definitionGraph } from '../project/dependencies.js';
+import { cleanupLocalDefinitions, definitionGraph } from '../project/dependencies.js';
+import { removeLibraryDefinition } from './library-removal.js';
 import { pasteNodeClipboard } from './node-clipboard.js';
 import { transferCard } from './card-transfer.js';
 import { appendLibraryCard } from './library-cards.js';
@@ -145,9 +146,18 @@ function inspectorCommand(project, selection, data, localDrafts) {
       break;
     case 'add-route': node.routes.push({id:uid('route'),name:`Route ${node.routes.length+1}`,target:false,weight:1,conditions:[]}); break;
     case 'remove-route': node.routes.splice(Number(data.index), 1); break;
-    case 'delete-definition':
-      deleteDefinition(project, selection.definitionId);
-      return {selection:{definitionId:project.library.find(card => card.visibility !== 'local')?.id}};
+    case 'delete-definition': {
+      // Inactive type drafts can outlive their pruned definitions. Their IDs
+      // must not be reused by unrelated converted cards during cache refresh.
+      const reservedIds = [];
+      for (const draft of localDrafts?.drafts.values() ?? []) for (const saved of draft.types.values()) {
+        for (const definition of [saved.definition, ...saved.dependencies]) {
+          reservedIds.push(definition.id, definition.inventoryKey);
+        }
+      }
+      const {converted} = removeLibraryDefinition(project, selection.definitionId, {reservedIds});
+      return {selection:{definitionId:project.library.find(card => card.visibility !== 'local')?.id}, value:converted};
+    }
     case 'add-health': addHealthVariable(project); break;
     case 'add-chapter-variable': (chapterFor(project, selection).variables ||= []).push({id:allocateVariableId(project,'New variable'),name:'New variable',type:'number',initial:0}); break;
     case 'remove-chapter-variable': chapterFor(project, selection).variables.splice(Number(data.index), 1); break;

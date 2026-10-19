@@ -5,7 +5,8 @@ import { defaultCardBack } from '../engine/cardBacks.js';
 import { defaultCardStyles, defaultCardColors } from '../project/card-styles.js';
 import { cardKinds, resolvePlacement, cardSummary, cardSummaryParts, cardEditorTint, allowedCardKinds, isStoryKind, isConsumableKind } from '../project/cards.js';
 import { chapterVariables, outputsForNode, labelForOutput } from '../project/model.js';
-import { definitionReferences } from '../project/dependencies.js';
+import { definitionUsagePanel } from './definition-usage-view.js';
+import { libraryRemovalPlan } from './library-removal.js';
 import { nodeTypeDescriptor, nodeTypeLabel, retainsInventoryItems } from '../project/nodeTypes.js';
 import { inventoryItemOptions } from './item-options.js';
 import { field, select, checkbox, button, rules, actionFields, imageField, esc } from './forms.js';
@@ -49,12 +50,11 @@ function consumableRuleFields(project,card,prefix,scope,chapter) {
 }
 export function definitionInspector(project,definition) {
  if(!definition)return '<p>Select a definition in the Library.</p>';
- const users=definitionReferences(project,definition.id);
- let html=`<section class="card-panel card-definition-panel" data-card-type="${esc(definition.kind)}" style="--card-editor-tint:${esc(cardEditorTint(definition.kind))}"><h2>${esc(cardKinds[definition.kind].label)}</h2><p class="small">Shared definition · ${users.length} uses. Changes apply everywhere this definition is referenced.</p>`+cardFields(project,definition);
- html+='<h3>Used in</h3>'+ (users.length?users.map(u=>`<p>${u.sourceDefinition?
-  u.sourceDefinition.visibility==='local'?esc(`Local card: ${u.sourceDefinition.name} · gameplay rule`):button(`${u.sourceDefinition.name} · gameplay rule`,'edit-shared',`data-definition="${esc(u.sourceDefinition.id)}"`):
-  u.node?button(`${u.chapter.name} → ${u.node.name}${u.kind==='inventory'?' · gameplay rule':''}`,'jump-use',`data-chapter="${esc(u.chapterId)}" data-node="${esc(u.nodeId)}"`):esc(`${u.chapter.name} · gameplay rule`)}</p>`).join(''):'<p class="small">Not referenced yet.</p>');
- return html+button('Delete definition','delete-definition',users.length?'disabled':'')+'</section>';
+ let html=`<section class="card-panel card-definition-panel" data-card-type="${esc(definition.kind)}" style="--card-editor-tint:${esc(cardEditorTint(definition.kind))}"><h2>${esc(cardKinds[definition.kind].label)}</h2><p class="small">Shared definition · Changes apply everywhere this definition is referenced.</p>`+cardFields(project,definition);
+ html+=definitionUsagePanel(project,definition.id);
+ const removal=libraryRemovalPlan(project,definition.id);
+ html+=`<p class="small">${esc(removal.blocked?removal.reason:removal.placements.length?'Removing this definition converts its chapter placements to independent local cards, preserving their content and rules.':'This definition is unused. Removal requires confirmation.')}</p>`;
+ return html+button('Remove from Library','delete-definition',removal.blocked?'disabled':'')+'</section>';
 }
 export function placementInspector(project,p,kind,index,slot,count=Infinity,chapter) {
  let card;try{card=resolvePlacement(project,p);}catch{}

@@ -465,7 +465,11 @@ export class ProjectController {
         this.remaining.set(pending.key,raw.filter(i=>!removed.has(i.id)));
         for(const id of removed)this.itemReplacements.get(pending.key)?.delete(id);
       }
-      this.variables=pending.result.variables;this.inventory=pending.result.inventory;this.pendingItem=null;this.notify();
+      this.variables=pending.result.variables;this.inventory=pending.result.inventory;this.pendingItem=null;
+      const generation=this.generation;
+      this.notify();
+      // Host callbacks may tear down or restart playback after accepting ownership.
+      if(this.destroyed||this.generation!==generation)return;
       if(!this.stagedDestination) {
         if(!this.items().length){this.adopt(this.next(this.location),false);this.show();}
         else {
@@ -479,7 +483,7 @@ export class ProjectController {
           }
         }
       }
-    }else if(detail.transition==='commit'&&this.stagedDestination){const destination=this.stagedDestination;this.stagedDestination=null;this.adopt(destination);if(!this.completed)this.reportBlocked();}
+    }else if(detail.transition==='commit'&&this.stagedDestination){const destination=this.stagedDestination,generation=this.generation;this.stagedDestination=null;this.adopt(destination);if(!this.destroyed&&this.generation===generation&&!this.completed)this.reportBlocked();}
     else this.notify();
   }
   destroy() {if(this.destroyed)return;this.destroyed=true;++this.generation;this.checking?.abort();this.checking=null;for(const [name,listener]of Object.entries(this.listeners))this.deck.removeEventListener(name,listener);}

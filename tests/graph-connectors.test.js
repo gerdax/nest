@@ -5,7 +5,7 @@ import { createDefinition,cardEditorTint } from '../project/cards.js';
 
 // This fixture exercises event routing and generated SVG, not browser layout.
 class Element {
- constructor(classes='',dataset={},parent=null){this.classes=new Set(classes.split(' '));this.dataset=dataset;this.parent=parent;this.style={};this.children=[];this.classList={toggle:(name,on)=>on?this.classes.add(name):this.classes.delete(name)};}
+ constructor(classes='',dataset={},parent=null){this.classes=new Set(classes.split(' '));this.dataset=dataset;this.parent=parent;this.style={setProperty(key,value){this[key]=value;}};this.children=[];this.classList={toggle:(name,on)=>on?this.classes.add(name):this.classes.delete(name)};}
  closest(selector){for(let el=this;el;el=el.parent)if(el.classes.has(selector.slice(1)))return el;return null;}
  querySelectorAll(selector){return this.children.filter(el=>el.classes.has(selector.slice(1)));}
  getBoundingClientRect(){return {width:0,height:0};}

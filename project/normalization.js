@@ -65,8 +65,16 @@ export function discardPlacementContext(project, index = createLibraryIndex(list
         if (p.conditions?.length || p.effects?.length) {
           const resolved = resolvePlacement(project, {...p, contextItemId: undefined}, index);
           if (definition.visibility === 'local') {
-            definition.conditions = resolved.conditions;
-            definition.effects = resolved.effects;
+            const rules = {conditions: resolved.conditions, effects: resolved.effects};
+            // Local definitions can still have multiple placements in imported
+            // data. Absorb additions only into this placement's own source.
+            if (placementUsers.get(definition.id)?.size > 1) {
+              const copy = {...cloneProject(definition), ...cloneProject(rules), id: unique(definition.id, definitionIds)};
+              project.library.push(copy);
+              index.byId.set(copy.id, copy);
+              localIds.add(copy.id);
+              p.definitionId = copy.id;
+            } else Object.assign(definition, rules);
           } else {
             p.overrides = Object.fromEntries([
               'conditions', 'costs', 'effects', 'resolution', 'check', 'successEffects', 'failureEffects'

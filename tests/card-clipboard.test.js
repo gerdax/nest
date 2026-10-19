@@ -30,6 +30,7 @@ test('card copy is detached; repeated local pastes replace target identity safel
 
 test('paste is disabled for a different card type even where the destination slot accepts both',()=>{
  const {p,c,a,b,source,target}=fixture('linear');
+ definition(p,source).kind='event';
  const payload=captureCardClipboard(p,c.id,a.id,source.id);
  for(const kind of ['item','caption','action']){
   definition(p,target).kind=kind;

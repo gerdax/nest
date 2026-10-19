@@ -69,7 +69,7 @@ test('malformed Library entries preserve short-circuit success and scan errors',
   assert.equal(itemIndex.itemsById.has(NaN), false);
 });
 
-test('normalization and compilation preserve live local accumulation and shared overrides', () => {
+test('normalization and compilation index isolated local rules and shared overrides', () => {
   const project = createProject();
   const local = definition('action', 'local', {visibility: 'local'});
   const shared = definition('action', 'shared', {visibility: 'shared'});
@@ -84,13 +84,17 @@ test('normalization and compilation preserve live local accumulation and shared 
   const before = structuredClone(project), compiled = compileChapter(project);
   assert.deepEqual(project, before);
   assert.deepEqual(compiled.nodes[0].choices.map(p => p.effects), [
-    [effect(1), effect(2)], [effect(1), effect(2)], [effect(3)], [effect(4)],
+    [effect(1)], [effect(2)], [effect(3)], [effect(4)],
   ]);
   assert.deepEqual(Object.keys(compiled.nodes[0].connections), ['one', 'two', 'shared-one', 'shared-two']);
   compiled.nodes[0].choices[0].effects[0].value = 99;
   assert.deepEqual(project, before);
   const normalized = discardPlacementContext(structuredClone(project));
-  assert.deepEqual(normalized.library.find(d => d.id === 'local').effects, [effect(1), effect(2)]);
+  assert.deepEqual(normalized.library.find(d => d.id === 'local').effects, []);
+  const index = createLibraryIndex(normalized.library);
+  assert.deepEqual(normalized.chapters[0].nodes[0].choices.map(p => resolvePlacement(normalized, p, index).effects), [
+    [effect(1)], [effect(2)], [effect(3)], [effect(4)],
+  ]);
   assert.deepEqual(normalized.library.find(d => d.id === 'shared').effects, []);
 });
 

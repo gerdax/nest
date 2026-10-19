@@ -525,6 +525,7 @@ export class CardDeck extends EventTarget {
   }
 
   refreshInventoryActions(actions) {
+    if (this.destroyed) return;
     const selected = this.content.actions[this.index]?.id;
     const updated = new Map(actions.map(action => [action.id, action]));
     const previousIds = new Set(this.content.actions.map(action => action.id));

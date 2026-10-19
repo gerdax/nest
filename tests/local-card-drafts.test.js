@@ -3,6 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
+import {confirmLibraryRemoval} from '../studio/library-removal-confirmation.js';
 import {createProject, exportChapter, parseProject, validateProject} from '../project/model.js';
 import {createDefinition} from '../project/cards.js';
 import {addInventory, conditionsMet} from '../project/state.js';
@@ -469,6 +470,8 @@ function editorHandlers(state, definitionId) {
     project:state.project, history:new DocumentHistory(state.project), localDrafts:state.drafts,
     definitionId, graph:{cancel(){}}, saveProject:() => ({ok:true}), render(){}, report(){},
     applyDocumentCommand, transactDocument,
+    confirmLibraryRemoval:(project,id,options)=>confirmLibraryRemoval(project,id,{...options,confirm:()=>true}),
+    preview:{stop(){}},
     selection:() => ({chapterId:state.chapter.id,selected:state.node.id,definitionId:context.definitionId,mode:'library'}),
     node:() => context.project.chapters[0].nodes.find(n => n.id === state.node.id),
     scopeRoot:() => context.project.library.find(d => d.id === context.definitionId),

@@ -1,0 +1,19 @@
+.definition-usage-list {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+.definition-usage-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  max-width: 100%;
+  text-align: left;
+}
+.definition-reference-name { min-width: 0; overflow-wrap: anywhere; }
+.definition-reference-types { display: inline-flex; flex-shrink: 0; gap: 6px; }
+.definition-reference-marker { font-size: .8em; font-weight: 600; }
+.definition-usage-list small { display: block; margin-top: 4px; }
