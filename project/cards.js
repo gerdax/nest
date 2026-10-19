@@ -3,7 +3,7 @@ import { editorCheckSummary, isStatVariable } from './checks.js';
 import { nodeSlotCardKinds } from './nodeTypes.js';
 /** The library stores content; placements store chapter-specific behavior. */
 export const cardKinds = Object.freeze({
-  event: { label: 'Vignette', editorTint: '#b9fdc3', validate: card => typeof card.text === 'string' ? [] : ['Vignette text must be a string.'] },
+  event: { label: 'Vignette', editorTint: '#96f7a7', validate: card => typeof card.text === 'string' ? [] : ['Vignette text must be a string.'] },
   caption: { label: 'Caption', editorTint: '#e4ffeb', validate: card => typeof card.text === 'string' ? [] : ['Caption text must be a string.'] },
   action: { label: 'Action', editorTint: '#a59bea', validate: card => ['direct','check'].includes(card.resolution) ? [] : ['Action resolution must be direct or check.'] },
   health: { label: 'Health', editorTint: '#efa3a3', validate: validateResourceCard },
