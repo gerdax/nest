@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {runInNewContext} from 'node:vm';
 import {createProject, validateProject} from '../project/model.js';
 import {DocumentHistory} from '../editor/DocumentHistory.js';
 import {LocalCardDrafts} from '../studio/local-card-drafts.js';
@@ -14,6 +16,38 @@ function session(count=3) {
  const remove=id=>transactDocument(history,drafts,draft=>applyDocumentCommand(draft,{chapterId:id},'delete-chapter',{id},drafts));
  return {project,history,remove};
 }
+
+function deletionPrompt({answer=false,count=2,id='chapter-1',disabled=false}={}) {
+ const {project}=session(count),calls=[];
+ project.chapters[0].name='Opening';
+ const source=readFileSync(new URL('../studio/editor.js',import.meta.url),'utf8');
+ const start=source.indexOf('function command(event){'),end=source.indexOf('for(const root of',start);
+ const context={project,mode:'chapter',confirm:message=>{calls.push(['confirm',message]);return answer;},
+  preview:{stop:()=>calls.push(['stop'])},localDrafts:{reset:()=>calls.push(['reset'])},
+  edit:(command,data)=>{calls.push(['edit',command,{...data}]);return {ok:true};},
+  graph:{fit:()=>calls.push(['fit'])},report:message=>calls.push(['report',message])};
+ runInNewContext(source.slice(start,end),context);
+ context.command({target:{closest:()=>({disabled,dataset:{command:'delete-chapter',chapter:id}})}});
+ return calls;
+}
+
+test('canceling chapter deletion prompts before preview, drafts or document changes',()=>{
+ const calls=deletionPrompt();
+ assert.deepEqual(calls.map(call=>call[0]),['confirm']);
+ assert.match(calls[0][1],/Delete chapter “Opening”\?/);
+ assert.match(calls[0][1],/Shared Library cards and project variables are kept/);
+ assert.match(calls[0][1],/Undo restores/);
+});
+
+test('confirming chapter deletion runs the existing undoable deletion once',()=>{
+ const calls=deletionPrompt({answer:true});
+ assert.deepEqual(calls.map(call=>call[0]),['confirm','stop','reset','edit','fit','report']);
+ assert.deepEqual(calls[3],['edit','delete-chapter',{id:'chapter-1'}]);
+});
+
+test('disabled, stale and only-chapter deletion never prompts or changes state',()=>{
+ for(const options of [{disabled:true},{id:'missing'},{count:1}])assert.deepEqual(deletionPrompt(options),[]);
+});
 
 for(const [deleted,next] of [['chapter-1','chapter-2'],['chapter-2','chapter-3'],['chapter-3','chapter-2']]) {
  test(`deleting ${deleted} selects ${next}, preserves shared data and undoes atomically`,()=>{

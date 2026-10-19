@@ -17,7 +17,7 @@ function artworkEditor(definition,scope) {
  return '<details class="state-panel artwork-positioning" open><summary>Image scale and position</summary>'+checkbox('Flip artwork horizontally',definition.flipImage,'flipImage',scope)+slider('Scale','imageScale',definition.imageScale??100,10,400)+slider('Horizontal offset','imageOffsetX',definition.imageOffsetX??0,-100,100)+slider('Vertical offset','imageOffsetY',definition.imageOffsetY??0,-100,100)+button('Reset positioning','reset-artwork',`data-scope="${scope}"`)+'<div class="row">'+button('Copy settings','copy-artwork',`data-scope="${scope}"`)+button('Paste settings','paste-artwork',`data-scope="${scope}"`)+'</div></details>';
 }
 function artworkControls(definition,scope) {
- return definition.kind==='caption'?'':imageField('Artwork path',definition.image,'image',scope)+artworkEditor(definition,scope);
+ return definition.kind==='caption'?'':imageField('Artwork path',definition.image,'image',scope,{clearable:true})+artworkEditor(definition,scope);
 }
 
 export function cardFields(project,definition,scope='definition',showPreview=true,showRules=true,chapter) {

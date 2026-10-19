@@ -132,6 +132,8 @@ aside {overflow-anchor:none;}
 #project-settings-content [data-project-card-backs][open] > summary {margin-bottom:18px;}
 #project-settings-content [data-project-card-backs] > [data-image-picker] {margin-bottom:16px;}
 
+.image-field-actions {display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+.image-field-actions [data-command="clear-image"] {margin-left:auto;}
 .chapter-delete-action {margin-top:20px;padding-top:16px;border-top:1px solid #394a4c;}
 
 .card-source-actions {display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:8px 0;}

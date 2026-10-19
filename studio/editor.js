@@ -34,6 +34,7 @@ import { mountProjectSettingsWindow } from './project-settings-window.js';
 import { mountHistoryShortcuts } from './history-shortcuts.js';
 import { libraryCardSlot, mountLibraryCardActions } from './library-cards.js';
 import { mountViewShortcuts } from './view-shortcuts.js';
+import { mountPlayShortcuts } from './play-shortcuts.js';
 import { confirmLibraryRemoval } from './library-removal-confirmation.js';
 
 const $=s=>document.querySelector(s),loaded=loadProject();
@@ -243,6 +244,11 @@ function refreshCardClipboardButtons(){
  }
 }
 function command(event){const b=event.target.closest('[data-command]');if(!b)return;const cmd=b.dataset.command;
+ if(cmd==='clear-image'){
+  if(b.disabled)return;
+  edit('image',{scope:b.dataset.scope,placementId:b.closest('[data-placement]')?.dataset.placement,path:b.dataset.path,value:''});
+  return;
+ }
  if(cmd==='delete-definition'){
   if(b.disabled||!confirmLibraryRemoval(project,definitionId,{report}))return;
   preview.stop();
@@ -282,6 +288,9 @@ function command(event){const b=event.target.closest('[data-command]');if(!b)ret
  }
  if(cmd==='delete-chapter'){
   if(b.disabled)return;
+  const chapter=project.chapters.find(chapter=>chapter.id===b.dataset.chapter);
+  if(!chapter||project.chapters.length<=1)return;
+  if(!globalThis.confirm(`Delete chapter “${chapter.name||chapter.id}”?\n\nThis removes the chapter and its local content. Shared Library cards and project variables are kept.\n\nUndo restores the chapter and its removed content.`))return;
   preview.stop();localDrafts.reset();
   const result=edit('delete-chapter',{id:b.dataset.chapter});
   if(result.ok){if(mode==='chapter')graph.fit();report('Chapter deleted. Undo restores it.');}
@@ -417,7 +426,18 @@ function bindImport(input,kind){
 }
 bindImport($('#import'),'project');
 bindImport($('#import-chapter'),'chapter');
-function play(startNode,{restore=false,chapterId:targetChapterId=chapterId}={}){try{previewWindow.show({restore});preview.play(project,targetChapterId,startNode,{focus:!previewWindow.minimized});report('Chapter ready.');return true;}catch(error){report(error.message);return false;}}
-$('#play').onclick=()=>play();$('#play-node').onclick=()=>play(selected);
-window.addEventListener('pagehide',event=>{if(event.persisted)return;graph.cancel();stopHistoryShortcuts();stopNodeClipboardShortcuts();stopViewShortcuts();autoplay.destroy();previewWindow.destroy();projectSettingsWindow.destroy();preview.destroy();});
+function play(startNode,{restore=false,chapterId:targetChapterId=chapterId,focus=true}={}){try{previewWindow.show({restore});preview.play(project,targetChapterId,startNode,{focus:focus&&!previewWindow.minimized});report('Chapter ready.');return true;}catch(error){report(error.message);return false;}}
+function playSelected(options){if(!node())return false;return play(selected,options);}
+$('#play').onclick=()=>play();$('#play-node').onclick=()=>playSelected();
+$('#play-node').title='Play selected beat from the start (Shift+Enter)';
+$('#play-node').setAttribute('aria-keyshortcuts','Shift+Enter');
+const stopPlayShortcuts=mountPlayShortcuts(document,{
+ playSelected:()=>{graph.cancel();return playSelected({focus:false});},
+ commitField:target=>{
+  if(!target?.matches?.('input,textarea,select')||!target.closest('#inspector,#settings,#project-settings-content'))return false;
+  target.blur();return true;
+ },
+ enabled:()=>!!node(),
+});
+window.addEventListener('pagehide',event=>{if(event.persisted)return;graph.cancel();stopHistoryShortcuts();stopNodeClipboardShortcuts();stopViewShortcuts();stopPlayShortcuts();autoplay.destroy();previewWindow.destroy();projectSettingsWindow.destroy();preview.destroy();});
 render();graph.fit();if(loaded.error||loaded.recovery)report('');else if(loaded.migrated)report('Legacy save loaded; original browser save preserved.');else report(loaded.project?'Saved in this browser.':'Not saved yet.');

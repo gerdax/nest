@@ -36,6 +36,17 @@ function environment() {
   globalThis.cancelAnimationFrame = () => {};
 }
 
+test('stopping preview clears and hides its status message',()=>{
+  environment();
+  const preview=new ProjectPreview(new Element());
+  preview.play(createProject());
+  preview.status.textContent='Previous error';preview.status.hidden=false;
+  preview.stop();
+  assert.equal(preview.status.textContent,'');
+  assert.equal(preview.status.hidden,true);
+  preview.destroy();
+});
+
 test('next chapter requires completion and carries only shared inventory; restart retains entry state',()=>{
   environment();
   const project=createProject(), first=project.chapters[0], second=structuredClone(first);

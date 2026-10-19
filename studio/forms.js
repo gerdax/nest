@@ -8,7 +8,7 @@ export const field = (label,value,path,scope='definition',type='text') => `<labe
 export const select = (label,value,choices,path,scope='definition') => `<label class="field">${esc(label)}<select data-scope="${esc(scope)}" data-path="${esc(path)}">${options(choices,value)}</select></label>`;
 export const checkbox = (label,value,path,scope='definition',disabled=false) => `<label class="field check-field"><input type="checkbox" data-scope="${esc(scope)}" data-path="${esc(path)}" ${value?'checked':''} ${disabled?'disabled':''}>${esc(label)}</label>`;
 export const button = (label,cmd,attrs='') => `<button type="button" data-command="${cmd}" ${attrs}>${esc(label)}</button>`;
-export const imageField=(label,value,path,scope='definition')=>field(label,value,path,scope)+`<button type="button" data-image-picker data-scope="${esc(scope)}" data-path="${esc(path)}">Choose image file</button>`;
+export const imageField=(label,value,path,scope='definition',{clearable=false}={})=>field(label,value,path,scope)+`${clearable?'<div class="image-field-actions">':''}<button type="button" data-image-picker data-scope="${esc(scope)}" data-path="${esc(path)}">Choose image file</button>${clearable?button('Clear','clear-image',`data-scope="${esc(scope)}" data-path="${esc(path)}" aria-label="Clear card image" ${value?'':'disabled'}`):''}${clearable?'</div>':''}`;
 const extras=(scope,path,kind)=>`data-scope="${esc(scope)}" data-path="${esc(path)}" data-rule-kind="${kind}"`;
 export function rules(project,list=[],path,scope,kind,{label,help,chapter}={}) {
  const vars=project.variables.map(v=>[v.id,variableLabel(v)]);
