@@ -1,3 +1,4 @@
+import { isTagKey, tagKey, tagIdFromKey } from './item-tags.js';
 import { normalizeLocalOwnership } from './local-ownership.js';
 import { normalizeStats } from './checks.js';
 import { parseChapter } from '../chapter/model.js';
@@ -15,7 +16,7 @@ export function exportChapter(project, id = project.activeChapterId) {
   if (!chapter) throw new TypeError('Unknown chapter.');
   const ids = definitionGraph(project).reachableFrom(chapter);
   const pkg = cloneProject({version: 2, kind: 'nest-chapter', library: project.library.filter(d => ids.has(d.id)),
-    variables: project.variables, allowCycles: project.allowCycles !== false,
+    itemTags: project.itemTags || [], variables: project.variables, allowCycles: project.allowCycles !== false,
     ownedItemsVisibility: project.ownedItemsVisibility ?? 'disabled', unavailableActions: project.unavailableActions ?? 'disabled',
     cardStyles: project.cardStyles || {}, cardBack: projectCardBack(project), switchCardBackIcons: project.switchCardBackIcons,
     chapter});
@@ -29,15 +30,43 @@ export function exportChapter(project, id = project.activeChapterId) {
 export function importChapter(project, pkgOrV1) {
   const next = normalizeLocalOwnership(cloneProject(project));
   const imported = pkgOrV1.version === 1 ? migrateChapter(pkgOrV1) : pkgOrV1.kind === 'nest-project' ? cloneProject(pkgOrV1) : {library: cloneProject(pkgOrV1.library),
-    variables: cloneProject(pkgOrV1.variables || []), chapters: [cloneProject(pkgOrV1.chapter)]};
+    itemTags: cloneProject(pkgOrV1.itemTags || []), variables: cloneProject(pkgOrV1.variables || []), chapters: [cloneProject(pkgOrV1.chapter)]};
   normalizeLocalOwnership(imported);
+  const concreteIds = new Set(imported.library.filter(d => d.kind === 'item').map(d => d.id));
+  const concreteKeys = new Set(imported.library.filter(d => d.kind === 'item').flatMap(d => [d.id,d.inventoryKey].filter(Boolean)));
+  const destinationKeys = next.library.filter(d => d.kind === 'item').flatMap(d => [d.id,d.inventoryKey].filter(Boolean));
+  // A tag reference must never occupy a concrete inventory identity. Keep the
+  // destination stable and allocate fresh imported identities around both sets.
+  const tagMap = new Map(), tagIds = new Set([
+    ...list(next.itemTags).map(tag => tag.id),
+    ...[...destinationKeys,...concreteKeys].filter(isTagKey).map(tagIdFromKey),
+  ]);
+  for (const tag of list(imported.itemTags)) {
+    const existing = list(next.itemTags).find(candidate => candidate.name.toLowerCase() === tag.name.toLowerCase());
+    const id = existing?.id ?? unique(tag.id, tagIds);
+    tagMap.set(tag.id, id);
+    if (!existing) { next.itemTags ??= []; next.itemTags.push({...tag, id}); }
+  }
+  const tagContextRefs = new Set(), tagRuleRefs = new Set();
+  // Remap tags before definition equivalence checks so shared definitions can be reused.
+  walk(imported, value => {
+    if (value.tagId && tagMap.has(value.tagId)) value.tagId = tagMap.get(value.tagId);
+    if (isTagKey(value.contextItemId) && !concreteIds.has(value.contextItemId) && tagMap.has(tagIdFromKey(value.contextItemId))) {
+      tagContextRefs.add(value);
+      value.contextItemId = tagKey(tagMap.get(tagIdFromKey(value.contextItemId)));
+    }
+    if (value.source === 'inventory' && isTagKey(value.key) && !concreteKeys.has(value.key) && tagMap.has(tagIdFromKey(value.key))) {
+      tagRuleRefs.add(value);
+      value.key = tagKey(tagMap.get(tagIdFromKey(value.key)));
+    }
+  });
   if (next.switchCardBackIcons === undefined && pkgOrV1.switchCardBackIcons !== undefined) next.switchCardBackIcons = pkgOrV1.switchCardBackIcons;
   if (!next.cardStyles && pkgOrV1.cardStyles) next.cardStyles = cloneProject(pkgOrV1.cardStyles);
   for (const definition of imported.library) definition.kind = canonicalCardKind(definition.kind);
   const defMap = new Map(), varMap = new Map(), chapterIds = new Set(next.chapters.map(c => c.id)), defs = new Set(next.library.map(d => d.id)),
     vars = new Set([...next.variables, ...next.chapters.flatMap(c => list(c.variables))].map(v => v.id));
   const chapterMap = new Map(imported.chapters.map(chapter => [chapter.id, unique(chapter.id, chapterIds)]));
-  const inventoryUsed = new Set(next.library.filter(d => d.kind === 'item').flatMap(d => [d.id, d.inventoryKey].filter(Boolean)));
+  const inventoryUsed = new Set([...destinationKeys, ...list(next.itemTags).map(tag => tagKey(tag.id))]);
   const allocateDefinition = d => {
     const used = d.kind === 'item' ? new Set([...defs, ...inventoryUsed]): defs;
     const id = unique(d.id, used);
@@ -96,9 +125,9 @@ export function importChapter(project, pkgOrV1) {
   }
   const remap = value => walk(value, v => {
     if (v.definitionId && defMap.has(v.definitionId)) v.definitionId = defMap.get(v.definitionId);
-    if (v.contextItemId && defMap.has(v.contextItemId)) v.contextItemId = defMap.get(v.contextItemId);
+    if (v.contextItemId && !tagContextRefs.has(v) && defMap.has(v.contextItemId)) v.contextItemId = defMap.get(v.contextItemId);
     if (v.key) {
-      if (v.source === 'inventory' || ['addItem', 'removeItem'].includes(v.op)) v.key = itemMap.get(v.key) || aliases.get(v.key) || v.key;
+      if (v.source === 'inventory' || ['addItem', 'removeItem'].includes(v.op)) v.key = tagRuleRefs.has(v) ? v.key : itemMap.get(v.key) || aliases.get(v.key) || v.key;
       else v.key = ruleVarMap.get(v.key) || v.key;
     }
     if (v.modifierVariable) v.modifierVariable = ruleVarMap.get(v.modifierVariable) || v.modifierVariable;
@@ -141,7 +170,7 @@ export function parseProject(text, {allowDraft = false} = {}) {
     if (named(value.chapter?.nextChapterId) && value.chapter.nextChapterId !== value.chapter.id) delete value.chapter.nextChapterId;
     value = {version: 2, kind: 'nest-project',
     id: `${value.chapter?.id || 'chapter'}-project`, name: value.chapter?.name, activeChapterId: value.chapter?.id, startChapterId: value.chapter?.id,
-    library: value.library, variables: value.variables || [], allowCycles: value.allowCycles,
+    itemTags: value.itemTags, library: value.library, variables: value.variables || [], allowCycles: value.allowCycles,
     ownedItemsVisibility: value.ownedItemsVisibility, unavailableActions: value.unavailableActions,
     cardStyles: value.cardStyles || {}, cardBack: value.cardBack, switchCardBackIcons: value.switchCardBackIcons,
     chapters: [value.chapter]};

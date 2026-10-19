@@ -17,7 +17,7 @@ export function rules(project,list=[],path,scope,kind,{label,help,chapter}={}) {
  html+=list.map((rule,i)=>{
   const p=`${esc(path)}.${i}`;
   let fields='';
-  const items=inventoryItemOptions(project,chapter,rule.key);
+  const items=inventoryItemOptions(project,chapter,rule.key,{includeTags:kind==='conditions'});
   if(kind==='conditions') {
    const inventory=rule.source==='inventory';
    const candidates=inventory?items:vars;

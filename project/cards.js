@@ -1,3 +1,4 @@
+import { isTagKey, itemTag, itemTagLabel } from './item-tags.js';
 import { editorCheckSummary, isStatVariable } from './checks.js';
 import { nodeSlotCardKinds } from './nodeTypes.js';
 /** The library stores content; placements store chapter-specific behavior. */
@@ -49,8 +50,16 @@ export function resolvePlacement(project, placement, index) {
     resolved.effects = resolved.onCollect;
   }
   if (base.kind === 'item') resolved.onCollect = [...collectionEffects(base), ...(placement.effects || [])];
-  if (placement.contextItemId) {
-    const item = index && index.usable !== false ? index.itemsById.get(placement.contextItemId) : project.library.find(d => d.id === placement.contextItemId && d.kind === 'item');
+  resolved.itemTags = project.itemTags || [];
+  const contextItem = placement.contextItemId && (index && index.usable !== false ? index.itemsById.get(placement.contextItemId) : project.library.find(d => d.id === placement.contextItemId && d.kind === 'item'));
+  if (placement.contextItemId && !contextItem && isTagKey(placement.contextItemId)) {
+    if (base.kind !== 'action' || !itemTag(project, placement.contextItemId)) throw new TypeError('Contextual choice needs an Action and an item tag.');
+    const key = placement.contextItemId;
+    Object.assign(resolved, {contextItemId:key, contextInventoryKey:key, inventoryLabel:itemTagLabel(project,key), entrance:'bottom', contextOverrideImage:false});
+    resolved.explicitConditions = [...resolved.conditions];
+    resolved.conditions.push({source:'inventory',key,op:'has'});
+  } else if (placement.contextItemId) {
+    const item = contextItem;
     if (base.kind !== 'action' || !item) throw new TypeError('Contextual choice needs an Action and an Item definition.');
     const key = item.inventoryKey ?? item.id;
     Object.assign(resolved, {contextItemId:item.id, contextInventoryKey:key, inventoryLabel:`Inventory · ${item.name}`, entrance:'bottom', contextOverrideImage:placement.contextOverrideImage===true});
@@ -61,9 +70,9 @@ export function resolvePlacement(project, placement, index) {
   }
   return resolved;
 }
-export function cardSummaryParts(card, variables = [], library = []) {
+export function cardSummaryParts(card, variables = [], library = [], itemTags = card.itemTags || []) {
   const variable = key => variables.find(v => v.id === key);
-  const name = key => variable(key)?.name || library.find(d => d.id === key || d.inventoryKey === key)?.name || key;
+  const name = key => variable(key)?.name || library.find(d => d.id === key || d.inventoryKey === key)?.name || (isTagKey(key) ? itemTagLabel({itemTags},key) : key);
   const effects = list => (list || []).map(e => {
     if (e.op === 'addItem' || e.op === 'removeItem') return `${e.op === 'addItem' ? 'Gain' : 'Remove'} ${name(e.key)}`;
     if (e.op === 'set') return `Set ${name(e.key)} to ${e.value}`;
@@ -75,6 +84,7 @@ export function cardSummaryParts(card, variables = [], library = []) {
     return `${name(c.key)} ${{eq:'=',neq:'≠',gte:'≥',lte:'≤'}[c.op]} ${c.value}`;
   });
   const parts = [];
+  if (card.kind === 'item' && card.tagId) parts.push(itemTagLabel({itemTags},card.tagId));
   if(card.contextItemId) parts.push(`Triggered by: ${name(card.contextItemId)}`);
   if (requirements.length) parts.push(`Requires: ${requirements.join(', ')}`);
   if (card.costs?.length) parts.push(`Cost: ${card.costs.map(c=>c.source==='inventory'?name(c.key):`${c.amount} ${name(c.key)}`).join(', ')}`);
@@ -87,8 +97,8 @@ export function cardSummaryParts(card, variables = [], library = []) {
   if(card.kind === 'item') parts.push(`Action triggers: ${card.permability > 0 ? (card.remainingTriggers ?? card.permability) + ' remaining' : 'permanent'}`);
   return parts;
 }
-export function cardSummary(card, variables = [], library = []) {
-  return cardSummaryParts(card,variables,library).join(' · ');
+export function cardSummary(card, variables = [], library = [], itemTags = card.itemTags || []) {
+  return cardSummaryParts(card,variables,library,itemTags).join(' · ');
 }
 
 /** Authored text and resource rules stay separate from the contextual stat-check panel. */

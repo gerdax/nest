@@ -141,3 +141,11 @@ test('unfinished missing-definition draft renders its inspector and skips unavai
   assert.doesNotThrow(()=>nodeInspector(imported,importedChapter,importedNode));
  }
 });
+
+test('Library definition previews show tag names instead of internal tag IDs',()=>{
+ const project=createProject(),item=project.library.find(d=>d.kind==='item');
+ project.itemTags=[{id:'internal-tool-id',name:'Tool'}];item.tagId='internal-tool-id';
+ const mount=new Element();mount.dataset.previewDefinition=item.id;
+ renderCardPreviews({querySelectorAll:()=>[mount]},project,null);
+ assert.equal(mount.children[0].children[0].children.find(child=>child.className==='nest-card-summary').textContent,'Tag: Tool · Action triggers: permanent');
+});

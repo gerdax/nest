@@ -1,4 +1,5 @@
 import { CardDrag } from './card-drag.js';
+import { uiScale } from './ui-scale.js';
 import { esc } from './forms.js';
 import { outputsForNode, labelForOutput } from '../project/model.js';
 import { nodeTypeLabel } from '../project/nodeTypes.js';
@@ -42,7 +43,7 @@ export class GraphView {
    e.preventDefault();this.lastPortClick=null;
    this.onConnect(edge.dataset.source,edge.dataset.exit,false);
   });
-  root.addEventListener('wheel',e=>{this.cancelCreation();e.preventDefault();const r=root.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top,old=this.view.z;this.view.z=Math.max(.25,Math.min(1.6,old*Math.exp(-e.deltaY*.001)));this.view.x=x-(x-this.view.x)*this.view.z/old;this.view.y=y-(y-this.view.y)*this.view.z/old;this.transform();},{passive:false});
+  root.addEventListener('wheel',e=>{this.cancelCreation();e.preventDefault();const r=root.getBoundingClientRect(),scale=uiScale(root),x=(e.clientX-r.left)/scale,y=(e.clientY-r.top)/scale,old=this.view.z;this.view.z=Math.max(.25,Math.min(1.6,old*Math.exp(-e.deltaY*.001)));this.view.x=x-(x-this.view.x)*this.view.z/old;this.view.y=y-(y-this.view.y)*this.view.z/old;this.transform();},{passive:false});
  }
  render(project,chapter,selected,active) {
   this.project=project;this.chapter=chapter;this.selected=selected;this.active=active;
@@ -81,11 +82,12 @@ export class GraphView {
     const kind=canonicalCardKind(definition.kind||definition.cardKind||descriptor.defaultKinds[slot]);
     const name=this.definitionsById.has(placement.definitionId)?(definition.name?.trim()||'Untitled'):'Missing card';
     const indicators=cardRuleIndicators(this.project,placement,this.libraryIndex);
+    const tag=kind==='item'?(this.project.itemTags||[]).find(tag=>tag.id===definition.tagId):null;
     const indicatorText=indicators.map(([letter])=>letter).join(' · ');
     const indicatorLabel=indicators.map(([letter,label])=>`${letter}: ${label}`).join('; ');
     const exits=slot==='choices'?outputs.filter(exit=>exit===placement.id||exit===`${placement.id}:success`||exit===`${placement.id}:failure`):[];
     for(const exit of exits)used.add(exit);
-    html+=`<hr class="graph-card-divider"><div class="graph-card-row ${exits.length?'has-outputs':''}" data-card-slot="${esc(slot)}" data-card-placement="${esc(placement.id||'')}" data-card-type="${esc(kind)}" style="--card-editor-tint:${esc(cardEditorTint(kind))}"><div class="graph-card-label"><button type="button" class="graph-card-name">${slot==='intro'?'<small>Introduction</small>':''}${esc(name)}</button>${indicatorText?`<small class="graph-card-rules" role="img" aria-label="${esc(indicatorLabel)}" title="${esc(indicatorLabel)}">${esc(indicatorText)}</small>`:''}</div>`;
+    html+=`<hr class="graph-card-divider"><div class="graph-card-row ${exits.length?'has-outputs':''}" data-card-slot="${esc(slot)}" data-card-placement="${esc(placement.id||'')}" data-card-type="${esc(kind)}" style="--card-editor-tint:${esc(cardEditorTint(kind))}"><div class="graph-card-label"><button type="button" class="graph-card-name">${slot==='intro'?'<small>Introduction</small>':''}${esc(name)}</button>${tag?`<small class="graph-item-tag" title="Tag: ${esc(tag.name)}">[${esc(tag.name)}]</small>`:''}${indicatorText?`<small class="graph-card-rules" role="img" aria-label="${esc(indicatorLabel)}" title="${esc(indicatorLabel)}">${esc(indicatorText)}</small>`:''}</div>`;
     if(exits.length)html+=`<div class="graph-card-outputs">${exits.map(exit=>this.port(node,exit,exit.endsWith(':success')?'Success':exit.endsWith(':failure')?'Failure':'')).join('')}</div>`;
     html+='</div>';
    }
@@ -95,7 +97,7 @@ export class GraphView {
   return html+remaining.map(exit=>this.port(node,exit)).join('');
  }
  position(n) {return this.drag?.kind==='node'&&this.drag.id===n.id?{x:this.drag.px,y:this.drag.py}:n;}
- point(e) {const r=this.root.getBoundingClientRect();return {x:(e.clientX-r.left-this.view.x)/this.view.z,y:(e.clientY-r.top-this.view.y)/this.view.z};}
+ point(e) {const r=this.root.getBoundingClientRect(),scale=uiScale(this.root);return {x:((e.clientX-r.left)/scale-this.view.x)/this.view.z,y:((e.clientY-r.top)/scale-this.view.y)/this.view.z};}
  wire(x,y,tx,ty) {return `M${x},${y} C${x+90},${y} ${tx-90},${ty} ${tx},${ty}`;}
  outputPoint(n,exit) {
   const port=this.portElements.get(n.id)?.get(exit);
@@ -114,8 +116,8 @@ export class GraphView {
  transform(){
   const world=this.root.querySelector('#world');
   world.style.transform=`translate(${this.view.x}px,${this.view.y}px) scale(${this.view.z})`;
-  // Compensate for the world scale so selection stays two screen pixels wide.
-  world.style.setProperty('--graph-selection-width',`${2/this.view.z}px`);
+  // Compensate for graph and editor zoom so selection stays two screen pixels wide.
+  world.style.setProperty('--graph-selection-width',`${2/(this.view.z*uiScale(this.root))}px`);
  }
  validTarget(id,source) {return (id!==source||this.project.allowCycles!==false)&&this.nodesById.has(id);}
  dropTarget(e,source) {
@@ -153,8 +155,8 @@ export class GraphView {
   if(d.kind==='connect'){
    d.moved ||= Math.hypot(e.clientX-d.x,e.clientY-d.y)>4;
    const p=this.point(e);d.px=p.x;d.py=p.y;this.hoverTarget(d.moved?this.dropTarget(e,d.nodeId):null);this.edges();
-  }else if(d.kind==='pan'){this.view.x=d.ox+e.clientX-d.x;this.view.y=d.oy+e.clientY-d.y;this.transform();}
-  else{d.px=d.ox+(e.clientX-d.x)/this.view.z;d.py=d.oy+(e.clientY-d.y)/this.view.z;const el=this.nodeElements.get(d.id);if(el){el.style.left=`${d.px}px`;el.style.top=`${d.py}px`;}this.edges();}
+  }else if(d.kind==='pan'){const scale=uiScale(this.root);this.view.x=d.ox+(e.clientX-d.x)/scale;this.view.y=d.oy+(e.clientY-d.y)/scale;this.transform();}
+  else{const scale=this.view.z*uiScale(this.root);d.px=d.ox+(e.clientX-d.x)/scale;d.py=d.oy+(e.clientY-d.y)/scale;const el=this.nodeElements.get(d.id);if(el){el.style.left=`${d.px}px`;el.style.top=`${d.py}px`;}this.edges();}
  }
  up(e){
   const d=this.drag;if(!d||d.pointer!==e.pointerId)return;
@@ -195,9 +197,9 @@ export class GraphView {
  centerOn(id){
   const node=this.nodesById.get(id);if(!node)return;
   const viewport=this.root.getBoundingClientRect(),bounds=this.nodeElements.get(id)?.getBoundingClientRect();
-  const width=bounds?.width?bounds.width/this.view.z:220,height=bounds?.height?bounds.height/this.view.z:120;
-  this.view.x=viewport.width/2-(node.x+width/2)*this.view.z;
-  this.view.y=viewport.height/2-(node.y+height/2)*this.view.z;
+  const scale=uiScale(this.root),width=bounds?.width?bounds.width/(this.view.z*scale):220,height=bounds?.height?bounds.height/(this.view.z*scale):120;
+  this.view.x=viewport.width/(2*scale)-(node.x+width/2)*this.view.z;
+  this.view.y=viewport.height/(2*scale)-(node.y+height/2)*this.view.z;
   this.transform();
   this.onSelect(id);
  }
@@ -207,5 +209,5 @@ export class GraphView {
   const hit=this.root.ownerDocument.elementFromPoint(e.clientX,e.clientY);
   return (!hit||this.root.contains(hit))&&!hit?.closest('.node');
  }
- fit(){if(!this.chapter.nodes.length)return;const nodes=this.chapter.nodes,r=this.root.getBoundingClientRect(),minX=Math.min(...nodes.map(n=>n.x)),minY=Math.min(...nodes.map(n=>n.y)),maxX=Math.max(...nodes.map(n=>n.x+220)),maxY=Math.max(...nodes.map(n=>n.y+220));this.view.z=Math.max(.25,Math.min(1,(r.width-80)/(maxX-minX),(r.height-80)/(maxY-minY)));this.view.x=40-minX*this.view.z;this.view.y=40-minY*this.view.z;this.transform();}
+ fit(){if(!this.chapter.nodes.length)return;const nodes=this.chapter.nodes,r=this.root.getBoundingClientRect(),scale=uiScale(this.root),minX=Math.min(...nodes.map(n=>n.x)),minY=Math.min(...nodes.map(n=>n.y)),maxX=Math.max(...nodes.map(n=>n.x+220)),maxY=Math.max(...nodes.map(n=>n.y+220));this.view.z=Math.max(.25,Math.min(1,(r.width/scale-80)/(maxX-minX),(r.height/scale-80)/(maxY-minY)));this.view.x=40-minX*this.view.z;this.view.y=40-minY*this.view.z;this.transform();}
 }

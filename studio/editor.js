@@ -1,3 +1,5 @@
+import { cardRuleIndicators } from './card-rule-indicators.js';
+import { createLibraryIndex } from '../project/library-index.js';
 import { sortedChapters, startChapter } from '../project/chapter-navigation.js';
 import { remapVariableClipboard, variableRenamesBetween } from './variable-ids.js';
 import { captureCardClipboard, canPasteCard } from './card-clipboard.js';
@@ -108,7 +110,7 @@ function renderProjectSettings(){
  const restore=root.contains(active),path=active?.dataset.path,scope=active?.dataset.scope;
  const start=restore&&['text','search'].includes(active.type)?active.selectionStart:null;
  const end=start===null?null:active.selectionEnd,scroll=root.scrollTop;
- const sections=['data-project-variables','data-project-card-styles','data-project-card-backs'];
+ const sections=['data-project-variables','data-project-item-tags','data-project-card-styles','data-project-card-backs'];
  const expanded=sections.filter(key=>root.querySelector(`[${key}]`)?.open);
  root.innerHTML=projectSettingsInspector(project);
  for(const key of expanded)root.querySelector(`[${key}]`).open=true;
@@ -153,13 +155,17 @@ function renderInspector({collapseCards=false,preserveProjectSettings=false}={})
  sidebar.scrollTop=sameInspector?scroll:0;
 }
 function renderLibrary(){
+ const libraryIndex=createLibraryIndex(project.library);
  const query=$('#library-search').value.toLowerCase();
+ $('#library-search-clear').hidden=!query;
  const dependencies=definitionGraph(project);
  const match=$('#library-match-beat').checked;
- $('#library-list').innerHTML=project.library.filter(d=>d.visibility!=='local'&&`${d.name} ${cardKinds[d.kind]?.label||d.kind} ${d.kind}`.toLowerCase().includes(query)).map(d=>{
+ $('#library-list').innerHTML=project.library.filter(d=>d.visibility!=='local'&&`${d.name} ${cardKinds[d.kind]?.label||d.kind} ${d.kind} ${(project.itemTags||[]).find(tag=>tag.id===d.tagId)?.name||''}`.toLowerCase().includes(query)).map(d=>{
   const compatible=!!libraryCardSlot(node(),d);
+  const indicators=cardRuleIndicators(project,{definitionId:d.id},libraryIndex);
+  const indicatorLabel=indicators.map(([letter,label])=>`${letter}: ${label}`).join('; ');
   const hint=compatible?`Double-click to add to ${node().name}`:node()?'Cannot add this card type to the selected beat. Click to inspect.':'Select a beat to add this card. Click to inspect.';
-  return `<button type="button" data-definition="${esc(d.id)}" class="library-entry card-panel ${d.id===definitionId?'selected':''} ${match&&!compatible?'library-entry-incompatible':''}" data-card-type="${esc(d.kind)}" title="${esc(hint)}" style="--card-editor-tint:${esc(cardEditorTint(d.kind))}"><strong>${esc(d.name)}</strong><span>${esc(cardKinds[d.kind]?.label||d.kind)} · ${dependencies.users(d.id).length} uses</span></button>`;
+  return `<button type="button" data-definition="${esc(d.id)}" class="library-entry card-panel ${d.id===definitionId?'selected':''} ${match&&!compatible?'library-entry-incompatible':''}" data-card-type="${esc(d.kind)}" title="${esc(hint)}" style="--card-editor-tint:${esc(cardEditorTint(d.kind))}"><strong>${esc(d.name)}</strong><span class="library-card-meta"><span>${esc(cardKinds[d.kind]?.label||d.kind)} · ${dependencies.users(d.id).length} uses</span>${indicators.length?`<span class="library-card-rules" role="img" aria-label="${esc(indicatorLabel)}" title="${esc(indicatorLabel)}">${esc(indicators.map(([letter])=>letter).join(' · '))}</span>`:''}</span>${d.kind==='item'&&d.tagId?`<span class="library-item-tag">[${esc((project.itemTags||[]).find(tag=>tag.id===d.tagId)?.name||d.tagId)}]</span>`:''}</button>`;
  }).join('');
 }
 function render({preserveProjectSettings=false}={}){
@@ -310,12 +316,24 @@ mountLibraryCardActions($('#library-list'),{
   preview.stop();edit('add-library-card',{definitionId:id});
  },
 });
+$('#project-settings-content').addEventListener('submit',event=>{
+ if(!event.target.matches('[data-add-tag-form]'))return;
+ event.preventDefault();
+ edit('item-tag',{operation:'add',id:`tag_${crypto.randomUUID()}`,name:new FormData(event.target).get('tagName')});
+});
+$('#project-settings-content').addEventListener('change',event=>{
+ const input=event.target.closest('[data-tag-name]');if(!input)return;
+ edit('item-tag',{operation:'rename',id:input.dataset.tagName,name:input.value});
+});
+$('#project-settings-content').addEventListener('click',event=>{
+ const button=event.target.closest('[data-remove-tag]');if(!button||button.disabled)return;
+ edit('item-tag',{operation:'remove',id:button.dataset.removeTag});
+});
 $('#library-search').oninput=renderLibrary;
-$('#library-match-beat').onchange=renderLibrary;
-$('#cleanup-local').onclick=()=>{
- const result=edit('cleanup-local');
- if(result.ok)report(result.value?`Removed ${result.value} unused local card${result.value===1?'':'s'}. Undo restores them.`:'No unused local cards.');
+$('#library-search-clear').onclick=()=>{
+ $('#library-search').value='';renderLibrary();$('#library-search').focus();
 };
+$('#library-match-beat').onchange=renderLibrary;
 $('#chapter-view').onclick=()=>{mode='chapter';render();};$('#library-view').onclick=()=>{mode='library';render();};
 $('#chapter-selector').onchange=e=>{preview.stop();edit('select-chapter',{id:e.target.value});graph.fit();};
 $('#add-chapter').onclick=()=>edit('add-chapter');

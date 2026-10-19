@@ -1,3 +1,4 @@
+import { layoutBounds } from './cssScale.js';
 import { handoffRadius, projectedBounds } from './geometry.js?v=no-ending-card-1';
 import { carouselPose, clamp, departureDistance, revealScale, flipLift } from './motion.js?v=no-ending-card-1';
 import { applyArtworkColorize } from './artworkColorize.js';
@@ -302,7 +303,7 @@ export function scenePose(deck, time = performance.now(), travel = deck.departur
   if (!deck.reduced) pose.z += flipLift(deck.flip.x, deck.settings);
   const depth = deck.n.x * 40 * (deck.takeDepthRatio || 0);
   if (depth > 0) {
-    const area = bounds || deck.mount.getBoundingClientRect();
+    const area = bounds || layoutBounds(deck.mount);
     anchorRecedingTop(pose, depth, area.width, area.height, deck.settings.perspective);
   }
   return pose;
@@ -339,7 +340,7 @@ function returningItemDepth(deck, time, height, selected) {
 // Share layout and slot indexes only within one synchronous render. Entrances,
 // settings and selection may change before the next frame or standalone query.
 function poseContext(deck, time) {
-  const bounds = deck.mount.getBoundingClientRect();
+  const bounds = layoutBounds(deck.mount);
   const width = Math.max(1, bounds.width), height = Math.max(1, bounds.height);
   const travel = deck.departureTravel(bounds), front = scenePose(deck, time, travel, bounds);
   const presented = deck.content.actions.flatMap((action, index) => deck.entrances.get(action.id)?.startAt === null ? [] : [index]);

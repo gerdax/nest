@@ -1,3 +1,4 @@
+import { cssScale, layoutBounds } from './cssScale.js';
 import { projectedBounds, turningBounds } from './geometry.js?v=no-ending-card-1';
 import { buildDeck, decorateCard, announceDeck, renderDeck, stageNextContent, stageNextBack, stageActionDeck, scenePose, cardPose, restoreBacks } from './renderer.js?v=no-ending-card-1';
 import { DeckInteractionMotion } from './DeckInteractionMotion.js';
@@ -229,7 +230,7 @@ export class CardDeck extends EventTarget {
     announceDeck(this);
   }
 
-  departureTravel(bounds = this.mount.getBoundingClientRect()) {
+  departureTravel(bounds = layoutBounds(this.mount)) {
     return bounds.height + Math.max(120, bounds.top || 0) + 80;
   }
 
@@ -244,7 +245,7 @@ export class CardDeck extends EventTarget {
   }
 
   stepPosition(state, dt) {
-    const { height } = this.mount.getBoundingClientRect();
+    const { height } = layoutBounds(this.mount);
     // Stop at visually negligible residuals, rather than micro-pixel values
     // that keep otherwise finished presentations locked for another second.
     const precision = state === this.fan ? .01 : state === this.n ? .25 / 40
@@ -303,7 +304,7 @@ export class CardDeck extends EventTarget {
   choiceLift(index, time = performance.now()) {
     return this.interactionMotion.followerLift({ id: this.content.actions[index]?.id,
       count: this.cards.length, enabled: this.groupChoiceMotion, ratio: this.followerRatio,
-      height: this.mount.getBoundingClientRect().height, currentLift: this.l.x, time,
+      height: layoutBounds(this.mount).height, currentLift: this.l.x, time,
       staggerMs: this.settings.choiceStaggerMs, reduced: this.reduced, departure: this.commitMotion });
   }
 
@@ -311,14 +312,14 @@ export class CardDeck extends EventTarget {
     if (!this.choiceHistory) return false;
     return this.interactionMotion.followersMoving({ ids: this.cards.map((_, i) => this.content.actions[i]?.id),
       count: this.cards.length, enabled: this.groupChoiceMotion, ratio: this.followerRatio,
-      height: this.mount.getBoundingClientRect().height, currentLift: this.l.x, time,
+      height: layoutBounds(this.mount).height, currentLift: this.l.x, time,
       staggerMs: this.settings.choiceStaggerMs, reduced: this.reduced, departure: this.commitMotion });
   }
 
   tryEarlyFlip(time) {
     if (!this.pending || (this.pendingPresentation !== 'closed' && !this.pending?.decisionOnly) || !this.commitMotion || this.nextFlip.target === 0) return;
     if (time < this.commitMotion.start + Math.max(0, this.commitMotion.duration - this.settings.flipLeadMs)) return;
-    const { width, height } = this.mount.getBoundingClientRect();
+    const { width, height } = layoutBounds(this.mount);
     const area = turningBounds({ x: 0, y: 0, z: -24 + (this.reduced ? 0 : flipLift(.5, this.settings)), turnAxis: this.settings.flipAxisTilt }, width, height, this.settings.perspective);
     if ((this.coverDeparture ? [scenePose(this, time)] : this.cards.map((_, i) => cardPose(this, i, time))).every(pose => projectedBounds(pose, width, height, this.settings.perspective).bottom <= area.top - 8)) {
       this.nextFlip.target = 0;
@@ -329,7 +330,7 @@ export class CardDeck extends EventTarget {
     if (this.phase !== 'choices' || !this.groupChoiceMotion || !this.choiceHistory
       || this.choiceRanks.get(this.content.actions[this.index]?.id) === 0) return;
     const poses = new Map(this.content.actions.map((a, i) => [a.id, cardPose(this, i, time)]));
-    const lift = this.choiceLift(this.index, time) / this.mount.getBoundingClientRect().height;
+    const lift = this.choiceLift(this.index, time) / layoutBounds(this.mount).height;
     this.interactionMotion.clearFollowers();
     this.l.x = lift;
     this.beginChoiceHistory(time);
@@ -367,6 +368,9 @@ export class CardDeck extends EventTarget {
 
   move(gesture) {
     if (!this.drag || !gesture.axis) return;
+    // Pointer input is in screen pixels; local poses and physics use layout pixels.
+    const screenGesture = gesture, scale = cssScale(this.mount);
+    gesture = { ...gesture, x: gesture.x / scale, y: gesture.y / scale };
     const recognizedVertical = gesture.axis === 'y' && this.drag.axis !== 'y';
     this.drag.axis = gesture.axis;
     const disabledDown = gesture.axis === 'y' && gesture.y > 0
@@ -374,7 +378,7 @@ export class CardDeck extends EventTarget {
     if (recognizedVertical || disabledDown) this.beginGrab(performance.now(), disabledDown);
     if (gesture.axis === 'y' && gesture.y < 0 && this.drag.ready
       && this.content.interaction === 'choice' && this.content.actions[this.index]?.disabled) this.releaseGrab();
-    const { width, height } = this.mount.getBoundingClientRect();
+    const { width, height } = layoutBounds(this.mount);
     if (gesture.axis === 'x' && this.drag.ready && this.cards.length > 1) {
       this.restoreLiftPoses();
       this.b.x = this.drag.b - gesture.x / (width * .62);
@@ -451,7 +455,7 @@ export class CardDeck extends EventTarget {
         }
       }
     }
-    if (this.pickup && this.drag.ready && this.content.interaction === 'container') this.pickup.move(gesture);
+    if (this.pickup && this.drag.ready && this.content.interaction === 'container') this.pickup.move(screenGesture);
     this.sampleChoices();
     const max = this.settings.maxTilt;
     this.rotationX.target = clamp(-gesture.y / height * max * 2, -max, max);
@@ -470,14 +474,16 @@ export class CardDeck extends EventTarget {
 
   end(gesture) {
     if (!this.drag) return;
-    const drag = this.drag;
+    const drag = this.drag, scale = cssScale(this.mount);
     this.drag = null;
+    // Keep physical release thresholds/hit testing in screen pixels; convert
+    // accepted release velocity when handing it to layout-space motion.
     const { width, height } = this.mount.getBoundingClientRect();
     this.releaseRotation(gesture);
     if (this.pickup && drag.ready && this.content.interaction === 'container' && gesture.axis === 'y' && gesture.y > 0) {
       const target = this.pickup.targetFor(gesture);
       const action = this.content.actions[this.index];
-      if (target && target.snapped !== false && !action?.disabled && !action?.collectDisabled) { this.pickup.preview(target); this.pickup.request(target, gesture.vy); }
+      if (target && target.snapped !== false && !action?.disabled && !action?.collectDisabled) { this.pickup.preview(target); this.pickup.request(target, gesture.vy / scale); }
       else { this.pickup.cancel(); this.cancelPickup(); }
       return;
     }
@@ -502,17 +508,17 @@ export class CardDeck extends EventTarget {
         : qualifies(gesture.y, gesture.vy, height, this.settings,
           gesture.y < 0 ? this.settings.upwardDistanceThreshold : this.settings.distanceThreshold);
       if (drag.ready && this.content.interaction === 'container' && accepted) {
-        if (gesture.y > 0) this.collect(gesture.vy); else this.discard(gesture.vy);
+        if (gesture.y > 0) this.collect(gesture.vy / scale); else this.discard(gesture.vy / scale);
         return;
       }
       if (drag.ready && gesture.y < 0 && accepted) {
-        this.commit(gesture.vy);
+        this.commit(gesture.vy / scale);
         return;
       }
-      if (!drag.open && this.content.directAdvance && accepted && gesture.y < 0) { this.commitCover(gesture.vy); return; }
-      if (!drag.open && this.content.flipItemsOnReveal && accepted && gesture.y < 0) { this.commitIntroduction(gesture.vy); return; }
+      if (!drag.open && this.content.directAdvance && accepted && gesture.y < 0) { this.commitCover(gesture.vy / scale); return; }
+      if (!drag.open && this.content.flipItemsOnReveal && accepted && gesture.y < 0) { this.commitIntroduction(gesture.vy / scale); return; }
       this.setOpen(accepted && (gesture.y < 0 || this.content.allowClose) ? gesture.y < 0 : drag.open);
-      if (this.phase !== 'closing' && !drag.open && gesture.y <= 0) this.p.v = -gesture.vy / this.departureTravel();
+      if (this.phase !== 'closing' && !drag.open && gesture.y <= 0) this.p.v = -gesture.vy / (scale * this.departureTravel());
     }
     // Accepted cover departure keeps its pickup until safely offscreen.
     if (!(gesture.axis === 'y' && !drag.open && this.open)) this.releaseGrab();
@@ -642,7 +648,7 @@ export class CardDeck extends EventTarget {
   }
 
   coverCleared() {
-    const bounds = this.mount.getBoundingClientRect();
+    const bounds = layoutBounds(this.mount);
     return projectedBounds(scenePose(this), Math.max(1, bounds.width), Math.max(1, bounds.height), this.settings.perspective).bottom <= -8;
   }
 
@@ -870,7 +876,7 @@ export class CardDeck extends EventTarget {
       this.liftStart = this.l.x;
       this.liftId = this.content.actions[this.index].id;
     }
-    this.l.x = direction<0?Math.max(this.l.x,12/this.mount.getBoundingClientRect().height):Math.min(this.l.x,-12/this.mount.getBoundingClientRect().height);
+    this.l.x = direction<0?Math.max(this.l.x,12/layoutBounds(this.mount).height):Math.min(this.l.x,-12/layoutBounds(this.mount).height);
     this.l.target = 0;
     this.operation = 'settle';
     this.schedule();
@@ -880,7 +886,7 @@ export class CardDeck extends EventTarget {
   departureMotion(pointerVelocity) {
     const duration = this.settings.commitDuration;
     const seconds = duration / 1000;
-    const distance = Math.max(120, this.departureTravel() - this.l.x * this.mount.getBoundingClientRect().height * (this.groupChoiceMotion&&this.cards.length>1?this.followerRatio:1));
+    const distance = Math.max(120, this.departureTravel() - this.l.x * layoutBounds(this.mount).height * (this.groupChoiceMotion&&this.cards.length>1?this.followerRatio:1));
     const gravity = Math.min(this.settings.gravity, distance / (seconds * seconds));
     return {
       start: performance.now(), duration, continueFlight: this.grabCards.size > 0,
@@ -983,8 +989,8 @@ export class CardDeck extends EventTarget {
     this.operation = null;
     const direction = transition === 'collect' ? 1 : -1;
     const duration = this.settings.commitDuration, seconds = duration / 1000;
-    const bounds = this.mount.getBoundingClientRect();
-    const edge = direction > 0 ? Math.max(bounds.height, (globalThis.innerHeight || bounds.height) - (bounds.top || 0)) : bounds.height + (bounds.top || 0);
+    const bounds = layoutBounds(this.mount);
+    const edge = direction > 0 ? Math.max(bounds.height, (globalThis.innerHeight / cssScale(this.mount) || bounds.height) - (bounds.top || 0)) : bounds.height + (bounds.top || 0);
     const distance = Math.max(120, edge + 160 + direction * this.l.x * bounds.height);
     const gravity = Math.min(this.settings.gravity, distance / (seconds * seconds));
     const motion = { start: performance.now(), duration, direction, transition, final, continueFlight: true,
@@ -1001,7 +1007,7 @@ export class CardDeck extends EventTarget {
   }
 
   itemCleared(time) {
-    const motion = this.collectMotion, bounds = this.mount.getBoundingClientRect();
+    const motion = this.collectMotion, bounds = layoutBounds(this.mount);
     if (motion.deposit) {
       // Final collection feedback is authored pacing, independent of the
       // drawer's visual exit. Continuations retain their immediate handoff.
@@ -1010,7 +1016,7 @@ export class CardDeck extends EventTarget {
         && (this.reduced || this.pickup.states.every(state => this.atRest(state)));
     }
     const area = projectedBounds(cardPose(this, motion.index, time), bounds.width, bounds.height, this.settings.perspective);
-    return motion.direction > 0 ? area.top + (bounds.top || 0) >= (globalThis.innerHeight || bounds.height + (bounds.top || 0)) + 8
+    return motion.direction > 0 ? area.top + (bounds.top || 0) >= (globalThis.innerHeight / cssScale(this.mount) || bounds.height + (bounds.top || 0)) + 8
       : area.bottom + (bounds.top || 0) <= -8;
   }
 
@@ -1050,7 +1056,7 @@ export class CardDeck extends EventTarget {
     // Assign smaller-orbit slots by painter rank; the existing top survivor stays top.
     const count = survivors.length;
     const slots = Array.from({ length: count }, (_, index) => ({ index,
-      front: carouselPose(index, 0, count, this.mount.getBoundingClientRect().width, this.settings).front }))
+      front: carouselPose(index, 0, count, layoutBounds(this.mount).width, this.settings).front }))
       .sort((a, b) => b.front - a.front || a.index - b.index);
     const arranged = [];
     slots.forEach(({ index }, rank) => { arranged[index] = survivors[rank]; });
@@ -1592,7 +1598,7 @@ export class CardDeck extends EventTarget {
       this.interactionMotion.stepReflow(dt, (state, step) => this.stepAngular(state, step), (state, step) => this.stepPosition(state, step));
       this.tryEarlyFlip(t);
       const duration = this.commitMotion.duration + (this.cards.length - 1) * this.settings.choiceStaggerMs;
-      const bounds = this.mount.getBoundingClientRect();
+      const bounds = layoutBounds(this.mount);
       const offsetsClear = this.coverDeparture ? projectedBounds(scenePose(this, t), bounds.width, bounds.height, this.settings.perspective).bottom <= -8 : (!this.commitMotion.discardAll && !this.commitMotion.discardItem && !this.reflowOffsets.size && !this.grabCards.size) || this.cards.every((_, i) =>
         projectedBounds(cardPose(this, i, t), bounds.width, bounds.height, this.settings.perspective).bottom <= -8);
       if (t - this.commitMotion.start >= duration && offsetsClear) {
@@ -1733,7 +1739,7 @@ export class CardDeck extends EventTarget {
       this.presentationState = this.presentationReadiness.update({ revision: this.presentationRevision, eligible, motions: [], preserveEstablished, exposure });
       return;
     }
-    const bounds = this.mount.getBoundingClientRect();
+    const bounds = layoutBounds(this.mount);
     const motions = [
       { state: this.fan, kind: 'fan' },
       { state: this.flip, kind: 'angle', scale: 180 },

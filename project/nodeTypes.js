@@ -11,8 +11,8 @@ const introduction = makePlacement => ({introEnabled:false, introOnce:false, int
 export const nodeTypes = Object.freeze({
  linear: Object.freeze({
   label:'Linear', iconPath:'M3 12H21', slots:Object.freeze({cards:linearKinds}), outputs:nextOutput,
-  defaultKinds:Object.freeze({cards:'event'}),
-  create:({makePlacement}) => ({retainInventoryItems:false,cards:[makePlacement('event')]})
+  defaultKinds:Object.freeze({cards:'caption'}),
+  create:({makePlacement}) => ({retainInventoryItems:false,cards:[makePlacement('caption')]})
  }),
  fork: Object.freeze({
   label:'Fork', iconPath:'M3 12H10L14 7H21M10 12L14 17H21', slots:Object.freeze({intro:storyKinds, choices:branchKinds}),

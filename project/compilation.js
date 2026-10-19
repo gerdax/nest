@@ -15,6 +15,7 @@ export function compileChapter(project, chapterId = project.activeChapterId) {
   const chapter = project.chapters.find(c => c.id === chapterId);
   if (!chapter) throw new TypeError(`Unknown chapter: ${chapterId}`);
   const result = cloneProject(chapter);
+  result.itemTags = cloneProject(project.itemTags || []);
   result.allowCycles = project.allowCycles !== false;
   result.ownedItemsVisibility = project.ownedItemsVisibility ?? 'disabled';
   result.unavailableActions = project.unavailableActions ?? 'disabled';

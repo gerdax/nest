@@ -1,3 +1,4 @@
+import {restoreSnapshotTags} from './tag-snapshots.js';
 import {createDefinition} from '../project/cards.js';
 import {definitionGraph,unusedLocalDefinitions} from '../project/dependencies.js';
 import {replaceCard,setCardSource,remapInventory} from './commands.js';
@@ -32,6 +33,7 @@ export class LocalCardDrafts {
   // over those older copies even after removal or unused-definition cleanup.
   for(const draft of this.drafts.values())for(const saved of draft.types.values()){
    if(saved.definition.id!==source.id&&!saved.dependencies.some(d=>d.id===source.id))continue;
+   saved.itemTags=[...new Map([...(saved.itemTags||[]),...(project.itemTags||[])].map(tag=>[tag.id,structuredClone(tag)])).values()];
    if(saved.definition.id===source.id){
     saved.definition=structuredClone(source);
     draft.common=pick(source,commonKeys);
@@ -60,7 +62,7 @@ export class LocalCardDrafts {
   const placement=pick(p,placementKeys);
   const dependencies=definitionGraph(project).reachableFrom({definition:source,placement});
   dependencies.delete(source.id);
-  draft.types.set(source.kind,{definition:structuredClone(source),placement,
+  draft.types.set(source.kind,{itemTags:structuredClone(project.itemTags||[]),definition:structuredClone(source),placement,
    dependencies:project.library.filter(d=>dependencies.has(d.id)).map(d=>structuredClone(d))});
  }
  prune(project,id){
@@ -77,6 +79,7 @@ export class LocalCardDrafts {
    let latest,owner;
    for(const draft of this.drafts.values())for(const saved of draft.types.values())if(saved.definition.id===dependency.id){latest=saved;owner=draft;}
    const restored=structuredClone(latest?.definition||dependency);
+   restoreSnapshotTags(project,restored,latest?.itemTags||snapshot.itemTags);
    if(latest){for(const key of commonKeys)delete restored[key];Object.assign(restored,structuredClone(owner.common));pending.push(...latest.dependencies);}
    project.library.push(restored);
    if(restored.visibility==='local')this.managedIds.add(restored.id);
@@ -95,7 +98,8 @@ export class LocalCardDrafts {
    if(source.visibility==='local')this.prune(project,source.id);
    return;
   }
-  const draft=this.drafts.get(p.id),snapshot=draft?.types.get(kind);
+  const draft=this.drafts.get(p.id),snapshot=draft?.types.has(kind)?structuredClone(draft.types.get(kind)):undefined;
+  if(snapshot)restoreSnapshotTags(project,snapshot,snapshot.itemTags);
   const template=snapshot?.definition || (source.kind===kind?{...source,...p.overrides}:null);
   const previousPlacement=pick(p,placementKeys);
   let definition=replaceCard(project,p,kind);

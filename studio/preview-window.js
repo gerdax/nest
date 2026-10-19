@@ -1,3 +1,4 @@
+import { uiScale } from './ui-scale.js';
 /** Modeless preview host. Moving the window never touches the card gesture surface. */
 export function mountPreviewWindow(root,{onClose=()=>{}}={}) {
  const handle=root.querySelector('[data-preview-drag]');
@@ -5,14 +6,14 @@ export function mountPreviewWindow(root,{onClose=()=>{}}={}) {
  const toggle=root.querySelector('[data-preview-minimize]');
  const body=root.querySelector('.preview-window-body');
  const bar=root.querySelector('.preview-window-bar');
- const measureBar=()=>{if(bar)root.style.setProperty('--preview-bar-height',`${bar.getBoundingClientRect().height}px`);};
+ const measureBar=()=>{if(bar)root.style.setProperty('--preview-bar-height',`${bar.getBoundingClientRect().height/uiScale(root)}px`);};
  const barObserver=typeof ResizeObserver==='function'&&bar?new ResizeObserver(measureBar):null;
  barObserver?.observe(bar);
  let drag=null,placed=false,minimized=false;
  const position=(x,y)=>{
   const rect=root.getBoundingClientRect();
-  root.style.left=`${Math.max(8,Math.min(x,window.innerWidth-rect.width-8))}px`;
-  root.style.top=`${Math.max(8,Math.min(y,window.innerHeight-rect.height-8))}px`;
+  root.style.left=`${Math.max(8,Math.min(x,window.innerWidth-rect.width-8))/uiScale(root)}px`;
+  root.style.top=`${Math.max(8,Math.min(y,window.innerHeight-rect.height-8))/uiScale(root)}px`;
  };
  const clamp=()=>{const rect=root.getBoundingClientRect();position(rect.left,rect.top);};
  const updateState=()=>{
@@ -25,7 +26,7 @@ export function mountPreviewWindow(root,{onClose=()=>{}}={}) {
  };
  const measureBody=()=>{
   // Preserve the expanded viewport for the still-running deck while the host collapses.
-  root.style.setProperty('--preview-body-height',`${body.getBoundingClientRect().height}px`);
+  root.style.setProperty('--preview-body-height',`${body.getBoundingClientRect().height/uiScale(root)}px`);
  };
  const measureMinimizedBody=()=>{
   if(!minimized)return;
@@ -45,7 +46,7 @@ export function mountPreviewWindow(root,{onClose=()=>{}}={}) {
   root.hidden=false;measureBar();
   if(shouldRestore)restore();
   else measureMinimizedBody();
-  if(!placed){position(400,100);placed=true;}
+  if(!placed){position(400*uiScale(root),100*uiScale(root));placed=true;}
   else clamp();
  };
  const cancel=()=>{

@@ -21,3 +21,10 @@ test('unavailable viewport dimensions leave legacy environments alone', () => {
   assert.equal(dialogLayout(null, 320, 568), null);
   assert.equal(dialogLayout({ left: 0, top: 0, width: 320, height: 568 }), null);
 });
+
+test('scaled editor inventory dialog converts viewport bounds to local CSS coordinates',()=>{
+ const layout=dialogLayout({left:160,top:80,width:256,height:480},1024,640,.8);
+ assert.equal(layout.inset,'100px 760px 100px 200px');
+ assert.equal(layout.width,'288px');
+ assert.equal(layout.maxHeight,'568px');
+});

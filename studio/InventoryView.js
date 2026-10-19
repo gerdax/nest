@@ -1,3 +1,4 @@
+import { uiScale } from './ui-scale.js';
 import { applyArtworkColorize } from '../engine/artworkColorize.js';
 import { DrawerMotion } from './drawer-motion.js';
 import { dialogLayout } from './dialog-layout.js';
@@ -20,7 +21,7 @@ export class InventoryView {
     this.collectDialog = root.querySelector('[data-collect-dialog]');
     this.view = root.ownerDocument?.defaultView ?? globalThis;
     this.layoutDialogs = () => {
-      const layout = dialogLayout(this.getBounds(), this.view.innerWidth, this.view.innerHeight);
+      const layout = dialogLayout(this.getBounds(), this.view.innerWidth, this.view.innerHeight, uiScale(this.collectDialog));
       if (layout) for (const dialog of [this.collectDialog]) Object.assign(dialog.style, layout);
     };
     this.view.addEventListener?.('resize', this.layoutDialogs);

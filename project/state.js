@@ -1,3 +1,4 @@
+import { isTagKey, tagIdFromKey } from './item-tags.js';
 import { isStatVariable } from './checks.js';
 /** Pure, atomic run-state operations. Inventory entries represent unique ownership. */
 export function initialValues(definitions = []) {
@@ -11,23 +12,26 @@ function clamp(value, definition) {
   }
   return value;
 }
-const matches = (item, key) => item.definitionId === key || item.inventoryKey === key || item.id === key;
+const concreteMatch = (item, key) => item.definitionId === key || item.inventoryKey === key || item.id === key;
+const matchingItems = (inventory, key) => {
+  const concrete = inventory.filter(item => concreteMatch(item,key));
+  return concrete.length ? concrete : isTagKey(key) ? inventory.filter(item => item.tagId === tagIdFromKey(key)) : [];
+};
 export function itemTriggersRemaining(item) {
   return (item.permability ?? 0) === 0 ? Infinity : (item.remainingTriggers ?? item.permability);
 }
 export function canTriggerItem(inventory = [], key) {
-  return inventory.some(item => matches(item,key) && itemTriggersRemaining(item) > 0);
+  return matchingItems(inventory,key).some(item => itemTriggersRemaining(item) > 0);
 }
-function trigger(inventory, original, key) {
-  if (!canTriggerItem(original,key)) throw new RangeError(`Unavailable inventory trigger: ${key}`);
+function trigger(inventory, selected) {
   return inventory.flatMap(item => {
-    if (!matches(item,key)) return [item];
+    if (item !== selected) return [item];
     const remaining = itemTriggersRemaining(item);
     return remaining === Infinity ? [item] : remaining > 1 ? [{...item,remainingTriggers:remaining-1}] : [];
   });
 }
 export function inventoryQuantity(inventory = [], key) {
-  return inventory.some(item => matches(item,key)) ? 1 : 0;
+  return matchingItems(inventory,key).length ? 1 : 0;
 }
 export function conditionsMet(conditions = [], values = {}, inventory = []) {
   return conditions.every(c => {
@@ -47,8 +51,9 @@ export function conditionsMet(conditions = [], values = {}, inventory = []) {
   });
 }
 function remove(inventory,key) {
+  if (isTagKey(key) && !inventory.some(item => concreteMatch(item,key))) throw new TypeError('Inventory costs and effects require a concrete item.');
   if (!inventoryQuantity(inventory,key)) throw new RangeError(`Insufficient item: ${key}`);
-  return inventory.filter(item => !matches(item,key));
+  return inventory.filter(item => !concreteMatch(item,key));
 }
 function spend(values,inventory,costs,definitions = []) {
   const defs = new Map(definitions.map(d=>[d.id,d]));
@@ -87,21 +92,25 @@ export function addInventory(inventory, definition) {
 }
 export function transact(values, inventory = [], { costs = [], effects = [], triggerItem } = {}, definitions = [], library = []) {
   const variables = {...values};
-  const triggeringItem = triggerItem && inventory.find(item => matches(item,triggerItem));
-  if (triggerItem && !canTriggerItem(inventory,triggerItem)) throw new RangeError(`Unavailable inventory trigger: ${triggerItem}`);
-  let items = spend(variables,ownedInventory(inventory),costs,definitions);
-  let originalTriggerOwned = triggerItem && items.some(item => matches(item,triggerItem));
+  let items = ownedInventory(inventory);
+  const triggeringItem = triggerItem && matchingItems(items,triggerItem).find(item => itemTriggersRemaining(item) > 0);
+  if (triggerItem && !triggeringItem) throw new RangeError(`Unavailable inventory trigger: ${triggerItem}`);
+  items = spend(variables,items,costs,definitions);
+  let originalTriggerOwned = triggeringItem && items.includes(triggeringItem);
   const defs = new Map(definitions.map(d=>[d.id,d]));
   const entries = library instanceof Map ? [...library.values()] : Array.isArray(library) ? library : Object.values(library);
   for (const effect of effects) {
     if (effect.op === 'removeItem') {
       items = remove(items,effect.key);
-      if (triggeringItem && matches(triggeringItem,effect.key)) originalTriggerOwned = false;
+      if (triggeringItem && concreteMatch(triggeringItem,effect.key)) originalTriggerOwned = false;
       continue;
     }
     if (effect.op === 'addItem') {
       const definition = entries.find(d=>(d.definitionId ?? d.id) === effect.key && d.kind === 'item');
-      items = addInventory(items,definition); continue;
+      const selectedIndex = originalTriggerOwned ? items.indexOf(triggeringItem) : -1;
+      items = addInventory(items,definition);
+      if (selectedIndex >= 0) items[selectedIndex] = triggeringItem;
+      continue;
     }
     if (!Object.hasOwn(variables,effect.key) || !['set','add'].includes(effect.op)) throw new TypeError(`Unknown variable or effect: ${effect.key}`);
     const value = effect.op === 'add' ? variables[effect.key]+effect.value : effect.value;
@@ -111,7 +120,7 @@ export function transact(values, inventory = [], { costs = [], effects = [], tri
     variables[effect.key] = clamp(value,def);
   }
   // Explicit removal already spends ownership. A later grant is a fresh item.
-  if (originalTriggerOwned) items = trigger(items,inventory,triggerItem);
+  if (originalTriggerOwned) items = trigger(items,triggeringItem);
   for (const [key,value] of Object.entries(variables)) variables[key] = clamp(value,defs.get(key));
   return {variables,inventory:items};
 }

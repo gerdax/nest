@@ -1,9 +1,10 @@
+import { applyTagCommand } from './item-tags.js';
 import { allocateVariableId, renameVariable } from './variable-ids.js';
 import { pasteCardClipboard } from './card-clipboard.js';
 import { isStatVariable } from '../project/checks.js';
 import { createDefinition, allowedCardKinds, isStoryKind, isConsumableKind } from '../project/cards.js';
 import { chapterVariables, createChapter, importChapter, outputsForNode } from '../project/model.js';
-import { cleanupLocalDefinitions, definitionGraph } from '../project/dependencies.js';
+import { definitionGraph } from '../project/dependencies.js';
 import { removeLibraryDefinition } from './library-removal.js';
 import { pasteNodeClipboard } from './node-clipboard.js';
 import { transferCard } from './card-transfer.js';
@@ -93,8 +94,8 @@ function changeField(project, selection, field, localDrafts) {
   if (inputType === 'number' && raw === '') { delete parent[key]; return; }
   if (['imageScale','imageOffsetX','imageOffsetY'].includes(key)) value = clampArtwork(key, value);
   parent[key] = value;
-  if (['modifierVariable','contextItemId'].includes(key) && !value) delete parent[key];
-  if (key === 'contextItemId' && !value) delete parent.contextOverrideImage;
+  if (['modifierVariable','contextItemId','tagId'].includes(key) && !value) delete parent[key];
+  if (key === 'contextItemId' && (!value||value.startsWith('tag:'))) delete parent.contextOverrideImage;
   if (key === 'resolution' && value === 'check') parent.check ||= {pool:[{sides:20,count:1}],modifier:0,target:10};
   if (key === 'mode' && value === 'stat') {
     parent.difficulty ??= 1;
@@ -170,6 +171,7 @@ function inspectorCommand(project, selection, data, localDrafts) {
 export function applyDocumentCommand(project, selection, type, data = {}, localDrafts) {
   const chapter = chapterFor(project, selection), node = nodeFor(project, selection);
   switch (type) {
+    case 'item-tag': return applyTagCommand(project,data);
     case 'field': return changeField(project, selection, data, localDrafts);
     case 'inspector': return inspectorCommand(project, selection, data, localDrafts);
     case 'connect': setConnection(chapter.nodes.find(n => n.id === data.id), data.exit, data.target); break;
@@ -182,7 +184,6 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
       break;
     }
     case 'paste-artwork': Object.assign(project.library.find(card => card.id === data.id), data.settings); break;
-    case 'cleanup-local': return {value:cleanupLocalDefinitions(project)};
     case 'add-library-card': {
       const added = appendLibraryCard(project, chapter, node, data.definitionId);
       return added ? {value:added.id} : {};

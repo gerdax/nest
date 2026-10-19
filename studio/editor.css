@@ -1,3 +1,7 @@
+/* Studio density: Chrome at 100% uses the former 80% editor size. */
+:root {--editor-scale:.8;--editor-viewport-width:calc(100vw / var(--editor-scale));--editor-viewport-height:calc(100dvh / var(--editor-scale));zoom:var(--editor-scale);}
+body {height:var(--editor-viewport-height);}
+@media(min-width:721px) {nav{flex-wrap:nowrap;}.brand{margin-right:20px;}header input{width:240px;}}
 header { flex-wrap:wrap; }
 header #save-status {margin-left:auto;margin-right:0;}
 .toolbar-divider {flex:0 0 auto;width:1px;height:22px;margin:0 4px;background:#3d4b4d;}
@@ -11,29 +15,50 @@ main {grid-template-columns:minmax(0,1fr) 430px;}
 .card-remove-button:hover,.card-remove-button:focus-visible {color:#efae9b;background:#3a2d2b;}
 .card-order-arrow:disabled {opacity:.25;}
 .card-panel-actions {justify-content:flex-end;flex-wrap:wrap;}
-@media(max-width:760px) {main{grid-template-columns:1fr;overflow:auto;} .workspace{min-height:400px;} aside{min-height:400px;}}
+@media(max-width:608px) {main{grid-template-columns:1fr;overflow:auto;} .workspace{min-height:400px;} aside{min-height:400px;}}
 .chapter-picker { display:flex;align-items:center;gap:8px; }
 .chapter-picker select { margin:0;width:180px; }
 .active-tab { background:#526b60; }
 .card-panel {--card-editor-tint:#aab8bb;background:color-mix(in srgb,var(--card-editor-tint) 12%,#1a2326);border:1px solid color-mix(in srgb,var(--card-editor-tint) 35%,#394a4c);border-radius:6px;}
 .card-definition-panel {padding:12px;}
+.card-definition-heading {display:flex;align-items:baseline;justify-content:space-between;gap:12px;}
+.card-definition-tag {color:var(--card-editor-tint);font-size:12px;font-weight:600;overflow-wrap:anywhere;text-align:right;}
 .card-panel .state-panel {background:color-mix(in srgb,var(--card-editor-tint) 6%,#172225);border-color:color-mix(in srgb,var(--card-editor-tint) 25%,#405153);}
 .card-panel .state-panel .entry {background:color-mix(in srgb,var(--card-editor-tint) 8%,#222f32);}
 .card-type-label {float:right;margin-left:12px;font-size:12px;font-weight:650;color:var(--card-editor-tint,#d7b879);}
+.card-type-label:has(.card-item-tag) {display:inline-flex;align-items:baseline;gap:12px;white-space:nowrap;}
+.card-item-tag {font-weight:600;}
 .card-navigation-target {outline:2px solid #a2d3c3;outline-offset:3px;scroll-margin-top:14px;}
 .preview-status-row {display:flex;align-items:center;justify-content:space-between;gap:12px;}
 .preview-status-row [data-status] {min-width:0;}
 #preview [data-go-to-card] {border:0;background:transparent;padding:0;color:#b5c0a0;text-decoration:underline;text-underline-offset:3px;white-space:nowrap;}
 #preview [data-go-to-card]:hover {color:#dce5ce;}
-#library-panel { height:100%;overflow:auto;padding:24px; }
+#library-panel { height:100%;overflow:auto;padding:24px;container-type:inline-size; }
 #library-panel h1 {font-size:22px;margin-top:0;}
-.library-search-controls {display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:18px;}
-#library-search {flex:1 1 220px;max-width:480px;margin:0;}
-.library-search-controls .check-field {white-space:nowrap;}
+.library-header {display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,420px);gap:12px 24px;margin-bottom:56px;}
+.library-intro {grid-column:1;grid-row:1;min-width:0;}
+.library-intro .small {margin-bottom:0;}
+.library-create-buttons {grid-column:1;grid-row:2;flex-wrap:wrap;margin:0;}
+.library-search-controls {grid-column:2;grid-row:1 / 3;display:flex;flex-direction:column;justify-content:space-between;gap:20px;padding-bottom:7px;}
+.library-search-field {position:relative;}
+#library-search {width:100%;min-height:40px;margin:0;padding-right:50px;}
+#library-search::-webkit-search-cancel-button {display:none;}
+#library-search-clear {position:absolute;right:2px;top:2px;bottom:2px;width:44px;padding:0;border:0;background:transparent;color:#a9b9b7;font-size:24px;line-height:1;display:grid;place-items:center;}
+#library-search-clear:hover {background:#3a4d4e;color:#e1e8e6;}
+#library-search-clear:focus-visible {outline:2px solid #a2d3c3;outline-offset:-2px;}
+.library-search-controls .check-field {align-self:flex-end;white-space:nowrap;}
+@container(max-width:780px) {
+ .library-header {grid-template-columns:1fr;gap:16px;margin-bottom:32px;}
+ .library-intro,.library-create-buttons,.library-search-controls {grid-column:1;grid-row:auto;}
+ .library-search-controls {padding:0;gap:12px;}
+}
 .library-entry.library-entry-incompatible {filter:grayscale(1);opacity:.4;}
 #library-list { display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px; }
 .library-entry { text-align:left;min-height:90px;display:flex;flex-direction:column;gap:12px; }
 .library-entry span {font-size:12px;color:#9fb7af;}
+.library-card-meta {display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 12px;}
+.library-entry .library-card-rules {color:#e1e8e6;font-size:10px;line-height:1.4;}
+.library-entry .library-item-tag {color:var(--card-editor-tint);font-weight:600;}
 .library-entry.selected {outline:2px solid #a2d3c3;}
 .library-entry.card-panel:hover {background:color-mix(in srgb,var(--card-editor-tint) 22%,#1a2326);}
 .check-field {display:flex!important;align-items:center;gap:8px;}
@@ -46,13 +71,13 @@ main {grid-template-columns:minmax(0,1fr) 430px;}
 #settings .chapter-settings {margin:0;}
 /* Revealing override fields must not move the sidebar's viewport. */
 aside {overflow-anchor:none;}
-@media(max-width:700px) {main{grid-template-columns:1fr;overflow:auto;} .workspace{min-height:400px;} aside{min-height:400px;} header .brand span{display:none;} .chapter-picker select{width:140px;}}
+@media(max-width:560px) {main{grid-template-columns:1fr;overflow:auto;} .workspace{min-height:400px;} aside{min-height:400px;} header .brand span{display:none;} .chapter-picker select{width:140px;}}
 
 /* Same face renderer, styles and nominal width as the chapter player. */
 .inspector-card-preview {position:relative;width:min(100%,276px);aspect-ratio:3/4;margin:24px auto;isolation:isolate;}
-@media(max-width:420px) {.inspector-card-preview {width:min(100%,240px);}}
+@media(max-width:336px) {.inspector-card-preview {width:min(100%,240px);}}
 
-.preview-window {--preview-bar-height:48px;position:fixed;z-index:3000;left:24px;top:100px;width:min(360px,calc(100vw - 16px),calc((100dvh - var(--preview-bar-height) - 18px)*796/1654));max-height:calc(100dvh - 16px);display:flex;flex-direction:column;background:#11191c;border:1px solid #63786d;border-radius:10px;box-shadow:0 16px 48px #000a;overflow:hidden;}
+.preview-window {--preview-bar-height:48px;position:fixed;z-index:3000;left:24px;top:100px;width:min(360px,calc(var(--editor-viewport-width) - 16px),calc((var(--editor-viewport-height) - var(--preview-bar-height) - 18px)*796/1654));max-height:calc(var(--editor-viewport-height) - 16px);display:flex;flex-direction:column;background:#11191c;border:1px solid #63786d;border-radius:10px;box-shadow:0 16px 48px #000a;overflow:hidden;}
 .preview-window-bar {position:relative;z-index:5001;display:flex;gap:8px;align-items:center;padding:8px;background:#263431;border-bottom:1px solid #46594f;flex-shrink:0;}
 .preview-window-handle {flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;cursor:grab;touch-action:none;user-select:none;border:0;background:transparent;font-weight:650;}
 .preview-window.dragging .preview-window-handle {cursor:grabbing;}
@@ -60,7 +85,6 @@ aside {overflow-anchor:none;}
 .preview-window-scroll {position:absolute;inset:0;overflow:auto;overscroll-behavior:contain;}
 .preview-window.minimized .preview-window-body {position:absolute;top:100%;left:0;width:100%;height:var(--preview-body-height);visibility:hidden;pointer-events:none;}
 .preview-window.minimized .preview-window-body * {visibility:hidden!important;}
-.preview-window #preview {border-top:0;background:#000;}
 
 .artwork-slider { position:relative; }
 .artwork-slider output { float:right; color:#b6c99b; font-variant-numeric:tabular-nums; }
@@ -89,18 +113,18 @@ aside {overflow-anchor:none;}
 #project-name {max-width:220px;overflow-wrap:anywhere;}
 .project-settings-overlay {position:fixed;inset:0;z-index:2000;display:grid;place-items:center;padding:24px;background:#000a;}
 .project-settings-overlay[hidden] {display:none;}
-.project-settings-dialog {display:flex;flex-direction:column;width:min(660px,100%);max-height:calc(100dvh - 48px);min-height:0;background:#1a2326;border:1px solid #526165;border-radius:10px;box-shadow:0 16px 64px #000b;outline:none;}
+.project-settings-dialog {display:flex;flex-direction:column;width:min(660px,100%);max-height:calc(var(--editor-viewport-height) - 48px);min-height:0;background:#1a2326;border:1px solid #526165;border-radius:10px;box-shadow:0 16px 64px #000b;outline:none;}
 .project-settings-heading {display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 20px;border-bottom:1px solid #394a4c;flex-shrink:0;}
 .project-settings-heading h2 {margin:0;font-size:18px;}
 #project-settings-content {padding:20px;overflow:auto;min-height:0;}
 .project-settings-open {overflow:hidden;}
-@media(max-width:480px){.project-settings-overlay{padding:12px;}.project-settings-dialog{max-height:calc(100dvh - 24px);}#project-settings-content{padding:14px;}}
+@media(max-width:384px){.project-settings-overlay{padding:12px;}.project-settings-dialog{max-height:calc(var(--editor-viewport-height) - 24px);}#project-settings-content{padding:14px;}}
 
 .tabs[hidden] {display:none;}
 
 .artwork-positioning > .check-field {margin-top:12px;}
 
-@media(min-width:761px) {main:has(#canvas:not([hidden])) {grid-template-columns:minmax(0,1fr) 470px;}}
+@media(min-width:609px) {main:has(#canvas:not([hidden])) {grid-template-columns:minmax(0,1fr) 470px;}}
 
 #inspector label.field:has(> input[data-scope="node"][data-path="name"]) {margin-bottom:20px;}
 
@@ -116,3 +140,6 @@ aside {overflow-anchor:none;}
 
 .project-start-controls {margin-top:20px;padding-top:16px;border-top:1px solid #394a4c;}
 .project-start-controls .play-from-start {display:block;width:100%;margin-top:16px;padding:12px;}
+
+/* The shared player drawer breakpoint is measured before studio zoom. */
+@media(min-width:321px) and (max-width:400px) {.nest-inventory-drawer .nest-inventory-slot{height:100px;}}

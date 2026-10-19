@@ -15,10 +15,15 @@
 .check-total,.check-target {position:absolute;bottom:12%;font-family:var(--card-font,NestLetter,monospace);font-weight:normal;line-height:1.2;}
 .check-total {left:12%;font-size:var(--card-font-size,21px);color:var(--card-text,#d2dfb6);}
 .check-target {right:12%;font-size:var(--card-medium-size,15px);color:var(--card-medium-color,#d2dfb6);}
-.check-outcome {position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:clamp(32px,calc(var(--card-font-size,21px) * 4),30cqw)/1 NestVitals,monospace;text-transform:uppercase;color:var(--card-text,#d2dfb6);}
+.check-outcome {position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:clamp(32px,calc(var(--card-font-size,21px) * 4),calc(30cqw / var(--large-card-size-factor,1)))/1 NestVitals,monospace;text-transform:uppercase;color:var(--card-text,#d2dfb6);}
 .check-result[data-outcome="failure"] .check-outcome {color:var(--card-medium-color,#d2dfb6);}
-.chapter-preview-card-layout { position:relative;width:min(100%,276px);aspect-ratio:3/4; }
-.chapter-preview-deck { width:100%;aspect-ratio:3/4; }
+.chapter-preview-card-layout {
+  position:relative;width:var(--preview-card-width,min(100%,276px));aspect-ratio:3/4;
+  /* Stack and held inventory card share one moving camera plane. */
+  translate:0 var(--inventory-camera-offset,0px);
+  transition:translate 240ms cubic-bezier(.3,.15,.3,1);
+}
+.chapter-preview-deck {width:100%;aspect-ratio:3/4;margin:0;}
 .project-preview [data-status] { overflow-wrap:anywhere; }
 .project-preview [data-state] pre { white-space:pre-wrap; }
 .nest-inventory-item button { position:relative;width:100%;min-height:82px;padding:0;border:0;background:transparent;color:inherit;text-align:left; }
@@ -26,7 +31,7 @@
 .item-dialog::backdrop { background:#000b; }
 .item-dialog > .nest-image-vignette img { display:block;width:100%;max-height:220px;object-fit:cover; }
 .item-dialog [data-summary] { color:#c0d99b;white-space:pre-line; }
-@media(max-width:420px) { .chapter-preview-stage {padding-inline:22px;min-height:390px;} .chapter-preview-card-layout {width:min(100%,240px);} }
+@media(max-width:420px) { .chapter-preview-stage {padding-inline:22px;min-height:390px;} .chapter-preview-card-layout {--preview-card-width:min(100%,240px);} }
 
 @font-face {font-family:NestVitals;src:url('../assets/fonts/trotont.ttf') format('truetype');font-display:swap;}
 .player-resources {width:100%;display:flex;justify-content:space-between;align-items:center;color:#b6c99b;}
@@ -55,12 +60,8 @@
 /* Keep authored line and paragraph breaks in inventory descriptions too. */
 .item-dialog [data-description] { white-space:pre-wrap; }
 
-/* Both the stack and the inventory card occupy one vertical camera plane. */
-.chapter-preview-card-layout {translate:0 var(--inventory-camera-offset,0px);transition:translate 240ms cubic-bezier(.3,.15,.3,1)}
 .chapter-preview-card-layout.is-inventory-preview .chapter-preview-deck {pointer-events:none}
 .chapter-preview-card-layout.is-inventory-preview .action-check-details {visibility:hidden}
-.nest-inventory-held-card {pointer-events:none;user-select:none}
-@media(prefers-reduced-motion:reduce){.chapter-preview-card-layout{transition:none}}
-.nest-inventory-held-card {visibility:hidden;transition:visibility 0s 240ms}
+.nest-inventory-held-card {pointer-events:none;user-select:none;visibility:hidden;transition:visibility 0s 240ms}
 .is-inventory-preview .nest-inventory-held-card {visibility:visible;transition-delay:0s}
-@media(prefers-reduced-motion:reduce){.nest-inventory-held-card{transition:none}}
+@media(prefers-reduced-motion:reduce){.chapter-preview-card-layout,.nest-inventory-held-card{transition:none}}

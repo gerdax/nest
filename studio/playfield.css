@@ -23,7 +23,7 @@
   box-sizing:border-box;display:grid;
   grid-template-rows:var(--playfield-hud-height) minmax(0,1fr);
   align-items:stretch;justify-items:stretch;
-  height:100%;min-height:0!important;
+  height:100%;min-height:0;
   padding:clamp(12px,2cqh,20px) max(28px,var(--playfield-safe-right)) clamp(12px,2cqh,20px) max(28px,var(--playfield-safe-left));
   gap:var(--playfield-gap);overflow:visible;
 }
@@ -40,7 +40,14 @@
   display:grid;place-items:center;
 }
 .nest-playfield #preview .chapter-preview-card-layout {
-  width:min(276px,100%,calc(100cqh * .75));height:auto;aspect-ratio:3/4;margin:0;
+  /* Grow the measured mount, so gestures and drawer flights share its geometry. */
+  --large-card-size-factor:1.14;
+  --preview-card-width:calc(min(276px,100%,calc(100cqh * .75)) * var(--large-card-size-factor));
+}
+/* Interaction preview uses its original 240px baseline. The layout owns
+   sizing; the deck and inventory camera card both fill this same plane. */
+.preview-window .nest-playfield #preview .chapter-preview-card-layout {
+  --preview-card-width:calc(240px * var(--large-card-size-factor));
 }
 .nest-playfield .preview-status-row {
   position:absolute;inset:auto 12px var(--playfield-drawer-space);z-index:20;text-align:center;display:block;

@@ -1,3 +1,4 @@
+import { isTagKey, tagKey, tagIdFromKey, validItemTagName } from './item-tags.js';
 import { isStatVariable, validStatValue, compatibleStatVariable } from './checks.js';
 import { validateCardBack } from '../engine/cardBacks.js';
 import { cardKinds, resolvePlacement, canonicalCardKind, allowedCardKinds, placementOverrideKeys, isConsumableKind } from './cards.js';
@@ -46,6 +47,14 @@ export function validateProject(project, {allowDraft = false} = {}) {
     }
     return ids;
   };
+  if (project.itemTags !== undefined && !Array.isArray(project.itemTags)) add('Item tags must be a list.');
+  const tags = list(project.itemTags), tagIds = seen(tags, 'Item tag'), tagNames = new Set();
+  for (const tag of tags.filter(object)) {
+    if (!validItemTagName(tag.name)) add(`Item tag ${tag.id}: name must be a nonempty single word.`);
+    const name = typeof tag.name === 'string' ? tag.name.toLowerCase() : '';
+    if (tagNames.has(name)) add(`Duplicate item tag name: ${tag.name}.`);
+    tagNames.add(name);
+  }
   seen(library, 'Definition');
   seen(variables, 'Variable');
   const chapterIds = seen(chapters, 'Chapter');
@@ -85,6 +94,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
   const itemKeys = new Set(library.filter(d => d?.kind === 'item').flatMap(d => [d.id, d.inventoryKey].filter(Boolean)));
   const itemsById = new Map(library.filter(d => d?.kind === 'item').map(d => [d.id, d]));
   const itemDefinitionIds = new Set(itemsById.keys());
+  for (const tag of tags.filter(object)) if (itemKeys.has(tagKey(tag.id))) add(`Item tag ${tag.id}: reference ${tagKey(tag.id)} conflicts with a concrete item ID or inventory alias.`);
   for (const item of itemsById.values()) {
     const owner = itemsById.get(item.inventoryKey);
     if (owner && owner !== item && (owner.inventoryKey ?? owner.id) !== (item.inventoryKey ?? item.id)) add(`Item ${item.id}: inventory alias ${item.inventoryKey} conflicts with another item ID.`);
@@ -102,7 +112,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
         continue;
       }
       if (c.source === 'inventory') {
-        if (!['has', 'missing'].includes(c.op) || !validRef(c.key, itemKeys) || ['gte', 'lte'].includes(c.op)
+        if (!['has', 'missing'].includes(c.op) || !(itemKeys.has(c.key) || (isTagKey(c.key) ? tagIds.has(tagIdFromKey(c.key)) : validRef(c.key, itemKeys))) || ['gte', 'lte'].includes(c.op)
           && (!Number.isSafeInteger(c.value) || c.value < 0)) add(`${label}: invalid inventory condition.`);
       } else {
         const v = vars.get(c.key);
@@ -124,7 +134,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
         continue;
       }
       if (['addItem', 'removeItem'].includes(e.op)) {
-        if (!validRef(e.key, itemDefinitionIds)) add(`${label}: inventory effect needs an item.`);
+        if (!itemDefinitionIds.has(e.key) && (isTagKey(e.key) || !validRef(e.key, itemDefinitionIds))) add(`${label}: inventory effect needs an item.`);
       } else {
         const v = vars.get(e.key);
         if (!['set', 'add'].includes(e.op) || !validRef(e.key, vars) || !['number', 'boolean'].includes(typeof e.value)
@@ -144,13 +154,14 @@ export function validateProject(project, {allowDraft = false} = {}) {
     if (isConsumableKind(d.kind)) inspectEffects([{op:'add',key:d.kind,value:d.value}], label);
     inspectConditions(d.conditions, label);
     for (const key of ['effects', 'onCollect', 'successEffects', 'failureEffects']) inspectEffects(d[key], label);
+    if (d.tagId !== undefined && (d.kind !== 'item' || !named(d.tagId) || !tagIds.has(d.tagId))) add(`${label}: invalid item tag.`);
     if (d.permability !== undefined && (!Number.isSafeInteger(d.permability) || d.permability < 0)) add(`${label}: permability must be a nonnegative safe integer.`);
     if (d.costs !== undefined) {
       if (!Array.isArray(d.costs)) add(`${label}: costs must be a list.`);
       else for (const c of d.costs) {
         if (!object(c) || !['variable', 'inventory'].includes(c.source) || typeof c.key !== 'string'
           || !Number.isFinite(c.amount) || c.amount <= 0 || c.source === 'inventory' && (!Number.isSafeInteger(c.amount)
-          || !validRef(c.key, itemKeys)) || c.source === 'variable' && (!validRef(c.key, vars) || vars.has(c.key)
+          || !itemKeys.has(c.key) && (isTagKey(c.key) || !validRef(c.key, itemKeys))) || c.source === 'variable' && (!validRef(c.key, vars) || vars.has(c.key)
           && (vars.get(c.key).type !== 'number' || isStatVariable(vars.get(c.key)) && !Number.isInteger(c.amount)))) add(`${label}: invalid cost.`);
       }
     }
@@ -262,8 +273,9 @@ export function validateProject(project, {allowDraft = false} = {}) {
           cid, nid);
         const linked = p.contextItemId !== undefined && p.contextItemId !== '';
         const contextValid = !linked || named(p.contextItemId) && node.type === 'fork' && list(node.choices).includes(p)
-          && canonicalCardKind(d?.kind) === 'action' && definitions.get(p.contextItemId)?.kind === 'item';
-        if (!contextValid) add(`${label}: inventory context needs a native fork Action choice and an Item definition.`, cid, nid);
+          && canonicalCardKind(d?.kind) === 'action' && (definitions.get(p.contextItemId)?.kind === 'item' || isTagKey(p.contextItemId) && tagIds.has(tagIdFromKey(p.contextItemId)));
+        if (isTagKey(p.contextItemId) && !itemsById.has(p.contextItemId) && p.contextOverrideImage === true) add(`${label}: tag context cannot override artwork.`, cid, nid);
+        if (!contextValid) add(`${label}: inventory context needs a native fork Action choice and an Item definition or tag.`, cid, nid);
         if (d) {
           if (['linear', 'fork', 'container'].includes(node.type) && !allowedCardKinds(node.type, p === node.intro ? 'intro': list(node.choices).includes(p) ? 'choices': list(node.items).includes(p) ? 'items': 'cards').includes(canonicalCardKind(d.kind))) add(`${label}: incompatible card kind.`,
             cid, nid);

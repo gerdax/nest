@@ -1,3 +1,4 @@
+import { uiScale } from './ui-scale.js';
 const WIDTH = 1.6, HEIGHT = 1.5;
 export const floatingDiceAppearance = Object.freeze({ sizeMultiplier: 1.2, renderOverscan: 2 });
 
@@ -25,9 +26,10 @@ export class DiceLayer {
     this.track = () => {
       if (this.closed) return;
       const rect = this.anchor.getBoundingClientRect();
-      this.appearance ||= Object.freeze({ ...floatingDiceAppearance, referenceWidth:rect.width, referenceHeight:rect.height });
-      const viewportWidth = doc.documentElement?.clientWidth || Infinity;
-      const viewportHeight = doc.documentElement?.clientHeight || Infinity;
+      const scale=uiScale(this.host);
+      this.appearance ||= Object.freeze({ ...floatingDiceAppearance, referenceWidth:rect.width/scale, referenceHeight:rect.height/scale });
+      const viewportWidth = doc.defaultView?.innerWidth || doc.documentElement?.clientWidth || Infinity;
+      const viewportHeight = doc.defaultView?.innerHeight || doc.documentElement?.clientHeight || Infinity;
       const width = Math.min(rect.width * WIDTH, viewportWidth), height = Math.min(rect.height * HEIGHT, viewportHeight);
       const left = Math.max(0, Math.min(viewportWidth - width, rect.left - (width - rect.width) / 2));
       const top = Math.max(0, Math.min(viewportHeight - height, rect.top - (height - rect.height) / 2));
@@ -38,7 +40,7 @@ export class DiceLayer {
       const signature = bounds.join(':');
       if (signature !== this.signature) {
         this.signature = signature;
-        Object.assign(this.tray.style, { left:`${bounds[0]}px`, top:`${bounds[1]}px`, width:`${bounds[2]}px`, height:`${bounds[3]}px` });
+        Object.assign(this.tray.style, { left:`${bounds[0]/scale}px`, top:`${bounds[1]/scale}px`, width:`${bounds[2]/scale}px`, height:`${bounds[3]/scale}px` });
       }
       this.frame = requestAnimationFrame(this.track);
     };

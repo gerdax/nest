@@ -1,4 +1,5 @@
 import { nodeTypeDescriptor } from '../project/nodeTypes.js';
+import { uiScale } from './ui-scale.js';
 
 export function cardDropSlot(type,kind) {
  const slots=nodeTypeDescriptor(type)?.slots||{};
@@ -62,12 +63,12 @@ export class CardDrag {
   if(!this.frame)this.tick();
  }
  paint(d){
-  const g=this.graph;
+  const g=this.graph,scale=uiScale(g.root);
   for(const el of g.root.querySelectorAll('.node')){el.classList.toggle('card-drop-target',false);el.classList.toggle('card-drop-invalid',false);}
   for(const el of g.root.querySelectorAll('.graph-card-row,.node-heading')){el.classList.toggle('card-drop-replace',false);el.classList.toggle('card-drop-invalid',false);}
   const target=this.target(d,d);d.target=target;
   this.ghost.textContent=`${target?.header?'Introduction'+(d.copy?' (copy)':''):target?.targetPlacementId?'Replace'+(d.copy?' with copy':''):d.copy?'+ Copy':'Move'} · ${d.name}`;
-  this.ghost.style.left=`${d.clientX+14}px`;this.ghost.style.top=`${d.clientY+14}px`;
+  this.ghost.style.left=`${(d.clientX+14)/scale}px`;this.ghost.style.top=`${(d.clientY+14)/scale}px`;
   this.line.hidden=true;
   if(!target)return;
   if(target.header){target.header.classList.toggle(target.invalid?'card-drop-invalid':'card-drop-replace',true);return;}
@@ -77,7 +78,7 @@ export class CardDrag {
   const bounds=target.nodeEl.getBoundingClientRect(),row=target.rows[target.index],last=target.rows.at(-1);
   const anchor=target.nodeEl.querySelector('.graph-card-row[data-card-slot="intro"]')||target.nodeEl.querySelector('.node-heading');
   const y=row?row.getBoundingClientRect().top:last?last.getBoundingClientRect().bottom:anchor?.getBoundingClientRect().bottom??bounds.bottom;
-  Object.assign(this.line.style,{left:`${bounds.left+3}px`,top:`${y}px`,width:`${bounds.width-6}px`});this.line.hidden=false;
+  Object.assign(this.line.style,{left:`${(bounds.left+3)/scale}px`,top:`${y/scale}px`,width:`${(bounds.width-6)/scale}px`});this.line.hidden=false;
  }
  tick(){
   const win=this.graph.root.ownerDocument.defaultView;
@@ -86,7 +87,7 @@ export class CardDrag {
    const r=g.root.getBoundingClientRect(),speed=(v,min,max)=>v<min+36?6:v>max-36?-6:0;
    if(d.clientX>=r.left&&d.clientX<r.right&&d.clientY>=r.top&&d.clientY<r.bottom){
     const x=speed(d.clientX,r.left,r.right),y=speed(d.clientY,r.top,r.bottom);
-    if(x||y){g.view.x+=x;g.view.y+=y;g.transform();this.paint(d);}
+    if(x||y){const scale=uiScale(g.root);g.view.x+=x/scale;g.view.y+=y/scale;g.transform();this.paint(d);}
    }
    this.tick();
   });

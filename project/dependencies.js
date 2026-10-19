@@ -1,3 +1,4 @@
+import { isTagKey } from './item-tags.js';
 /** Shared reference analysis for portable exports, deletion and local cleanup.
  * Rebuild for each document revision; never retain indexes across edits.
  */
@@ -25,7 +26,9 @@ export function definitionGraph(project) {
       if (typeof entry.definitionId === 'string') references.push({
         ...context, definitionId: entry.definitionId, kind: 'placement', placement: entry, path,
       });
-      if (typeof entry.contextItemId === 'string' && entry.contextItemId) references.push({
+      // Tags describe a class of owned items; they do not depend on any
+      // particular definition or pull another chapter's local items into scope.
+      if (typeof entry.contextItemId === 'string' && entry.contextItemId && (!isTagKey(entry.contextItemId) || definitions.get(entry.contextItemId)?.kind === 'item')) references.push({
         ...context, definitionId: entry.contextItemId, kind: 'contextItem', placement: entry, path,
       });
       if (typeof entry.key === 'string' && (entry.source === 'inventory' || ['addItem', 'removeItem'].includes(entry.op))) {

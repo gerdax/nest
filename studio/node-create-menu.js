@@ -1,3 +1,4 @@
+import { uiScale } from './ui-scale.js';
 import { nodeTypes } from '../project/nodeTypes.js';
 import { nodeIcon } from './node-icons.js';
 import { esc } from './forms.js';
@@ -43,8 +44,8 @@ export function mountNodeCreateMenu({onChoose, onDismiss, returnFocus, document:
   open(context){
    request=context;menu.hidden=false;
    const bounds=menu.getBoundingClientRect(),view=doc.defaultView;
-   menu.style.left=`${Math.max(8,Math.min(context.clientX,view.innerWidth-bounds.width-8))}px`;
-   menu.style.top=`${Math.max(8,Math.min(context.clientY,view.innerHeight-bounds.height-8))}px`;
+   menu.style.left=`${Math.max(8,Math.min(context.clientX,view.innerWidth-bounds.width-8))/uiScale(menu)}px`;
+   menu.style.top=`${Math.max(8,Math.min(context.clientY,view.innerHeight-bounds.height-8))/uiScale(menu)}px`;
    menu.focus({preventScroll:true});
   },
   close,

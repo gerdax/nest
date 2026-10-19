@@ -100,9 +100,28 @@ test('non-primary input is ignored and close/destroy safely release capture and 
 test('CSS collapses only the host and suppresses fixed descendant overlays without display:none',()=>{
  const css=readFileSync(new URL('../studio/editor.css',import.meta.url),'utf8');
  assert.match(css,/\.preview-window-body\s*\{[^}]*background:#000/);
- assert.match(css,/\.preview-window #preview\s*\{[^}]*background:#000/);
+ const playfieldCss=readFileSync(new URL('../studio/playfield.css',import.meta.url),'utf8');
+ assert.match(playfieldCss,/\.nest-playfield\s*\{[^}]*background:#000/);
  assert.match(css,/\.preview-window-bar\s*\{[^}]*position:relative[^}]*z-index:5001/);
  assert.match(css,/\.preview-window\.minimized \.preview-window-body\s*\{[^}]*position:absolute[^}]*height:var\(--preview-body-height\)[^}]*visibility:hidden/);
  assert.match(css,/\.preview-window\.minimized \.preview-window-body \*\s*\{visibility:hidden!important;/);
  assert.doesNotMatch(css,/\.preview-window\.minimized[^}]*display:none/);
+});
+
+test('80% editor scale preserves preview drag distance, viewport clamping and minimized body size',()=>{
+ const f=fixture(),scale=.8;
+ f.root.ownerDocument={documentElement:{},defaultView:{getComputedStyle:()=>({zoom:String(scale)})}};
+ f.body.getBoundingClientRect=()=>({height:(f.root.classes.has('minimized')?parseFloat(f.root.styles.get('--preview-body-height')):440)*scale});
+ f.root.getBoundingClientRect=()=>({left:parseFloat(f.root.style.left)*scale,top:parseFloat(f.root.style.top)*scale,width:420*scale,height:(f.root.classes.has('minimized')?50:490)*scale});
+ f.api.show();assert.equal(f.root.style.left,'400px');assert.equal(f.root.style.top,'100px');
+ emit(f.handle,'pointerdown',{button:0,pointerId:1,clientX:330,clientY:90});
+ emit(f.handle,'pointermove',{pointerId:1,clientX:410,clientY:130});
+ assert.equal(f.root.style.left,'500px');assert.equal(f.root.style.top,'150px');
+ emit(f.handle,'pointerup',{pointerId:1});
+ f.api.minimize();assert.equal(f.root.styles.get('--preview-body-height'),'440px');assert.equal(f.body.getBoundingClientRect().height,352);
+ emit(f.handle,'pointerdown',{button:0,pointerId:2,clientX:410,clientY:130});
+ emit(f.handle,'pointermove',{pointerId:2,clientX:2000,clientY:2000});
+ assert.equal(f.root.getBoundingClientRect().left+f.root.getBoundingClientRect().width,992);
+ assert.equal(f.root.getBoundingClientRect().top+f.root.getBoundingClientRect().height,792);
+ f.api.destroy();
 });

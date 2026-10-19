@@ -1,3 +1,4 @@
+import { restoreSnapshotTags } from './tag-snapshots.js';
 import { definitionGraph } from '../project/dependencies.js';
 import { walk } from '../project/model-data.js';
 import { outputsForNode, connectionForOutput } from '../project/graph.js';
@@ -33,7 +34,7 @@ export function captureNodeClipboard(project, chapterId, nodeId, {cut = false} =
   const dependencies = definitionGraph(project).reachableFrom(node);
   const definitions = project.library.filter(definition => dependencies.has(definition.id));
   return structuredClone({kind:'nest-node-clipboard', projectId:project.id, chapterId, node, definitions,
-    variables:captureClipboardVariables(chapter, node, definitions), cut:!!cut});
+    variables:captureClipboardVariables(chapter, node, definitions), itemTags:project.itemTags||[], cut:!!cut});
 }
 
 /** Mutate only a document draft; never consume or modify the clipboard itself. */
@@ -81,6 +82,7 @@ export function pasteNodeClipboard(project, chapter, payload, {position} = {}) {
     definitions.push(definition);
   }
   preserveCopiedInventoryAliases(payload.definitions, clonedDefinitions, inventoryIds);
+  restoreSnapshotTags(project,[node,...definitions],payload.itemTags);
   for (const value of [node, ...definitions]) {
     walk(value, entry => {
       if (definitionIds.has(entry.definitionId)) entry.definitionId = definitionIds.get(entry.definitionId);
