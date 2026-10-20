@@ -7,7 +7,7 @@ import { cardFields, definitionInspector, nodeInspector, placementInspector } fr
 test('event definitions use Vignette in editor labels while retaining the event kind and authored names',()=>{
  const project=createProject(),event=project.library.find(d=>d.kind==='event');
  assert.equal(cardKinds.event.label,'Vignette');
- assert.equal(createDefinition('event','new').name,'New Vignette');
+ assert.equal(createDefinition('event','new').name,'Vignette');
  assert.match(cardFields(project,event),/Card type[\s\S]*?value="event"[^>]*>Vignette/);
  assert.match(definitionInspector(project,event),/<h2>Vignette<\/h2>/);
  assert.match(placementInspector(project,project.chapters[0].nodes[0].cards[0],'event',0,'cards'),/Vignette: Arrival/);

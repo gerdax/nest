@@ -78,6 +78,7 @@ export class GraphView {
  unlinked(node,exit){const target=this.target(node,exit);return target!==null&&!this.nodesById.has(target);}
  port(node,exit,label=null){
   const target=esc(this.portLabel(node,exit)),name=esc(labelForOutput(this.project,node,exit,this.libraryIndex));
+  if(exit.endsWith(':success')||exit.endsWith(':failure'))label='';
   return `<button class="port ${this.unlinked(node,exit)?'unlinked':''}" data-exit="${esc(exit)}" aria-label="${name} → ${target}">${label===null?`${exit==='next'?'':name+' '}→ ${target}`:`${label?`${esc(label)} | `:'→ '}${target}`}</button>`;
  }
  cardRows(node){
@@ -97,7 +98,7 @@ export class GraphView {
     for(const exit of exits)used.add(exit);
     html+=`<hr class="graph-card-divider"><div class="graph-card-row ${exits.length?'has-outputs':''}" data-card-slot="${esc(slot)}" data-card-placement="${esc(placement.id||'')}" data-card-type="${esc(kind)}" style="--card-editor-tint:${esc(cardEditorTint(kind))}"><div class="graph-card-label"><button type="button" class="graph-card-name">${slot==='intro'?'<small>Introduction</small>':''}${esc(name)}</button>${tag?`<small class="graph-item-tag" title="Tag: ${esc(tag.name)}">[${esc(tag.name)}]</small>`:''}${indicatorText?`<small class="graph-card-rules" role="img" aria-label="${esc(indicatorLabel)}" title="${esc(indicatorLabel)}">${esc(indicatorText)}</small>`:''}</div>`;
     if(slot==='intro'&&node.introOnce===true)html+='<span class="graph-intro-once" role="img" aria-label="Introduction shown once" title="Show once"><svg viewBox="0 0 12 16" aria-hidden="true" focusable="false"><path d="M1 0h10v2H1zM2 3h8L6 8zm4 5 4 5H2zM1 14h10v2H1z"/></svg></span>';
-    if(exits.length)html+=`<div class="graph-card-outputs">${exits.map(exit=>this.port(node,exit,exit.endsWith(':success')?'Success':exit.endsWith(':failure')?'Failure':'')).join('')}</div>`;
+    if(exits.length)html+=`<div class="graph-card-outputs">${exits.map(exit=>this.port(node,exit,'')).join('')}</div>`;
     html+='</div>';
    }
   }

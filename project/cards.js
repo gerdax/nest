@@ -30,7 +30,7 @@ export const placementOverrideKeys = kind => isConsumableKind(kind) ? resourceOv
 export function createDefinition(kind, id) {
   kind = canonicalCardKind(kind);
   if (!Object.hasOwn(cardKinds, kind)) throw new TypeError(`Unknown card kind: ${kind}`);
-  const base = { id, kind, name: `New ${cardKinds[kind].label}`, showName:kind==='item'||isConsumableKind(kind), text: '', image: '' };
+  const base = { id, kind, name: cardKinds[kind].label, showName:kind==='item'||isConsumableKind(kind), text: '', image: '' };
   if (isStoryKind(kind)) return { ...base, effects: [] };
   if (isConsumableKind(kind)) return { ...base, value: 1, onCollect: [] };
   if (kind === 'item') return { ...base, onCollect: [], permability: 0 };

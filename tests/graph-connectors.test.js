@@ -131,7 +131,7 @@ test('graph groups card types with shared tints and keeps check outcomes in one 
  for(const kind of ['event','caption','action'])assert.ok(html.includes(`--card-editor-tint:${cardEditorTint(kind)}`));
  assert.equal((html.match(/class="graph-card-divider"/g)||[]).length,4);
  const check=html.slice(html.indexOf('data-card-placement="check"'),html.indexOf('</article>'));
- assert.match(check,/Success \| B/);assert.match(check,/Failure \| Unlinked/);
+ assert.match(check,/data-exit="check:success"[^>]*>→ B<\/button>/);assert.match(check,/data-exit="check:failure"[^>]*>→ Unlinked<\/button>/);
  assert.equal((check.match(/class="graph-card-name"/g)||[]).length,1);assert.doesNotMatch(check,/graph-card-divider/);
  assert.equal(s.graph.portElements.get(node.id).size,4);
  node.introEnabled=false;s.graph.render({library},{nodes:[node,s.chapter.nodes[1]],startNode:node.id});
