@@ -47,8 +47,8 @@ for(const reduced of [false,true]) for(const success of [false,true]) for(const 
  // Prepare the same target during the initial swipe, before commitment.
  const {stageNextBack,renderDeck}=await import('../engine/renderer.js');
  stageNextBack(deck);renderDeck(deck);
- assert.equal(deck.underlayBack.checkPreview.textContent,'Target: 13');
- assert.equal(deck.underlayBack.checkPreview.hidden,false);
+ assert.equal(deck.underlayBack.checkPreview,undefined,'reverse has no obsolete target label');
+ assert.equal(deck.underlayBack.children.some(node=>node.className?.includes('check-target')),false);
  deck.commit();assert.equal(started,true);assert.equal(rolled,false);assert.equal(controller.state.checking,true);
  settle();await flush();assert.equal(rolled,true);assert.equal(deck.checkSurface.ready,true);
  assert.equal(deck.underlayBack.checkSlot.hidden,false);assert.equal(deck.underlayBack.style.visibility,'visible');

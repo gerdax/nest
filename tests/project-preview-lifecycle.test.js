@@ -288,7 +288,7 @@ test('stopped result completion cannot close a newer result presentation', async
   preview.overlay.hidden = false;
   await oldResult;
   assert.equal(preview.overlay.hidden, false);
-  assert.equal(preview.result.children[1].textContent, 'Success');
+  assert.equal(preview.actionContext.checkChance.textContent, 'SUCCESS');
   abort.abort();
   await newResult;
   assert.equal(preview.overlay.hidden, true);
@@ -299,7 +299,7 @@ test('stopped result completion cannot close a newer result presentation', async
   await assert.rejects(preview.roll([{ sides: 6 }]), { name: 'AbortError' });
 });
 
-test('target is prepared before departure settles, without revealing a total or outcome', async () => {
+test('check departure leaves the shared caption faded until a result arrives', async () => {
   environment();
   const preview = new ProjectPreview(new Element()), slot = new Element();
   let settle;
@@ -309,9 +309,9 @@ test('target is prepared before departure settles, without revealing a total or 
   }, destroy() {} };
   const roll = preview.roll([{ sides: 6, count: 3 }], { target: 14 });
   assert.equal(preview.overlay.hidden, false);
-  assert.equal(preview.result.children.length, 1);
-  assert.equal(preview.result.children[0].className, 'check-target');
-  assert.equal(preview.result.children[0].textContent, 'Target: 14');
+  assert.equal(preview.actionContext.visible, false);
+  assert.equal(preview.checkPresentation, null, 'target waits for the completed result');
+  assert.equal(preview.actionContext.checkChance.textContent, '');
   assert.equal(preview.dice, null, 'no dice until normal departure settles');
   preview.stop(); settle();
   await assert.rejects(roll, { name: 'AbortError' });
@@ -334,8 +334,8 @@ test('result holds one second, fades dice for 200ms and leaves the result for ha
     assert.equal(jobs[1].delay,200);assert.equal(destroyed,0);
     jobs[1].callback();await result;
     assert.equal(destroyed,1);assert.equal(layerDestroyed,1);assert.equal(preview.overlay.hidden,false);
-    assert.equal(preview.result.children[0].textContent,'15');
-    assert.equal(preview.result.children[1].textContent,'Success');
+    assert.equal(preview.actionContext.caption.textContent,'TARGET: 13  CHECK: 15');
+    assert.equal(preview.actionContext.checkChance.textContent,'SUCCESS');
   } finally {preview.destroy();globalThis.setTimeout=originalSet;globalThis.clearTimeout=originalClear;}
 });
 
@@ -469,6 +469,18 @@ test('check information follows selection and hides for story, commit, stop and 
  assert.equal(preview.actionContext.checkDetails.hidden,false);
  assert.equal(preview.actionContext.checkChance.textContent,'38%');
  assert.equal(preview.actionContext.caption.textContent,'Agility: 3');
+ preview.deck.start();
+ preview.deck.move({axis:'y',x:0,y:-40,vx:0,vy:0});
+ preview.syncActionContext();
+ assert.equal(preview.actionContext.visible,true,'uncommitted swipe keeps odds and stat visible');
+ preview.deck.cancel();preview.syncActionContext();
+ assert.equal(preview.actionContext.visible,true,'cancelled swipe keeps odds visible');
+ const phase=preview.deck.phase;preview.deck.phase='committing';
+ preview.syncActionContext();
+ assert.equal(preview.actionContext.visible,false,'commit starts the shared caption and odds fade');
+ assert.equal(preview.actionContext.caption.textContent,'Agility: 3','last caption remains painted during fade');
+ assert.equal(preview.actionContext.checkChance.textContent,'38%');
+ preview.deck.phase=phase;preview.syncActionContext();
  assert.equal(preview.actionContext.checkRules.textContent,'Low');
  preview.actionContext.mini.update({id:'tool'});preview.syncActionContext();
  assert.equal(preview.actionContext.mini.item,null,'odds panel takes the source mini lane');
@@ -485,4 +497,29 @@ test('check information follows selection and hides for story, commit, stop and 
  preview.restart();preview.deck.finishMotion();preview.syncActionContext();
  assert.equal(preview.actionContext.checkChance.textContent,'38%');
  preview.destroy();assert.equal(preview.actionContext.checkDetails.hidden,true);
+});
+
+
+test('active dice roll keeps target and outcome hidden until showResult', async () => {
+  environment();
+  const preview = new ProjectPreview(new Element()), slot = new Element();
+  const original = DiceService.prototype.roll;
+  let finish;
+  DiceService.prototype.roll = () => new Promise(resolve => { finish = resolve; });
+  preview.deck = { async waitForCheckSurface({prepare}) { prepare(slot); return slot; }, destroy(){} };
+  try {
+    const rolling = preview.roll([{sides:6,count:3}], {target:14});
+    await Promise.resolve();
+    assert.ok(preview.dice, 'dice are actively rolling');
+    assert.equal(preview.checkPresentation,null);
+    assert.equal(preview.actionContext.visible,false);
+    assert.equal(preview.actionContext.caption.textContent,'');
+    finish({total:15}); await rolling;
+    assert.equal(preview.actionContext.visible,false,'raw dice completion does not reveal partial result');
+    preview.pauseResult = async () => {};
+    await preview.showResult({target:14,total:15,success:true});
+    assert.equal(preview.actionContext.caption.textContent,'TARGET: 14  CHECK: 15');
+    assert.equal(preview.actionContext.checkChance.textContent,'SUCCESS');
+    assert.equal(preview.actionContext.visible,true);
+  } finally { preview.destroy(); DiceService.prototype.roll = original; }
 });

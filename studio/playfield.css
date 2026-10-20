@@ -57,7 +57,7 @@
   max-height:20cqh;overflow:auto;background:#000;margin:0;padding:4px;
 }
 .nest-playfield .nest-inventory-surface .nest-inventory-drawer {
-  bottom:calc(var(--playfield-footer-height) + var(--playfield-safe-bottom));
+  bottom:calc(var(--playfield-footer-height) + var(--playfield-safe-bottom) + var(--inventory-drawer-lift,24px));
   padding:30px var(--playfield-safe-right) 16px var(--playfield-safe-left);
 }
 .nest-playfield .nest-inventory-drawer .nest-inventory-cards {width:var(--playfield-drawer-width);max-width:none;gap:8px;}
@@ -76,5 +76,5 @@
 
 /* Both context modes use the same compact lane and typography controls. */
 @container playfield (max-height:700px) {
-  .chapter-preview-stage {--action-context-height:140px;--action-context-inset:12px;--action-context-content-gap:10px;--action-context-chance-size:74px;--action-context-label-size:16px;--action-context-mini-height:88px;}
+  .chapter-preview-stage {--action-context-height:140px;--action-context-inset:12px;--action-context-content-gap:10px;--action-context-chance-size:59.2px;--action-context-label-size:16px;--action-context-mini-height:88px;}
 }

@@ -7,6 +7,7 @@ import { chapterEntryState } from '../project/chapter-entry.js';
 import { InventoryCardPreview } from './InventoryCardPreview.js';
 import { InventoryView } from './InventoryView.js';
 import { InventorySurface } from './InventorySurface.js';
+import { CardBackdrop } from './CardBackdrop.js';
 import { applyCardStyles } from '../project/card-styles.js';
 import { acquireDock } from '../editor/dockOwnership.js';
 import { nodeTypeLabel } from '../project/nodeTypes.js';
@@ -59,6 +60,7 @@ export class ProjectPreview {
     const inventoryRoot = root.querySelector('[data-inventory]');
     if (inventoryDock) { inventoryRoot.classList.add('nest-inventory-dock'); this.releaseDock = acquireDock(document.body); }
     this.inventorySurface = new InventorySurface({ container: inventoryHost ?? (inventoryDock ? null : root) });
+    this.cardBackdrop = new CardBackdrop(root.querySelector('.chapter-preview-card-area'), { container: inventoryHost ?? (inventoryDock ? null : root) });
     this.inventorySurface.mount(inventoryRoot);
     this.footer = root.querySelector('[data-preview-footer]');
     this.inventorySurface.mount(this.footer);
@@ -96,6 +98,7 @@ export class ProjectPreview {
     const active = () => !this.destroyed && this.generation === generation;
     applyCardStyles(this.mount, chapter.cardStyles);
     applyCardStyles(this.actionContext.root, chapter.cardStyles);
+    applyCardStyles(this.inventorySurface.frame, chapter.cardStyles);
     this.project = structuredClone(project); this.chapterId = chapterId; this.startNode = startNode; this.compiled = chapter;
     this.initialState = initialState ? structuredClone(initialState) : null;
     try {
@@ -112,6 +115,7 @@ export class ProjectPreview {
           const changed = this.inventory.visible !== Boolean(visible);
           if (changed) this.drawerTrace?.('InventoryView.setContext:requested', { visible });
           this.inventory.setContext(visible);
+          this.syncBackdrop();
           if (changed) this.drawerTrace?.('InventoryView.setContext:applied', { visible: !this.inventory.root.hidden, hidden: this.inventory.root.hidden, requestedVisible: this.inventory.visible });
         },
         cancelPending: () => this.inventory.cancelPending(),
@@ -146,6 +150,7 @@ export class ProjectPreview {
   update(state) {
     if (this.destroyed) return;
     if (state.checking || (this.errorMessage && this.errorNode !== state.activeNodeId)) this.errorMessage = null;
+    if (!state.checking) this.checkPresentation = null;
     this.state = state;
     this.nextChapterButton.hidden = !state.completed || !this.followingChapter();
     let visibleResources = 0;
@@ -188,9 +193,15 @@ export class ProjectPreview {
     const info = !this.state?.completed && !this.state?.checking && deck?.phase === 'choices' ? action?.checkInfo : null;
     this.actionContext?.update({
       info,
+      result: this.checkPresentation,
+      selectionKey: action?.id ?? null,
       item: info ? null : focusedTriggerItem(deck, this.state),
       busy: !!deck?.state?.busy || !this.state?.idle,
     });
+    this.syncBackdrop();
+  }
+  syncBackdrop() {
+    this.cardBackdrop?.setVisible(this.inventory.visible || this.actionContext?.visible);
   }
   async roll(pool, { signal, target } = {}) {
     if (this.destroyed || signal?.aborted) throw new DOMException('Preview stopped.', 'AbortError');
@@ -203,9 +214,6 @@ export class ProjectPreview {
       this.result.replaceChildren();
       this.result.removeAttribute('data-outcome');
       this.result.textContent = '';
-      const targetText = document.createElement('small');
-      targetText.className = 'check-target'; targetText.textContent = `Target: ${target}`;
-      this.result.append(targetText);
     };
     const slot = await deck.waitForCheckSurface({ signal, prepare });
     if (this.destroyed || generation !== this.diceGeneration || signal?.aborted) throw new DOMException('Preview stopped.', 'AbortError');
@@ -225,14 +233,8 @@ export class ProjectPreview {
   async showResult(result) {
     if (this.destroyed || result.signal?.aborted) return;
     const generation = this.diceGeneration;
-    const number = document.createElement('strong');
-    number.className = 'check-total'; number.textContent = String(result.total);
-    const outcome = document.createElement('span');
-    outcome.className = 'check-outcome'; outcome.textContent = result.success ? 'Success' : 'Fail';
-    const target = document.createElement('small'); target.className = 'check-target'; target.textContent = `Target: ${result.target}`;
-    this.result.textContent = '';
-    this.result.replaceChildren(number, outcome, target);
-    this.result.setAttribute('data-outcome', result.success ? 'success' : 'failure');
+    this.checkPresentation = { target: result.target, total: result.total, success: result.success };
+    this.syncActionContext();
     const onAbort = () => { if (generation === this.diceGeneration) this.hideDice(); };
     result.signal?.addEventListener('abort', onAbort, { once: true });
     try {
@@ -254,6 +256,8 @@ export class ProjectPreview {
     this.dice?.destroy(); this.dice = null;
     this.diceLayer?.destroy(); this.diceLayer = null;
     this.overlay.hidden = true;
+    this.checkPresentation = null;
+    this.syncActionContext();
   }
   followingChapter() {
     return this.project ? nextChapter(this.project, this.chapterId) : undefined;
@@ -281,6 +285,7 @@ export class ProjectPreview {
     this.inventoryCardPreview.card = null;
     this.inventoryCardPreview.distance = null;
     this.inventory.cancelPending?.(); this.inventory.setContext?.(false, { immediate: true });
+    this.syncBackdrop();
     this.hideDice(); this.state = null; this.errorMessage = null; this.errorNode = null; this.compiled = null;
     this.mount.replaceChildren(); this.inventory.update([]); this.stateReadout.hidden = true;
     this.resources.hidden = true;
@@ -300,6 +305,7 @@ export class ProjectPreview {
       this.actionContext.destroy();
       this.inventoryCardPreview.destroy();
       this.footerResize.disconnect();
+      this.cardBackdrop.destroy();
       this.inventorySurface.destroy();
       if (this.goToCardButton) this.goToCardButton.onclick = null;
       this.onGoToCard = null;

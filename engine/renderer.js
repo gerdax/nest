@@ -43,7 +43,7 @@ function decorateBack(back, content = {}, temporary = false) {
   back.backOperation = null;
   back.className = `nest-card nest-card-back${back.checkSlot ? ' nest-check-active' : ''}`;
   back.style.backgroundImage = `url(${JSON.stringify(appearance.background)})`;
-  back.replaceChildren(cardTexture(), ...(back.checkSlot ? [back.checkSlot] : []), ...(back.checkPreview ? [back.checkPreview] : []));
+  back.replaceChildren(cardTexture(), ...(back.checkSlot ? [back.checkSlot] : []));
   back.backIcons = new Map();
   for (const [key, url] of Object.entries(appearance.icons)) {
     const icon = document.createElement('img');
@@ -250,11 +250,6 @@ export function stageNextBack(deck) {
     deck.underlayLayer = layerFor(deck, deck.underlay);
     deck.underlayBack = backFace(deck.content);
     deck.underlayLayer.append(deck.underlayBack);
-    const target = document.createElement('span');
-    target.className = 'nest-check-preview check-target';
-    target.hidden = true;
-    deck.underlayBack.checkPreview = target;
-    deck.underlayBack.append(target);
   }
 }
 
@@ -519,12 +514,10 @@ export function renderDeck(deck, time = performance.now()) {
   const nextScale = takingLast || deck.nextTakeDepth > 0 || deck.reduced ? 1 : revealScale(exposure, height, deck.settings);
   const back = backContext(deck, clamp(exposure / height, 0, 1), context);
   updateBackIcon(deck.underlayBack, back.operation, back.progress, back.appearance, back.distance);
-  if (deck.underlayBack?.checkPreview) {
+  if (deck.underlayBack) {
     const target = deck.content.actions[deck.index]?.checkTarget;
     const checking = Number.isFinite(target) && !deck.pending;
     deck.underlayBack.classList[checking ? 'add' : 'remove']('nest-check-prepared');
-    deck.underlayBack.checkPreview.hidden = !checking;
-    deck.underlayBack.checkPreview.textContent = checking ? `Target: ${target}` : '';
   }
   for (const reverse of deck.forwardDeck?.cardBacks || []) updateBackIcon(reverse, back.operation, back.progress, back.appearance, back.distance);
   // A staged reverse becomes the actual next card during its flip. Preserve
