@@ -61,15 +61,20 @@ test('chapter flag normalization and new rules use visible typed definitions', (
   assert.deepEqual(placement.effects[0], {op:'set',key:'local-flag',value:false});
 });
 
-test('promoting a card with chapter rules cannot create an invalid shared definition', () => {
+test('promoting a card moves chapter effects into custom rules instead of blocking', () => {
   const {project} = setup();
   const definition = {id:'local-story',visibility:'local',kind:'event',effects:[{op:'set',key:'local-flag',value:true}]};
   project.library.push(definition);
-  assert.throws(()=>promoteCard(project,{definitionId:definition.id}), /Global variables/);
-  assert.equal(definition.visibility,'local');
+  const placement={definitionId:definition.id};
+  promoteCard(project,placement);
+  assert.equal(definition.visibility,'shared');
+  assert.deepEqual(definition.effects,[]);
+  assert.deepEqual(placement.overrides.effects,[{op:'set',key:'local-flag',value:true}]);
   const item={id:'local-item',visibility:'local',kind:'item',onCollect:[{op:'set',key:'local-flag',value:true}]};
   const action={id:'local-action',visibility:'local',kind:'action',effects:[{op:'addItem',key:item.id}]};
   project.library.push(item,action);
-  assert.throws(()=>promoteCard(project,{definitionId:action.id}), /Global variables/);
-  assert.equal(action.visibility,'local');
+  promoteCard(project,{definitionId:action.id});
+  assert.equal(action.visibility,'shared');
+  assert.equal(item.visibility,'shared');
+  assert.deepEqual(item.onCollect,[]);
 });

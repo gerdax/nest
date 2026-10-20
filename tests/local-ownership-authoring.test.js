@@ -66,10 +66,17 @@ test('promotion promotes the transitive inventory closure and removes chapter ow
  for(const definition of [f.action,f.first,f.second]){assert.equal(definition.visibility,'shared');assert.equal(Object.hasOwn(definition,'chapterId'),false);}
 });
 
-test('promotion rejects chapter variables in dependencies before mutating visibility',()=>{
- const f=fixture();f.second.onCollect.push({op:'set',key:'chapter-only',value:1});
- assert.throws(()=>promoteCard(f.project,f.node.choices[0]),/Chapter variables/);
- for(const definition of [f.action,f.first,f.second]){assert.equal(definition.visibility,'local');assert.equal(definition.chapterId,f.source.id);}
+test('promotion keeps dependency chapter rules on that dependency’s chapter instance',()=>{
+ const f=fixture();f.source.variables=[{id:'chapter-only',type:'number',initial:0}];
+ f.second.onCollect.push({op:'set',key:'chapter-only',value:1});
+ const node=createNode(f.project,'linear'),placement={id:'second-instance',definitionId:f.second.id};
+ node.cards.push(placement);f.source.nodes.push(node);
+ const before=structuredClone(f.second.onCollect);
+ promoteCard(f.project,f.node.choices[0]);
+ for(const definition of [f.action,f.first,f.second]){assert.equal(definition.visibility,'shared');assert.equal(definition.chapterId,undefined);}
+ assert.deepEqual(placement.overrides.onCollect,before);
+ assert.deepEqual(resolvePlacement(f.project,placement).onCollect,before);
+ assert.deepEqual(f.second.onCollect,[{op:'removeItem',key:f.first.id}]);
 });
 
 

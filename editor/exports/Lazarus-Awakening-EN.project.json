@@ -1,0 +1,2011 @@
+{
+  "version": 2,
+  "kind": "nest-project",
+  "id": "lazarus_awakening_en_project",
+  "name": "Lazarus — Awakening",
+  "activeChapterId": "lazarus_awakening_en",
+  "startChapterId": "lazarus_awakening_en",
+  "itemTags": [
+    {
+      "id": "infirmary_access",
+      "name": "InfirmaryAccess"
+    },
+    {
+      "id": "prying_tool",
+      "name": "PryingTool"
+    }
+  ],
+  "library": [
+    {
+      "id": "awakening_wake1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Concrete",
+      "text": "You wake on cold concrete, tasting blood. Water drips in the dark. You remember nothing before the fall.",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_wake2",
+      "kind": "event",
+      "visibility": "local",
+      "name": "A Name",
+      "text": "Lazarus. You remember your name. Your pockets are empty. A broken shaft opens above you.",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_wake3",
+      "kind": "event",
+      "visibility": "local",
+      "name": "No Sky",
+      "text": "You throw a stone upward. Rubble falls back. The shaft has collapsed. There is no way up.",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_first_intro",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Red Light",
+      "text": "A red lamp blinks. Your arm is bandaged. Someone helped you, but you cannot remember who.",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_look_up",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Examine the fall site",
+      "text": "Search the rubble for clues.",
+      "image": "",
+      "showName": true,
+      "effects": [],
+      "resolution": "direct",
+      "conditions": [],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_look_self",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Check the dressing",
+      "text": "Find out who dressed your wound.",
+      "image": "",
+      "showName": true,
+      "effects": [],
+      "resolution": "direct",
+      "conditions": [],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_shaft1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Eight",
+      "text": "A broken sign reads: NEST / MEDICAL SECTOR / 08. Eight levels underground.",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_shaft2",
+      "kind": "event",
+      "visibility": "local",
+      "name": "A Trace",
+      "text": "A furrow in the dust ends where you woke. You take a metal rod from the rubble.",
+      "image": "",
+      "showName": false,
+      "effects": [
+        {
+          "op": "addItem",
+          "key": "awakening_rod"
+        }
+      ],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_bandage1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "The Knot",
+      "text": "The knot is too neat to be yours. Someone treated you after the fall.",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_bandage2",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Stay Awake",
+      "text": "Inside your cuff: DON’T SLEEP AGAINST THE WALL. The handwriting looks familiar. You steady your breathing.",
+      "image": "",
+      "showName": false,
+      "effects": [
+        {
+          "op": "add",
+          "key": "composure",
+          "value": 1
+        }
+      ],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_rod",
+      "kind": "item",
+      "visibility": "local",
+      "name": "Metal Rod",
+      "text": "A short metal rod with a flattened end. Useful for prying.",
+      "image": "",
+      "showName": true,
+      "onCollect": [],
+      "chapterId": "lazarus_awakening_en",
+      "permability": 0,
+      "tagId": "prying_tool"
+    },
+    {
+      "id": "awakening_supplies_intro",
+      "kind": "event",
+      "visibility": "local",
+      "name": "The Last Shift",
+      "text": "You force open a first-aid station. Dressings, an electrolyte ampoule, and an open locker.",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_water",
+      "kind": "energy",
+      "visibility": "local",
+      "name": "Electrolyte Ampoule",
+      "text": "You drink the sealed ampoule. Restore up to 2 energy.",
+      "image": "",
+      "showName": true,
+      "onCollect": [],
+      "chapterId": "lazarus_awakening_en",
+      "value": 2
+    },
+    {
+      "id": "awakening_wedge",
+      "kind": "item",
+      "visibility": "local",
+      "name": "Rubber Wedge",
+      "text": "A rubber doorstop. Holds a door open or shut.",
+      "image": "",
+      "showName": true,
+      "onCollect": [],
+      "chapterId": "lazarus_awakening_en",
+      "permability": 1
+    },
+    {
+      "id": "awakening_tag",
+      "kind": "item",
+      "visibility": "shared",
+      "name": "Ada’s ID Badge",
+      "text": "ADA SHULZ / INFIRMARY. On the back: Oskar — engine room. The badge may still work.",
+      "image": "",
+      "showName": true,
+      "onCollect": [],
+      "permability": 0,
+      "tagId": "infirmary_access"
+    },
+    {
+      "id": "awakening_hub_intro",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Nest",
+      "text": "THE NEST — INFIRMARY. Empty chairs. A duty terminal. Beyond a service door, something knocks steadily.",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_records",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Read the duty terminal",
+      "text": "Find out what happened here.",
+      "image": "",
+      "showName": true,
+      "effects": [
+        {
+          "op": "set",
+          "key": "records_read",
+          "value": true
+        }
+      ],
+      "resolution": "direct",
+      "conditions": [
+        {
+          "source": "variable",
+          "key": "records_read",
+          "op": "eq",
+          "value": false
+        }
+      ],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_locker",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Look in the changing room",
+      "text": "A medical coat hangs from an open locker.",
+      "image": "",
+      "showName": true,
+      "effects": [
+        {
+          "op": "set",
+          "key": "adas_fate_known",
+          "value": true
+        }
+      ],
+      "resolution": "direct",
+      "conditions": [
+        {
+          "source": "variable",
+          "key": "adas_fate_known",
+          "op": "eq",
+          "value": false
+        }
+      ],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_stairs",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Try the stairs up",
+      "text": "Follow the arrow towards the surface.",
+      "image": "",
+      "showName": true,
+      "effects": [
+        {
+          "op": "set",
+          "key": "stairs_checked",
+          "value": true
+        }
+      ],
+      "resolution": "direct",
+      "conditions": [
+        {
+          "source": "variable",
+          "key": "stairs_checked",
+          "op": "eq",
+          "value": false
+        }
+      ],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_go_door",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Approach the service door",
+      "text": "Find a way past the knocking.",
+      "image": "",
+      "showName": true,
+      "effects": [],
+      "resolution": "direct",
+      "conditions": [],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_records1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Kogler",
+      "text": "VICTOR KOGLER. 14 JAN 2041. Aggression. Rapid tissue growth. Screaming about butterflies. Consult Dr Steinfeld.",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_records2",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Alarm",
+      "text": "Security alert: Armed personnel to level 8. This is not a drill. The clock stopped at 03:17.",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_records3",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Advice",
+      "text": "A handwritten warning: They respond to sound. Do not speak to them.",
+      "image": "",
+      "showName": false,
+      "effects": [
+        {
+          "op": "set",
+          "key": "sound_pattern_known",
+          "value": true
+        }
+      ],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_ada1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Ada",
+      "text": "A dead woman sits in the locker. Ada, stitched on her coat. Her body looks fresh; the dust does not.",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_ada2",
+      "kind": "event",
+      "visibility": "local",
+      "name": "The Last Recording",
+      "text": "Her recorder plays: “Lifts disabled. Stairs barricaded. Oskar went to restore the main gate power. Ten hours ago.”",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_ada3",
+      "kind": "event",
+      "visibility": "local",
+      "name": "After the Voice",
+      "text": "“There’s no way out. They’re getting closer.” The recording ends. You close the locker quietly.",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_stairs1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Sealed",
+      "text": "Collapsed stairs. An empty lift shaft. The surface is out of reach.",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_stairs2",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Protocol",
+      "text": "LOCKDOWN. EXTERNAL ACCESS BLOCKED. A diagram points to the engine room below. You return to the waiting room.",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_pressure_intro",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Tremor",
+      "text": "The wall trembles beneath your hand. Behind it, something seems to breathe in time with you.",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_steady",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Count your breaths",
+      "text": "Separate your breathing from the sound behind the wall.",
+      "image": "",
+      "showName": true,
+      "effects": [],
+      "resolution": "check",
+      "conditions": [],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": [],
+      "check": {
+        "mode": "stat",
+        "modifierVariable": "composure",
+        "difficulty": 2
+      },
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_retreat",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Step back and wait",
+      "text": "Wait away from the wall. Lose 1 energy.",
+      "image": "",
+      "showName": true,
+      "effects": [
+        {
+          "op": "add",
+          "key": "energy",
+          "value": -1
+        }
+      ],
+      "resolution": "direct",
+      "conditions": [],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_steady_ok1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Breath",
+      "text": "Your breathing slows. The other rhythm continues inside the vent. Now you can recognise it.",
+      "image": "",
+      "showName": false,
+      "effects": [
+        {
+          "op": "set",
+          "key": "breathing_pattern_known",
+          "value": true
+        }
+      ],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_steady_bad1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Lazarus",
+      "text": "Someone calls your name. You turn, catching your wound on the doorframe. Nobody is there.",
+      "image": "",
+      "showName": false,
+      "effects": [
+        {
+          "op": "add",
+          "key": "energy",
+          "value": -1
+        }
+      ],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_steady_wait1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Distance",
+      "text": "Away from the wall, the nausea fades. You check your cuff again: DON’T SLEEP AGAINST THE WALL.",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_courier_intro",
+      "kind": "event",
+      "visibility": "local",
+      "name": "The Courier",
+      "text": "A one-armed courier circles a parcel trolley. A growth twitches on his neck. Every fourth step, his hip strikes metal.",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_quiet_pass",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Move with the knocks",
+      "text": "Step only when the trolley knocks. Stay silent.",
+      "image": "",
+      "showName": true,
+      "effects": [],
+      "resolution": "direct",
+      "conditions": [
+        {
+          "source": "variable",
+          "key": "sound_pattern_known",
+          "op": "eq",
+          "value": true
+        }
+      ],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_listen_pass",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Wait for the pause in his breathing",
+      "text": "Slip past during the pause in his breathing.",
+      "image": "",
+      "showName": true,
+      "effects": [],
+      "resolution": "direct",
+      "conditions": [
+        {
+          "source": "variable",
+          "key": "breathing_pattern_known",
+          "op": "eq",
+          "value": true
+        }
+      ],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_sneak",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Slip behind the trolley",
+      "text": "Pass behind him before he turns.",
+      "image": "",
+      "showName": true,
+      "effects": [],
+      "resolution": "check",
+      "conditions": [],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": [],
+      "check": {
+        "mode": "stat",
+        "modifierVariable": "agility",
+        "difficulty": 3
+      },
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_detour",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Squeeze into the drain",
+      "text": "Crawl around the door through the drain. Lose 1 energy.",
+      "image": "",
+      "showName": true,
+      "effects": [
+        {
+          "op": "add",
+          "key": "energy",
+          "value": -1
+        }
+      ],
+      "resolution": "direct",
+      "conditions": [],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_pass1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Delivery",
+      "text": "You slip past. The courier stops beside the wall, still clutching a parcel. You keep moving.",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_chase1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Movement",
+      "text": "Your boot catches a wrapper. The courier lunges. You shove the trolley between you and run.",
+      "image": "",
+      "showName": false,
+      "effects": [
+        {
+          "op": "add",
+          "key": "energy",
+          "value": -2
+        }
+      ],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_chase2",
+      "kind": "event",
+      "visibility": "local",
+      "name": "The Spring",
+      "text": "You slam the door. Two blows shake it. Then silence. Your arm is bleeding.",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_drain1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "The Drain",
+      "text": "You crawl beneath the knocking trolley and pull yourself out beside the medical airlock.",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_gate_intro",
+      "kind": "event",
+      "visibility": "local",
+      "name": "The Bolt",
+      "text": "The airlock is locked. A badge reader glows. The drive cover hangs open. A narrow linen hatch offers another route.",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_use_tag",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Scan Ada’s badge",
+      "text": "Try the badge reader.",
+      "image": "",
+      "showName": true,
+      "effects": [],
+      "resolution": "direct",
+      "conditions": [
+        {
+          "source": "inventory",
+          "key": "tag:infirmary_access",
+          "op": "has"
+        }
+      ],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_use_rod",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Pry the bolt with the rod",
+      "text": "Lever the bolt aside.",
+      "image": "",
+      "showName": true,
+      "effects": [],
+      "resolution": "direct",
+      "conditions": [
+        {
+          "source": "inventory",
+          "key": "tag:prying_tool",
+          "op": "has"
+        }
+      ],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_rewire",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Bridge the emergency circuit",
+      "text": "Power the bolt manually. Costs 1 energy.",
+      "image": "",
+      "showName": true,
+      "effects": [],
+      "resolution": "check",
+      "conditions": [],
+      "costs": [
+        {
+          "source": "variable",
+          "key": "energy",
+          "amount": 1
+        }
+      ],
+      "successEffects": [],
+      "failureEffects": [],
+      "check": {
+        "mode": "stat",
+        "modifierVariable": "intelligence",
+        "difficulty": 3
+      },
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_laundry",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Crawl through the linen hatch",
+      "text": "Squeeze through the linen hatch. Lose 1 energy.",
+      "image": "",
+      "showName": true,
+      "effects": [
+        {
+          "op": "add",
+          "key": "energy",
+          "value": -1
+        }
+      ],
+      "resolution": "direct",
+      "conditions": [],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_tag_open1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Welcome",
+      "text": "WELCOME, ADA SHULZ. The airlock opens.",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_rod_open1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Weight",
+      "text": "The rod bends. The bolt shifts just enough. You squeeze through.",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_wire_open1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "What Hands Remember",
+      "text": "Your hands choose the wires without hesitation. The bolt snaps back. What else do they remember?",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_wire_fail1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "A Spark",
+      "text": "A spark burns your fingers. The mechanism dies. You crawl through the linen hatch instead.",
+      "image": "",
+      "showName": false,
+      "effects": [
+        {
+          "op": "add",
+          "key": "energy",
+          "value": -1
+        }
+      ],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_laundry1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "On Your Knees",
+      "text": "You crawl through the linen hatch. Beyond it, a communications terminal is ringing.",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_radio1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Contact",
+      "text": "You answer the terminal. “Can anyone hear me? Juno-1. Emma Krause.”",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_radio2",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Someone",
+      "text": "“Ada?”\n“No. Lazarus.”\n“Are you in Nest?”\n“I think so. I don’t know how I got here.”",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_radio3",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Two Days",
+      "text": "“I hid aboard Juno. Then cryosleep started. I’ve called for two days.”\n“What level?”\n“Lazarus, I’m in orbit.”\nBehind you, the handle moves.",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_emma_intro",
+      "kind": "event",
+      "visibility": "local",
+      "name": "The Question",
+      "text": "“Ada Shulz works in that infirmary,” Emma says. “Have you seen her? Is anyone still alive?”",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_tell_ada",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Tell her what you found",
+      "text": "“I found Ada. I’m sorry.”",
+      "image": "",
+      "showName": true,
+      "effects": [
+        {
+          "op": "set",
+          "key": "truth_told_to_emma",
+          "value": true
+        }
+      ],
+      "resolution": "direct",
+      "conditions": [
+        {
+          "source": "variable",
+          "key": "adas_fate_known",
+          "op": "eq",
+          "value": true
+        }
+      ],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_dont_know",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Say you don’t know",
+      "text": "“I haven’t found anyone alive.”",
+      "image": "",
+      "showName": true,
+      "effects": [],
+      "resolution": "direct",
+      "conditions": [
+        {
+          "source": "variable",
+          "key": "adas_fate_known",
+          "op": "eq",
+          "value": false
+        }
+      ],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_promise",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Promise to look for her",
+      "text": "“I’ll look for her when it’s safe.”",
+      "image": "",
+      "showName": true,
+      "effects": [],
+      "resolution": "direct",
+      "conditions": [],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_truth1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "A Name",
+      "text": "Emma falls silent.\n“She called me Em.”\nA breath.\n“Thank you for telling me. Stay away from the main lifts.”",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_uncertain1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "An Honest Answer",
+      "text": "“If you see her, tell her I waited.”\nThe handle moves again.\n“Lazarus? What was that? Avoid the main lifts.”",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_promise1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Later",
+      "text": "“Don’t risk it now. Find somewhere safe. Stay away from the main lifts.”",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_instructions1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "The Engine Room",
+      "text": "“Lockdown sealed the exits. Oskar went to restore gate power. Follow the yellow cables to the engine room.”\n“Down?”\n“For now.”",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_instructions2",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Emergency Channel",
+      "text": "“At the switch room, try channel seven. I’ll—”\nTIME SYNC LOST.\nA yellow cable leads into a hatch. Opposite it: a storeroom.",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_last_intro",
+      "kind": "event",
+      "visibility": "local",
+      "name": "The Handle",
+      "text": "The handle moves again. A service hatch leads down. A storeroom offers shelter. The way up is sealed.",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_descend",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Follow the yellow cable down",
+      "text": "Follow the cable towards the engine room.",
+      "image": "",
+      "showName": true,
+      "effects": [],
+      "resolution": "direct",
+      "conditions": [],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_secure",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Wedge the door and descend",
+      "text": "Leave the wedge under the door to buy time.",
+      "image": "",
+      "showName": true,
+      "effects": [],
+      "resolution": "direct",
+      "conditions": [
+        {
+          "source": "inventory",
+          "key": "awakening_wedge",
+          "op": "has"
+        }
+      ],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_shelter",
+      "kind": "action",
+      "visibility": "local",
+      "name": "Hide in the storeroom",
+      "text": "Barricade the storeroom and rest.",
+      "image": "",
+      "showName": true,
+      "effects": [],
+      "resolution": "direct",
+      "conditions": [],
+      "costs": [],
+      "successEffects": [],
+      "failureEffects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_end_descent1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Level Eight",
+      "text": "You climb into the hatch. The door crashes open above you. You keep descending.",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_end_descent2",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Someone Is Waiting",
+      "text": "No memory. No way out. But Emma is waiting.\nChannel seven. Engine room.\nEnd of chapter: AWAKENING.",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_end_secure1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "The Wedge",
+      "text": "The wedge holds against the pressure. You descend, testing each rung.",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_end_secure2",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Seven",
+      "text": "Two blows above. Then silence. You have a head start.\nEngine room. Channel seven.\nEnd of chapter: AWAKENING.",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_end_shelter1",
+      "kind": "event",
+      "visibility": "local",
+      "name": "Shelter",
+      "text": "You barricade the storeroom and sit away from the wall. Footsteps pause outside, then leave.",
+      "image": "",
+      "showName": false,
+      "effects": [
+        {
+          "op": "add",
+          "key": "energy",
+          "value": 1
+        }
+      ],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_end_shelter2",
+      "kind": "event",
+      "visibility": "local",
+      "name": "A Plan",
+      "text": "Rest first. Then the yellow cable, the engine room, channel seven.\nEnd of chapter: AWAKENING.",
+      "image": "",
+      "showName": false,
+      "effects": [],
+      "chapterId": "lazarus_awakening_en"
+    },
+    {
+      "id": "awakening_sterile_dressing",
+      "kind": "health",
+      "visibility": "local",
+      "chapterId": "lazarus_awakening_en",
+      "name": "Sterile dressing",
+      "text": "Clean and dress your wound. Restore up to 2 health.",
+      "image": "",
+      "showName": true,
+      "value": 2,
+      "onCollect": []
+    }
+  ],
+  "variables": [
+    {
+      "id": "health",
+      "name": "health",
+      "type": "number",
+      "initial": 10,
+      "min": 0,
+      "max": 10
+    },
+    {
+      "id": "energy",
+      "type": "number",
+      "initial": 3,
+      "min": 0,
+      "max": 10,
+      "name": "energy"
+    },
+    {
+      "id": "agility",
+      "name": "agility",
+      "type": "number",
+      "initial": 3,
+      "min": 1,
+      "max": 10,
+      "stat": true,
+      "showInHud": false
+    },
+    {
+      "id": "intelligence",
+      "name": "intelligence",
+      "type": "number",
+      "initial": 3,
+      "min": 1,
+      "max": 10,
+      "stat": true,
+      "showInHud": false
+    },
+    {
+      "id": "composure",
+      "name": "composure",
+      "type": "number",
+      "initial": 3,
+      "min": 1,
+      "max": 10,
+      "stat": true,
+      "showInHud": false
+    }
+  ],
+  "allowCycles": true,
+  "ownedItemsVisibility": "disabled",
+  "unavailableActions": "disabled",
+  "cardStyles": {
+    "big": 17,
+    "medium": 14,
+    "small": 10
+  },
+  "chapters": [
+    {
+      "id": "lazarus_awakening_en",
+      "name": "Lazarus — Awakening (EN)",
+      "startNode": "awakening_wake",
+      "initialValues": {
+        "health": 8,
+        "energy": 4
+      },
+      "nodes": [
+        {
+          "id": "awakening_wake",
+          "name": "01 · Awakening",
+          "type": "linear",
+          "cards": [
+            {
+              "id": "awakening_p_wake1",
+              "definitionId": "awakening_wake1"
+            },
+            {
+              "id": "awakening_p_wake2",
+              "definitionId": "awakening_wake2"
+            },
+            {
+              "id": "awakening_p_wake3",
+              "definitionId": "awakening_wake3"
+            }
+          ],
+          "connections": {
+            "next": "awakening_first_choice"
+          },
+          "x": 0,
+          "y": 0
+        },
+        {
+          "id": "awakening_first_choice",
+          "name": "02 · First Instinct",
+          "type": "fork",
+          "intro": {
+            "id": "awakening_p_first_intro",
+            "definitionId": "awakening_first_intro"
+          },
+          "introEnabled": true,
+          "introOnce": false,
+          "choices": [
+            {
+              "id": "awakening_p_look_up",
+              "definitionId": "awakening_look_up"
+            },
+            {
+              "id": "awakening_p_look_self",
+              "definitionId": "awakening_look_self"
+            }
+          ],
+          "connections": {
+            "awakening_p_look_up": "awakening_shaft",
+            "awakening_p_look_self": "awakening_bandage"
+          },
+          "x": 400,
+          "y": 0
+        },
+        {
+          "id": "awakening_shaft",
+          "name": "03A · The Collapsed Passage",
+          "type": "linear",
+          "cards": [
+            {
+              "id": "awakening_p_shaft1",
+              "definitionId": "awakening_shaft1"
+            },
+            {
+              "id": "awakening_p_shaft2",
+              "definitionId": "awakening_shaft2"
+            }
+          ],
+          "connections": {
+            "next": "awakening_first_aid"
+          },
+          "x": 800,
+          "y": -240
+        },
+        {
+          "id": "awakening_bandage",
+          "name": "03B · A Stranger’s Help",
+          "type": "linear",
+          "cards": [
+            {
+              "id": "awakening_p_bandage1",
+              "definitionId": "awakening_bandage1"
+            },
+            {
+              "id": "awakening_p_bandage2",
+              "definitionId": "awakening_bandage2"
+            }
+          ],
+          "connections": {
+            "next": "awakening_first_aid"
+          },
+          "x": 800,
+          "y": 250
+        },
+        {
+          "id": "awakening_supplies",
+          "name": "04B · Emergency locker",
+          "type": "container",
+          "intro": {
+            "id": "awakening_p_supplies_intro",
+            "definitionId": "awakening_supplies_intro"
+          },
+          "introEnabled": false,
+          "items": [
+            {
+              "id": "awakening_p_wedge",
+              "definitionId": "awakening_wedge"
+            },
+            {
+              "id": "awakening_p_tag",
+              "definitionId": "awakening_tag"
+            }
+          ],
+          "connections": {
+            "next": "awakening_hub"
+          },
+          "x": 1400,
+          "y": 0
+        },
+        {
+          "id": "awakening_hub",
+          "name": "05 · Waiting Room",
+          "type": "fork",
+          "intro": {
+            "id": "awakening_p_hub_intro",
+            "definitionId": "awakening_hub_intro"
+          },
+          "introEnabled": true,
+          "introOnce": true,
+          "choices": [
+            {
+              "id": "awakening_p_records",
+              "definitionId": "awakening_records"
+            },
+            {
+              "id": "awakening_p_locker",
+              "definitionId": "awakening_locker"
+            },
+            {
+              "id": "awakening_p_stairs",
+              "definitionId": "awakening_stairs"
+            },
+            {
+              "id": "awakening_p_go_door",
+              "definitionId": "awakening_go_door"
+            }
+          ],
+          "connections": {
+            "awakening_p_records": "awakening_records",
+            "awakening_p_locker": "awakening_ada",
+            "awakening_p_stairs": "awakening_stairs",
+            "awakening_p_go_door": "awakening_pressure"
+          },
+          "x": 1600,
+          "y": 0
+        },
+        {
+          "id": "awakening_records",
+          "name": "06A · 14 January 2041",
+          "type": "linear",
+          "cards": [
+            {
+              "id": "awakening_p_records1",
+              "definitionId": "awakening_records1"
+            },
+            {
+              "id": "awakening_p_records2",
+              "definitionId": "awakening_records2"
+            },
+            {
+              "id": "awakening_p_records3",
+              "definitionId": "awakening_records3"
+            }
+          ],
+          "connections": {
+            "next": "awakening_hub"
+          },
+          "x": 2000,
+          "y": -620
+        },
+        {
+          "id": "awakening_ada",
+          "name": "06B · Locker 12",
+          "type": "linear",
+          "cards": [
+            {
+              "id": "awakening_p_ada1",
+              "definitionId": "awakening_ada1"
+            },
+            {
+              "id": "awakening_p_ada2",
+              "definitionId": "awakening_ada2"
+            },
+            {
+              "id": "awakening_p_ada3",
+              "definitionId": "awakening_ada3"
+            }
+          ],
+          "connections": {
+            "next": "awakening_hub"
+          },
+          "x": 2000,
+          "y": -260
+        },
+        {
+          "id": "awakening_stairs",
+          "name": "06C · The Way Up",
+          "type": "linear",
+          "cards": [
+            {
+              "id": "awakening_p_stairs1",
+              "definitionId": "awakening_stairs1"
+            },
+            {
+              "id": "awakening_p_stairs2",
+              "definitionId": "awakening_stairs2"
+            }
+          ],
+          "connections": {
+            "next": "awakening_hub"
+          },
+          "x": 2000,
+          "y": 240
+        },
+        {
+          "id": "awakening_pressure",
+          "name": "07 · The Wall Breathes",
+          "type": "fork",
+          "intro": {
+            "id": "awakening_p_pressure_intro",
+            "definitionId": "awakening_pressure_intro"
+          },
+          "introEnabled": true,
+          "introOnce": false,
+          "choices": [
+            {
+              "id": "awakening_p_steady",
+              "definitionId": "awakening_steady"
+            },
+            {
+              "id": "awakening_p_retreat",
+              "definitionId": "awakening_retreat"
+            }
+          ],
+          "connections": {
+            "awakening_p_steady:success": "awakening_steady_ok",
+            "awakening_p_steady:failure": "awakening_steady_bad",
+            "awakening_p_retreat": "awakening_steady_wait"
+          },
+          "x": 2400,
+          "y": 0
+        },
+        {
+          "id": "awakening_steady_ok",
+          "name": "08A · Your Own Rhythm",
+          "type": "linear",
+          "cards": [
+            {
+              "id": "awakening_p_steady_ok1",
+              "definitionId": "awakening_steady_ok1"
+            }
+          ],
+          "connections": {
+            "next": "awakening_courier"
+          },
+          "x": 2800,
+          "y": -340
+        },
+        {
+          "id": "awakening_steady_bad",
+          "name": "08B · A Voice That Is Not Yours",
+          "type": "linear",
+          "cards": [
+            {
+              "id": "awakening_p_steady_bad1",
+              "definitionId": "awakening_steady_bad1"
+            }
+          ],
+          "connections": {
+            "next": "awakening_courier"
+          },
+          "x": 2800,
+          "y": 0
+        },
+        {
+          "id": "awakening_steady_wait",
+          "name": "08C · The Middle of the Floor",
+          "type": "linear",
+          "cards": [
+            {
+              "id": "awakening_p_steady_wait1",
+              "definitionId": "awakening_steady_wait1"
+            }
+          ],
+          "connections": {
+            "next": "awakening_courier"
+          },
+          "x": 2800,
+          "y": 340
+        },
+        {
+          "id": "awakening_courier",
+          "name": "09 · Undelivered",
+          "type": "fork",
+          "intro": {
+            "id": "awakening_p_courier_intro",
+            "definitionId": "awakening_courier_intro"
+          },
+          "introEnabled": true,
+          "introOnce": false,
+          "choices": [
+            {
+              "id": "awakening_p_quiet_pass",
+              "definitionId": "awakening_quiet_pass"
+            },
+            {
+              "id": "awakening_p_listen_pass",
+              "definitionId": "awakening_listen_pass"
+            },
+            {
+              "id": "awakening_p_sneak",
+              "definitionId": "awakening_sneak"
+            },
+            {
+              "id": "awakening_p_detour",
+              "definitionId": "awakening_detour"
+            }
+          ],
+          "connections": {
+            "awakening_p_quiet_pass": "awakening_pass",
+            "awakening_p_listen_pass": "awakening_pass",
+            "awakening_p_sneak:success": "awakening_pass",
+            "awakening_p_sneak:failure": "awakening_chase",
+            "awakening_p_detour": "awakening_drain"
+          },
+          "x": 3200,
+          "y": 0
+        },
+        {
+          "id": "awakening_pass",
+          "name": "10A · Do Not Wake Him",
+          "type": "linear",
+          "cards": [
+            {
+              "id": "awakening_p_pass1",
+              "definitionId": "awakening_pass1"
+            }
+          ],
+          "connections": {
+            "next": "awakening_gate"
+          },
+          "x": 3600,
+          "y": -340
+        },
+        {
+          "id": "awakening_chase",
+          "name": "10B · Too Close",
+          "type": "linear",
+          "cards": [
+            {
+              "id": "awakening_p_chase1",
+              "definitionId": "awakening_chase1"
+            },
+            {
+              "id": "awakening_p_chase2",
+              "definitionId": "awakening_chase2"
+            }
+          ],
+          "connections": {
+            "next": "awakening_gate"
+          },
+          "x": 3600,
+          "y": 0
+        },
+        {
+          "id": "awakening_drain",
+          "name": "10C · Beneath the Floor",
+          "type": "linear",
+          "cards": [
+            {
+              "id": "awakening_p_drain1",
+              "definitionId": "awakening_drain1"
+            }
+          ],
+          "connections": {
+            "next": "awakening_gate"
+          },
+          "x": 3600,
+          "y": 340
+        },
+        {
+          "id": "awakening_gate",
+          "name": "11 · Medical Airlock",
+          "type": "fork",
+          "intro": {
+            "id": "awakening_p_gate_intro",
+            "definitionId": "awakening_gate_intro"
+          },
+          "introEnabled": true,
+          "introOnce": false,
+          "choices": [
+            {
+              "id": "awakening_p_use_tag",
+              "definitionId": "awakening_use_tag",
+              "contextItemId": "tag:infirmary_access"
+            },
+            {
+              "id": "awakening_p_use_rod",
+              "definitionId": "awakening_use_rod",
+              "contextItemId": "tag:prying_tool"
+            },
+            {
+              "id": "awakening_p_rewire",
+              "definitionId": "awakening_rewire"
+            },
+            {
+              "id": "awakening_p_laundry",
+              "definitionId": "awakening_laundry"
+            }
+          ],
+          "connections": {
+            "awakening_p_use_tag": "awakening_tag_open",
+            "awakening_p_use_rod": "awakening_rod_open",
+            "awakening_p_rewire:success": "awakening_wire_open",
+            "awakening_p_rewire:failure": "awakening_wire_fail",
+            "awakening_p_laundry": "awakening_laundry"
+          },
+          "x": 4000,
+          "y": 0
+        },
+        {
+          "id": "awakening_tag_open",
+          "name": "12A · Back on Duty",
+          "type": "linear",
+          "cards": [
+            {
+              "id": "awakening_p_tag_open1",
+              "definitionId": "awakening_tag_open1"
+            }
+          ],
+          "connections": {
+            "next": "awakening_radio"
+          },
+          "x": 4400,
+          "y": -700
+        },
+        {
+          "id": "awakening_rod_open",
+          "name": "12B · Mechanics",
+          "type": "linear",
+          "cards": [
+            {
+              "id": "awakening_p_rod_open1",
+              "definitionId": "awakening_rod_open1"
+            }
+          ],
+          "connections": {
+            "next": "awakening_radio"
+          },
+          "x": 4400,
+          "y": -350
+        },
+        {
+          "id": "awakening_wire_open",
+          "name": "12C · Old Habits",
+          "type": "linear",
+          "cards": [
+            {
+              "id": "awakening_p_wire_open1",
+              "definitionId": "awakening_wire_open1"
+            }
+          ],
+          "connections": {
+            "next": "awakening_radio"
+          },
+          "x": 4400,
+          "y": 0
+        },
+        {
+          "id": "awakening_wire_fail",
+          "name": "12D · Failure",
+          "type": "linear",
+          "cards": [
+            {
+              "id": "awakening_p_wire_fail1",
+              "definitionId": "awakening_wire_fail1"
+            }
+          ],
+          "connections": {
+            "next": "awakening_radio"
+          },
+          "x": 4400,
+          "y": 350
+        },
+        {
+          "id": "awakening_laundry",
+          "name": "12E · The Linen Hatch",
+          "type": "linear",
+          "cards": [
+            {
+              "id": "awakening_p_laundry1",
+              "definitionId": "awakening_laundry1"
+            }
+          ],
+          "connections": {
+            "next": "awakening_radio"
+          },
+          "x": 4400,
+          "y": 700
+        },
+        {
+          "id": "awakening_radio",
+          "name": "13 · Juno-1",
+          "type": "linear",
+          "cards": [
+            {
+              "id": "awakening_p_radio1",
+              "definitionId": "awakening_radio1"
+            },
+            {
+              "id": "awakening_p_radio2",
+              "definitionId": "awakening_radio2"
+            },
+            {
+              "id": "awakening_p_radio3",
+              "definitionId": "awakening_radio3"
+            }
+          ],
+          "connections": {
+            "next": "awakening_emma_choice"
+          },
+          "x": 4800,
+          "y": 0
+        },
+        {
+          "id": "awakening_emma_choice",
+          "name": "14 · An Answer",
+          "type": "fork",
+          "intro": {
+            "id": "awakening_p_emma_intro",
+            "definitionId": "awakening_emma_intro"
+          },
+          "introEnabled": true,
+          "introOnce": false,
+          "choices": [
+            {
+              "id": "awakening_p_tell_ada",
+              "definitionId": "awakening_tell_ada"
+            },
+            {
+              "id": "awakening_p_dont_know",
+              "definitionId": "awakening_dont_know"
+            },
+            {
+              "id": "awakening_p_promise",
+              "definitionId": "awakening_promise"
+            }
+          ],
+          "connections": {
+            "awakening_p_tell_ada": "awakening_truth",
+            "awakening_p_dont_know": "awakening_uncertain",
+            "awakening_p_promise": "awakening_promise"
+          },
+          "x": 5200,
+          "y": 0
+        },
+        {
+          "id": "awakening_truth",
+          "name": "15A · The Truth",
+          "type": "linear",
+          "cards": [
+            {
+              "id": "awakening_p_truth1",
+              "definitionId": "awakening_truth1"
+            }
+          ],
+          "connections": {
+            "next": "awakening_instructions"
+          },
+          "x": 5600,
+          "y": -340
+        },
+        {
+          "id": "awakening_uncertain",
+          "name": "15B · I Don’t Know",
+          "type": "linear",
+          "cards": [
+            {
+              "id": "awakening_p_uncertain1",
+              "definitionId": "awakening_uncertain1"
+            }
+          ],
+          "connections": {
+            "next": "awakening_instructions"
+          },
+          "x": 5600,
+          "y": 0
+        },
+        {
+          "id": "awakening_promise",
+          "name": "15C · A Promise",
+          "type": "linear",
+          "cards": [
+            {
+              "id": "awakening_p_promise1",
+              "definitionId": "awakening_promise1"
+            }
+          ],
+          "connections": {
+            "next": "awakening_instructions"
+          },
+          "x": 5600,
+          "y": 340
+        },
+        {
+          "id": "awakening_instructions",
+          "name": "16 · Where the Cables Lead",
+          "type": "linear",
+          "cards": [
+            {
+              "id": "awakening_p_instructions1",
+              "definitionId": "awakening_instructions1"
+            },
+            {
+              "id": "awakening_p_instructions2",
+              "definitionId": "awakening_instructions2"
+            }
+          ],
+          "connections": {
+            "next": "awakening_last_choice"
+          },
+          "x": 6000,
+          "y": 0
+        },
+        {
+          "id": "awakening_last_choice",
+          "name": "17 · The First Night",
+          "type": "fork",
+          "intro": {
+            "id": "awakening_p_last_intro",
+            "definitionId": "awakening_last_intro"
+          },
+          "introEnabled": true,
+          "introOnce": false,
+          "choices": [
+            {
+              "id": "awakening_p_descend",
+              "definitionId": "awakening_descend"
+            },
+            {
+              "id": "awakening_p_secure",
+              "definitionId": "awakening_secure",
+              "contextItemId": "awakening_wedge"
+            },
+            {
+              "id": "awakening_p_shelter",
+              "definitionId": "awakening_shelter"
+            }
+          ],
+          "connections": {
+            "awakening_p_descend": "awakening_end_descent",
+            "awakening_p_secure": "awakening_end_secure",
+            "awakening_p_shelter": "awakening_end_shelter"
+          },
+          "x": 6400,
+          "y": 0
+        },
+        {
+          "id": "awakening_end_descent",
+          "name": "18A · Down",
+          "type": "linear",
+          "cards": [
+            {
+              "id": "awakening_p_end_descent1",
+              "definitionId": "awakening_end_descent1"
+            },
+            {
+              "id": "awakening_p_end_descent2",
+              "definitionId": "awakening_end_descent2"
+            }
+          ],
+          "connections": {
+            "next": null
+          },
+          "x": 6800,
+          "y": -380
+        },
+        {
+          "id": "awakening_end_secure",
+          "name": "18B · A Few Minutes",
+          "type": "linear",
+          "cards": [
+            {
+              "id": "awakening_p_end_secure1",
+              "definitionId": "awakening_end_secure1"
+            },
+            {
+              "id": "awakening_p_end_secure2",
+              "definitionId": "awakening_end_secure2"
+            }
+          ],
+          "connections": {
+            "next": null
+          },
+          "x": 6800,
+          "y": 0
+        },
+        {
+          "id": "awakening_end_shelter",
+          "name": "18C · Until Morning",
+          "type": "linear",
+          "cards": [
+            {
+              "id": "awakening_p_end_shelter1",
+              "definitionId": "awakening_end_shelter1"
+            },
+            {
+              "id": "awakening_p_end_shelter2",
+              "definitionId": "awakening_end_shelter2"
+            }
+          ],
+          "connections": {
+            "next": null
+          },
+          "x": 6800,
+          "y": 380
+        },
+        {
+          "id": "awakening_first_aid",
+          "name": "04A · First aid",
+          "type": "linear",
+          "x": 1050,
+          "y": 0,
+          "cards": [
+            {
+              "id": "awakening_p_first_aid_intro",
+              "definitionId": "awakening_supplies_intro"
+            },
+            {
+              "id": "awakening_p_dressing",
+              "definitionId": "awakening_sterile_dressing"
+            },
+            {
+              "id": "awakening_p_water",
+              "definitionId": "awakening_water"
+            }
+          ],
+          "connections": {
+            "next": "awakening_supplies"
+          }
+        }
+      ],
+      "variables": [
+        {
+          "id": "records_read",
+          "name": "Records read",
+          "type": "flag",
+          "initial": false,
+          "showInHud": false
+        },
+        {
+          "id": "adas_fate_known",
+          "name": "Ada's fate known",
+          "type": "flag",
+          "initial": false,
+          "showInHud": false
+        },
+        {
+          "id": "stairs_checked",
+          "name": "Stairs checked",
+          "type": "flag",
+          "initial": false,
+          "showInHud": false
+        },
+        {
+          "id": "sound_pattern_known",
+          "name": "Sound pattern known",
+          "type": "flag",
+          "initial": false,
+          "showInHud": false
+        },
+        {
+          "id": "breathing_pattern_known",
+          "name": "Breathing pattern known",
+          "type": "flag",
+          "initial": false,
+          "showInHud": false
+        },
+        {
+          "id": "truth_told_to_emma",
+          "name": "Truth told to Emma",
+          "type": "flag",
+          "initial": false,
+          "showInHud": false
+        }
+      ],
+      "nextChapterId": null
+    }
+  ]
+}

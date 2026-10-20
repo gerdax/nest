@@ -21,6 +21,13 @@ function chapterFor(project, selection) {
 function nodeFor(project, selection) {
   return chapterFor(project, selection)?.nodes.find(node => node.id === selection.selected);
 }
+function ruleChapterFor(project, selection, scope) {
+ if(scope==='definition') {
+  const definition=project.library.find(card=>card.id===selection.definitionId);
+  return definition?.visibility==='local'?project.chapters.find(chapter=>chapter.id===definition.chapterId):undefined;
+ }
+ return ['node','placement','local-definition'].includes(scope)?chapterFor(project,selection):undefined;
+}
 export function documentScope(project, selection, {scope, placementId}) {
   if (scope === 'project') return project;
   if (scope === 'chapter') return chapterFor(project, selection);
@@ -56,7 +63,7 @@ function changeField(project, selection, field, localDrafts) {
     chapter.initialValues = {...(chapter.initialValues || {}), [path]:variable.type === 'flag' ? raw === 'true' : Number(raw)};
     return;
   }
-  const ruleChapter = ['node','placement','local-definition'].includes(scope) ? chapter : undefined;
+  const ruleChapter = ruleChapterFor(project, selection, scope);
   const variables = chapterVariables(project, ruleChapter);
   const root = documentScope(project, selection, field);
   if (!root) return;
@@ -93,6 +100,7 @@ function changeField(project, selection, field, localDrafts) {
   if ((['value','initial'].includes(key) || path.startsWith('initialValues.')) && ['true','false'].includes(value)) value = value === 'true';
   if (inputType === 'number' && raw === '') { delete parent[key]; return; }
   if (['imageScale','imageOffsetX','imageOffsetY'].includes(key)) value = clampArtwork(key, value);
+  if(key==='key'&&['addItem','removeItem'].includes(parent.op)&&value&&!project.library.some(item=>item.id===value&&item.kind==='item'&&item.visibility!=='local'))throw new Error('Item effects must reference a shared Library item.');
   parent[key] = value;
   if (['modifierVariable','contextItemId','tagId'].includes(key) && !value) delete parent[key];
   if (key === 'contextItemId' && (!value||value.startsWith('tag:'))) delete parent.contextOverrideImage;
@@ -122,7 +130,7 @@ function inspectorCommand(project, selection, data, localDrafts) {
     case 'add-rule': {
       const {parent, key} = pathTarget(documentScope(project, selection, descriptor), data.path);
       parent[key] ||= [];
-      parent[key].push(newRule(project, data.ruleKind, ['node','placement','local-definition'].includes(data.scope) ? chapterFor(project, selection) : undefined));
+      parent[key].push(newRule(project, data.ruleKind, ruleChapterFor(project, selection, data.scope)));
       break;
     }
     case 'remove-rule': {

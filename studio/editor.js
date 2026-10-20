@@ -304,6 +304,7 @@ function command(event){const b=event.target.closest('[data-command]');if(!b)ret
   return;
  }
  if(cmd==='edit-shared'){definitionId=b.dataset.definition;mode='library';render();return;}
+ if(cmd==='back-to-beat'){mode='chapter';render();return;}
  if(cmd==='jump-use'){
   if(b.disabled)return;
   if(b.dataset.placement){

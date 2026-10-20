@@ -44,7 +44,7 @@ export function removeLibraryDefinition(project, id, {reservedIds = []} = {}) {
     seen.add(ref.placement);
     return true;
   }).map(ref => {
-    const overrides = Object.fromEntries(placementOverrideKeys(plan.definition.kind)
+    const overrides = Object.fromEntries(placementOverrideKeys(plan.definition.kind,plan.definition)
       .filter(key => Object.hasOwn(ref.placement.overrides ?? {}, key))
       .map(key => [key, ref.placement.overrides[key]]));
     const definition = structuredClone({...plan.definition, ...overrides});

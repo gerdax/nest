@@ -265,7 +265,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
         inspectCard(p, label);
         const d = definitions.get(p.definitionId);
         if (object(p.overrides)) {
-          if (Object.keys(p.overrides).some(k => !placementOverrideKeys(d?.kind).includes(k))) add(`${label}: unsupported override.`, cid, nid);
+          if (Object.keys(p.overrides).some(k => !placementOverrideKeys(d?.kind,d).includes(k))) add(`${label}: unsupported override.`, cid, nid);
           inspectCard(p.overrides, label);
         }
         if (p.contextOverrideImage !== undefined && !(node.type === 'fork' && list(node.choices).includes(p)

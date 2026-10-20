@@ -1,5 +1,5 @@
 import { eligibleInventoryItems } from './item-options.js';
-import { createDefinition, resolvePlacement, isStoryKind, isConsumableKind } from '../project/cards.js';
+import { createDefinition, resolvePlacement, isStoryKind, isConsumableKind, placementOverrideKeys } from '../project/cards.js';
 import { chapterVariables,outputsForNode,connectionForOutput } from '../project/model.js';
 import { createNodeDefaults, nodeTypeLabel } from '../project/nodeTypes.js';
 import { definitionGraph } from '../project/dependencies.js';
@@ -74,15 +74,39 @@ export function setCardSource(project,placement,definitionId,{allowedKinds}={}) 
 export function promoteCard(project,placement) {
  const definition=project.library.find(d=>d.id===placement.definitionId);
  const globals=new Set(project.variables.map(v=>v.id));
- const inspect=value=>{
-  if(!value||typeof value!=='object')return;
-  if((value.source==='variable'||['set','add'].includes(value.op))&&!globals.has(value.key)
-   ||value.modifierVariable&&!globals.has(value.modifierVariable))throw new Error('Replace Chapter variables with Global variables before adding this card to the Library.');
-  Object.values(value).forEach(inspect);
+ const usesChapterVariable=value=>{
+  if(!value||typeof value!=='object')return false;
+  return ((value.source==='variable'||['set','add'].includes(value.op))&&!globals.has(value.key))
+   ||!!(value.modifierVariable&&!globals.has(value.modifierVariable))
+   ||Object.values(value).some(usesChapterVariable);
  };
- const dependencies=definitionGraph(project).reachableFrom({definitionId:definition.id});
- for(const dependency of project.library)if(dependencies.has(dependency.id))inspect(dependency);
- for(const dependency of project.library)if(dependencies.has(dependency.id)){dependency.visibility='shared';delete dependency.chapterId;}
+ const graph=definitionGraph(project),dependencies=graph.reachableFrom({definitionId:definition.id});
+ for(const dependency of project.library)if(dependencies.has(dependency.id)&&dependency.visibility==='local'){
+  const overrides={},allowed=new Set(placementOverrideKeys(dependency.kind,dependency));
+  const instances=new Set(graph.references.filter(ref=>ref.kind==='placement'&&ref.definitionId===dependency.id).map(ref=>ref.placement));
+  if(dependency.id===definition.id)instances.add(placement);
+  // Local definitions ignore overrides. Do not activate stale imported values
+  // when the definition becomes shared.
+  for(const instance of instances)delete instance.overrides;
+  for(const key of ['conditions','costs','effects','onCollect','successEffects','failureEffects']){
+   const rules=dependency[key];
+   if(!Array.isArray(rules)||!rules.some(usesChapterVariable))continue;
+   // Overrides replace whole lists. Preserve the original order, including
+   // global effects interleaved with chapter effects, on each existing instance.
+   if(allowed.has(key))overrides[key]=structuredClone(rules);
+   else if(key==='conditions')for(const instance of instances)instance.conditions=[...structuredClone(rules.filter(usesChapterVariable)),...(instance.conditions||[])];
+   dependency[key]=rules.filter(rule=>!usesChapterVariable(rule));
+  }
+  if(usesChapterVariable(dependency.check)){
+   overrides.check=structuredClone(dependency.check);
+   overrides.resolution=dependency.resolution;
+   if(dependency.check.mode==='stat'){
+    dependency.resolution='direct';delete dependency.check;
+   }else delete dependency.check.modifierVariable;
+  }
+  if(Object.keys(overrides).length)for(const instance of instances)instance.overrides=structuredClone(overrides);
+  dependency.visibility='shared';delete dependency.chapterId;
+ }
  return definition;
 }
 export function duplicatePlacement(project,node,placement) {
@@ -181,7 +205,7 @@ export function normalizeRule(project,rule,leaf,chapter) {
  const variables=chapterVariables(project,chapter);
  const item=eligibleInventoryItems(project,chapter)[0],variable=variables.find(v=>v.type==='number')||variables[0];
  if(leaf==='source') {if(rule.source==='inventory'&&'amount'in rule)rule.amount=1;rule.key=rule.source==='inventory'?item?.id||'':variable?.id||'';if('op'in rule){rule.op=rule.source==='inventory'?'has':'eq';if(rule.source==='inventory')delete rule.value;else rule.value=variable?.initial??0;}}
- if(leaf==='op'&&['addItem','removeItem'].includes(rule.op)){rule.key=item?.id||'';delete rule.quantity;delete rule.value;}
+ if(leaf==='op'&&['addItem','removeItem'].includes(rule.op)){rule.key=eligibleInventoryItems(project)[0]?.id||'';delete rule.quantity;delete rule.value;}
  if(leaf==='op'&&['set','add'].includes(rule.op)){rule.key=variable?.id||'';rule.value=variable?.type==='flag'?false:0;delete rule.quantity;}
  if(leaf==='key'&&'op'in rule&&rule.source!=='inventory'&&!['addItem','removeItem'].includes(rule.op)){const v=variables.find(v=>v.id===rule.key);rule.value=v?.type==='flag'?false:0;if(v?.type==='flag'&&!['eq','neq','set'].includes(rule.op))rule.op=rule.source==='variable'?'eq':'set';}
  if(leaf==='op'&&['gte','lte'].includes(rule.op)&&rule.source==='inventory')rule.value=1;

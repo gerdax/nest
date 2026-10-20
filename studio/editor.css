@@ -136,6 +136,8 @@ aside {overflow-anchor:none;}
 .image-field-actions [data-command="clear-image"] {margin-left:auto;}
 .chapter-delete-action {margin-top:20px;padding-top:16px;border-top:1px solid #394a4c;}
 
+.rule-entry-actions {display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.rule-entry-actions > [data-command="edit-shared"] {margin-left:auto;}
 .card-source-actions {display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:8px 0;}
 .card-source-primary,.card-source-clipboard {display:flex;flex-wrap:wrap;gap:6px;}
 .card-source-clipboard {margin-left:auto;}

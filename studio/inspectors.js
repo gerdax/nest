@@ -53,6 +53,12 @@ function consumableRuleFields(project,card,prefix,scope,chapter) {
 }
 export function definitionInspector(project,definition) {
  if(!definition)return '<p>Select a definition in the Library.</p>';
+ const local=definition.visibility==='local';
+ const chapter=local?project.chapters.find(chapter=>chapter.id===definition.chapterId):undefined;
+ if(local) {
+  project={...project,variables:chapterVariables(project,chapter).map(v=>({...v,variableScope:(chapter?.variables||[]).includes(v)?'chapter':'global'}))};
+  return `<section class="card-panel card-definition-panel" data-card-type="${esc(definition.kind)}" style="--card-editor-tint:${esc(cardEditorTint(definition.kind))}"><h2>${esc(cardKinds[definition.kind].label)}</h2><p class="small">Chapter-local definition · ${esc(chapter?.name||'Unknown chapter')}. Changes apply wherever this card is referenced.</p>${button('Back to beat','back-to-beat')}${cardFields(project,definition,'definition',true,true,chapter)}${definitionUsagePanel(project,definition.id)}</section>`;
+ }
  let html=`<section class="card-panel card-definition-panel" data-card-type="${esc(definition.kind)}" style="--card-editor-tint:${esc(cardEditorTint(definition.kind))}"><div class="card-definition-heading"><h2>${esc(cardKinds[definition.kind].label)}</h2>${definition.kind==='item'&&definition.tagId?`<span class="card-definition-tag">[${esc((project.itemTags||[]).find(tag=>tag.id===definition.tagId)?.name||definition.tagId)}]</span>`:''}</div><p class="small">Shared definition · Changes apply everywhere this definition is referenced.</p>`+cardFields(project,definition);
  html+=definitionUsagePanel(project,definition.id);
  const removal=libraryRemovalPlan(project,definition.id);
@@ -73,7 +79,7 @@ export function placementInspector(project,p,kind,index,slot,count=Infinity,chap
  html+=`<p class="small">${cardSummaryParts(card||{},project.variables,project.library,project.itemTags).map(esc).join('<br>')}</p>`;
  html+=select('Card source',local?`local:${kind}`:p.definitionId,[...localSources,...defs],'definitionId','placement');
  html+='<div class="card-source-actions"><div class="card-source-primary">';
- if(local)html+=button('Add to library','promote-card',attr)+button('Clear','clear-card',attr);
+ if(local)html+=button('Add to library','promote-card',`${attr} title="Chapter-variable rules stay on the chapter instance as custom rules."`)+button('Clear','clear-card',attr);
  else html+=button('Edit shared','edit-shared',`data-definition="${esc(p.definitionId)}" data-card-placement="${esc(p.id)}"`)+button('Convert to local','local-copy',`${attr} data-kind="${kind}"`);
  html+=`</div><div class="card-source-clipboard">${button('Copy','copy-card',`${attr} aria-label="Copy card"`)}${button('Paste','paste-card',`${attr} aria-label="Paste card" disabled title="Copy a compatible card first."`)}</div></div>`;
  if(local)html+=cardFields(project,definition,'local-definition',false,false,chapter);

@@ -26,7 +26,15 @@ const actionOverrideKeys = Object.freeze(['conditions', 'costs', 'effects', 'res
 const itemOverrideKeys = Object.freeze(['onCollect', 'permability']);
 const resourceOverrideKeys = Object.freeze(['value', 'onCollect']);
 const storyOverrideKeys = Object.freeze(['effects']);
-export const placementOverrideKeys = kind => isConsumableKind(kind) ? resourceOverrideKeys : canonicalCardKind(kind) === 'item' ? itemOverrideKeys : isStoryKind(kind) ? storyOverrideKeys : actionOverrideKeys;
+export function placementOverrideKeys(kind, definition) {
+  const keys=isConsumableKind(kind) ? resourceOverrideKeys : canonicalCardKind(kind) === 'item' ? itemOverrideKeys : isStoryKind(kind) ? storyOverrideKeys : actionOverrideKeys;
+  if(!definition)return keys;
+  // Imported cards can already carry mechanics outside their native editor's
+  // fields. Allow instance overrides for those existing rules when sharing them.
+  const legacy=['costs','effects','onCollect','successEffects','failureEffects'].filter(key=>Object.hasOwn(definition,key));
+  if(Object.hasOwn(definition,'resolution')||Object.hasOwn(definition,'check'))legacy.push('resolution','check');
+  return [...new Set([...keys,...legacy])];
+}
 export function createDefinition(kind, id) {
   kind = canonicalCardKind(kind);
   if (!Object.hasOwn(cardKinds, kind)) throw new TypeError(`Unknown card kind: ${kind}`);
@@ -40,7 +48,7 @@ export function resolvePlacement(project, placement, index) {
   const definition = index && index.usable !== false ? index.byId.get(placement.definitionId) : project.library.find(d => d?.id === placement.definitionId);
   if (!definition) throw new TypeError(`Unknown definition: ${placement.definitionId}`);
   const overrides = definition.visibility === 'local' ? {} : Object.fromEntries(
-    placementOverrideKeys(definition.kind).filter(key => Object.hasOwn(placement.overrides ?? {}, key))
+    placementOverrideKeys(definition.kind,definition).filter(key => Object.hasOwn(placement.overrides ?? {}, key))
       .map(key => [key, placement.overrides[key]])
   );
   const base = {...definition, ...overrides, kind:canonicalCardKind(definition.kind)};

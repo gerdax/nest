@@ -1,5 +1,5 @@
 import { isStatVariable, editorCheckSummary } from '../project/checks.js';
-import { inventoryItemOptions } from './item-options.js';
+import { eligibleInventoryItems, inventoryItemOptions } from './item-options.js';
 import { esc, options } from '../editor/fields.js';
 
 export { esc };
@@ -17,7 +17,9 @@ export function rules(project,list=[],path,scope,kind,{label,help,chapter}={}) {
  html+=list.map((rule,i)=>{
   const p=`${esc(path)}.${i}`;
   let fields='';
-  const items=inventoryItemOptions(project,chapter,rule.key,{includeTags:kind==='conditions'});
+  let editTarget='';
+  const itemEffect=kind==='effects'&&['addItem','removeItem'].includes(rule.op);
+  const items=inventoryItemOptions(project,chapter,rule.key,{includeTags:kind==='conditions',sharedOnly:itemEffect});
   if(kind==='conditions') {
    const inventory=rule.source==='inventory';
    const candidates=inventory?items:vars;
@@ -33,10 +35,13 @@ export function rules(project,list=[],path,scope,kind,{label,help,chapter}={}) {
   } else {
    const inventory=['addItem','removeItem'].includes(rule.op);
    fields=select('Operation',rule.op,[['set','Set variable'],['add','Add to variable'],['addItem','Add item'],['removeItem','Remove item']],`${p}.op`,scope)+select('Target',rule.key,inventory?items:vars,`${p}.key`,scope);
+   const target=inventory&&eligibleInventoryItems(project).find(item=>item.id===rule.key);
+   if(target)editTarget=button('Edit shared','edit-shared',`data-definition="${esc(target.id)}" aria-label="${esc(`Edit shared: ${target.name||target.id}`)}"`);
+   if(inventory&&rule.key&&!target)fields+='<p class="small">Choose a shared Library item. This saved target is unavailable for item effects.</p>';
    const flag=project.variables.find(v=>v.id===rule.key)?.type==='flag';
    fields+=inventory?'':flag?select('Value',String(rule.value),[['true','True'],['false','False']],`${p}.value`,scope):field('Value',rule.value,`${p}.value`,scope,'number');
   }
-  return `<div class="entry">${fields}${button('Remove','remove-rule',extras(scope,path,kind)+` data-index="${i}"`)}</div>`;
+  return `<div class="entry">${fields}<div class="rule-entry-actions">${button('Remove','remove-rule',extras(scope,path,kind)+` data-index="${i}"`)}${editTarget}</div></div>`;
  }).join('');
  return html+button(`Add ${kind==='conditions'?'condition':kind==='costs'?'cost':'effect'}`,'add-rule',extras(scope,path,kind))+'</details>';
 }
