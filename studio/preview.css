@@ -1,6 +1,6 @@
 /* Perspective turns extend beyond the resting stage. The outer player/preview
    viewport owns clipping, independently of inventory visibility. */
-.chapter-preview-stage { display:grid;place-items:center;min-height:440px;padding:24px 38px 30px;gap:clamp(42px,12vw,50px);overflow:visible; }
+.chapter-preview-stage { display:grid;grid-template-rows:auto minmax(0,1fr) var(--action-context-height,190px);place-items:center;min-height:440px;padding:24px 38px 30px;gap:clamp(42px,12vw,50px);overflow:visible; }
 .chapter-preview-card-area {width:100%;min-width:0;display:grid;place-items:center;}
 .nest-check-slot {position:absolute;inset:0;z-index:5;container-type:size;}
 .nest-check-slot[hidden],.check-surface[hidden] {display:none!important;}
@@ -47,35 +47,33 @@
 .preview-footer [data-preview-actions]{margin-left:auto;flex-shrink:0}
 .preview-footer [data-go-to-card]{border:0;padding:0;background:transparent;color:inherit;text-decoration:underline;font:inherit;font-size:12px}
 
-/* Mechanical information lives below the fiction, outside the moving card. */
-.action-check-details {position:absolute;top:calc(100% + var(--action-caption-gap,48px));left:50%;transform:translateX(-50%);width:max(100%,220px);max-width:calc(100vw - 40px);text-align:center;pointer-events:none;color:#c6d5b4;z-index:21;}
+/* One stationary context panel owns the caption, body, backdrop and fade for
+   every selected-action mode. The stage grid reserves the same lane for each. */
+.action-context-panel {position:relative;z-index:2000;isolation:isolate;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;min-width:0;min-height:0;width:100%;height:100%;padding:var(--action-context-inset,24px) 0 0;text-align:center;opacity:0;visibility:hidden;pointer-events:none;transition:opacity 140ms ease,visibility 0s 140ms;}
+.action-context-panel[hidden] {display:none!important;}
+.action-context-panel[data-visible="true"] {opacity:1;visibility:visible;transition-delay:0s;}
+.action-context-panel::before {content:'';position:absolute;top:calc(var(--action-context-inset,24px) - 30px);left:calc(-1 * max(38px,var(--playfield-safe-left,0px)));right:calc(-1 * max(38px,var(--playfield-safe-right,0px)));bottom:-100vh;z-index:-1;pointer-events:none;background:linear-gradient(to bottom,transparent 0,#000 30px,#000 100%);}
+.action-context-caption {flex:none;width:100%;margin:0 0 var(--action-context-content-gap,14px);font-family:var(--card-font,NestLetter,monospace);font-size:var(--card-small-size,10px);font-weight:normal;line-height:1;letter-spacing:.18em;text-transform:uppercase;color:var(--card-title-color,#a9bb86);overflow-wrap:anywhere;}
+.action-context-content {display:grid;justify-items:center;align-content:start;width:100%;min-height:0;}
+.action-check-details {width:100%;min-width:0;translate:0 calc(-1 * var(--action-context-odds-lift,15px));color:#b8cb98;pointer-events:none;}
 .action-check-details[hidden] {display:none!important;}
-.action-check-stat {margin:0 0 14px;overflow-wrap:anywhere;}
 .action-check-chance {line-height:1;}
-.action-check-chance strong {display:block;font:144px/.7 NestVitals,monospace;font-variant-numeric:tabular-nums;color:#b8cb98;}
-.action-check-label {margin:14px 0 0;font:20px/1.2 NestLetter,monospace;letter-spacing:.2em;text-transform:uppercase;color:#b8cb98;}
+.action-check-chance strong {display:block;font:var(--action-context-chance-size,144px)/.7 NestVitals,monospace;font-variant-numeric:tabular-nums;color:var(--card-text,#b8cb98);}
+.action-check-label {margin:var(--action-context-content-gap,14px) 0 0;font:var(--action-context-label-size,20px)/1.2 NestLetter,monospace;letter-spacing:.2em;text-transform:uppercase;color:var(--card-text,#b8cb98);}
+@media(prefers-reduced-motion:reduce){.action-context-panel{transition:none;}}
 
 /* Keep authored line and paragraph breaks in inventory descriptions too. */
 .item-dialog [data-description] { white-space:pre-wrap; }
 
 .chapter-preview-card-layout.is-inventory-preview .chapter-preview-deck {pointer-events:none}
-.chapter-preview-card-layout.is-inventory-preview .action-check-details {visibility:hidden}
 .nest-inventory-held-card {pointer-events:none;user-select:none;visibility:hidden;transition:visibility 0s 240ms}
 .is-inventory-preview .nest-inventory-held-card {visibility:visible;transition-delay:0s}
 @media(prefers-reduced-motion:reduce){.chapter-preview-card-layout,.nest-inventory-held-card{transition:none}}
 
-/* The source mini is an overlay below the measured deck, never a layout input. */
-.nest-trigger-item {position:absolute;left:50%;translate:-50% 0;width:82.5px;height:110px;pointer-events:none;z-index:3001;opacity:0;visibility:hidden;transition:opacity 140ms ease,visibility 0s 140ms;}
-.nest-trigger-item[data-visible="true"] {opacity:1;visibility:visible;pointer-events:auto;transition-delay:0s;}
-@media(prefers-reduced-motion:reduce){.nest-trigger-item{transition:none;}}
+/* Artwork stays in normal flow beneath the panel's shared caption. */
+.nest-trigger-item {width:calc(var(--action-context-mini-height,110px) * .75);height:var(--action-context-mini-height,110px);min-width:0;}
 .nest-trigger-item[hidden] {display:none!important;}
-/* Match the drawer's 30px fade, with an opaque backing behind the caption
-   and mini. The inventory surface clips the backdrop to the player frame. */
-.nest-trigger-item::before {content:'';position:absolute;top:-54px;left:-100vw;right:-100vw;bottom:-100vh;z-index:-1;pointer-events:none;background:linear-gradient(to bottom,transparent 0,#000 30px,#000 100%);}
-.action-check-stat,.nest-trigger-item-label {font-family:var(--card-font,NestLetter,monospace);font-size:var(--card-small-size,10px);font-weight:normal;line-height:1;letter-spacing:.18em;text-transform:uppercase;color:var(--card-title-color,#a9bb86);}
-/* Both captions start at the same gap, independent of caption font size.
-   The mini itself starts 72px below the card; 1em is this label's height. */
-.nest-trigger-item-label {position:absolute;bottom:calc(100% + 72px - var(--action-caption-gap,48px) - 1em);left:50%;translate:-50% 0;pointer-events:none;}
+.action-context-panel[data-visible="true"] .nest-trigger-item {pointer-events:auto;}
 .nest-trigger-item>button {position:relative;display:block;width:100%;height:100%;box-sizing:border-box;overflow:hidden;padding:0;border:1.5px solid #303030;border-radius:10.5px;background:#000;cursor:pointer;isolation:isolate;touch-action:none;user-select:none;-webkit-touch-callout:none;}
 .nest-trigger-item>button:focus-visible {outline:3px solid #f4e8b6;outline-offset:-4px;}
 .nest-trigger-item>button:disabled {opacity:1;}

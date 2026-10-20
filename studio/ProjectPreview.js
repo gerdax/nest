@@ -12,7 +12,8 @@ import { acquireDock } from '../editor/dockOwnership.js';
 import { nodeTypeLabel } from '../project/nodeTypes.js';
 import { previewCardTarget } from './preview-card-target.js';
 import { DiceLayer } from './DiceLayer.js';
-import { TriggerItemMini, focusedTriggerItem } from './TriggerItemMini.js';
+import { focusedTriggerItem } from './TriggerItemMini.js';
+import { ActionContextPanel } from './ActionContextPanel.js';
 
 /** Playback UI owns dice/inventory presentation, never chapter resolution rules. */
 export class ProjectPreview {
@@ -26,12 +27,8 @@ export class ProjectPreview {
     this.onGoToCard = typeof onGoToCard === 'function' ? onGoToCard : null;
     this.deckSettings = { ...deckSettings };
     this.presentationPolicy = { ...presentationPolicy };
-    this.root.innerHTML = '<section class="project-preview"><div class="chapter-preview-stage"><div class="player-resources" data-resources hidden><span class="player-resource" data-health aria-label="Health"><img src="./assets/img/ui/hud-health.png" alt=""><span data-health-value></span></span><span class="player-resource" data-energy aria-label="Energy"><span data-energy-value></span><img src="./assets/img/ui/hud-energy.png" alt=""></span></div><div class="chapter-preview-card-area"><div class="chapter-preview-card-layout"><div class="chapter-preview-deck" tabindex="0"></div><section class="action-check-details" data-action-check hidden aria-label="Selected action check" aria-live="polite"><p class="action-check-stat" data-check-formula></p><div class="action-check-chance"><strong data-check-chance></strong></div><p class="action-check-label" data-check-rules></p></section></div></div></div><div class="preview-status-row"><p data-status role="status" hidden></p></div><footer class="preview-footer" data-preview-footer><details data-state hidden><summary>Run state</summary><pre></pre></details><div data-preview-actions></div></footer><section data-inventory></section><section class="check-surface" data-check-surface hidden aria-label="Action check"><div class="check-tray"></div><div class="check-result" data-result role="status" aria-live="polite"></div></section></section>';
+    this.root.innerHTML = '<section class="project-preview"><div class="chapter-preview-stage"><div class="player-resources" data-resources hidden><span class="player-resource" data-health aria-label="Health"><img src="./assets/img/ui/hud-health.png" alt=""><span data-health-value></span></span><span class="player-resource" data-energy aria-label="Energy"><span data-energy-value></span><img src="./assets/img/ui/hud-energy.png" alt=""></span></div><div class="chapter-preview-card-area"><div class="chapter-preview-card-layout"><div class="chapter-preview-deck" tabindex="0"></div></div></div><section data-action-context></section></div><div class="preview-status-row"><p data-status role="status" hidden></p></div><footer class="preview-footer" data-preview-footer><details data-state hidden><summary>Run state</summary><pre></pre></details><div data-preview-actions></div></footer><section data-inventory></section><section class="check-surface" data-check-surface hidden aria-label="Action check"><div class="check-tray"></div><div class="check-result" data-result role="status" aria-live="polite"></div></section></section>';
     this.mount = root.querySelector('.chapter-preview-deck');
-    this.checkDetails = root.querySelector('[data-action-check]');
-    this.checkChance = root.querySelector('[data-check-chance]');
-    this.checkFormula = root.querySelector('[data-check-formula]');
-    this.checkRules = root.querySelector('[data-check-rules]');
     this.status = root.querySelector('[data-status]');
     this.nextChapterButton = document.createElement('button');
     this.nextChapterButton.type = 'button';
@@ -77,14 +74,10 @@ export class ProjectPreview {
     if (!inventoryDock) root.querySelector('.project-preview').classList.add('project-preview--embedded');
     this.inventoryCardPreview = new InventoryCardPreview(this.mount);
     this.inventory = new InventoryView(inventoryRoot, { getBounds: () => this.inventorySurface.bounds(), onHold: item => this.inventoryCardPreview.show(item), onMotion: event => this.drawerTrace?.(event) });
-    const triggerRoot = document.createElement('section');
-    this.inventorySurface.mount(triggerRoot);
-    this.triggerItemMini = new TriggerItemMini(triggerRoot, {
-      onHold: item => { this.inventoryCardPreview.show(item); if (!item) this.positionTriggerMini(); },
+    this.actionContext = new ActionContextPanel(root.querySelector('[data-action-context]'), {
+      onHold: item => this.inventoryCardPreview.show(item),
       canHold: () => !this.deck?.state?.busy && !this.deck?.drag && !!this.state?.idle,
     });
-    this.triggerResize = new ResizeObserver(() => this.positionTriggerMini());
-    for (const element of [this.mount, this.checkDetails, this.inventorySurface.frame, this.footer]) this.triggerResize.observe(element);
 
   }
   play(project, chapterId, startNode, { focus = true, initialState = null } = {}) {
@@ -102,6 +95,7 @@ export class ProjectPreview {
     const generation = this.generation;
     const active = () => !this.destroyed && this.generation === generation;
     applyCardStyles(this.mount, chapter.cardStyles);
+    applyCardStyles(this.actionContext.root, chapter.cardStyles);
     this.project = structuredClone(project); this.chapterId = chapterId; this.startNode = startNode; this.compiled = chapter;
     this.initialState = initialState ? structuredClone(initialState) : null;
     try {
@@ -141,11 +135,11 @@ export class ProjectPreview {
       if (!active()) { controller.destroy(); return; }
       this.controller = controller;
       this.cardLinkDeck = this.deck;
-      this.cardLinkListener = () => { if (active()) { this.syncCardLink(); this.syncCheckDetails(); } };
+      this.cardLinkListener = () => { if (active()) { this.syncCardLink(); this.syncActionContext(); } };
       this.cardLinkEvents = ['selection', 'reveal', 'close', 'commit', 'collect', 'discard', 'transitioncomplete'];
       for (const event of this.cardLinkEvents) this.deck.addEventListener(event, this.cardLinkListener);
       this.syncCardLink();
-      this.syncCheckDetails();
+      this.syncActionContext();
       if (focus) this.mount.focus({ preventScroll: true });
     } catch (error) { if (active()) this.stop(); throw error; }
   }
@@ -178,7 +172,7 @@ export class ProjectPreview {
     this.stateReadout.querySelector('pre').textContent = `Variables\n${JSON.stringify(variables, null, 2)}\n\nOwned items\n${JSON.stringify(ownedItems, null, 2)}`;
     this.inventory.update(state.collectedItems || [], { busy: !state.idle, variables: this.compiled?.variables || [], values: state.variables, library: this.compiled?.library || [] });
     this.syncCardLink();
-    this.syncCheckDetails();
+    this.syncActionContext();
     this.onChange(state);
   }
   cardTarget() {
@@ -188,53 +182,15 @@ export class ProjectPreview {
   syncCardLink() {
     if (this.goToCardButton) this.goToCardButton.disabled = !this.cardTarget();
   }
-  syncCheckDetails() {
+  syncActionContext() {
     const deck = this.deck;
     const action = deck?.content?.actions?.[deck.index ?? 0];
     const info = !this.state?.completed && !this.state?.checking && deck?.phase === 'choices' ? action?.checkInfo : null;
-    this.checkDetails.hidden = !info;
-    this.checkChance.textContent = info ? `${Math.round(parseFloat(info.chance))}%` : '';
-    this.checkDetails.title = info ? [info.formula, info.rules].filter(Boolean).join(' · ') : '';
-    this.checkFormula.textContent = info?.stat ?? '';
-    this.checkRules.textContent = info?.label ?? '';
-    this.checkRules.hidden = !info?.label;
-    this.triggerItemMini?.update(info ? null : focusedTriggerItem(deck, this.state), { busy: !!deck?.state?.busy || !this.state?.idle });
-    this.positionTriggerMini();
-  }
-  positionTriggerMini() {
-    const mini = this.triggerItemMini;
-    if (mini?.held) return;
-    if (this.checkDetails.style) Object.assign(this.checkDetails.style, { width:'', left:'', transform:'' });
-    if (!mini?.item) return;
-    const deck = this.mount.getBoundingClientRect();
-    const frame = this.inventorySurface.frame;
-    const bounds = frame.getBoundingClientRect();
-    if (!bounds.height || !frame.offsetHeight) return;
-    const scale = bounds.height / frame.offsetHeight;
-    // A resize can end a hold while the camera is still sliding home. Measure
-    // resting coordinates, so that transition cannot displace the fixed mini.
-    const camera = this.inventoryCardPreview;
-    const translate = camera.view.getComputedStyle?.(camera.plane)?.translate ?? 'none';
-    const cameraY = parseFloat(translate.split(/\s+/)[1]) || 0;
-    const cameraScale = this.mount.offsetHeight ? deck.height / this.mount.offsetHeight : scale;
-    const cameraShift = cameraY * cameraScale;
-    const details = this.checkDetails.hidden ? null : this.checkDetails.getBoundingClientRect();
-    // Leave a separate caption row between the action and its source item.
-    let top = (Math.max(deck.bottom, details?.bottom ?? deck.bottom) - cameraShift - bounds.top) / scale + 72;
-    const footer = this.footer.getBoundingClientRect();
-    const footerTop = footer.height === 0 ? bounds.top + bounds.height : footer.top;
-    const bottom = (footerTop - bounds.top) / scale - 8;
-    let left = '50%';
-    // In a short frame, put the check information beside the mini rather than
-    // spending two rows or moving/resizing the deck to make room.
-    if (details && bottom - top < 56) {
-      top = (deck.bottom - cameraShift - bounds.top) / scale + 40;
-      const width = Math.max(0, Math.min(110, bottom - top)) * .75;
-      left = `${(deck.right - bounds.left) / scale - width / 2}px`;
-      Object.assign(this.checkDetails.style, { width:`${Math.max(0, deck.width / scale - width - 16)}px`, left:'0px', transform:'none' });
-    }
-    const height = Math.max(0, Math.min(110, bottom - top));
-    Object.assign(mini.root.style, { top:`${top}px`, left, height:`${height}px`, width:`${height * .75}px` });
+    this.actionContext?.update({
+      info,
+      item: info ? null : focusedTriggerItem(deck, this.state),
+      busy: !!deck?.state?.busy || !this.state?.idle,
+    });
   }
   async roll(pool, { signal, target } = {}) {
     if (this.destroyed || signal?.aborted) throw new DOMException('Preview stopped.', 'AbortError');
@@ -319,7 +275,7 @@ export class ProjectPreview {
     const controller = this.controller, deck = this.deck;
     this.controller = null; this.deck = null;
     this.inventory.endHold?.();
-    this.triggerItemMini.update(null);
+    this.actionContext.clear();
     this.inventoryCardPreview.reset();
     controller?.destroy(); deck?.destroy();
     this.inventoryCardPreview.card = null;
@@ -329,7 +285,6 @@ export class ProjectPreview {
     this.mount.replaceChildren(); this.inventory.update([]); this.stateReadout.hidden = true;
     this.resources.hidden = true;
     this.nextChapterButton.hidden = true;
-    this.syncCheckDetails();
     this.status.textContent = ''; this.status.hidden = true;
     this.syncCardLink();
     if (hadPlayback) this.onStop();
@@ -342,8 +297,7 @@ export class ProjectPreview {
     } finally {
       this.destroyed = true;
       this.inventory.destroy();
-      this.triggerResize.disconnect();
-      this.triggerItemMini.destroy();
+      this.actionContext.destroy();
       this.inventoryCardPreview.destroy();
       this.footerResize.disconnect();
       this.inventorySurface.destroy();

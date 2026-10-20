@@ -10,18 +10,19 @@
   --playfield-footer-height:44px;
   --playfield-drawer-space:calc(var(--playfield-mini-height) + 46px + var(--playfield-footer-height) + var(--playfield-safe-bottom));
   --playfield-hud-height:62px;
+  --action-context-height:190px;
   --playfield-gap:clamp(12px,2cqh,24px);
   position:relative;container-type:size;container-name:playfield;background:#000;color:#dce5ce;
   font:15px/1.5 system-ui,sans-serif;
 }
 .nest-playfield #preview {
   box-sizing:border-box;height:100%;margin:0;border:0;
-  padding:var(--playfield-safe-top) 0 var(--playfield-drawer-space);
+  padding:var(--playfield-safe-top) 0 calc(var(--playfield-footer-height) + var(--playfield-safe-bottom));
 }
 .nest-playfield .project-preview {position:static;height:100%;min-height:0;padding:0;}
 .nest-playfield #preview .chapter-preview-stage {
   box-sizing:border-box;display:grid;
-  grid-template-rows:var(--playfield-hud-height) minmax(0,1fr);
+  grid-template-rows:var(--playfield-hud-height) minmax(0,1fr) var(--action-context-height);
   align-items:stretch;justify-items:stretch;
   height:100%;min-height:0;
   padding:clamp(12px,2cqh,20px) max(28px,var(--playfield-safe-right)) clamp(12px,2cqh,20px) max(28px,var(--playfield-safe-left));
@@ -37,17 +38,17 @@
 .nest-playfield #preview .player-resource[data-health] img {width:29px;height:26px;}
 .nest-playfield .chapter-preview-card-area {
   container-type:size;min-width:0;min-height:0;align-self:stretch;justify-self:stretch;
-  display:grid;place-items:center;
+  display:grid;place-items:end center;
 }
 .nest-playfield #preview .chapter-preview-card-layout {
   /* Grow the measured mount, so gestures and drawer flights share its geometry. */
   --large-card-size-factor:1.14;
-  --preview-card-width:calc(min(276px,100%,calc(100cqh * .75)) * var(--large-card-size-factor));
+  --preview-card-width:min(calc(276px * var(--large-card-size-factor)),100%,calc(100cqh * .75));
 }
 /* Interaction preview uses its original 240px baseline. The layout owns
    sizing; the deck and inventory camera card both fill this same plane. */
 .preview-window .nest-playfield #preview .chapter-preview-card-layout {
-  --preview-card-width:calc(240px * var(--large-card-size-factor));
+  --preview-card-width:min(calc(240px * var(--large-card-size-factor)),100%,calc(100cqh * .75));
 }
 .nest-playfield .preview-status-row {
   position:absolute;inset:auto 12px var(--playfield-drawer-space);z-index:20;text-align:center;display:block;
@@ -73,10 +74,7 @@
   margin:0;font:inherit;background:#24351e;color:#e3edda;border:1px solid #687c58;border-radius:8px;padding:9px 14px;cursor:pointer;
 }
 
-/* Keep the same three rows clear of the footer in short player frames. */
+/* Both context modes use the same compact lane and typography controls. */
 @container playfield (max-height:700px) {
-  .chapter-preview-card-layout:has(.action-check-details:not([hidden])) {width:calc(var(--preview-card-width) - 60px);}
-  .action-check-stat {margin-bottom:2px;}
-  .action-check-chance strong {font-size:72px;line-height:.6;}
-  .action-check-label {font-size:14px;line-height:1;margin-top:0;}
+  .chapter-preview-stage {--action-context-height:140px;--action-context-inset:12px;--action-context-content-gap:10px;--action-context-chance-size:80px;--action-context-label-size:16px;--action-context-mini-height:88px;}
 }

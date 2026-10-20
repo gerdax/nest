@@ -7,14 +7,12 @@ export function focusedTriggerItem(deck, state) {
   return selectTriggerItem(state?.collectedItems, action?.contextInventoryKey ?? action?.contextItemId) ?? null;
 }
 
-/** Fixed outside the camera plane; never participates in the deck's layout. */
+/** Artwork and hold interaction for the selected trigger item. */
 export class TriggerItemMini {
   constructor(root, { onHold = () => {}, canHold = () => true } = {}) {
     this.root = root; this.onHold = onHold; this.canHold = canHold;
     this.view = root.ownerDocument?.defaultView ?? globalThis;
     root.classList.add('nest-trigger-item'); root.hidden = true;
-    root.setAttribute('data-visible', 'false');
-    root.setAttribute('aria-hidden', 'true');
     this.release = event => {
       if (!['pointerup','pointercancel','lostpointercapture'].includes(event.type) || event.pointerId === this.held?.pointerId) this.endHold();
     };
@@ -24,17 +22,9 @@ export class TriggerItemMini {
   update(item, { busy = false } = {}) {
     if (item === this.item && busy === this.busy) return;
     this.endHold(); this.item = item; this.busy = busy;
-    this.root.setAttribute('aria-hidden', String(!item));
-    if (!item) {
-      // Keep the caption, artwork and backdrop painted during the CSS exit.
-      this.root.setAttribute('data-visible', 'false');
-      if (this.button) this.button.disabled = true;
-      return;
-    }
-    this.root.hidden = false; this.root.replaceChildren();
+    this.root.hidden = !item; this.root.replaceChildren();
+    if (!item) { this.button = null; return; }
     const doc = this.root.ownerDocument ?? document;
-    const label = doc.createElement('span');
-    label.className = 'nest-trigger-item-label'; label.textContent = 'USING';
     const button = this.button = doc.createElement('button');
     button.type = 'button'; button.disabled = busy; button.draggable = false;
     button.setAttribute('aria-label', `Trigger item: ${item.name || item.label || 'Item'}`);
@@ -63,11 +53,7 @@ export class TriggerItemMini {
     };
     button.onblur = () => { if (this.button === button) this.endHold(); };
     button.oncontextmenu = button.onclick = event => event.preventDefault();
-    this.root.append(label, button);
-    // Establish the transparent pose after removing display:none. CSS can
-    // then fade in, and reverse an interrupted exit without a timer race.
-    this.root.getBoundingClientRect?.();
-    this.root.setAttribute('data-visible', 'true');
+    this.root.append(button);
   }
   beginHold(input) {
     if (this.held || !this.item || this.busy || !this.canHold() || this.root.closest?.('[inert]')) return false;
