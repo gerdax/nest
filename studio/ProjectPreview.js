@@ -238,7 +238,7 @@ export class ProjectPreview {
     const onAbort = () => { if (generation === this.diceGeneration) this.hideDice(); };
     result.signal?.addEventListener('abort', onAbort, { once: true });
     try {
-      await this.pauseResult(1000);
+      await this.pauseResult(1100);
       if (generation !== this.diceGeneration || result.signal?.aborted) return;
       this.diceLayer?.fade();
       await this.pauseResult(200);

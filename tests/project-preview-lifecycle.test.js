@@ -318,7 +318,7 @@ test('check departure leaves the shared caption faded until a result arrives', a
   preview.destroy();
 });
 
-test('result holds one second, fades dice for 200ms and leaves the result for handoff', async () => {
+test('result holds 1100ms, fades dice for 200ms and leaves the result for handoff', async () => {
   environment();
   const originalSet=globalThis.setTimeout,originalClear=globalThis.clearTimeout,jobs=[];
   globalThis.setTimeout=(callback,delay)=>{jobs.push({callback,delay});return jobs.length;};
@@ -328,7 +328,7 @@ test('result holds one second, fades dice for 200ms and leaves the result for ha
   preview.diceLayer={fade(){faded++;},destroy(){layerDestroyed++;}};
   try {
     const result=preview.showResult({total:15,target:13,success:true});
-    assert.equal(jobs[0].delay,1000);assert.equal(destroyed,0);
+    assert.equal(jobs[0].delay,1100);assert.equal(destroyed,0);
     jobs[0].callback();await Promise.resolve();
     assert.equal(faded,1);assert.equal(layerDestroyed,0);
     assert.equal(jobs[1].delay,200);assert.equal(destroyed,0);

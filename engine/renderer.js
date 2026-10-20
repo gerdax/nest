@@ -87,7 +87,7 @@ export function stageActionDeck(deck, content, selectedIndex = null, previous = 
       const card = previous.cards[oldIndex], layer = previous.cardLayers[oldIndex];
       const oldAction = previous.content.actions[oldIndex];
       let title = previous.cardTitles[oldIndex], back = previous.cardBacks[oldIndex];
-      if (oldAction.label !== action.label || oldAction.heading !== action.heading || oldAction.inventoryLabel !== action.inventoryLabel || oldAction.summary !== action.summary || oldAction.text !== action.text || oldAction.cardKind !== action.cardKind || oldAction.value !== action.value || (oldAction.image ?? previous.content.image ?? '') !== (action.image ?? content.image ?? '') || flipped(oldAction) !== flipped(action) || ['imageScale','imageOffsetX','imageOffsetY'].some(key=>oldAction[key]!==action[key])) {
+      if (oldAction.label !== action.label || oldAction.heading !== action.heading || oldAction.inventoryLabel !== action.inventoryLabel || oldAction.summary !== action.summary || oldAction.text !== action.text || oldAction.cardKind !== action.cardKind || oldAction.value !== action.value || oldAction.actionEnergyCost !== action.actionEnergyCost || (oldAction.image ?? previous.content.image ?? '') !== (action.image ?? content.image ?? '') || flipped(oldAction) !== flipped(action) || ['imageScale','imageOffsetX','imageOffsetY'].some(key=>oldAction[key]!==action[key])) {
         card.replaceChildren();
         card.style.backgroundImage = '';
         title = deck.decorate(card, action.image ?? content.image ?? '', action.heading || '', action.cardKind ? action.text || '' : action.label, flipped(action), action);
@@ -203,6 +203,20 @@ export function decorateCard(deck, element, image, title, text, flipImage = fals
     value.textContent = `${presentation.value >= 0 ? '+' : ''}${presentation.value ?? 0}`;
     value.setAttribute('aria-label', `${presentation.cardKind} ${value.textContent}`);
     element.append(value);
+  }
+  if (actionCard && presentation.actionEnergyCost > 0) {
+    const cost = document.createElement('span');
+    cost.className = 'nest-action-energy-cost';
+    cost.setAttribute('aria-label', `Energy cost: ${presentation.actionEnergyCost}`);
+    const amount = document.createElement('span');
+    amount.textContent = String(presentation.actionEnergyCost);
+    const icon = document.createElement('img');
+    icon.setAttribute('src', './assets/img/ui/hud-energy.png');
+    icon.setAttribute('alt', '');
+    icon.setAttribute('aria-hidden', 'true');
+    icon.draggable = false;
+    cost.append(amount, icon);
+    element.append(cost);
   }
   return heading;
 }

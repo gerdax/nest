@@ -1,4 +1,4 @@
-import { cardSummary, playerCardSummary, canonicalCardKind, isStoryKind, isConsumableKind } from './cards.js';
+import { cardSummary, playerCardSummary, canonicalCardKind, isStoryKind, isConsumableKind, actionEnergyCost } from './cards.js';
 
 /** Shared front-face content for gameplay and authoring previews. */
 export const cardBody = card => card?.text ?? '';
@@ -6,11 +6,12 @@ export function cardFace(card, variables=[], library=[], values) {
  const cardKind=canonicalCardKind(card?.kind ?? card?.cardKind ?? 'event');
  return {
   cardKind,
+  ...(cardKind==='action'?{actionEnergyCost:actionEnergyCost(card)}:{}),
   ...(isConsumableKind(cardKind)?{value:card.value}:{}),
   ...(card?.inventoryLabel?{inventoryLabel:card.inventoryLabel}:{}),
   heading:(cardKind==='item'||isConsumableKind(cardKind))&&card?.showName===true?(card?.name ?? card?.label ?? 'Continue'):'',
   text:cardBody(card),
-  summary:isStoryKind(cardKind)?'':(values === undefined ? cardSummary(card ?? {},variables,library) : playerCardSummary(card ?? {},variables,library,values)),
+  summary:isStoryKind(cardKind)?'':(values === undefined ? cardSummary(card ?? {},variables,library,card?.itemTags || [],{omitActionEnergyCost:true}) : playerCardSummary(card ?? {},variables,library,values)),
   image:card?.image ?? '',
   imageScale:card?.imageScale ?? 100,
   imageOffsetX:card?.imageOffsetX ?? 0,

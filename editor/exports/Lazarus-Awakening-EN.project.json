@@ -724,7 +724,7 @@
       "kind": "action",
       "visibility": "local",
       "name": "Bridge the emergency circuit",
-      "text": "Power the bolt manually. Costs 1 energy.",
+      "text": "Power the bolt manually.",
       "image": "",
       "showName": true,
       "effects": [],

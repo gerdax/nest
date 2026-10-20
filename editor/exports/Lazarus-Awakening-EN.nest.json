@@ -710,7 +710,7 @@
       "kind": "action",
       "visibility": "local",
       "name": "Bridge the emergency circuit",
-      "text": "Trace the wires and try to power the bolt. Costs 1 energy.",
+      "text": "Trace the wires and try to power the bolt.",
       "image": "",
       "showName": true,
       "effects": [],

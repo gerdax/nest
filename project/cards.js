@@ -78,7 +78,13 @@ export function resolvePlacement(project, placement, index) {
   }
   return resolved;
 }
-export function cardSummaryParts(card, variables = [], library = [], itemTags = card.itemTags || []) {
+/** Only upfront variable costs belong in the Action energy marker. */
+export const isActionEnergyCost = cost => cost.source !== 'inventory' && cost.key === 'energy';
+export function actionEnergyCost(card) {
+  if (canonicalCardKind(card?.kind ?? card?.cardKind) !== 'action') return 0;
+  return (card.costs || []).filter(isActionEnergyCost).reduce((total, cost) => total + cost.amount, 0);
+}
+export function cardSummaryParts(card, variables = [], library = [], itemTags = card.itemTags || [], { omitActionEnergyCost = false } = {}) {
   const variable = key => variables.find(v => v.id === key);
   const name = key => variable(key)?.name || library.find(d => d.id === key || d.inventoryKey === key)?.name || (isTagKey(key) ? itemTagLabel({itemTags},key) : key);
   const effects = list => (list || []).map(e => {
@@ -95,7 +101,8 @@ export function cardSummaryParts(card, variables = [], library = [], itemTags = 
   if (card.kind === 'item' && card.tagId) parts.push(itemTagLabel({itemTags},card.tagId));
   if(card.contextItemId) parts.push(`Triggered by: ${name(card.contextItemId)}`);
   if (requirements.length) parts.push(`Requires: ${requirements.join(', ')}`);
-  if (card.costs?.length) parts.push(`Cost: ${card.costs.map(c=>c.source==='inventory'?name(c.key):`${c.amount} ${name(c.key)}`).join(', ')}`);
+  const costs = (card.costs || []).filter(cost => !omitActionEnergyCost || canonicalCardKind(card.kind ?? card.cardKind) !== 'action' || !isActionEnergyCost(cost));
+  if (costs.length) parts.push(`Cost: ${costs.map(c=>c.source==='inventory'?name(c.key):`${c.amount} ${name(c.key)}`).join(', ')}`);
   if (card.resolution === 'check') { const c = card.check; if(c?.mode === 'stat') { try { parts.push(`Check: ${editorCheckSummary(c, variables)}`); } catch { parts.push('Check: Invalid stat check'); } } else if(c) parts.push(`Check: ${(c.pool || []).map(d=>`${d.count}d${d.sides}`).join(' + ')}${c.modifier ? ` ${c.modifier >= 0 ? '+' : ''}${c.modifier}` : ''}${c.modifierVariable ? ` + ${name(c.modifierVariable)}` : ''} ≥ ${c.target}`); }
   if(!isConsumableKind(card.kind)&&card.effects?.length) parts.push(`Effects: ${effects(card.effects)}`);
   const collect = isConsumableKind(card.kind) ? (card.effects ?? resourceCollectionEffects(card)) : card.onCollect;
@@ -105,8 +112,8 @@ export function cardSummaryParts(card, variables = [], library = [], itemTags = 
   if(card.kind === 'item') parts.push(`Action triggers: ${card.permability > 0 ? (card.remainingTriggers ?? card.permability) + ' remaining' : 'permanent'}`);
   return parts;
 }
-export function cardSummary(card, variables = [], library = [], itemTags = card.itemTags || []) {
-  return cardSummaryParts(card,variables,library,itemTags).join(' · ');
+export function cardSummary(card, variables = [], library = [], itemTags = card.itemTags || [], options = {}) {
+  return cardSummaryParts(card,variables,library,itemTags,options).join(' · ');
 }
 
 /** Authored text and resource rules stay separate from the contextual stat-check panel. */
@@ -116,7 +123,7 @@ export function playerCardSummary(card, variables = [], library = [], values = {
   const filtered = {...card};
   for (const key of ['conditions','explicitConditions','costs','effects','onCollect','successEffects','failureEffects']) if (card[key]) filtered[key] = visible(card[key]);
   if (card.check?.mode === 'stat') filtered.resolution = 'direct';
-  const parts = cardSummaryParts(filtered, variables, library);
+  const parts = cardSummaryParts(filtered, variables, library, card.itemTags || [], {omitActionEnergyCost:true});
   return parts.join(' · ');
 }
 
