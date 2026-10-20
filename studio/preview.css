@@ -2,6 +2,7 @@
    viewport owns clipping, independently of inventory visibility. */
 .chapter-preview-stage { display:grid;grid-template-rows:auto minmax(0,1fr) var(--action-context-height,190px);place-items:center;min-height:440px;padding:24px 38px 30px;gap:clamp(42px,12vw,50px);overflow:visible; }
 .chapter-preview-card-area {width:100%;min-width:0;display:grid;place-items:center;}
+.chapter-preview-card-area,.action-context-panel {translate:0 var(--action-content-offset-y,15px);}
 .nest-check-slot {position:absolute;inset:0;z-index:5;container-type:size;}
 .nest-check-slot[hidden],.check-surface[hidden] {display:none!important;}
 .nest-check-active .nest-back-icon,.nest-check-prepared .nest-back-icon {display:none!important;}
@@ -55,11 +56,16 @@
 .action-context-panel::before {content:'';position:absolute;top:calc(var(--action-context-inset,24px) - 30px);left:calc(-1 * max(38px,var(--playfield-safe-left,0px)));right:calc(-1 * max(38px,var(--playfield-safe-right,0px)));bottom:-100vh;z-index:-1;pointer-events:none;background:linear-gradient(to bottom,transparent 0,#000 30px,#000 100%);}
 .action-context-caption {flex:none;width:100%;margin:0 0 var(--action-context-content-gap,14px);font-family:var(--card-font,NestLetter,monospace);font-size:var(--card-small-size,10px);font-weight:normal;line-height:1;letter-spacing:.18em;text-transform:uppercase;color:var(--card-title-color,#a9bb86);overflow-wrap:anywhere;}
 .action-context-content {display:grid;justify-items:center;align-content:start;width:100%;min-height:0;}
-.action-check-details {width:100%;min-width:0;translate:0 calc(-1 * var(--action-context-odds-lift,15px));color:#b8cb98;pointer-events:none;}
+.action-check-details {--odds-dark:color-mix(in srgb,var(--card-title-color,#a9bb86) 65%,black);--odds-middle:color-mix(in srgb,var(--card-medium-color,#d2dfb6) 80%,black);--odds-bright:var(--card-text,#b8cb98);width:100%;min-width:0;translate:0 calc(-1 * var(--action-context-odds-lift,15px));color:var(--odds-color,var(--odds-bright));pointer-events:none;}
+.action-check-details[data-odds-level="very-low"] {--odds-color:var(--odds-dark);}
+.action-check-details[data-odds-level="low"] {--odds-color:color-mix(in srgb,var(--odds-dark),var(--odds-middle));}
+.action-check-details[data-odds-level="medium"] {--odds-color:var(--odds-middle);}
+.action-check-details[data-odds-level="high"] {--odds-color:color-mix(in srgb,var(--odds-middle),var(--odds-bright));}
+.action-check-details[data-odds-level="very-high"] {--odds-color:var(--odds-bright);}
 .action-check-details[hidden] {display:none!important;}
 .action-check-chance {line-height:1;}
-.action-check-chance strong {display:block;font:var(--action-context-chance-size,144px)/.7 NestVitals,monospace;font-variant-numeric:tabular-nums;color:var(--card-text,#b8cb98);}
-.action-check-label {margin:var(--action-context-content-gap,14px) 0 0;font:var(--action-context-label-size,20px)/1.2 NestLetter,monospace;letter-spacing:.2em;text-transform:uppercase;color:var(--card-text,#b8cb98);}
+.action-check-chance strong {display:block;font:var(--action-context-chance-size,132px)/.7 NestVitals,monospace;font-variant-numeric:tabular-nums;color:inherit;}
+.action-check-label {margin:var(--action-context-content-gap,14px) 0 0;font:var(--action-context-label-size,20px)/1.2 NestLetter,monospace;letter-spacing:.2em;text-transform:uppercase;color:inherit;}
 @media(prefers-reduced-motion:reduce){.action-context-panel{transition:none;}}
 
 /* Keep authored line and paragraph breaks in inventory descriptions too. */

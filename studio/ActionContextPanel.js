@@ -46,6 +46,10 @@ export class ActionContextPanel {
     this.caption.textContent = info ? info.stat ?? '' : 'USING';
     this.checkDetails.hidden = !info;
     this.checkChance.textContent = info ? `${Math.round(parseFloat(info.chance))}%` : '';
+    const chance = parseFloat(info?.chance);
+    if (info) this.checkDetails.setAttribute('data-odds-level', chance >= 80 ? 'very-high' : chance >= 60 ? 'high'
+      : chance >= 40 ? 'medium' : chance >= 20 ? 'low' : 'very-low');
+    else this.checkDetails.removeAttribute('data-odds-level');
     this.checkRules.textContent = info?.label ?? '';
     this.checkRules.hidden = !info?.label;
     this.checkDetails.title = info ? [info.formula, info.rules].filter(Boolean).join(' · ') : '';
@@ -74,6 +78,7 @@ export class ActionContextPanel {
     this.checkRules.hidden = true;
     this.checkDetails.hidden = true;
     this.checkDetails.title = '';
+    this.checkDetails.removeAttribute('data-odds-level');
     this.mini.update(null);
   }
 

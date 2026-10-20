@@ -27,6 +27,20 @@ function setup(options) {
 const item = { id: 'wedge', name: 'Wedge', image: 'wedge.png' };
 const info = { stat: 'LUCK', chance: '63.7', label: 'Lucky escape', formula: 'D20 + luck', rules: 'At least 12' };
 
+test('odds colors use five steps from the unrounded percentage', () => {
+  const panel = setup();
+  for (const [chance, level] of [[0,'very-low'],[19.9,'very-low'],[20,'low'],[39.9,'low'],
+    [40,'medium'],[59.9,'medium'],[60,'high'],[79.9,'high'],[80,'very-high'],[100,'very-high']]) {
+    panel.update({info:{...info,chance:`${chance}%`}});
+    assert.equal(panel.checkDetails.attrs['data-odds-level'],level);
+  }
+  panel.update({item});
+  assert.equal(panel.checkDetails.attrs['data-odds-level'],undefined);
+  panel.update({info});panel.clear();
+  assert.equal(panel.checkDetails.attrs['data-odds-level'],undefined);
+  panel.destroy();
+});
+
 test('one caption and content container switch between item and check modes', () => {
   const panel = setup();
   const caption = panel.caption;

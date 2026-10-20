@@ -76,5 +76,5 @@
 
 /* Both context modes use the same compact lane and typography controls. */
 @container playfield (max-height:700px) {
-  .chapter-preview-stage {--action-context-height:140px;--action-context-inset:12px;--action-context-content-gap:10px;--action-context-chance-size:80px;--action-context-label-size:16px;--action-context-mini-height:88px;}
+  .chapter-preview-stage {--action-context-height:140px;--action-context-inset:12px;--action-context-content-gap:10px;--action-context-chance-size:74px;--action-context-label-size:16px;--action-context-mini-height:88px;}
 }

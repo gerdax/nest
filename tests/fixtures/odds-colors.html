@@ -1,0 +1,22 @@
+<!doctype html>
+<meta charset="utf-8"><base href="../../"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Five odds color steps</title>
+<link rel="stylesheet" href="engine/card-deck.css"><link rel="stylesheet" href="studio/preview.css">
+<style>
+body{margin:0;padding:32px;background:#000;color:#b8cb98;font:14px system-ui}
+h1{font-size:18px;font-weight:400;margin:0 0 48px}
+main{display:grid;grid-template-columns:repeat(5,minmax(180px,1fr));gap:24px}
+.action-context-panel{height:210px}.action-context-panel::before{display:none}
+</style>
+<h1>Five success-chance color steps · project typography colors</h1>
+<main></main>
+<script type="module">
+import {ActionContextPanel} from '../../studio/ActionContextPanel.js';
+import {applyCardStyles} from '../../project/card-styles.js';
+for(const [chance,label] of [[10,'Very low'],[30,'Low'],[50,'Medium'],[70,'High'],[90,'Very high']]){
+  const root=document.createElement('section');document.querySelector('main').append(root);
+  applyCardStyles(root);
+  const panel=new ActionContextPanel(root);
+  panel.update({info:{stat:'Composure: 3',chance:`${chance}%`,label}});
+}
+</script>
