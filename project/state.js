@@ -21,7 +21,11 @@ export function itemTriggersRemaining(item) {
   return (item.permability ?? 0) === 0 ? Infinity : (item.remainingTriggers ?? item.permability);
 }
 export function canTriggerItem(inventory = [], key) {
-  return matchingItems(inventory,key).some(item => itemTriggersRemaining(item) > 0);
+  return !!selectTriggerItem(inventory, key);
+}
+/** Select the same concrete trigger for presentation and for spending a use. */
+export function selectTriggerItem(inventory = [], key) {
+  return key ? matchingItems(inventory,key).find(item => itemTriggersRemaining(item) > 0) : undefined;
 }
 function trigger(inventory, selected) {
   return inventory.flatMap(item => {
@@ -93,7 +97,7 @@ export function addInventory(inventory, definition) {
 export function transact(values, inventory = [], { costs = [], effects = [], triggerItem } = {}, definitions = [], library = []) {
   const variables = {...values};
   let items = ownedInventory(inventory);
-  const triggeringItem = triggerItem && matchingItems(items,triggerItem).find(item => itemTriggersRemaining(item) > 0);
+  const triggeringItem = selectTriggerItem(items,triggerItem);
   if (triggerItem && !triggeringItem) throw new RangeError(`Unavailable inventory trigger: ${triggerItem}`);
   items = spend(variables,items,costs,definitions);
   let originalTriggerOwned = triggeringItem && items.includes(triggeringItem);

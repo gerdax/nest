@@ -12,6 +12,7 @@ import { acquireDock } from '../editor/dockOwnership.js';
 import { nodeTypeLabel } from '../project/nodeTypes.js';
 import { previewCardTarget } from './preview-card-target.js';
 import { DiceLayer } from './DiceLayer.js';
+import { TriggerItemMini, focusedTriggerItem } from './TriggerItemMini.js';
 
 /** Playback UI owns dice/inventory presentation, never chapter resolution rules. */
 export class ProjectPreview {
@@ -76,6 +77,14 @@ export class ProjectPreview {
     if (!inventoryDock) root.querySelector('.project-preview').classList.add('project-preview--embedded');
     this.inventoryCardPreview = new InventoryCardPreview(this.mount);
     this.inventory = new InventoryView(inventoryRoot, { getBounds: () => this.inventorySurface.bounds(), onHold: item => this.inventoryCardPreview.show(item), onMotion: event => this.drawerTrace?.(event) });
+    const triggerRoot = document.createElement('section');
+    this.inventorySurface.mount(triggerRoot);
+    this.triggerItemMini = new TriggerItemMini(triggerRoot, {
+      onHold: item => { this.inventoryCardPreview.show(item); if (!item) this.positionTriggerMini(); },
+      canHold: () => !this.deck?.state?.busy && !this.deck?.drag && !!this.state?.idle,
+    });
+    this.triggerResize = new ResizeObserver(() => this.positionTriggerMini());
+    for (const element of [this.mount, this.checkDetails, this.inventorySurface.frame, this.footer]) this.triggerResize.observe(element);
 
   }
   play(project, chapterId, startNode, { focus = true, initialState = null } = {}) {
@@ -188,6 +197,43 @@ export class ProjectPreview {
     this.checkFormula.textContent = info?.formula ?? '';
     this.checkRules.textContent = info?.rules ?? '';
     this.checkRules.hidden = !info?.rules;
+    this.triggerItemMini?.update(focusedTriggerItem(deck, this.state), { busy: !!deck?.state?.busy || !this.state?.idle });
+    this.positionTriggerMini();
+  }
+  positionTriggerMini() {
+    const mini = this.triggerItemMini;
+    if (mini?.held) return;
+    if (this.checkDetails.style) Object.assign(this.checkDetails.style, { width:'', left:'', transform:'' });
+    if (!mini?.item) return;
+    const deck = this.mount.getBoundingClientRect();
+    const frame = this.inventorySurface.frame;
+    const bounds = frame.getBoundingClientRect();
+    if (!bounds.height || !frame.offsetHeight) return;
+    const scale = bounds.height / frame.offsetHeight;
+    // A resize can end a hold while the camera is still sliding home. Measure
+    // resting coordinates, so that transition cannot displace the fixed mini.
+    const camera = this.inventoryCardPreview;
+    const translate = camera.view.getComputedStyle?.(camera.plane)?.translate ?? 'none';
+    const cameraY = parseFloat(translate.split(/\s+/)[1]) || 0;
+    const cameraScale = this.mount.offsetHeight ? deck.height / this.mount.offsetHeight : scale;
+    const cameraShift = cameraY * cameraScale;
+    const details = this.checkDetails.hidden ? null : this.checkDetails.getBoundingClientRect();
+    // Leave a separate caption row between the action and its source item.
+    let top = (Math.max(deck.bottom, details?.bottom ?? deck.bottom) - cameraShift - bounds.top) / scale + 72;
+    const footer = this.footer.getBoundingClientRect();
+    const footerTop = footer.height === 0 ? bounds.top + bounds.height : footer.top;
+    const bottom = (footerTop - bounds.top) / scale - 8;
+    let left = '50%';
+    // In a short frame, put the check information beside the mini rather than
+    // spending two rows or moving/resizing the deck to make room.
+    if (details && bottom - top < 56) {
+      top = (deck.bottom - cameraShift - bounds.top) / scale + 40;
+      const width = Math.max(0, Math.min(110, bottom - top)) * .75;
+      left = `${(deck.right - bounds.left) / scale - width / 2}px`;
+      Object.assign(this.checkDetails.style, { width:`${Math.max(0, deck.width / scale - width - 16)}px`, left:'0px', transform:'none' });
+    }
+    const height = Math.max(0, Math.min(110, bottom - top));
+    Object.assign(mini.root.style, { top:`${top}px`, left, height:`${height}px`, width:`${height * .75}px` });
   }
   async roll(pool, { signal, target } = {}) {
     if (this.destroyed || signal?.aborted) throw new DOMException('Preview stopped.', 'AbortError');
@@ -272,6 +318,7 @@ export class ProjectPreview {
     const controller = this.controller, deck = this.deck;
     this.controller = null; this.deck = null;
     this.inventory.endHold?.();
+    this.triggerItemMini.update(null);
     this.inventoryCardPreview.reset();
     controller?.destroy(); deck?.destroy();
     this.inventoryCardPreview.card = null;
@@ -294,6 +341,8 @@ export class ProjectPreview {
     } finally {
       this.destroyed = true;
       this.inventory.destroy();
+      this.triggerResize.disconnect();
+      this.triggerItemMini.destroy();
       this.inventoryCardPreview.destroy();
       this.footerResize.disconnect();
       this.inventorySurface.destroy();
