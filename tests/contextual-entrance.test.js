@@ -71,7 +71,7 @@ test('ordinary choices settle before contextual cards enter onto the top in orde
   assert.equal(deck.content.actions[deck.index].id, 'pick');
   inputBlocked(deck);
   step();
-  assert.ok(cardPose(deck, 0).y > cardPose(deck, 1).y + 100);
+  assert.ok(cardPose(deck, 0).y < cardPose(deck, 1).y - 100, 'triggered action enters from above');
   assert.equal(cardPose(deck, 3).visible, false);
   settle();
   assert.equal(deck.phase, 'choices'); assert.equal(deck.busy, false);

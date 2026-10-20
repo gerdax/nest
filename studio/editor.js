@@ -398,6 +398,7 @@ function travel(method){
 $('#undo').onclick=()=>travel('undo');$('#redo').onclick=()=>travel('redo');
 const stopHistoryShortcuts=mountHistoryShortcuts(document,{undo:()=>$('#undo').click(),redo:()=>$('#redo').click()});
 const stopViewShortcuts=mountViewShortcuts(document,{
+ toggleAutoplay:()=>$('#autoplay').click(),
  libraryActive:()=>mode==='library',
  enabled:()=>$('#project-settings-overlay').hidden&&!graph.drag&&!graph.pending&&!graph.creation&&!preview.deck?.input?.active,
  switchView:()=>{
@@ -406,6 +407,8 @@ const stopViewShortcuts=mountViewShortcuts(document,{
  },
  togglePreview:()=>{if(!previewWindow.visible)return false;previewWindow.toggle();},
 });
+$('#autoplay').title='Toggle Autoplay (/)';
+$('#autoplay').setAttribute('aria-keyshortcuts','/');
 function download(value,name){downloadText(JSON.stringify(value,null,2),name,'application/json');}
 function downloadText(text,name,type='text/plain'){const url=URL.createObjectURL(new Blob([text],{type}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 let recoveryDownload;

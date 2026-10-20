@@ -38,3 +38,17 @@ test('a failed playback attempt does not disable later autoplay selections',()=>
  checkbox.change(true);assert.equal(error,'Fix validation errors');autoplay.select('valid');
  assert.deepEqual(calls,['invalid','valid']);assert.equal(autoplay.enabled,true);autoplay.destroy();
 });
+
+test('slash keeps toggling after enabling Autoplay moves focus from graph into preview',async()=>{
+ const {mountViewShortcuts}=await import('../studio/view-shortcuts.js');
+ const root=new EventTarget(),checkbox=new Checkbox();let focus='graph';
+ const autoplay=mountAutoplay(checkbox,{storage:{getItem:()=> 'false',setItem(){}},getSelected:()=> 'selected',onPlay:()=>{focus='preview';}});
+ root.closest=selector=>focus==='preview'&&selector.split(',').includes('#preview-window')?{}:null;
+ const stop=mountViewShortcuts(root,{toggleAutoplay:()=>checkbox.change(!checkbox.checked)});
+ for(const expected of [true,false,true,false]){
+  const event=new Event('keydown',{cancelable:true});Object.assign(event,{key:'/'});
+  root.dispatchEvent(event);
+  assert.equal(event.defaultPrevented,true);assert.equal(autoplay.enabled,expected);assert.equal(checkbox.checked,expected);
+ }
+ stop();autoplay.destroy();
+});

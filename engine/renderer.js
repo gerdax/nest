@@ -383,7 +383,7 @@ function baseCardPose(deck, index, time, context) {
     anchorRecedingTop(pose, recession, width, height, deck.settings.perspective);
     return pose;
   }
-  // Cards waiting below the deck do not occupy slots until their entrance starts.
+  // Cards waiting above the deck do not occupy slots until their entrance starts.
   const slot = slots.get(index) ?? 0;
   if (count !== deck.cards.length) cursor = selectedSlot;
   const radius = orbitRadius(deck, width, height, count);
@@ -477,7 +477,7 @@ function baseCardPose(deck, index, time, context) {
   pose.z += deck.grabAmount(action.id);
   const entrance = deck.entrances?.get(action.id);
   if (entrance) {
-    pose.y += entrance.travel.x;
+    pose.y -= entrance.travel.x;
     pose.visible &&= entrance.startAt !== null && time >= entrance.startAt;
   }
   anchorRecedingTop(pose, deck.n.x * 40 * (deck.takeDepthRatio || 0), width, height, deck.settings.perspective);

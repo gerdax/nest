@@ -10,6 +10,7 @@ function fixture({enabled=true,selection='',visible=true,libraryActive}={}) {
   enabled:()=>enabled,
   switchView:()=>{calls.push('view');},
   togglePreview:()=>{if(!visible)return false;calls.push('preview');},
+  toggleAutoplay:()=>{calls.push('autoplay');},
  });
  function key(key,properties={},context=null){
   // Use the event target's ancestor lookup, as browser events do.
@@ -80,7 +81,7 @@ test('Library mode keeps Tab switching after toolbar or inspector controls outsi
 });
 
 test('modifiers, composition, repeats, text selections and active gestures leave keys alone',()=>{
- for(const key of ['Tab',' '])for(const flag of ['ctrlKey','metaKey','altKey','shiftKey','repeat','isComposing']){
+ for(const key of ['Tab',' ','/'])for(const flag of ['ctrlKey','metaKey','altKey','shiftKey','repeat','isComposing']){
   const f=fixture();assert.equal(f.key(key,{[flag]:true}).defaultPrevented,false);assert.deepEqual(f.calls,[]);
  }
  for(const options of [{enabled:false},{selection:'selected text'}]){
@@ -101,4 +102,21 @@ test('already handled events and unrelated keys never trigger view actions',()=>
  for(const key of ['Tab',' ']){const event=new Event('keydown',{cancelable:true});Object.assign(event,{key});root.dispatchEvent(event);}
  assert.deepEqual(calls,[]);
  const f=fixture();assert.equal(f.key('Enter').defaultPrevented,false);assert.deepEqual(f.calls,[]);
+});
+
+test('slash toggles Autoplay from graph or buttons and cleanup removes the shortcut',()=>{
+ const f=fixture();
+ assert.equal(f.key('/').defaultPrevented,true);
+ assert.equal(f.key('/',{},'button').defaultPrevented,true);
+ assert.deepEqual(f.calls,['autoplay','autoplay']);f.stop();
+ assert.equal(f.key('/').defaultPrevented,false);assert.deepEqual(f.calls,['autoplay','autoplay']);
+});
+
+test('slash preserves typing, dialogs, selected text and disabled contexts',()=>{
+ for(const context of ['input','textarea','select','[contenteditable]:not([contenteditable="false"])','[role="textbox"]','dialog','[role="dialog"]']){
+  const f=fixture();assert.equal(f.key('/',{},context).defaultPrevented,false,context);assert.deepEqual(f.calls,[]);f.stop();
+ }
+ for(const options of [{enabled:false},{selection:'selected text'}]){
+  const f=fixture(options);assert.equal(f.key('/').defaultPrevented,false);assert.deepEqual(f.calls,[]);f.stop();
+ }
 });
