@@ -467,8 +467,11 @@ test('check information follows selection and hides for story, commit, stop and 
  const preview=new ProjectPreview(new Element());preview.play(project,chapter.id,fork.id);
  preview.deck.finishMotion();preview.syncCheckDetails();
  assert.equal(preview.checkDetails.hidden,false);
- assert.equal(preview.checkChance.textContent,'37.5%');
- assert.equal(preview.checkFormula.textContent,'Agility 3 · 3d6 + 3 ≥ 15');
+ assert.equal(preview.checkChance.textContent,'38%');
+ assert.equal(preview.checkFormula.textContent,'Agility: 3');
+ assert.equal(preview.checkRules.textContent,'Low');
+ preview.triggerItemMini.update({id:'tool'});preview.syncCheckDetails();
+ assert.equal(preview.triggerItemMini.item,null,'odds panel takes the source mini lane');
  assert.equal(preview.deck.content.actions[0].summary,'');
  preview.deck.content.actions.push({id:'direct',label:'Leave'});preview.deck.index=1;
  preview.deck.dispatchEvent(new Event('selection'));
@@ -478,6 +481,6 @@ test('check information follows selection and hides for story, commit, stop and 
  preview.update({...preview.state,checking:true});assert.equal(preview.checkDetails.hidden,true);
  preview.stop();assert.equal(preview.checkDetails.hidden,true);
  preview.restart();preview.deck.finishMotion();preview.syncCheckDetails();
- assert.equal(preview.checkChance.textContent,'37.5%');
+ assert.equal(preview.checkChance.textContent,'38%');
  preview.destroy();assert.equal(preview.checkDetails.hidden,true);
 });

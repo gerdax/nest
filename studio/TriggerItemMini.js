@@ -13,6 +13,8 @@ export class TriggerItemMini {
     this.root = root; this.onHold = onHold; this.canHold = canHold;
     this.view = root.ownerDocument?.defaultView ?? globalThis;
     root.classList.add('nest-trigger-item'); root.hidden = true;
+    root.setAttribute('data-visible', 'false');
+    root.setAttribute('aria-hidden', 'true');
     this.release = event => {
       if (!['pointerup','pointercancel','lostpointercapture'].includes(event.type) || event.pointerId === this.held?.pointerId) this.endHold();
     };
@@ -22,8 +24,14 @@ export class TriggerItemMini {
   update(item, { busy = false } = {}) {
     if (item === this.item && busy === this.busy) return;
     this.endHold(); this.item = item; this.busy = busy;
-    this.root.hidden = !item; this.root.replaceChildren();
-    if (!item) return;
+    this.root.setAttribute('aria-hidden', String(!item));
+    if (!item) {
+      // Keep the caption, artwork and backdrop painted during the CSS exit.
+      this.root.setAttribute('data-visible', 'false');
+      if (this.button) this.button.disabled = true;
+      return;
+    }
+    this.root.hidden = false; this.root.replaceChildren();
     const doc = this.root.ownerDocument ?? document;
     const label = doc.createElement('span');
     label.className = 'nest-trigger-item-label'; label.textContent = 'USING';
@@ -56,6 +64,10 @@ export class TriggerItemMini {
     button.onblur = () => { if (this.button === button) this.endHold(); };
     button.oncontextmenu = button.onclick = event => event.preventDefault();
     this.root.append(label, button);
+    // Establish the transparent pose after removing display:none. CSS can
+    // then fade in, and reverse an interrupted exit without a timer race.
+    this.root.getBoundingClientRect?.();
+    this.root.setAttribute('data-visible', 'true');
   }
   beginHold(input) {
     if (this.held || !this.item || this.busy || !this.canHold() || this.root.closest?.('[inert]')) return false;
@@ -70,6 +82,7 @@ export class TriggerItemMini {
   }
   destroy() {
     this.update(null);
+    this.root.hidden = true; this.root.replaceChildren();
     for (const type of ['pointerup','pointercancel','blur','resize']) this.view.removeEventListener?.(type, this.release);
     this.root.ownerDocument?.removeEventListener?.('visibilitychange', this.release);
   }

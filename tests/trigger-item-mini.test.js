@@ -46,6 +46,30 @@ test('mini is artwork-only and inspection ends on release, source changes and te
   mini.update(a);mini.button.onpointerdown(down);mini.destroy();assert.equal(mini.root.hidden,true);assert.equal(calls.at(-1),null);
 });
 
+test('fade-out retains artwork while disabling interaction, and can reverse immediately',()=>{
+  const doc=new EventTarget();doc.defaultView=new EventTarget();doc.createElement=()=>new Element(doc);
+  const mini=new TriggerItemMini(new Element(doc));
+  const item={id:'tool',image:'tool.png'};
+  mini.update(item);
+  assert.equal(mini.root.hidden,false);
+  assert.equal(mini.root.attrs['data-visible'],'true');
+  assert.equal(mini.root.attrs['aria-hidden'],'false');
+  const children=[...mini.root.children];
+  mini.update(null);
+  assert.equal(mini.root.hidden,false,'exit stays painted for the CSS fade');
+  assert.deepEqual(mini.root.children,children);
+  assert.equal(mini.root.attrs['data-visible'],'false');
+  assert.equal(mini.root.attrs['aria-hidden'],'true');
+  assert.equal(mini.button.disabled,true);
+  assert.equal(mini.beginHold({key:'Enter'}),false);
+  mini.update(item);
+  assert.equal(mini.root.attrs['data-visible'],'true');
+  assert.equal(mini.button.disabled,false);
+  mini.destroy();
+  assert.equal(mini.root.hidden,true);
+  assert.equal(mini.root.children.length,0);
+});
+
 test('positioning changes only the mini and removes camera displacement, including scaled hosts',()=>{
   const deck={bottom:400,height:300},frame={offsetHeight:800,getBoundingClientRect:()=>({top:0,height:800})};
   let cameraY='0px 0px';

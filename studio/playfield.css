@@ -11,7 +11,7 @@
   --playfield-drawer-space:calc(var(--playfield-mini-height) + 46px + var(--playfield-footer-height) + var(--playfield-safe-bottom));
   --playfield-hud-height:62px;
   --playfield-gap:clamp(12px,2cqh,24px);
-  position:relative;container-type:size;background:#000;color:#dce5ce;
+  position:relative;container-type:size;container-name:playfield;background:#000;color:#dce5ce;
   font:15px/1.5 system-ui,sans-serif;
 }
 .nest-playfield #preview {
@@ -71,4 +71,12 @@
 .nest-playfield .item-dialog .row > * {flex:0 0 auto;}
 .nest-playfield .item-dialog button {
   margin:0;font:inherit;background:#24351e;color:#e3edda;border:1px solid #687c58;border-radius:8px;padding:9px 14px;cursor:pointer;
+}
+
+/* Keep the same three rows clear of the footer in short player frames. */
+@container playfield (max-height:700px) {
+  .chapter-preview-card-layout:has(.action-check-details:not([hidden])) {width:calc(var(--preview-card-width) - 60px);}
+  .action-check-stat {margin-bottom:2px;}
+  .action-check-chance strong {font-size:72px;line-height:.6;}
+  .action-check-label {font-size:14px;line-height:1;margin-top:0;}
 }

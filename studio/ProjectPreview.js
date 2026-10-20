@@ -26,7 +26,7 @@ export class ProjectPreview {
     this.onGoToCard = typeof onGoToCard === 'function' ? onGoToCard : null;
     this.deckSettings = { ...deckSettings };
     this.presentationPolicy = { ...presentationPolicy };
-    this.root.innerHTML = '<section class="project-preview"><div class="chapter-preview-stage"><div class="player-resources" data-resources hidden><span class="player-resource" data-health aria-label="Health"><img src="./assets/img/ui/hud-health.png" alt=""><span data-health-value></span></span><span class="player-resource" data-energy aria-label="Energy"><span data-energy-value></span><img src="./assets/img/ui/hud-energy.png" alt=""></span></div><div class="chapter-preview-card-area"><div class="chapter-preview-card-layout"><div class="chapter-preview-deck" tabindex="0"></div><section class="action-check-details" data-action-check hidden aria-label="Selected action check" aria-live="polite"><div class="action-check-chance"><strong data-check-chance></strong><span>chance of success</span></div><div class="action-check-meta"><p data-check-formula></p><p data-check-rules></p></div></section></div></div></div><div class="preview-status-row"><p data-status role="status" hidden></p></div><footer class="preview-footer" data-preview-footer><details data-state hidden><summary>Run state</summary><pre></pre></details><div data-preview-actions></div></footer><section data-inventory></section><section class="check-surface" data-check-surface hidden aria-label="Action check"><div class="check-tray"></div><div class="check-result" data-result role="status" aria-live="polite"></div></section></section>';
+    this.root.innerHTML = '<section class="project-preview"><div class="chapter-preview-stage"><div class="player-resources" data-resources hidden><span class="player-resource" data-health aria-label="Health"><img src="./assets/img/ui/hud-health.png" alt=""><span data-health-value></span></span><span class="player-resource" data-energy aria-label="Energy"><span data-energy-value></span><img src="./assets/img/ui/hud-energy.png" alt=""></span></div><div class="chapter-preview-card-area"><div class="chapter-preview-card-layout"><div class="chapter-preview-deck" tabindex="0"></div><section class="action-check-details" data-action-check hidden aria-label="Selected action check" aria-live="polite"><p class="action-check-stat" data-check-formula></p><div class="action-check-chance"><strong data-check-chance></strong></div><p class="action-check-label" data-check-rules></p></section></div></div></div><div class="preview-status-row"><p data-status role="status" hidden></p></div><footer class="preview-footer" data-preview-footer><details data-state hidden><summary>Run state</summary><pre></pre></details><div data-preview-actions></div></footer><section data-inventory></section><section class="check-surface" data-check-surface hidden aria-label="Action check"><div class="check-tray"></div><div class="check-result" data-result role="status" aria-live="polite"></div></section></section>';
     this.mount = root.querySelector('.chapter-preview-deck');
     this.checkDetails = root.querySelector('[data-action-check]');
     this.checkChance = root.querySelector('[data-check-chance]');
@@ -193,11 +193,12 @@ export class ProjectPreview {
     const action = deck?.content?.actions?.[deck.index ?? 0];
     const info = !this.state?.completed && !this.state?.checking && deck?.phase === 'choices' ? action?.checkInfo : null;
     this.checkDetails.hidden = !info;
-    this.checkChance.textContent = info?.chance ?? '';
-    this.checkFormula.textContent = info?.formula ?? '';
-    this.checkRules.textContent = info?.rules ?? '';
-    this.checkRules.hidden = !info?.rules;
-    this.triggerItemMini?.update(focusedTriggerItem(deck, this.state), { busy: !!deck?.state?.busy || !this.state?.idle });
+    this.checkChance.textContent = info ? `${Math.round(parseFloat(info.chance))}%` : '';
+    this.checkDetails.title = info ? [info.formula, info.rules].filter(Boolean).join(' · ') : '';
+    this.checkFormula.textContent = info?.stat ?? '';
+    this.checkRules.textContent = info?.label ?? '';
+    this.checkRules.hidden = !info?.label;
+    this.triggerItemMini?.update(info ? null : focusedTriggerItem(deck, this.state), { busy: !!deck?.state?.busy || !this.state?.idle });
     this.positionTriggerMini();
   }
   positionTriggerMini() {

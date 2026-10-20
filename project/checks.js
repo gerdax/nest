@@ -50,6 +50,10 @@ export const playerCheckSummary = (check, values = {}, definitions = []) => summ
 export function playerCheckPresentation(check, values = {}, definitions = []) {
   if (check?.mode !== 'stat') return null;
   const resolved = resolveCheck(check, values);
+  const name = definitions.find(v => v.id === check.modifierVariable)?.name || check.modifierVariable;
   return { chance: `${(resolved.probability * 100).toFixed(1)}%`,
+    stat: `${name}: ${resolved.modifier}`,
+    label: resolved.probability >= .8 ? 'Very high' : resolved.probability >= .6 ? 'High'
+      : resolved.probability >= .4 ? 'Medium' : resolved.probability >= .2 ? 'Low' : 'Very low',
     formula: playerCheckSummary(check, values, definitions) };
 }
