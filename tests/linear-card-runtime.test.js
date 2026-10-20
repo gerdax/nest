@@ -506,11 +506,13 @@ for(const alias of [false,true])test(`Linear skips its next duplicate immediatel
  dispose(deck,controller);
 });
 
-for(const type of ['linear','fork'])for(const visibility of ['disabled','hidden'])for(const requirement of ['conditions','costs'])test(`project unavailable-action policy overrides saved card settings: ${type}, visibility=${visibility}, requirement=${requirement}`,()=>{
+for(const type of ['linear','fork'])for(const projectVisibility of ['disabled','hidden'])for(const override of [undefined,'project','disabled','hidden'])for(const requirement of ['conditions','costs'])test(`node unavailable-action policy: ${type}, project=${projectVisibility}, override=${override}, requirement=${requirement}`,()=>{
+ const visibility=override && override!=='project'?override:projectVisibility;
  const unavailable=action('blocked',{unavailable:visibility==='hidden'?'disabled':'hidden',...(requirement==='conditions'?{conditions:[{source:'variable',key:'energy',op:'gte',value:7}]}:{costs:[{source:'variable',key:'energy',amount:6}]})});
  const node=type==='linear'?{id:'actions',type,cards:[unavailable,narrative('after')],connections:{next:null}}
   :{id:'actions',type,choices:[unavailable,action('available')],connections:{blocked:null,available:null}};
- const {deck,controller}=real([node],{variables:energy,unavailableActions:visibility});
+ if(override!==undefined)node.unavailableActions=override;
+ const {deck,controller}=real([node],{variables:energy,unavailableActions:projectVisibility});
  if(type==='linear'&&visibility==='hidden')assert.equal(controller.card().id,'after');
  else {
   assert.equal(deck.content.actions.some(a=>a.id==='blocked'),visibility==='disabled');
@@ -595,5 +597,19 @@ for(const kind of ['health','energy'])test(`${kind} cannot consume through an un
  const definition={...resourceDefinition(kind,kind),value:3};const resource=resolveResource({library:[definition]},{id:'resource',definitionId:kind});
  const {deck,controller}=real([{id:'linear',type:'linear',cards:[resource],connections:{next:false}}],{variables:[{id:kind,type:'number',initial:1}]});
  assert.equal(deck.content.actions[0].disabled,true);key(deck,'ArrowUp');assert.equal(controller.state.variables[kind],1);assert.equal(controller.state.cardId,'resource');
+ dispose(deck,controller);
+});
+
+for(const type of ['linear','fork'])test(`preview uses destination ${type} override instead of current node policy`,()=>{
+ const blocked=action('blocked',{costs:[{source:'variable',key:'energy',amount:6}]});
+ const destination={id:'destination',type,unavailableActions:'disabled',...(type==='linear'?{cards:[blocked,narrative('after')],connections:{next:null}}:{choices:[blocked,action('available')],connections:{blocked:null,available:null}})};
+ const nodes=[{id:'start',type:'linear',unavailableActions:'hidden',cards:[narrative('start')],connections:{next:'destination'}},destination];
+ const {deck,controller}=real(nodes,{variables:energy,unavailableActions:'hidden'});
+ assert.equal(deck.content.nextDeckPreview.content.actions[0].id,'blocked');
+ assert.equal(deck.content.nextDeckPreview.content.actions[0].disabled,true);
+ key(deck,'ArrowUp');
+ assert.equal(controller.location.node.id,'destination');
+ assert.equal(deck.content.actions[0].id,'blocked');
+ assert.equal(deck.content.actions[0].disabled,true);
  dispose(deck,controller);
 });

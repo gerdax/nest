@@ -528,76 +528,77 @@ test('upward tuning leaves default downward and browsing acceptance unchanged',(
 
 
 const backIcon = element => element?.getAttribute('data-back-icon');
-function contextualDeck(content) {
+function backAppearanceDeck(content) {
  const d=deck();d.replaceContent({id:'context',actions:[{id:'item',label:'Item'}],...content});return d;
 }
-for (const operation of ['container', 'dice', 'collect', 'discard']) test(`disabled icon switching keeps default through ${operation} preview and commit`,()=>{
- const content={cardBack:{switchIcons:false,icons:{default:'custom-default.png'}},
+for (const operation of ['container', 'dice', 'collect', 'discard']) test(`default icon stays visible through ${operation} preview and commit`,()=>{
+ const content={cardBack:{switchIcons:true,switchProgress:0,switchDistance:0,icons:{default:'custom-default.png',container:'unused-container.png',dice:'unused-dice.png',collect:'unused-collect.png',discard:'unused-discard.png'}},
   ...(operation==='container'?{interaction:'container',flipItemsOnReveal:true}:
    operation==='dice'?{decisionOnly:true,actions:[{id:'check',label:'Check',resolution:'check'}]}:{interaction:'container',discardAll:true})};
- const d=contextualDeck(content);if(operation!=='container')ready(d);
+ const d=backAppearanceDeck(content);if(operation!=='container')ready(d);
  const check=()=>{for(const back of [d.sceneBack,d.underlayBack,...d.cardBacks,...(d.forwardDeck?.cardBacks||[])])if(back){
   assert.equal(backIcon(back),'default');assert.equal(back.backIcons.get('default').hidden,false);
+  assert.deepEqual([...back.backIcons.keys()],['default']);
   assert.equal(back.backIcons.get('default').getAttribute('src'),'custom-default.png');
  }};
  const y=operation==='collect'?300:-300;
  d.start();d.move({axis:'y',x:0,y,vx:0,vy:0});check();
  d.end({axis:'y',x:0,y,vx:0,vy:y*3});check();
- assert.ok(d.backTransition,'committed operation has locked icon context');
+ assert.ok(d.backTransition,'committed transition preserves source appearance');
  d.tick(performance.now()+30);check();d.reset();check();d.destroy();
 });
-test('container introduction changes actual staged backs after a few pixels and resets on cancel',()=>{
- const d=contextualDeck({interaction:'container',flipItemsOnReveal:true});
+test('container introduction keeps staged default backs across gesture distances and cancel',()=>{
+ const d=backAppearanceDeck({interaction:'container',flipItemsOnReveal:true});
  const back=d.forwardDeck.cardBacks[0], icons=[...back.children];
  d.start();d.move({axis:'y',x:0,y:-5,vx:0,vy:0});assert.equal(backIcon(back),'default');
- d.move({axis:'y',x:0,y:-6,vx:0,vy:0});assert.equal(backIcon(back),'container');
- assert.deepEqual(back.children,icons,'a gesture only changes visibility of preloaded icons');
+ d.move({axis:'y',x:0,y:-6,vx:0,vy:0});assert.equal(backIcon(back),'default');
+ assert.deepEqual(back.children,icons,'a gesture preserves the existing default icon element');
  d.move({axis:'y',x:0,y:-3,vx:0,vy:0});assert.equal(backIcon(back),'default');
  d.cancel();settle(d);assert.equal(backIcon(back),'default');d.destroy();
 });
-test('last item preview reverses between pocket and trash and restores Nest after Escape',()=>{
- const d=contextualDeck({interaction:'container',discardAll:true});ready(d);
- d.start();d.move({axis:'y',x:0,y:360,vx:0,vy:0});assert.equal(backIcon(d.underlayBack),'collect');
- d.move({axis:'y',x:0,y:-380,vx:0,vy:0});assert.equal(backIcon(d.underlayBack),'discard');
- d.move({axis:'y',x:0,y:380,vx:0,vy:0});assert.equal(backIcon(d.underlayBack),'collect');
+test('last item preview keeps the default icon through direction changes and Escape',()=>{
+ const d=backAppearanceDeck({interaction:'container',discardAll:true});ready(d);
+ d.start();d.move({axis:'y',x:0,y:360,vx:0,vy:0});assert.equal(backIcon(d.underlayBack),'default');
+ d.move({axis:'y',x:0,y:-380,vx:0,vy:0});assert.equal(backIcon(d.underlayBack),'default');
+ d.move({axis:'y',x:0,y:380,vx:0,vy:0});assert.equal(backIcon(d.underlayBack),'default');
  key(d,'Escape');assert.equal(backIcon(d.underlayBack),'default');assert.equal(d.backTransition,null);d.destroy();
 });
-test('collect with remaining items has no pocket and a blocked discard has no trash',()=>{
- const d=contextualDeck({interaction:'container',discardAll:true,actions:[{id:'one',label:'One',discardDisabled:true},{id:'two',label:'Two'}]});ready(d);
+test('collect with remaining items and blocked discard do not stage an underlay',()=>{
+ const d=backAppearanceDeck({interaction:'container',discardAll:true,actions:[{id:'one',label:'One',discardDisabled:true},{id:'two',label:'Two'}]});ready(d);
  d.start();d.move({axis:'y',x:0,y:380,vx:0,vy:0});assert.equal(d.underlay,null);
  d.move({axis:'y',x:0,y:-380,vx:0,vy:0});assert.equal(d.underlay,null);d.cancel();settle(d);d.destroy();
 });
-test('dice source holds its icon through async waiting and successor flip then restores destination appearance',()=>{
- const d=contextualDeck({decisionOnly:true,cardBack:{background:'source.png'},actions:[{id:'check',label:'Check',resolution:'check'}]});ready(d);
- d.start();d.move({axis:'y',x:0,y:-380,vx:0,vy:0});assert.equal(backIcon(d.underlayBack),'dice');d.cancel();settle(d);
- d.commit();assert.equal(backIcon(d.underlayBack),'dice');d.tick(d.commitMotion.start+1000);assert.equal(d.busy,true);assert.equal(backIcon(d.underlayBack),'dice');
+test('check keeps default icon through async waiting and successor flip then restores destination appearance',()=>{
+ const d=backAppearanceDeck({decisionOnly:true,cardBack:{background:'source.png'},actions:[{id:'check',label:'Check',resolution:'check'}]});ready(d);
+ d.start();d.move({axis:'y',x:0,y:-380,vx:0,vy:0});assert.equal(backIcon(d.underlayBack),'default');d.cancel();settle(d);
+ d.commit();assert.equal(backIcon(d.underlayBack),'default');d.tick(d.commitMotion.start+1000);assert.equal(d.busy,true);assert.equal(backIcon(d.underlayBack),'default');
  d.replaceContent({id:'result',cardBack:{background:'result.png'},actions:[{id:'next',label:'Next'}]});
- assert.equal(backIcon(d.sceneBack),'dice');assert.equal(d.sceneBack.style.backgroundImage,'url("source.png")');
+ assert.equal(backIcon(d.sceneBack),'default');assert.equal(d.sceneBack.style.backgroundImage,'url("source.png")');
  settle(d);assert.equal(backIcon(d.sceneBack),'default');assert.equal(d.sceneBack.style.backgroundImage,'url("result.png")');assert.equal(d.backTransition,null);d.destroy();
 });
-test('keyboard final collect locks pocket before host refresh and restart clears it',()=>{
- const d=contextualDeck({interaction:'container',cardBack:{switchProgress:1}});ready(d);
+test('keyboard final collect preserves default icon through host refresh and restart',()=>{
+ const d=backAppearanceDeck({interaction:'container',cardBack:{switchProgress:1}});ready(d);
  d.addEventListener('collect',()=>d.replaceContent({id:'next',actions:[{id:'next',label:'Next'}]}));
- d.collect();assert.equal(backIcon(d.underlayBack),'collect');assert.equal(d.backTransition.operation,'collect');
+ d.collect();assert.equal(backIcon(d.underlayBack),'default');assert.equal(d.backTransition.takingLast,true);
  d.reset();assert.equal(d.backTransition,null);assert.equal(backIcon(d.sceneBack),'default');d.destroy();
 });
 
 test('source appearance expires on successor previews as well as the installed card',()=>{
- const d=contextualDeck({decisionOnly:true,cardBack:{background:'source.png'},actions:[{id:'check',label:'Check',resolution:'check'}]});ready(d);
+ const d=backAppearanceDeck({decisionOnly:true,cardBack:{background:'source.png'},actions:[{id:'check',label:'Check',resolution:'check'}]});ready(d);
  d.addEventListener('commit',()=>d.replaceContent({id:'result',directAdvance:true,cardBack:{background:'destination.png'},nextCardPreview:{text:'Later',image:''},actions:[{id:'next',label:'Next'}]}));
  d.commit();d.tick(d.commitMotion.start+1000);assert.equal(d.underlayBack.style.backgroundImage,'url("source.png")');
  settle(d);assert.equal(d.backTransition,null);assert.equal(d.underlayBack.style.backgroundImage,'url("destination.png")');
  d.start();d.move({axis:'y',x:0,y:-380,vx:0,vy:0});assert.equal(d.underlayBack.style.backgroundImage,'url("destination.png")');assert.equal(backIcon(d.underlayBack),'default');d.cancel();d.destroy();
 });
 
-test('early icon follows direction within six pixels, has a return margin, and cancels cleanly',()=>{
- const d=contextualDeck({interaction:'container',discardAll:true});ready(d);
+test('small bidirectional gestures and check previews keep default icon and cancel cleanly',()=>{
+ const d=backAppearanceDeck({interaction:'container',discardAll:true});ready(d);
  d.start();d.move({axis:'y',x:0,y:5,vx:0,vy:0});assert.equal(backIcon(d.underlayBack),'default');
- d.move({axis:'y',x:0,y:6,vx:0,vy:0});assert.equal(backIcon(d.underlayBack),'collect');
- d.move({axis:'y',x:0,y:5,vx:0,vy:0});assert.equal(backIcon(d.underlayBack),'collect');
+ d.move({axis:'y',x:0,y:6,vx:0,vy:0});assert.equal(backIcon(d.underlayBack),'default');
+ d.move({axis:'y',x:0,y:5,vx:0,vy:0});assert.equal(backIcon(d.underlayBack),'default');
  d.move({axis:'y',x:0,y:3,vx:0,vy:0});assert.equal(backIcon(d.underlayBack),'default');
- d.move({axis:'y',x:0,y:-6,vx:0,vy:0});assert.equal(backIcon(d.underlayBack),'discard');
+ d.move({axis:'y',x:0,y:-6,vx:0,vy:0});assert.equal(backIcon(d.underlayBack),'default');
  d.cancel();settle(d);assert.equal(backIcon(d.underlayBack),'default');d.destroy();
- const dice=contextualDeck({decisionOnly:true,actions:[{id:'check',label:'Check',resolution:'check'}]});ready(dice);
- dice.start();dice.move({axis:'y',x:0,y:-6,vx:0,vy:0});assert.equal(backIcon(dice.underlayBack),'dice');dice.cancel();settle(dice);assert.equal(backIcon(dice.underlayBack),'default');dice.destroy();
+ const dice=backAppearanceDeck({decisionOnly:true,actions:[{id:'check',label:'Check',resolution:'check'}]});ready(dice);
+ dice.start();dice.move({axis:'y',x:0,y:-6,vx:0,vy:0});assert.equal(backIcon(dice.underlayBack),'default');dice.cancel();settle(dice);assert.equal(backIcon(dice.underlayBack),'default');dice.destroy();
 });

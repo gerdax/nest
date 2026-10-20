@@ -20,7 +20,7 @@ export function compileChapter(project, chapterId = project.activeChapterId) {
   result.ownedItemsVisibility = project.ownedItemsVisibility ?? 'disabled';
   result.unavailableActions = project.unavailableActions ?? 'disabled';
   delete result.backImage;
-  result.cardBack = {...projectCardBack(project), switchIcons: project.switchCardBackIcons !== false};
+  result.cardBack = {...projectCardBack(project)};
   result.cardStyles = cloneProject(project.cardStyles || {});
   const graph = definitionGraph(project);
   const reachable = graph.reachableFrom([chapter, ...project.library.filter(d => d.visibility !== 'local')]);

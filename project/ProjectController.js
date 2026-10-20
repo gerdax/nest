@@ -36,6 +36,11 @@ export class ProjectController {
     }
   }
   type(location=this.location) {return location?.sequence?.type ?? location?.node.type;}
+  unavailableActions(location=this.location) {
+    const node=location?.node;
+    const override=['fork','linear'].includes(node?.type) ? node.unavailableActions : undefined;
+    return (override && override!=='project' ? override : this.compiled.unavailableActions) ?? 'disabled';
+  }
   ownsItem(item, inventory=this.inventory) {
     return inventory.some(owned => (owned.definitionId ?? owned.id) === (item.definitionId ?? item.id)
       || item.inventoryKey != null && owned.inventoryKey === item.inventoryKey);
@@ -160,7 +165,7 @@ export class ProjectController {
       while(location.index<cards.length) {
         const card=this.runtimeItem(cards[location.index],location);
         const available=conditionsMet(card.conditions,values,inventory);
-        const hiddenAction=card.kind==='action'&&this.compiled.unavailableActions==='hidden'&&(!available||!affordCosts(values,inventory,card.costs,this.compiled.variables));
+        const hiddenAction=card.kind==='action'&&this.unavailableActions(location)==='hidden'&&(!available||!affordCosts(values,inventory,card.costs,this.compiled.variables));
         const hiddenItem=card.kind==='item'&&this.hidesOwnedItem(card,inventory);
         if(this.linearItemRemaining(card,location,excluded)&&(available||card.kind==='action')&&!hiddenAction&&!hiddenItem)break;
         location={...location,index:location.index+1};
@@ -242,7 +247,7 @@ export class ProjectController {
     if(fork)actions=this.choices(location).flatMap(c=>{
       if(c.contextItemId&&!canTriggerItem(inventory,c.contextInventoryKey ?? c.contextItemId))return [];
       const available=conditionsMet(c.conditions,values,inventory)&&affordCosts(values,inventory,c.costs,this.compiled.variables);
-      return !available&&this.compiled.unavailableActions==='hidden'?[]:[{...this.action(c,values),disabled:!available||this.departureBlocked(c,location,values,inventory)}];
+      return !available&&this.unavailableActions(location)==='hidden'?[]:[{...this.action(c,values),disabled:!available||this.departureBlocked(c,location,values,inventory)}];
     });
     else if(container)actions=this.items(location,values,inventory,excludedItem).map(c=>({...this.action(c,values),alreadyOwned:this.ownsItem(c,inventory),discardDisabled:this.departureBlocked(c,location,values,inventory,'discard',excludedItem),collectDisabled:this.departureBlocked(c,location,values,inventory,'collect',excludedItem)}));
     else if(linearFace)actions=[{...this.action(card,values),disabled:!conditionsMet(card.conditions,values,inventory)||!affordCosts(values,inventory,card.kind==='action'?card.costs:[],this.compiled.variables)}];
@@ -253,7 +258,7 @@ export class ProjectController {
     }
     if(container||linearItem)for(const action of actions)action.disabled ||= action.collectDisabled&&action.discardDisabled;
     if(!actions.length)actions=[{id:'unavailable',label:'No available choices',disabled:true}];
-    const payload={autoBrowse:fork||container,id:`${this.generation}:${++this.serial}`,cardBack:this.compiled.cardBack,backOperation:card?.resolution==='check'?'dice':null,title:card?.name ?? card?.title ?? '',heading:cardFace(card,this.compiled.variables,this.compiled.library,values).heading,text:this.body(card),cardKind:card?.kind ?? 'event',value:card?.value,summary:card&&!isStoryKind(card.kind??card.cardKind)&&fork?playerCardSummary(card,this.compiled.variables,this.compiled.library,values):'',image:card?.image ?? '',imageScale:card?.imageScale??100,imageOffsetX:card?.imageOffsetX??0,imageOffsetY:card?.imageOffsetY??0,flipImage:!!card?.flipImage,actions,directAdvance:!fork&&!container&&!linearFace,decisionOnly:linearFace||fork&&(location.sequence?!!location.sequence.decisionOnly:this.presentation(location,values,inventory)==='open'),interaction:container||linearItem?'container':'choice',discardAll:container,allowClose:false};
+    const payload={autoBrowse:fork||container,id:`${this.generation}:${++this.serial}`,cardBack:this.compiled.cardBack,title:card?.name ?? card?.title ?? '',heading:cardFace(card,this.compiled.variables,this.compiled.library,values).heading,text:this.body(card),cardKind:card?.kind ?? 'event',value:card?.value,summary:card&&!isStoryKind(card.kind??card.cardKind)&&fork?playerCardSummary(card,this.compiled.variables,this.compiled.library,values):'',image:card?.image ?? '',imageScale:card?.imageScale??100,imageOffsetX:card?.imageOffsetX??0,imageOffsetY:card?.imageOffsetY??0,flipImage:!!card?.flipImage,actions,directAdvance:!fork&&!container&&!linearFace,decisionOnly:linearFace||fork&&(location.sequence?!!location.sequence.decisionOnly:this.presentation(location,values,inventory)==='open'),interaction:container||linearItem?'container':'choice',discardAll:container,allowClose:false};
     if(fork)payload.choiceFollowerRatio=.82;
     payload.flipItemsOnReveal=container&&this.presentation(location,values,inventory)==='closed';
     if(payload.directAdvance){payload.nextTransition='flip';payload.advanceDisabled=this.departureBlocked(card,location,values,inventory);actions[0].disabled=payload.advanceDisabled;}

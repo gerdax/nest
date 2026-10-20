@@ -43,8 +43,8 @@ test('chapter export validates transitive dependencies and exported settings', (
   project.variables[0].initial = 100;
   assert.throws(() => exportStudioChapter(project), /bounds/);
   project.variables[0].initial = 3;
-  project.switchCardBackIcons = 'yes';
-  assert.throws(() => exportStudioChapter(project), /boolean/);
+  project.cardBack = {iconScale: 0};
+  assert.throws(() => exportStudioChapter(project), /iconScale/);
 });
 
 test('scoped project import accepts version 2 project drafts and preserves raw input', () => {

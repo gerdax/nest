@@ -105,11 +105,11 @@ test('layered chapter backs reach story, successor and decision cards; retained 
   const controller = new ChapterController(deck, chapter);
   assert.deepEqual(deck.content.cardBack, chapter.cardBack);
   assert.equal(deck.sceneBack.style.backgroundImage, 'url("back.png")');
-  assert.deepEqual(deck.sceneBack.children.map(child=>child.className), ['nest-card-texture',...Array(5).fill('nest-back-icon')]);
+  assert.deepEqual(deck.sceneBack.children.map(child=>child.className), ['nest-card-texture','nest-back-icon']);
   assert.equal(deck.sceneBack.backIcons.get('default').getAttribute('src'), 'custom-nest.png');
   assert.equal(deck.sceneBack.backIcons.get('default').style.transform, 'scale(0.8)');
   assert.equal(deck.sceneBack.backIcons.get('default').hidden, false);
-  assert.equal(deck.sceneBack.backIcons.get('container').hidden, true);
+  assert.deepEqual([...deck.sceneBack.backIcons.keys()], ['default']);
   assert.equal(deck.underlayBack.style.backgroundImage, 'url("back.png")');
   stageNextContent(deck, {image:'front.png',text:'Future'});
   assert.equal(deck.underlayBack.style.backgroundImage, 'url("back.png")', 'simple successor preview retains chapter back');

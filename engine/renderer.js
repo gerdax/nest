@@ -2,7 +2,7 @@ import { layoutBounds } from './cssScale.js';
 import { handoffRadius, projectedBounds } from './geometry.js?v=no-ending-card-1';
 import { carouselPose, clamp, departureDistance, revealScale, flipLift } from './motion.js?v=no-ending-card-1';
 import { applyArtworkColorize } from './artworkColorize.js';
-import { resolveBackAppearance, resolveBackOperation, selectBackIcon } from './cardBacks.js';
+import { resolveBackAppearance } from './cardBacks.js';
 
 // Stable per-card variation: adjacent IDs should not produce a regular fan,
 // and repeated renders of a held gesture must never jitter.
@@ -40,7 +40,6 @@ function decorateBack(back, content = {}, temporary = false) {
   if (back.backSignature === signature) return;
   back.backSignature = signature;
   back.backAppearance = appearance;
-  back.backOperation = null;
   back.className = `nest-card nest-card-back${back.checkSlot ? ' nest-check-active' : ''}`;
   back.style.backgroundImage = `url(${JSON.stringify(appearance.background)})`;
   back.replaceChildren(cardTexture(), ...(back.checkSlot ? [back.checkSlot] : []));
@@ -54,12 +53,6 @@ function decorateBack(back, content = {}, temporary = false) {
     icon.draggable = false;
     icon.hidden = key !== 'default';
     icon.style.transform = `scale(${appearance.iconScale})`;
-    // Load every context upfront, so crossing the gesture threshold never
-    // requests a new image. A missing contextual image falls back to Nest.
-    icon.onerror = () => {
-      icon.backFailed = true;
-      if (!icon.hidden) updateBackIcon(back, back.backOperation, 1, null, Infinity);
-    };
     back.backIcons.set(key, icon);
     back.append(icon);
   }
@@ -72,34 +65,8 @@ function backFace(content = {}) {
   return back;
 }
 
-function updateBackIcon(back, operation, progress, appearance = null, distance = 0) {
-  if (!back) return;
-  if (appearance) decorateBack(back, { cardBack: appearance }, true);
-  const config = back.backAppearance;
-  // Once selected, allow a small return margin around the threshold.
-  const held = operation && back.backOperation === operation;
-  const adjusted = held && progress > 0 ? progress + .03 : progress;
-  const adjustedDistance = held && distance > 0 ? distance + Math.min(2, config.switchDistance / 2) : distance;
-  const url = distance === Infinity ? config.icons[operation] : selectBackIcon(config, operation, adjusted, adjustedDistance);
-  const reached = distance === Infinity || (Number.isFinite(config.switchProgress)
-    ? adjusted >= config.switchProgress : adjustedDistance > 0 && adjustedDistance >= config.switchDistance);
-  let key = config.switchIcons !== false && operation && reached && url === config.icons[operation] ? operation : 'default';
-  if (back.backIcons.get(key)?.backFailed) key = 'default';
-  back.backOperation = key === 'default' ? null : operation;
-  for (const [name, icon] of back.backIcons) icon.hidden = name !== key;
-  back.setAttribute('data-back-icon', key);
-}
-
-function backContext(deck, progress, context) {
-  if (deck.backTransition) return { ...deck.backTransition, progress: 1, distance: Infinity };
-  const cover = deck.coverDeparture || deck.content.flipItemsOnReveal && !deck.open;
-  const action = deck.content.actions[deck.index];
-  const direction = deck.l.x < 0 ? 1 : -1;
-  const blocked = cover ? deck.content.advanceDisabled : action?.disabled
-    || (deck.content.interaction === 'container' && (direction < 0 ? action?.discardDisabled : action?.collectDisabled));
-  return { operation: resolveBackOperation(deck.content, {
-    source: cover ? 'cover' : 'actions', action, count: deck.cards.length, direction, blocked
-  }), progress, distance: cover ? Math.max(0, deck.p.x * context.travel) : Math.abs(deck.l.x) * context.height };
+function applyBackAppearance(back, appearance) {
+  if (back && appearance) decorateBack(back, { cardBack: appearance }, true);
 }
 
 export function backPose(front) {
@@ -510,21 +477,21 @@ export function renderDeck(deck, time = performance.now()) {
     ? Math.max(0, projectedBounds(poses[0], width, height, deck.settings.perspective).top) : height - coveredBottom;
   const takingLast = resolution && movingDown && context.selected && !context.selected.collectDisabled;
   if (takingLast) deck.nextTakeDepth = height * .4 * takeProgress(deck, time, height, context.selected, .45);
-  else if (deck.backTransition?.operation !== 'collect') deck.nextTakeDepth = 0;
+  else if (!deck.backTransition?.takingLast) deck.nextTakeDepth = 0;
   const nextScale = takingLast || deck.nextTakeDepth > 0 || deck.reduced ? 1 : revealScale(exposure, height, deck.settings);
-  const back = backContext(deck, clamp(exposure / height, 0, 1), context);
-  updateBackIcon(deck.underlayBack, back.operation, back.progress, back.appearance, back.distance);
+  const appearance = deck.backTransition?.appearance;
+  applyBackAppearance(deck.underlayBack, appearance);
   if (deck.underlayBack) {
     const target = deck.content.actions[deck.index]?.checkTarget;
     const checking = Number.isFinite(target) && !deck.pending;
     deck.underlayBack.classList[checking ? 'add' : 'remove']('nest-check-prepared');
   }
-  for (const reverse of deck.forwardDeck?.cardBacks || []) updateBackIcon(reverse, back.operation, back.progress, back.appearance, back.distance);
+  for (const reverse of deck.forwardDeck?.cardBacks || []) applyBackAppearance(reverse, appearance);
   // A staged reverse becomes the actual next card during its flip. Preserve
-  // the source operation until that flip finishes, including async checks.
+  // the source appearance until that flip finishes, including async checks.
   if (deck.backTransition && !deck.commitMotion && !deck.collectMotion) {
-    updateBackIcon(deck.sceneBack, back.operation, 1, back.appearance, Infinity);
-    for (const reverse of deck.cardBacks) updateBackIcon(reverse, back.operation, 1, back.appearance, Infinity);
+    applyBackAppearance(deck.sceneBack, appearance);
+    for (const reverse of deck.cardBacks) applyBackAppearance(reverse, appearance);
   }
   const forwardActive = !!deck.forwardDeck && (((deck.content.directAdvance || deck.content.flipItemsOnReveal) && !deck.busy && deck.p.x > 0) || (deck.phase === 'committing' && deck.pendingPresentation === 'open')
     || (deck.phase === 'choices' && deck.l.x > 0 && deck.forwardOwner === deck.content.actions[deck.index]?.id));
@@ -594,6 +561,5 @@ export function restoreBacks(deck) {
   for (const back of [deck.sceneBack, ...deck.cardBacks, deck.underlayBack, ...(deck.forwardDeck?.cardBacks || [])]) {
     if (!back) continue;
     decorateBack(back, { cardBack: back.baseAppearance });
-    updateBackIcon(back, null, 0);
   }
 }

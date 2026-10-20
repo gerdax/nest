@@ -19,8 +19,8 @@ test('project settings keep variable controls in a collapsed disclosure',()=>{
  assert.match(variables,/data-command="add-health"/);
  assert.doesNotMatch(variables,/cardBack\.|switchCardBackIcons/);
  assert.match(html,/data-scope="project" data-path="name"/);
- assert.match(html,/data-path="switchCardBackIcons"/);
- for(const path of ['cardBack.background','cardBack.icons.default','cardBack.icons.container','cardBack.icons.dice','cardBack.icons.collect','cardBack.icons.discard'])assert.ok(html.includes(`data-scope="project" data-path="${path}"`));
+ assert.doesNotMatch(html,/switchCardBackIcons|Container opening|Dice test|Take last item|data-path="cardBack.icons.(?:container|dice|collect|discard)"/);
+ for(const path of ['cardBack.background','cardBack.icons.default'])assert.ok(html.includes(`data-scope="project" data-path="${path}"`));
  assert.ok(html.lastIndexOf('<summary>Card backs</summary>')>html.lastIndexOf('data-command="add-variable"'));
  for(const key of ['small','big','medium']) {
   assert.match(html,new RegExp(`data-path="cardStyles\\.${key}"`));

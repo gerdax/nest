@@ -15,7 +15,6 @@ export function validateProject(project, {allowDraft = false} = {}) {
   if (!object(project)) return [{message: 'Project must be an object.'}];
   if (project.version !== 2 || project.kind !== 'nest-project') add('Project needs version 2 and kind nest-project.');
   if (project.allowCycles !== undefined && typeof project.allowCycles !== 'boolean') add('Invalid allow beat cycles setting.');
-  if (project.switchCardBackIcons !== undefined && typeof project.switchCardBackIcons !== 'boolean') add('Cardback icon switching must be a boolean.');
   for (const key of ['ownedItemsVisibility','unavailableActions']) if (project[key] !== undefined && !['disabled','hidden'].includes(project[key])) add(`Invalid ${key} setting.`);
   for (const message of validateCardBack(project.cardBack)) add(message);
   if (project.cardStyles !== undefined) {
@@ -249,6 +248,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
       if (node.type === 'fork' && (node.intro !== undefined && !object(node.intro) || node.introEnabled === true
         && !object(node.intro))) add(`${label}: missing introduction.`, cid, nid);
       if (node.retainInventoryItems !== undefined && typeof node.retainInventoryItems !== 'boolean') add(`${label}: invalid inventory item persistence toggle.`, cid, nid);
+      if (node.unavailableActions !== undefined && (!['fork','linear'].includes(node.type) || !['project','disabled','hidden'].includes(node.unavailableActions))) add(`${label}: invalid unavailableActions setting.`, cid, nid);
       if (node.introOnce !== undefined && typeof node.introOnce !== 'boolean') add(`${label}: invalid show once toggle.`, cid, nid);
       if (node.introEnabled !== undefined && typeof node.introEnabled !== 'boolean') add(`${label}: invalid introduction toggle.`, cid, nid);
       const ps = placements(node), pids = new Set();

@@ -93,13 +93,13 @@ test('per-card artwork mirroring survives JSON and rejects non-boolean flags', (
 
 test('layered chapter back config round-trips and rejects malformed authored values', () => {
   const doc = createStarterChapter();
-  doc.cardBack = {background:'./assets/img/box.png',icons:{default:'./assets/img/ui/default.png',dice:'custom-dice.png'},iconScale:0.8,switchProgress:0.3};
+  doc.cardBack = {background:'./assets/img/box.png',icons:{default:'./assets/img/ui/default.png',dice:false},iconScale:0.8,switchProgress:1.1,switchIcons:'legacy'};
   assert.deepEqual(parseChapter(JSON.stringify(doc)), doc);
   assert.deepEqual(parseChapter(JSON.stringify(doc), {allowDraft:true}), doc);
   const field = imageField(doc.cardBack.background, 'chapter.cardBack.background', {}, {allowFlip:false});
   assert.equal(field.includes('checkbox'), false);
   assert.ok(field.includes('chapter.cardBack.background'));
-  for (const cardBack of [false, {background:''}, {icons:{dice:7}}, {iconScale:0}, {switchProgress:1.1}]) {
+  for (const cardBack of [false, {background:''}, {icons:{default:7}}, {iconScale:0}]) {
     doc.cardBack = cardBack;
     assert.ok(validateChapter(doc).some(error => error.message.includes('cardBack')));
     assert.throws(() => parseChapter(JSON.stringify(doc)), /cardBack/);

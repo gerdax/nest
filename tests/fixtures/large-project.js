@@ -43,7 +43,7 @@ export function createLargeProject({chapters = 8, beatsPerChapter = 60} = {}) {
     sharedCursor[group] = 0;
   }
   const project = {version: 2, kind: 'nest-project', id: 'realistic-large-project', name: 'The northern expedition — large project',
-    activeChapterId: 'chapter-001', switchCardBackIcons: true, cardStyles: {small: 14, medium: 18, big: 28}, library,
+    activeChapterId: 'chapter-001', cardStyles: {small: 14, medium: 18, big: 28}, library,
     variables: [
       {id: 'energy', name: 'Energy', type: 'number', initial: 8, min: 0, max: 12},
       {id: 'health', name: 'Health', type: 'number', initial: 10, min: 0, max: 12},

@@ -18,7 +18,7 @@ export function exportChapter(project, id = project.activeChapterId) {
   const pkg = cloneProject({version: 2, kind: 'nest-chapter', library: project.library.filter(d => ids.has(d.id)),
     itemTags: project.itemTags || [], variables: project.variables, allowCycles: project.allowCycles !== false,
     ownedItemsVisibility: project.ownedItemsVisibility ?? 'disabled', unavailableActions: project.unavailableActions ?? 'disabled',
-    cardStyles: project.cardStyles || {}, cardBack: projectCardBack(project), switchCardBackIcons: project.switchCardBackIcons,
+    cardStyles: project.cardStyles || {}, cardBack: projectCardBack(project),
     chapter});
   pkg.chapter.variables ??= [];
   if (named(pkg.chapter.nextChapterId) && pkg.chapter.nextChapterId !== pkg.chapter.id) delete pkg.chapter.nextChapterId;
@@ -60,7 +60,6 @@ export function importChapter(project, pkgOrV1) {
       value.key = tagKey(tagMap.get(tagIdFromKey(value.key)));
     }
   });
-  if (next.switchCardBackIcons === undefined && pkgOrV1.switchCardBackIcons !== undefined) next.switchCardBackIcons = pkgOrV1.switchCardBackIcons;
   if (!next.cardStyles && pkgOrV1.cardStyles) next.cardStyles = cloneProject(pkgOrV1.cardStyles);
   for (const definition of imported.library) definition.kind = canonicalCardKind(definition.kind);
   const defMap = new Map(), varMap = new Map(), chapterIds = new Set(next.chapters.map(c => c.id)), defs = new Set(next.library.map(d => d.id)),
@@ -172,7 +171,7 @@ export function parseProject(text, {allowDraft = false} = {}) {
     id: `${value.chapter?.id || 'chapter'}-project`, name: value.chapter?.name, activeChapterId: value.chapter?.id, startChapterId: value.chapter?.id,
     itemTags: value.itemTags, library: value.library, variables: value.variables || [], allowCycles: value.allowCycles,
     ownedItemsVisibility: value.ownedItemsVisibility, unavailableActions: value.unavailableActions,
-    cardStyles: value.cardStyles || {}, cardBack: value.cardBack, switchCardBackIcons: value.switchCardBackIcons,
+    cardStyles: value.cardStyles || {}, cardBack: value.cardBack,
     chapters: [value.chapter]};
   }
   for (const definition of list(value?.library)) if (object(definition)) definition.kind = canonicalCardKind(definition.kind);

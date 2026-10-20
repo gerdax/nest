@@ -5,7 +5,7 @@ import { DeckInteractionMotion } from './DeckInteractionMotion.js';
 import { DeckEntranceSequence } from './DeckEntranceSequence.js';
 import { DEFAULT_SETTINGS, settingsWith, spring, springStep, qualifies, resistance, modulo, clamp, carouselPose, flipLift } from './motion.js?v=no-ending-card-1';
 import { PointerInput } from './PointerInput.js?v=no-ending-card-1';
-import { resolveBackAppearance, resolveBackOperation } from './cardBacks.js';
+import { resolveBackAppearance } from './cardBacks.js';
 import { InventoryPickup } from './InventoryPickup.js';
 import { PresentationReadiness } from './presentationReadiness.js';
 import { isInventoryContext } from './inventoryContext.js';
@@ -798,11 +798,10 @@ export class CardDeck extends EventTarget {
     }
   }
 
-  lockBackOperation(source, direction = -1) {
+  lockBackAppearance(takingLast = false) {
     this.backTransition = {
-      operation: resolveBackOperation(this.content, { source, direction,
-        action: this.content.actions[this.index], count: this.cards.length }),
-      appearance: resolveBackAppearance(this.content)
+      appearance: resolveBackAppearance(this.content),
+      takingLast,
     };
     this.render();
   }
@@ -817,7 +816,7 @@ export class CardDeck extends EventTarget {
     this.commitMotion = this.departureMotion(pointerVelocity);
     this.commitMotion.continueFlight = true;
     this.commitMotion.introduction = true;
-    this.lockBackOperation('cover');
+    this.lockBackAppearance();
     this.emit('reveal');
     // Hosts can stage refreshed items after applying introduction effects.
     if (!this.pending && !this.ending && this.content === content) {
@@ -839,7 +838,7 @@ export class CardDeck extends EventTarget {
     this.operation = null;
     this.commitMotion = this.departureMotion(pointerVelocity);
     this.commitMotion.continueFlight = true;
-    this.lockBackOperation('cover');
+    this.lockBackAppearance();
     this.emit('commit', { action: this.content.actions[0], index: 0 });
     this.schedule();
   }
@@ -863,7 +862,7 @@ export class CardDeck extends EventTarget {
     this.phase = 'committing';
     this.operation = null;
     this.commitMotion = this.departureMotion(pointerVelocity);
-    this.lockBackOperation('actions');
+    this.lockBackAppearance();
     this.emit('commit', { action: this.content.actions[this.index], index: this.index });
     this.schedule();
   }
@@ -968,7 +967,7 @@ export class CardDeck extends EventTarget {
     const motion = this.commitMotion = this.departureMotion(pointerVelocity);
     motion.discardAll = this.content.discardAll === true;
     motion.discardItem = !motion.discardAll;
-    this.lockBackOperation('actions');
+    this.lockBackAppearance();
     this.emit('discard', { action, index: this.index, final: true, all: motion.discardAll,
       ...(motion.discardAll ? { discardedIds: this.content.actions.map(item => item.id) } : {}) });
     if (this.commitMotion === motion && !this.destroyed) this.schedule();
@@ -998,7 +997,7 @@ export class CardDeck extends EventTarget {
       index: this.index, id: action.id };
     if (deposit) { motion.deposit = deposit; motion.duration = this.reduced ? 0 : 220; }
     this.collectMotion = motion;
-    if (final) this.lockBackOperation('actions', direction);
+    if (final) this.lockBackAppearance(direction === 1);
     this.emit(transition, { action, index: this.index, final, ...(deposit ? { replacementId: deposit.replacementId, slot: deposit.slot } : {}) });
     if (this.collectMotion === motion && !this.destroyed) {
       if (deposit) this.pickup?.accept(action, deposit);

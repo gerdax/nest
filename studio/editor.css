@@ -102,7 +102,9 @@ aside {overflow-anchor:none;}
 .card-panel .check-settings {background:color-mix(in srgb,var(--card-editor-tint) 8%,#222f32);border-color:color-mix(in srgb,var(--card-editor-tint) 25%,#405153);}
 .add-card-buttons {display:flex;flex-wrap:wrap;gap:8px;margin:12px 0;}
 .connections-divider {border:0;border-top:1px solid #394a4c;margin:20px 0 0;}
-.inventory-persistence-divider {margin-bottom:28px;}
+.inventory-persistence-divider {margin-bottom:14px;}
+.availability-divider {margin-bottom:14px;}
+#inspector select[data-scope="node"][data-path="unavailableActions"] {margin-top:9px;}
 
 .add-card-buttons button {color:var(--card-editor-tint);background:color-mix(in srgb,var(--card-editor-tint) 12%,#1a2326);border-color:color-mix(in srgb,var(--card-editor-tint) 35%,#394a4c);}
 .add-card-buttons button:hover {background:color-mix(in srgb,var(--card-editor-tint) 22%,#1a2326);}
@@ -117,6 +119,8 @@ aside {overflow-anchor:none;}
 .project-settings-heading {display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 20px;border-bottom:1px solid #394a4c;flex-shrink:0;}
 .project-settings-heading h2 {margin:0;font-size:18px;}
 #project-settings-content {padding:20px;overflow:auto;min-height:0;}
+#project-settings-content > label.field:has(> input[data-path="allowCycles"]) {margin-top:20px;}
+#project-settings-content > label.field:has(> input[data-path="allowCycles"]) + .small {margin-bottom:24px;}
 .project-settings-open {overflow:hidden;}
 @media(max-width:384px){.project-settings-overlay{padding:12px;}.project-settings-dialog{max-height:calc(var(--editor-viewport-height) - 24px);}#project-settings-content{padding:14px;}}
 

@@ -128,9 +128,8 @@ test('card artwork alone is filtered, preserving crop/flip and excluding caption
     assert.equal(deck.underlayBack.style.filter, undefined);
     for (const child of deck.underlayBack.children) assert.equal(child.style.filter, undefined);
     assert.equal(deck.underlayBack.backIcons.get('default').attributes.src, 'custom-nest.png');
-    assert.equal(deck.underlayBack.backIcons.get('dice').attributes.src, './assets/img/ui/dice.png');
     assert.equal(deck.underlayBack.backIcons.get('default').hidden, false);
-    assert.equal(deck.underlayBack.backIcons.get('dice').hidden, true);
+    assert.deepEqual([...deck.underlayBack.backIcons.keys()], ['default']);
     assert.equal(doc.body.children.length, 1);
   });
 });
