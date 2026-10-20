@@ -1,4 +1,5 @@
 import { itemTagsEditor } from './item-tags.js';
+import { cardLabel, cardFallbackLabel } from './card-label.js';
 import { sortedChapters, startChapter } from '../project/chapter-navigation.js';
 import { projectCardBack } from '../project/card-backs.js';
 import { isStatVariable } from '../project/checks.js';
@@ -22,7 +23,7 @@ function artworkControls(definition,scope) {
 
 export function cardFields(project,definition,scope='definition',showPreview=true,showRules=true,chapter) {
  const nameId=`card-name-${scope}-${definition.id}`;
- let html=`<div class="card-name-field"><div class="card-name-heading"><label for="${esc(nameId)}">Name</label>${(definition.kind==='item'||isConsumableKind(definition.kind))?checkbox('Show name on card',definition.showName===true,'showName',scope):''}</div><input id="${esc(nameId)}" data-scope="${esc(scope)}" data-path="name" type="text" value="${esc(definition.name)}"></div>`;
+ let html=`<div class="card-name-field"><div class="card-name-heading"><label for="${esc(nameId)}">Name</label>${(definition.kind==='item'||isConsumableKind(definition.kind))?checkbox('Show name on card',definition.showName===true,'showName',scope):''}</div><input id="${esc(nameId)}" data-scope="${esc(scope)}" data-path="name" type="text" value="${esc(definition.name)}" placeholder="${esc(cardFallbackLabel(definition))}"></div>`;
  if(scope==='definition'&&isStoryKind(definition.kind))html+=select('Card type',definition.kind,[['event','Vignette'],['caption','Caption']],'kind',scope);
  if(definition.kind==='item')html+=select('Tag',definition.tagId||'',[['','None'],...(project.itemTags||[]).map(tag=>[tag.id,tag.name])],'tagId',scope);
  html+=field('Description',definition.text,'text',scope,'textarea');
@@ -66,8 +67,8 @@ export function placementInspector(project,p,kind,index,slot,count=Infinity,chap
  kind=definition?.kind || kind;
  const compareLabels=(a,b)=>a.localeCompare(b,undefined,{sensitivity:'base',numeric:true});
  const localSources=kinds.map(k=>[`local:${k}`,`local [${cardKinds[k]?.label||k}]`]).sort((a,b)=>compareLabels(a[1],b[1]));
- const defs=project.library.filter(d=>kinds.includes(d.kind)&&d.visibility!=='local').map(d=>[d.id,`${cardKinds[d.kind]?.label||d.kind}: ${d.name}`]).sort((a,b)=>compareLabels(a[1],b[1]));
- let html=`<details class="entry card-panel" data-card-type="${esc(kind)}" style="--card-editor-tint:${esc(cardEditorTint(kind))}" data-placement="${esc(p.id)}"><summary><span class="card-type-label" data-card-type="${esc(kind)}">${kind==='item'&&definition?.tagId?`<span class="card-item-tag">[${esc((project.itemTags||[]).find(tag=>tag.id===definition.tagId)?.name||definition.tagId)}]</span>`:''}${esc(cardKinds[kind]?.label||kind)}</span>${esc(definition?(card?.name?.trim()||'Untitled'):'Missing definition')}</summary>`;
+ const defs=project.library.filter(d=>kinds.includes(d.kind)&&d.visibility!=='local').map(d=>[d.id,`${cardKinds[d.kind]?.label||d.kind}: ${cardLabel(d)}`]).sort((a,b)=>compareLabels(a[1],b[1]));
+ let html=`<details class="entry card-panel" data-card-type="${esc(kind)}" style="--card-editor-tint:${esc(cardEditorTint(kind))}" data-placement="${esc(p.id)}"><summary><span class="card-type-label" data-card-type="${esc(kind)}">${kind==='item'&&definition?.tagId?`<span class="card-item-tag">[${esc((project.itemTags||[]).find(tag=>tag.id===definition.tagId)?.name||definition.tagId)}]</span>`:''}${esc(cardKinds[kind]?.label||kind)}</span>${esc(definition?cardLabel(card):'Missing definition')}</summary>`;
  const attr=`data-placement="${esc(p.id)}"`;
  html+=`<p class="small">${cardSummaryParts(card||{},project.variables,project.library,project.itemTags).map(esc).join('<br>')}</p>`;
  html+=select('Card source',local?`local:${kind}`:p.definitionId,[...localSources,...defs],'definitionId','placement');

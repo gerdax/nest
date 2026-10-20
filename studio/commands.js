@@ -1,7 +1,7 @@
 import { eligibleInventoryItems } from './item-options.js';
 import { createDefinition, resolvePlacement, isStoryKind, isConsumableKind } from '../project/cards.js';
 import { chapterVariables,outputsForNode,connectionForOutput } from '../project/model.js';
-import { createNodeDefaults } from '../project/nodeTypes.js';
+import { createNodeDefaults, nodeTypeLabel } from '../project/nodeTypes.js';
 import { definitionGraph } from '../project/dependencies.js';
 export const uid = prefix => `${prefix}-${crypto.randomUUID().slice(0,8)}`;
 export function addHealthVariable(project) {
@@ -119,7 +119,7 @@ function cloneLocalDefinitions(project,value,chapterId) {
 }
 export function createNode(project,type,position={x:100,y:100},chapterId) {
  const defaults=createNodeDefaults(type,{makePlacement:kind=>makePlacement(project,kind,undefined,chapterId),uid});
- const node={id:uid('node'),name:`New ${type}`,type,...position,connections:{},...defaults};
+ const node={id:uid('node'),name:nodeTypeLabel(type),type,...position,connections:{},...defaults};
  if(type==='random')delete node.connections;
  return node;
 }

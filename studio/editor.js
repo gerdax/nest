@@ -35,6 +35,7 @@ import { mountHistoryShortcuts } from './history-shortcuts.js';
 import { libraryCardSlot, mountLibraryCardActions } from './library-cards.js';
 import { mountViewShortcuts } from './view-shortcuts.js';
 import { mountPlayShortcuts } from './play-shortcuts.js';
+import { cardLabel } from './card-label.js';
 import { confirmLibraryRemoval } from './library-removal-confirmation.js';
 
 const $=s=>document.querySelector(s),loaded=loadProject();
@@ -161,12 +162,12 @@ function renderLibrary(){
  $('#library-search-clear').hidden=!query;
  const dependencies=definitionGraph(project);
  const match=$('#library-match-beat').checked;
- $('#library-list').innerHTML=project.library.filter(d=>d.visibility!=='local'&&`${d.name} ${cardKinds[d.kind]?.label||d.kind} ${d.kind} ${(project.itemTags||[]).find(tag=>tag.id===d.tagId)?.name||''}`.toLowerCase().includes(query)).map(d=>{
+ $('#library-list').innerHTML=project.library.filter(d=>d.visibility!=='local'&&`${cardLabel(d)} ${cardKinds[d.kind]?.label||d.kind} ${d.kind} ${(project.itemTags||[]).find(tag=>tag.id===d.tagId)?.name||''}`.toLowerCase().includes(query)).map(d=>{
   const compatible=!!libraryCardSlot(node(),d);
   const indicators=cardRuleIndicators(project,{definitionId:d.id},libraryIndex);
   const indicatorLabel=indicators.map(([letter,label])=>`${letter}: ${label}`).join('; ');
   const hint=compatible?`Double-click to add to ${node().name}`:node()?'Cannot add this card type to the selected beat. Click to inspect.':'Select a beat to add this card. Click to inspect.';
-  return `<button type="button" data-definition="${esc(d.id)}" class="library-entry card-panel ${d.id===definitionId?'selected':''} ${match&&!compatible?'library-entry-incompatible':''}" data-card-type="${esc(d.kind)}" title="${esc(hint)}" style="--card-editor-tint:${esc(cardEditorTint(d.kind))}"><strong>${esc(d.name)}</strong><span class="library-card-meta"><span>${esc(cardKinds[d.kind]?.label||d.kind)} · ${dependencies.users(d.id).length} uses</span>${indicators.length?`<span class="library-card-rules" role="img" aria-label="${esc(indicatorLabel)}" title="${esc(indicatorLabel)}">${esc(indicators.map(([letter])=>letter).join(' · '))}</span>`:''}</span>${d.kind==='item'&&d.tagId?`<span class="library-item-tag">[${esc((project.itemTags||[]).find(tag=>tag.id===d.tagId)?.name||d.tagId)}]</span>`:''}</button>`;
+  return `<button type="button" data-definition="${esc(d.id)}" class="library-entry card-panel ${d.id===definitionId?'selected':''} ${match&&!compatible?'library-entry-incompatible':''}" data-card-type="${esc(d.kind)}" title="${esc(hint)}" style="--card-editor-tint:${esc(cardEditorTint(d.kind))}"><strong>${esc(cardLabel(d))}</strong><span class="library-card-meta"><span>${esc(cardKinds[d.kind]?.label||d.kind)} · ${dependencies.users(d.id).length} uses</span>${indicators.length?`<span class="library-card-rules" role="img" aria-label="${esc(indicatorLabel)}" title="${esc(indicatorLabel)}">${esc(indicators.map(([letter])=>letter).join(' · '))}</span>`:''}</span>${d.kind==='item'&&d.tagId?`<span class="library-item-tag">[${esc((project.itemTags||[]).find(tag=>tag.id===d.tagId)?.name||d.tagId)}]</span>`:''}</button>`;
  }).join('');
 }
 function render({preserveProjectSettings=false}={}){

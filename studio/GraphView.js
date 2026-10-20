@@ -1,4 +1,5 @@
 import { CardDrag } from './card-drag.js';
+import { cardLabel } from './card-label.js';
 import { uiScale } from './ui-scale.js';
 import { esc } from './forms.js';
 import { outputsForNode, labelForOutput } from '../project/model.js';
@@ -34,6 +35,13 @@ export class GraphView {
   });
   root.addEventListener('click',e=>{
    if(this.cardDrag.consumeClick()){e.preventDefault();return;}
+   const port=e.target.closest('.port');
+   if(port&&e.detail===0){
+    const source=this.nodesById.get(port.closest('.node')?.dataset.id);
+    const target=source&&this.target(source,port.dataset.exit);
+    if(this.nodesById.has(target))this.onSelect(target);
+    return;
+   }
    const name=e.target.closest('.graph-card-name'),node=name?.closest('.node'),row=name?.closest('.graph-card-row');
    if(node&&row){this.lastPortClick=null;this.openCard(node.dataset.id,row.dataset.cardPlacement);}
   });
@@ -51,7 +59,7 @@ export class GraphView {
   this.libraryIndex=createLibraryIndex(project.library);
   this.definitionsById=new Map(project.library.map(definition=>[definition.id,definition]));
   if(this.pending&&!chapter.nodes.some(n=>n.id===this.pending.nodeId&&outputsForNode(project,n,this.libraryIndex).includes(this.pending.exit)))this.pending=null;
-  this.root.querySelector('#nodes').innerHTML=chapter.nodes.map(n=>`<article class="node ${n.type} ${n.id===selected?'selected':''} ${n.id===active?'active':''}" data-id="${esc(n.id)}" style="left:${this.position(n).x}px;top:${this.position(n).y}px"><div class="node-heading">${nodeIcon(n.type)}<span class="badge">${n.id===chapter.startNode?'START · ':''}${esc(nodeTypeLabel(n.type))}</span>${esc(n.name)}</div>${n.type==='random'?`<div class="node-body">${n.routes.length} ${n.routes.length===1?'route':'routes'}</div>`:n.type.startsWith('legacy')?'<div class="node-body">Preserved legacy behaviour</div>':''}${this.cardRows(n)}</article>`).join('');
+  this.root.querySelector('#nodes').innerHTML=chapter.nodes.map(n=>`<article class="node ${n.type} ${n.id===selected?'selected':''} ${n.id===active?'active':''}" data-id="${esc(n.id)}" style="left:${this.position(n).x}px;top:${this.position(n).y}px"><div class="node-heading">${nodeIcon(n.type)}<span class="badge">${n.id===chapter.startNode?'START · ':''}${esc(n.name?.trim()||nodeTypeLabel(n.type))}</span></div>${n.type==='random'?`<div class="node-body">${n.routes.length} ${n.routes.length===1?'route':'routes'}</div>`:n.type.startsWith('legacy')?'<div class="node-body">Preserved legacy behaviour</div>':''}${this.cardRows(n)}</article>`).join('');
   this.nodeElements=new Map([...this.root.querySelectorAll('.node')].map(el=>[el.dataset.id,el]));
   this.portElements=new Map([...this.nodeElements].map(([id,el])=>[id,new Map([...el.querySelectorAll('.port')].map(port=>[port.dataset.exit,port]))]));
   this.transform();this.edges();
@@ -70,7 +78,7 @@ export class GraphView {
  unlinked(node,exit){const target=this.target(node,exit);return target!==null&&!this.nodesById.has(target);}
  port(node,exit,label=null){
   const target=esc(this.portLabel(node,exit)),name=esc(labelForOutput(this.project,node,exit,this.libraryIndex));
-  return `<button class="port ${this.unlinked(node,exit)?'unlinked':''}" data-exit="${esc(exit)}" aria-label="${name} → ${target}">${label===null?`${name} → ${target}`:`${label?`${esc(label)} | `:'→ '}${target}`}</button>`;
+  return `<button class="port ${this.unlinked(node,exit)?'unlinked':''}" data-exit="${esc(exit)}" aria-label="${name} → ${target}">${label===null?`${exit==='next'?'':name+' '}→ ${target}`:`${label?`${esc(label)} | `:'→ '}${target}`}</button>`;
  }
  cardRows(node){
   const descriptor=nodeTypeDescriptor(node.type),outputs=outputsForNode(this.project,node,this.libraryIndex),used=new Set();
@@ -80,7 +88,7 @@ export class GraphView {
    for(const placement of placements){
     const definition=this.definitionsById.get(placement.definitionId)||placement;
     const kind=canonicalCardKind(definition.kind||definition.cardKind||descriptor.defaultKinds[slot]);
-    const name=this.definitionsById.has(placement.definitionId)?(definition.name?.trim()||'Untitled'):'Missing card';
+    const name=this.definitionsById.has(placement.definitionId)?cardLabel(definition):'Missing card';
     const indicators=cardRuleIndicators(this.project,placement,this.libraryIndex);
     const tag=kind==='item'?(this.project.itemTags||[]).find(tag=>tag.id===definition.tagId):null;
     const indicatorText=indicators.map(([letter])=>letter).join(' · ');
@@ -88,6 +96,7 @@ export class GraphView {
     const exits=slot==='choices'?outputs.filter(exit=>exit===placement.id||exit===`${placement.id}:success`||exit===`${placement.id}:failure`):[];
     for(const exit of exits)used.add(exit);
     html+=`<hr class="graph-card-divider"><div class="graph-card-row ${exits.length?'has-outputs':''}" data-card-slot="${esc(slot)}" data-card-placement="${esc(placement.id||'')}" data-card-type="${esc(kind)}" style="--card-editor-tint:${esc(cardEditorTint(kind))}"><div class="graph-card-label"><button type="button" class="graph-card-name">${slot==='intro'?'<small>Introduction</small>':''}${esc(name)}</button>${tag?`<small class="graph-item-tag" title="Tag: ${esc(tag.name)}">[${esc(tag.name)}]</small>`:''}${indicatorText?`<small class="graph-card-rules" role="img" aria-label="${esc(indicatorLabel)}" title="${esc(indicatorLabel)}">${esc(indicatorText)}</small>`:''}</div>`;
+    if(slot==='intro'&&node.introOnce===true)html+='<span class="graph-intro-once" role="img" aria-label="Introduction shown once" title="Show once"><svg viewBox="0 0 12 16" aria-hidden="true" focusable="false"><path d="M1 0h10v2H1zM2 3h8L6 8zm4 5 4 5H2zM1 14h10v2H1z"/></svg></span>';
     if(exits.length)html+=`<div class="graph-card-outputs">${exits.map(exit=>this.port(node,exit,exit.endsWith(':success')?'Success':exit.endsWith(':failure')?'Failure':'')).join('')}</div>`;
     html+='</div>';
    }
@@ -192,6 +201,8 @@ export class GraphView {
    this.lastPortClick=null;this.centerOn(this.target(this.nodesById.get(nodeId),exit));
   }else{
    this.lastPortClick={nodeId,exit,time,x,y};
+   const node=this.nodesById.get(nodeId),target=node&&this.target(node,exit);
+   if(this.nodesById.has(target))this.onSelect(target);
   }
  }
  centerOn(id){

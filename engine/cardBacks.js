@@ -1,7 +1,7 @@
 const UI_PATH = './assets/img/ui/';
 const ICON_NAMES = ['default', 'container', 'dice', 'collect', 'discard'];
 export const defaultCardBack = Object.freeze({
-  background: `${UI_PATH}cardback.png`,
+  background: './assets/img/ui/cardback.png',
   icons: Object.freeze(Object.fromEntries(ICON_NAMES.map(name => [name, `${UI_PATH}${name}.png`]))),
   iconScale: 1,
   switchDistance: 6,

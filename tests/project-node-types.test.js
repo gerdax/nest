@@ -11,7 +11,7 @@ test('active descriptors create independent valid defaults with the existing aut
  const p=project();
  for(const type of ['linear','fork','container','random']) {
   const node=createNode(p,type,{x:20,y:30});
-  assert.equal(node.name,`New ${type}`);assert.equal(node.x,20);assert.equal(node.y,30);
+  assert.equal(node.name,nodeTypeLabel(type));assert.equal(node.x,20);assert.equal(node.y,30);
   p.chapters[0].nodes.push(node);
   assert.deepEqual(nodeOutputs(node,placement=>resolvePlacement(p,placement)),outputsForNode(p,node));
  }

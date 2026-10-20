@@ -145,3 +145,5 @@ aside {overflow-anchor:none;}
 
 /* The shared player drawer breakpoint is measured before studio zoom. */
 @media(min-width:321px) and (max-width:400px) {.nest-inventory-drawer .nest-inventory-slot{height:100px;}}
+
+.card-name-field input::placeholder {color:#899c9d;opacity:1;}

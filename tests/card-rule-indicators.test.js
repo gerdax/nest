@@ -33,11 +33,13 @@ test('a trigger alone shows T without counting implicit ownership as R',()=>{
   assert.equal(letters(project,placement),'TR');
 });
 
-test('check configuration and success/failure effects do not show E',()=>{
+test('dice resolution follows the rule letters; outcome effects do not show E',()=>{
   const {project,placement,definition}=fixture();
   Object.assign(definition,{resolution:'check',successEffects:[effect],failureEffects:[effect]});
-  assert.equal(letters(project,placement),'');
+  assert.equal(letters(project,placement),'DICE');
   definition.effects=[effect];
+  assert.equal(letters(project,placement),'EDICE');
+  placement.overrides={resolution:'direct'};
   assert.equal(letters(project,placement),'E');
 });
 

@@ -228,12 +228,12 @@ test('returned-item persistence defaults and explicit overrides survive authorin
  assert.ok(validateProject(project).some(e=>e.message.includes('inventory item persistence toggle')));
 });
 
-test('unnamed existing cards show Untitled in the inspector, distinct from missing definitions',()=>{
+test('empty existing cards show typed placeholders in the inspector, distinct from missing definitions',()=>{
  const project=createProject(),node=createNode(project,'linear'),chapter=project.chapters[0];chapter.nodes.push(node);
  const definition=project.library.find(d=>d.id===node.cards[0].definitionId);
  for(const name of ['', '   ']){
   definition.name=name;const html=nodeInspector(project,chapter,node);
-  assert.match(html,/>Untitled<\/summary>/);assert.doesNotMatch(html,/Missing definition/);
+  assert.match(html,/>Untitled Caption<\/summary>/);assert.doesNotMatch(html,/Missing definition/);
  }
  project.library=project.library.filter(d=>d!==definition);
  assert.match(nodeInspector(project,chapter,node),/Missing definition/);

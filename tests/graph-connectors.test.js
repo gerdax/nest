@@ -82,10 +82,10 @@ for(const kind of ['pointercancel','lostpointercapture','Escape'])test(`${kind} 
  if(kind==='Escape')s.root.handlers.keydown({key:'Escape'});else s.root.event(kind,s.root);
  assert.equal(s.graph.drag,null);assert.equal(s.graph.pending,null);assert.deepEqual(s.calls,[]);assert.equal(s.chapter.nodes[0].connections.next,'b');assert.doesNotMatch(s.root.parts['#edges'].innerHTML,/edge-ghost/);
 });
-test('stationary output-description click does nothing without panning or connecting',()=>{
+test('stationary output-description click selects its target without panning or connecting',()=>{
  const s=setup();s.root.event('pointerdown',s.port());s.root.event('pointerup',s.root);
  assert.deepEqual(s.calls,[]);assert.equal(s.graph.pending,null);
- assert.deepEqual(s.graph.view,{x:50,y:50,z:1});assert.deepEqual(s.selections,[]);assert.deepEqual(s.opened,[]);
+ assert.deepEqual(s.graph.view,{x:50,y:50,z:1});assert.deepEqual(s.selections,['b']);assert.deepEqual(s.opened,[]);
  s.root.event('pointerdown',s.root.node('c'));assert.deepEqual(s.calls,[]);
 });
 test('moved output-link drop on empty canvas unlinks only that output',()=>{
@@ -94,24 +94,24 @@ test('moved output-link drop on empty canvas unlinks only that output',()=>{
 });
 test('unlinked ports have an explicit class and do not pan on click',()=>{
  const s=setup();s.chapter.nodes[0].connections.next=false;s.graph.render(s.graph.project,s.chapter,'a');
- assert.match(s.root.parts['#nodes'].rendered,/class="port unlinked" data-exit="next"[^>]*>Next → Unlinked/);
+ assert.match(s.root.parts['#nodes'].rendered,/class="port unlinked" data-exit="next"[^>]*>→ Unlinked/);
  const before={...s.graph.view};s.root.event('pointerdown',s.port());s.root.event('pointerup',s.root);
  assert.deepEqual(s.graph.view,before);assert.deepEqual(s.calls,[]);
 });
-test('keyboard output-description activation does nothing',()=>{
+test('keyboard output-description activation selects the target',()=>{
  const s=setup();s.root.handlers.click({detail:0,target:s.port()});
- assert.deepEqual(s.selections,[]);assert.deepEqual(s.opened,[]);assert.deepEqual(s.calls,[]);
+ assert.deepEqual(s.selections,['b']);assert.deepEqual(s.opened,[]);assert.deepEqual(s.calls,[]);
 });
 test('double clicking the same connector centers and selects only its target',()=>{
  const s=setup();
  s.graph.activatePort('a','next',1000,300,200);s.graph.activatePort('a','next',1200,300,200);
- assert.deepEqual(s.graph.view,{x:-10,y:290,z:1});assert.deepEqual(s.selections,['b']);
+ assert.deepEqual(s.graph.view,{x:-10,y:290,z:1});assert.deepEqual(s.selections,['b','b']);
  assert.deepEqual(s.opened,[]);assert.deepEqual(s.calls,[]);
 });
-test('slow clicks or canceled interactions do not trigger target navigation',()=>{
+test('slow clicks select targets without centering and cancel clears double-click tracking',()=>{
  const s=setup();s.graph.activatePort('a','next',1000,300,200);s.graph.activatePort('a','next',1600,300,200);
  s.graph.cancel();s.graph.activatePort('a','next',1700,300,200);
- assert.deepEqual(s.selections,[]);assert.equal(s.opened.length,0);
+ assert.deepEqual(s.selections,['b','b','b']);assert.deepEqual(s.graph.view,{x:50,y:50,z:1});assert.equal(s.opened.length,0);
 });
 test('clicking or keyboard activating a card name opens that exact card without dragging',()=>{
  for(const detail of [0,1]){
@@ -322,12 +322,43 @@ test('Escape and capture loss cancel card drags without transfer or node movemen
  }
 });
 
- test('existing unnamed graph cards are Untitled while absent definitions remain Missing card',()=>{
+ test('existing empty graph cards have typed placeholders while absent definitions remain Missing card',()=>{
  const s=setup(),card=createDefinition('event','untitled');
  s.chapter.nodes[0].cards=[{id:'placement',definitionId:card.id}];
  for(const name of ['', '   ']){
   card.name=name;s.graph.render({library:[card]},s.chapter,'a');
-  assert.match(s.root.parts['#nodes'].rendered,/>Untitled<\/button>/);assert.doesNotMatch(s.root.parts['#nodes'].rendered,/Missing card/);
+  assert.match(s.root.parts['#nodes'].rendered,/>Untitled Vignette<\/button>/);assert.doesNotMatch(s.root.parts['#nodes'].rendered,/Missing card/);
  }
  s.graph.render({library:[]},s.chapter,'a');assert.match(s.root.parts['#nodes'].rendered,/>Missing card<\/button>/);
+});
+
+test('unnamed graph cards use an escaped description fallback without modifying the project',()=>{
+ const s=setup(),definition={...createDefinition('event','unnamed'),name:'  ',text:'Wake <here>\n& now'};
+ const node={id:'a',name:'A',type:'linear',x:0,y:0,cards:[{id:'p',definitionId:definition.id}],connections:{next:null}};
+ const project={library:[definition]},before=structuredClone(project);
+ s.graph.render(project,{nodes:[node],startNode:node.id},node.id);
+ assert.match(s.root.parts['#nodes'].rendered,/Wake &lt;here&gt; &amp; now/);
+ assert.deepEqual(project,before);
+});
+
+test('beat headers show the authored name once in the badge instead of a separate type and title',()=>{
+ const s=setup();s.chapter.nodes[0].name='The <box>';
+ s.graph.render({library:[]},s.chapter,'a');
+ const html=s.root.parts['#nodes'].rendered;
+ assert.match(html,/<span class="badge">START · The &lt;box&gt;<\/span><\/div>/);
+ assert.doesNotMatch(html,/<span class="badge">START · Linear<\/span>/);
+ assert.equal((html.match(/The &lt;box&gt;/g)||[]).length,1);
+});
+
+test('only visible show-once introductions carry the small hourglass indicator',()=>{
+ for(const type of ['fork','container']){
+  const s=setup(),definition=createDefinition('event','intro');
+  const node={id:'a',name:'A',type,x:0,y:0,intro:{id:'intro-placement',definitionId:'intro'},choices:[],items:[],connections:{next:null}};
+  const render=()=>{s.graph.render({library:[definition]},{nodes:[node],startNode:'a'},'a');return s.root.parts['#nodes'].rendered;};
+  for(const value of [undefined,false]){node.introOnce=value;assert.doesNotMatch(render(),/graph-intro-once/);}
+  node.introOnce=true;
+  const html=render();assert.equal((html.match(/class="graph-intro-once"/g)||[]).length,1);
+  assert.match(html,/aria-label="Introduction shown once" title="Show once"/);
+  node.introEnabled=false;assert.doesNotMatch(render(),/graph-intro-once/);
+ }
 });

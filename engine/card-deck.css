@@ -52,7 +52,7 @@
 .nest-card-texture {
   position: absolute;
   inset: 0;
-  background: url('../assets/img/cardfront.png') center / 100% 100% no-repeat;
+  background: url('../assets/img/ui/cardfront.png') center / 100% 100% no-repeat;
   mix-blend-mode: lighten;
   z-index: 3;
   pointer-events: none;
@@ -210,7 +210,7 @@
 
 /* Caption faces have fixed stock artwork and a centered Big-style description. */
 .nest-card[data-card-kind="caption"] .nest-artwork {
-  background-image:url('../assets/img/narrative.png');
+  background-image:url('../assets/img/ui/narrative.png');
   background-size:100% 100%;
 }
 .nest-card[data-card-kind="caption"]::after { background:none; }

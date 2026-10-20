@@ -18,5 +18,6 @@ export function cardRuleIndicators(project, placement, index) {
     hasRules(card.conditions) && ['R', 'Requirements'],
     hasRules(card.costs) && ['C', 'Costs'],
     hasRules(effects) && ['E', 'Effects'],
+    canonicalCardKind(card.kind) === 'action' && card.resolution === 'check' && ['DICE', 'Dice resolution'],
   ].filter(Boolean);
 }

@@ -5,14 +5,20 @@
 #canvas .node.connection-target {outline:3px solid #b7e4d3;box-shadow:0 0 16px #b7e4d355;}
 #canvas .port {cursor:pointer;}
 #canvas .port.unlinked::after {color:#000;}
+#canvas .port[data-exit$=":success"],
+#canvas .port[data-exit$=":success"]::after {color:#adf5ae;}
+#canvas .port[data-exit$=":failure"],
+#canvas .port[data-exit$=":failure"]::after {color:#e4a6a5;}
 #canvas .node {overflow:hidden;}
 #canvas .graph-card-divider {border:0;border-top:2px solid #080d0f;margin:0;}
 #canvas .node-heading {border-bottom:2px solid #080d0f;}
-#canvas .node-heading {position:relative;padding-right:48px;}
+#canvas .node-heading {position:relative;padding-right:48px;height:58px;display:flex;align-items:center;}
+#canvas .node-heading .badge {margin-bottom:0;min-width:0;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;}
 #canvas .graph-beat-icon {position:absolute;right:12px;top:50%;transform:translateY(-50%);width:26px;height:26px;fill:none;stroke:#e1e8e6;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;pointer-events:none;}
 #canvas .graph-card-row {padding:9px 12px;background:color-mix(in srgb,var(--card-editor-tint) 14%,#202b2e);}
 #canvas .graph-card-row.has-outputs {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:8px;align-items:start;}
 #canvas .graph-card-name {display:block;min-width:0;width:fit-content;max-width:100%;border:0;border-radius:0;padding:0;text-align:left;background:transparent;color:var(--card-editor-tint);overflow-wrap:anywhere;font-size:12px;line-height:1.6;cursor:pointer;}
+#canvas .graph-card-name {display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;line-clamp:3;max-height:4.8em;overflow:hidden;}
 #canvas .graph-card-name:hover {text-decoration:underline;}
 #canvas .graph-card-name small {display:block;color:#a9b9b7;font-size:10px;}
 #canvas .graph-card-label {min-width:0;}
@@ -56,3 +62,7 @@
 #canvas .node.selected.active {box-shadow:0 0 0 var(--graph-selection-width,2px) var(--graph-selection-color,#a2d3c3),var(--playing-glow);}
 #canvas .node.selected.connection-target,#canvas .node.selected.card-drop-target {--graph-selection-color:#b7e4d3;}
 #canvas .node.selected.card-drop-invalid {--graph-selection-color:#c67979;}
+
+#canvas .graph-card-row:has(.graph-intro-once) {position:relative;padding-right:34px;}
+#canvas .graph-intro-once {position:absolute;right:12px;top:50%;transform:translateY(-50%);width:10px;height:14px;color:#96f7a7;pointer-events:none;}
+#canvas .graph-intro-once svg {display:block;width:100%;height:100%;fill:currentColor;}
