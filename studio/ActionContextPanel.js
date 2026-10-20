@@ -54,6 +54,7 @@ export class ActionContextPanel {
       info ? [info.stat,info.chance,info.label,info.formula,info.rules] : item?.inventoryKey ?? item?.id]);
     const outgoing = this.visible && key !== this.presentationKey ? this.snapshot() : null;
     this.presentationKey = key;
+    this.view.setAttribute('data-mode', result ? 'result' : info ? 'check' : 'item');
     this.caption.textContent = result ? `TARGET: ${result.target}  CHECK: ${result.total}` : info ? info.stat ?? '' : 'USING';
     this.checkDetails.hidden = !info && !result;
     this.checkChance.textContent = result ? result.success ? 'SUCCESS' : 'FAILURE' : info ? `${Math.round(parseFloat(info.chance))}%` : '';
@@ -143,6 +144,7 @@ export class ActionContextPanel {
     this.root.setAttribute('aria-hidden', 'true');
     this.root.setAttribute('inert', '');
     this.root.removeAttribute('data-mode');
+    this.view.removeAttribute('data-mode');
     this.caption.textContent = '';
     this.checkChance.textContent = '';
     this.checkRules.textContent = '';

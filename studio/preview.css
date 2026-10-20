@@ -93,6 +93,9 @@
 @media(prefers-reduced-motion:reduce){.nest-card-backdrop{transition:none;}}
 
 /* Results reuse the exact caption and lane used by odds and USING. */
+.action-context-view[data-mode="result"] {translate:0 -10px;}
+.action-context-view[data-mode="result"] .action-context-content {order:-1;}
+.action-context-view[data-mode="result"] .action-context-caption {margin:var(--action-context-content-gap,14px) 0 0;}
 .action-check-details[data-presentation="result"] {translate:none;padding-top:16px;}
 .action-check-details[data-presentation="result"] strong {font:var(--action-context-result-size,clamp(30px,17cqw,76px))/1 NestVitals,monospace;color:var(--card-text,#b8cb98);}
 .action-check-details[data-outcome="failure"] strong {color:#71825a;}

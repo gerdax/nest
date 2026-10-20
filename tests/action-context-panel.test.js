@@ -252,6 +252,7 @@ test('only completed outcomes show the result caption and replace minis', () => 
     assert.equal(panel.checkChance.textContent, success?'SUCCESS':'FAILURE');
     assert.equal(panel.checkDetails.attrs['data-outcome'], success?'success':'failure');
     assert.equal(panel.root.attrs['data-mode'], 'result');
+    assert.equal(panel.view.attrs['data-mode'], 'result');
     assert.equal(panel.mini.item, null);
     assert.equal(panel.checkRules.hidden, true);
   }
@@ -259,5 +260,6 @@ test('only completed outcomes show the result caption and replace minis', () => 
   assert.equal(panel.checkDetails.attrs['data-outcome'], undefined);
   assert.equal(panel.checkDetails.attrs['data-presentation'], 'odds');
   assert.equal(panel.caption.textContent, info.stat);
+  assert.equal(panel.view.attrs['data-mode'], 'check');
   panel.destroy();
 });
