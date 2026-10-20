@@ -169,3 +169,15 @@ test('Add beat resolves placement after canceling an active graph pan',async()=>
   button.onclick();
   assert.deepEqual(calls,['cancel','edit']);
 });
+
+test('moving multiple beats is one atomic undo step and invalid batches leave no partial movement',()=>{
+ const state=session(),before=state.history.document,chapter=before.chapters[0];
+ const positions=chapter.nodes.slice(0,2).map(n=>({id:n.id,x:n.x+100,y:n.y+50}));
+ const outcome=state.run('move-nodes',{positions});assert.equal(outcome.failure,undefined);
+ for(const p of positions){const node=outcome.project.chapters[0].nodes.find(n=>n.id===p.id);assert.equal(node.x,p.x);assert.equal(node.y,p.y);}
+ state.history.undo();assert.deepEqual(state.history.document,before);assert.equal(state.history.canUndo,false);
+ state.history.redo();assert.deepEqual(state.history.document,outcome.project);
+ const current=state.history.document;
+ assert.match(state.run('move-nodes',{positions:[positions[0],{id:'missing',x:0,y:0}]}).failure,/no longer be moved/);
+ assert.deepEqual(state.history.document,current);
+});

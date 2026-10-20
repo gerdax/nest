@@ -176,6 +176,14 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
     case 'inspector': return inspectorCommand(project, selection, data, localDrafts);
     case 'connect': setConnection(chapter.nodes.find(n => n.id === data.id), data.exit, data.target); break;
     case 'move-node': Object.assign(chapter.nodes.find(n => n.id === data.id), {x:data.x, y:data.y}); break;
+    case 'move-nodes': {
+      for(const position of data.positions){
+        const target=chapter.nodes.find(node=>node.id===position.id);
+        if(!target||!Number.isFinite(position.x)||!Number.isFinite(position.y))throw new Error('The selected beats can no longer be moved.');
+        Object.assign(target,{x:position.x,y:position.y});
+      }
+      break;
+    }
     case 'image': {
       const target = documentScope(project, selection, data);
       if (!target) throw new Error('Select the card again before choosing its image.');

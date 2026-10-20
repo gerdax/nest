@@ -33,9 +33,9 @@ class Root extends Element {
 }
 function setup(){
  const nodes=[{id:'a',name:'A',type:'linear',cards:[],x:0,y:0,connections:{next:'b'}},{id:'b',name:'B',type:'linear',cards:[],x:400,y:50,connections:{next:null}},{id:'c',name:'C',type:'linear',cards:[],x:600,y:150,connections:{next:null}}];
- const chapter={nodes,startNode:'a'},project={library:[],allowCycles:false},root=new Root(),calls=[],moves=[],selections=[],opened=[],deleted=[],creations=[];
- const graph=new GraphView(root,{onCreateConnected:request=>creations.push(request),onDelete:id=>deleted.push(id),onSelect:id=>selections.push(id),onOpenCard:(...args)=>opened.push(args),onConnect:(...args)=>calls.push(args),onMove:(...args)=>moves.push(args)});graph.render(project,chapter,'a','b');
- return {root,graph,chapter,calls,moves,selections,opened,deleted,creations,port:()=>root.node('a').children[0]};
+ const chapter={nodes,startNode:'a'},project={library:[],allowCycles:false},root=new Root(),calls=[],moves=[],selections=[],opened=[],deleted=[],creations=[],groups=[],groupMoves=[];
+ const graph=new GraphView(root,{onSelectMany:ids=>groups.push(ids),onMoveMany:positions=>groupMoves.push(positions),onCreateConnected:request=>creations.push(request),onDelete:id=>deleted.push(id),onSelect:id=>selections.push(id),onOpenCard:(...args)=>opened.push(args),onConnect:(...args)=>calls.push(args),onMove:(...args)=>moves.push(args)});graph.render(project,chapter,'a','b');
+ return {root,graph,chapter,calls,moves,selections,opened,deleted,creations,groups,groupMoves,port:()=>root.node('a').children[0]};
 }
 test('Delete and Mac Backspace delete the selected beat through the graph callback',()=>{
  for(const key of ['Delete','Backspace']){
@@ -361,4 +361,73 @@ test('only visible show-once introductions carry the small hourglass indicator',
   assert.match(html,/aria-label="Introduction shown once" title="Show once"/);
   node.introEnabled=false;assert.doesNotMatch(render(),/graph-intro-once/);
  }
+});
+
+function modifiedDown(s,target,x,y,modifier='metaKey'){
+ s.root.handlers.pointerdown({target,clientX:x,clientY:y,pointerId:1,button:0,[modifier]:true,preventDefault(){}});
+}
+for(const modifier of ['metaKey','ctrlKey'])test(`${modifier} drag selects intersecting beats without panning or editing`,()=>{
+ const s=setup(),view={...s.graph.view};
+ modifiedDown(s,s.root,50,60,modifier);
+ s.root.event('pointermove',s.root,650,210);
+ assert.deepEqual([...s.graph.selectedIds],['a','b']);
+ assert.match(s.root.parts['#edges'].innerHTML,/graph-selection-box/);
+ assert.equal(s.root.node('b').classes.has('selected'),true);
+ s.root.event('pointerup',s.root,650,210);
+ assert.deepEqual(s.groups,[['a','b']]);assert.deepEqual(s.graph.view,view);
+ assert.deepEqual(s.calls,[]);assert.deepEqual(s.moves,[]);assert.deepEqual(s.selections,[]);
+ assert.doesNotMatch(s.root.parts['#edges'].innerHTML,/graph-selection-box/);
+});
+
+test('box selection works in reverse at combined graph and editor zoom',()=>{
+ const s=setup();s.graph.view.z=.5;
+ s.root.ownerDocument.documentElement={};s.root.ownerDocument.defaultView={getComputedStyle:()=>({zoom:2})};
+ // client = root offset + UI scale * (pan + world * graph zoom).
+ modifiedDown(s,s.root,700,260);
+ s.root.event('pointerup',s.root,100,110);
+ assert.deepEqual(s.groups,[['a','b']]);assert.deepEqual(s.graph.view,{x:50,y:50,z:.5});
+});
+
+test('modifier click toggles a beat without moving it or opening a card',()=>{
+ const s=setup();modifiedDown(s,s.root.node('b'),500,160);
+ s.root.event('pointerup',s.root,500,160);assert.deepEqual(s.groups,[['a','b']]);
+ modifiedDown(s,s.root.node('a'),100,100);s.root.event('pointerup',s.root,100,100);
+ assert.deepEqual(s.groups.at(-1),['b']);assert.deepEqual(s.moves,[]);assert.deepEqual(s.opened,[]);
+});
+
+test('selected beats move together with live wires and one group move callback',()=>{
+ const s=setup();s.graph.selectedIds=new Set(['a','b']);const before=structuredClone(s.chapter);
+ s.root.event('pointerdown',s.root.node('b'),500,160);
+ s.root.event('pointermove',s.root,600,210);
+ assert.equal(s.root.node('a').style.left,'100px');assert.equal(s.root.node('b').style.left,'500px');
+ assert.equal(s.root.node('a').style.top,'50px');assert.equal(s.root.node('b').style.top,'100px');
+ assert.deepEqual(s.graph.position(s.chapter.nodes[0]),{x:100,y:50});
+ s.graph.render(s.graph.project,s.chapter,'a','b');
+ assert.deepEqual([...s.graph.selectedIds],['a','b']);assert.match(s.root.node('a').style.left??s.root.parts['#nodes'].rendered,/100/);
+ s.root.event('pointerup',s.root,600,210);
+ assert.deepEqual(s.groupMoves,[[{id:'a',x:100,y:50},{id:'b',x:500,y:100}]]);
+ assert.deepEqual(s.moves,[]);assert.deepEqual(s.selections,[]);assert.deepEqual(s.chapter,before);
+});
+
+for(const cancellation of ['Escape','pointercancel','lostpointercapture'])test(`${cancellation} restores selection and cancels group motion without document edits`,()=>{
+ const s=setup();modifiedDown(s,s.root,50,60);s.root.event('pointermove',s.root,650,210);
+ if(cancellation==='Escape')s.root.handlers.keydown({key:'Escape'});else s.root.event(cancellation,s.root);
+ assert.deepEqual([...s.graph.selectedIds],['a']);assert.deepEqual(s.groups,[]);
+ s.graph.selectedIds=new Set(['a','b']);s.root.event('pointerdown',s.root.node('b'),500,160);s.root.event('pointermove',s.root,600,210);
+ s.graph.cancel();assert.deepEqual(s.groupMoves,[]);assert.equal(s.graph.position(s.chapter.nodes[0]).x,0);assert.equal(s.graph.position(s.chapter.nodes[0]).y,0);
+});
+
+test('a multi-selection cannot delete an arbitrary primary beat and clears on chapter change',()=>{
+ const s=setup();s.graph.selectedIds=new Set(['a','b']);
+ s.root.handlers.keydown({key:'Delete',target:s.root,preventDefault(){assert.fail('no group delete');}});
+ assert.deepEqual(s.deleted,[]);
+ s.graph.render(s.graph.project,{...s.chapter,id:'another-chapter'},'a');
+ assert.deepEqual([...s.graph.selectedIds],['a']);
+});
+
+test('canceling a modifier selection never swallows subsequent keyboard connector activation',()=>{
+ const s=setup();modifiedDown(s,s.root,50,60);s.root.event('pointercancel',s.root);
+ s.root.handlers.keydown({key:'Enter',target:s.port()});
+ s.root.handlers.click({detail:0,target:s.port(),preventDefault(){assert.fail('activation must not be swallowed');}});
+ assert.deepEqual(s.selections,['b']);
 });

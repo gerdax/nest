@@ -66,3 +66,5 @@
 #canvas .graph-card-row:has(.graph-intro-once) {position:relative;padding-right:34px;}
 #canvas .graph-intro-once {position:absolute;right:12px;top:50%;transform:translateY(-50%);width:10px;height:14px;color:#96f7a7;pointer-events:none;}
 #canvas .graph-intro-once svg {display:block;width:100%;height:100%;fill:currentColor;}
+
+#edges .graph-selection-box {fill:#a2d3c319;stroke:#a2d3c3;stroke-width:1;vector-effect:non-scaling-stroke;pointer-events:none;}

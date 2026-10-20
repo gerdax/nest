@@ -51,12 +51,12 @@ const node=()=>chapter().nodes.find(n=>n.id===selected);
 const definition=()=>project.library.find(d=>d.id===definitionId);
 const preview=new ProjectPreview($('#preview'),{inventoryHost:$('.preview-window-body'),onChange:state=>updatePreviewHighlight(graph,preview,chapter(),state),onStop:()=>graph.setActive(null),onGoToCard:goToPreviewCard});
 const previewWindow=mountPreviewWindow($('#preview-window'),{onClose:()=>preview.stop()});
-const autoplay=mountAutoplay($('#autoplay'),{getSelected:()=>selected,onPlay:id=>play(id,{restore:false})});
+const autoplay=mountAutoplay($('#autoplay'),{getSelected:()=>graph.selectedIds.size>1?undefined:selected,onPlay:id=>play(id,{restore:false})});
 const nodeCreateMenu=mountNodeCreateMenu({onChoose:(type,request)=>edit('create-connected-node',{...request,type}),onDismiss:()=>graph.cancelCreation(),returnFocus:$('#canvas')});
 const graph=new GraphView($('#canvas'),{
- onSelect:id=>{selected=id;renderInspector({collapseCards:true});renderGraph();autoplay.select(id);},
+ onSelect:id=>{graph.selectedIds=new Set([id]);selected=id;renderInspector({collapseCards:true});renderGraph();autoplay.select(id);},
  onOpenCard:(id,target,exit)=>{
-  selected=id;mode='chapter';renderInspector({collapseCards:true});renderGraph();
+  graph.selectedIds=new Set([id]);selected=id;mode='chapter';renderInspector({collapseCards:true});renderGraph();
   if(target)revealCardEntry($('#inspector'),target);
   else {const field=[...$('#inspector').querySelectorAll('[data-scope="connection"]')].find(el=>el.dataset.path===exit);field?.scrollIntoView({block:'center'});field?.focus({preventScroll:true});}
  },
@@ -64,6 +64,8 @@ const graph=new GraphView($('#canvas'),{
  onCancelCreate:()=>nodeCreateMenu.close(),
  onConnect:(id,exit,target)=>edit('connect',{id,exit,target}),
  onMove:(id,x,y)=>edit('move-node',{id,x,y}),
+ onMoveMany:positions=>edit('move-nodes',{positions}),
+ onSelectMany:ids=>{selected=ids[0];renderGraph();renderInspector({collapseCards:true});},
  onTransferCard:data=>{preview.stop();edit('transfer-card',data);},
  onDelete:()=>{if(mode==='chapter'&&node())edit('delete-node');},
 });
@@ -75,6 +77,7 @@ function goToPreviewCard(target){
  const source=sourceCard(project,target);
  if(!source){report('This card was removed from the current project. Restart preview to use the latest version.');return;}
  const changedChapter=chapterId!==source.chapter.id;
+ graph.selectedIds=new Set([source.node.id]);
  chapterId=source.chapter.id;selected=source.node.id;mode='chapter';
  render();if(changedChapter)graph.fit();
  if(!revealCardEntry($('#inspector'),target))report('This card is not currently shown in the panel. Its introduction may have been disabled since playback started.');
@@ -103,9 +106,11 @@ function edit(type,data={}, {preserveProjectSettings=false,refresh=true}={}){
  return {ok:!outcome.failure&&saved.ok,value:outcome.result?.value};
 }
 function renderGraph(){
- $('#copy-node').disabled=$('#cut-node').disabled=mode!=='chapter'||!node();
- $('#paste-node').disabled=mode!=='chapter'||!nodeClipboard||nodeClipboard.projectId!==project.id;
  if(mode==='chapter')graph.render(project,chapter(),selected,previewActiveNode(preview,chapter()));
+ const multiple=graph.selectedIds.size>1;
+ $('#copy-node').disabled=$('#cut-node').disabled=mode!=='chapter'||!node()||multiple;
+ for(const id of ['duplicate','start','play-node'])$('#'+id).disabled=mode!=='chapter'||!node()||multiple;
+ $('#paste-node').disabled=mode!=='chapter'||!nodeClipboard||nodeClipboard.projectId!==project.id;
 }
 function renderProjectSettings(){
  const root=$('#project-settings-content'),active=document.activeElement;
@@ -123,6 +128,7 @@ function renderProjectSettings(){
  }
 }
 function renderInspector({collapseCards=false,preserveProjectSettings=false}={}){
+ const multiple=mode==='chapter'&&graph.selectedIds.size>1;
  localDrafts.setContext(chapterId,selected);
  const sidebar=document.querySelector('aside'),scroll=sidebar.scrollTop;
  const settings=$('#settings'),active=document.activeElement;
@@ -135,7 +141,7 @@ function renderInspector({collapseCards=false,preserveProjectSettings=false}={})
  const expanded=sameInspector?[...$('#inspector').querySelectorAll('details')].map((el,i)=>el.open?i:-1):[];
  $('#settings').innerHTML=chapterSettingsInspector(project,chapter());
  if(!preserveProjectSettings)renderProjectSettings();
- $('#inspector').innerHTML=mode==='library'?definitionInspector(project,definition()):nodeInspector(project,chapter(),node());
+ $('#inspector').innerHTML=mode==='library'?definitionInspector(project,definition()):multiple?`<p class="small">${graph.selectedIds.size} beats selected. Drag a selected beat’s header to move them together.</p>`:nodeInspector(project,chapter(),node());
  renderCardPreviews($('#inspector'),project,node(),chapterId);
  refreshCardClipboardButtons();
  applyCardStyles(preview.mount,project.cardStyles);
@@ -145,9 +151,9 @@ function renderInspector({collapseCards=false,preserveProjectSettings=false}={})
  if(sameInspector)[...$('#inspector').querySelectorAll('details')].forEach((el,i)=>{el.open=expanded.includes(i);});
  if(collapseCards)for(const entry of $('#inspector').querySelectorAll('details[data-placement],details[data-sequence]')){entry.open=false;entry.classList.remove('card-navigation-target');}
  $('#inspector').dataset.key=inspectorKey;
- const panelLabel=mode==='library'?(cardKinds[definition()?.kind]?.label||'Library'):nodeTypeLabel(node()?.type)||'Beat';
+ const panelLabel=multiple?'Multiple beats':mode==='library'?(cardKinds[definition()?.kind]?.label||'Library'):nodeTypeLabel(node()?.type)||'Beat';
  $('#panel-title').closest('.tabs').hidden=mode==='library';
- $('#panel-title').innerHTML=`<span>${esc(panelLabel)}</span>${mode==='chapter'?nodeIcon(node()?.type):''}`;
+ $('#panel-title').innerHTML=`<span>${esc(panelLabel)}</span>${mode==='chapter'&&!multiple?nodeIcon(node()?.type):''}`;
  if(sameInspector&&focusedSetting){
   const next=[...settings.querySelectorAll('[data-path]')].find(el=>el.dataset.scope===focusedSetting.scope&&el.dataset.path===focusedSetting.path);
   next?.focus({preventScroll:true});
@@ -305,7 +311,7 @@ function command(event){const b=event.target.closest('[data-command]');if(!b)ret
     ...(b.dataset.sequence?{sequenceId:b.dataset.sequence,slot:b.dataset.slot,parentCardId:b.dataset.parent}: {})});
    graph.fit();
   }else{
-   chapterId=b.dataset.chapter;selected=b.dataset.node||project.chapters.find(c=>c.id===chapterId)?.startNode;mode='chapter';render();graph.fit();
+   chapterId=b.dataset.chapter;selected=b.dataset.node||project.chapters.find(c=>c.id===chapterId)?.startNode;graph.selectedIds=new Set(selected?[selected]:[]);mode='chapter';render();graph.fit();
    if(!b.dataset.node){const settings=$('#settings').querySelector('details');if(settings){settings.open=true;settings.scrollIntoView({block:'start'});}}
   }
   return;
@@ -348,7 +354,7 @@ $('#chapter-view').onclick=()=>{mode='chapter';render();};$('#library-view').onc
 $('#chapter-selector').onchange=e=>{preview.stop();edit('select-chapter',{id:e.target.value});graph.fit();};
 $('#add-chapter').onclick=()=>edit('add-chapter');
 function copyBeat(cut=false){
- if(mode!=='chapter'||!node())return false;
+ if(mode!=='chapter'||!node()||graph.selectedIds.size>1)return false;
  graph.cancel();
  try{
   const data=captureNodeClipboard(project,chapterId,selected,{cut});
@@ -371,14 +377,14 @@ function pasteBeat(){
 }
 $('#copy-node').onclick=()=>copyBeat();$('#cut-node').onclick=()=>copyBeat(true);$('#paste-node').onclick=pasteBeat;
 function duplicateBeat(){
- if(mode!=='chapter'||!node())return false;
+ if(mode!=='chapter'||!node()||graph.selectedIds.size>1)return false;
  edit('duplicate-node');graph.centerOn(selected);$('#canvas').focus({preventScroll:true});return true;
 }
 const stopNodeClipboardShortcuts=mountNodeClipboardShortcuts(document,{copy:()=>copyBeat(),cut:()=>copyBeat(true),paste:pasteBeat,duplicate:duplicateBeat,enabled:()=>mode==='chapter'});
 for(const b of document.querySelectorAll('[data-add-kind]'))b.onclick=()=>edit('add-definition',{kind:b.dataset.addKind});
 for(const b of document.querySelectorAll('[data-add]'))b.onclick=()=>{graph.cancel();edit('add-node',{type:b.dataset.add,position:{x:(150-graph.view.x)/graph.view.z,y:(140-graph.view.y)/graph.view.z}});};
 $('#duplicate').onclick=duplicateBeat;
-$('#start').onclick=()=>{if(node())edit('set-start');};
+$('#start').onclick=()=>{if(node()&&graph.selectedIds.size<=1)edit('set-start');};
 function travel(method){
  graph.cancel();localDrafts.reset();const result=travelHistory(history,method,persistence);
  if(result.changed){
@@ -428,7 +434,7 @@ function bindImport(input,kind){
 bindImport($('#import'),'project');
 bindImport($('#import-chapter'),'chapter');
 function play(startNode,{restore=false,chapterId:targetChapterId=chapterId,focus=true}={}){try{previewWindow.show({restore});preview.play(project,targetChapterId,startNode,{focus:focus&&!previewWindow.minimized});report('Chapter ready.');return true;}catch(error){report(error.message);return false;}}
-function playSelected(options){if(!node())return false;return play(selected,options);}
+function playSelected(options){if(!node()||graph.selectedIds.size>1)return false;return play(selected,options);}
 $('#play').onclick=()=>play();$('#play-node').onclick=()=>playSelected();
 $('#play-node').title='Play selected beat from the start (Shift+Enter)';
 $('#play-node').setAttribute('aria-keyshortcuts','Shift+Enter');
@@ -438,7 +444,7 @@ const stopPlayShortcuts=mountPlayShortcuts(document,{
   if(!target?.matches?.('input,textarea,select')||!target.closest('#inspector,#settings,#project-settings-content'))return false;
   target.blur();return true;
  },
- enabled:()=>!!node(),
+ enabled:()=>!!node()&&graph.selectedIds.size<=1,
 });
 window.addEventListener('pagehide',event=>{if(event.persisted)return;graph.cancel();stopHistoryShortcuts();stopNodeClipboardShortcuts();stopViewShortcuts();stopPlayShortcuts();autoplay.destroy();previewWindow.destroy();projectSettingsWindow.destroy();preview.destroy();});
 render();graph.fit();if(loaded.error||loaded.recovery)report('');else if(loaded.migrated)report('Legacy save loaded; original browser save preserved.');else report(loaded.project?'Saved in this browser.':'Not saved yet.');
