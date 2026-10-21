@@ -1,3 +1,4 @@
+import { cardRuleIndicators } from './card-rule-indicators.js';
 import { itemTagsEditor } from './item-tags.js';
 import { cardLabel, cardFallbackLabel } from './card-label.js';
 import { sortedChapters, startChapter } from '../project/chapter-navigation.js';
@@ -13,6 +14,13 @@ import { nodeTypeDescriptor, nodeTypeLabel, retainsInventoryItems } from '../pro
 import { inventoryItemOptions } from './item-options.js';
 import { itemReferenceLinks } from './item-reference.js';
 import { field, select, checkbox, button, rules, actionFields, imageField, esc } from './forms.js';
+
+function cardHeaderIndicators(project,placement) {
+ const indicators=cardRuleIndicators(project,placement);
+ if(!indicators.length)return '';
+ const label=indicators.map(([letter,label])=>`${letter}: ${label}`).join('; ');
+ return `<span class="card-header-rules" role="img" aria-label="${esc(label)}" title="${esc(label)}">${esc(indicators.map(([letter])=>letter).join(' · '))}</span>`;
+}
 
 function artworkEditor(definition,scope) {
  const slider=(label,key,value,min,max)=>`<label class="field artwork-slider">${label}<output>${value}%</output><input type="range" min="${min}" max="${max}" step="1" value="${value}" data-scope="${scope}" data-path="${key}" data-artwork-slider></label>`;
@@ -58,9 +66,9 @@ export function definitionInspector(project,definition) {
  const chapter=local?project.chapters.find(chapter=>chapter.id===definition.chapterId):undefined;
  if(local) {
   project={...project,variables:chapterVariables(project,chapter).map(v=>({...v,variableScope:(chapter?.variables||[]).includes(v)?'chapter':'global'}))};
-  return `<section class="card-panel card-definition-panel" data-card-type="${esc(definition.kind)}" style="--card-editor-tint:${esc(cardEditorTint(definition.kind))}"><h2>${esc(cardKinds[definition.kind].label)}</h2><p class="small">Chapter-local definition · ${esc(chapter?.name||'Unknown chapter')}. Changes apply wherever this card is referenced.</p>${button('Back to beat','back-to-beat')}${cardFields(project,definition,'definition',true,true,chapter)}${definitionUsagePanel(project,definition.id)}</section>`;
+  return `<section class="card-panel card-definition-panel" data-card-type="${esc(definition.kind)}" style="--card-editor-tint:${esc(cardEditorTint(definition.kind))}"><h2>${esc(cardKinds[definition.kind].label)}${cardHeaderIndicators(project,{definitionId:definition.id})}</h2><p class="small">Chapter-local definition · ${esc(chapter?.name||'Unknown chapter')}. Changes apply wherever this card is referenced.</p>${button('Back to beat','back-to-beat')}${cardFields(project,definition,'definition',true,true,chapter)}${definitionUsagePanel(project,definition.id)}</section>`;
  }
- let html=`<section class="card-panel card-definition-panel" data-card-type="${esc(definition.kind)}" style="--card-editor-tint:${esc(cardEditorTint(definition.kind))}"><div class="card-definition-heading"><h2>${esc(cardKinds[definition.kind].label)}</h2>${definition.kind==='item'&&definition.tagId?`<span class="card-definition-tag">[${esc((project.itemTags||[]).find(tag=>tag.id===definition.tagId)?.name||definition.tagId)}]</span>`:''}</div><p class="small">Shared definition · Changes apply everywhere this definition is referenced.</p>`+cardFields(project,definition);
+ let html=`<section class="card-panel card-definition-panel" data-card-type="${esc(definition.kind)}" style="--card-editor-tint:${esc(cardEditorTint(definition.kind))}"><div class="card-definition-heading"><h2>${esc(cardKinds[definition.kind].label)}${cardHeaderIndicators(project,{definitionId:definition.id})}</h2>${definition.kind==='item'&&definition.tagId?`<span class="card-definition-tag">[${esc((project.itemTags||[]).find(tag=>tag.id===definition.tagId)?.name||definition.tagId)}]</span>`:''}</div><p class="small">Shared definition · Changes apply everywhere this definition is referenced.</p>`+cardFields(project,definition);
  html+=definitionUsagePanel(project,definition.id);
  const removal=libraryRemovalPlan(project,definition.id);
  html+=`<p class="small">${esc(removal.blocked?removal.reason:removal.placements.length?'Removing this definition converts its chapter placements to independent local cards, preserving their content and rules.':'This definition is unused. Removal requires confirmation.')}</p>`;
@@ -75,7 +83,7 @@ export function placementInspector(project,p,kind,index,slot,count=Infinity,chap
  const compareLabels=(a,b)=>a.localeCompare(b,undefined,{sensitivity:'base',numeric:true});
  const localSources=kinds.map(k=>[`local:${k}`,`local [${cardKinds[k]?.label||k}]`]).sort((a,b)=>compareLabels(a[1],b[1]));
  const defs=project.library.filter(d=>kinds.includes(d.kind)&&d.visibility!=='local').map(d=>[d.id,`${cardKinds[d.kind]?.label||d.kind}: ${cardLabel(d)}`]).sort((a,b)=>compareLabels(a[1],b[1]));
- let html=`<details class="entry card-panel" data-card-type="${esc(kind)}" style="--card-editor-tint:${esc(cardEditorTint(kind))}" data-placement="${esc(p.id)}"><summary><span class="card-type-label" data-card-type="${esc(kind)}">${kind==='item'&&definition?.tagId?`<span class="card-item-tag">[${esc((project.itemTags||[]).find(tag=>tag.id===definition.tagId)?.name||definition.tagId)}]</span>`:''}${esc(cardKinds[kind]?.label||kind)}</span>${esc(definition?cardLabel(card):'Missing definition')}</summary>`;
+ let html=`<details class="entry card-panel" data-card-type="${esc(kind)}" style="--card-editor-tint:${esc(cardEditorTint(kind))}" data-placement="${esc(p.id)}"><summary><span class="card-type-label" data-card-type="${esc(kind)}">${kind==='item'&&definition?.tagId?`<span class="card-item-tag">[${esc((project.itemTags||[]).find(tag=>tag.id===definition.tagId)?.name||definition.tagId)}]</span>`:''}${esc(cardKinds[kind]?.label||kind)}</span>${esc(definition?cardLabel(card):'Missing definition')}${cardHeaderIndicators(project,p)}</summary>`;
  const attr=`data-placement="${esc(p.id)}"`;
  html+=`<p class="small">${cardSummaryParts(card||{},project.variables,project.library,project.itemTags).map(esc).join('<br>')}</p>`;
  html+=select('Card source',local?`local:${kind}`:p.definitionId,[...localSources,...defs],'definitionId','placement');

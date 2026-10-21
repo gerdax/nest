@@ -413,7 +413,6 @@ $('#undo').onclick=()=>travel('undo');$('#redo').onclick=()=>travel('redo');
 const stopHistoryShortcuts=mountHistoryShortcuts(document,{undo:()=>$('#undo').click(),redo:()=>$('#redo').click()});
 const stopViewShortcuts=mountViewShortcuts(document,{
  toggleAutoplay:()=>$('#autoplay').click(),
- libraryActive:()=>mode==='library',
  enabled:()=>$('#project-settings-overlay').hidden&&!graph.drag&&!graph.pending&&!graph.creation&&!preview.deck?.input?.active,
  switchView:()=>{
   graph.cancel();mode=mode==='chapter'?'library':'chapter';render();
@@ -456,6 +455,7 @@ $('#play').onclick=()=>play();$('#play-node').onclick=()=>playSelected();
 $('#play-node').title='Play selected beat from the start (Shift+Enter)';
 $('#play-node').setAttribute('aria-keyshortcuts','Shift+Enter');
 const stopPlayShortcuts=mountPlayShortcuts(document,{
+ playbackDeck:()=>previewWindow.visible&&!previewWindow.minimized&&$('#project-settings-overlay').hidden&&!graph.drag&&!graph.pending&&!graph.creation?preview.deck:null,
  playSelected:()=>{graph.cancel();return playSelected({focus:false});},
  commitField:target=>{
   if(!target?.matches?.('input,textarea,select')||!target.closest('#inspector,#settings,#project-settings-content'))return false;
