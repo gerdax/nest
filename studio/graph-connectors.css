@@ -69,8 +69,7 @@
 
 #edges .graph-selection-box {fill:#a2d3c319;stroke:#a2d3c3;stroke-width:1;vector-effect:non-scaling-stroke;pointer-events:none;}
 
-/* The visible preview card follows the active node's warm highlight. */
-#canvas .graph-card-row.preview-active .graph-card-name {
-  color:#f0cc5b;background:#f0cc5b20;border-radius:3px;
-  box-shadow:0 0 0 2px #f0cc5b20;
+/* Inset stroke marks the whole visible card without shifting the node layout. */
+#canvas .graph-card-row.preview-active {
+  box-shadow:inset 0 0 0 1px #fff;
 }
