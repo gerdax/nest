@@ -58,7 +58,7 @@ function itemRuleFields(project,item,prefix,scope,chapter) {
 }
 function consumableRuleFields(project,card,prefix,scope,chapter) {
  return field('Value',card.value??1,`${prefix}value`,scope,'number')
-  +rules(project,card.onCollect,`${prefix}onCollect`,scope,'effects',{chapter,label:'On collect effects',help:`Swipe up to consume this card. It adds its Value to ${card.kind==='health'?'Health':'Energy'} and applies these additional effects. It does not enter inventory.`});
+  +rules(project,card.onCollect,`${prefix}onCollect`,scope,'effects',{chapter,label:'On collect effects',help:`Swipe up to consume this card. It adds its Value to ${card.kind==='health'?'Health':'Energy'} and applies these additional effects.`});
 }
 export function definitionInspector(project,definition) {
  if(!definition)return '<p>Select a definition in the Library.</p>';

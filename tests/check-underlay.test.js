@@ -53,9 +53,9 @@ for(const reduced of [false,true]) for(const success of [false,true]) for(const 
  settle();await flush();assert.equal(rolled,true);assert.equal(deck.checkSurface.ready,true);
  assert.equal(deck.underlayBack.checkSlot.hidden,false);assert.equal(deck.underlayBack.style.visibility,'visible');
  assert.ok(deck.cards.every((_,index)=>cardPose(deck,index).visible===false));
- assert.equal(deck.pending,null);assert.equal(controller.state.variables.energy,4);
+ assert.equal(deck.pending,null);assert.equal(controller.state.variables.energy,3);
  deck.finishMotion();await flush();assert.equal(controller.state.checking,true);assert.equal(deck.pending,null);
- resolveRoll(success?[4,4,4]:[1,1,1]);await flush();assert.equal(feedback.success,success);assert.equal(feedback.total,success?15:6);assert.equal(controller.state.variables.composure,3);assert.equal(controller.state.variables.energy,4);
+ resolveRoll(success?[4,4,4]:[1,1,1]);await flush();assert.equal(feedback.success,success);assert.equal(feedback.total,success?15:6);assert.equal(controller.state.variables.composure,3);assert.equal(controller.state.variables.energy,3);
  assert.equal(controller.state.activeNodeId,'fork');
  const surface=deck.checkSurface, slot=surface.slot, background=surface.back.style.backgroundImage;
  resolveFeedback();await flush();

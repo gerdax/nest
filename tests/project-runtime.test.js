@@ -39,7 +39,7 @@ test('check spends costs then applies common and failure effects after feedback'
  let resolve,feedback;const roll=new Promise(r=>resolve=r),wait=new Promise(r=>feedback=r);
  const choice=action('try',{resolution:'check',check:{pool:[{sides:6,count:1}],modifier:1,modifierVariable:'skill',target:10},costs:[{source:'variable',key:'energy',amount:2}],effects:[{op:'add',key:'energy',value:1}],failureEffects:[{op:'add',key:'energy',value:2}]});
  const {deck,controller}=fixture([{id:'f',type:'fork',choices:[choice],connections:{'try:success':'win','try:failure':'lose'}},{id:'win',type:'linear',cards:[narrative('win')]},{id:'lose',type:'linear',cards:[narrative('lose')]}],{variables:[{id:'energy',type:'number',initial:4},{id:'skill',type:'number',initial:1}]},{rollCheck:()=>roll,onCheckResult:result=>{assert.equal(result.total,4);return wait;}});
- deck.accept();assert.equal(controller.state.checking,true);resolve([2]);await flush();assert.equal(controller.state.variables.energy,4);feedback();await flush();assert.equal(controller.state.variables.energy,5);assert.equal(controller.state.activeNodeId,'lose');controller.destroy();
+ deck.accept();assert.equal(controller.state.checking,true);assert.equal(controller.state.variables.energy,2);resolve([2]);await flush();assert.equal(controller.state.variables.energy,2);feedback();await flush();assert.equal(controller.state.variables.energy,5);assert.equal(controller.state.activeNodeId,'lose');controller.destroy();
 });
 test('cancel and restart abort late check completion without spending or duplicate retries',async()=>{
  const resolves=[];const signals=[];const {deck,controller}=fixture([{id:'f',type:'fork',choices:[action('try',{resolution:'check',check:{pool:[{sides:6,count:1}],target:1},costs:[{source:'variable',key:'energy',amount:1}]})],connections:{'try:success':null,'try:failure':null}}],{variables:[{id:'energy',type:'number',initial:2}]},{rollCheck:(_,o)=>{signals.push(o.signal);return new Promise(r=>resolves.push(r));}});
@@ -487,4 +487,79 @@ for(const direction of ['linear to container','container to linear'])for(const o
  assert.deepEqual(controller.state.collectedItems.map(item=>item.definitionId),operation==='collect'?['one']:[]);
  assert.equal(deck.preserveInventoryContext,false);assert.deepEqual(errors,[]);
  dispose(deck,controller);
+});
+
+test('check payment is visible before roller starts; modifiers and final trigger ordering use prepayment state',async()=>{
+ let resolve,feedback;const events=[];
+ const tool={id:'key',definitionId:'key',inventoryKey:'key-alias',kind:'item',permability:1};
+ const choice=action('try',{resolution:'check',contextItemId:'key',check:{pool:[{sides:6,count:1}],modifierVariable:'skill',target:5},
+  conditions:[{source:'variable',key:'skill',op:'gte',value:4}],costs:[{source:'variable',key:'skill',amount:2}],effects:[{op:'addItem',key:'key'}]});
+ const {deck,controller}=fixture([{id:'f',type:'fork',choices:[choice],connections:{'try:success':null,'try:failure':null}}],
+  {variables:[{id:'skill',type:'number',initial:4}],library:[tool]},
+  {initialState:{inventory:[tool]},onChange:state=>{if(state.checking)events.push(`paid:${state.variables.skill}`);},
+   rollCheck:()=>{events.push('roll');return new Promise(r=>resolve=r);},
+   onCheckResult:result=>{assert.equal(result.total,5,'modifier is resolved before payment');return new Promise(r=>feedback=r);}});
+ deck.accept();
+ assert.deepEqual(events,['paid:2','roll']);
+ assert.equal(controller.state.variables.skill,2);
+ assert.equal(controller.state.collectedItems[0].remainingTriggers,1,'trigger use waits for outcome');
+ // A second commit while rolling cannot charge the check again.
+ deck.accept();assert.equal(controller.state.variables.skill,2);
+ resolve(1);await flush();assert.equal(controller.state.variables.skill,2);assert.equal(controller.state.completed,false);
+ feedback();await flush();
+ assert.equal(controller.state.variables.skill,2);assert.equal(controller.state.completed,true);
+ assert.deepEqual(controller.state.collectedItems,[],'duplicate grant cannot refill the accepted trigger');
+ controller.destroy();
+});
+
+test('inventory costs are removed before rolling and may consume the contextual trigger itself',async()=>{
+ let resolve;
+ const tool={id:'key',kind:'item',inventoryKey:'key-alias',permability:1};
+ const choice=action('try',{resolution:'check',contextItemId:'key-alias',check:{pool:[{sides:6,count:1}],target:1},
+  costs:[{source:'inventory',key:'key'}]});
+ const {deck,controller}=fixture([{id:'f',type:'fork',choices:[choice],connections:{'try:success':null,'try:failure':null}}],
+  {library:[tool]},{initialState:{inventory:[tool]},rollCheck:()=>new Promise(r=>resolve=r)});
+ deck.accept();assert.deepEqual(controller.state.collectedItems,[]);
+ resolve(1);await flush();assert.equal(controller.state.completed,true);assert.deepEqual(controller.state.collectedItems,[]);
+ controller.destroy();
+});
+
+for(const stage of ['roll','feedback'])test(`failed ${stage} restores the prepaid costs and inventory`,async()=>{
+ const tool={id:'key',kind:'item'},other={id:'other',kind:'item'},errors=[];
+ const choice=action('try',{resolution:'check',check:{pool:[{sides:6,count:1}],target:1},
+  costs:[{source:'variable',key:'energy',amount:2},{source:'inventory',key:'key'}]});
+ const {deck,controller}=fixture([{id:'f',type:'fork',choices:[choice],connections:{'try:success':null,'try:failure':null}}],
+  {variables:[{id:'energy',type:'number',initial:2}],library:[tool,other]},
+  {initialState:{inventory:[tool,other]},rollCheck:async()=>{if(stage==='roll')throw new Error('Roll failed');return 1;},
+   onCheckResult:async()=>{throw new Error('Feedback failed');},onError:e=>errors.push(e)});
+ deck.accept();await flush();
+ assert.equal(errors.length,1);assert.equal(controller.state.variables.energy,2);assert.deepEqual(controller.state.collectedItems.map(item=>item.definitionId),['key','other']);
+ assert.equal(controller.state.checking,false);assert.equal(controller.state.completed,false);
+ controller.destroy();
+});
+
+for(const interrupt of ['cancelCheck','restart','destroy'])test(`payment observer ${interrupt} prevents stale roller dispatch`,()=>{
+ let current,rolls=0;
+ const {deck,controller}=fixture([{id:'f',type:'fork',choices:[action('try',{resolution:'check',check:{pool:[{sides:6,count:1}],target:1},costs:[{source:'variable',key:'energy',amount:1}]})],connections:{'try:success':null,'try:failure':null}}],
+  {variables:[{id:'energy',type:'number',initial:2}]},
+  {onChange:state=>{if(state.checking)current[interrupt]();},rollCheck:async()=>{rolls++;return 6;}});
+ current=controller;deck.accept();
+ assert.equal(rolls,0);
+ if(interrupt!=='destroy')assert.equal(controller.state.variables.energy,2);
+ controller.destroy();
+});
+
+test('a refreshed live state aborts pending check and refunds costs without overwriting external edits',async()=>{
+ let resolve;const errors=[];
+ const tool={id:'key',kind:'item'},unrelated={id:'lost',kind:'item'};
+ const choice=action('try',{resolution:'check',check:{pool:[{sides:6,count:1}],target:1},costs:[{source:'variable',key:'energy',amount:2},{source:'inventory',key:'key'}]});
+ const {deck,controller}=fixture([{id:'f',type:'fork',choices:[choice],connections:{'try:success':null,'try:failure':null}}],
+  {variables:[{id:'energy',type:'number',initial:5}],library:[tool,unrelated]},
+  {initialState:{inventory:[tool,unrelated]},rollCheck:()=>new Promise(r=>resolve=r),onError:e=>errors.push(e)});
+ deck.accept();assert.equal(controller.variables.energy,3);
+ controller.variables.energy=1;controller.inventory=[];
+ resolve(6);await flush();
+ assert.equal(controller.completed,false);assert.equal(controller.variables.energy,3,'refund two spent energy, preserve external loss');
+ assert.deepEqual(controller.inventory.map(item=>item.definitionId??item.id),['key'],'refund consumed cost only, preserve unrelated removal');
+ assert.match(errors[0].message,/requirements changed/);controller.destroy();
 });

@@ -176,14 +176,15 @@ export function decorateCard(deck, element, image, title, text, flipImage = fals
   body.textContent = text || '';
   copy.append(heading);
   const actionCard = presentation.cardKind === 'action';
+  const authoredOnly = ['action','item','health','energy'].includes(presentation.cardKind);
   if (actionCard) copy.append(body);
-  if (presentation.summary) {
+  if (presentation.summary && !authoredOnly) {
     const summary = document.createElement('p');
     summary.className = 'nest-card-summary';
     summary.textContent = presentation.summary;
     copy.append(summary);
   }
-  if (presentation.inventoryLabel) {
+  if (presentation.inventoryLabel && !authoredOnly) {
     const source = document.createElement('p');
     source.className = 'nest-card-inventory';
     source.textContent = presentation.inventoryLabel;
@@ -200,8 +201,15 @@ export function decorateCard(deck, element, image, title, text, flipImage = fals
   if (['health','energy'].includes(presentation.cardKind)) {
     const value = document.createElement('span');
     value.className = 'nest-card-value';
-    value.textContent = `${presentation.value >= 0 ? '+' : ''}${presentation.value ?? 0}`;
-    value.setAttribute('aria-label', `${presentation.cardKind} ${value.textContent}`);
+    const amount = document.createElement('span');
+    amount.textContent = `${presentation.value >= 0 ? '+' : ''}${presentation.value ?? 0}`;
+    value.setAttribute('aria-label', `${presentation.cardKind} ${amount.textContent}`);
+    const icon = document.createElement('img');
+    icon.setAttribute('src', `./assets/img/ui/hud-${presentation.cardKind}.png`);
+    icon.setAttribute('alt', '');
+    icon.setAttribute('aria-hidden', 'true');
+    icon.draggable = false;
+    value.append(amount, icon);
     element.append(value);
   }
   if (actionCard && presentation.actionEnergyCost > 0) {

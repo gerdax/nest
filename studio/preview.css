@@ -99,3 +99,12 @@
 .action-check-details[data-presentation="result"] {translate:none;padding-top:16px;}
 .action-check-details[data-presentation="result"] strong {font:var(--action-context-result-size,clamp(30px,17cqw,76px))/1 NestVitals,monospace;color:var(--card-text,#b8cb98);}
 .action-check-details[data-outcome="failure"] strong {color:#71825a;}
+
+.action-context-item-column {display:flex;flex-direction:column;align-items:center;gap:var(--action-context-content-gap,14px);min-width:0;}
+.action-context-item-column[hidden],.action-context-item-column > .action-context-caption[hidden] {display:none!important;}
+.action-context-item-column > .action-context-caption {margin:0;}
+.action-context-view[data-mode="check-item"] {display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:24px;align-items:start;}
+.action-context-view[data-mode="check-item"] > .action-context-caption {grid-column:1;grid-row:1;}
+.action-context-view[data-mode="check-item"] > .action-context-content {display:contents;}
+.action-context-view[data-mode="check-item"] .action-check-details {grid-column:1;grid-row:2;}
+.action-context-view[data-mode="check-item"] .action-context-item-column {grid-column:2;grid-row:1 / span 2;translate:-25px 0;}

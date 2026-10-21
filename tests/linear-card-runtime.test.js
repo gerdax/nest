@@ -122,10 +122,10 @@ for(const reduced of [false,true])test(`mixed Linear cards keep one open action/
  assert.equal(controller.state.cardId,'caption');assert.equal(controller.state.variables.energy,6);assert.equal(controller.state.collectedItems[0].definitionId,'apple');assert.equal(deck.phase,'closed');key(deck,'ArrowUp');assert.equal(controller.state.completed,true);dispose(deck,controller);
 });
 
-for(const total of [1,6])test(`Linear check outcome ${total} spends costs after feedback and follows the same ordered successor`,async()=>{
+for(const total of [1,6])test(`Linear check outcome ${total} spends costs before rolling and follows the same ordered successor`,async()=>{
  let resolve,feedback;const results=[];
  const {deck,controller}=real(linear([action('roll',{resolution:'check',check:{pool:[{sides:6,count:1}],target:4},costs:[{source:'variable',key:'energy',amount:2}],effects:[{op:'add',key:'energy',value:1}],successEffects:[{op:'add',key:'energy',value:5}],failureEffects:[{op:'add',key:'energy',value:2}]}),narrative('after')]),{variables:energy},{rollCheck:()=>new Promise(r=>resolve=r),onCheckResult:r=>{results.push(r);return new Promise(r=>feedback=r);}});
- assert.equal(deck.content.nextDeckPreview,undefined);assert.equal(deck.content.nextCardPreview,undefined);deck.commit();settle();assert.equal(controller.state.checking,true);resolve(total);await flush();assert.equal(controller.state.variables.energy,4);assert.equal(controller.state.cardId,'roll');feedback();await flush();settle();
+ assert.equal(deck.content.nextDeckPreview,undefined);assert.equal(deck.content.nextCardPreview,undefined);deck.commit();settle();assert.equal(controller.state.checking,true);assert.equal(controller.state.variables.energy,2);resolve(total);await flush();assert.equal(controller.state.variables.energy,2);assert.equal(controller.state.cardId,'roll');feedback();await flush();settle();
  assert.equal(results[0].success,total>=4);assert.equal(controller.state.variables.energy,total>=4?8:5);assert.equal(controller.state.cardId,'after');assert.equal(deck.phase,'closed');dispose(deck,controller);
 });
 

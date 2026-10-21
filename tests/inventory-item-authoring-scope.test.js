@@ -141,13 +141,13 @@ test('local item definitions use their owning chapter when the active chapter di
  assert.equal(item.onCollect[1].value,false,'local definition rules can use chapter variables');
 });
 
-test('inventory rule links follow Remove and identify the selected definition',()=>{
+test('item effect links follow the target picker and precede Remove',()=>{
  const {project,chapter,node,action}=fixture();
  action.effects=[{op:'addItem',key:'shared-item'},{op:'removeItem',key:'own-item'}];
  chapter.nodes.push({id:'items',type:'container',name:'Items',items:[{id:'own-placement',definitionId:'own-item'}],connections:{}});
  const html=nodeInspector(project,chapter,node);
  assert.match(html,/>Progression effects · 2</);
- assert.match(html,/<div class="rule-entry-actions"><button[^>]*data-command="remove-rule"[^>]*>Remove<\/button>[\s\S]*?Go to definition/);
+ assert.match(html,/<div class="item-effect-reference">[\s\S]*?Go to definition<\/button><\/div><\/div><\/div><div class="rule-entry-actions"><button[^>]*data-command="remove-rule"[^>]*>Remove<\/button>/);
  assert.match(html,/data-definition="shared-item"/);
  assert.match(html,/data-definition="own-item"/);
  assertChapterOptions(html,'effects.0.key');

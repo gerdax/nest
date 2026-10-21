@@ -263,7 +263,13 @@
   top: var(--card-padding, 26px);
   right: var(--card-padding, 26px);
   z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: .2em;
   color: var(--card-text, #d2dfb6);
   font: var(--card-font-size, 21px)/1 var(--card-font, NestLetter, monospace);
   pointer-events: none;
 }
+
+.nest-card-value img {width:1.2em;height:1.2em;object-fit:contain;}
+.nest-card[data-card-kind="health"] .nest-card-value img {width:1em;height:1em;translate:3px -3px;}

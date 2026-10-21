@@ -22,7 +22,7 @@ export class ProjectController {
   error(error) {if(!this.destroyed)this.onError(error,this.state);}
   restart() {
     if(this.destroyed)return;
-    ++this.generation; this.checking?.abort(); this.checking=null;
+    ++this.generation; this.checking?.abort(); this.checking=null;this.checkPayment=null;
     this.deck.reset();
     this.variables=transact(initialValues(this.compiled.variables),[],{effects:Object.entries(this.initialState?.variables || {}).map(([key,value])=>({op:'set',key,value}))},this.compiled.variables).variables;
     this.inventory=(this.initialState?.inventory || []).reduce((items,item)=>addInventory(items,structuredClone(item)),[]);
@@ -307,7 +307,7 @@ export class ProjectController {
       this.notify();
     }catch(error){this.error(error);this.show({restore:true});}
   }
-  transaction(source,outcome) {return transact(this.variables,this.inventory,{triggerItem:source.contextInventoryKey??source.contextItemId,costs:source.costs,effects:[...(source.effects??[]),...(outcome===undefined?[]:outcome?source.successEffects??[]:source.failureEffects??[])]},this.compiled.variables,this.compiled.library);}
+  transaction(source,outcome,values=this.variables,inventory=this.inventory) {return transact(values,inventory,{triggerItem:source.contextInventoryKey??source.contextItemId,costs:source.costs,effects:[...(source.effects??[]),...(outcome===undefined?[]:outcome?source.successEffects??[]:source.failureEffects??[])]},this.compiled.variables,this.compiled.library);}
   available(source) {return (!source.contextItemId||canTriggerItem(this.inventory,source.contextInventoryKey??source.contextItemId))&&conditionsMet(source.conditions,this.variables,this.inventory)&&affordCosts(this.variables,this.inventory,source.costs,this.compiled.variables);}
   commit(detail) {
     if(this.destroyed||this.completed||this.checking||this.pendingItem||this.pendingIntro||(this.type()==='container'||this.type()==='linear'&&this.card()?.kind==='item')||detail.contentId!==this.deck.content.id||this.accepted.has(detail.contentId))return;
@@ -326,10 +326,16 @@ export class ProjectController {
   }
   async runCheck(source) {
     if(this.departureBlocked(source))return;
-    const generation=this.generation,abort=new AbortController();this.checking=abort;this.notify();
+    const generation=this.generation,abort=new AbortController();this.checking=abort;
     try {
       if(!this.rollCheck)throw new Error('No dice roller supplied');
-      const check=resolveCheck(source.check,this.variables);
+      const before={variables:this.variables,inventory:this.inventory};
+      const check=resolveCheck(source.check,before.variables);
+      const paid=transact(before.variables,before.inventory,{costs:source.costs},this.compiled.variables,this.compiled.library);
+      this.checkPayment={abort,...before,paid:structuredClone(paid),expected:JSON.stringify(paid)};
+      this.variables=paid.variables;this.inventory=paid.inventory;this.notify();
+      // Observers can synchronously cancel, restart or destroy playback.
+      if(abort.signal.aborted||generation!==this.generation||this.destroyed)return;
       const result=await this.rollCheck(check.pool,{signal:abort.signal,target:check.target});
       if(abort.signal.aborted||generation!==this.generation||this.destroyed)return;
       const dice=Array.isArray(result)?result:result?.dice;
@@ -340,16 +346,31 @@ export class ProjectController {
       const total=raw+modifier,success=total>=check.target;
       await this.onCheckResult({total,target:check.target,success,dice:dice??[],signal:abort.signal});
       if(abort.signal.aborted||generation!==this.generation||this.destroyed)return;
-      if(this.departureBlocked(source))throw new Error('Unlinked output');
-      if(!this.available(source))throw new Error('Check requirements changed');
-      const next=this.transaction(source,success);const destination=this.destination(source,success,next.variables,next.inventory);
-      this.variables=next.variables;this.inventory=next.inventory;this.checking=null;this.adopt(destination,false);this.show();
+      if(JSON.stringify({variables:this.variables,inventory:this.inventory})!==this.checkPayment.expected)throw new Error('Check requirements changed');
+      if(this.departureBlocked(source,this.location,before.variables,before.inventory))throw new Error('Unlinked output');
+      // Resolve atomically from the original state: costs are already visible,
+      // while trigger uses and effects retain their established ordering.
+      const next=this.transaction(source,success,before.variables,before.inventory);const destination=this.destination(source,success,next.variables,next.inventory);
+      this.variables=next.variables;this.inventory=next.inventory;this.checkPayment=null;this.checking=null;this.adopt(destination,false);this.show();
     }catch(error){
       if(generation!==this.generation||this.destroyed)return;
-      this.checking=null;if(error?.name!=='AbortError')this.error(error);this.show({restore:true});
+      this.restoreCheckPayment(abort);this.checking=null;if(error?.name!=='AbortError')this.error(error);this.show({restore:true});
     }
   }
-  cancelCheck() {if(!this.checking)return false;this.checking.abort();this.checking=null;++this.generation;this.show({restore:true});return true;}
+  restoreCheckPayment(abort) {
+    if(this.checkPayment?.abort!==abort)return;
+    const payment=this.checkPayment;this.checkPayment=null;
+    if(JSON.stringify({variables:this.variables,inventory:this.inventory})===payment.expected){
+      this.variables=payment.variables;this.inventory=payment.inventory;return;
+    }
+    const effects=Object.keys(payment.variables).filter(key=>typeof payment.variables[key]==='number'&&typeof this.variables[key]==='number'&&payment.variables[key]!==payment.paid.variables[key])
+      .map(key=>({op:'add',key,value:payment.variables[key]-payment.paid.variables[key]}));
+    this.variables=transact(this.variables,this.inventory,{effects},this.compiled.variables,this.compiled.library).variables;
+    // Refund only spent inventory costs; preserve unrelated live ownership edits.
+    const paidIds=new Set(payment.paid.inventory.map(item=>item.definitionId??item.id));
+    for(const item of payment.inventory)if(!paidIds.has(item.definitionId??item.id))this.inventory=addInventory(this.inventory,item);
+  }
+  cancelCheck() {if(!this.checking)return false;const abort=this.checking;abort.abort();this.restoreCheckPayment(abort);this.checking=null;++this.generation;this.show({restore:true});return true;}
   collectionInventory(item, replacementId) {
     if (this.ownsItem(item)) throw new Error('Item is already owned');
     let inventory = this.inventory;
@@ -488,5 +509,5 @@ export class ProjectController {
     }else if(detail.transition==='commit'&&this.stagedDestination){const destination=this.stagedDestination,generation=this.generation;this.stagedDestination=null;this.adopt(destination);if(!this.destroyed&&this.generation===generation&&!this.completed)this.reportBlocked();}
     else this.notify();
   }
-  destroy() {if(this.destroyed)return;this.destroyed=true;++this.generation;this.checking?.abort();this.checking=null;for(const [name,listener]of Object.entries(this.listeners))this.deck.removeEventListener(name,listener);}
+  destroy() {if(this.destroyed)return;this.destroyed=true;++this.generation;this.checking?.abort();this.checking=null;this.checkPayment=null;for(const [name,listener]of Object.entries(this.listeners))this.deck.removeEventListener(name,listener);}
 }

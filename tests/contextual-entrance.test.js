@@ -139,12 +139,12 @@ test('reset and destroy cancel pending entrance presentations', () => {
   deck.destroy(); settle(); assert.equal(deck.entrances.size, 0); assert.equal(frames.size, 0);
 });
 
-test('updated inventory indication refreshes a reused action front', () => {
+test('updated inventory context reuses the action front without printing metadata', () => {
   const deck = make(1, choices([contextual('pick')])); ready(deck);
   const card = deck.cards[0];
   deck.updateActions([{...contextual('pick'), inventoryLabel: 'Inventory · Key'}]); settle();
   assert.equal(deck.cards[0], card);
-  assert.ok(descendants(card).some(el => el.textContent === 'Inventory · Key')); dispose(deck);
+  assert.equal(descendants(card).some(el => el.textContent === 'Inventory · Key'),false); dispose(deck);
 });
 
 test('nonanimated open replacement settles contextual cards immediately', () => {

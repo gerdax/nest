@@ -1,0 +1,34 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<base href="../../">
+<title>Combined action context verification</title>
+<link rel="stylesheet" href="engine/card-deck.css">
+<link rel="stylesheet" href="demo/inventory.css">
+<link rel="stylesheet" href="studio/preview.css">
+<link rel="stylesheet" href="studio/playfield.css">
+<style>
+*{box-sizing:border-box}body{margin:0;padding:16px;background:#172020;color:#dce5ce;font:14px system-ui}main{display:flex;gap:24px;align-items:flex-start}#frame{width:390px;height:800px;flex:none}aside{max-width:300px}button{padding:8px;margin:4px;background:#263838;color:#e3edda;border:1px solid #687c58;border-radius:5px}#frame.compact{width:320px;height:640px}
+</style>
+<main><section id="frame" class="nest-playfield"><div id="preview"></div></section><aside>
+<h1>Combined action context</h1><p>Stat odds and USING appear together for the combined action. Hold the miniature to inspect its item. Check-only, item-only and compact layouts retain the same interaction.</p>
+<button data-mode="combined">Combined</button><button data-mode="check">Check only</button><button data-mode="item">Item only</button><button data-mode="certain">100% odds</button><button id="compact">Toggle compact</button>
+</aside></main>
+<script type="module">
+import {ProjectPreview} from './studio/ProjectPreview.js';
+import {createProject} from './project/model.js';
+const project=createProject(),chapter=project.chapters[0],node=chapter.nodes.find(n=>n.type==='fork');
+const placement=node.choices[0],action=project.library.find(d=>d.id===placement.definitionId),item=project.library.find(d=>d.kind==='item');
+action.text='Pass behind him before he turns.';action.resolution='check';action.check={mode:'stat',modifierVariable:'agility',difficulty:1};action.costs=[{source:'variable',key:'energy',amount:1}];
+node.introEnabled=false;chapter.startNode=node.id;placement.contextItemId=item.id;
+const preview=new ProjectPreview(document.querySelector('#preview'),{onGoToCard:()=>{}});
+function play(mode){
+ action.resolution=mode==='item'?'direct':'check';
+ if(mode==='check')delete placement.contextItemId;else placement.contextItemId=item.id;
+ node.connections=mode==='item'?{[placement.id]:null}:{[`${placement.id}:success`]:null,[`${placement.id}:failure`]:null};
+ preview.play(project,chapter.id,node.id,{initialState:{variables:{energy:4,health:8,agility:mode==='certain'?10:3},inventory:[item]}});
+}
+for(const button of document.querySelectorAll('[data-mode]'))button.onclick=()=>play(button.dataset.mode);
+document.querySelector('#compact').onclick=()=>document.querySelector('#frame').classList.toggle('compact');
+play('combined');
+</script>

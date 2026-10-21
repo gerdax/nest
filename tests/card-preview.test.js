@@ -16,14 +16,14 @@ class Element {
 globalThis.document={createElement:()=>new Element(),body:new Element()};
 class Deck extends EventTarget {reset(){}replaceContent(content){this.content=content;}endContent(){}}
 
-test('imported chapters with matching node IDs use their own variable definitions in previews',()=>{
+test('imported chapter previews omit automatic chapter-variable effect summaries',()=>{
  const source=createProject();
  source.chapters[0].variables=[{id:'focus',name:'Focus',type:'number',initial:3,max:10}];
  source.chapters[0].nodes[2].choices[0].overrides={conditions:[],costs:[],effects:[{op:'add',key:'focus',value:1}]};
  const project=importChapter(createProject(),exportChapter(source)),chapter=project.chapters.at(-1),node=chapter.nodes[2];
  const mount=new Element();mount.dataset.previewPlacement=node.choices[0].id;
  renderCardPreviews({querySelectorAll:()=>[mount]},project,node,chapter.id);
- assert.equal(mount.children[0].children[0].children[2].textContent,'Effects: Restore up to 1 Focus');
+ assert.equal(mount.children[0].children[0].children.find(child=>child.className==='nest-card-summary'),undefined);
 });
 
 test('inspector preview and player use identical narrative heading/body/artwork, without context',()=>{
@@ -111,13 +111,13 @@ test('typed fronts separate permanent type labels from item names and hide name 
  }
 });
 
-test('all action descriptions precede requirements and inventory source',()=>{
+test('action fronts omit automatic requirements and inventory source',()=>{
  const front=new Element();decorateCard(null,front,'','','Pick the lock',false,{cardKind:'action',summary:'Requires: Own Lockpick',inventoryLabel:'Inventory · Lockpick'});
  assert.equal(front.attrs['data-inventory-action'],'true');
- assert.deepEqual(front.children[0].children.map(el=>el.textContent),['','Pick the lock','Requires: Own Lockpick','Inventory · Lockpick']);
+ assert.deepEqual(front.children[0].children.map(el=>el.textContent),['','Pick the lock']);
  front.replaceChildren();decorateCard(null,front,'','','Choose a route',false,{cardKind:'action',summary:'Requires: Energy'});
  assert.equal(front.attrs['data-inventory-action'],'false','reused ordinary actions clear contextual styling');
- assert.deepEqual(front.children[0].children.map(el=>el.textContent),['','Choose a route','Requires: Energy']);
+ assert.deepEqual(front.children[0].children.map(el=>el.textContent),['','Choose a route']);
 });
 
 test('unfinished missing-definition draft renders its inspector and skips unavailable artwork previews',async()=>{
@@ -142,12 +142,12 @@ test('unfinished missing-definition draft renders its inspector and skips unavai
  }
 });
 
-test('Library definition previews show tag names instead of internal tag IDs',()=>{
+test('Item definition previews omit automatic tag and trigger metadata',()=>{
  const project=createProject(),item=project.library.find(d=>d.kind==='item');
  project.itemTags=[{id:'internal-tool-id',name:'Tool'}];item.tagId='internal-tool-id';
  const mount=new Element();mount.dataset.previewDefinition=item.id;
  renderCardPreviews({querySelectorAll:()=>[mount]},project,null);
- assert.equal(mount.children[0].children[0].children.find(child=>child.className==='nest-card-summary').textContent,'Tag: Tool · Action triggers: permanent');
+ assert.equal(mount.children[0].children[0].children.find(child=>child.className==='nest-card-summary'),undefined);
 });
 
 for(const mode of ['stat','custom','direct'])test(`inspector ${mode} action renders the same front as gameplay including inventory and chapter overrides`,()=>{
@@ -165,8 +165,8 @@ for(const mode of ['stat','custom','direct'])test(`inspector ${mode} action rend
  decorateCard(null,expected,live.image,live.heading,live.text,live.flipImage,live);
  assert.deepEqual(mount.children[0].children,expected.children);
  if(mode==='stat') {
-  assert.equal(live.summary,'');assert.equal(live.checkInfo.stat,'Agility: 5');
-  assert.equal(mount.children[0].children[0].children.some(child=>child.className==='nest-card-summary'),false);
+  assert.equal(live.summary,'Triggered by: Flashlight');assert.equal(live.checkInfo.stat,'Agility: 5');
+  assert.equal(mount.children[0].children[0].children.find(child=>child.className==='nest-card-summary'),undefined);
  }
  assert.equal(mount.children[0].attrs['data-inventory-action'],'true');
  controller.destroy();
@@ -192,4 +192,21 @@ test('imported Item stat checks use the same front as runtime collection cards',
  decorateCard(null,expected,live.image,live.heading,live.text,live.flipImage,live);
  assert.deepEqual(mount.children[0].children,expected.children);
  assert.equal(live.summary,'');controller.destroy();
+});
+
+test('Item fronts show authored name and description without automatic rule summaries',()=>{
+ const front=new Element();
+ decorateCard(null,front,'','Ada’s ID Badge','The badge may still work.',false,{cardKind:'item',summary:'Tag: InfirmaryAccess · Action triggers: permanent · Collect: Add 1 energy'});
+ assert.deepEqual(front.children[0].children.map(child=>child.textContent),['Ada’s ID Badge','The badge may still work.']);
+});
+
+for(const cardKind of ['action','health','energy'])test(`${cardKind} fronts retain authored content and value markers without automatic metadata`,()=>{
+ const front=new Element();
+ decorateCard(null,front,'','Name','Authored description',false,{cardKind,value:2,actionEnergyCost:1,summary:'Effects: Add 2 energy · Triggered by: Flashlight',inventoryLabel:'Inventory · Flashlight'});
+ const copy=front.children[0];
+ assert.equal(copy.children.find(child=>child.className==='nest-card-summary'),undefined);
+ assert.equal(copy.children.find(child=>child.className==='nest-card-inventory'),undefined);
+ assert.equal(copy.children.at(-1).textContent,'Authored description');
+ assert.ok(front.children.some(child=>child.className==='nest-card-type'));
+ assert.ok(front.children.some(child=>child.className===(cardKind==='action'?'nest-action-energy-cost':'nest-card-value')));
 });

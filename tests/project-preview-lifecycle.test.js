@@ -523,3 +523,27 @@ test('active dice roll keeps target and outcome hidden until showResult', async 
     assert.equal(preview.actionContext.visible,true);
   } finally { preview.destroy(); DiceService.prototype.roll = original; }
 });
+
+test('selected stat check and owned trigger item populate the combined context panel',()=>{
+ environment();
+ const project=createProject(),chapter=project.chapters[0],fork=chapter.nodes.find(node=>node.type==='fork');
+ const placement=fork.choices[0],source=project.library.find(card=>card.id===placement.definitionId),item=project.library.find(card=>card.kind==='item');
+ source.resolution='check';source.check={mode:'stat',modifierVariable:'agility',difficulty:1};
+ placement.contextItemId=item.id;fork.introEnabled=false;
+ fork.connections={[`${placement.id}:success`]:null,[`${placement.id}:failure`]:null};
+ const preview=new ProjectPreview(new Element());
+ preview.play(project,chapter.id,fork.id,{initialState:{inventory:[item]}});
+ preview.deck.finishMotion();preview.syncActionContext();
+ assert.equal(preview.actionContext.root.getAttribute('data-mode'),'check-item');
+ assert.equal(preview.actionContext.checkChance.textContent,'84%');
+ assert.equal(preview.actionContext.mini.item.definitionId,item.id);
+ assert.equal(preview.actionContext.itemCaption.textContent,'USING');
+ assert.equal(preview.deck.content.actions[0].summary,'Triggered by: Flashlight');
+ const other={id:'other',name:'Other item'};
+ preview.controller.inventory.push(other);
+ preview.deck.content.actions.push({id:'other-action',contextItemId:other.id,checkInfo:{...preview.deck.content.actions[0].checkInfo}});
+ preview.deck.index=1;preview.update(preview.controller.state);
+ assert.equal(preview.actionContext.mini.item.id,other.id);
+ preview.stop();assert.equal(preview.actionContext.mini.item,null);
+ preview.destroy();
+});

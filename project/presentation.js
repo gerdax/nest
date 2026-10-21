@@ -25,7 +25,8 @@ export function cardFace(card, variables=[], library=[], values) {
 export function actionCardFace(card, variables=[], library=[], values={}) {
  const face=cardFace(card,variables,library,values);
  const checkInfo=card.resolution==='check'?playerCheckPresentation(card.check,values,variables):null;
+ const triggerSummary=card.contextItemId?cardSummary({kind:'action',contextItemId:card.contextItemId,itemTags:card.itemTags},variables,library):'';
  return {...face,
   ...(card.resolution==='check'?{checkTarget:resolveCheck(card.check,values).target}:{}),
-  ...(checkInfo?{checkInfo:{...checkInfo,rules:face.summary},summary:''}:{})};
+  ...(checkInfo?{checkInfo:{...checkInfo,rules:face.summary},summary:triggerSummary}:{})};
 }

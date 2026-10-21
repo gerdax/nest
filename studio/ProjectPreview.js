@@ -195,7 +195,7 @@ export class ProjectPreview {
       info,
       result: this.checkPresentation,
       selectionKey: action?.id ?? null,
-      item: info ? null : focusedTriggerItem(deck, this.state),
+      item: focusedTriggerItem(deck, this.state),
       busy: !!deck?.state?.busy || !this.state?.idle,
     });
     this.syncBackdrop();

@@ -51,7 +51,7 @@ test('one caption and content container switch between item and check modes', ()
   assert.deepEqual(panel.root.children, [panel.blend]);
   assert.deepEqual(panel.blend.children, [panel.view]);
   assert.deepEqual(panel.view.children, [caption, panel.content]);
-  assert.deepEqual(panel.content.children, [panel.checkDetails, panel.mini.root]);
+  assert.deepEqual(panel.content.children, [panel.checkDetails, panel.itemColumn]);
   panel.update({ item });
   assert.equal(panel.caption.textContent, 'USING');
   assert.equal(panel.checkDetails.hidden, true);
@@ -64,12 +64,15 @@ test('one caption and content container switch between item and check modes', ()
   panel.update({ info, item });
   assert.equal(panel.caption, caption);
   assert.equal(caption.textContent, 'LUCK');
-  assert.equal(panel.root.attrs['data-mode'], 'check');
+  assert.equal(panel.root.attrs['data-mode'], 'check-item');
   assert.equal(panel.checkDetails.hidden, false);
   assert.equal(panel.checkChance.textContent, '64%');
   assert.equal(panel.checkRules.textContent, info.label);
   assert.equal(panel.checkDetails.title, 'D20 + luck · At least 12');
-  assert.equal(panel.mini.item, null, 'check wins when both are supplied');
+  assert.equal(panel.mini.item, item);
+  assert.equal(panel.itemCaption.hidden, false);
+  assert.equal(panel.itemCaption.textContent, 'USING');
+  assert.equal(panel.itemColumn.hidden, false);
   panel.update({ info: { stat: 'SKILL', chance: 0 } });
   assert.equal(caption.textContent, 'SKILL');
   assert.equal(panel.checkChance.textContent, '0%');
@@ -262,4 +265,24 @@ test('only completed outcomes show the result caption and replace minis', () => 
   assert.equal(panel.caption.textContent, info.stat);
   assert.equal(panel.view.attrs['data-mode'], 'check');
   panel.destroy();
+});
+
+test('combined check and trigger preserve hold interaction and clear it for roll results',()=>{
+ const holds=[],panel=setup({onHold:value=>holds.push(value)});
+ panel.update({info,item,selectionKey:'combined'});
+ assert.equal(panel.view.attrs['data-mode'],'check-item');
+ assert.equal(panel.itemColumn.hidden,false);assert.equal(panel.itemCaption.hidden,false);
+ assert.equal(panel.mini.beginHold({pointerId:4}),true);
+ panel.update({info,item,busy:true,selectionKey:'combined'});
+ assert.deepEqual(holds,[item,null]);assert.equal(panel.mini.button.disabled,true);
+ panel.update({info,item,result:{target:11,total:14,success:true}});
+ assert.equal(panel.root.attrs['data-mode'],'result');
+ assert.equal(panel.mini.item,null);assert.equal(panel.itemColumn.hidden,true);
+ panel.update({info,item});
+ assert.equal(panel.mini.item,item);assert.equal(panel.mini.button.disabled,false);
+ panel.update({info});
+ assert.equal(panel.root.attrs['data-mode'],'check');assert.equal(panel.itemColumn.hidden,true);
+ panel.update({item});
+ assert.equal(panel.itemCaption.hidden,true);assert.equal(panel.caption.textContent,'USING');
+ panel.destroy();
 });

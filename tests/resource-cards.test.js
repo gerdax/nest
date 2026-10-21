@@ -43,7 +43,11 @@ for (const kind of ['health','energy']) {
    const card={...createDefinition(kind,kind),value:4,image:'asset.png',text:'Restore'};
    const face=cardFace(card),element=doc.createElement();decorateCard(null,element,face.image,face.heading,face.text,false,face);
    assert.equal(face.heading,card.name);assert.equal(face.value,4);
-   assert.equal(element.children.find(n=>n.className==='nest-card-value').textContent,'+4');
+   const marker=element.children.find(n=>n.className==='nest-card-value');
+   assert.equal(marker.children[0].textContent,'+4');
+   assert.equal(marker.children[1].attrs.src,`./assets/img/ui/hud-${kind}.png`);
+   assert.equal(marker.children[1].attrs['aria-hidden'],'true');
+   assert.equal(marker.attrs['aria-label'],`${kind} +4`);
    assert.equal(element.children.find(n=>n.className==='nest-card-type').textContent,kind.toUpperCase());
    assert.equal(element.children[1].style.filter,'url("#nest-artwork-colorize")');
    assert.equal((face.summary.match(/Collect:/g)||[]).length,1);

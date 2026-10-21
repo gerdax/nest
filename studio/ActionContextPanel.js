@@ -26,7 +26,11 @@ export class ActionContextPanel {
     chance.append(this.checkChance);
     this.checkDetails.append(chance, this.checkRules);
     const miniRoot = element('section', 'nest-trigger-item');
-    this.content.append(this.checkDetails, miniRoot);
+    this.itemColumn = element('div', 'action-context-item-column');
+    this.itemCaption = element('p', 'action-context-caption');
+    this.itemCaption.textContent = 'USING';
+    this.itemColumn.append(this.itemCaption, miniRoot);
+    this.content.append(this.checkDetails, this.itemColumn);
     this.view.append(this.caption, this.content);
     this.blend.append(this.view);
     root.replaceChildren(this.blend);
@@ -50,11 +54,12 @@ export class ActionContextPanel {
       // Keep the last caption and content painted while CSS fades out.
       return;
     }
-    const key = JSON.stringify([selectionKey, result ? 'result' : info ? 'check' : 'item', result,
-      info ? [info.stat,info.chance,info.label,info.formula,info.rules] : item?.inventoryKey ?? item?.id]);
+    const mode = result ? 'result' : info && item ? 'check-item' : info ? 'check' : 'item';
+    const key = JSON.stringify([selectionKey,mode,result,
+      info ? [info.stat,info.chance,info.label,info.formula,info.rules] : null,item?.inventoryKey ?? item?.id]);
     const outgoing = this.visible && key !== this.presentationKey ? this.snapshot() : null;
     this.presentationKey = key;
-    this.view.setAttribute('data-mode', result ? 'result' : info ? 'check' : 'item');
+    this.view.setAttribute('data-mode', mode);
     this.caption.textContent = result ? `TARGET: ${result.target}  CHECK: ${result.total}` : info ? info.stat ?? '' : 'USING';
     this.checkDetails.hidden = !info && !result;
     this.checkChance.textContent = result ? result.success ? 'SUCCESS' : 'FAILURE' : info ? `${Math.round(parseFloat(info.chance))}%` : '';
@@ -68,10 +73,12 @@ export class ActionContextPanel {
     this.checkRules.textContent = info?.label ?? '';
     this.checkRules.hidden = !info?.label;
     this.checkDetails.title = info ? [info.formula, info.rules].filter(Boolean).join(' · ') : '';
-    this.mini.update(info ? null : item, { busy });
+    this.itemColumn.hidden = !item;
+    this.itemCaption.hidden = !info || !item;
+    this.mini.update(item, { busy });
     // An unchanged item can reappear after an interrupted exit.
     if (this.mini.button) this.mini.button.disabled = busy;
-    this.root.setAttribute('data-mode', result ? 'result' : info ? 'check' : 'item');
+    this.root.setAttribute('data-mode', mode);
     this.root.hidden = false;
     if (!this.visible) this.root.getBoundingClientRect?.();
     this.visible = true;
@@ -152,6 +159,8 @@ export class ActionContextPanel {
     this.checkDetails.hidden = true;
     this.checkDetails.title = '';
     this.checkDetails.removeAttribute('data-odds-level');
+    this.itemColumn.hidden = true;
+    this.itemCaption.hidden = true;
     this.mini.update(null);
   }
 
