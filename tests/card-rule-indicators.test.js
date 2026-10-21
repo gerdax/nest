@@ -80,7 +80,7 @@ test('graph places the indicators below the clean card-name button with explanat
   const graph=Object.assign(Object.create(GraphView.prototype),{project,libraryIndex:createLibraryIndex(project.library),definitionsById:new Map(project.library.map(card=>[card.id,card])),nodesById:new Map([[node.id,node]])});
   const html=graph.cardRows(node);
   assert.match(html,/<button type="button" class="graph-card-name">Pick &lt;lock&gt;<\/button><small class="graph-card-rules"/);
-  assert.match(html,/title="T: Inventory trigger; R: Requirements; C: Costs; E: Effects">T · R · C · E<\/small>/);
+  assert.match(html,/title="T: Inventory trigger; R: Requirements; C: Costs; E: Effects"><span data-rule-marker="T">T<\/span> · R · C · E<\/small>/);
   assert.equal((html.match(/class="port /g)||[]).length,1);
   definition.conditions=[];definition.costs=[];definition.effects=[];delete placement.contextItemId;
   assert.doesNotMatch(graph.cardRows(node),/graph-card-rules/);

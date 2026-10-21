@@ -19,7 +19,7 @@ function cardHeaderIndicators(project,placement) {
  const indicators=cardRuleIndicators(project,placement);
  if(!indicators.length)return '';
  const label=indicators.map(([letter,label])=>`${letter}: ${label}`).join('; ');
- return `<span class="card-header-rules" role="img" aria-label="${esc(label)}" title="${esc(label)}">${esc(indicators.map(([letter])=>letter).join(' · '))}</span>`;
+ return `<span class="card-header-rules" role="img" aria-label="${esc(label)}" title="${esc(label)}">${indicators.map(([letter])=>letter==='T'?'<span data-rule-marker="T">T</span>':esc(letter)).join(' · ')}</span>`;
 }
 
 function artworkEditor(definition,scope) {

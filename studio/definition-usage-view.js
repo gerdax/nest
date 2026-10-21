@@ -13,7 +13,7 @@ function navigation(entry) {
 function row(entry, reference) {
   const name = reference && entry.source ? `${entry.source}: ${entry.name}` : entry.name;
   const markers = reference ? (entry.markers ?? []).map(([letter, label]) =>
-    `<span class="definition-reference-marker" role="img" title="${esc(`${letter}: ${label}`)}" aria-label="${esc(`${letter}: ${label}`)}">${esc(letter)}</span>`).join('') : '';
+    `<span class="definition-reference-marker"${letter==='T'?' data-rule-marker="T"':''} role="img" title="${esc(`${letter}: ${label}`)}" aria-label="${esc(`${letter}: ${label}`)}">${esc(letter)}</span>`).join('') : '';
   const title = entry.unavailableReason || entry.location || (entry.definitionId ? `Library → ${entry.name}` : entry.name);
   return `<li><button type="button" class="definition-usage-link" ${navigation(entry)} title="${esc(title)}" ${entry.unavailableReason ? 'disabled' : ''}><span class="definition-reference-name">${esc(name)}</span>${markers ? `<span class="definition-reference-types">${markers}</span>` : ''}</button>${entry.unavailableReason ? `<small class="small">${esc(entry.unavailableReason)}</small>` : ''}</li>`;
 }

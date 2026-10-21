@@ -190,3 +190,5 @@ select {
 
 .item-effect-reference .item-reference {flex-direction:column;align-items:flex-end;gap:8px;margin:6px 0 14px;}
 .item-effect-reference .item-reference-location {flex:none;}
+
+[data-rule-marker="T"] {color:#dfcf78;}
