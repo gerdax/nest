@@ -76,8 +76,8 @@
 }
 
 #edges .edge-line.preview-active {
-  stroke:#d8be65;stroke-width:2.5;vector-effect:non-scaling-stroke;
-  filter:drop-shadow(0 0 3px #d8be6585);
+  stroke:#cbb66c;stroke-width:2.5;vector-effect:non-scaling-stroke;
+  filter:drop-shadow(0 0 3px #cbb66c85);
 }
 #edges .edge-line.preview-active[data-exit$=":success"] {
   stroke:#adf5ae;filter:drop-shadow(0 0 3px #adf5ae85);
