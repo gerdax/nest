@@ -12,6 +12,10 @@ class Element {
 }
 class Root extends Element {
  constructor(){super();this.handlers={};this.capture=null;this.parts={'#world':new Element(),'#edges':new Element(),'#nodes':new Element()};this.ownerDocument={elementFromPoint:()=>this.hit};
+  Object.defineProperty(this.parts['#edges'],'innerHTML',{configurable:true,get:()=>this.edgeMarkup,set:html=>{
+   this.edgeMarkup=html;
+   this.parts['#edges'].children=[...html.matchAll(/<path class="(edge-line[^"]*)" data-source="([^"]*)" data-exit="([^"]*)"/g)].map(([,cls,source,exit])=>new Element(cls,{source,exit}));
+  }});
   Object.defineProperty(this.parts['#nodes'],'innerHTML',{set:html=>{
    this.parts['#nodes'].rendered=html;
    this.nodes=[...html.matchAll(/<article class="([^"]*)" data-id="([^"]*)"[^>]*>(.*?)<\/article>/g)].map(([,classes,id,body])=>{
@@ -450,4 +454,35 @@ test('preview card highlight distinguishes placements, survives render and clear
  assert.equal(s.root.node('a').cardRows[1].classes.has('preview-active'),false);
  s.graph.setActiveCard(target('first'));s.graph.setActiveCard(null);
  assert.equal(s.root.node('a').cardRows[0].classes.has('preview-active'),false);
+});
+
+test('active card edges track exact Fork placement and both check outcomes without rebuilding SVG',()=>{
+ const s=setup();s.chapter.id='chapter';
+ const definition={...createDefinition('action','check'),resolution:'check'};
+ const node={id:'fork',type:'fork',x:0,y:0,intro:{id:'intro',definitionId:'intro'},choices:[{id:'one',definitionId:'check'},{id:'two',definitionId:'check'}],connections:{'one:success':'b','one:failure':'c','two:success':'b','two:failure':false}};
+ s.chapter.nodes.unshift(node);s.graph.render({library:[definition,createDefinition('event','intro')]},s.chapter,'fork','fork');
+ const target=placementId=>({chapterId:'chapter',nodeId:'fork',placementId});
+ const elements=s.graph.edgeElements,markup=s.root.parts['#edges'].innerHTML;
+ const active=()=>s.graph.edgeElements.filter(edge=>edge.classes.has('preview-active')).map(edge=>edge.dataset.exit);
+ s.graph.setActiveCard(target('one'));assert.deepEqual(active(),['one:success','one:failure']);
+ s.graph.setActiveCard(target('two'));assert.deepEqual(active(),['two:success']);
+ assert.equal(s.graph.edgeElements,elements);assert.equal(s.root.parts['#edges'].innerHTML,markup);
+ s.graph.edges();assert.deepEqual(active(),['two:success']);
+ s.graph.setActiveCard(target('intro'));assert.deepEqual(active(),[]);
+ s.graph.setActiveCard(target('one'));s.graph.setActiveCard(null);assert.deepEqual(active(),[]);
+ s.graph.setActiveCard({...target('one'),chapterId:'other'});assert.deepEqual(active(),[]);
+});
+
+test('shared next edges belong to the last Linear card and Container items',()=>{
+ const s=setup();s.chapter.id='chapter';const node=s.chapter.nodes[0];
+ node.cards=[{id:'first',definitionId:'story'},{id:'last',definitionId:'story'}];
+ s.graph.render({library:[createDefinition('event','story')]},s.chapter,'a','a');
+ const target=placementId=>({chapterId:'chapter',nodeId:'a',placementId});
+ s.graph.setActiveCard(target('first'));assert.deepEqual(s.graph.activeCardExits(),[]);
+ s.graph.setActiveCard(target('last'));assert.deepEqual(s.graph.activeCardExits(),['next']);
+ assert.equal(s.graph.activeEdges.size,1);
+ node.type='container';node.items=[{id:'item',definitionId:'item'}];node.intro={id:'intro',definitionId:'story'};
+ s.graph.render({library:[createDefinition('event','story'),createDefinition('item','item')]},s.chapter,'a','a');
+ s.graph.setActiveCard(target('item'));assert.equal(s.graph.activeEdges.size,1);
+ s.graph.setActiveCard(target('intro'));assert.equal(s.graph.activeEdges.size,0);
 });

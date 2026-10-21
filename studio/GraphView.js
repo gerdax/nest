@@ -85,10 +85,28 @@ export class GraphView {
   this.activeCard=target?.chapterId===this.chapter?.id?target:null;
   const node=this.activeCard&&this.nodeElements?.get(this.activeCard.nodeId);
   const row=node?[...node.querySelectorAll('.graph-card-row')].find(row=>row.dataset.cardPlacement===this.activeCard.placementId):null;
+  this.syncActiveEdges();
   if(this.activeCardElement===row)return;
   this.activeCardElement?.classList.toggle('preview-active',false);
   row?.classList.toggle('preview-active',true);
   this.activeCardElement=row;
+ }
+ // Only authored exits belonging to this placement are relevant to playback.
+ activeCardExits() {
+  const target=this.activeCard,node=target&&this.nodesById?.get(target.nodeId);
+  if(!node||target.chapterId!==this.chapter?.id)return [];
+  if(node.type==='fork'&&node.choices?.some(card=>card.id===target.placementId))
+   return outputsForNode(this.project,node,this.libraryIndex).filter(exit=>exit===target.placementId||exit===`${target.placementId}:success`||exit===`${target.placementId}:failure`);
+  if(node.type==='linear'&&node.cards?.at(-1)?.id===target.placementId)return ['next'];
+  if(node.type==='container'&&node.items?.some(card=>card.id===target.placementId))return ['next'];
+  return [];
+ }
+ syncActiveEdges() {
+  const exits=new Set(this.activeCardExits());
+  const next=new Set((this.edgeElements||[]).filter(edge=>edge.dataset.source===this.activeCard?.nodeId&&exits.has(edge.dataset.exit)));
+  for(const edge of this.activeEdges||[])if(!next.has(edge))edge.classList.toggle('preview-active',false);
+  for(const edge of next)if(!this.activeEdges?.has(edge))edge.classList.toggle('preview-active',true);
+  this.activeEdges=next;
  }
  target(n,exit) {if(n.type==='random')return exit==='fallback'?n.fallback:n.routes.find(r=>r.id===exit)?.target;return n.connections?.[exit];}
  portLabel(node,exit){const target=this.target(node,exit);return target===null?'End chapter':this.nodesById.get(target)?.name||'Unlinked';}
@@ -135,11 +153,13 @@ export class GraphView {
   const paths=this.chapter.nodes.flatMap(n=>outputsForNode(this.project,n,this.libraryIndex).map(exit=>{
    const t=this.nodesById.get(this.target(n,exit));if(!t)return '';
    const {x,y}=this.outputPoint(n,exit),to=this.position(t),path=this.wire(x,y,to.x,to.y+40);
-   return `<path class="edge-line" d="${path}"/><path class="edge-hit" data-source="${esc(n.id)}" data-exit="${esc(exit)}" d="${path}"/>`;
+   return `<path class="edge-line" data-source="${esc(n.id)}" data-exit="${esc(exit)}" d="${path}"/><path class="edge-hit" data-source="${esc(n.id)}" data-exit="${esc(exit)}" d="${path}"/>`;
   }));
   const d=this.creation||this.drag;if(d?.kind==='connect'&&d.moved){const n=this.nodesById.get(d.nodeId);if(n){const {x,y}=this.outputPoint(n,d.exit);paths.push(`<path class="edge-ghost" d="${this.wire(x,y,d.px,d.py)}"/>`);}}
   if(d?.kind==='select'&&d.moved){const r=this.selectionRect(d);paths.push(`<rect class="graph-selection-box" x="${r.x}" y="${r.y}" width="${r.width}" height="${r.height}"/>`);}
   this.root.querySelector('#edges').innerHTML=paths.join('');
+  this.edgeElements=[...this.root.querySelector('#edges').querySelectorAll('.edge-line')];
+  this.syncActiveEdges();
  }
  transform(){
   const world=this.root.querySelector('#world');
