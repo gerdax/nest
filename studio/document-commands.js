@@ -146,7 +146,13 @@ function inspectorCommand(project, selection, data, localDrafts) {
     case 'add-placement': node[data.slot].push(makePlacement(project, data.kind, undefined, chapterFor(project, selection).id)); break;
     case 'duplicate-placement': duplicatePlacement(project, node, placement); break;
     case 'remove-placement': {
+      if(!placement)return;
       const definitions=placedLocalDefinitions(project,placement);
+      if(node.intro===placement){
+        if(node.type==='container')node.intro=makePlacement(project,'event',undefined,chapterFor(project,selection).id);
+        else delete node.intro;
+        node.introEnabled=false;
+      }
       localDrafts.removePlacement(project, placement);
       for (const slot of ['cards','choices','items']) if (node[slot]) node[slot] = node[slot].filter(card => card.id !== placement.id);
       removeUnplacedLocalDefinitions(project,definitions,localDrafts);
@@ -254,6 +260,12 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
     case 'paste-node': {
       const added = pasteNodeClipboard(project, chapter, data.clipboard, {position:data.position});
       return {selection:{selected:added.id, mode:'chapter'}, value:added.id};
+    }
+    case 'discard-card': {
+      const source=chapter?.nodes.find(candidate=>candidate.id===data.sourceNodeId);
+      if(!source||!findPlacement(source,data.placementId))return {};
+      inspectorCommand(project,{...selection,selected:source.id},{command:'remove-placement',placement:data.placementId},localDrafts);
+      return {selection:{selected:source.id,mode:'chapter'}};
     }
     case 'transfer-card': {
       const transferred = transferCard(project, chapter, data);

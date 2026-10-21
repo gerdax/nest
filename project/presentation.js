@@ -1,3 +1,4 @@
+import { resolveCheck, playerCheckPresentation } from './checks.js';
 import { cardSummary, playerCardSummary, canonicalCardKind, isStoryKind, isConsumableKind, actionEnergyCost } from './cards.js';
 
 /** Shared front-face content for gameplay and authoring previews. */
@@ -18,4 +19,13 @@ export function cardFace(card, variables=[], library=[], values) {
   imageOffsetY:card?.imageOffsetY ?? 0,
   flipImage:!!card?.flipImage
  };
+}
+
+/** Action fronts keep stat-check rules in the surrounding check panel. */
+export function actionCardFace(card, variables=[], library=[], values={}) {
+ const face=cardFace(card,variables,library,values);
+ const checkInfo=card.resolution==='check'?playerCheckPresentation(card.check,values,variables):null;
+ return {...face,
+  ...(card.resolution==='check'?{checkTarget:resolveCheck(card.check,values).target}:{}),
+  ...(checkInfo?{checkInfo:{...checkInfo,rules:face.summary},summary:''}:{})};
 }

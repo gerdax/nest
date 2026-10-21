@@ -7,7 +7,7 @@ import { createLibraryIndex } from './library-index.js';
 import { cloneProject, legacyArtwork, list, chapterVariables } from './model-data.js';
 import { discardPlacementContext, normalizeSingleItems } from './normalization.js';
 
-export function compileChapter(project, chapterId = project.activeChapterId) {
+export function compileChapter(project, chapterId = project.activeChapterId, {additionalDefinitionIds = []} = {}) {
   // All resolved mechanics and normalization must operate on detached data.
   project = normalizeLocalOwnership(cloneProject(project));
   const index = createLibraryIndex(list(project?.library));
@@ -23,7 +23,7 @@ export function compileChapter(project, chapterId = project.activeChapterId) {
   result.cardBack = {...projectCardBack(project)};
   result.cardStyles = cloneProject(project.cardStyles || {});
   const graph = definitionGraph(project);
-  const reachable = graph.reachableFrom([chapter, ...project.library.filter(d => d.visibility !== 'local')]);
+  const reachable = graph.reachableFrom([chapter, ...additionalDefinitionIds.map(definitionId => ({definitionId})), ...project.library.filter(d => d.visibility !== 'local')]);
   result.library = project.library.filter(d => d.visibility !== 'local' || reachable.has(d.id)).map(d => ({
     ...cloneProject(d),
     kind: canonicalCardKind(d.kind),
@@ -37,6 +37,7 @@ export function compileChapter(project, chapterId = project.activeChapterId) {
       : variable.initial,
   }));
   for (const node of result.nodes) {
+    if (project.ignoreAllOverrides === true) delete node.unavailableActions;
     if (['container','linear'].includes(node.type)) node.retainInventoryItems = retainsInventoryItems(node);
     for (const key of ['cards', 'choices', 'items']) if (node[key]) node[key] = node[key].map(p => resolvePlacement(project, p, index));
     if (node.intro) node.intro = resolvePlacement(project, node.intro, index);

@@ -13,11 +13,11 @@ import { cardRuleIndicators } from './card-rule-indicators.js';
 
 /** Canvas interaction owns selection/pan, and emits completed document edits. */
 export class GraphView {
- constructor(root,{onSelect,onConnect,onMove,onSelectMany=()=>{},onMoveMany=()=>{},onOpenCard=()=>{},onTransferCard=()=>{},onDelete=()=>{},onCreateConnected=()=>{},onCancelCreate=()=>{}}) {
+ constructor(root,{onSelect,onConnect,onMove,onSelectMany=()=>{},onMoveMany=()=>{},onOpenCard=()=>{},onTransferCard=()=>{},onRemoveCard=()=>{},onDelete=()=>{},onCreateConnected=()=>{},onCancelCreate=()=>{}}) {
   this.selectedIds=new Set();this.onSelectMany=onSelectMany;this.onMoveMany=onMoveMany;
   this.onCreateConnected=onCreateConnected;this.onCancelCreate=onCancelCreate;this.creation=null;
   this.root=root;this.onSelect=onSelect;this.onConnect=onConnect;this.onMove=onMove;this.onOpenCard=onOpenCard;this.lastPortClick=null;
-  this.cardDrag=new CardDrag(this,onTransferCard);
+  this.cardDrag=new CardDrag(this,onTransferCard,onRemoveCard);
   this.view={x:50,y:50,z:1};this.pending=null;this.drag=null;
   root.innerHTML='<div id="world"><svg id="edges"></svg><div id="nodes"></div></div>';
   root.addEventListener('pointerdown',e=>this.down(e));

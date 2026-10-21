@@ -88,7 +88,7 @@ export class ProjectPreview {
     if (chapterId === undefined) chapterId = project.activeChapterId;
     const issues = validateProject(project);
     if (issues.length) throw new Error(issues.map(issue => issue.message).join('\n'));
-    const chapter = compileChapter(project, chapterId);
+    const chapter = compileChapter(project, chapterId, {additionalDefinitionIds:(initialState?.inventory || []).map(item => item.definitionId ?? item.id)});
     if (startNode) chapter.startNode = startNode;
     const expectedGeneration = this.generation + 1;
     this.stop();

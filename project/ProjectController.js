@@ -1,10 +1,10 @@
 import { retainsInventoryItems } from './nodeTypes.js';
 import { initialValues, conditionsMet, affordCosts, transact, addInventory, canTriggerItem } from './state.js';
-import { cardBody, cardFace } from './presentation.js';
+import { cardBody, cardFace, actionCardFace } from './presentation.js';
 import { playerCardSummary, isStoryKind, collectionEffects } from './cards.js';
 import { selectPool } from '../chapter/random.js';
 import { isInventoryContext } from '../engine/inventoryContext.js';
-import { resolveCheck, playerCheckPresentation } from './checks.js';
+import { resolveCheck } from './checks.js';
 
 /** Playback only. CardDeck remains responsible for gestures and departure choreography. */
 export class ProjectController {
@@ -232,11 +232,8 @@ export class ProjectController {
   action(card,values=this.variables) {
     const {context,...content}=card;
     const typed={...card,kind:card.kind ?? (this.type()==='container'?'item':'action')};
-    const face=cardFace(typed,this.compiled.variables,this.compiled.library,values);
-    const checkInfo=card.resolution==='check'?playerCheckPresentation(card.check,values,this.compiled.variables):null;
-    return {...content,...(card.resolution==='check'?{checkTarget:resolveCheck(card.check,values).target}:{}),
-      label:card.name ?? card.label ?? 'Continue',...face,
-      ...(checkInfo?{checkInfo:{...checkInfo,rules:face.summary},summary:''}:{} )};
+    const face=actionCardFace(typed,this.compiled.variables,this.compiled.library,values);
+    return {...content,label:card.name ?? card.label ?? 'Continue',...face};
   }
   linearTransition(location, destination, source=this.card(location)) {
     return this.type(location)==='linear'&&!['action','item','health','energy'].includes(source?.kind)&&destination&&!destination.completed&&this.key(location)===this.key(destination)&&destination.index>location.index?'reveal':'flip';

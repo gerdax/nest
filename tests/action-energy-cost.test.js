@@ -30,7 +30,7 @@ test('Action markers show only positive upfront energy totals, never consequence
     assert.equal(face.text,card.text,'authored prose is never heuristically stripped');
     assert.equal(face.summary,'Effects: Lose 2 energy');
     if (total>0) {
-      assert.equal(marker(front).children[0].textContent,String(total));
+      assert.equal(marker(front).children[0].textContent,`-${total}`);
       assert.equal(marker(front).children[1].attrs.src,'./assets/img/ui/hud-energy.png');
       assert.equal(marker(front).attrs['aria-label'],`Energy cost: ${total}`);
     } else assert.equal(marker(front),undefined);
@@ -58,7 +58,7 @@ test('resolved placement cost matches editor and player, and failure loss is add
   assert.doesNotMatch(face.summary,/Cost:/);
   const mount=new Element(); mount.dataset.previewPlacement=placement.id;
   renderCardPreviews({querySelectorAll:()=>[mount]},project,node,project.chapters[0].id);
-  assert.equal(marker(mount.children[0]).children[0].textContent,'2');
+  assert.equal(marker(mount.children[0]).children[0].textContent,'-2');
   class Deck extends EventTarget { reset(){} replaceContent(content){this.content=content;} endContent(){} }
   const deck=new Deck(),controller=new ProjectController(deck,compileChapter(project));
   const live=deck.content.actions[0];
@@ -77,7 +77,7 @@ test('retained card refreshes when only its displayed cost changes, including re
   for (const amount of [1,3,0]) {
     const face=cardFace({...createDefinition('action','retained'),costs:[energy(amount)]});
     const bundle=stageActionDeck(deck,{actions:[{id:'retained',...face}]},0,previous);
-    assert.equal(marker(bundle.cards[0])?.children[0].textContent,amount>0?String(amount):undefined);
+    assert.equal(marker(bundle.cards[0])?.children[0].textContent,amount>0?`-${amount}`:undefined);
     if(previous) assert.equal(bundle.cards[0],previous.cards[0]);
     previous=bundle;
   }

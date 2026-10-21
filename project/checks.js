@@ -40,7 +40,7 @@ function summary(check, values, definitions, diagnostic) {
   const resolved = resolveCheck(check, values);
   if (check.mode !== 'stat') return '';
   const name = definitions.find(v => v.id === check.modifierVariable)?.name || check.modifierVariable;
-  const chance = `${resolved.label} (${(resolved.probability*100).toFixed(1)}%)`;
+  const chance = `${(resolved.probability*100).toFixed(1)}%`;
   return diagnostic ? `${name} ${resolved.modifier} · Difficulty ${check.difficulty} · 3d6 + ${resolved.modifier} ≥ ${resolved.target} · ${chance}` : `${name} ${resolved.modifier} · 3d6 + ${resolved.modifier} ≥ ${resolved.target}`;
 }
 export const editorCheckSummary = (check, definitions = []) => summary(check, definitions, definitions, true);

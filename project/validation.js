@@ -14,6 +14,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
   const add = (message, chapterId, nodeId) => errors.push({message, ...(chapterId ? {chapterId}: {}), ...(nodeId ? {nodeId}: {})});
   if (!object(project)) return [{message: 'Project must be an object.'}];
   if (project.version !== 2 || project.kind !== 'nest-project') add('Project needs version 2 and kind nest-project.');
+  if (project.ignoreAllOverrides !== undefined && typeof project.ignoreAllOverrides !== 'boolean') add('Invalid ignore all overrides setting.');
   if (project.allowCycles !== undefined && typeof project.allowCycles !== 'boolean') add('Invalid allow beat cycles setting.');
   for (const key of ['ownedItemsVisibility','unavailableActions']) if (project[key] !== undefined && !['disabled','hidden'].includes(project[key])) add(`Invalid ${key} setting.`);
   for (const message of validateCardBack(project.cardBack)) add(message);

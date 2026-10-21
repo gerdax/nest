@@ -11,9 +11,10 @@ export const checkbox = (label,value,path,scope='definition',disabled=false) => 
 export const button = (label,cmd,attrs='') => `<button type="button" data-command="${cmd}" ${attrs}>${esc(label)}</button>`;
 export const imageField=(label,value,path,scope='definition',{clearable=false}={})=>field(label,value,path,scope)+`${clearable?'<div class="image-field-actions">':''}<button type="button" data-image-picker data-scope="${esc(scope)}" data-path="${esc(path)}">Choose image file</button>${clearable?button('Clear','clear-image',`data-scope="${esc(scope)}" data-path="${esc(path)}" aria-label="Clear card image" ${value?'':'disabled'}`):''}${clearable?'</div>':''}`;
 const extras=(scope,path,kind)=>`data-scope="${esc(scope)}" data-path="${esc(path)}" data-rule-kind="${kind}"`;
-export function rules(project,list=[],path,scope,kind,{label,help,chapter}={}) {
+export function rules(project,list=[],path,scope,kind,{label,help,chapter,footer=''}={}) {
  const vars=project.variables.map(v=>[v.id,variableLabel(v)]);
  let html=`<details class="state-panel"><summary>${esc(label || kind[0].toUpperCase()+kind.slice(1))} · ${list.length}</summary>`;
+ if(!help&&kind==='costs')help='Spend resources or consume items when the action completes. For a dice check, costs apply on either outcome.';
  if(help)html+=`<p class="small">${esc(help)}</p>`;
  html+=list.map((rule,i)=>{
   const p=`${esc(path)}.${i}`;
@@ -45,7 +46,7 @@ export function rules(project,list=[],path,scope,kind,{label,help,chapter}={}) {
   }
   return `<div class="entry">${fields}<div class="rule-entry-actions">${button('Remove','remove-rule',extras(scope,path,kind)+` data-index="${i}"`)}${referenceLinks}</div></div>`;
  }).join('');
- return html+button(`Add ${kind==='conditions'?'condition':kind==='costs'?'cost':'effect'}`,'add-rule',extras(scope,path,kind))+'</details>';
+ return html+button(`Add ${kind==='conditions'?'condition':kind==='costs'?'cost':'effect'}`,'add-rule',extras(scope,path,kind))+footer+'</details>';
 }
 export function actionFields(project,action,prefix='',scope='definition',chapter) {
  const p=key=>prefix+key;

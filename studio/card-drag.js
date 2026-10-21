@@ -8,7 +8,7 @@ export function cardDropSlot(type,kind) {
 
 /** Pointer-only feedback; the document changes once, on a valid drop. */
 export class CardDrag {
- constructor(graph,onTransfer){this.graph=graph;this.onTransfer=onTransfer;this.suppressClick=false;}
+ constructor(graph,onTransfer,onRemove=()=>{}){this.graph=graph;this.onTransfer=onTransfer;this.onRemove=onRemove;this.suppressClick=false;}
  start(e,name){
   this.suppressClick=false;
   const row=name.closest('.graph-card-row'),node=name.closest('.node');
@@ -67,7 +67,7 @@ export class CardDrag {
   for(const el of g.root.querySelectorAll('.node')){el.classList.toggle('card-drop-target',false);el.classList.toggle('card-drop-invalid',false);}
   for(const el of g.root.querySelectorAll('.graph-card-row,.node-heading')){el.classList.toggle('card-drop-replace',false);el.classList.toggle('card-drop-invalid',false);}
   const target=this.target(d,d);d.target=target;
-  this.ghost.textContent=`${target?.header?'Introduction'+(d.copy?' (copy)':''):target?.targetPlacementId?'Replace'+(d.copy?' with copy':''):d.copy?'+ Copy':'Move'} · ${d.name}`;
+  this.ghost.textContent=`${target?.header?'Introduction'+(d.copy?' (copy)':''):target?.targetPlacementId?'Replace'+(d.copy?' with copy':''):d.copy?'+ Copy':!target&&this.graph.blankDrop(d)?'Remove':'Move'} · ${d.name}`;
   this.ghost.style.left=`${(d.clientX+14)/scale}px`;this.ghost.style.top=`${(d.clientY+14)/scale}px`;
   this.line.hidden=true;
   if(!target)return;
@@ -95,8 +95,10 @@ export class CardDrag {
  finish(e,d){
   if(d.moved){
    const target=this.target(e,d);
+   const remove=!target&&!e.altKey&&this.graph.blankDrop(e);
    this.clear();
-   if(target&&!target.invalid)this.onTransfer({sourceNodeId:d.sourceNodeId,placementId:d.placementId,targetNodeId:target.targetNodeId,...(target.header?{targetSlot:'intro'}:target.targetPlacementId?{targetPlacementId:target.targetPlacementId}:{index:target.index}),copy:!!e.altKey});
+   if(remove)this.onRemove({sourceNodeId:d.sourceNodeId,placementId:d.placementId});
+   else if(target&&!target.invalid)this.onTransfer({sourceNodeId:d.sourceNodeId,placementId:d.placementId,targetNodeId:target.targetNodeId,...(target.header?{targetSlot:'intro'}:target.targetPlacementId?{targetPlacementId:target.targetPlacementId}:{index:target.index}),copy:!!e.altKey});
    this.graph.root.focus({preventScroll:true});
   }else {
    this.clear();this.suppressClick=true;

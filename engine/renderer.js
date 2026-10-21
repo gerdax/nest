@@ -209,7 +209,7 @@ export function decorateCard(deck, element, image, title, text, flipImage = fals
     cost.className = 'nest-action-energy-cost';
     cost.setAttribute('aria-label', `Energy cost: ${presentation.actionEnergyCost}`);
     const amount = document.createElement('span');
-    amount.textContent = String(presentation.actionEnergyCost);
+    amount.textContent = `-${presentation.actionEnergyCost}`;
     const icon = document.createElement('img');
     icon.setAttribute('src', './assets/img/ui/hud-energy.png');
     icon.setAttribute('alt', '');

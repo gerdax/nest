@@ -149,3 +149,47 @@ test('Library definition previews show tag names instead of internal tag IDs',()
  renderCardPreviews({querySelectorAll:()=>[mount]},project,null);
  assert.equal(mount.children[0].children[0].children.find(child=>child.className==='nest-card-summary').textContent,'Tag: Tool · Action triggers: permanent');
 });
+
+for(const mode of ['stat','custom','direct'])test(`inspector ${mode} action renders the same front as gameplay including inventory and chapter overrides`,()=>{
+ const project=createProject(),chapter=project.chapters[0],node=chapter.nodes.find(n=>n.type==='fork');
+ const placement=node.choices[0],definition=project.library.find(d=>d.id===placement.definitionId);
+ placement.contextItemId=project.library.find(d=>d.kind==='item').id;
+ Object.assign(definition,{text:'Pass behind him before he turns.',imageScale:125,imageOffsetX:8,
+  costs:[{source:'variable',key:'energy',amount:1}],effects:[{op:'add',key:'agility',value:1}],
+  resolution:mode==='direct'?'direct':'check',check:mode==='stat'?{mode:'stat',modifierVariable:'agility',difficulty:1}:{pool:[{sides:6,count:1}],modifier:0,target:4}});
+ chapter.initialValues={agility:5};chapter.startNode=node.id;node.introEnabled=false;
+ const mount=new Element();mount.dataset.previewPlacement=placement.id;
+ renderCardPreviews({querySelectorAll:()=>[mount]},project,node,chapter.id);
+ const deck=new Deck(),controller=new ProjectController(deck,compileChapter(project),{initialState:{inventory:[project.library.find(d=>d.id===placement.contextItemId)]}});
+ const live=deck.content.actions[0],expected=new Element();
+ decorateCard(null,expected,live.image,live.heading,live.text,live.flipImage,live);
+ assert.deepEqual(mount.children[0].children,expected.children);
+ if(mode==='stat') {
+  assert.equal(live.summary,'');assert.equal(live.checkInfo.stat,'Agility: 5');
+  assert.equal(mount.children[0].children[0].children.some(child=>child.className==='nest-card-summary'),false);
+ }
+ assert.equal(mount.children[0].attrs['data-inventory-action'],'true');
+ controller.destroy();
+});
+test('unfinished stat checks keep their preview usable without exposing editor diagnostics on the card',()=>{
+ const project=createProject(),chapter=project.chapters[0],node=chapter.nodes.find(n=>n.type==='fork');
+ const placement=node.choices[0],definition=project.library.find(d=>d.id===placement.definitionId);
+ Object.assign(definition,{resolution:'check',check:{mode:'stat',modifierVariable:'missing',difficulty:1}});
+ const mount=new Element();mount.dataset.previewPlacement=placement.id;
+ assert.doesNotThrow(()=>renderCardPreviews({querySelectorAll:()=>[mount]},project,node,chapter.id));
+ assert.equal(mount.children[0].children[0].children.some(child=>child.className==='nest-card-summary'),false);
+});
+
+test('imported Item stat checks use the same front as runtime collection cards',()=>{
+ const project=createProject(),chapter=project.chapters[0],node=chapter.nodes.find(n=>n.type==='container');
+ const placement=node.items[0],definition=project.library.find(d=>d.id===placement.definitionId);
+ Object.assign(definition,{resolution:'check',check:{mode:'stat',modifierVariable:'agility',difficulty:1}});
+ chapter.startNode=node.id;node.introEnabled=false;
+ const mount=new Element();mount.dataset.previewPlacement=placement.id;
+ renderCardPreviews({querySelectorAll:()=>[mount]},project,node,chapter.id);
+ const deck=new Deck(),controller=new ProjectController(deck,compileChapter(project));
+ const live=deck.content.actions[0],expected=new Element();
+ decorateCard(null,expected,live.image,live.heading,live.text,live.flipImage,live);
+ assert.deepEqual(mount.children[0].children,expected.children);
+ assert.equal(live.summary,'');controller.destroy();
+});

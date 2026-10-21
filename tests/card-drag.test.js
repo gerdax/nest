@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { GraphView } from '../studio/GraphView.js';
 import { CardDrag,cardDropSlot } from '../studio/card-drag.js';
 
 function fixture(){
@@ -11,8 +12,10 @@ function fixture(){
  const doc={elementFromPoint:()=>({closest:()=>el}),defaultView:{cancelAnimationFrame(){}}};
  const calls=[],root={ownerDocument:doc,getBoundingClientRect:()=>({left:0,top:0,right:800,bottom:600}),contains:x=>x===el,querySelectorAll:selector=>selector==='.node'?[el]:selector==='.graph-card-row,.node-heading'?[...rows,header]:rows,focus(){},setPointerCapture(){}};
  const graph={root,openCard(){},nodesById:new Map([['target',{id:'target',type:'linear'}]])};
- const drag=new CardDrag(graph,data=>calls.push(data));
- return {graph,drag,calls,el,rows,classes,header,headerClasses};
+ graph.blankDrop=e=>GraphView.prototype.blankDrop.call(graph,e);
+ const removals=[];
+ const drag=new CardDrag(graph,data=>calls.push(data),data=>removals.push(data));
+ return {graph,drag,calls,removals,el,rows,classes,header,headerClasses};
 }
 test('drop compatibility uses explicit non-introduction authoring slots',()=>{
  assert.equal(cardDropSlot('linear','item'),'cards');assert.equal(cardDropSlot('fork','event'),'choices');assert.equal(cardDropSlot('fork','item'),null);
@@ -99,4 +102,30 @@ test('only moved, valid drops emit one edit and use Alt state at release',()=>{
 test('drag click suppression is consumed once and cleanup clears drop outlines',()=>{
  const {drag,classes}=fixture();drag.suppressClick=true;classes.add('card-drop-target');drag.clear();
  assert.equal(classes.size,0);assert.equal(drag.consumeClick(),true);assert.equal(drag.consumeClick(),false);
+});
+
+test('moving onto empty canvas removes once; copy, click, outside and invalid node drops preserve the card',()=>{
+ const {drag,graph,calls,removals,el}=fixture();
+ const d={sourceNodeId:'source',placementId:'card',cardKind:'event',moved:true};
+ graph.root.ownerDocument.elementFromPoint=()=>null;
+ drag.finish({clientX:100,clientY:300,altKey:false},d);
+ assert.deepEqual(removals,[{sourceNodeId:'source',placementId:'card'}]);
+ drag.finish({clientX:100,clientY:300,altKey:true},d);
+ drag.finish({clientX:100,clientY:300,altKey:false},{...d,moved:false});
+ drag.finish({clientX:900,clientY:300,altKey:false},d);
+ graph.root.ownerDocument.elementFromPoint=()=>({closest:()=>el});
+ graph.nodesById.get('target').type='random';
+ drag.finish({clientX:250,clientY:120,altKey:false},d);
+ graph.root.ownerDocument.elementFromPoint=()=>({closest:()=>null});
+ drag.finish({clientX:100,clientY:300,altKey:false},d);
+ assert.equal(removals.length,1);assert.deepEqual(calls,[]);
+});
+test('blank canvas feedback previews removal and keeps Alt copying distinct',()=>{
+ const {drag,graph}=fixture();
+ graph.root.ownerDocument.elementFromPoint=()=>null;
+ drag.ghost={style:{},remove(){}};drag.line={style:{},remove(){}};
+ drag.paint({clientX:100,clientY:300,name:'Card',copy:false});
+ assert.equal(drag.ghost.textContent,'Remove · Card');
+ drag.paint({clientX:100,clientY:300,name:'Card',copy:true});
+ assert.equal(drag.ghost.textContent,'+ Copy · Card');
 });

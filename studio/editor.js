@@ -1,3 +1,4 @@
+import { PreviewOverrides } from './preview-overrides.js';
 import { cardRuleIndicators } from './card-rule-indicators.js';
 import { definitionDestination } from './item-reference.js';
 import { createLibraryIndex } from '../project/library-index.js';
@@ -40,6 +41,7 @@ import { cardLabel } from './card-label.js';
 import { confirmLibraryRemoval } from './library-removal-confirmation.js';
 
 const $=s=>document.querySelector(s),loaded=loadProject();
+const previewOverrides = new PreviewOverrides();
 let copiedArtwork = null;
 let nodeClipboard = null;
 let cardClipboard = null;
@@ -68,6 +70,7 @@ const graph=new GraphView($('#canvas'),{
  onMoveMany:positions=>edit('move-nodes',{positions}),
  onSelectMany:ids=>{selected=ids[0];renderGraph();renderInspector({collapseCards:true});},
  onTransferCard:data=>{preview.stop();edit('transfer-card',data);},
+ onRemoveCard:data=>{preview.stop();edit('discard-card',data);},
  onDelete:()=>{if(mode==='chapter'&&node())edit('delete-node');},
 });
 const projectSettingsWindow=mountProjectSettingsWindow($('#project-settings-overlay'),{trigger:$('#project-settings-toggle'),preview:$('#preview-window'),onOpen:()=>graph.cancel()});
@@ -89,6 +92,7 @@ function edit(type,data={}, {preserveProjectSettings=false,refresh=true}={}){
  const outcome=transactDocument(history,localDrafts,draft=>applyDocumentCommand(draft,selection(),type,data,localDrafts));
  project=outcome.project;
  if(outcome.result?.variableRename){
+  previewOverrides.remap(project.id,outcome.result.variableRename);
   remapVariableClipboard(cardClipboard,outcome.result.variableRename);
   remapVariableClipboard(nodeClipboard?.data,outcome.result.variableRename);
  }
@@ -142,7 +146,7 @@ function renderInspector({collapseCards=false,preserveProjectSettings=false}={})
  const expanded=sameInspector?[...$('#inspector').querySelectorAll('details')].map((el,i)=>el.open?i:-1):[];
  $('#settings').innerHTML=chapterSettingsInspector(project,chapter());
  if(!preserveProjectSettings)renderProjectSettings();
- $('#inspector').innerHTML=mode==='library'?definitionInspector(project,definition()):multiple?`<p class="small">${graph.selectedIds.size} beats selected. Drag a selected beat’s header to move them together.</p>`:nodeInspector(project,chapter(),node());
+ $('#inspector').innerHTML=mode==='library'?definitionInspector(project,definition()):multiple?`<p class="small">${graph.selectedIds.size} beats selected. Drag a selected beat’s header to move them together.</p>`:nodeInspector(project,chapter(),node(),previewOverrides.effects(project,chapter(),node()));
  renderCardPreviews($('#inspector'),project,node(),chapterId);
  refreshCardClipboardButtons();
  applyCardStyles(preview.mount,project.cardStyles);
@@ -194,6 +198,10 @@ function scopeRoot(scope,element){
  return documentScope(project,selection(),{scope,placementId:element.closest('[data-placement]')?.dataset.placement});
 }
 function changeField(event){const el=event.target,path=el.dataset.path,scope=el.dataset.scope;if(!path)return;
+ if(scope==='preview-overrides'){
+  previewOverrides.update(project,chapter(),node(),{path,value:el.value,inputType:el.type});
+  renderInspector();report('Test overrides updated. Restart this beat to apply.');return;
+ }
  const colorField=el.matches('[data-card-style-color]');let color;
  if(colorField){
   try{color=el.value.trim()?parseCardColor(el.value):undefined;el.setCustomValidity('');}
@@ -252,6 +260,11 @@ function refreshCardClipboardButtons(){
  }
 }
 function command(event){const b=event.target.closest('[data-command]');if(!b)return;const cmd=b.dataset.command;
+ if(b.dataset.scope==='preview-overrides'){
+  if(b.disabled)return;
+  previewOverrides.update(project,chapter(),node(),{command:cmd,index:b.dataset.index});
+  renderInspector();report('Test overrides updated. Restart this beat to apply.');return;
+ }
  if(cmd==='clear-image'){
   if(b.disabled)return;
   edit('image',{scope:b.dataset.scope,placementId:b.closest('[data-placement]')?.dataset.placement,path:b.dataset.path,value:''});
@@ -403,6 +416,7 @@ function travel(method){
  graph.cancel();localDrafts.reset();const result=travelHistory(history,method,persistence);
  if(result.changed){
   for(const rename of variableRenamesBetween(project,result.project)){
+   previewOverrides.remap(project.id,rename);
    remapVariableClipboard(cardClipboard,rename);remapVariableClipboard(nodeClipboard?.data,rename);
   }
   project=result.project;
@@ -438,7 +452,7 @@ function bindImport(input,kind){
   const file=e.target.files[0];if(!file)return;
   try{
    const {raw,project:incoming}=parseStudioImport(await file.text(),{kind});
-   preview.stop();localDrafts.reset();if(kind==='project')nodeClipboard=null;
+   preview.stop();localDrafts.reset();previewOverrides.clear();if(kind==='project')nodeClipboard=null;
    const saved=edit('import',{raw,incoming}).ok;
    if(saved&&kind==='project'&&persistence.adopt().ok){recoveryDownload?.remove();report('Project imported and saved in this browser. Recovery backups retained.');}
    else if(saved&&kind==='chapter')report('Chapter imported and saved in this browser.');
@@ -449,7 +463,16 @@ function bindImport(input,kind){
 }
 bindImport($('#import'),'project');
 bindImport($('#import-chapter'),'chapter');
-function play(startNode,{restore=false,chapterId:targetChapterId=chapterId,focus=true}={}){try{previewWindow.show({restore});preview.play(project,targetChapterId,startNode,{focus:focus&&!previewWindow.minimized});report('Chapter ready.');return true;}catch(error){report(error.message);return false;}}
+function play(startNode,{restore=false,chapterId:targetChapterId=chapterId,focus=true}={}){
+ try{
+  const targetChapter=project.chapters.find(c=>c.id===targetChapterId);
+  const targetNode=startNode&&targetChapter?.nodes.find(n=>n.id===startNode);
+  const initialState=targetNode?previewOverrides.initialState(project,targetChapter,targetNode):null;
+  previewWindow.show({restore});
+  preview.play(project,targetChapterId,startNode,{focus:focus&&!previewWindow.minimized,initialState});
+  report('Chapter ready.');return true;
+ }catch(error){report(error.message);return false;}
+}
 function playSelected(options){if(!node()||graph.selectedIds.size>1)return false;return play(selected,options);}
 $('#play').onclick=()=>play();$('#play-node').onclick=()=>playSelected();
 $('#play-node').title='Play selected beat from the start (Shift+Enter)';

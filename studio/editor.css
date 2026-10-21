@@ -103,7 +103,7 @@ aside {overflow-anchor:none;}
 .card-panel .check-settings {background:color-mix(in srgb,var(--card-editor-tint) 8%,#222f32);border-color:color-mix(in srgb,var(--card-editor-tint) 25%,#405153);}
 .add-card-buttons {display:flex;flex-wrap:wrap;gap:8px;margin:12px 0;}
 .connections-divider {border:0;border-top:1px solid #394a4c;margin:20px 0 0;}
-.inventory-persistence-divider {margin-bottom:14px;}
+.inventory-persistence-divider {margin-bottom:19px;}
 .availability-divider {margin-bottom:14px;}
 #inspector select[data-scope="node"][data-path="unavailableActions"] {margin-top:9px;}
 
@@ -158,3 +158,31 @@ aside {overflow-anchor:none;}
 @media(min-width:321px) and (max-width:400px) {.nest-inventory-drawer .nest-inventory-slot{height:100px;}}
 
 .card-name-field input::placeholder {color:#899c9d;opacity:1;}
+
+.state-panel > .field:has(> select[data-scope="node"][data-path="unavailableActions"]) {margin-top:24px;margin-bottom:8px;}
+
+.node-overrides {padding-top:16px;}
+.state-panel > button[data-command="add-rule"][data-path$="successEffects"],
+.state-panel > button[data-command="add-rule"][data-path$="failureEffects"] {margin-top:16px;}
+
+.node-overrides button[data-command="clear-overrides"] {float:right;}
+.node-overrides > .state-panel::after {content:"";display:block;clear:both;}
+
+.connections-divider:has(+ h3) {margin-top:24px;}
+.field:has(input[data-path="retainInventoryItems"]) + .connections-divider {margin-top:20px;}
+
+.ignore-overrides-divider {margin:16px 0;}
+
+/* Keep the dropdown chevron inside the border, including at editor zoom. */
+select {
+ appearance:none;
+ -webkit-appearance:none;
+ background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='m1 1 5 5 5-5' fill='none' stroke='%23e1e9e7' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+ background-repeat:no-repeat;
+ background-position:right 10px center;
+ background-size:12px 8px;
+ padding-right:32px;
+ min-width:0;
+}
+
+.check-settings > h3 {position:relative;top:-10px;}
