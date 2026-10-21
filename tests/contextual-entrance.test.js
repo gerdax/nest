@@ -186,13 +186,15 @@ test('explicit fork state refresh preserves cover and selected action', () => {
  assert.equal(controller.inventory.some(i=>i.definitionId==='key'),true);dispose(deck,controller);
 });
 
-test('intro effects enable contextual card through reconciliation after reveal', () => {
+test('intro effects that unlock the first choice stage a refreshed flip deck', () => {
  const project=doorFixture();const chapter=project.chapters[0];chapter.startNode='door';
  project.library.find(d=>d.id==='door-intro').effects=[{op:'addItem',key:'key'}];
  const deck=make(1,choices([ordinary('loading')]));const controller=new ProjectController(deck,compileChapter(project));settle();
- const scene=deck.scene, ordinaryCard=deck.cards[deck.index];
- deck.setOpen(true);deck.schedule();until(()=>deck.phase==='inserting');
- assert.equal(deck.scene,scene);assert.ok(deck.cards.includes(ordinaryCard));assert.equal(deck.busy,true);
+ assert.equal(deck.content.flipItemsOnReveal,true);
+ deck.setOpen(true);deck.schedule();
+ assert.equal(deck.commitMotion.introduction,true);
+ assert.ok(deck.pending.actions.some(action=>action.contextItemId==='key'));
+ until(()=>deck.phase==='inserting');assert.equal(deck.busy,true);
  settle();assert.equal(deck.entrances.size,0);
  const contextualIndex=deck.content.actions.findIndex(a=>a.contextItemId==='key');
  assert.ok(contextualIndex>=0);assert.equal(cardPose(deck,contextualIndex).visible,true);dispose(deck,controller);
@@ -455,4 +457,38 @@ test('intro-unlocked inventory after one ordinary action does not cause a late h
  const deck=make(1,choices([ordinary('loading')]));const controller=new ProjectController(deck,{startNode:'door',nodes,variables:[],library:[{id:'key',kind:'item',name:'Key'}]});
  deck.setOpen(true);deck.schedule();until(()=>deck.phase==='inserting');assert.equal(deck.presentationHint,null);assert.equal(deck.presentationBrowsePending,false);
  settle();assert.equal(deck.content.actions[deck.index].id,'use-key');assert.equal(deck.presentationHint,null);assert.equal(controller.state.idle,true);dispose(deck,controller);
+});
+
+for(const preceding of [false,true])for(const unlock of ['inventory','variable','cost'])for(const reduced of [false,true])test(`preceding locked choices=${preceding}: only a swipe commits the predicted fork unlock and flips into refreshed choices: ${unlock}, reduced=${reduced}`,()=>{
+ const effects=unlock==='inventory'?[{op:'addItem',key:'key'}]:unlock==='variable'?[{op:'set',key:'ready',value:true}]:[{op:'add',key:'energy',value:1}];
+ const choice={id:'go',kind:'action',name:'Go',...(unlock==='inventory'?{contextItemId:'key',entrance:'bottom'}:unlock==='variable'?{conditions:[{source:'variable',key:'ready',op:'eq',value:true}]}:{costs:[{source:'variable',key:'energy',amount:1}]})};
+ const node={id:'fork',type:'fork',intro:{id:'intro',kind:'event',text:'Introduction',effects},choices:[...(preceding?[{id:'locked',kind:'action',name:'Locked',conditions:[{source:'variable',key:'energy',op:'gte',value:10}]}]:[]),choice],connections:{go:null}};
+ const deck=make(1,choices([ordinary('loading')]));deck.reduced=reduced;
+ const compiled={startNode:'fork',nodes:[node],variables:[{id:'ready',type:'flag',initial:false},{id:'energy',type:'number',initial:0}],library:[{id:'key',kind:'item',name:'Key'}],unavailableActions:'hidden'};
+ const controller=new ProjectController(deck,compiled);settle();
+ const before=controller.state;const id=deck.content.id;let completions=0;
+ assert.equal(deck.content.flipItemsOnReveal,true);assert.equal(deck.content.actions[0].id,'unavailable');
+ assert.equal(controller.inventory.length,0);assert.equal(controller.variables.ready,false);assert.equal(controller.variables.energy,0);
+ assert.equal(deck.start(),true);deck.move(gesture(-10));deck.cancel();settle();
+ assert.deepEqual(controller.state,before,'cancelled gesture does not execute speculative effects');
+ deck.addEventListener('transitioncomplete',event=>{if(event.detail.transition==='reveal')completions++;});
+ assert.equal(deck.start(),true);deck.move(gesture(-300));deck.end(gesture(-300,-1));
+ if(!reduced){
+  assert.equal(controller.pendingIntro.contentId,id);
+  assert.deepEqual(deck.pending.actions.map(action=>action.id),['go']);
+  assert.deepEqual(deck.forwardDeck.content.actions.map(action=>action.id),['go']);
+ }
+ settle();assert.equal(deck.phase,'choices');assert.equal(completions,1);assert.equal(controller.pendingIntro,null);
+ assert.equal(deck.content.actions[deck.index].id,'go');assert.equal(controller.state.idle,true);
+ const after=controller.state;deck.emit('reveal');assert.deepEqual(controller.state,after,'effects do not replay after the flip');
+ dispose(deck,controller);
+});
+
+for(const variant of ['already-available','later-only','still-unmet','invalid-effect'])test(`fork preserves ordinary reveal when first choice is not newly unlocked: ${variant}`,()=>{
+ const locked={id:'go',kind:'action',name:'Go',conditions:[{source:'variable',key:'ready',op:'eq',value:true}]};
+ const first=variant==='already-available'||variant==='later-only'?{id:'first',kind:'action',name:'First'}:locked;
+ const effects=variant==='still-unmet'?[]:variant==='invalid-effect'?[{op:'set',key:'missing',value:true}]:[{op:'set',key:'ready',value:true}];
+ const node={id:'fork',type:'fork',intro:{id:'intro',kind:'event',text:'Introduction',effects},choices:[first,...(variant==='later-only'?[locked]:[])],connections:{first:null,go:null}};
+ const deck=make(1,choices([ordinary('loading')]));const controller=new ProjectController(deck,{startNode:'fork',nodes:[node],variables:[{id:'ready',type:'flag',initial:false}],library:[]});
+ assert.equal(deck.content.flipItemsOnReveal,false);assert.equal(controller.variables.ready,false);dispose(deck,controller);
 });

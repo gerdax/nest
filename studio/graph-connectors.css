@@ -4,11 +4,11 @@
 #edges .edge-ghost {stroke:#b7e4d3;stroke-width:3;stroke-dasharray:6 4;pointer-events:none;}
 #canvas .node.connection-target {outline:3px solid #b7e4d3;box-shadow:0 0 16px #b7e4d355;}
 #canvas .port {cursor:pointer;}
-#canvas .port.unlinked::after {color:#000;}
 #canvas .port[data-exit$=":success"],
 #canvas .port[data-exit$=":success"]::after {color:#adf5ae;}
 #canvas .port[data-exit$=":failure"],
 #canvas .port[data-exit$=":failure"]::after {color:#e4a6a5;}
+#canvas .port.unlinked::after {color:#000;}
 #canvas .node {overflow:hidden;}
 #canvas .graph-card-divider {border:0;border-top:2px solid #080d0f;margin:0;}
 #canvas .node-heading {border-bottom:2px solid #080d0f;}

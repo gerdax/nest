@@ -235,8 +235,28 @@ export class ProjectController {
     const face=actionCardFace(typed,this.compiled.variables,this.compiled.library,values);
     return {...content,label:card.name ?? card.label ?? 'Continue',...face};
   }
-  linearTransition(location, destination, source=this.card(location)) {
-    return this.type(location)==='linear'&&!['action','item','health','energy'].includes(source?.kind)&&destination&&!destination.completed&&this.key(location)===this.key(destination)&&destination.index>location.index?'reveal':'flip';
+  linearTransition(location, destination, source=this.card(location), values=this.variables, inventory=this.inventory) {
+    const revealing=this.type(location)==='linear'&&!['action','item','health','energy'].includes(source?.kind)&&destination&&!destination.completed&&this.key(location)===this.key(destination)&&destination.index>location.index;
+    if(!revealing)return 'flip';
+    if(destination.index===location.index+1) {
+      const following=this.runtimeItem((location.sequence?.cards??location.node.cards)[destination.index],location);
+      if(!this.available(following,values,inventory)) {
+        try {
+          const predicted=this.transaction(source,undefined,values,inventory);
+          if(this.available(following,predicted.variables,predicted.inventory))return 'flip';
+        }catch { /* Invalid effects must not change the planned transition. */ }
+      }
+    }
+    return 'reveal';
+  }
+  introductionUnlocksNext(location,values,inventory) {
+    if(location.node.type!=='fork'||this.presentation(location,values,inventory)!=='closed')return false;
+    try {
+      const predicted=transact(values,inventory,{effects:this.card(location)?.effects},this.compiled.variables,this.compiled.library);
+      // Hidden or unmet earlier choices do not become the next playable card.
+      const following=this.choices(location).find(choice=>this.available(choice,predicted.variables,predicted.inventory));
+      return !!following&&!this.available(following,values,inventory);
+    }catch { return false; }
   }
   content(location=this.location,values=this.variables,inventory=this.inventory,preview=true,excludedItem=null) {
     const type=this.type(location),card=this.card(location),fork=type==='fork'||type==='forked',container=type==='container',linearFace=type==='linear'&&['action','item','health','energy'].includes(card?.kind),linearItem=linearFace&&card.kind==='item';
@@ -257,13 +277,13 @@ export class ProjectController {
     if(!actions.length)actions=[{id:'unavailable',label:'No available choices',disabled:true}];
     const payload={autoBrowse:fork||container,id:`${this.generation}:${++this.serial}`,cardBack:this.compiled.cardBack,title:card?.name ?? card?.title ?? '',heading:cardFace(card,this.compiled.variables,this.compiled.library,values).heading,text:this.body(card),cardKind:card?.kind ?? 'event',value:card?.value,summary:card&&!isStoryKind(card.kind??card.cardKind)&&fork?playerCardSummary(card,this.compiled.variables,this.compiled.library,values):'',image:card?.image ?? '',imageScale:card?.imageScale??100,imageOffsetX:card?.imageOffsetX??0,imageOffsetY:card?.imageOffsetY??0,flipImage:!!card?.flipImage,actions,directAdvance:!fork&&!container&&!linearFace,decisionOnly:linearFace||fork&&(location.sequence?!!location.sequence.decisionOnly:this.presentation(location,values,inventory)==='open'),interaction:container||linearItem?'container':'choice',discardAll:container,allowClose:false};
     if(fork)payload.choiceFollowerRatio=.82;
-    payload.flipItemsOnReveal=container&&this.presentation(location,values,inventory)==='closed';
+    payload.flipItemsOnReveal=container&&this.presentation(location,values,inventory)==='closed'||fork&&this.introductionUnlocksNext(location,values,inventory);
     if(payload.directAdvance){payload.nextTransition='flip';payload.advanceDisabled=this.departureBlocked(card,location,values,inventory);actions[0].disabled=payload.advanceDisabled;}
     if(type==='linear'&&preview&&card&&card.kind!=='item'&&card.resolution!=='check') {
       try {
         const predicted=transact(values,inventory,{triggerItem:card.contextInventoryKey??card.contextItemId,costs:card.costs,effects:card.effects},this.compiled.variables,this.compiled.library);
         const next=this.seek({...location,index:location.index+1},predicted.variables,predicted.inventory,new Set(),null,true);
-        payload.nextTransition=this.linearTransition(location,next,card);
+        payload.nextTransition=this.linearTransition(location,next,card,values,inventory);
         if(next&&!next.completed) {
           const nextContent=this.content(next,predicted.variables,predicted.inventory,false);
           payload.nextDeckPreview={content:nextContent,presentation:this.presentation(next,predicted.variables,predicted.inventory)};
@@ -300,7 +320,7 @@ export class ProjectController {
       const result=transact(this.variables,this.inventory,{effects:intro?.effects},this.compiled.variables,this.compiled.library);
       this.location.introRevealed=true;this.revealedIntros.add(this.key());this.pendingIntro={contentId:detail.contentId};
       this.variables=result.variables;this.inventory=result.inventory;
-      if(this.type()==='container'&&this.deck.commitMotion?.introduction) {
+      if(['container','fork'].includes(this.type())&&this.deck.commitMotion?.introduction) {
         const content=this.content();content.id=detail.contentId;
         this.deck.replaceContent(content,{presentation:'open',transition:'flip'});
       }
@@ -308,7 +328,7 @@ export class ProjectController {
     }catch(error){this.error(error);this.show({restore:true});}
   }
   transaction(source,outcome,values=this.variables,inventory=this.inventory) {return transact(values,inventory,{triggerItem:source.contextInventoryKey??source.contextItemId,costs:source.costs,effects:[...(source.effects??[]),...(outcome===undefined?[]:outcome?source.successEffects??[]:source.failureEffects??[])]},this.compiled.variables,this.compiled.library);}
-  available(source) {return (!source.contextItemId||canTriggerItem(this.inventory,source.contextInventoryKey??source.contextItemId))&&conditionsMet(source.conditions,this.variables,this.inventory)&&affordCosts(this.variables,this.inventory,source.costs,this.compiled.variables);}
+  available(source,values=this.variables,inventory=this.inventory) {return (!source.contextItemId||canTriggerItem(inventory,source.contextInventoryKey??source.contextItemId))&&conditionsMet(source.conditions,values,inventory)&&affordCosts(values,inventory,source.costs,this.compiled.variables);}
   commit(detail) {
     if(this.destroyed||this.completed||this.checking||this.pendingItem||this.pendingIntro||(this.type()==='container'||this.type()==='linear'&&this.card()?.kind==='item')||detail.contentId!==this.deck.content.id||this.accepted.has(detail.contentId))return;
     const action=this.deck.content.actions.find(a=>a.id===detail.action?.id&&!a.disabled);if(!action)return;
@@ -320,7 +340,8 @@ export class ProjectController {
     if(source.resolution==='check'){this.runCheck(source);return;}
     try {
       const result=this.transaction(source);const destination=this.destination(source,undefined,result.variables,result.inventory);
-      this.variables=result.variables;this.inventory=result.inventory;const transition=this.linearTransition(this.location,destination,source);
+      const transition=this.linearTransition(this.location,destination,source);
+      this.variables=result.variables;this.inventory=result.inventory;
       this.adopt(destination,false);this.show({transition});
     }catch(error){this.error(error);this.show({restore:true});}
   }

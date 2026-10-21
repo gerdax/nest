@@ -1,0 +1,16 @@
+<!doctype html>
+<meta charset="utf-8">
+<base href="../../">
+<title>Fork introduction unlock verification</title>
+<link rel="stylesheet" href="engine/card-deck.css">
+<style>body{margin:0;background:#172020;color:#dce5ce;font:14px system-ui}main{display:flex;gap:24px;padding:20px}#deck{width:320px;height:600px;background:#000}aside{max-width:300px}button{padding:10px}</style>
+<main><div id="deck"></div><aside><h1>Introduction unlock</h1><p>Swipe the introduction up. Its effect grants a key and unlocks the first choice. The transition must flip into that choice without showing “No available choices”.</p><button onclick="location.reload()">Restart</button><p id="state"></p></aside></main>
+<script type="module">
+import {CardDeck} from './engine/CardDeck.js';
+import {ProjectController} from './project/ProjectController.js';
+const deck=new CardDeck(document.querySelector('#deck'),{content:{id:'loading',actions:[{id:'loading',label:'Loading'}]}});
+new ProjectController(deck,{
+ startNode:'door',unavailableActions:'hidden',variables:[],library:[{id:'key',kind:'item',name:'Key'}],
+ nodes:[{id:'door',type:'fork',intro:{id:'intro',kind:'event',text:'You find a key.',effects:[{op:'addItem',key:'key'}]},choices:[{id:'open',kind:'action',name:'Open the door',text:'The key fits.',contextItemId:'key',entrance:'bottom'}],connections:{open:null}}]
+},{onChange:state=>document.querySelector('#state').textContent=`Inventory: ${state.collectedItems.length} · Idle: ${state.idle}`});
+</script>

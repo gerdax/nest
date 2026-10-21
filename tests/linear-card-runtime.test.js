@@ -613,3 +613,22 @@ for(const type of ['linear','fork'])test(`preview uses destination ${type} overr
  assert.equal(deck.content.actions[0].disabled,true);
  dispose(deck,controller);
 });
+
+for(const reduced of [false,true])for(const variant of ['unlocks-next','already-available','later-only','still-unmet'])test(`Linear predicts and commits exceptional flip only for the directly unlocked next card: ${variant}, reduced=${reduced}`,()=>{
+ const requiresReady=[{source:'variable',key:'ready',op:'eq',value:true}];
+ const first={...narrative('first'),effects:variant==='still-unmet'?[]:[{op:'set',key:'ready',value:true}]};
+ const next={...narrative('next'),conditions:['unlocks-next','still-unmet'].includes(variant)?requiresReady:[]};
+ const later={...narrative('later'),conditions:variant==='later-only'?requiresReady:[]};
+ const {deck,controller}=real(linear([first,next,later]),{variables:[{id:'ready',type:'flag',initial:false}]});deck.reduced=reduced;
+ const expected=variant==='unlocks-next'?'flip':'reveal';
+ assert.equal(deck.content.nextTransition,expected);assert.equal(controller.variables.ready,false);
+ assert.equal(deck.start(),true);deck.move({axis:'y',x:0,y:-10});deck.cancel();settle();
+ assert.equal(controller.variables.ready,false);
+ const transitions=[],replace=deck.replaceContent.bind(deck);
+ deck.replaceContent=(content,options)=>{transitions.push(options.transition);return replace(content,options);};
+ key(deck,'ArrowUp');
+ assert.equal(transitions[0],expected,'actual transition matches precomputed preview');
+ assert.equal(controller.variables.ready,variant!=='still-unmet');
+ assert.equal(controller.state.cardId,variant==='still-unmet'?'later':'next');
+ dispose(deck,controller);
+});
