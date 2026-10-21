@@ -7,7 +7,7 @@ import { createDefinition,cardEditorTint } from '../project/cards.js';
 class Element {
  constructor(classes='',dataset={},parent=null){this.classes=new Set(classes.split(' '));this.dataset=dataset;this.parent=parent;this.style={setProperty(key,value){this[key]=value;}};this.children=[];this.classList={toggle:(name,on)=>on?this.classes.add(name):this.classes.delete(name)};}
  closest(selector){for(let el=this;el;el=el.parent)if(el.classes.has(selector.slice(1)))return el;return null;}
- querySelectorAll(selector){return this.children.filter(el=>el.classes.has(selector.slice(1)));}
+ querySelectorAll(selector){return [...this.children,...(this.cardRows||[])].filter(el=>el.classes.has(selector.slice(1)));}
  getBoundingClientRect(){return {width:0,height:0};}
 }
 class Root extends Element {
@@ -15,7 +15,7 @@ class Root extends Element {
   Object.defineProperty(this.parts['#nodes'],'innerHTML',{set:html=>{
    this.parts['#nodes'].rendered=html;
    this.nodes=[...html.matchAll(/<article class="([^"]*)" data-id="([^"]*)"[^>]*>(.*?)<\/article>/g)].map(([,classes,id,body])=>{
-    const node=new Element(classes,{id},this);node.children=[...body.matchAll(/<button class="([^"]*)" data-exit="([^"]*)"/g)].map(([,cls,exit])=>new Element(cls,{exit},node));return node;
+    const node=new Element(classes,{id},this);node.cardRows=[...body.matchAll(/<div class="(graph-card-row[^"]*)" data-card-slot="[^"]*" data-card-placement="([^"]*)"/g)].map(([,cls,cardPlacement])=>new Element(cls,{cardPlacement},node));node.children=[...body.matchAll(/<button class="([^"]*)" data-exit="([^"]*)"/g)].map(([,cls,exit])=>new Element(cls,{exit},node));return node;
    });
   }});
  }
@@ -430,4 +430,24 @@ test('canceling a modifier selection never swallows subsequent keyboard connecto
  s.root.handlers.keydown({key:'Enter',target:s.port()});
  s.root.handlers.click({detail:0,target:s.port(),preventDefault(){assert.fail('activation must not be swallowed');}});
  assert.deepEqual(s.selections,['b']);
+});
+
+test('preview card highlight distinguishes placements, survives render and clears across chapters',()=>{
+ const s=setup();s.chapter.id='chapter';s.graph.project.library=[createDefinition('item','same')];
+ s.chapter.nodes[0].cards=[{id:'first',definitionId:'same'},{id:'second',definitionId:'same'}];
+ s.graph.render(s.graph.project,s.chapter,'a','a');
+ const target=id=>({chapterId:'chapter',nodeId:'a',placementId:id});
+ const [first,second]=s.root.node('a').cardRows;
+ s.graph.setActiveCard(target('first'));assert.equal(first.classes.has('preview-active'),true);
+ s.graph.setActiveCard(target('second'));
+ assert.equal(first.classes.has('preview-active'),false);assert.equal(second.classes.has('preview-active'),true);
+ const nodes=s.graph.nodeElements;let writes=0;
+ second.classList.toggle=()=>writes++;
+ s.graph.setActiveCard(target('second'));assert.equal(writes,0);assert.equal(s.graph.nodeElements,nodes);
+ s.graph.render(s.graph.project,s.chapter,'a','a');
+ assert.equal(s.root.node('a').cardRows[1].classes.has('preview-active'),true);
+ s.graph.setActiveCard({...target('second'),chapterId:'other'});
+ assert.equal(s.root.node('a').cardRows[1].classes.has('preview-active'),false);
+ s.graph.setActiveCard(target('first'));s.graph.setActiveCard(null);
+ assert.equal(s.root.node('a').cardRows[0].classes.has('preview-active'),false);
 });

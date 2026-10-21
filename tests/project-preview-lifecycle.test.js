@@ -547,3 +547,18 @@ test('selected stat check and owned trigger item populate the combined context p
  preview.stop();assert.equal(preview.actionContext.mini.item,null);
  preview.destroy();
 });
+
+test('visible card notifications follow selection, transitions and stop without a navigation button',()=>{
+ environment();const targets=[];
+ const project=createProject(),route=project.chapters[0].nodes.find(node=>node.id==='route');
+ route.choices.push({id:'second-choice',definitionId:'explore'});route.connections['second-choice']='quiet-passage';
+ const preview=new ProjectPreview(new Element(),{onCardChange:target=>targets.push(target)});
+ preview.play(project);assert.equal(targets.at(-1)?.placementId,'arrival-card');
+ preview.play(project,'chapter-1','route');const oldDeck=preview.deck,oldListener=preview.cardLinkListener;
+ oldDeck.completePhase('choices','reveal');
+ oldDeck.index=1;oldDeck.emit('selection',{action:oldDeck.content.actions[1]});
+ assert.equal(targets.at(-1)?.placementId,'second-choice');
+ oldDeck.phase='closing';oldDeck.emit('close');assert.equal(targets.at(-1),null);
+ preview.restart();const count=targets.length;oldListener();assert.equal(targets.length,count);
+ preview.stop();assert.equal(targets.at(-1),null);preview.destroy();
+});

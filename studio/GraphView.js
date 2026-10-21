@@ -68,6 +68,7 @@ export class GraphView {
   this.root.querySelector('#nodes').innerHTML=chapter.nodes.map(n=>`<article class="node ${n.type} ${this.selectedIds.has(n.id)?'selected':''} ${n.id===active?'active':''}" data-id="${esc(n.id)}" style="left:${this.position(n).x}px;top:${this.position(n).y}px"><div class="node-heading">${nodeIcon(n.type)}<span class="badge">${n.id===chapter.startNode?'START · ':''}${esc(n.name?.trim()||nodeTypeLabel(n.type))}</span></div>${n.type==='random'?`<div class="node-body">${n.routes.length} ${n.routes.length===1?'route':'routes'}</div>`:n.type.startsWith('legacy')?'<div class="node-body">Preserved legacy behaviour</div>':''}${this.cardRows(n)}</article>`).join('');
   this.nodeElements=new Map([...this.root.querySelectorAll('.node')].map(el=>[el.dataset.id,el]));
   this.portElements=new Map([...this.nodeElements].map(([id,el])=>[id,new Map([...el.querySelectorAll('.port')].map(port=>[port.dataset.exit,port]))]));
+  this.setActiveCard(this.activeCard);
   this.transform();this.edges();
  }
  // Preview notifications change only these classes. Keep the graph DOM, focus,
@@ -78,6 +79,16 @@ export class GraphView {
   this.active=active;
   this.nodeElements?.get(previous)?.classList.toggle('active',false);
   this.nodeElements?.get(active)?.classList.toggle('active',true);
+ }
+ // Match authored placements, so equal names and shared definitions stay distinct.
+ setActiveCard(target) {
+  this.activeCard=target?.chapterId===this.chapter?.id?target:null;
+  const node=this.activeCard&&this.nodeElements?.get(this.activeCard.nodeId);
+  const row=node?[...node.querySelectorAll('.graph-card-row')].find(row=>row.dataset.cardPlacement===this.activeCard.placementId):null;
+  if(this.activeCardElement===row)return;
+  this.activeCardElement?.classList.toggle('preview-active',false);
+  row?.classList.toggle('preview-active',true);
+  this.activeCardElement=row;
  }
  target(n,exit) {if(n.type==='random')return exit==='fallback'?n.fallback:n.routes.find(r=>r.id===exit)?.target;return n.connections?.[exit];}
  portLabel(node,exit){const target=this.target(node,exit);return target===null?'End chapter':this.nodesById.get(target)?.name||'Unlinked';}

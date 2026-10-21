@@ -12,7 +12,7 @@ test('preview node IDs are scoped by chapter and cleared when state is absent',(
 });
 
 test('highlight-only updates do not paint a hidden stale chapter with matching node IDs',()=>{
- const writes=[],graph={chapter:{id:'chapter-a'},setActive:active=>writes.push(active)};
+ const writes=[],graph={chapter:{id:'chapter-a'},setActive:active=>writes.push(active),setActiveCard:()=>{}};
  const preview={chapterId:'chapter-b',state:{activeNodeId:'shared-node'}};
  updatePreviewHighlight(graph,preview,{id:'chapter-b'});
  assert.deepEqual(writes,[null]);
@@ -26,5 +26,5 @@ test('editor preview notification wiring uses highlight updates while document r
  const source=readFileSync(new URL('../studio/editor.js',import.meta.url),'utf8');
  assert.match(source,/onChange:state=>updatePreviewHighlight\(graph,preview,chapter\(\),state\)/);
  assert.match(source,/onStop:\(\)=>graph\.setActive\(null\)/);
- assert.match(source,/function renderGraph\(\)\{[^}]*if\(mode==='chapter'\)graph\.render\(project,chapter\(\),selected,previewActiveNode\(preview,chapter\(\)\)\)/);
+ assert.match(source,/function renderGraph\(\)\{[^}]*if\(mode==='chapter'\)\{\s*graph\.render\(project,chapter\(\),selected,previewActiveNode\(preview,chapter\(\)\)\)/);
 });

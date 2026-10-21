@@ -18,13 +18,14 @@ import { ActionContextPanel } from './ActionContextPanel.js';
 
 /** Playback UI owns dice/inventory presentation, never chapter resolution rules. */
 export class ProjectPreview {
-  constructor(root, { onChange = () => {}, onStop = () => {}, onGoToCard, inventoryDock = false, inventoryHost = null, deckSettings = {}, presentationPolicy = {} } = {}) {
+  constructor(root, { onChange = () => {}, onStop = () => {}, onCardChange = () => {}, onGoToCard, inventoryDock = false, inventoryHost = null, deckSettings = {}, presentationPolicy = {} } = {}) {
     this.root = root;
     this.destroyed = false;
     this.generation = 0;
     this.diceGeneration = 0;
     this.onChange = onChange;
     this.onStop = onStop;
+    this.onCardChange = onCardChange;
     this.onGoToCard = typeof onGoToCard === 'function' ? onGoToCard : null;
     this.deckSettings = { ...deckSettings };
     this.presentationPolicy = { ...presentationPolicy };
@@ -185,7 +186,9 @@ export class ProjectPreview {
     return previewCardTarget(this);
   }
   syncCardLink() {
-    if (this.goToCardButton) this.goToCardButton.disabled = !this.cardTarget();
+    const target = this.destroyed ? null : previewCardTarget(this);
+    if (this.goToCardButton) this.goToCardButton.disabled = !target;
+    this.onCardChange(target);
   }
   syncActionContext() {
     const deck = this.deck;
@@ -313,6 +316,7 @@ export class ProjectPreview {
       this.project = null; this.compiled = null; this.chapterId = null; this.startNode = undefined;
       this.onChange = () => {};
       this.onStop = () => {};
+      this.onCardChange = () => {};
       this.root.replaceChildren();
       this.destroying = false;
     }

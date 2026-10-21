@@ -52,7 +52,7 @@ const localDrafts=new LocalCardDrafts();
 const chapter=()=>project.chapters.find(c=>c.id===chapterId)||project.chapters[0];
 const node=()=>chapter().nodes.find(n=>n.id===selected);
 const definition=()=>project.library.find(d=>d.id===definitionId);
-const preview=new ProjectPreview($('#preview'),{inventoryHost:$('.preview-window-body'),onChange:state=>updatePreviewHighlight(graph,preview,chapter(),state),onStop:()=>graph.setActive(null),onGoToCard:goToPreviewCard});
+const preview=new ProjectPreview($('#preview'),{inventoryHost:$('.preview-window-body'),onChange:state=>updatePreviewHighlight(graph,preview,chapter(),state),onStop:()=>graph.setActive(null),onCardChange:target=>graph.setActiveCard(target),onGoToCard:goToPreviewCard});
 const previewWindow=mountPreviewWindow($('#preview-window'),{onClose:()=>preview.stop()});
 const autoplay=mountAutoplay($('#autoplay'),{getSelected:()=>graph.selectedIds.size>1?undefined:selected,onPlay:id=>play(id,{restore:false})});
 const nodeCreateMenu=mountNodeCreateMenu({onChoose:(type,request)=>edit('create-connected-node',{...request,type}),onDismiss:()=>graph.cancelCreation(),returnFocus:$('#canvas')});
@@ -111,7 +111,10 @@ function edit(type,data={}, {preserveProjectSettings=false,refresh=true}={}){
  return {ok:!outcome.failure&&saved.ok,value:outcome.result?.value};
 }
 function renderGraph(){
- if(mode==='chapter')graph.render(project,chapter(),selected,previewActiveNode(preview,chapter()));
+ if(mode==='chapter'){
+  graph.render(project,chapter(),selected,previewActiveNode(preview,chapter()));
+  updatePreviewHighlight(graph,preview,chapter());
+ }
  const multiple=graph.selectedIds.size>1;
  $('#copy-node').disabled=$('#cut-node').disabled=mode!=='chapter'||!node()||multiple;
  for(const id of ['duplicate','start','play-node'])$('#'+id).disabled=mode!=='chapter'||!node()||multiple;
