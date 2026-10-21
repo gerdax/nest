@@ -58,10 +58,10 @@
 /* Busy state disables actions, without applying the host app's dimmed-button style. */
 .nest-inventory-drawer .nest-inventory-slot>button:disabled{opacity:1}
 
-/* Keep mini artwork above center; translate composes with authored horizontal flips. */
+/* Keep enlarged mini artwork slightly above center; individual transforms preserve authored flips. */
 .nest-inventory-drawer .nest-inventory-slot>button>.nest-image-vignette>img,
 .nest-inventory-drawer .nest-inventory-overflow .nest-image-vignette>img,
-.nest-inventory-drag-preview>.nest-image-vignette>img{translate:0 -12.5%}
+.nest-inventory-drag-preview>.nest-image-vignette>img{scale:1.1;translate:0 -8%}
 
 /* Keep the pressed mini fixed under the pointer throughout the camera move. */
 .nest-inventory-drawer.is-holding-mini .nest-inventory-slot {opacity:0;pointer-events:none}

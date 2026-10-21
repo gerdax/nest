@@ -83,7 +83,7 @@
 .nest-trigger-item>button:focus-visible {outline:3px solid #f4e8b6;outline-offset:-4px;}
 .nest-trigger-item>button:disabled {opacity:1;}
 .nest-trigger-item .nest-image-vignette {position:absolute;inset:0;border-radius:inherit;}
-.nest-trigger-item img {width:100%;height:100%;object-fit:cover;translate:0 -12.5%;pointer-events:none;}
+.nest-trigger-item img {width:100%;height:100%;object-fit:cover;scale:1.1;translate:0 -8%;pointer-events:none;}
 
 .nest-trigger-item>button:is(:active,[aria-pressed="true"]) {border-color:var(--mini-active-stroke,var(--card-medium-color,#d2dfb6));}
 
