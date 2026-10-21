@@ -96,7 +96,7 @@ test('newly generated unreachable definitions are discarded without pruning exis
  assert.equal(result.project.library.some(d=>d.id==='temporary-orphan'),false);
 });
 
-test('preserved unplaced drafts retain item dependencies after their last placement is removed',()=>{
+test('preserved unplaced drafts lose direct references when the local item source node is deleted',()=>{
  const s=setup();let itemId,containerId;
  s.history.transact(project=>{
   const chapter=project.chapters[0],container=createNode(project,'container');chapter.nodes.push(container);
@@ -105,6 +105,31 @@ test('preserved unplaced drafts retain item dependencies after their last placem
  });
  const result=s.run('delete-node',{}, {...s.selection,selected:containerId});
  assert.ok(result.project.library.some(d=>d.id==='saved-action-draft'));
- assert.ok(result.project.library.some(d=>d.id===itemId));
+ assert.equal(result.project.library.some(d=>d.id===itemId),false);
+ assert.deepEqual(result.project.library.find(d=>d.id==='saved-action-draft').effects,[]);
  assert.deepEqual(validateProject(result.project),[]);
+});
+
+test('switching back to a cached local Action cannot resurrect a deleted Item or its rules',()=>{
+ const s=setup(),placement=s.node.cards[0];let itemId,containerId;
+ s.history.transact(project=>{
+  const container=createNode(project,'container');project.chapters[0].nodes.push(container);
+  itemId=container.items[0].definitionId;containerId=container.id;
+ });
+ const switchTo=kind=>s.run('field',{scope:'placement',placementId:placement.id,path:'definitionId',value:`local:${kind}`});
+ switchTo('action');
+ s.run('field',{scope:'local-definition',placementId:placement.id,path:'effects',value:[{op:'addItem',key:itemId}]});
+ switchTo('caption');
+ const before=s.history.document;
+ const removed=s.run('delete-node',{}, {...s.selection,selected:containerId});
+ assert.equal(removed.project.library.some(d=>d.id===itemId),false);
+ s.history.undo();assert.deepEqual(s.history.document,before);
+ s.history.redo();assert.deepEqual(s.history.document,removed.project);
+ s.run('field',{scope:'project',path:'name',value:'Unrelated edit'});
+ assert.equal(s.history.document.library.some(d=>d.id===itemId),false);
+ const restored=switchTo('action').project;
+ const action=restored.library.find(d=>d.id===restored.chapters[0].nodes.find(n=>n.id===s.node.id).cards[0].definitionId);
+ assert.deepEqual(action.effects,[]);
+ assert.equal(restored.library.some(d=>d.id===itemId),false);
+ assert.deepEqual(validateProject(restored),[]);
 });

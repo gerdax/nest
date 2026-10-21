@@ -205,7 +205,7 @@ export function normalizeRule(project,rule,leaf,chapter) {
  const variables=chapterVariables(project,chapter);
  const item=eligibleInventoryItems(project,chapter)[0],variable=variables.find(v=>v.type==='number')||variables[0];
  if(leaf==='source') {if(rule.source==='inventory'&&'amount'in rule)rule.amount=1;rule.key=rule.source==='inventory'?item?.id||'':variable?.id||'';if('op'in rule){rule.op=rule.source==='inventory'?'has':'eq';if(rule.source==='inventory')delete rule.value;else rule.value=variable?.initial??0;}}
- if(leaf==='op'&&['addItem','removeItem'].includes(rule.op)){rule.key=eligibleInventoryItems(project)[0]?.id||'';delete rule.quantity;delete rule.value;}
+ if(leaf==='op'&&['addItem','removeItem'].includes(rule.op)){rule.key=item?.id||'';delete rule.quantity;delete rule.value;}
  if(leaf==='op'&&['set','add'].includes(rule.op)){rule.key=variable?.id||'';rule.value=variable?.type==='flag'?false:0;delete rule.quantity;}
  if(leaf==='key'&&'op'in rule&&rule.source!=='inventory'&&!['addItem','removeItem'].includes(rule.op)){const v=variables.find(v=>v.id===rule.key);rule.value=v?.type==='flag'?false:0;if(v?.type==='flag'&&!['eq','neq','set'].includes(rule.op))rule.op=rule.source==='variable'?'eq':'set';}
  if(leaf==='op'&&['gte','lte'].includes(rule.op)&&rule.source==='inventory')rule.value=1;

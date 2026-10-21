@@ -1,3 +1,5 @@
+import { eligibleInventoryItems } from './item-options.js';
+import { placedLocalDefinitions, removeUnplacedLocalDefinitions } from './local-definition-removal.js';
 import { applyTagCommand } from './item-tags.js';
 import { allocateVariableId, renameVariable } from './variable-ids.js';
 import { pasteCardClipboard } from './card-clipboard.js';
@@ -100,7 +102,7 @@ function changeField(project, selection, field, localDrafts) {
   if ((['value','initial'].includes(key) || path.startsWith('initialValues.')) && ['true','false'].includes(value)) value = value === 'true';
   if (inputType === 'number' && raw === '') { delete parent[key]; return; }
   if (['imageScale','imageOffsetX','imageOffsetY'].includes(key)) value = clampArtwork(key, value);
-  if(key==='key'&&['addItem','removeItem'].includes(parent.op)&&value&&!project.library.some(item=>item.id===value&&item.kind==='item'&&item.visibility!=='local'))throw new Error('Item effects must reference a shared Library item.');
+  if(key==='key'&&['addItem','removeItem'].includes(parent.op)&&value&&!eligibleInventoryItems(project,ruleChapter).some(item=>item.id===value))throw new Error('Item effects must reference an eligible item from the owning chapter or shared Library.');
   parent[key] = value;
   if (['modifierVariable','contextItemId','tagId'].includes(key) && !value) delete parent[key];
   if (key === 'contextItemId' && (!value||value.startsWith('tag:'))) delete parent.contextOverrideImage;
@@ -143,10 +145,13 @@ function inspectorCommand(project, selection, data, localDrafts) {
     case 'promote-card': promoteCard(project, placement); localDrafts.drafts.delete(placement.id); break;
     case 'add-placement': node[data.slot].push(makePlacement(project, data.kind, undefined, chapterFor(project, selection).id)); break;
     case 'duplicate-placement': duplicatePlacement(project, node, placement); break;
-    case 'remove-placement':
+    case 'remove-placement': {
+      const definitions=placedLocalDefinitions(project,placement);
       localDrafts.removePlacement(project, placement);
       for (const slot of ['cards','choices','items']) if (node[slot]) node[slot] = node[slot].filter(card => card.id !== placement.id);
+      removeUnplacedLocalDefinitions(project,definitions,localDrafts);
       break;
+    }
     case 'move-placement':
       for (const slot of ['cards','choices','items']) if (node[slot]) {
         const index = node[slot].findIndex(card => card.id === placement.id), target = index + Number(data.direction);
@@ -268,7 +273,9 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
       return {selection:{selected:added.id}};
     }
     case 'delete-node': {
+      const definitions=placedLocalDefinitions(project,node);
       chapter.nodes = chapter.nodes.filter(n => n.id !== node.id);
+      removeUnplacedLocalDefinitions(project,definitions,localDrafts);
       for (const remaining of chapter.nodes) {
         for (const key of Object.keys(remaining.connections || {})) if (remaining.connections[key] === node.id) remaining.connections[key] = false;
         for (const route of remaining.routes || []) if (route.target === node.id) route.target = false;

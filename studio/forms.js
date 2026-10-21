@@ -1,5 +1,6 @@
 import { isStatVariable, editorCheckSummary } from '../project/checks.js';
 import { eligibleInventoryItems, inventoryItemOptions } from './item-options.js';
+import { itemReferenceLinks } from './item-reference.js';
 import { esc, options } from '../editor/fields.js';
 
 export { esc };
@@ -17,9 +18,11 @@ export function rules(project,list=[],path,scope,kind,{label,help,chapter}={}) {
  html+=list.map((rule,i)=>{
   const p=`${esc(path)}.${i}`;
   let fields='';
-  let editTarget='';
   const itemEffect=kind==='effects'&&['addItem','removeItem'].includes(rule.op);
-  const items=inventoryItemOptions(project,chapter,rule.key,{includeTags:kind==='conditions',sharedOnly:itemEffect});
+  const items=inventoryItemOptions(project,chapter,rule.key,{includeTags:kind==='conditions'});
+  if(itemEffect)for(const choice of items)if(choice[0]&&!eligibleInventoryItems(project,chapter).some(item=>item.id===choice[0]))choice[2]=true;
+  const inventoryRule=itemEffect||(['conditions','costs'].includes(kind)&&rule.source==='inventory');
+  const referenceLinks=inventoryRule?itemReferenceLinks(project,rule.key,chapter):'';
   if(kind==='conditions') {
    const inventory=rule.source==='inventory';
    const candidates=inventory?items:vars;
@@ -35,19 +38,18 @@ export function rules(project,list=[],path,scope,kind,{label,help,chapter}={}) {
   } else {
    const inventory=['addItem','removeItem'].includes(rule.op);
    fields=select('Operation',rule.op,[['set','Set variable'],['add','Add to variable'],['addItem','Add item'],['removeItem','Remove item']],`${p}.op`,scope)+select('Target',rule.key,inventory?items:vars,`${p}.key`,scope);
-   const target=inventory&&eligibleInventoryItems(project).find(item=>item.id===rule.key);
-   if(target)editTarget=button('Edit shared','edit-shared',`data-definition="${esc(target.id)}" aria-label="${esc(`Edit shared: ${target.name||target.id}`)}"`);
-   if(inventory&&rule.key&&!target)fields+='<p class="small">Choose a shared Library item. This saved target is unavailable for item effects.</p>';
+   const target=inventory&&eligibleInventoryItems(project,chapter).find(item=>item.id===rule.key);
+   if(inventory&&rule.key&&!target)fields+=`<p class="small">Choose ${chapter?'an item from this chapter or the shared Library':'a shared Library item'}. This saved target is unavailable for item effects.</p>`;
    const flag=project.variables.find(v=>v.id===rule.key)?.type==='flag';
    fields+=inventory?'':flag?select('Value',String(rule.value),[['true','True'],['false','False']],`${p}.value`,scope):field('Value',rule.value,`${p}.value`,scope,'number');
   }
-  return `<div class="entry">${fields}<div class="rule-entry-actions">${button('Remove','remove-rule',extras(scope,path,kind)+` data-index="${i}"`)}${editTarget}</div></div>`;
+  return `<div class="entry">${fields}<div class="rule-entry-actions">${button('Remove','remove-rule',extras(scope,path,kind)+` data-index="${i}"`)}${referenceLinks}</div></div>`;
  }).join('');
  return html+button(`Add ${kind==='conditions'?'condition':kind==='costs'?'cost':'effect'}`,'add-rule',extras(scope,path,kind))+'</details>';
 }
 export function actionFields(project,action,prefix='',scope='definition',chapter) {
  const p=key=>prefix+key;
- let html=rules(project,action.conditions,p('conditions'),scope,'conditions',{chapter,label:'Requirements',help:'All requirements must pass before this action can be selected. Requirements do not spend resources.'})+rules(project,action.costs,p('costs'),scope,'costs',{chapter})+rules(project,action.effects,p('effects'),scope,'effects',{chapter,label:'Effects',help:'Apply when the action completes. For a dice check, these apply on either outcome.'});
+ let html=rules(project,action.conditions,p('conditions'),scope,'conditions',{chapter,label:'Requirements',help:'All requirements must pass before this action can be selected. Requirements do not spend resources.'})+rules(project,action.costs,p('costs'),scope,'costs',{chapter})+rules(project,action.effects,p('effects'),scope,'effects',{chapter,label:'Progression effects',help:'Apply when the action completes. For a dice check, these apply on either outcome.'});
  html+=select('Resolution',action.resolution||'direct',[['direct','Direct'],['check','Dice check']],p('resolution'),scope);
  if(action.resolution==='check') {
   const check=action.check||{pool:[{sides:20,count:1}],modifier:0,target:10};

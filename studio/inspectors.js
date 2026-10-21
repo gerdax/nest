@@ -11,6 +11,7 @@ import { definitionUsagePanel } from './definition-usage-view.js';
 import { libraryRemovalPlan } from './library-removal.js';
 import { nodeTypeDescriptor, nodeTypeLabel, retainsInventoryItems } from '../project/nodeTypes.js';
 import { inventoryItemOptions } from './item-options.js';
+import { itemReferenceLinks } from './item-reference.js';
 import { field, select, checkbox, button, rules, actionFields, imageField, esc } from './forms.js';
 
 function artworkEditor(definition,scope) {
@@ -80,12 +81,12 @@ export function placementInspector(project,p,kind,index,slot,count=Infinity,chap
  html+=select('Card source',local?`local:${kind}`:p.definitionId,[...localSources,...defs],'definitionId','placement');
  html+='<div class="card-source-actions"><div class="card-source-primary">';
  if(local)html+=button('Add to library','promote-card',`${attr} title="Chapter-variable rules stay on the chapter instance as custom rules."`)+button('Clear','clear-card',attr);
- else html+=button('Edit shared','edit-shared',`data-definition="${esc(p.definitionId)}" data-card-placement="${esc(p.id)}"`)+button('Convert to local','local-copy',`${attr} data-kind="${kind}"`);
+ else html+=button('Go to definition','go-to-definition',`data-definition="${esc(p.definitionId)}" data-card-placement="${esc(p.id)}"`)+button('Convert to local','local-copy',`${attr} data-kind="${kind}"`);
  html+=`</div><div class="card-source-clipboard">${button('Copy','copy-card',`${attr} aria-label="Copy card"`)}${button('Paste','paste-card',`${attr} aria-label="Paste card" disabled title="Copy a compatible card first."`)}</div></div>`;
  if(local)html+=cardFields(project,definition,'local-definition',false,false,chapter);
  // Placement fields use a dedicated scope and are selected by their stable ID.
  html+=`<div class="placement-fields" ${attr}>`;
- if(slot==='choices'&&kind==='action')html+=select('Inventory trigger',p.contextItemId||'',inventoryItemOptions(project,chapter,p.contextItemId,{allowNone:true,includeTags:true}),'contextItemId','placement');
+ if(slot==='choices'&&kind==='action')html+=select('Inventory trigger',p.contextItemId||'',inventoryItemOptions(project,chapter,p.contextItemId,{allowNone:true,includeTags:true}),'contextItemId','placement')+itemReferenceLinks(project,p.contextItemId,chapter);
  if(local&&kind==='action')html+=cardRuleFields(project,definition,'local-definition',chapter);
  if(kind!=='action')html+=rules(project,p.conditions,'conditions','placement','conditions',{chapter,label:'Appearance conditions',help:kind==='item'?'All conditions must pass for this item to appear here. They do not limit Action triggers after collection.':'All conditions must pass for this card to appear here.'});
  if(local&&kind!=='action')html+=cardRuleFields(project,definition,'local-definition',chapter);

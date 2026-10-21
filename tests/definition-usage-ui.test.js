@@ -6,6 +6,7 @@ import {createProject} from '../project/model.js';
 import {createDefinition} from '../project/cards.js';
 import {definitionInspector} from '../studio/inspectors.js';
 import {definitionUsagePanel} from '../studio/definition-usage-view.js';
+import {definitionDestination} from '../studio/item-reference.js';
 
 function fixture() {
   const project = createProject(), chapter = project.chapters[0], node = chapter.nodes.find(n => n.type === 'fork');
@@ -65,7 +66,7 @@ function host() {
   const source = readFileSync(new URL('../studio/editor.js', import.meta.url), 'utf8');
   const start = source.indexOf('function command(event){'), end = source.indexOf('for(const root of', start);
   const calls = [], context = {
-    chapterId:'before', selected:'old', mode:'library', project:createProject(),
+    chapterId:'before', selected:'old', mode:'library', project:createProject(),definitionDestination,
     goToPreviewCard:target => calls.push(['card', {...target}]),
     graph:{fit:() => calls.push(['fit'])},
     render:() => calls.push(['render']),
@@ -93,4 +94,20 @@ test('non-card rule references still navigate to their owning beat', () => {
   assert.equal(h.context.selected, 'encounter');
   assert.equal(h.context.mode, 'chapter');
   assert.deepEqual(h.calls, [['render'],['fit']]);
+});
+
+test('Go to definition opens shared sources in Library and local sources at their card',()=>{
+ const h=host();
+ h.click({command:'go-to-definition',definition:'flashlight'});
+ assert.equal(h.context.mode,'library');assert.equal(h.context.definitionId,'flashlight');
+ const {project,chapter,node,local}=fixture();h.context.project=project;h.calls.length=0;
+ h.click({command:'go-to-definition',definition:local.id});
+ assert.deepEqual(h.calls,[['card',{chapterId:chapter.id,nodeId:node.id,placementId:'explore-choice'}],['fit']]);
+});
+
+test('Go to definition can edit an unplaced local draft in its owning chapter',()=>{
+ const h=host(),{project,chapter,node,local}=fixture();node.choices=[];h.context.project=project;
+ h.click({command:'go-to-definition',definition:local.id});
+ assert.equal(h.context.chapterId,chapter.id);assert.equal(h.context.definitionId,local.id);assert.equal(h.context.mode,'library');
+ assert.deepEqual(h.calls,[['render']]);
 });

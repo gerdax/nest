@@ -1,4 +1,5 @@
 import { cardRuleIndicators } from './card-rule-indicators.js';
+import { definitionDestination } from './item-reference.js';
 import { createLibraryIndex } from '../project/library-index.js';
 import { sortedChapters, startChapter } from '../project/chapter-navigation.js';
 import { remapVariableClipboard, variableRenamesBetween } from './variable-ids.js';
@@ -301,6 +302,18 @@ function command(event){const b=event.target.closest('[data-command]');if(!b)ret
   preview.stop();localDrafts.reset();
   const result=edit('delete-chapter',{id:b.dataset.chapter});
   if(result.ok){if(mode==='chapter')graph.fit();report('Chapter deleted. Undo restores it.');}
+  return;
+ }
+ if(cmd==='go-to-definition'){
+  const destination=definitionDestination(project,b.dataset.definition);
+  if(!destination){report('This definition is no longer available.');return;}
+  if(destination.kind==='placement'){
+   goToPreviewCard(destination.target);graph.fit();
+  }else{
+   definitionId=destination.definition.id;
+   if(destination.chapter){chapterId=destination.chapter.id;selected=destination.chapter.startNode||destination.chapter.nodes[0]?.id;}
+   mode='library';render();
+  }
   return;
  }
  if(cmd==='edit-shared'){definitionId=b.dataset.definition;mode='library';render();return;}

@@ -35,12 +35,7 @@ function assertChapterOptions(html,path) {
  assert.match(options,/Item: shared-item/);
  assert.doesNotMatch(options,/other-item|orphan-item/);
 }
-function assertEffectOptions(html,path) {
- const options=selectOptions(html,path);
- assert.match(options,/Item: shared-item/);
- assert.match(options,/<option value="own-item" selected disabled>local: own-item \(unavailable\)<\/option>/);
- assert.doesNotMatch(options,/other-item|orphan-item/);
-}
+const assertEffectOptions=assertChapterOptions;
 
 test('editor item candidates require explicit chapter ownership without filtering project library',()=>{
  const {project,chapter}=fixture(),before=structuredClone(project.library);
@@ -50,7 +45,7 @@ test('editor item candidates require explicit chapter ownership without filterin
  assert.deepEqual(inventoryItemOptions(project,chapter,'missing').at(-1),['missing','missing (unavailable)']);
 });
 
-test('chapter item effects use shared Library items while requirements, costs and triggers keep chapter candidates',()=>{
+test('chapter item effects, requirements, costs and triggers use chapter candidates',()=>{
  const {project,chapter,node}=fixture();
  const html=nodeInspector(project,chapter,node);
  for(const path of ['conditions.0.key','costs.0.key','contextItemId'])assertChapterOptions(html,path);
@@ -105,7 +100,7 @@ test('rule type switches use the same chapter or Library candidates, including a
   const root=scope==='definition'||scope==='local-definition'?action:scope==='node'?chapter.nodes[0]:chapter.nodes[0].choices[0];
   root.effects=[{op:'set',key:'energy',value:0}];
   applyDocumentCommand(project,selection,'field',{scope,placementId:'placement',path:'effects.0.op',value:'addItem'});
-  assert.equal(root.effects[0].key,'shared-item');
+  assert.equal(root.effects[0].key,scope==='definition'?'shared-item':'own-item');
  }
  for(const source of ['conditions','costs']) {
   action[source]=[{source:'variable',key:'energy',...(source==='conditions'?{op:'eq',value:0}:{amount:1})}];
@@ -118,15 +113,14 @@ test('rule type switches use the same chapter or Library candidates, including a
  assert.equal(rule.key,'');
 });
 
-test('legacy local effect targets stay visible but cannot be edited as shared targets',()=>{
+test('local item definitions use their owning chapter when the active chapter differs',()=>{
  const {project,chapter,node,selection}=fixture();
  const item=project.library.find(item=>item.id==='own-item');
  chapter.variables=[{id:'chapter-flag',name:'Chapter flag',type:'flag',initial:false}];
  item.onCollect=[{op:'addItem',key:'own-item'}];
  const before=structuredClone(project);
  const html=nodeInspector(project,chapter,node);
- assert.doesNotMatch(html,/data-command="edit-shared" data-definition="own-item"/);
- assert.match(html,/Choose a shared Library item/);
+ assert.doesNotMatch(html,/Choose a shared Library item/);
  assert.doesNotMatch(html,/data-command="edit-shared" data-definition="other-item"/);
  const detail=definitionInspector(project,item);
  assert.match(detail,/Chapter-local definition/);
@@ -140,33 +134,59 @@ test('legacy local effect targets stay visible but cannot be edited as shared ta
  assert.equal(item.image,'rod.png');
  item.onCollect=[{op:'set',key:'energy',value:0}];
  applyDocumentCommand(project,selected,'field',{scope:'definition',path:'onCollect.0.op',value:'addItem'});
- assert.equal(item.onCollect[0].key,'shared-item');
+ assert.equal(item.onCollect[0].key,'own-item');
  applyDocumentCommand(project,selected,'inspector',{command:'add-rule',scope:'definition',path:'onCollect',ruleKind:'effects'});
  assert.equal(item.onCollect.length,2);
  applyDocumentCommand(project,selected,'field',{scope:'definition',path:'onCollect.1.key',value:'chapter-flag'});
  assert.equal(item.onCollect[1].value,false,'local definition rules can use chapter variables');
 });
 
-test('shared effect targets expose Edit shared on the right of Remove',()=>{
+test('inventory rule links follow Remove and identify the selected definition',()=>{
  const {project,chapter,node,action}=fixture();
- action.effects=[{op:'addItem',key:'shared-item'},{op:'removeItem',key:'shared-item'}];
+ action.effects=[{op:'addItem',key:'shared-item'},{op:'removeItem',key:'own-item'}];
+ chapter.nodes.push({id:'items',type:'container',name:'Items',items:[{id:'own-placement',definitionId:'own-item'}],connections:{}});
  const html=nodeInspector(project,chapter,node);
- assert.match(html,/<div class="rule-entry-actions"><button[^>]*data-command="remove-rule"[^>]*>Remove<\/button><button[^>]*data-command="edit-shared" data-definition="shared-item"[^>]*>Edit shared<\/button><\/div>/);
- assert.doesNotMatch(html,/>Edit item</);
- assert.doesNotMatch(selectOptions(html,'effects.0.key'),/own-item|other-item|orphan-item/);
+ assert.match(html,/>Progression effects · 2</);
+ assert.match(html,/<div class="rule-entry-actions"><button[^>]*data-command="remove-rule"[^>]*>Remove<\/button>[\s\S]*?Go to definition/);
+ assert.match(html,/data-definition="shared-item"/);
+ assert.match(html,/data-definition="own-item"/);
+ assertChapterOptions(html,'effects.0.key');
 });
 
-test('effect commands reject local, missing and tag targets without mutating saved rules',()=>{
+test('effect commands accept own chapter and shared items and reject ineligible targets without mutation',()=>{
  const {project,action,selection}=fixture();
  action.effects=[{op:'addItem',key:'shared-item'}];
- for(const key of ['own-item','other-item','missing','tag:tool']) {
-  assert.throws(()=>applyDocumentCommand(project,selection,'field',{scope:'local-definition',placementId:'placement',path:'effects.0.key',value:key}),/shared Library item/);
-  assert.equal(action.effects[0].key,'shared-item');
+ for(const op of ['addItem','removeItem']) {
+  action.effects[0].op=op;
+  for(const key of ['own-item','shared-item']) {
+   applyDocumentCommand(project,selection,'field',{scope:'local-definition',placementId:'placement',path:'effects.0.key',value:key});
+   assert.equal(action.effects[0].key,key);
+  }
+  for(const key of ['other-item','orphan-item','missing','tag:tool']) {
+   const before=structuredClone(project);
+   assert.throws(()=>applyDocumentCommand(project,selection,'field',{scope:'local-definition',placementId:'placement',path:'effects.0.key',value:key}),/eligible item/);
+   assert.deepEqual(project,before);
+  }
  }
  project.library=project.library.filter(item=>item.id!=='shared-item');
  for(const op of ['addItem','removeItem']) {
-  const rule={op,key:'own-item'};
+  const rule={op,key:'shared-item',value:7,quantity:3};
   normalizeRule(project,rule,'op',project.chapters[0]);
-  assert.equal(rule.key,'','local items cannot be the default when the Library has no items');
+  assert.deepEqual(rule,{op,key:'own-item'});
  }
+});
+
+test('shared definitions reject chapter items regardless of the active chapter',()=>{
+ const {project,action,selection,chapter}=fixture();
+ action.visibility='shared';
+ project.activeChapterId=chapter.id;
+ action.effects=[{op:'addItem',key:'shared-item'}];
+ for(const key of ['own-item','other-item','orphan-item','missing','tag:tool']) {
+  const before=structuredClone(project);
+  assert.throws(()=>applyDocumentCommand(project,selection,'field',{scope:'definition',path:'effects.0.key',value:key}),/eligible item/);
+  assert.deepEqual(project,before);
+ }
+ project.library=project.library.filter(item=>item.id!=='shared-item');
+ applyDocumentCommand(project,selection,'field',{scope:'definition',path:'effects.0.op',value:'removeItem'});
+ assert.equal(action.effects[0].key,'');
 });
