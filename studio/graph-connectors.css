@@ -76,12 +76,12 @@
 }
 
 #edges .edge-line.preview-active {
-  stroke:#9e9369;stroke-width:2.5;vector-effect:non-scaling-stroke;
+  stroke:#9e9369;stroke-width:3;vector-effect:non-scaling-stroke;
   filter:drop-shadow(0 0 3px #9e936985);
 }
 #edges .edge-line.preview-active[data-exit$=":success"] {
-  stroke:#adf5ae;filter:drop-shadow(0 0 3px #adf5ae85);
+  stroke:#adf5ae;stroke-width:2.5;filter:drop-shadow(0 0 3px #adf5ae85);
 }
 #edges .edge-line.preview-active[data-exit$=":failure"] {
-  stroke:#e4a6a5;filter:drop-shadow(0 0 3px #e4a6a585);
+  stroke:#e4a6a5;stroke-width:2.5;filter:drop-shadow(0 0 3px #e4a6a585);
 }
