@@ -1,3 +1,5 @@
+import { applyMaterialShine } from '../../material-shine.js';
+
 var qt = Object.defineProperty;
 var Jt = (f, e, t) => e in f ? qt(f, e, { enumerable: !0, configurable: !0, writable: !0, value: t }) : f[e] = t;
 var xe = (f, e, t) => (Jt(f, typeof e != "symbol" ? e + "" : e, t), t), _t = (f, e, t) => {
@@ -12865,11 +12867,13 @@ class aa {
   }
   async loadStandardMaterial(e) {
     const { theme: t, material: i } = e, r = new g(t, this.scene);
+    applyMaterialShine(r, i);
     i.diffuseTexture && (r.diffuseTexture = await this.getTexture("diffuse", e)), i.bumpTexture && (r.bumpTexture = await this.getTexture("bump", e)), i.specularTexture && (r.specularTexture = await this.getTexture("specular", e)), r.allowShaderHotSwapping = !1;
   }
   // this will create two materials - one with light text and one with dark text, the underlying color can be changed by color instance buffers
   async loadColorMaterial(e) {
     const { theme: t, material: i } = e, r = new Re(t + "_light", this.scene), s = mi(e);
+    applyMaterialShine(r, i);
     i.diffuseTexture && i.diffuseTexture.light && (s.material.diffuseTexture = e.material.diffuseTexture.light, r.diffuseTexture = await this.getTexture("diffuse", s)), i.bumpTexture && (r.bumpTexture = await this.getTexture("bump", e)), i.specularTexture && (r.specularTexture = await this.getTexture("specular", e)), r.allowShaderHotSwapping = !1, r.Vertex_Definitions(`
       attribute vec3 customColor;
       varying vec3 vColor;

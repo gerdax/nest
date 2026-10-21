@@ -10,6 +10,12 @@ pixel density (including Retina), capped at 1.5× to bound full-screen GPU cost.
 and physics continue using CSS pixels. The scene optimizer is disabled: it otherwise
 permanently removes shadows after a low-FPS sample, including startup.
 Source maps and unused minified duplicates are omitted.
+Local material extension: `world.onscreen.js` imports `dice/material-shine.js`
+to apply theme `material.specularIntensity` and `material.specularPower` to
+the material itself, before cloning color variants. The embedded worker in
+`world.offscreen.js` includes the same self-contained helper and calls it in
+both material loaders. Keep its helper source synchronized when changing it;
+`tests/dice-material-shine.test.js` checks parity and both loader paths.
 MIT license: `LICENSE`. Upstream models/textures: CC0, per
 https://fantasticdice.games/docs/themes.
 

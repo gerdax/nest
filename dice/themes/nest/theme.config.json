@@ -5,8 +5,10 @@
   "version": 2,
   "material": {
     "type": "standard",
-    "diffuseTexture": "numbers.svg",
-    "diffuseLevel": 1
+    "diffuseTexture": "numbers.png",
+    "diffuseLevel": 1,
+    "specularIntensity": 0.15,
+    "specularPower": 10
   },
   "diceAvailable": ["d4", "d6", "d8", "d10", "d12", "d20", "d100"]
 }

@@ -12,12 +12,21 @@ test('Nest covers every numeric die and resolves its local material assets', asy
   // Omission intentionally uses the loader's default mesh and face map.
   assert.equal(theme.meshFile, undefined);
   assert.equal(theme.material.type, 'standard');
-  const svg = await readFile(new URL(theme.material.diffuseTexture, themeURL), 'utf8');
+  assert.equal(theme.material.diffuseTexture, 'numbers.png');
+  const png = await readFile(new URL(theme.material.diffuseTexture, themeURL));
+  assert.deepEqual([...png.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
+  assert.equal(png.toString('ascii', 12, 16), 'IHDR');
+  assert.equal(png.readUInt32BE(16), 1024);
+  assert.equal(png.readUInt32BE(20), 1024);
+  // The default bump atlas would emboss the old d6 digits through the pips.
+  assert.equal(theme.material.bumpTexture, undefined);
+});
+
+test('the preserved SVG source retains the original Nest palette and vector markings', async () => {
+  const svg = await readFile(new URL('numbers.svg', themeURL), 'utf8');
   assert.ok(svg.includes(`fill="${defaultCardColors.big}"`));
   assert.equal(defaultCardColors.big, defaultCardColors.medium);
   assert.match(svg, /fill="#000000"/);
-  // The default bump atlas would emboss the old d6 digits through the pips.
-  assert.equal(theme.material.bumpTexture, undefined);
   assert.doesNotMatch(svg, /<(?:image|text|script)\b|(?:href|filter)=/);
 });
 
