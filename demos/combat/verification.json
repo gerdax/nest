@@ -1,0 +1,78 @@
+{
+  "checks": "Fork/native swipe/carousel, table phases, exactly-once and auto return, restart, reduced motion, affordability/caps/pressure, terminal, simulated visibility, touch emulation, layout, isolated network requests",
+  "layouts": [
+    {
+      "width": 320,
+      "height": 568,
+      "frame": {
+        "width": 245.9375,
+        "height": 511.015625
+      },
+      "card": {
+        "width": 201.15625,
+        "height": 268.203125
+      },
+      "window": {
+        "top": 7.1875,
+        "bottom": 558.59375,
+        "width": 247.9375
+      },
+      "overflow": false
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "frame": {
+        "width": 286,
+        "height": 594.265625
+      },
+      "card": {
+        "width": 218.875,
+        "height": 291.828125
+      },
+      "window": {
+        "top": 7.1875,
+        "bottom": 641.84375,
+        "width": 288
+      },
+      "overflow": false
+    },
+    {
+      "width": 430,
+      "height": 932,
+      "frame": {
+        "width": 286,
+        "height": 594.265625
+      },
+      "card": {
+        "width": 218.875,
+        "height": 291.828125
+      },
+      "window": {
+        "top": 7.1875,
+        "bottom": 641.84375,
+        "width": 288
+      },
+      "overflow": false
+    }
+  ],
+  "errors": [],
+  "badRequests": [],
+  "outside": [],
+  "date": "2026-10-22",
+  "deterministicTests": {
+    "passed": 18,
+    "command": "node --test demos/combat/tests/*.test.js"
+  },
+  "originalFiles": {
+    "checked": 490,
+    "changed": []
+  },
+  "review": "Independent source review completed. Result settling and original 80% editor scale issues fixed.",
+  "limitations": [
+    "Touch tested through Chrome emulation, not a physical phone.",
+    "Visibility handler tested with simulated document.hidden event, not OS tab throttling or BFCache.",
+    "Safari, Firefox and screen-reader output not verified.",
+    "Full application tests and static-site staging not run: original runtime untouched; this demo is outside the staging manifest."
+  ]
+}

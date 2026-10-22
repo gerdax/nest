@@ -1,0 +1,3 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';
+import {PresentationClock} from '../presentation-clock.js';
+test('cancel clears waits and animations without accepting a stale revision',async()=>{const clock=new PresentationClock();let canceled=0;clock.animate({animate:()=>({cancel:()=>canceled++})},[],{});const rev=clock.revision,pending=clock.wait(1000,rev);clock.cancel();assert.equal(await pending,false);assert.equal(await clock.wait(0,rev),false);assert.equal(canceled,1);assert.equal(clock.timers.size,0);assert.equal(clock.animations.size,0);assert.equal(await clock.wait(0),true);});

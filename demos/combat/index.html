@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="pl">
+<head>
+ <meta charset="utf-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1">
+ <title>Nest · isolated combat preview</title>
+ <link rel="icon" href="data:,">
+ <link rel="stylesheet" href="./engine/card-deck.css">
+ <link rel="stylesheet" href="./studio/preview.css">
+ <link rel="stylesheet" href="./studio/playfield.css">
+ <link rel="stylesheet" href="./studio/preview-window.css">
+ <link rel="stylesheet" href="./combat-demo.css">
+</head>
+<body>
+ <main class="demo-workspace">
+  <section class="preview-window" aria-label="Interaction preview · combat demo">
+   <header class="preview-window-bar"><span class="preview-window-handle">Interaction preview</span><span class="preview-round" data-round>Runda 1</span></header>
+   <div class="preview-window-body nest-playfield" data-frame>
+    <section id="preview">
+     <div class="project-preview">
+      <div class="chapter-preview-stage">
+       <div class="player-resources" data-player-resources aria-label="Twoje zasoby">
+        <span class="player-resource" data-health><img src="./assets/img/ui/hud-health.png" alt="Zdrowie"><span data-health-value>10</span><span class="resource-delta" data-player-health-delta></span></span>
+        <span class="player-resource" data-energy><span data-energy-value>10</span><img src="./assets/img/ui/hud-energy.png" alt="Energia"><span class="resource-delta" data-player-energy-delta></span></span>
+       </div>
+       <div class="chapter-preview-card-area" data-choice-area>
+        <div class="chapter-preview-card-layout"><div class="chapter-preview-deck" data-choice-deck tabindex="0"></div></div>
+       </div>
+       <section class="action-context-panel combat-context" data-choice-context data-visible="true">
+        <p class="action-context-caption">PRZECIWNIK</p>
+        <div class="enemy-resources" data-enemy-choice></div>
+        <p class="action-context-caption combat-pressure" data-choice-pressure>Presja 0/6</p>
+        <p class="combat-action-rule" data-action-rule></p>
+       </section>
+      </div>
+      <section class="combat-table" data-combat-table hidden tabindex="-1" aria-label="Rozstrzygnięcie wymiany">
+       <div class="table-opponent"><span class="action-context-caption">PRZECIWNIK</span><div class="enemy-resources" data-enemy-table></div></div>
+       <div class="table-surface" data-table-surface>
+        <div class="table-orbit enemy-orbit" data-enemy-orbit><div class="table-card" data-enemy-card aria-label="Zakryta karta przeciwnika"></div></div>
+        <div class="table-orbit player-orbit" data-player-orbit><div class="table-card" data-player-card></div></div>
+        <span class="table-impact" data-impact hidden aria-hidden="true"></span>
+       </div>
+       <div class="table-feedback" aria-live="polite" aria-atomic="true"><p class="action-context-caption" data-pair-caption></p><p class="combat-result" data-result></p><p class="combat-result-detail" data-result-detail></p><button class="restart-battle" data-restart-ended hidden>Nowa walka</button></div>
+      </section>
+      <footer class="preview-footer"><span data-phase-label role="status" aria-live="polite">← → wybór · ↑ zagraj</span><span data-pressure-label>0/6</span></footer>
+     </div>
+    </section>
+   </div>
+  </section>
+  <aside class="demo-controls" aria-label="Ustawienia demonstracji">
+   <h1>Nest / combat</h1>
+   <p class="demo-intro">Wybierz kartę na boki. Przeciągnij w górę, żeby ją zagrać.</p>
+   <form data-settings>
+    <fieldset><legend>Przeciwnik</legend>
+     <label>Zdrowie<input name="health" type="number" min="1" max="30" step="1" value="10" required></label>
+     <label>Energia<input name="energy" type="number" min="0" max="30" step="1" value="10" required></label>
+     <small>Energia określa zapas początkowy i limit Recover.</small>
+     <button type="submit">Zastosuj · nowa walka</button>
+    </fieldset>
+   </form>
+   <p class="settings-error" data-error role="alert" hidden></p>
+   <p class="combat-summary" data-summary>Ty: 10 zdrowia / 10 energii.</p>
+   <button type="button" data-restart>Restart z tym przeciwnikiem</button>
+   <details><summary>Zasady</summary><ul>
+    <li>Attack: koszt 2 E; zadaje 4 obrażenia przeciw Recover.</li>
+    <li>Dodge: koszt 1 E; unika Attack.</li>
+    <li>Recover: +2 E do limitu postaci, również po trafieniu.</li>
+    <li>Attack / Attack: bez obrażeń, obaj płacą koszt.</li>
+    <li>Po 6 wymianach bez trafienia obaj tracą 1 zdrowia. Trafienie zeruje presję.</li>
+    <li>Przeciwnik losuje dostępną kartę przed twoim wyborem.</li>
+   </ul></details>
+   <details data-history-panel><summary>Historia wymian <span data-history-count>0</span></summary><ol data-history></ol></details>
+   <p class="demo-note">Wyizolowane demo. Gracz startuje z 10/10. Rozmiar i proporcje pola gry jak w Interaction Preview.</p>
+  </aside>
+ </main>
+ <script type="module" src="./combat-demo.js"></script>
+</body>
+</html>

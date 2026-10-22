@@ -63,3 +63,11 @@ test('legacy choices with the same ID and definition stay scoped to their parent
  section.querySelectorAll=()=>buttons;inspector.querySelectorAll=selector=>selector==='.card-navigation-target'?[]:[section];
  assert.equal(revealCardEntry(inspector,target),true);assert.equal(buttons[0].focusOptions,undefined);assert.deepEqual(buttons[1].focusOptions,{preventScroll:true});
 });
+
+test('automatic reveal expands and scrolls the card without moving keyboard focus',()=>{
+ const inspector=element('DIV'),summary=element('SUMMARY'),entry=element('DETAILS',{placement:'one'},inspector);
+ entry.querySelector=()=>summary;
+ inspector.querySelectorAll=selector=>selector==='.card-navigation-target'?[]:[entry];
+ assert.equal(revealCardEntry(inspector,{placementId:'one'},{focus:false}),true);
+ assert.equal(entry.open,true);assert.ok(entry.scrollOptions);assert.equal(summary.focusOptions,undefined);
+});

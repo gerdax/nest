@@ -10,6 +10,7 @@ function fixture({enabled=true,visible=true,windowCapture=false}={}) {
   switchView:()=>calls.push('view'),
   togglePreview:()=>{if(!visible)return false;calls.push('preview');},
   toggleAutoplay:()=>calls.push('autoplay'),
+  toggleAutoPanel:()=>calls.push('auto-panel'),
  });
  function key(key,properties={},context=null){
   host.closest=selector=>context&&selector.split(',').includes(context)?{}:null;
@@ -22,15 +23,15 @@ function fixture({enabled=true,visible=true,windowCapture=false}={}) {
 test('assigned keys work from buttons, summaries, panels and preview without native activation',()=>{
  for(const context of [null,'button','a[href]','summary','label','[role="button"]','[role="checkbox"]','[role="slider"]','#library-panel','#preview-window','dialog','[role="dialog"]']){
   const f=fixture();
-  for(const key of ['Tab',' ','/'])assert.equal(f.key(key,{},context).defaultPrevented,true,context);
-  assert.deepEqual(f.calls,['view','preview','autoplay']);f.stop();
+  for(const key of ['Tab',' ','/','\\'])assert.equal(f.key(key,{},context).defaultPrevented,true,context);
+  assert.deepEqual(f.calls,['view','preview','autoplay','auto-panel']);f.stop();
  }
 });
 
 test('typing fields retain native editing and do not run editor shortcuts',()=>{
  for(const context of typingControls.split(',')){
   const f=fixture();
-  for(const key of ['Tab',' ','/'])assert.equal(f.key(key,{},context).defaultPrevented,false,context);
+  for(const key of ['Tab',' ','/','\\'])assert.equal(f.key(key,{},context).defaultPrevented,false,context);
   assert.deepEqual(f.calls,[]);f.stop();
  }
 });
@@ -38,7 +39,7 @@ test('typing fields retain native editing and do not run editor shortcuts',()=>{
 test('disabled actions, repeats, and Shift variants cannot fall through to focus traversal or clicks',()=>{
  for(const options of [{enabled:false},{}])for(const properties of [{},{repeat:true},{shiftKey:true}]){
   const f=fixture(options);
-  for(const key of ['Tab',' ','/'])assert.equal(f.key(key,properties,'button').defaultPrevented,true);
+  for(const key of ['Tab',' ','/','\\'])assert.equal(f.key(key,properties,'button').defaultPrevented,true);
   if(options.enabled===false||properties.repeat||properties.shiftKey)assert.deepEqual(f.calls,[]);
   f.stop();
  }
@@ -46,7 +47,7 @@ test('disabled actions, repeats, and Shift variants cannot fall through to focus
 });
 
 test('browser modifiers and IME composition remain untouched',()=>{
- for(const key of ['Tab',' ','/'])for(const flag of ['ctrlKey','metaKey','altKey','isComposing']){
+ for(const key of ['Tab',' ','/','\\'])for(const flag of ['ctrlKey','metaKey','altKey','isComposing']){
   const f=fixture();assert.equal(f.key(key,{[flag]:true}).defaultPrevented,false);assert.deepEqual(f.calls,[]);f.stop();
  }
 });

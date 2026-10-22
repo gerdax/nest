@@ -10,7 +10,7 @@ export function cardFace(card, variables=[], library=[], values) {
   ...(cardKind==='action'?{actionEnergyCost:actionEnergyCost(card)}:{}),
   ...(isConsumableKind(cardKind)?{value:card.value}:{}),
   ...(card?.inventoryLabel?{inventoryLabel:card.inventoryLabel}:{}),
-  heading:(cardKind==='item'||isConsumableKind(cardKind))&&card?.showName===true?(card?.name ?? card?.label ?? 'Continue'):'',
+  heading:(cardKind==='action'||(cardKind==='item'||isConsumableKind(cardKind))&&card?.showName===true)?(card?.name ?? card?.label ?? 'Continue'):'',
   text:cardBody(card),
   summary:isStoryKind(cardKind)?'':(values === undefined ? cardSummary(card ?? {},variables,library,card?.itemTags || [],{omitActionEnergyCost:true}) : playerCardSummary(card ?? {},variables,library,values)),
   image:card?.image ?? '',

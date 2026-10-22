@@ -16,7 +16,7 @@ export function sourceCard(project,target) {
 }
 
 /** Expand and reveal the matching entry without dispatching editor selection events. */
-export function revealCardEntry(inspector,target) {
+export function revealCardEntry(inspector,target,{focus=true}={}) {
  let entry;
  if(target.sequenceId) {
   const sequence=[...inspector.querySelectorAll('details[data-sequence]')].find(el=>el.dataset.sequence===target.sequenceId);
@@ -27,7 +27,9 @@ export function revealCardEntry(inspector,target) {
  for(let parent=entry;parent&&parent!==inspector;parent=parent.parentElement)if(parent.tagName==='DETAILS')parent.open=true;
  entry.classList.add('card-navigation-target');
  entry.scrollIntoView({block:'start',inline:'nearest',behavior:'auto'});
- const focus=entry.tagName==='DETAILS'?entry.querySelector('summary'):entry;
- focus?.focus({preventScroll:true});
+ if(focus){
+  const control=entry.tagName==='DETAILS'?entry.querySelector('summary'):entry;
+  control?.focus({preventScroll:true});
+ }
  return true;
 }

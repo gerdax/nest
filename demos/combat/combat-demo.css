@@ -1,0 +1,66 @@
+*{box-sizing:border-box}
+:root{color-scheme:dark;--editor-scale:.8;--editor-viewport-width:calc(100vw / var(--editor-scale));--editor-viewport-height:calc(100dvh / var(--editor-scale));zoom:var(--editor-scale)}
+body{margin:0;background:#151d1b;color:#dce5ce;font:14px/1.5 system-ui,sans-serif}
+[hidden]{display:none!important}
+button,input{font:inherit}
+button{border:1px solid #61734f;background:#24351e;color:#e3edda;border-radius:7px;padding:9px 12px;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid #c3dd9c;outline-offset:3px}
+.demo-workspace{display:flex;align-items:flex-start;justify-content:center;gap:32px;padding:9px 16px;min-height:100svh}
+/* Width and body aspect ratio stay those of the copied Interaction Preview.
+   Only its position changes: this standalone demo needs no floating editor window. */
+.preview-window{position:relative;left:auto;top:auto;flex:none;z-index:1;margin:0;--preview-bar-height:48px}
+.preview-window-bar{height:48px;min-height:48px;padding:8px 12px;font-size:12px}
+.preview-window-handle{cursor:default;font-weight:500}
+.preview-round{color:#b6c99b;white-space:nowrap;font-size:11px}
+.demo-controls{width:310px;max-width:100%;padding:10px 0 24px}
+h1{font-size:23px;font-weight:500;margin:0 0 14px}
+.demo-intro,.demo-note{color:#a5b09d}
+.demo-controls fieldset{border:1px solid #3b4c37;border-radius:9px;padding:12px;margin:20px 0 12px;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.demo-controls legend{padding:0 6px;color:#c0d39f}
+.demo-controls label{display:grid;gap:5px}
+.demo-controls input{width:100%;min-height:42px;background:#0c130e;color:#dce5ce;border:1px solid #637451;border-radius:5px;padding:8px}
+.demo-controls fieldset small,.demo-controls fieldset button{grid-column:1/-1}
+.demo-controls small,.demo-note{font-size:12px;color:#8d9c80}
+.demo-controls details{margin-top:22px;border-top:1px solid #33432f;padding-top:12px}
+.demo-controls summary{cursor:pointer;color:#b6c99b}
+.demo-controls li{margin:10px 0}
+.demo-controls ol{padding-left:22px;font-size:12px}
+.demo-controls ol small{display:block}
+.combat-summary{color:#b6c99b;font-size:12px;white-space:pre-line}
+.settings-error{color:#e2b7a0}
+.nest-playfield .project-preview{isolation:isolate}
+.player-resource{position:relative}
+.resource-delta{position:absolute;top:-7px;font:22px/1 NestVitals,monospace;pointer-events:none;color:#c5d7ac;right:-18px}
+.resource-delta.negative{color:#9a765e}
+.combat-context{pointer-events:none}
+.enemy-resources{display:flex;align-items:center;justify-content:center;gap:28px;color:#879976}
+.enemy-vital{position:relative;display:flex;align-items:center;gap:5px;font:32px/1 NestVitals,monospace}
+.enemy-vital img{width:17px;height:18px;object-fit:contain}
+.enemy-vital .resource-delta{font-size:18px;top:-10px;right:-16px}
+.combat-pressure{margin:14px 0 0;letter-spacing:.12em;font-size:9px}
+.combat-action-rule{margin:6px 0 0;font:10px/1.4 NestLetter,monospace;color:#89947c}
+.preview-footer{font:10px/1.3 NestLetter,monospace;align-items:center;gap:8px}
+.preview-footer [data-phase-label]{min-width:0;max-width:85%}
+.preview-footer [data-pressure-label]{font:18px/1 NestVitals,monospace;color:#71825a}
+.combat-table{position:absolute;inset:90px 0 44px;z-index:100;outline:none}
+.table-opponent{position:absolute;top:5px;left:0;right:0;text-align:center;z-index:20}
+.table-opponent .action-context-caption{display:block;font-size:9px;margin:0 0 6px}
+.table-surface{position:absolute;inset:72px 0 96px;perspective:1200px;isolation:isolate}
+.table-orbit{position:absolute;left:50%;width:min(53cqw,190px,calc((100cqh - 180px)*.36));aspect-ratio:3/4;transform:translateX(-50%);perspective:1200px;transform-style:preserve-3d;will-change:transform,opacity}
+.enemy-orbit{top:0;z-index:2}
+.player-orbit{bottom:0;z-index:3}
+.table-card{position:absolute;inset:0;transform-style:preserve-3d;--card-padding:18px;--card-small-size:9px;--card-font-size:19px;--card-medium-size:12px;--card-radius:15px}
+.table-card .table-front{transform:rotateY(180deg)}
+.table-card .table-back{transform:rotateY(0deg)}
+.table-card .nest-card{box-shadow:var(--card-edge-strata),0 8px 24px #0009}
+.table-impact{position:absolute;left:50%;top:50%;width:70px;height:70px;margin:-35px;border:2px solid #c0d39f;border-radius:50%;box-shadow:0 0 25px #bbcf8b44;z-index:10;pointer-events:none}
+.table-feedback{position:absolute;bottom:3px;left:24px;right:24px;min-height:76px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.table-feedback .action-context-caption{font-size:8px;letter-spacing:.12em;margin:0 0 8px}
+.combat-result{margin:0;color:#d2dfb6;font:36px/1 NestVitals,monospace}
+.combat-result-detail{color:#8b9b78;font:10px/1.35 NestLetter,monospace;margin:7px 0 0}
+.restart-battle{font:12px NestLetter,monospace;margin-top:14px;padding:8px 14px}
+[data-mode="table"] [data-choice-area],[data-mode="table"] [data-choice-context]{visibility:hidden;pointer-events:none}
+[data-mode="table"] [data-choice-deck]{pointer-events:none}
+[data-phase="departure"] .combat-context{opacity:0}
+@media(max-width:720px){.demo-workspace{flex-direction:column;align-items:center;gap:18px;padding-inline:8px}.demo-controls{width:min(360px,100%);padding-top:0}}
+@media(prefers-reduced-motion:reduce){.table-orbit,.table-card{will-change:auto}}

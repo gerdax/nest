@@ -57,14 +57,14 @@ test('old placement context is discarded on load and export without changing def
 });
 
 
-test('only item names can appear on cards, including old showName settings',()=>{
+test('action names always appear while item names follow showName',()=>{
  const project=createProject();
  for(const definition of project.library){
   assert.equal(definition.showName,definition.kind==='item');
-  const before=cardFace(definition,project.variables,project.library);assert.equal(before.heading,definition.kind==='item'?definition.name:'');
-  definition.showName=true;assert.equal(cardFace(definition,project.variables,project.library).heading,definition.kind==='item'?definition.name:'');
-  definition.showName=false;const after=cardFace(definition,project.variables,project.library);assert.equal(after.heading,'');assert.equal(after.text,before.text);assert.equal(after.summary,before.summary);
-  delete definition.showName;assert.equal(cardFace(definition).heading,'');
+  const before=cardFace(definition,project.variables,project.library);assert.equal(before.heading,['action','item'].includes(definition.kind)?definition.name:'');
+  definition.showName=true;assert.equal(cardFace(definition,project.variables,project.library).heading,['action','item'].includes(definition.kind)?definition.name:'');
+  definition.showName=false;const after=cardFace(definition,project.variables,project.library);assert.equal(after.heading,definition.kind==='action'?definition.name:'');assert.equal(after.text,before.text);assert.equal(after.summary,before.summary);
+  delete definition.showName;assert.equal(cardFace(definition).heading,definition.kind==='action'?definition.name:'');
  }
  const d=project.library[0];d.showName=true;d.heading='Custom';assert.equal(cardFace(d).heading,'');
  const loaded=parseProject(JSON.stringify(project));assert.equal(loaded.library[0].showName,true);
@@ -78,7 +78,7 @@ test('name visibility reaches both narrative cover and action/item fronts during
   const d=project.library.find(d=>d.id===p.definitionId);
   for(const show of [false,true]){
    d.showName=show;const compiled=compileChapter(project);compiled.startNode=node.id;const deck=new Deck(),controller=new ProjectController(deck,compiled);
-   assert.equal(type==='fork'?deck.content.actions[0].heading:deck.content.heading,'');controller.destroy();
+   assert.equal(type==='fork'?deck.content.actions[0].heading:deck.content.heading,type==='fork'?d.name:'');controller.destroy();
   }
  }
 });
@@ -96,7 +96,7 @@ test('artwork scale and position survive export and match inline and playback fa
 });
 
 
-test('typed fronts separate permanent type labels from item names and hide name controls elsewhere',()=>{
+test('typed fronts separate type labels from action and item names and keep item visibility controls',()=>{
  const project=createProject();
  for(const kind of ['event','caption','action','item']) {
   const definition=createDefinition(kind,kind);definition.showName=true;definition.name='Internal name';
@@ -104,7 +104,7 @@ test('typed fronts separate permanent type labels from item names and hide name 
   decorateCard(null,front,'',face.heading,'',false,face);
   const label=front.children.find(e=>e.className==='nest-card-type');
   assert.equal(label?.textContent,['action','item'].includes(kind)?kind.toUpperCase():undefined);
-  assert.equal(front.children[0].children[0].textContent,kind==='item'?'Internal name':'');
+  assert.equal(front.children[0].children[0].textContent,['action','item'].includes(kind)?'Internal name':'');
   const html=cardFields(project,definition);
   assert.equal(html.includes('Show name on card'),kind==='item');
   if(kind==='item') {definition.showName=false;assert.equal(cardFace(definition).heading,'');}
@@ -206,6 +206,8 @@ for(const cardKind of ['action','health','energy'])test(`${cardKind} fronts reta
  const copy=front.children[0];
  assert.equal(copy.children.find(child=>child.className==='nest-card-summary'),undefined);
  assert.equal(copy.children.find(child=>child.className==='nest-card-inventory'),undefined);
+ assert.equal(copy.children[0].textContent,'Name');
+ assert.equal(copy.children[0].hidden,false);
  assert.equal(copy.children.at(-1).textContent,'Authored description');
  assert.ok(front.children.some(child=>child.className==='nest-card-type'));
  assert.ok(front.children.some(child=>child.className===(cardKind==='action'?'nest-action-energy-cost':'nest-card-value')));

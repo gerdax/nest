@@ -26,6 +26,7 @@ import { definitionInspector,nodeInspector,projectSettingsInspector,chapterSetti
 import { esc, field, select } from './forms.js';
 import { mountPreviewWindow } from './preview-window.js';
 import { mountAutoplay } from './autoplay.js';
+import { mountAutoPanel } from './auto-panel.js';
 import { sourceCard, revealCardEntry } from './card-navigation.js';
 import { renderCardPreviews } from './card-preview.js';
 import { bindImagePicker } from './image-picker.js';
@@ -52,9 +53,10 @@ const localDrafts=new LocalCardDrafts();
 const chapter=()=>project.chapters.find(c=>c.id===chapterId)||project.chapters[0];
 const node=()=>chapter().nodes.find(n=>n.id===selected);
 const definition=()=>project.library.find(d=>d.id===definitionId);
-const preview=new ProjectPreview($('#preview'),{inventoryHost:$('.preview-window-body'),onChange:state=>updatePreviewHighlight(graph,preview,chapter(),state),onStop:()=>graph.setActive(null),onCardChange:target=>graph.setActiveCard(target),onGoToCard:goToPreviewCard});
+const preview=new ProjectPreview($('#preview'),{inventoryHost:$('.preview-window-body'),onChange:state=>updatePreviewHighlight(graph,preview,chapter(),state),onStop:()=>graph.setActive(null),onCardChange:target=>{graph.setActiveCard(target);autoPanel.follow(target);},onGoToCard:goToPreviewCard});
 const previewWindow=mountPreviewWindow($('#preview-window'),{onClose:()=>preview.stop()});
 const autoplay=mountAutoplay($('#autoplay'),{getSelected:()=>graph.selectedIds.size>1?undefined:selected,onPlay:id=>play(id,{restore:false})});
+const autoPanel=mountAutoPanel($('#auto-panel'),{getTarget:()=>preview.cardTarget(),onReveal:target=>goToPreviewCard(target,{automatic:true})});
 const nodeCreateMenu=mountNodeCreateMenu({onChoose:(type,request)=>edit('create-connected-node',{...request,type}),onDismiss:()=>graph.cancelCreation(),returnFocus:$('#canvas')});
 const graph=new GraphView($('#canvas'),{
  onSelect:id=>{graph.selectedIds=new Set([id]);selected=id;renderInspector({collapseCards:true});renderGraph();autoplay.select(id);},
@@ -77,14 +79,16 @@ const projectSettingsWindow=mountProjectSettingsWindow($('#project-settings-over
 const persistence=createPersistence({loaded,onStatus:text=>{$('#save-status').textContent=text;}});
 const saveProject=project=>persistence.save(project);
 function report(text){persistence.report(text);}
-function goToPreviewCard(target){
+function goToPreviewCard(target,{automatic=false}={}){
  const source=sourceCard(project,target);
- if(!source){report('This card was removed from the current project. Restart preview to use the latest version.');return;}
+ if(!source){if(!automatic)report('This card was removed from the current project. Restart preview to use the latest version.');return;}
  const changedChapter=chapterId!==source.chapter.id;
+ const changedPanel=changedChapter||selected!==source.node.id||mode!=='chapter'||graph.selectedIds.size!==1;
  graph.selectedIds=new Set([source.node.id]);
  chapterId=source.chapter.id;selected=source.node.id;mode='chapter';
- render();if(changedChapter)graph.fit();
- if(!revealCardEntry($('#inspector'),target))report('This card is not currently shown in the panel. Its introduction may have been disabled since playback started.');
+ if(!automatic||changedPanel)render({preserveProjectSettings:automatic});
+ if(changedChapter)graph.fit();
+ if(!revealCardEntry($('#inspector'),target,{focus:!automatic})&&!automatic)report('This card is not currently shown in the panel. Its introduction may have been disabled since playback started.');
 }
 const selection=()=>({chapterId,selected,definitionId,mode});
 function edit(type,data={}, {preserveProjectSettings=false,refresh=true}={}){
@@ -430,6 +434,7 @@ $('#undo').onclick=()=>travel('undo');$('#redo').onclick=()=>travel('redo');
 const stopHistoryShortcuts=mountHistoryShortcuts(document,{undo:()=>$('#undo').click(),redo:()=>$('#redo').click()});
 const stopViewShortcuts=mountViewShortcuts(document,{
  toggleAutoplay:()=>$('#autoplay').click(),
+ toggleAutoPanel:()=>$('#auto-panel').click(),
  enabled:()=>$('#project-settings-overlay').hidden&&!graph.drag&&!graph.pending&&!graph.creation&&!preview.deck?.input?.active,
  switchView:()=>{
   graph.cancel();mode=mode==='chapter'?'library':'chapter';render();
@@ -489,5 +494,5 @@ const stopPlayShortcuts=mountPlayShortcuts(document,{
  },
  enabled:()=>!!node()&&graph.selectedIds.size<=1,
 });
-window.addEventListener('pagehide',event=>{if(event.persisted)return;graph.cancel();stopHistoryShortcuts();stopNodeClipboardShortcuts();stopViewShortcuts();stopPlayShortcuts();autoplay.destroy();previewWindow.destroy();projectSettingsWindow.destroy();preview.destroy();});
+window.addEventListener('pagehide',event=>{if(event.persisted)return;graph.cancel();stopHistoryShortcuts();stopNodeClipboardShortcuts();stopViewShortcuts();stopPlayShortcuts();autoplay.destroy();autoPanel.destroy();previewWindow.destroy();projectSettingsWindow.destroy();preview.destroy();});
 render();graph.fit();if(loaded.error||loaded.recovery)report('');else if(loaded.migrated)report('Legacy save loaded; original browser save preserved.');else report(loaded.project?'Saved in this browser.':'Not saved yet.');

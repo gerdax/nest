@@ -113,7 +113,7 @@ export function stageActionDeck(deck, content, selectedIndex = null, previous = 
   });
   bundle.cardTitles.forEach((title, index) => {
     const action = content.actions[index];
-    title.hidden = !action.heading || ['event','narrative','caption','action'].includes(action.cardKind);
+    title.hidden = !action.heading || ['event','narrative','caption'].includes(action.cardKind);
     if (title.hidden) title.textContent = '';
   });
   return bundle;
@@ -169,7 +169,7 @@ export function decorateCard(deck, element, image, title, text, flipImage = fals
   element.setAttribute('data-card-kind', presentation.cardKind || 'narrative');
   const heading = document.createElement('span');
   heading.className = 'nest-card-title';
-  const visibleTitle = ['event','narrative','caption','action'].includes(presentation.cardKind) ? '' : title;
+  const visibleTitle = ['event','narrative','caption'].includes(presentation.cardKind) ? '' : title;
   heading.textContent = visibleTitle || '';
   heading.hidden = !visibleTitle;
   const body = document.createElement('p');

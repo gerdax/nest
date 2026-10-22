@@ -191,6 +191,7 @@
 
 
 /* Typed content supplies headings and summaries; legacy narrative remains plain. */
+.nest-card[data-card-kind="action"] .nest-card-title,
 .nest-card:is([data-card-kind="health"], [data-card-kind="energy"]) .nest-card-title,
 .nest-card[data-card-kind="item"] .nest-card-title {
   font-family: var(--card-font, NestLetter, monospace);
@@ -204,10 +205,12 @@
   text-wrap: pretty;
   overflow-wrap: anywhere;
 }
+.nest-card[data-card-kind="action"] .nest-copy,
 .nest-card:is([data-card-kind="health"], [data-card-kind="energy"]) .nest-copy,
 .nest-card[data-card-kind="item"] .nest-copy {
   padding-bottom: var(--card-padding, 26px);
 }
+.nest-card[data-card-kind="action"] .nest-copy > p:empty,
 .nest-card:is([data-card-kind="health"], [data-card-kind="energy"]) .nest-copy > p:empty,
 .nest-card[data-card-kind="item"] .nest-copy > p:empty { display: none; }
 .nest-copy p.nest-card-summary {
@@ -216,6 +219,7 @@
   margin-top: 9px;
   white-space: pre-line;
 }
+.nest-card[data-card-kind="action"] .nest-copy > p:not(.nest-card-summary),
 .nest-card:is([data-card-kind="health"], [data-card-kind="energy"]) .nest-copy > p:not(.nest-card-summary),
 .nest-card[data-card-kind="item"] .nest-copy > p:not(.nest-card-summary) {
   font-size: var(--card-medium-size, 15px);
