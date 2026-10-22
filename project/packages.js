@@ -18,6 +18,7 @@ export function exportChapter(project, id = project.activeChapterId) {
   const pkg = cloneProject({version: 2, kind: 'nest-chapter', library: project.library.filter(d => ids.has(d.id)),
     itemTags: project.itemTags || [], variables: project.variables, allowCycles: project.allowCycles !== false,
     ownedItemsVisibility: project.ownedItemsVisibility ?? 'disabled', unavailableActions: project.unavailableActions ?? 'disabled',
+    ...(project.ignoreAllOverrides !== undefined ? {ignoreAllOverrides: project.ignoreAllOverrides} : {}),
     cardStyles: project.cardStyles || {}, cardBack: projectCardBack(project),
     chapter});
   pkg.chapter.variables ??= [];
@@ -28,6 +29,8 @@ export function exportChapter(project, id = project.activeChapterId) {
 }
 
 export function importChapter(project, pkgOrV1) {
+  // Importing merges chapter content; destination project-wide playback settings
+  // (including ignoreAllOverrides) continue to govern the imported beats.
   const next = normalizeLocalOwnership(cloneProject(project));
   const imported = pkgOrV1.version === 1 ? migrateChapter(pkgOrV1) : pkgOrV1.kind === 'nest-project' ? cloneProject(pkgOrV1) : {library: cloneProject(pkgOrV1.library),
     itemTags: cloneProject(pkgOrV1.itemTags || []), variables: cloneProject(pkgOrV1.variables || []), chapters: [cloneProject(pkgOrV1.chapter)]};
@@ -171,6 +174,7 @@ export function parseProject(text, {allowDraft = false} = {}) {
     id: `${value.chapter?.id || 'chapter'}-project`, name: value.chapter?.name, activeChapterId: value.chapter?.id, startChapterId: value.chapter?.id,
     itemTags: value.itemTags, library: value.library, variables: value.variables || [], allowCycles: value.allowCycles,
     ownedItemsVisibility: value.ownedItemsVisibility, unavailableActions: value.unavailableActions,
+    ...(value.ignoreAllOverrides !== undefined ? {ignoreAllOverrides: value.ignoreAllOverrides} : {}),
     cardStyles: value.cardStyles || {}, cardBack: value.cardBack,
     chapters: [value.chapter]};
   }

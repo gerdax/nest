@@ -1,0 +1,779 @@
+{
+  "date": "2026-10-21",
+  "baseline": "Working tree at start of this performance task, including the preceding integrity fixes and dependency-graph reuse",
+  "baselineSourceSHA256": {
+    "editor/DocumentHistory.js": "4323e7bbb6bf5e959559df0da18ae85b1d2ee73d9973a91c4338ba5e1b314b59",
+    "project/storage.js": "bcdd857571af699b29641d2dcea25cb1560144c2f2faa6c54f3d37bae1d1fda7",
+    "project/normalization.js": "13961b70fabebb692e6588c080b56cf9c3ed2bf1f213ed52c24c1462fa055441",
+    "project/packages.js": "69d685f40102b13e8683995c278be118d7b6e9388babbf9a70a87127927a9db0",
+    "studio/document-session.js": "c9f9bfa4fb1c67827fb56f2e6ea5fa02fa956cc0693a5fc34a4ef041ddedc723"
+  },
+  "currentSourceSHA256": {
+    "editor/DocumentHistory.js": "c35785f1b386632ff5bda0088aa69e6fcc4f88786e87738230c6ef50ec8b739e",
+    "project/storage.js": "d16bc253c728a66c73384f6a074764f0cc2c5e9fca57ac29848c13b5f8d443ea",
+    "project/normalization.js": "13961b70fabebb692e6588c080b56cf9c3ed2bf1f213ed52c24c1462fa055441",
+    "project/packages.js": "69d685f40102b13e8683995c278be118d7b6e9388babbf9a70a87127927a9db0",
+    "studio/document-session.js": "c9f9bfa4fb1c67827fb56f2e6ea5fa02fa956cc0693a5fc34a4ef041ddedc723"
+  },
+  "changes": [
+    "History keeps its active canonical JSON snapshot as a string and archives undo/redo snapshots in private UTF-8 buffers; all 80 full undo steps retained",
+    "Save skips revalidation only of the exact previously validated primary text for the same storage adapter; actual primary reread and outgoing validation still run every save"
+  ],
+  "benchmarkCommand": "node --expose-gc tests/benchmark-authoring.mjs [baseline-checkout]",
+  "cpuAndMemory": {
+    "node": "v24.19.0",
+    "method": {
+      "timing": "3 warmups, median of 9; versions run sequentially; excludes DOM and real storage I/O",
+      "save": "saveWarm reuses an adapter with the last successful primary; saveUncachedPrimary seeds a fresh adapter with valid JSON each time",
+      "profile": "Mean exclusive/inclusive CPU scope times across 7 transactions/saves; instrumentation adds overhead",
+      "heap": "One fresh --expose-gc process per workload/version, retained heap+ArrayBuffer delta after GC, full 80 undo steps; excludes process/native overhead"
+    },
+    "results": {
+      "baseline": [
+        {
+          "beats": 480,
+          "definitions": 610,
+          "bytes": 484244,
+          "medianMs": {
+            "edit": 13.931,
+            "saveWarm": 20.05,
+            "saveUncachedPrimary": 19.076,
+            "undoRead": 1.368,
+            "redoRead": 1.318
+          },
+          "heap": {
+            "initialHistory": {
+              "heapMiB": 0.817,
+              "arrayBuffersMiB": 0,
+              "totalMiB": 0.817
+            },
+            "full80History": {
+              "heapMiB": 68.131,
+              "arrayBuffersMiB": 0,
+              "totalMiB": 68.131
+            },
+            "redo80History": {
+              "heapMiB": 68.133,
+              "arrayBuffersMiB": 0,
+              "totalMiB": 68.133
+            },
+            "undoSteps": 80
+          }
+        },
+        {
+          "beats": 960,
+          "definitions": 610,
+          "bytes": 697552,
+          "medianMs": {
+            "edit": 20.459,
+            "saveWarm": 30.379,
+            "saveUncachedPrimary": 29.91,
+            "undoRead": 2.007,
+            "redoRead": 1.906
+          },
+          "heap": {
+            "initialHistory": {
+              "heapMiB": 1.237,
+              "arrayBuffersMiB": 0,
+              "totalMiB": 1.237
+            },
+            "full80History": {
+              "heapMiB": 98.298,
+              "arrayBuffersMiB": 0,
+              "totalMiB": 98.298
+            },
+            "redo80History": {
+              "heapMiB": 98.3,
+              "arrayBuffersMiB": 0,
+              "totalMiB": 98.3
+            },
+            "undoSteps": 80
+          }
+        },
+        {
+          "beats": 4800,
+          "definitions": 610,
+          "bytes": 2397040,
+          "medianMs": {
+            "edit": 73.923,
+            "saveWarm": 116.078,
+            "saveUncachedPrimary": 114.255,
+            "undoRead": 7.031,
+            "redoRead": 6.883
+          },
+          "heap": {
+            "initialHistory": {
+              "heapMiB": 3.987,
+              "arrayBuffersMiB": 0,
+              "totalMiB": 3.987
+            },
+            "full80History": {
+              "heapMiB": 338.425,
+              "arrayBuffersMiB": 0,
+              "totalMiB": 338.425
+            },
+            "redo80History": {
+              "heapMiB": 338.427,
+              "arrayBuffersMiB": 0,
+              "totalMiB": 338.427
+            },
+            "undoSteps": 80
+          }
+        }
+      ],
+      "current": [
+        {
+          "beats": 480,
+          "definitions": 610,
+          "bytes": 484244,
+          "medianMs": {
+            "edit": 12.318,
+            "saveWarm": 10.927,
+            "saveUncachedPrimary": 19.938,
+            "undoRead": 1.485,
+            "redoRead": 1.446
+          },
+          "heap": {
+            "initialHistory": {
+              "heapMiB": 0.875,
+              "arrayBuffersMiB": 0,
+              "totalMiB": 0.875
+            },
+            "full80History": {
+              "heapMiB": 0.892,
+              "arrayBuffersMiB": 36.945,
+              "totalMiB": 37.837
+            },
+            "redo80History": {
+              "heapMiB": 0.91,
+              "arrayBuffersMiB": 36.945,
+              "totalMiB": 37.855
+            },
+            "undoSteps": 80
+          }
+        },
+        {
+          "beats": 960,
+          "definitions": 610,
+          "bytes": 697552,
+          "medianMs": {
+            "edit": 17.862,
+            "saveWarm": 16.885,
+            "saveUncachedPrimary": 29.275,
+            "undoRead": 2.219,
+            "redoRead": 2.088
+          },
+          "heap": {
+            "initialHistory": {
+              "heapMiB": 1.24,
+              "arrayBuffersMiB": 0,
+              "totalMiB": 1.24
+            },
+            "full80History": {
+              "heapMiB": 1.257,
+              "arrayBuffersMiB": 53.219,
+              "totalMiB": 54.476
+            },
+            "redo80History": {
+              "heapMiB": 1.275,
+              "arrayBuffersMiB": 53.219,
+              "totalMiB": 54.494
+            },
+            "undoSteps": 80
+          }
+        },
+        {
+          "beats": 4800,
+          "definitions": 610,
+          "bytes": 2397040,
+          "medianMs": {
+            "edit": 66.114,
+            "saveWarm": 71.678,
+            "saveUncachedPrimary": 113.969,
+            "undoRead": 7.268,
+            "redoRead": 7.181
+          },
+          "heap": {
+            "initialHistory": {
+              "heapMiB": 4.211,
+              "arrayBuffersMiB": 0,
+              "totalMiB": 4.211
+            },
+            "full80History": {
+              "heapMiB": 4.228,
+              "arrayBuffersMiB": 182.879,
+              "totalMiB": 187.107
+            },
+            "redo80History": {
+              "heapMiB": -1.215,
+              "arrayBuffersMiB": 182.879,
+              "totalMiB": 181.664
+            },
+            "undoSteps": 80
+          }
+        }
+      ]
+    },
+    "profiles": {
+      "baseline": {
+        "edit": {
+          "JSON.stringify": {
+            "callsPerOperation": 366,
+            "meanTotalMs": 4.27,
+            "meanSelfMs": 4.27
+          },
+          "JSON.parse": {
+            "callsPerOperation": 364,
+            "meanTotalMs": 3.929,
+            "meanSelfMs": 3.929
+          },
+          "cloneChapter": {
+            "callsPerOperation": 4,
+            "meanTotalMs": 6.416,
+            "meanSelfMs": 0.026
+          },
+          "definitionGraph": {
+            "callsPerOperation": 3,
+            "meanTotalMs": 5.048,
+            "meanSelfMs": 5.048
+          },
+          "unusedLocalDefinitions": {
+            "callsPerOperation": 1,
+            "meanTotalMs": 1.772,
+            "meanSelfMs": 0.143
+          },
+          "normalizeLocalOwnership": {
+            "callsPerOperation": 1,
+            "meanTotalMs": 4.911,
+            "meanSelfMs": 2.41
+          },
+          "discardPlacementContext": {
+            "callsPerOperation": 1,
+            "meanTotalMs": 0.597,
+            "meanSelfMs": 0.597
+          },
+          "synchronizeConnections": {
+            "callsPerOperation": 1,
+            "meanTotalMs": 1.113,
+            "meanSelfMs": 1.113
+          },
+          "transaction.total": {
+            "callsPerOperation": 1,
+            "meanTotalMs": 17.84,
+            "meanSelfMs": 0.304
+          }
+        },
+        "save": {
+          "JSON.stringify": {
+            "callsPerOperation": 722,
+            "meanTotalMs": 1.83,
+            "meanSelfMs": 1.83
+          },
+          "JSON.parse": {
+            "callsPerOperation": 722,
+            "meanTotalMs": 2.41,
+            "meanSelfMs": 2.41
+          },
+          "definitionGraph": {
+            "callsPerOperation": 4,
+            "meanTotalMs": 6.262,
+            "meanSelfMs": 6.262
+          },
+          "normalizeLocalOwnership": {
+            "callsPerOperation": 2,
+            "meanTotalMs": 9.426,
+            "meanSelfMs": 5.294
+          },
+          "discardPlacementContext": {
+            "callsPerOperation": 2,
+            "meanTotalMs": 1.048,
+            "meanSelfMs": 1.048
+          },
+          "normalizeSingleItems": {
+            "callsPerOperation": 2,
+            "meanTotalMs": 1.069,
+            "meanSelfMs": 1.069
+          },
+          "validateProject": {
+            "callsPerOperation": 2,
+            "meanTotalMs": 10.873,
+            "meanSelfMs": 7.689
+          },
+          "parseProject": {
+            "callsPerOperation": 2,
+            "meanTotalMs": 24.311,
+            "meanSelfMs": 0.114
+          },
+          "save.total": {
+            "callsPerOperation": 1,
+            "meanTotalMs": 25.742,
+            "meanSelfMs": 0.025
+          }
+        }
+      },
+      "current": {
+        "edit": {
+          "JSON.parse": {
+            "callsPerOperation": 364,
+            "meanTotalMs": 3.519,
+            "meanSelfMs": 3.519
+          },
+          "definitionGraph": {
+            "callsPerOperation": 3,
+            "meanTotalMs": 3.836,
+            "meanSelfMs": 3.836
+          },
+          "unusedLocalDefinitions": {
+            "callsPerOperation": 1,
+            "meanTotalMs": 1.394,
+            "meanSelfMs": 0.124
+          },
+          "JSON.stringify": {
+            "callsPerOperation": 362,
+            "meanTotalMs": 1.399,
+            "meanSelfMs": 1.399
+          },
+          "normalizeLocalOwnership": {
+            "callsPerOperation": 1,
+            "meanTotalMs": 3.859,
+            "meanSelfMs": 2.006
+          },
+          "discardPlacementContext": {
+            "callsPerOperation": 1,
+            "meanTotalMs": 0.472,
+            "meanSelfMs": 0.472
+          },
+          "synchronizeConnections": {
+            "callsPerOperation": 1,
+            "meanTotalMs": 0.865,
+            "meanSelfMs": 0.865
+          },
+          "history.encodeUTF8": {
+            "callsPerOperation": 1,
+            "meanTotalMs": 0.613,
+            "meanSelfMs": 0.613
+          },
+          "transaction.total": {
+            "callsPerOperation": 1,
+            "meanTotalMs": 13.098,
+            "meanSelfMs": 0.266
+          }
+        },
+        "save": {
+          "JSON.stringify": {
+            "callsPerOperation": 362,
+            "meanTotalMs": 1.525,
+            "meanSelfMs": 1.525
+          },
+          "JSON.parse": {
+            "callsPerOperation": 361,
+            "meanTotalMs": 1.036,
+            "meanSelfMs": 1.036
+          },
+          "definitionGraph": {
+            "callsPerOperation": 2,
+            "meanTotalMs": 2.591,
+            "meanSelfMs": 2.591
+          },
+          "normalizeLocalOwnership": {
+            "callsPerOperation": 1,
+            "meanTotalMs": 3.8,
+            "meanSelfMs": 2.053
+          },
+          "discardPlacementContext": {
+            "callsPerOperation": 1,
+            "meanTotalMs": 0.429,
+            "meanSelfMs": 0.429
+          },
+          "normalizeSingleItems": {
+            "callsPerOperation": 1,
+            "meanTotalMs": 0.509,
+            "meanSelfMs": 0.509
+          },
+          "validateProject": {
+            "callsPerOperation": 1,
+            "meanTotalMs": 4.668,
+            "meanSelfMs": 3.376
+          },
+          "parseProject": {
+            "callsPerOperation": 1,
+            "meanTotalMs": 10.22,
+            "meanSelfMs": 0.051
+          },
+          "save.total": {
+            "callsPerOperation": 1,
+            "meanTotalMs": 11.588,
+            "meanSelfMs": 0.018
+          }
+        }
+      }
+    }
+  },
+  "browser": {
+    "environment": "Chrome 155, macOS, in-app browser; 1280x720 CSS px, DPR 2",
+    "fixture": {
+      "chapters": 8,
+      "beats": 480,
+      "definitions": 610
+    },
+    "method": "Two edit/undo warmups then seven edit/undo/redo/play/close cycles and seven Library searches through dispatched DOM events and real handlers; real isolated localStorage on two dedicated localhost origins; baseline run followed by current",
+    "baseline": {
+      "GraphView.cancel": {
+        "n": 21,
+        "median": 0.1,
+        "p95": 0.1
+      },
+      "DocumentHistory.document": {
+        "n": 35,
+        "median": 0.9,
+        "p95": 1.1
+      },
+      "DocumentHistory.transact": {
+        "n": 7,
+        "median": 8.3,
+        "p95": 9.5
+      },
+      "transaction.total": {
+        "n": 7,
+        "median": 10.2,
+        "p95": 11.6
+      },
+      "storage.write": {
+        "n": 21,
+        "median": 0.4,
+        "p95": 0.5
+      },
+      "save.total": {
+        "n": 7,
+        "median": 17.2,
+        "p95": 20.4
+      },
+      "DocumentHistory.canUndo": {
+        "n": 75,
+        "median": 0,
+        "p95": 0
+      },
+      "DocumentHistory.canRedo": {
+        "n": 75,
+        "median": 0,
+        "p95": 0
+      },
+      "GraphView.edges": {
+        "n": 22,
+        "median": 2.3,
+        "p95": 2.8
+      },
+      "GraphView.render": {
+        "n": 22,
+        "median": 7,
+        "p95": 8.2
+      },
+      "GraphView.setActive": {
+        "n": 36,
+        "median": 0,
+        "p95": 0
+      },
+      "ui.change.node.name": {
+        "n": 7,
+        "median": 47,
+        "p95": 53.5
+      },
+      "ui.change.node.name.twoRAF": {
+        "n": 7,
+        "median": 66.7,
+        "p95": 76.4
+      },
+      "DocumentHistory.undo": {
+        "n": 7,
+        "median": 0,
+        "p95": 0
+      },
+      "ui.click.undo": {
+        "n": 7,
+        "median": 35.9,
+        "p95": 38.8
+      },
+      "ui.click.undo.twoRAF": {
+        "n": 7,
+        "median": 54.7,
+        "p95": 62.7
+      },
+      "DocumentHistory.redo": {
+        "n": 7,
+        "median": 0,
+        "p95": 0
+      },
+      "ui.click.redo": {
+        "n": 7,
+        "median": 34.7,
+        "p95": 37.7
+      },
+      "ui.click.redo.twoRAF": {
+        "n": 7,
+        "median": 54.4,
+        "p95": 57.3
+      },
+      "ProjectPreview.stop": {
+        "n": 14,
+        "median": 0.4,
+        "p95": 0.8
+      },
+      "ProjectPreview.update": {
+        "n": 7,
+        "median": 0.4,
+        "p95": 0.9
+      },
+      "ProjectPreview.play": {
+        "n": 7,
+        "median": 13.5,
+        "p95": 19.3
+      },
+      "ui.click.play": {
+        "n": 7,
+        "median": 14.5,
+        "p95": 45.1
+      },
+      "ui.click.play.twoRAF": {
+        "n": 7,
+        "median": 25.2,
+        "p95": 57.7
+      },
+      "ui.click.BUTTON": {
+        "n": 7,
+        "median": 0.6,
+        "p95": 1
+      },
+      "ui.click.BUTTON.twoRAF": {
+        "n": 7,
+        "median": 15.1,
+        "p95": 17.7
+      },
+      "ui.click.library-view": {
+        "n": 1,
+        "median": 18.5,
+        "p95": 18.5
+      },
+      "ui.click.library-view.twoRAF": {
+        "n": 1,
+        "median": 37.2,
+        "p95": 37.2
+      },
+      "ui.input.library-search": {
+        "n": 7,
+        "median": 1.4,
+        "p95": 2.5
+      },
+      "ui.input.library-search.twoRAF": {
+        "n": 7,
+        "median": 16.4,
+        "p95": 19.6
+      },
+      "ui.click.chapter-view": {
+        "n": 1,
+        "median": 16.8,
+        "p95": 16.8
+      },
+      "ui.click.chapter-view.twoRAF": {
+        "n": 1,
+        "median": 39.6,
+        "p95": 39.6
+      }
+    },
+    "current": {
+      "GraphView.cancel": {
+        "n": 21,
+        "median": 0.1,
+        "p95": 0.2
+      },
+      "DocumentHistory.document": {
+        "n": 35,
+        "median": 0.6,
+        "p95": 0.7
+      },
+      "DocumentHistory.transact": {
+        "n": 7,
+        "median": 8.1,
+        "p95": 9.1
+      },
+      "transaction.total": {
+        "n": 7,
+        "median": 9.3,
+        "p95": 10.5
+      },
+      "storage.write": {
+        "n": 21,
+        "median": 0.3,
+        "p95": 0.4
+      },
+      "save.total": {
+        "n": 7,
+        "median": 9.5,
+        "p95": 9.9
+      },
+      "DocumentHistory.canUndo": {
+        "n": 75,
+        "median": 0,
+        "p95": 0
+      },
+      "DocumentHistory.canRedo": {
+        "n": 75,
+        "median": 0,
+        "p95": 0
+      },
+      "GraphView.edges": {
+        "n": 22,
+        "median": 2.4,
+        "p95": 2.8
+      },
+      "GraphView.render": {
+        "n": 22,
+        "median": 7.1,
+        "p95": 8.3
+      },
+      "GraphView.setActive": {
+        "n": 36,
+        "median": 0,
+        "p95": 0.1
+      },
+      "ui.change.node.name": {
+        "n": 7,
+        "median": 36.9,
+        "p95": 42
+      },
+      "ui.change.node.name.twoRAF": {
+        "n": 7,
+        "median": 56.1,
+        "p95": 64.1
+      },
+      "DocumentHistory.undo": {
+        "n": 7,
+        "median": 0.7,
+        "p95": 0.8
+      },
+      "ui.click.undo": {
+        "n": 7,
+        "median": 28.5,
+        "p95": 31.7
+      },
+      "ui.click.undo.twoRAF": {
+        "n": 7,
+        "median": 47.6,
+        "p95": 51.3
+      },
+      "DocumentHistory.redo": {
+        "n": 7,
+        "median": 0.6,
+        "p95": 0.8
+      },
+      "ui.click.redo": {
+        "n": 7,
+        "median": 27.9,
+        "p95": 31.8
+      },
+      "ui.click.redo.twoRAF": {
+        "n": 7,
+        "median": 47,
+        "p95": 51.3
+      },
+      "ProjectPreview.stop": {
+        "n": 14,
+        "median": 0.5,
+        "p95": 0.9
+      },
+      "ProjectPreview.update": {
+        "n": 7,
+        "median": 0.4,
+        "p95": 0.7
+      },
+      "ProjectPreview.play": {
+        "n": 7,
+        "median": 13.1,
+        "p95": 18.8
+      },
+      "ui.click.play": {
+        "n": 7,
+        "median": 13.9,
+        "p95": 43.6
+      },
+      "ui.click.play.twoRAF": {
+        "n": 7,
+        "median": 23.9,
+        "p95": 61.7
+      },
+      "ui.click.BUTTON": {
+        "n": 7,
+        "median": 0.5,
+        "p95": 0.9
+      },
+      "ui.click.BUTTON.twoRAF": {
+        "n": 7,
+        "median": 13.8,
+        "p95": 17.5
+      },
+      "ui.click.library-view": {
+        "n": 1,
+        "median": 17.9,
+        "p95": 17.9
+      },
+      "ui.click.library-view.twoRAF": {
+        "n": 1,
+        "median": 35.9,
+        "p95": 35.9
+      },
+      "ui.input.library-search": {
+        "n": 7,
+        "median": 1.2,
+        "p95": 2.4
+      },
+      "ui.input.library-search.twoRAF": {
+        "n": 7,
+        "median": 16.3,
+        "p95": 16.8
+      },
+      "ui.click.chapter-view": {
+        "n": 1,
+        "median": 17.8,
+        "p95": 17.8
+      },
+      "ui.click.chapter-view.twoRAF": {
+        "n": 1,
+        "median": 41.8,
+        "p95": 41.8
+      }
+    },
+    "runnerError": {
+      "baseline": null,
+      "current": null
+    },
+    "consoleWarningsOrErrors": {
+      "baseline": [],
+      "current": []
+    }
+  },
+  "verification": {
+    "deterministicTests": {
+      "passed": 1840,
+      "failed": 0,
+      "skipped": 0
+    },
+    "astra": "No blocking findings; independently ran 81 focused tests",
+    "staging": {
+      "files": 231,
+      "bytes": 88596685,
+      "localReferencesVerified": true
+    }
+  },
+  "tradeoffs": [
+    "Undo/read and redo/read add approximately 0.1-0.3 ms in measured Node workloads because snapshots encode/decode during history travel",
+    "First saves against unknown valid primary text still perform full existing-data validation; their cost remains broadly unchanged",
+    "Cache retains one validated JSON string per live storage adapter and uses weak keys"
+  ],
+  "limitations": [
+    "CPU versions and browser versions ran sequentially; small differences may include timing/GC/thermal noise",
+    "CPU timings exclude DOM and real storage I/O. Memory is retained heap+ArrayBuffers after forced GC, not peak or process/browser memory",
+    "Browser n=7 means p95 is effectively the largest sample; twoRAF is callback timing rather than verified paint",
+    "Browser benchmark uses synthetic dispatched events; manual physical touch/input, mobile/GPU, real dice and legacy editor UI were not established",
+    "Unicode, emoji, lone-surrogate and complete 80-step history correctness were covered by deterministic tests"
+  ],
+  "remainingCosts": "Full-project normalization/dependency analysis, outgoing validation and complete graph/inspector rendering remain; no persistent dependency cache or save debouncing introduced"
+}

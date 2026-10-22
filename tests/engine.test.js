@@ -1,3 +1,4 @@
+// Geometry/DOM probes paint explicitly; gesture-rendering.test.js verifies RAF timing.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DEFAULT_SETTINGS,classifyAxis,qualifies,resistance,spring,springStep,settingsWith} from '../engine/motion.js';
@@ -371,7 +372,7 @@ test('reduced motion and hidden tabs finish the incoming flip face up immediatel
 test('the next reverse is exposed during a held upward gesture without committing',()=>{
  for(const count of [2,3,4]){
   const d=deck(count);ready(d);let commits=0;d.addEventListener('commit',()=>commits++);
-  pointer(d.mount,'pointerdown');pointer(d.mount,'pointermove',{clientY:220,timeStamp:100});
+  pointer(d.mount,'pointerdown');pointer(d.mount,'pointermove',{clientY:220,timeStamp:100});d.render();
   assert.ok(d.input.active);assert.ok(d.drag);assert.ok(d.l.x>0);
   assert.ok(d.underlayBack);assert.equal(yaw(d.underlay),180);assert.equal(yaw(d.underlayBack),360);
   assert.equal(d.underlayBack.style.visibility,'visible');assert.equal(d.underlayBack.getAttribute('data-back-icon'),'default');
@@ -382,7 +383,7 @@ test('the next reverse is exposed during a held upward gesture without committin
 });
 test('an incomplete lift returns the stack over its preview without flipping or advancing',()=>{
  const d=deck();ready(d);let commits=0;d.addEventListener('commit',()=>commits++);
- pointer(d.mount,'pointerdown');pointer(d.mount,'pointermove',{clientY:260,timeStamp:100});
+ pointer(d.mount,'pointerdown');pointer(d.mount,'pointermove',{clientY:260,timeStamp:100});d.render();
  assert.equal(d.underlayBack.style.visibility,'visible');
  pointer(d.mount,'pointerup',{clientY:260,timeStamp:250});
  assert.equal(commits,0);assert.equal(d.flip.x,0);assert.equal(d.commitMotion,null);assert.equal(d.pending,null);
@@ -392,7 +393,7 @@ test('an incomplete lift returns the stack over its preview without flipping or 
 test('accepting the lift reuses the already visible reverse without a release-time pop',()=>{
  const d=deck();ready(d);let commits=0;
  d.addEventListener('commit',()=>{commits++;d.replaceContent({...fixture(2),id:'from-preview',title:'Selected consequence'})});
- pointer(d.mount,'pointerdown');pointer(d.mount,'pointermove',{clientY:150,timeStamp:100});
+ pointer(d.mount,'pointerdown');pointer(d.mount,'pointermove',{clientY:150,timeStamp:100});d.render();
  const reverse=d.underlayBack,layer=d.underlayLayer,transform=reverse.style.transform;
  assert.equal(reverse.style.visibility,'visible');assert.equal(d.pending,null);
  pointer(d.mount,'pointerup',{clientY:150,timeStamp:250});
@@ -558,19 +559,19 @@ test('container introduction keeps staged default backs across gesture distances
 });
 test('last item preview keeps the default icon through direction changes and Escape',()=>{
  const d=backAppearanceDeck({interaction:'container',discardAll:true});ready(d);
- d.start();d.move({axis:'y',x:0,y:360,vx:0,vy:0});assert.equal(backIcon(d.underlayBack),'default');
- d.move({axis:'y',x:0,y:-380,vx:0,vy:0});assert.equal(backIcon(d.underlayBack),'default');
- d.move({axis:'y',x:0,y:380,vx:0,vy:0});assert.equal(backIcon(d.underlayBack),'default');
+ d.start();d.move({axis:'y',x:0,y:360,vx:0,vy:0});d.render();assert.equal(backIcon(d.underlayBack),'default');
+ d.move({axis:'y',x:0,y:-380,vx:0,vy:0});d.render();assert.equal(backIcon(d.underlayBack),'default');
+ d.move({axis:'y',x:0,y:380,vx:0,vy:0});d.render();assert.equal(backIcon(d.underlayBack),'default');
  key(d,'Escape');assert.equal(backIcon(d.underlayBack),'default');assert.equal(d.backTransition,null);d.destroy();
 });
 test('collect with remaining items and blocked discard do not stage an underlay',()=>{
  const d=backAppearanceDeck({interaction:'container',discardAll:true,actions:[{id:'one',label:'One',discardDisabled:true},{id:'two',label:'Two'}]});ready(d);
- d.start();d.move({axis:'y',x:0,y:380,vx:0,vy:0});assert.equal(d.underlay,null);
- d.move({axis:'y',x:0,y:-380,vx:0,vy:0});assert.equal(d.underlay,null);d.cancel();settle(d);d.destroy();
+ d.start();d.move({axis:'y',x:0,y:380,vx:0,vy:0});d.render();assert.equal(d.underlay,null);
+ d.move({axis:'y',x:0,y:-380,vx:0,vy:0});d.render();assert.equal(d.underlay,null);d.cancel();settle(d);d.destroy();
 });
 test('check keeps default icon through async waiting and successor flip then restores destination appearance',()=>{
  const d=backAppearanceDeck({decisionOnly:true,cardBack:{background:'source.png'},actions:[{id:'check',label:'Check',resolution:'check'}]});ready(d);
- d.start();d.move({axis:'y',x:0,y:-380,vx:0,vy:0});assert.equal(backIcon(d.underlayBack),'default');d.cancel();settle(d);
+ d.start();d.move({axis:'y',x:0,y:-380,vx:0,vy:0});d.render();assert.equal(backIcon(d.underlayBack),'default');d.cancel();settle(d);
  d.commit();assert.equal(backIcon(d.underlayBack),'default');d.tick(d.commitMotion.start+1000);assert.equal(d.busy,true);assert.equal(backIcon(d.underlayBack),'default');
  d.replaceContent({id:'result',cardBack:{background:'result.png'},actions:[{id:'next',label:'Next'}]});
  assert.equal(backIcon(d.sceneBack),'default');assert.equal(d.sceneBack.style.backgroundImage,'url("source.png")');
@@ -588,17 +589,17 @@ test('source appearance expires on successor previews as well as the installed c
  d.addEventListener('commit',()=>d.replaceContent({id:'result',directAdvance:true,cardBack:{background:'destination.png'},nextCardPreview:{text:'Later',image:''},actions:[{id:'next',label:'Next'}]}));
  d.commit();d.tick(d.commitMotion.start+1000);assert.equal(d.underlayBack.style.backgroundImage,'url("source.png")');
  settle(d);assert.equal(d.backTransition,null);assert.equal(d.underlayBack.style.backgroundImage,'url("destination.png")');
- d.start();d.move({axis:'y',x:0,y:-380,vx:0,vy:0});assert.equal(d.underlayBack.style.backgroundImage,'url("destination.png")');assert.equal(backIcon(d.underlayBack),'default');d.cancel();d.destroy();
+ d.start();d.move({axis:'y',x:0,y:-380,vx:0,vy:0});d.render();assert.equal(d.underlayBack.style.backgroundImage,'url("destination.png")');assert.equal(backIcon(d.underlayBack),'default');d.cancel();d.destroy();
 });
 
 test('small bidirectional gestures and check previews keep default icon and cancel cleanly',()=>{
  const d=backAppearanceDeck({interaction:'container',discardAll:true});ready(d);
- d.start();d.move({axis:'y',x:0,y:5,vx:0,vy:0});assert.equal(backIcon(d.underlayBack),'default');
- d.move({axis:'y',x:0,y:6,vx:0,vy:0});assert.equal(backIcon(d.underlayBack),'default');
- d.move({axis:'y',x:0,y:5,vx:0,vy:0});assert.equal(backIcon(d.underlayBack),'default');
- d.move({axis:'y',x:0,y:3,vx:0,vy:0});assert.equal(backIcon(d.underlayBack),'default');
- d.move({axis:'y',x:0,y:-6,vx:0,vy:0});assert.equal(backIcon(d.underlayBack),'default');
+ d.start();d.move({axis:'y',x:0,y:5,vx:0,vy:0});d.render();assert.equal(backIcon(d.underlayBack),'default');
+ d.move({axis:'y',x:0,y:6,vx:0,vy:0});d.render();assert.equal(backIcon(d.underlayBack),'default');
+ d.move({axis:'y',x:0,y:5,vx:0,vy:0});d.render();assert.equal(backIcon(d.underlayBack),'default');
+ d.move({axis:'y',x:0,y:3,vx:0,vy:0});d.render();assert.equal(backIcon(d.underlayBack),'default');
+ d.move({axis:'y',x:0,y:-6,vx:0,vy:0});d.render();assert.equal(backIcon(d.underlayBack),'default');
  d.cancel();settle(d);assert.equal(backIcon(d.underlayBack),'default');d.destroy();
  const dice=backAppearanceDeck({decisionOnly:true,actions:[{id:'check',label:'Check',resolution:'check'}]});ready(dice);
- dice.start();dice.move({axis:'y',x:0,y:-6,vx:0,vy:0});assert.equal(backIcon(dice.underlayBack),'default');dice.cancel();settle(dice);assert.equal(backIcon(dice.underlayBack),'default');dice.destroy();
+ dice.start();dice.move({axis:'y',x:0,y:-6,vx:0,vy:0});dice.render();assert.equal(backIcon(dice.underlayBack),'default');dice.cancel();settle(dice);assert.equal(backIcon(dice.underlayBack),'default');dice.destroy();
 });

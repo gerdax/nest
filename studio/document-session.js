@@ -21,8 +21,13 @@ export function transactDocument(history, localDrafts, command) {
       // Keep the newest cached variants before pruning their saved definitions.
       // Cleanup shares this edit's history entry, so undo restores both together.
       // A preserved unplaced draft can still need a just-unplaced item.
-      for(const id of definitionGraph(next).reachableFrom(next.library.filter(card=>preserved.has(card.id))))preserved.add(id);
-      const newlyUnused = new Set(unusedLocalDefinitions(next).filter(card => !preserved.has(card.id)).map(card => card.id));
+      // Both queries inspect the same finalized revision. Reuse its graph only
+      // here, after normalization and cache refresh have finished mutating it.
+      const graph = definitionGraph(next);
+      for(const id of graph.reachableFrom(next.library.filter(card=>preserved.has(card.id))))preserved.add(id);
+      const retained = graph.retained();
+      const newlyUnused = new Set(next.library.filter(card => card.visibility === 'local'
+        && !retained.has(card.id) && !preserved.has(card.id)).map(card => card.id));
       if(newlyUnused.size)next.library=next.library.filter(card=>!newlyUnused.has(card.id));
       return next;
     });

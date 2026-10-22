@@ -12,6 +12,8 @@ python3 serve.py
 
 Open `http://127.0.0.1:8937/`; use `--port 8938` for an alternative port. Serve over HTTP so native modules load correctly. The server disables caching, and engine module URLs are versioned together.
 
+The server listens on all IPv4 interfaces by default for phone testing. Connect your Mac and phone to the same Wi-Fi, find your Mac's IP in System Settings → Wi-Fi → Details → TCP/IP, and open `http://<your-Mac-IP>:8937/player.html` on your phone. Allow incoming connections if macOS asks. Use `python3 serve.py --host 127.0.0.1` for local-only access, or `--host <your-Mac-IP>` to bind to a specific interface. Stop the server with Ctrl+C.
+
 - `/` redirects to `/player.html`, which plays a chapter from the saved project or an imported project/chapter JSON file.
 - `/editor.html` opens the project studio with Library and Chapter views.
 - `/dice.html` opens the independent 3D dice tray.

@@ -68,7 +68,7 @@ export async function installBrowserBenchmark() {
     const output=panel.querySelector('[data-status]'),summary=panel.querySelector('[data-summary]');
     qa.report=()=>{
       const life=qa.lifecycle.filter(e=>e.token===qa.token);
-      output.textContent=JSON.stringify({fixture,token:qa.token,pageshow:life.filter(e=>e.type==='pageshow').at(-1),previewDestroyed:qa.preview?.destroyed??null,card:qa.preview?.state?.cardId??null,variables:qa.preview?.state?.variables??null,items:qa.preview?.state?.collectedItems?.map(i=>i.definitionId)??[],undo:qa.history?.canUndo??null,redo:qa.history?.canRedo??null,samples:qa.samples.length},null,2);
+      output.textContent=JSON.stringify({fixture,token:qa.token,pageshow:life.filter(e=>e.type==='pageshow').at(-1),previewDestroyed:qa.preview?.destroyed??null,card:qa.preview?.state?.cardId??null,variables:qa.preview?.state?.variables??null,items:qa.preview?.state?.collectedItems?.map(i=>i.definitionId)??[],undo:qa.history?.canUndo??null,redo:qa.history?.canRedo??null,samples:qa.samples.length,error:qa.samples.findLast(sample=>sample.name==='benchmark.error')?.message??null},null,2);
       const groups=new Map();for(const sample of qa.samples){if(!groups.has(sample.name))groups.set(sample.name,[]);groups.get(sample.name).push(sample.ms);}
       summary.textContent=JSON.stringify(Object.fromEntries([...groups].map(([name,values])=>{values.sort((a,b)=>a-b);return[name,{n:values.length,median:+values[Math.floor(values.length/2)].toFixed(2),p95:+values[Math.min(values.length-1,Math.ceil(values.length*.95)-1)].toFixed(2)}];})),null,2);
     };
@@ -94,7 +94,7 @@ export async function installBrowserBenchmark() {
           document.querySelector('#undo').click();await frames();
           document.querySelector('#redo').click();await frames();
           document.querySelector('#play').click();await frames();
-          document.querySelector('#stop').click();await frames();
+          document.querySelector('[data-preview-close]').click();await frames();
         }
         document.querySelector('#library-view').click();await frames();
         for(let i=0;i<7;i++){

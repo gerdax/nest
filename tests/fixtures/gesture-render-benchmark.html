@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gesture render benchmark</title>
+<link rel="stylesheet" href="../../engine/card-deck.css">
+<link rel="stylesheet" href="../../demo/inventory.css">
+<style>
+body{margin:0;background:#151815;color:#eee;font:14px system-ui}main{max-width:1000px;margin:20px auto;padding:16px}button{padding:10px}#stage{position:relative;width:440px;max-width:100%;height:540px;margin:12px auto;background:#202820;overflow:hidden}#deck{position:absolute;width:240px;height:320px;left:calc(50% - 120px);top:24px}#stage .nest-inventory-drawer{bottom:8px;padding-top:8px}pre{white-space:pre-wrap;overflow-wrap:anywhere}#report{max-height:700px;overflow:auto;border:1px solid #657360;padding:12px}output{display:block;margin:12px 0}
+</style>
+<main>
+<h1>Gesture render benchmark</h1>
+<p>Real CardDeck, InventoryPickup, InventoryView and InventorySurface with native DOM. Generates synchronous logical move calls in animation-frame callbacks, not physical input. Run the identical fixture on a separately served baseline checkout to compare results. No project storage is used.</p>
+<button id="run" type="button">Run warmed benchmark</button>
+<output id="status" aria-live="polite">Ready. Keep this tab visible throughout the run.</output>
+<div id="stage"><div id="deck"></div></div>
+<pre id="report" aria-label="Benchmark JSON report">No results yet.</pre>
+</main>
+<script type="module" src="./gesture-render-benchmark.js"></script>
+</html>

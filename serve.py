@@ -27,12 +27,17 @@ class PlaygroundHandler(SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--host", default="0.0.0.0",
+                        help="interface to listen on (default: all IPv4 interfaces; use 127.0.0.1 for local only)")
     parser.add_argument("--port", type=int, default=8937)
     args = parser.parse_args()
     root = Path(__file__).resolve().parent
     handler = partial(PlaygroundHandler, directory=str(root))
-    with ThreadingHTTPServer(("127.0.0.1", args.port), handler) as server:
-        print(f"nest: http://127.0.0.1:{args.port}/", flush=True)
+    with ThreadingHTTPServer((args.host, args.port), handler) as server:
+        local_host = "127.0.0.1" if args.host == "0.0.0.0" else args.host
+        print(f"nest: http://{local_host}:{server.server_port}/", flush=True)
+        if args.host == "0.0.0.0":
+            print(f"Wi-Fi: open http://<your-Mac-IP>:{server.server_port}/ on your phone (same network).", flush=True)
         try:
             server.serve_forever()
         except KeyboardInterrupt:

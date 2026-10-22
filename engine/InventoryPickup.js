@@ -17,16 +17,24 @@ export class InventoryPickup {
     return this.adapter.getTarget({ clientX: gesture?.clientX, clientY: gesture?.clientY,
       active: !!this.target, snapped: this.target?.snapped === true, keyboard, action: this.deck.content.actions[this.deck.index] });
   }
-  preview(target) {
+  preview(target, { defer = false } = {}) {
+    const hadTarget = !!this.target;
     this.target = target;
-    this.adapter.preview(target);
+    this.previewDirty = defer;
+    if (!defer) this.adapter.preview(target);
     this.mix.x = this.mix.target = target ? 1 : 0;
-    if (!target) { this.restoreLayer(); return; }
+    if (!target) {
+      if (defer) this.ownerId = null;
+      else this.restoreLayer();
+      return;
+    }
     this.ownerId ??= this.deck.content.actions[this.deck.index]?.id;
     const floating = target.snapped === false;
     this.x.target = floating ? target.clientX - target.rect.width / 2 : target.rect.left;
     this.y.target = floating ? target.clientY - target.rect.height / 2 : target.rect.top;
-    if (!this.layer || floating) {
+    // Logical entry, rather than deferred DOM creation, initializes the mini.
+    // Further snapped samples retain their spring origin within the same RAF.
+    if (!hadTarget || floating) {
       this.x.x = this.x.target; this.x.v = 0;
       this.y.x = this.y.target; this.y.v = 0;
     }
@@ -34,7 +42,10 @@ export class InventoryPickup {
   move(gesture) {
     const action = this.deck.content.actions[this.deck.index];
     const eligible = gesture.axis === 'y' && gesture.y > 0 && !action?.disabled && !action?.collectDisabled;
-    this.preview(eligible ? this.targetFor(gesture) : null);
+    // Targeting/hysteresis stays current for every sample and release. Slot
+    // styles and the floating replica are painted once by the deck's RAF.
+    this.preview(eligible ? this.targetFor(gesture) : null,
+      { defer: !this.deck.reduced && !document.hidden });
   }
   pose(base, index) {
     return this.mix.x && this.deck.content.actions[index]?.id === this.ownerId
@@ -73,6 +84,11 @@ export class InventoryPickup {
     this.adapter.trace?.(source, state);
   }
   render() {
+    if (this.previewDirty) {
+      this.previewDirty = false;
+      this.adapter.preview(this.target);
+      if (!this.target) this.restoreLayer();
+    }
     const deck = this.deck;
     const inContext = deck.preserveInventoryContext || deck.content.interaction === 'container' && deck.open && deck.phase !== 'ended' && (deck.cards.length > 0 || !!this.pending);
     // Only installation starts a new presentation. Item removal and action

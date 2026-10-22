@@ -4,6 +4,9 @@ export const LEGACY_STORAGE_KEY = 'nest.chapter.v1';
 export const RECOVERY_STORAGE_KEY = 'nest.project.v2.recovery';
 export const RECOVERY_NOTICE_KEY = 'nest.project.v2.recovery-notice';
 const message = error => error.message || String(error);
+// One exact, validated primary payload per adapter. Always reread storage before
+// using it: another tab, import, or adapter can replace the primary at any time.
+const validatedPrimary = new WeakMap();
 
 // Keep the exact damaged payload, including malformed JSON. Never replace an
 // older backup with a different payload, even after another damaged save.
@@ -28,7 +31,7 @@ export function saveProject(project, storage) {
     const text = JSON.stringify(parseProject(JSON.stringify(project), {allowDraft:true}));
     const store = storage ?? globalThis.localStorage;
     const current = store.getItem(STORAGE_KEY);
-    if (current !== null) {
+    if (current !== null && current !== validatedPrimary.get(store)) {
       try { parseProject(current, {allowDraft:true}); }
       catch {
         try { preserveDamagedSave(store, current); }
@@ -36,6 +39,9 @@ export function saveProject(project, storage) {
       }
     }
     store.setItem(STORAGE_KEY, text);
+    // Outgoing data was normalized and validated above. Failed writes never
+    // populate this cache, and a different stored string is never trusted.
+    validatedPrimary.set(store, text);
     return {ok:true};
   } catch (error) { return {ok:false,error:message(error)}; }
 }

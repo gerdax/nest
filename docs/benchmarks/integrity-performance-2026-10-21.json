@@ -1,0 +1,248 @@
+{
+  "date": "2026-10-21",
+  "baselineCommit": "09dcefc73885854243eb478f8e55e7db16a8faac",
+  "changes": [
+    "Schema-scoped retired inventory field normalization preserves arbitrary variable and connection keys",
+    "Standalone chapter export and parsing preserve ignoreAllOverrides; merging chapters retains destination project settings",
+    "Reuse finalized dependency graph within one document transaction",
+    "Repair browser benchmark preview-close control and expose runner errors"
+  ],
+  "verification": {
+    "nodeTests": {
+      "passed": 1826,
+      "failed": 0,
+      "skipped": 0
+    },
+    "newIntegrityTestsAgainstPriorStaging": {
+      "passed": 6,
+      "failed": 11,
+      "purpose": "Confirmed regression tests detect defects before fixes"
+    },
+    "astra": "Independent read-only review: no actionable findings; 64 focused tests passed",
+    "staticStaging": {
+      "files": 231,
+      "bytes": 88595518,
+      "localReferencesVerified": true
+    }
+  },
+  "cpuComparison": {
+    "node": "v24.19.0",
+    "samples": 9,
+    "warmups": 3,
+    "scope": "Full document transaction with real history/draft cache; excludes persistence and browser work",
+    "results": [
+      {
+        "beats": 480,
+        "definitions": 610,
+        "bytes": 484244,
+        "medianMs": {
+          "current": 14.42,
+          "baseline": 16
+        }
+      },
+      {
+        "beats": 960,
+        "definitions": 610,
+        "bytes": 697552,
+        "medianMs": {
+          "current": 19.55,
+          "baseline": 20.85
+        }
+      },
+      {
+        "beats": 4800,
+        "definitions": 610,
+        "bytes": 2397040,
+        "medianMs": {
+          "current": 70.18,
+          "baseline": 75.55
+        }
+      }
+    ],
+    "baselineScope": "HEAD document-session implementation with current model dependencies; alternating order, real history and empty LocalCardDrafts cache",
+    "rerun": "node tests/benchmark-document.mjs [baseline-module.mjs]"
+  },
+  "browserCurrentOnly": {
+    "browser": "Chrome 155 in-app browser, macOS",
+    "viewport": {
+      "width": 1280,
+      "height": 720,
+      "dpr": 2
+    },
+    "fixture": {
+      "chapters": 8,
+      "beats": 480,
+      "definitions": 610
+    },
+    "workload": "Two edit/undo warmups, seven edit/undo/redo/play/close cycles, seven library searches through real UI handlers with isolated localStorage",
+    "runnerError": null,
+    "consoleWarningsOrErrors": [],
+    "summary": {
+      "GraphView.cancel": {
+        "n": 20,
+        "median": 0.1,
+        "p95": 0.2
+      },
+      "DocumentHistory.document": {
+        "n": 34,
+        "median": 0.9,
+        "p95": 1
+      },
+      "DocumentHistory.transact": {
+        "n": 7,
+        "median": 7.8,
+        "p95": 8.6
+      },
+      "transaction.total": {
+        "n": 7,
+        "median": 9.6,
+        "p95": 10.4
+      },
+      "storage.write": {
+        "n": 20,
+        "median": 0.3,
+        "p95": 0.5
+      },
+      "save.total": {
+        "n": 7,
+        "median": 16.6,
+        "p95": 17.5
+      },
+      "DocumentHistory.canUndo": {
+        "n": 72,
+        "median": 0,
+        "p95": 0
+      },
+      "DocumentHistory.canRedo": {
+        "n": 73,
+        "median": 0,
+        "p95": 0
+      },
+      "GraphView.edges": {
+        "n": 21,
+        "median": 2.4,
+        "p95": 2.7
+      },
+      "GraphView.render": {
+        "n": 21,
+        "median": 6.8,
+        "p95": 7.9
+      },
+      "GraphView.setActive": {
+        "n": 35,
+        "median": 0,
+        "p95": 0
+      },
+      "ui.change.node.name": {
+        "n": 7,
+        "median": 43.1,
+        "p95": 47.6
+      },
+      "ui.change.node.name.twoRAF": {
+        "n": 7,
+        "median": 62.5,
+        "p95": 69
+      },
+      "DocumentHistory.redo": {
+        "n": 7,
+        "median": 0,
+        "p95": 0
+      },
+      "ui.click.redo": {
+        "n": 7,
+        "median": 32.9,
+        "p95": 34.3
+      },
+      "ui.click.redo.twoRAF": {
+        "n": 7,
+        "median": 52.4,
+        "p95": 54
+      },
+      "ProjectPreview.stop": {
+        "n": 14,
+        "median": 0.4,
+        "p95": 0.8
+      },
+      "ProjectPreview.update": {
+        "n": 7,
+        "median": 0.4,
+        "p95": 0.5
+      },
+      "ProjectPreview.play": {
+        "n": 7,
+        "median": 12.7,
+        "p95": 13.6
+      },
+      "ui.click.play": {
+        "n": 7,
+        "median": 13.5,
+        "p95": 14.5
+      },
+      "ui.click.play.twoRAF": {
+        "n": 7,
+        "median": 24.2,
+        "p95": 26
+      },
+      "ui.click.BUTTON": {
+        "n": 7,
+        "median": 0.6,
+        "p95": 0.8
+      },
+      "ui.click.BUTTON.twoRAF": {
+        "n": 7,
+        "median": 15,
+        "p95": 20.2
+      },
+      "DocumentHistory.undo": {
+        "n": 6,
+        "median": 0,
+        "p95": 0
+      },
+      "ui.click.undo": {
+        "n": 6,
+        "median": 33.9,
+        "p95": 34.4
+      },
+      "ui.click.undo.twoRAF": {
+        "n": 6,
+        "median": 52.8,
+        "p95": 53.9
+      },
+      "ui.click.library-view": {
+        "n": 1,
+        "median": 17,
+        "p95": 17
+      },
+      "ui.click.library-view.twoRAF": {
+        "n": 1,
+        "median": 37.1,
+        "p95": 37.1
+      },
+      "ui.input.library-search": {
+        "n": 7,
+        "median": 1.1,
+        "p95": 2.2
+      },
+      "ui.input.library-search.twoRAF": {
+        "n": 7,
+        "median": 16.3,
+        "p95": 17.5
+      },
+      "ui.click.chapter-view": {
+        "n": 1,
+        "median": 18.2,
+        "p95": 18.2
+      },
+      "ui.click.chapter-view.twoRAF": {
+        "n": 1,
+        "median": 42.3,
+        "p95": 42.3
+      }
+    }
+  },
+  "limitations": [
+    "CPU comparison excludes storage and rendering; does not prove FPS or device performance",
+    "Browser data is current-only, not a matched before/after comparison; seven samples make p95 effectively maximum",
+    "Browser workload uses dispatched events; physical pointer/touch, mobile GPU, dice physics and legacy editor UI not exercised"
+  ]
+}

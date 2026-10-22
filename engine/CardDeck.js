@@ -373,6 +373,7 @@ export class CardDeck extends EventTarget {
     gesture = { ...gesture, x: gesture.x / scale, y: gesture.y / scale };
     const recognizedVertical = gesture.axis === 'y' && this.drag.axis !== 'y';
     this.drag.axis = gesture.axis;
+    this.drag.y = gesture.y;
     const disabledDown = gesture.axis === 'y' && gesture.y > 0
       && this.content.interaction === 'choice' && this.content.actions[this.index]?.disabled;
     if (recognizedVertical || disabledDown) this.beginGrab(performance.now(), disabledDown);
@@ -388,7 +389,6 @@ export class CardDeck extends EventTarget {
         if (gesture.y > 0) {
           this.p.x = this.drag.p;
           this.rotationX.target = this.rotationY.target = this.rotationZ.target = 0;
-          this.render();
           this.schedule();
           return;
         }
@@ -410,14 +410,12 @@ export class CardDeck extends EventTarget {
         const travel = disabled && gesture.y > 0 ? 24 * (1 - Math.exp(-gesture.y / 90)) : gesture.y;
         this.l.x = disabled ? clamp(this.drag.l - travel / height, -24 / height, 24 / height)
           : this.drag.l - gesture.y / height;
-        if (!disabled && (group || this.cards.length === 1) && this.l.x !== 0) stageNextBack(this);
       } else if (gesture.y > 0) {
         this.restoreLiftPoses();
         if (!this.content.allowClose) {
           this.l.x = Math.max(0, this.drag.l - gesture.y / height);
           this.rotationX.target = this.rotationY.target = this.rotationZ.target = 0;
           this.sampleChoices();
-          this.render();
           this.schedule();
           return;
         }
@@ -449,9 +447,6 @@ export class CardDeck extends EventTarget {
           this.l.x = action.disabled
             ? Math.min(24, this.drag.l * height + 24 * (1 - Math.exp(gesture.y / 90))) / height
             : Math.max(0, this.drag.l - gesture.y / height);
-          if (this.l.x > 0 && this.content.interaction === 'choice' && !action.disabled) {
-            if (!this.prepareActionPreview(action.id)) stageNextBack(this);
-          }
         }
       }
     }
@@ -461,8 +456,20 @@ export class CardDeck extends EventTarget {
     this.rotationX.target = clamp(-gesture.y / height * max * 2, -max, max);
     this.rotationY.target = clamp(gesture.x / width * max * 2, -max, max);
     this.rotationZ.target = clamp((gesture.x * this.drag.grab.y - gesture.y * this.drag.grab.x) / height * max * 2, -max, max);
-    this.render();
+    // Every input sample updates state and follower history synchronously, but
+    // only the existing animation frame paints the latest gesture pose.
     this.schedule();
+  }
+
+  prepareDragPreview() {
+    if (!this.drag?.ready || this.drag.axis !== 'y') return;
+    const action = this.content.actions[this.index];
+    if (!action || action.disabled) return;
+    if (this.content.interaction === 'container') {
+      const leaving = this.drag.y < 0;
+      const disabled = leaving ? action.discardDisabled : action.collectDisabled;
+      if (!disabled && (leaving && this.content.discardAll === true || this.cards.length === 1) && this.l.x !== 0) stageNextBack(this);
+    } else if (this.drag.y <= 0 && this.l.x > 0 && !this.prepareActionPreview(action.id)) stageNextBack(this);
   }
 
   releaseRotation(gesture = {}) {
@@ -474,6 +481,9 @@ export class CardDeck extends EventTarget {
 
   end(gesture) {
     if (!this.drag) return;
+    // Release may precede the scheduled paint. Prepare the same reverse/front
+    // before accepting departure, without deferring any gameplay decision.
+    this.prepareDragPreview();
     const drag = this.drag, scale = cssScale(this.mount);
     this.drag = null;
     // Keep physical release thresholds/hit testing in screen pixels; convert
@@ -1717,6 +1727,7 @@ export class CardDeck extends EventTarget {
   }
 
   render(t) {
+    this.prepareDragPreview();
     this.updatePresentationReadiness();
     renderDeck(this, t);
     this.pickup?.render();

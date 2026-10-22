@@ -1,3 +1,4 @@
+// Geometry/DOM probes paint explicitly; gesture-rendering.test.js verifies RAF timing.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CardDeck, DEFAULT_SETTINGS } from '../engine/CardDeck.js';
@@ -119,7 +120,7 @@ for (const resolution of ['collect', 'discard']) test(`final ${resolution} stage
     }
     if (e.detail.transition === 'commit') events.push('flipped');
   });
-  deck.start(); deck.move(gesture(direction * distance));
+  deck.start(); deck.move(gesture(direction * distance)); deck.render();
   const back = deck.underlayBack;
   assert.ok(back); assert.equal(back.style.visibility, 'visible'); assert.equal(deck.nextFlip.x, 1); assert.deepEqual(events, []);
   deck.end(gesture(direction * distance, direction * 1600));
@@ -163,7 +164,7 @@ for (const resolution of ['collect', 'discard']) for (const action of ['reset', 
 for (const y of [-150, 150]) test(`Escape cancels held ${y < 0 ? 'discard' : 'take'} without closing or accepting`, () => {
   const deck = make(1); ready(deck); let accepts = 0;
   deck.addEventListener('collect', () => accepts++); deck.addEventListener('discard', () => accepts++);
-  deck.start(); deck.move(gesture(y)); key(deck, 'Escape'); settle();
+  deck.start(); deck.move(gesture(y)); deck.render(); key(deck, 'Escape'); settle();
   assert.equal(deck.drag, null); assert.equal(deck.open, true); assert.equal(deck.cards.length, 1); assert.equal(accepts, 0);
   assert.equal(deck.underlayBack.style.visibility, 'hidden'); dispose(deck);
 });
@@ -326,7 +327,7 @@ test('before the drawer boundary the large card keeps exactly the original drag 
   const original=make(),drawer=make(); ready(original); ready(drawer); await drawerFixture(drawer);
   original.start(); drawer.start();
   const movement={...gesture(150),clientX:115,clientY:490};
-  original.move(movement); drawer.move(movement);
+  original.move(movement); drawer.move(movement); original.render(); drawer.render();
   const expected=cardPose(original,original.index),actual=cardPose(drawer,drawer.index);
   samePose(actual,expected,'drawer must not shrink or change the ordinary card drag');
   assert.equal(drawer.pickup.mix.x,0); assert.equal(drawer.pickup.layer,null);

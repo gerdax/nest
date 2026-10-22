@@ -1,3 +1,4 @@
+// Geometry/DOM probes paint explicitly; gesture-rendering.test.js verifies RAF timing.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CardDeck } from '../engine/CardDeck.js';
@@ -51,7 +52,7 @@ test('resting carousel and cover geometry are unchanged in layout pixels at .8 z
 
 for(const scale of [1,.8])test(`item card follows physical pointer travel at root zoom ${scale}`,()=>{
  const deck=make(scale),before=cardPose(deck,0,1000);
- deck.start();deck.move(gesture(0,100));
+ deck.start();deck.move(gesture(0,100));deck.render();
  const after=cardPose(deck,0,1000);
  close((after.y-before.y)*scale,100);
  close(deck.l.x,-100/(450*scale));

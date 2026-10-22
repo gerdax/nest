@@ -1,3 +1,4 @@
+// Geometry/DOM probes paint explicitly; gesture-rendering.test.js verifies RAF timing.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ProjectController } from '../project/ProjectController.js';
@@ -274,7 +275,7 @@ test('container introduction reuses the coverless flip entrance and keeps semant
  const originalId=deck.content.id;let accepted=0,completed=0,commits=0;
  deck.addEventListener('reveal',()=>accepted++);deck.addEventListener('commit',()=>commits++);
  deck.addEventListener('transitioncomplete',e=>{if(e.detail.transition==='reveal')completed++;});
- deck.start();deck.move({axis:'y',x:0,y:-80,vx:0,vy:0});
+ deck.start();deck.move({axis:'y',x:0,y:-80,vx:0,vy:0});deck.render();
  assert.equal(deck.forwardDeck.cards[0].style.visibility,'visible');assert.ok(deck.forwardDeck.cards[0].style.transform.includes('rotateY(180deg)'));
  deck.end({axis:'y',x:0,y:-80,vx:0,vy:0});settle();assert.equal(accepted,0);assert.equal(deck.phase,'closed');
  deck.start();deck.move({axis:'y',x:0,y:-150,vx:0,vy:0});deck.end({axis:'y',x:0,y:-150,vx:0,vy:0});

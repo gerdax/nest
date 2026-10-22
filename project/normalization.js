@@ -1,20 +1,60 @@
 import { resolvePlacement, isStoryKind } from './cards.js';
 import { createLibraryIndex } from './library-index.js';
-import { cloneProject, list, object, placements, legacyArtwork, walk, unique } from './model-data.js';
+import { cloneProject, list, object, placements, legacyArtwork, unique } from './model-data.js';
 import { outputsForNode, connectionForOutput } from './graph.js';
 
 export function normalizeSingleItems(project) {
-  walk(project, value => {
+  // Only visit schema-owned card and rule fields. Variable IDs are arbitrary
+  // keys in initialValues, so a recursive property-name cleanup loses data.
+  const stripItemMetadata = value => {
     delete value.quantity;
     delete value.use;
     delete value.remainingTriggers;
-    if (value.source === 'inventory') {
-      if (value.op === 'gte') value.op = 'has';
-      if (value.op === 'lte') value.op = 'missing';
-      if (['has', 'missing'].includes(value.op)) delete value.value;
-      if (!value.op) value.amount = 1;
+  };
+  const rules = value => {
+    for (const key of ['conditions', 'explicitConditions', 'costs', 'effects', 'onCollect', 'successEffects', 'failureEffects']) {
+      for (const rule of list(value[key]).filter(object)) {
+        stripItemMetadata(rule);
+        if (rule.source === 'inventory') {
+          if (rule.op === 'gte') rule.op = 'has';
+          if (rule.op === 'lte') rule.op = 'missing';
+          if (['has', 'missing'].includes(rule.op)) delete rule.value;
+          if (!rule.op) rule.amount = 1;
+        }
+      }
     }
-  });
+  };
+  const card = value => {
+    if (!object(value)) return;
+    stripItemMetadata(value);
+    rules(value);
+    if (object(value.overrides)) {
+      stripItemMetadata(value.overrides);
+      rules(value.overrides);
+    }
+    for (const choice of list(value.choices)) card(choice);
+  };
+  const sequence = value => {
+    if (!object(value)) return;
+    rules(value);
+    for (const raw of [...list(value.cards), ...list(value.items)]) card(raw);
+  };
+  const chapter = value => {
+    if (!object(value)) return;
+    for (const node of list(value.nodes).filter(object)) {
+      rules(node);
+      for (const placement of placements(node)) card(placement);
+      for (const route of [...list(node.routes), ...list(node.pool)].filter(object)) rules(route);
+      sequence(node.sequence);
+      for (const seq of list(node.sequences)) sequence(seq);
+    }
+    // Version 1 chapters keep their artwork in a top-level sequence library.
+    for (const seq of list(value.sequences)) sequence(seq);
+  };
+  for (const definition of list(project?.library)) card(definition);
+  for (const value of list(project?.chapters)) chapter(value);
+  chapter(project?.chapter);
+  chapter(project); // Raw version 1 and compiled chapters have top-level nodes.
   return project;
 }
 export function discardPlacementContext(project, index = createLibraryIndex(list(project?.library))) {

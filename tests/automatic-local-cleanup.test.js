@@ -96,6 +96,28 @@ test('newly generated unreachable definitions are discarded without pruning exis
  assert.equal(result.project.library.some(d=>d.id==='temporary-orphan'),false);
 });
 
+test('cleanup indexes the finalized cache-refresh revision and remains undoable',()=>{
+ const s=setup(),rootId=s.node.cards[0].definitionId;
+ s.history.transact(project=>{
+  project.library.push({...createDefinition('item','old-dependency'),visibility:'local',chapterId:s.chapter.id});
+  project.library.find(card=>card.id===rootId).effects=[{op:'addItem',key:'old-dependency'}];
+ });
+ const before=s.history.document;
+ s.drafts.refreshChangedDefinitions=project=>{
+  // Cache refresh is allowed to update the final document. Its references must
+  // be visible to both cleanup queries, never indexed before this callback.
+  project.library.push({...createDefinition('item','new-dependency'),visibility:'local',chapterId:s.chapter.id});
+  project.library.find(card=>card.id===rootId).effects=[{op:'addItem',key:'new-dependency'}];
+ };
+ const outcome=transactDocument(s.history,s.drafts,project=>{project.name='Refresh revision';});
+ assert.equal(outcome.failure,undefined);
+ assert.ok(outcome.project.library.some(card=>card.id==='new-dependency'));
+ assert.equal(outcome.project.library.some(card=>card.id==='old-dependency'),false);
+ assert.deepEqual(validateProject(outcome.project),[]);
+ s.history.undo();assert.deepEqual(s.history.document,before);
+ s.history.redo();assert.deepEqual(s.history.document,outcome.project);
+});
+
 test('preserved unplaced drafts lose direct references when the local item source node is deleted',()=>{
  const s=setup();let itemId,containerId;
  s.history.transact(project=>{

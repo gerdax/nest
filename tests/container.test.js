@@ -1,3 +1,4 @@
+// Geometry/DOM probes paint explicitly; gesture-rendering.test.js verifies RAF timing.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CardDeck, DEFAULT_SETTINGS } from '../engine/CardDeck.js';
@@ -91,7 +92,7 @@ function renderedScale(card) {
 
 test('a fully uncovered next reverse keeps its full scale while waiting for asynchronous content', () => {
   const deck = make(2, fixture(2, 'choice')); ready(deck);
-  deck.start(); deck.move(gesture(-60));
+  deck.start(); deck.move(gesture(-60)); deck.render();
   assert.ok(renderedScale(deck.underlayBack) < 1);
   deck.end(gesture(-60, -800));
   const motion = deck.commitMotion; step(motion.start + (motion.duration + (deck.cards.length - 1) * deck.settings.choiceStaggerMs) + 1 - now);
@@ -178,7 +179,7 @@ for (const count of [2, 3, 4]) for (const destination of ['back', 'items']) test
   const deck = make(count, fixture(count, 'choice')); ready(deck);
   deck.updateSettings({ maxTilt: 18 });
   if (destination === 'items') deck.setActionPreview('item-0', fixture(3), { presentation: 'open' });
-  deck.start(); deck.move(gesture(-1));
+  deck.start(); deck.move(gesture(-1)); deck.render();
   deck.choiceHistory = null; // This geometry probe sets lift directly rather than replaying timed input.
   deck.rotationX.x = 18; deck.rotationY.x = -18; deck.rotationZ.x = 18;
   const destinationCards = destination === 'items' ? deck.forwardDeck.cards : [deck.underlayBack];
@@ -276,7 +277,7 @@ test('open presentation installs a ready fan directly without flipping or a sour
 test('container intro flip previews item backs when constructed directly and skips coverless refreshes',()=>{
  const content={...fixture(2),flipItemsOnReveal:true};const deck=make(2,content);
  assert.ok(deck.forwardDeck);assert.equal(deck.forwardDeck.cardBacks.every(Boolean),true);
- deck.start();deck.move(gesture(-80));assert.equal(deck.forwardDeck.cards[0].style.visibility,'visible');assert.ok(deck.forwardDeck.cards[0].style.transform.includes('rotateY(180deg)'));
+ deck.start();deck.move(gesture(-80));deck.render();assert.equal(deck.forwardDeck.cards[0].style.visibility,'visible');assert.ok(deck.forwardDeck.cards[0].style.transform.includes('rotateY(180deg)'));
  deck.end(gesture(-80));settle();assert.equal(deck.phase,'closed');
  let reveal=0;deck.addEventListener('transitioncomplete',e=>{if(e.detail.transition==='reveal')reveal++;});
  key(deck,'ArrowUp');settle();assert.equal(deck.phase,'choices');assert.equal(deck.content.flipItemsOnReveal,false);assert.equal(deck.skipCover,true);assert.equal(deck.flip.x,0);assert.equal(reveal,1);
