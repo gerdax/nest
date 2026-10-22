@@ -23,10 +23,24 @@ function cardTexture() {
   return texture;
 }
 
+function appendFace(layer, card) {
+  // A face's effects stay inside the whole-card painter layer, but outside
+  // its artwork clip. Front and reverse need independent backface culling.
+  const effects = document.createElement('div');
+  effects.className = 'nest-card-effects';
+  effects.setAttribute('aria-hidden', 'true');
+  const soft = document.createElement('div');
+  soft.className = 'nest-card-shadow-soft';
+  effects.append(soft);
+  card.rasterEffects = effects;
+  card.rasterShadow = soft;
+  layer.append(effects, card);
+}
+
 function layerFor(deck, card, className = '') {
   const layer = document.createElement('div');
   layer.className = `nest-card-layer ${className}`.trim();
-  layer.append(card);
+  appendFace(layer, card);
   deck.mount.append(layer);
   return layer;
 }
@@ -93,8 +107,8 @@ export function stageActionDeck(deck, content, selectedIndex = null, previous = 
         title = deck.decorate(card, action.image ?? content.image ?? '', action.heading || '', action.cardKind ? action.text || '' : action.label, flipped(action), action);
       }
       if (back) decorateBack(back, content);
-      if ((action.faceDown || content.decisionOnly) && !back) { back = backFace(content); layer.append(back); }
-      if (!action.faceDown && !content.decisionOnly && back) { back.remove(); back = null; }
+      if ((action.faceDown || content.decisionOnly) && !back) { back = backFace(content); appendFace(layer, back); }
+      if (!action.faceDown && !content.decisionOnly && back) { back.rasterEffects?.remove(); back.remove(); back = null; }
       bundle.cards.push(card);
       bundle.cardLayers.push(layer);
       bundle.cardBacks.push(back);
@@ -107,7 +121,7 @@ export function stageActionDeck(deck, content, selectedIndex = null, previous = 
     const layer = layerFor(deck, card);
     bundle.cardLayers.push(layer);
     const back = action.faceDown || content.decisionOnly ? backFace(content) : null;
-    if (back) layer.append(back);
+    if (back) appendFace(layer, back);
     bundle.cardBacks.push(back);
     bundle.cards.push(card);
   });
@@ -137,7 +151,7 @@ export function buildDeck(deck, staged = null) {
   deck.decorate(deck.scene, deck.content.image, deck.content.heading || '', deck.content.text, deck.content.flipImage, deck.content);
   deck.sceneLayer = layerFor(deck, deck.scene);
   deck.sceneBack = backFace(deck.content);
-  deck.sceneLayer.append(deck.sceneBack);
+  appendFace(deck.sceneLayer, deck.sceneBack);
   deck.live = document.createElement('span');
   deck.live.className = 'nest-live';
   deck.live.setAttribute('aria-live', 'polite');
@@ -238,7 +252,7 @@ export function stageNextBack(deck) {
     deck.underlay.setAttribute('aria-hidden', 'true');
     deck.underlayLayer = layerFor(deck, deck.underlay);
     deck.underlayBack = backFace(deck.content);
-    deck.underlayLayer.append(deck.underlayBack);
+    appendFace(deck.underlayLayer, deck.underlayBack);
   }
 }
 
@@ -477,15 +491,29 @@ function applyPose(deck, element, layer, pose, order, shadow = true) {
   element.style.visibility = pose.visible ? 'visible' : 'hidden';
   layer.style.zIndex = String(order);
   layer.style.perspective = `${deck.settings.perspective}px`;
-  // Elevation changes the footprint of the shadow, never the card's opacity.
-  const elevation = Math.max(0, pose.z + 24);
-  element.style.boxShadow = shadow
-    ? `var(--card-edge-strata, 0 2px 0 #29301c), 0 ${8 + elevation * .16}px ${18 + elevation * .4}px #000b`
-    : 'var(--card-edge-strata, none)';
+  if (deck.cssEffects) {
+    const elevation = Math.max(0, pose.z + 24);
+    element.style.boxShadow = shadow
+      ? `var(--card-edge-strata, 0 2px 0 #29301c), 0 ${8 + elevation * .16}px ${18 + elevation * .4}px #000b`
+      : 'var(--card-edge-strata, none)';
+    return;
+  }
+  if (element.style.boxShadow) element.style.boxShadow = '';
+  if (element.rasterEffects) {
+    element.rasterEffects.style.transform = element.style.transform;
+    element.rasterEffects.style.visibility = element.style.visibility;
+    // Move/scale a pre-painted shadow; changing blur would repaint each frame.
+    // The separate edge sprite remains attached to the exact card silhouette.
+    const elevation = Math.max(0, pose.z + 24);
+    element.rasterShadow.style.display = shadow ? '' : 'none';
+    element.rasterShadow.style.transform = `translateY(${elevation * .16}px) scale(${1 + Math.min(elevation * .002, .24)})`;
+  }
 }
 
 export function renderDeck(deck, time = performance.now()) {
   if (!deck.scene) return;
+  // Resolve the session comparison mode once per paint, including new decks.
+  deck.cssEffects = !!(deck.mount.ownerDocument || document).documentElement?.classList?.contains?.('nest-perf-css-effects');
   const context = poseContext(deck, time);
   const { front } = context;
   const poses = deck.cards.map((_, index) => ({ ...cardPose(deck, index, time, context), ...(deck.coverDeparture || deck.content.flipItemsOnReveal ? { visible: false } : {}) }));

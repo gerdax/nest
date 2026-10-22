@@ -47,7 +47,7 @@ function fixture(search = '') {
     clearTimeout: id => timers.delete(id),
   };
   const nodes = new Map();
-  for (const name of ['controls', 'status', 'report', 'record', 'stop', 'original', 'light']) nodes.set(name, new Element());
+  for (const name of ['controls', 'status', 'report', 'record', 'stop', 'original', 'light', 'renderer']) nodes.set(name, new Element());
   const root = new Element(); root.ownerDocument = doc;
   root.querySelector = selector => nodes.get(selector.match(/data-performance-(.*)\]/)[1]);
   const deck = { frame: 1, cards: [{}, {}] };
@@ -93,6 +93,32 @@ test('recording excludes idle gaps, busy dice waits, and deck replacements', () 
   assert.match(f.nodes.get('report').value, /not device profiling/);
   assert.equal(f.frames.size, 0); assert.equal(f.timers.size, 0);
   f.cleanup();
+});
+
+test('renderer switches redraw the same deck, retain effect settings, and label separate recordings', () => {
+  const f = fixture(), originalDeck = f.preview.deck;
+  let paints = 0;
+  f.deck.render = () => paints++;
+  const renderer = f.nodes.get('renderer');
+  assert.equal(renderer.value, 'png');
+  f.click('record'); f.tick(0); f.tick(16);
+  renderer.value = 'css'; renderer.dispatchEvent(new Event('change'));
+  assert.match(f.nodes.get('report').value, /Rendering: PNG effects · after/);
+  assert.match(f.nodes.get('report').value, /interrupted: rendering changed/);
+  assert.equal(f.frames.size, 0); assert.equal(f.timers.size, 0);
+  assert.equal(f.doc.documentElement.classList.contains('nest-perf-css-effects'), true);
+  assert.equal(f.preview.deck, originalDeck);
+  assert.equal(paints, 1);
+  assert.ok(f.nodes.get('controls').children.every(row => row.children[0].checked));
+  f.click('record'); f.tick(0); f.tick(32); f.expire();
+  assert.match(f.nodes.get('report').value, /Rendering: CSS effects · before/);
+  assert.match(f.nodes.get('report').value, /Rendering: PNG effects · after/);
+  f.click('light');
+  assert.equal(renderer.value, 'css');
+  f.cleanup();
+  assert.equal(f.doc.documentElement.classList.contains('nest-perf-css-effects'), false);
+  renderer.value = 'css'; renderer.dispatchEvent(new Event('change'));
+  assert.equal(f.doc.documentElement.classList.contains('nest-perf-css-effects'), false);
 });
 
 test('effect changes, visibility and manual stop interrupt; prior comparison reports remain', () => {

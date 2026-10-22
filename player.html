@@ -47,20 +47,26 @@
     <details class="performance-tuning" id="performance-mode">
       <summary>Performance comparison · effects</summary>
       <div class="performance-tuning-body">
-        <p>Compare the same gestures with original or lighter effects. Card motion and game rules stay the same. Changes last until reload.</p>
+        <p>Compare the original CSS rims and shadows with the PNG version. Card motion and game rules stay the same. Changes last until reload.</p>
+        <label class="performance-renderer">Rims and shadows
+          <select data-performance-renderer>
+            <option value="png" selected>PNG effects · after</option>
+            <option value="css">CSS effects · before</option>
+          </select>
+        </label>
         <div class="performance-actions">
-          <button type="button" data-performance-original>Original effects</button>
+          <button type="button" data-performance-original>All effects</button>
           <button type="button" data-performance-light>Light effects</button>
         </div>
         <div class="performance-controls" data-performance-controls></div>
-        <p class="performance-help">For each comparison, return to the same card and repeat the same swipe 5–10 times. First try Light effects, then Original with one effect disabled at a time.</p>
+        <p class="performance-help">For a before/after comparison, keep All effects enabled. Choose CSS, warm up with a few swipes, then record while repeating the same swipe on the same card. Repeat with PNG. Lower mean and p95 intervals indicate smoother callback timing. Reports keep both runs below. You can also disable individual effects to isolate their cost.</p>
         <div class="performance-actions">
           <button type="button" data-performance-record>Record 10 seconds</button>
           <button type="button" data-performance-stop disabled>Stop recording</button>
         </div>
         <p class="performance-help">Recording measures animation-frame callback intervals during activity. It does not measure GPU time or prove rendered FPS. Keep this tab visible; you can collapse this panel while recording.</p>
-        <p data-performance-status role="status" aria-live="polite">Original effects. No recording yet.</p>
-        <label class="performance-report">Last comparison report
+        <p data-performance-status role="status" aria-live="polite">PNG effects selected. No recording yet.</p>
+        <label class="performance-report">Comparison reports
           <textarea data-performance-report readonly rows="9" spellcheck="false" aria-label="Performance comparison report"></textarea>
         </label>
       </div>

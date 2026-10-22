@@ -20,6 +20,49 @@ const fixture=n=>({id:`fixture${n}`,allowClose:true,title:'Situation',text:'Plac
 function deck(n=3){return new CardDeck(new Element(),{content:fixture(n)})}
 function settle(d){for(let i=0;i<300;i++){cancelAnimationFrame(d.frame);d.tick(performance.now()+i*16)}cancelAnimationFrame(d.frame);d.frame=0;}
 function ready(d){d.setOpen(true);settle(d);assert.equal(d.phase,'choices');assert.equal(d.fan.x,1);}
+test('comparison mode restores original animated CSS shadows and clears them when PNG resumes',()=>{
+ const previous=document.documentElement;
+ let css=false;
+ document.documentElement={classList:{contains:name=>name==='nest-perf-css-effects'&&css}};
+ const d=deck(),scene=d.scene;
+ try{
+  css=true;d.render();
+  assert.match(scene.style.boxShadow,/var\(--card-edge-strata/);
+  assert.match(scene.style.boxShadow,/14.4px 34px #000b/);
+  d.fan.x=0;d.render();assert.equal(d.cards[0].style.boxShadow,'var(--card-edge-strata, none)');
+  css=false;d.render();
+  assert.equal(d.scene,scene);assert.equal(scene.style.boxShadow,'');
+  assert.equal(scene.rasterEffects.style.transform,scene.style.transform);
+ }finally{d.destroy();document.documentElement=previous;}
+});
+test('raster effects follow each face through flips and hidden staged cards without blur writes',()=>{
+ const d=deck();
+ renderer.stageNextContent(d,fixture(2));
+ for(const progress of [0,.5,1]){
+  d.flip.x=progress;d.render();
+  for(const card of [d.scene,d.sceneBack,d.underlay,d.underlayBack,...d.cards]){
+   assert.ok(card.rasterEffects.parentNode.children.includes(card));
+   assert.equal(card.rasterEffects.style.transform,card.style.transform);
+   assert.equal(card.rasterEffects.style.visibility,card.style.visibility);
+   assert.equal(card.style.boxShadow,undefined);
+   assert.equal(card.rasterEffects.getAttribute('aria-hidden'),'true');
+  }
+ }
+ d.fan.x=0;d.render();assert.equal(d.cards[0].rasterShadow.style.display,'none');
+ d.fan.x=1;d.render();assert.equal(d.cards[0].rasterShadow.style.display,'');
+ d.destroy();assert.equal(d.mount.children.length,0);
+});
+test('reusing staged cards retains effects and removing a reverse removes its effects',()=>{
+ const d=deck();
+ const content={...fixture(1),actions:[{id:'retained',label:'Face down',faceDown:true}]};
+ const before=renderer.stageActionDeck(d,content);
+ const card=before.cards[0],effects=card.rasterEffects,reverse=before.cardBacks[0],reverseEffects=reverse.rasterEffects;
+ const after=renderer.stageActionDeck(d,{...content,actions:[{id:'retained',label:'Now face up'}]},0,before);
+ assert.equal(after.cards[0],card);assert.equal(card.rasterEffects,effects);
+ assert.deepEqual(after.cardLayers[0].children,[effects,card]);
+ assert.equal(reverse.parentNode,null);assert.equal(reverseEffects.parentNode,null);
+ for(const layer of after.cardLayers)layer.remove();d.destroy();
+});
 function gesture(d,g){d.start();d.move(g);d.end(g);settle(d)}
 test('axis waits for threshold and locks to dominant direction',()=>{assert.equal(classifyAxis(4,4),null);assert.equal(classifyAxis(34,12),'x');assert.equal(classifyAxis(12,-34),'y')});
 test('distance and directional flick acceptance',()=>{assert.equal(qualifies(47,0,340),false);assert.equal(qualifies(48,0,340),true);assert.equal(qualifies(-26,-800,453),true);assert.equal(qualifies(-26,800,453),false);assert.equal(qualifies(25,900,453),false)});
@@ -283,7 +326,7 @@ test('the next situation stages face down beneath departing choices without a pl
  const outgoing=[...d.cards],source=d.scene;
  d.addEventListener('commit',()=>d.replaceContent({...fixture(2),id:'staged',title:'Future front',text:'Future description'}));d.commit();
  assert.equal(d.content.id,'fixture3');assert.equal(d.scene,source);assert.equal(d.pending.id,'staged');
- assert.deepEqual(d.underlayLayer.children,[d.underlay,d.underlayBack]);
+ assert.deepEqual(d.underlayLayer.children,[d.underlay.rasterEffects,d.underlay,d.underlayBack.rasterEffects,d.underlayBack]);
  assert.equal(yaw(d.underlay),180);assert.equal(yaw(d.underlayBack),360);
  assert.equal(d.underlay.style.visibility,'visible');assert.equal(d.underlayBack.style.visibility,'visible');
  assert.equal(d.underlay.getAttribute('aria-hidden'),'true');assert.equal(d.underlayBack.getAttribute('aria-hidden'),'true');
@@ -298,7 +341,7 @@ test('the next situation stages face down beneath departing choices without a pl
 test('incoming situation turns its two faces through back, edge and front with no fading',()=>{
  const d=deck();const start=commitNext(d);installCommitted(d,start);
  assert.equal(d.flip.x,1);assert.equal(d.flip.target,0);assert.equal(d.n.x,1);assert.equal(d.n.target,0);
- assert.equal(d.underlay,null);assert.equal(d.underlayBack,null);assert.deepEqual(d.sceneLayer.children,[d.scene,d.sceneBack]);
+ assert.equal(d.underlay,null);assert.equal(d.underlayBack,null);assert.deepEqual(d.sceneLayer.children,[d.scene.rasterEffects,d.scene,d.sceneBack.rasterEffects,d.sceneBack]);
  for(const [progress,angle]of [[1,180],[.5,90],[0,0],[1.2,180],[-.2,0]]){
   d.flip.x=progress;d.render();const pose=renderer.scenePose(d);assert.equal(pose.turn,angle);assert.equal(pose.turnAxis,DEFAULT_SETTINGS.flipAxisTilt);
   const back=renderer.backPose(pose);assert.equal(back.turn,pose.turn);assert.equal(back.face,180);
@@ -316,7 +359,7 @@ test('future choices remain compressed and hidden until the incoming flip comple
   d.cards.forEach((card,index)=>{
    const pose=renderer.cardPose(d,index);assert.equal(pose.visible,false);assert.equal(card.style.visibility,'hidden');
    for(const field of ['x','y','rx','ry','rz'])assert.equal(Math.abs(pose[field]),0);
-   assert.equal(d.cardLayers[index].children.length,1);assert.equal(d.cardLayers[index].children[0],card);
+   assert.deepEqual(d.cardLayers[index].children,[card.rasterEffects,card]);
   });
   assert.equal(descendants(d.mount).filter(el=>(el.className||'').split(' ').includes('nest-card-back')).length,1);
  }

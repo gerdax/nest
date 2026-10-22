@@ -1,8 +1,9 @@
 const RECORDING_MS = 10_000;
 const MAX_SAMPLES = 100_000;
+const rendererLabels = { png: 'PNG effects · after', css: 'CSS effects · before' };
 
 export const effectControls = [
-  { key: 'shadows', label: 'Shadows', help: 'Card box shadows.', className: 'nest-perf-no-shadows' },
+  { key: 'shadows', label: 'Shadows', help: 'Card shadows and paper edges.', className: 'nest-perf-no-shadows' },
   { key: 'colorize', label: 'Image colorize', help: 'Artwork color filter.', className: 'nest-perf-no-colorize' },
   { key: 'texture', label: 'Paper texture', help: 'Card paper texture overlays.', className: 'nest-perf-no-texture' },
   { key: 'rim', label: 'Card rim', help: 'Decorative card rim overlay.', className: 'nest-perf-no-rim' },
@@ -26,7 +27,7 @@ export function summarizeFrameIntervals(intervals) {
   };
 }
 
-/** Session-only CSS comparison. This never updates the preview or its deck. */
+/** Session-only rendering comparison. Redraws without rebuilding the deck. */
 export function mountPerformanceTuning(root, preview) {
   const doc = root.ownerDocument;
   const win = doc.defaultView;
@@ -36,6 +37,8 @@ export function mountPerformanceTuning(root, preview) {
   const report = root.querySelector('[data-performance-report]');
   const recordButton = root.querySelector('[data-performance-record]');
   const stopButton = root.querySelector('[data-performance-stop]');
+  const renderer = root.querySelector('[data-performance-renderer]');
+  renderer.value = 'png';
   const fields = new Map();
   const listeners = [];
   const reports = [];
@@ -62,6 +65,7 @@ export function mountPerformanceTuning(root, preview) {
     const result = [
       'Nest effect comparison — active animation/input RAF cadence estimate',
       `Result: ${reason}`,
+      `Rendering: ${rendererLabels[run.renderer]}`,
       `Effects enabled: ${effectControls.filter(({ key }) => run.effects[key]).map(({ label }) => label).join(', ') || 'none'}`,
       `User agent: ${run.userAgent}`,
       `Viewport: ${run.width} × ${run.height}; DPR: ${run.dpr}`,
@@ -83,7 +87,15 @@ export function mountPerformanceTuning(root, preview) {
   };
   const apply = () => {
     for (const { key, className } of effectControls) classes.toggle(className, !fields.get(key).checked);
+    classes.toggle('nest-perf-css-effects', renderer.value === 'css');
+    preview.deck?.render?.();
   };
+  listen(renderer, 'change', () => {
+    finish('interrupted: rendering changed');
+    if (!Object.hasOwn(rendererLabels, renderer.value)) renderer.value = 'png';
+    apply();
+    status.textContent = `${rendererLabels[renderer.value]} selected. Earlier reports keep their recorded settings.`;
+  });
   for (const { key, label, help } of effectControls) {
     const row = doc.createElement('label');
     row.className = 'performance-effect';
@@ -117,7 +129,7 @@ export function mountPerformanceTuning(root, preview) {
     if (doc.hidden) { status.textContent = 'Show this page before recording.'; return; }
     const run = {
       intervals: [], previous: null, frame: 0, timer: 0,
-      effects: selectedEffects(), userAgent: win.navigator.userAgent,
+      effects: selectedEffects(), renderer: renderer.value, userAgent: win.navigator.userAgent,
       width: win.innerWidth, height: win.innerHeight, dpr: win.devicePixelRatio,
       chapter: preview.chapterId || 'unavailable', cardCount: preview.deck?.cards?.length ?? 'unavailable',
     };
@@ -146,7 +158,7 @@ export function mountPerformanceTuning(root, preview) {
   report.readOnly = true;
   apply();
   setRecordingUI(false);
-  status.textContent = 'Current effects enabled. Changes last for this session.';
+  status.textContent = 'PNG effects selected. All effects enabled. Changes last for this session.';
   if (new URLSearchParams(win.location.search).get('perf') === '1') root.open = true;
   return () => {
     if (disposed) return;
@@ -154,6 +166,8 @@ export function mountPerformanceTuning(root, preview) {
     disposed = true;
     for (const remove of listeners) remove();
     for (const { className } of effectControls) classes.remove(className);
+    classes.remove('nest-perf-css-effects');
+    preview.deck?.render?.();
     controls.replaceChildren();
   };
 }
