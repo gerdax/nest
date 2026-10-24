@@ -1,5 +1,5 @@
 import { retainsInventoryItems } from './nodeTypes.js';
-import { initialValues, conditionsMet, affordCosts, transact, addInventory, canTriggerItem } from './state.js';
+import { initialValues, conditionsMet, affordCosts, transact, addInventory, canTriggerItem, inventoryQuantity } from './state.js';
 import { cardBody, cardFace, actionCardFace } from './presentation.js';
 import { playerCardSummary, isStoryKind, collectionEffects } from './cards.js';
 import { selectPool } from '../chapter/random.js';
@@ -8,10 +8,13 @@ import { resolveCheck } from './checks.js';
 
 /** Playback only. CardDeck remains responsible for gestures and departure choreography. */
 export class ProjectController {
-  constructor(deck, compiled, {onChange=()=>{},rng=Math.random,rollCheck,onCheckResult=()=>{},onError=()=>{},initialState} = {}) {
+  constructor(deck, compiled, {onChange=()=>{},rng=Math.random,rollCheck,onCheckResult=()=>{},onError=()=>{},initialState,nodeEntryEffects={}} = {}) {
     this.deck=deck; this.compiled=compiled; this.nodes=new Map(compiled.nodes.map(n=>[n.id,n]));
     Object.assign(this,{onChange,rng,rollCheck,onCheckResult,onError});
     this.initialState = initialState ? structuredClone(initialState) : null;
+    // Host-supplied test effects stay outside the compiled document.
+    this.nodeEntryEffects = structuredClone(nodeEntryEffects);
+    this.arrivalStates = new WeakMap();
     this.generation=0; this.serial=0; this.destroyed=false;
     this.listeners={reveal:e=>this.reveal(e.detail),commit:e=>this.commit(e.detail),collect:e=>this.resolveItem(e.detail,'collect'),discard:e=>this.resolveItem(e.detail,'discard'),transitioncomplete:e=>this.transitionComplete(e.detail)};
     for(const [name,listener] of Object.entries(this.listeners)) deck.addEventListener(name,listener);
@@ -23,6 +26,7 @@ export class ProjectController {
   restart() {
     if(this.destroyed)return;
     ++this.generation; this.checking?.abort(); this.checking=null;this.checkPayment=null;
+    this.arrivalStates = new WeakMap();
     this.deck.reset();
     this.variables=transact(initialValues(this.compiled.variables),[],{effects:Object.entries(this.initialState?.variables || {}).map(([key,value])=>({op:'set',key,value}))},this.compiled.variables).variables;
     this.inventory=(this.initialState?.inventory || []).reduce((items,item)=>addInventory(items,structuredClone(item)),[]);
@@ -105,38 +109,47 @@ export class ProjectController {
       if(!preflight||preflight.values!==values||preflight.inventory!==inventory||preflight.excluded!==excluded)preflight={values,inventory,excluded,visiting:new Set(visited),completed:new Map()};
       visited=preflight.visiting;
     }
-    const pending=[start],entered=new Set();
+    const pending=[{...start,values,inventory,changed:false}],entered=new Set();
     let result;
     try {
       while(pending.length) {
         const step=pending.pop();
+        let {values,inventory,changed}=step;
         if(step.finish) {
           if(step.random)result=null;
-          if(preview){preflight.completed.set(step.id,result);visited.delete(step.id);entered.delete(step.id);}
+          if(preview){preflight.completed.set(step.id,{values,inventory,result});visited.delete(step.id);entered.delete(step.id);}
           continue;
         }
         if(step.location) {
           const next=this.seekStep(step.location,values,inventory,excluded);
-          if(next.ready)result=next.location;
-          else pending.push(next);
+          if(next.ready){result=next.location;if(changed)this.arrivalStates.set(result,{variables:values,inventory});}
+          else pending.push({...next,values,inventory,changed});
           continue;
         }
         const id=step.id;
-        if(id===null){result={completed:true};continue;}
+        if(id===null){result={completed:true};if(changed)this.arrivalStates.set(result,{variables:values,inventory});continue;}
         if(id===false||id===undefined)throw new Error('Unlinked output');
         if(visited.has(id))throw new Error('Automatic routing cycle');
-        if(preview&&preflight.completed.has(id)){result=preflight.completed.get(id);continue;}
+        const cached=preview&&preflight.completed.get(id);
+        if(cached&&cached.values===values&&cached.inventory===inventory){result=cached.result;continue;}
         visited.add(id);entered.add(id);
         const node=this.nodes.get(id);if(!node)throw new Error(`Unknown node: ${id}`);
-        pending.push({finish:true,id,random:preview&&node.type==='random'});
+        pending.push({finish:true,id,random:preview&&node.type==='random',values,inventory});
+        // Keep entry effects speculative until the full route succeeds. Branches
+        // inherit their parent's state rather than a preceding sibling's effects.
+        for(const effect of Object.hasOwn(this.nodeEntryEffects,id)?this.nodeEntryEffects[id]:[]) {
+          if(effect.op==='removeItem'&&!inventoryQuantity(inventory,effect.key))continue;
+          const state=transact(values,inventory,{effects:[effect]},this.compiled.variables,this.compiled.library);
+          values=state.variables;inventory=state.inventory;changed=true;
+        }
         if(node.type==='random') {
           const routes=(node.routes ?? []).filter(r=>r.weight>0&&conditionsMet(r.conditions,values,inventory));
           if(preview) {
             const targets=routes.length?routes.map(r=>r.target):[node.fallback];
-            for(let i=targets.length-1;i>=0;i--)pending.push({id:targets[i]});
+            for(let i=targets.length-1;i>=0;i--)pending.push({id:targets[i],values,inventory,changed});
           }else {
             const selected=this.weighted(routes);
-            pending.push({id:selected?selected.target:node.fallback});
+            pending.push({id:selected?selected.target:node.fallback,values,inventory,changed});
           }
         }else if(node.type==='legacyPool'&&preview)result=null;
         else {
@@ -145,9 +158,9 @@ export class ProjectController {
           if(node.type==='legacyPool') {
             location.queue=selectPool(node.pool,node.count,this.rng);
             location.sequence=node.sequences.find(s=>s.id===location.queue.shift());
-            if(!location.sequence){pending.push({id:node.connections?.next});continue;}
+            if(!location.sequence){pending.push({id:node.connections?.next,values,inventory,changed});continue;}
           }
-          pending.push({location});
+          pending.push({location,values,inventory,changed});
         }
       }
       return result;
@@ -227,7 +240,12 @@ export class ProjectController {
       return error.message==='Unlinked output'||error.message==='Automatic routing cycle'||error.message.startsWith('Unknown node:');
     }
   }
-  adopt(destination,notify=true) {this.completed=!!destination.completed;if(!this.completed)this.location=destination;if(notify)this.notify();}
+  arrivalState(destination,variables=this.variables,inventory=this.inventory) {return this.arrivalStates.get(destination) ?? {variables,inventory};}
+  adopt(destination,notify=true) {
+    const state=this.arrivalState(destination);this.arrivalStates.delete(destination);
+    this.variables=state.variables;this.inventory=state.inventory;
+    this.completed=!!destination.completed;if(!this.completed)this.location=destination;if(notify)this.notify();
+  }
   body(card) {return cardBody(card);}
   action(card,values=this.variables) {
     const {context,...content}=card;
@@ -259,6 +277,7 @@ export class ProjectController {
     }catch { return false; }
   }
   content(location=this.location,values=this.variables,inventory=this.inventory,preview=true,excludedItem=null) {
+    ({variables:values,inventory}=this.arrivalState(location,values,inventory));
     const type=this.type(location),card=this.card(location),fork=type==='fork'||type==='forked',container=type==='container',linearFace=type==='linear'&&['action','item','health','energy'].includes(card?.kind),linearItem=linearFace&&card.kind==='item';
     let actions;
     if(fork)actions=this.choices(location).flatMap(c=>{
@@ -294,6 +313,7 @@ export class ProjectController {
     return payload;
   }
   presentation(location=this.location,values=this.variables,inventory=this.inventory) {
+    ({variables:values,inventory}=this.arrivalState(location,values,inventory));
     const type=this.type(location);
     if(type==='linear'&&['action','item','health','energy'].includes(this.card(location)?.kind))return 'open';
     if(type==='fork')return this.introEnabled(location)&&!this.introShown(location)&&conditionsMet(this.card(location)?.conditions,values,inventory)?'closed':'open';

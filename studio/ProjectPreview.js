@@ -18,7 +18,7 @@ import { ActionContextPanel } from './ActionContextPanel.js';
 
 /** Playback UI owns dice/inventory presentation, never chapter resolution rules. */
 export class ProjectPreview {
-  constructor(root, { onChange = () => {}, onStop = () => {}, onCardChange = () => {}, onGoToCard, inventoryDock = false, inventoryHost = null, deckSettings = {}, presentationPolicy = {} } = {}) {
+  constructor(root, { onChange = () => {}, onStop = () => {}, onCardChange = () => {}, onGoToCard, inventoryDock = false, inventoryHost = null, deckSettings = {}, presentationPolicy = {}, previewOverrides = null } = {}) {
     this.root = root;
     this.destroyed = false;
     this.generation = 0;
@@ -29,6 +29,7 @@ export class ProjectPreview {
     this.onGoToCard = typeof onGoToCard === 'function' ? onGoToCard : null;
     this.deckSettings = { ...deckSettings };
     this.presentationPolicy = { ...presentationPolicy };
+    this.previewOverrides = previewOverrides;
     this.root.innerHTML = '<section class="project-preview"><div class="chapter-preview-stage"><div class="player-resources" data-resources hidden><span class="player-resource" data-health aria-label="Health"><img src="./assets/img/ui/hud-health.png" alt=""><span data-health-value></span></span><span class="player-resource" data-energy aria-label="Energy"><span data-energy-value></span><img src="./assets/img/ui/hud-energy.png" alt=""></span></div><div class="chapter-preview-card-area"><div class="chapter-preview-card-layout"><div class="chapter-preview-deck" tabindex="0"></div></div></div><section data-action-context></section></div><div class="preview-status-row"><p data-status role="status" hidden></p></div><footer class="preview-footer" data-preview-footer><details data-state hidden><summary>Run state</summary><pre></pre></details><div data-preview-actions></div></footer><section data-inventory></section><section class="check-surface" data-check-surface hidden aria-label="Action check"><div class="check-tray"></div><div class="check-result" data-result role="status" aria-live="polite"></div></section></section>';
     this.mount = root.querySelector('.chapter-preview-deck');
     this.status = root.querySelector('[data-status]');
@@ -89,7 +90,13 @@ export class ProjectPreview {
     if (chapterId === undefined) chapterId = project.activeChapterId;
     const issues = validateProject(project);
     if (issues.length) throw new Error(issues.map(issue => issue.message).join('\n'));
-    const chapter = compileChapter(project, chapterId, {additionalDefinitionIds:(initialState?.inventory || []).map(item => item.definitionId ?? item.id)});
+    const sourceChapter = project.chapters.find(chapter => chapter.id === chapterId);
+    const nodeEntryEffects = sourceChapter ? this.previewOverrides?.nodeEntryEffects(project, sourceChapter) ?? {} : {};
+    const additionalDefinitionIds = [
+      ...(initialState?.inventory || []).map(item => item.definitionId ?? item.id),
+      ...Object.values(nodeEntryEffects).flat().filter(effect => effect.op === 'addItem').map(effect => effect.key),
+    ];
+    const chapter = compileChapter(project, chapterId, {additionalDefinitionIds});
     if (startNode) chapter.startNode = startNode;
     const expectedGeneration = this.generation + 1;
     this.stop();
@@ -128,6 +135,7 @@ export class ProjectPreview {
       }, content: { id:'project-loading',text:'',actions:[{id:'wait',label:'Loading',disabled:true}] } });
       const controller = new ProjectController(this.deck, chapter, {
         initialState:this.initialState,
+        nodeEntryEffects,
         onChange: state => { if (active()) this.update(state); },
         onError: (error,state) => { if (!active() || error.code === 'NO_AVAILABLE_CHOICES') return; this.hideDice(); this.errorNode = state?.activeNodeId; this.errorMessage = error.message || String(error); this.status.textContent = this.errorMessage; this.status.hidden = false; },
         rollCheck: (pool, options) => {
@@ -314,6 +322,7 @@ export class ProjectPreview {
       this.onGoToCard = null;
       this.releaseDock?.(); this.releaseDock = null;
       this.project = null; this.compiled = null; this.chapterId = null; this.startNode = undefined;
+      this.previewOverrides = null;
       this.onChange = () => {};
       this.onStop = () => {};
       this.onCardChange = () => {};

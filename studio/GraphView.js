@@ -13,7 +13,8 @@ import { cardRuleIndicators } from './card-rule-indicators.js';
 
 /** Canvas interaction owns selection/pan, and emits completed document edits. */
 export class GraphView {
- constructor(root,{onSelect,onConnect,onMove,onSelectMany=()=>{},onMoveMany=()=>{},onOpenCard=()=>{},onTransferCard=()=>{},onRemoveCard=()=>{},onDelete=()=>{},onCreateConnected=()=>{},onCancelCreate=()=>{}}) {
+ constructor(root,{onSelect,onConnect,onMove,onDuplicate=()=>{},onSelectMany=()=>{},onMoveMany=()=>{},onOpenCard=()=>{},onTransferCard=()=>{},onRemoveCard=()=>{},onDelete=()=>{},onCreateConnected=()=>{},onCancelCreate=()=>{}}) {
+  this.onDuplicate=onDuplicate;this.overrideNodeIds=new Set();
   this.selectedIds=new Set();this.onSelectMany=onSelectMany;this.onMoveMany=onMoveMany;
   this.onCreateConnected=onCreateConnected;this.onCancelCreate=onCancelCreate;this.creation=null;
   this.root=root;this.onSelect=onSelect;this.onConnect=onConnect;this.onMove=onMove;this.onOpenCard=onOpenCard;this.lastPortClick=null;
@@ -65,11 +66,17 @@ export class GraphView {
   this.libraryIndex=createLibraryIndex(project.library);
   this.definitionsById=new Map(project.library.map(definition=>[definition.id,definition]));
   if(this.pending&&!chapter.nodes.some(n=>n.id===this.pending.nodeId&&outputsForNode(project,n,this.libraryIndex).includes(this.pending.exit)))this.pending=null;
-  this.root.querySelector('#nodes').innerHTML=chapter.nodes.map(n=>`<article class="node ${n.type} ${this.selectedIds.has(n.id)?'selected':''} ${n.id===active?'active':''}" data-id="${esc(n.id)}" style="left:${this.position(n).x}px;top:${this.position(n).y}px"><div class="node-heading">${nodeIcon(n.type)}<span class="badge">${n.id===chapter.startNode?'START · ':''}${esc(n.name?.trim()||nodeTypeLabel(n.type))}</span></div>${n.type==='random'?`<div class="node-body">${n.routes.length} ${n.routes.length===1?'route':'routes'}</div>`:n.type.startsWith('legacy')?'<div class="node-body">Preserved legacy behaviour</div>':''}${this.cardRows(n)}</article>`).join('');
+  this.root.querySelector('#nodes').innerHTML=chapter.nodes.map(n=>`<article class="node ${n.type} ${this.selectedIds.has(n.id)?'selected':''} ${n.id===active?'active':''}" data-id="${esc(n.id)}" style="left:${this.position(n).x}px;top:${this.position(n).y}px"><div class="node-heading">${nodeIcon(n.type)}<span class="badge">${n.id===chapter.startNode?'START · ':''}${esc(n.name?.trim()||nodeTypeLabel(n.type))}</span>${this.overrideMarker(n.id)}</div>${n.type==='random'?`<div class="node-body">${n.routes.length} ${n.routes.length===1?'route':'routes'}</div>`:n.type.startsWith('legacy')?'<div class="node-body">Preserved legacy behaviour</div>':''}${this.cardRows(n)}</article>`).join('');
   this.nodeElements=new Map([...this.root.querySelectorAll('.node')].map(el=>[el.dataset.id,el]));
   this.portElements=new Map([...this.nodeElements].map(([id,el])=>[id,new Map([...el.querySelectorAll('.port')].map(port=>[port.dataset.exit,port]))]));
   this.setActiveCard(this.activeCard);
   this.transform();this.edges();
+ }
+ overrideMarker(id) {
+  if(!this.overrideNodeIds.has(id))return '';
+  const ignored=this.project.ignoreAllOverrides===true;
+  const label=ignored?'Overrides configured (ignored)':'Overrides configured';
+  return `<span class="graph-override-marker${ignored?' ignored':''}" role="img" aria-label="${label}" title="${label}">!</span>`;
  }
  // Preview notifications change only these classes. Keep the graph DOM, focus,
  // viewport and in-flight gestures intact, including repeated same-node updates.
@@ -141,7 +148,7 @@ export class GraphView {
   if(html&&remaining.length)html+='<hr class="graph-card-divider">';
   return html+remaining.map(exit=>this.port(node,exit)).join('');
  }
- position(n) {if(this.drag?.positions?.has(n.id))return this.drag.positions.get(n.id);return this.drag?.kind==='node'&&this.drag.id===n.id?{x:this.drag.px,y:this.drag.py}:n;}
+ position(n) {if(this.drag?.positions?.has(n.id))return this.drag.positions.get(n.id);return this.drag?.kind==='node'&&!this.drag.copy&&this.drag.id===n.id?{x:this.drag.px,y:this.drag.py}:n;}
  point(e) {const r=this.root.getBoundingClientRect(),scale=uiScale(this.root);return {x:((e.clientX-r.left)/scale-this.view.x)/this.view.z,y:((e.clientY-r.top)/scale-this.view.y)/this.view.z};}
  wire(x,y,tx,ty) {return `M${x},${y} C${x+90},${y} ${tx-90},${ty} ${tx},${ty}`;}
  outputPoint(n,exit) {
@@ -200,10 +207,11 @@ export class GraphView {
    this.render(this.project,this.chapter,this.selected,this.active);e.preventDefault();return;
   }
   if(el){
-   const id=el.dataset.id,group=this.selectedIds.size>1&&this.selectedIds.has(id);
+   const copy=e.altKey&&!!e.target.closest('.node-heading');
+   const id=el.dataset.id,group=!copy&&this.selectedIds.size>1&&this.selectedIds.has(id);
    if(!group)this.onSelect(id);
    const n=this.nodesById.get(id);
-   this.drag={kind:'node',id,x:e.clientX,y:e.clientY,ox:n.x,oy:n.y,px:n.x,py:n.y,pointer:e.pointerId};
+   this.drag={kind:'node',id,copy,x:e.clientX,y:e.clientY,ox:n.x,oy:n.y,px:n.x,py:n.y,pointer:e.pointerId};
    if(group){this.drag.origins=new Map([...this.selectedIds].map(id=>{const n=this.nodesById.get(id);return [id,{x:n.x,y:n.y}];}));this.drag.positions=new Map(this.drag.origins);}
   }
   else{this.pending=null;this.drag={kind:'pan',x:e.clientX,y:e.clientY,ox:this.view.x,oy:this.view.y,pointer:e.pointerId};}
@@ -221,6 +229,20 @@ export class GraphView {
   else{
    const scale=this.view.z*uiScale(this.root),dx=(e.clientX-d.x)/scale,dy=(e.clientY-d.y)/scale;
    d.px=d.ox+dx;d.py=d.oy+dy;
+   if(d.copy){
+    d.moved ||= Math.hypot(e.clientX-d.x,e.clientY-d.y)>4;
+    if(!d.moved)return;
+    if(!d.ghost?.isConnected){
+     d.ghost=this.nodeElements.get(d.id).cloneNode(true);
+     d.ghost.removeAttribute('data-id');
+     d.ghost.classList.remove('active');
+     d.ghost.style.pointerEvents='none';d.ghost.style.opacity='.7';
+     d.ghost.setAttribute('aria-hidden','true');
+     this.root.querySelector('#nodes').appendChild(d.ghost);
+    }
+    d.ghost.style.left=`${d.px}px`;d.ghost.style.top=`${d.py}px`;
+    return;
+   }
    const positions=d.origins?new Map([...d.origins].map(([id,p])=>[id,{x:p.x+dx,y:p.y+dy}])):new Map([[d.id,{x:d.px,y:d.py}]]);
    if(d.origins)d.positions=positions;
    for(const [id,p] of positions){const el=this.nodeElements.get(id);if(el){el.style.left=`${p.x}px`;el.style.top=`${p.y}px`;}}
@@ -229,6 +251,7 @@ export class GraphView {
  }
  up(e){
   const d=this.drag;if(!d||d.pointer!==e.pointerId)return;
+  if(d.copy)this.move(e);
   if(d.kind==='select')this.updateBoxSelection(e);
   if(d.kind==='connect')d.moved ||= Math.hypot(e.clientX-d.x,e.clientY-d.y)>4;
   const target=d.kind==='connect'&&d.moved?this.dropTarget(e,d.nodeId):null;
@@ -252,7 +275,11 @@ export class GraphView {
    }
    else if(!d.moved&&d.fromPort)this.activatePort(d.nodeId,d.exit,e.timeStamp??performance.now(),e.clientX,e.clientY);
    if(d.moved)this.lastPortClick=null;
-  }else if(d.kind==='node'){if(d.origins)this.onMoveMany([...d.positions].map(([id,p])=>({id,...p})));else this.onMove(d.id,d.px,d.py);}
+  }else if(d.kind==='node'){
+   if(d.copy){d.ghost?.remove();if(d.moved)this.onDuplicate(d.id,{x:d.px,y:d.py});}
+   else if(d.origins)this.onMoveMany([...d.positions].map(([id,p])=>({id,...p})));
+   else this.onMove(d.id,d.px,d.py);
+  }
  }
  selectionRect(d){return {x:Math.min(d.start.x,d.end.x),y:Math.min(d.start.y,d.end.y),width:Math.abs(d.start.x-d.end.x),height:Math.abs(d.start.y-d.end.y)};}
  updateBoxSelection(e){
@@ -267,7 +294,7 @@ export class GraphView {
   this.edges();
  }
  cancelCreation(){if(!this.creation)return;this.creation=null;this.onCancelCreate();this.edges();}
- cancel(){this.suppressSelectionClick=false;this.cardDrag.clear();this.cancelCreation();const d=this.drag,hadPending=!!this.pending;this.drag=null;this.pending=null;this.lastPortClick=null;if(d?.kind==='select')this.selectedIds=d.before;if(d?.kind==='pan'){this.view.x=d.ox;this.view.y=d.oy;}if(d&&this.root.hasPointerCapture(d.pointer))this.root.releasePointerCapture(d.pointer);if(this.project&&(d||hadPending))this.render(this.project,this.chapter,this.selected,this.active);}
+ cancel(){this.drag?.ghost?.remove();this.suppressSelectionClick=false;this.cardDrag.clear();this.cancelCreation();const d=this.drag,hadPending=!!this.pending;this.drag=null;this.pending=null;this.lastPortClick=null;if(d?.kind==='select')this.selectedIds=d.before;if(d?.kind==='pan'){this.view.x=d.ox;this.view.y=d.oy;}if(d&&this.root.hasPointerCapture(d.pointer))this.root.releasePointerCapture(d.pointer);if(this.project&&(d||hadPending))this.render(this.project,this.chapter,this.selected,this.active);}
  openCard(nodeId,placementId){
   if(!this.nodesById.has(nodeId)||!placementId)return;
   this.onOpenCard(nodeId,{chapterId:this.chapter.id,nodeId,placementId});

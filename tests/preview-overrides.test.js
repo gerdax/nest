@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { createProject, compileChapter } from '../project/model.js';
 import { PreviewOverrides } from '../studio/preview-overrides.js';
 import { nodeInspector } from '../studio/inspectors.js';
@@ -16,6 +17,26 @@ function add(f,op,key,value) {
  for(const [leaf,v] of Object.entries({op,key,...(value===undefined?{}:{value})}))
   overrides.update(project,chapter,node,{path:`effects.${i}.${leaf}`,value:String(v),inputType:typeof v==='number'?'number':'select-one'});
 }
+
+test('editor graph markers cover session effects and availability overrides, including ignored configuration',()=>{
+ const f=fixture(),{project,chapter,node,overrides}=f;
+ add(f,'set','testFlag',true);
+ const fork=chapter.nodes.find(n=>n.type==='fork');fork.unavailableActions='hidden';
+ const linear=chapter.nodes.find(n=>n.type==='linear'&&n!==node);linear.unavailableActions='disabled';
+ chapter.nodes.find(n=>n.type==='container').unavailableActions='hidden';
+ const source=readFileSync(new URL('../studio/editor.js',import.meta.url),'utf8');
+ const body=/function renderGraph\(\)\{([\s\S]*?)\n\}\nfunction renderProjectSettings/.exec(source)?.[1];
+ assert.ok(body,'editor renderGraph is available');
+ let rendered;
+ const graph={selectedIds:new Set(),render(){rendered=new Set(this.overrideNodeIds);}};
+ const render=new Function('mode','graph','chapter','previewOverrides','project','selected','previewActiveNode','preview','updatePreviewHighlight','$','node','nodeClipboard',body);
+ const run=()=>render('chapter',graph,()=>chapter,overrides,project,node.id,()=>null,null,()=>{},()=>({}),()=>node,null);
+ run();assert.deepEqual(rendered,new Set([node.id,fork.id,linear.id]));
+ project.ignoreAllOverrides=true;run();assert.deepEqual(rendered,new Set([node.id,fork.id,linear.id]));
+ overrides.update(project,chapter,node,{command:'clear-overrides'});
+ fork.unavailableActions='project';delete linear.unavailableActions;
+ run();assert.deepEqual(rendered,new Set());
+});
 test('preview overrides seed fresh state in order without changing project data or defaults',()=>{
  const f=fixture(),{project,chapter,node,overrides}=f,before=structuredClone(project);
  const number=project.variables.find(v=>v.type==='number');
@@ -64,7 +85,37 @@ test('Overrides uses the existing collapsed state-panel and chapter-aware effect
  assert.match(html,/Chapter: Test flag/);
  assert.match(html,/Add item/);assert.match(html,/Remove item/);
  assert.match(html,/excluded from saves and exports/);
+ assert.match(html,/once on every entry to this beat, including direct starts and revisits/);
  assert.match(html,/data-command="clear-overrides"[^>]*>Clear overrides<\/button>[\s\S]*<\/details><\/div>$/);
+});
+
+test('node entry snapshots include every configured chapter beat and detach from session edits',()=>{
+ const f=fixture(),{project,chapter,node,overrides}=f,before=structuredClone(project);
+ const other=chapter.nodes[1],otherChapter={...chapter,id:'other-chapter'},otherProject={...project,id:'other-project'};
+ add(f,'set','testFlag',true);
+ add({...f,node:other},'add','energy',2);
+ add({...f,chapter:otherChapter},'set','testFlag',false);
+ add({...f,project:otherProject},'set','testFlag',false);
+ add({...f,node:{id:'deleted-beat'}},'add','energy',8);
+ const snapshot=overrides.nodeEntryEffects(project,chapter);
+ assert.deepEqual(snapshot,{[node.id]:[{op:'set',key:'testFlag',value:true}],[other.id]:[{op:'add',key:'energy',value:2}]});
+ snapshot[node.id][0].value=false;snapshot[other.id].push({op:'set',key:'energy',value:0});
+ assert.equal(overrides.nodeEntryEffects(project,chapter)[node.id][0].value,true);
+ assert.equal(overrides.nodeEntryEffects(project,chapter)[other.id].length,1);
+ overrides.update(project,chapter,other,{path:'effects.0.value',value:'3',inputType:'number'});
+ assert.equal(snapshot[other.id][0].value,2);
+ assert.deepEqual(project,before);
+});
+
+test('ignored node entry snapshots are empty without clearing configuration or validating stale items',()=>{
+ const f=fixture(),{project,chapter,node,overrides}=f;
+ add(f,'addItem',project.library.find(item=>item.kind==='item').id);
+ const snapshot=overrides.nodeEntryEffects(project,chapter);
+ project.library=project.library.filter(item=>item.kind!=='item');
+ assert.throws(()=>overrides.nodeEntryEffects(project,chapter),/unavailable in this chapter/);
+ project.ignoreAllOverrides=true;
+ assert.deepEqual(overrides.nodeEntryEffects(project,chapter),{});
+ assert.deepEqual(overrides.effects(project,chapter,node),snapshot[node.id]);
 });
 
 test('session overrides follow scoped renames and history renames',async()=>{

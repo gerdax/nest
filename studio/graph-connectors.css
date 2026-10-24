@@ -14,6 +14,8 @@
 #canvas .node-heading {border-bottom:2px solid #080d0f;}
 #canvas .node-heading {position:relative;padding-right:48px;height:58px;display:flex;align-items:center;}
 #canvas .node-heading .badge {margin-bottom:0;min-width:0;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;}
+#canvas .graph-override-marker {display:inline-grid;place-items:center;flex:0 0 11.9px;height:11.9px;margin-left:6px;border:.85px solid currentColor;border-radius:50%;color:#e4bd72;font-size:9.35px;font-weight:700;line-height:1;letter-spacing:0;}
+#canvas .graph-override-marker.ignored {opacity:.45;}
 #canvas .graph-beat-icon {position:absolute;right:12px;top:50%;transform:translateY(-50%);width:26px;height:26px;fill:none;stroke:#e1e8e6;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;pointer-events:none;}
 #canvas .graph-card-row {padding:9px 12px;background:color-mix(in srgb,var(--card-editor-tint) 14%,#202b2e);}
 #canvas .graph-card-row.has-outputs {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:8px;align-items:start;}

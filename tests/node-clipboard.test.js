@@ -25,6 +25,33 @@ function localFixture() {
   return {project,chapter,node,action,item};
 }
 
+test('drag copy is disconnected with fresh placement and local definition identities, in one undo step',()=>{
+  const {project,chapter,node} = localFixture(), before=structuredClone(project);
+  const history=new DocumentHistory(project);
+  let result;
+  history.transact(draft=>{result=applyDocumentCommand(draft,{chapterId:chapter.id,selected:'arrival'},'duplicate-disconnected-node',{id:node.id,position:{x:220,y:310}});});
+  const after=history.document, copy=after.chapters[0].nodes.at(-1);
+  assert.equal(result.selection.selected,copy.id);
+  assert.equal(copy.x,220);assert.equal(copy.y,310);
+  assert.notEqual(copy.id,node.id);assert.notEqual(copy.choices[0].id,node.choices[0].id);
+  assert.notEqual(copy.choices[0].definitionId,node.choices[0].definitionId);
+  assert.ok(Object.values(copy.connections).every(target=>target===false));
+  assert.deepEqual(after.chapters[0].nodes.slice(0,-1),before.chapters[0].nodes);
+  assert.equal(after.chapters[0].startNode,before.chapters[0].startNode);
+  history.undo();assert.deepEqual(history.document,before);
+  history.redo();assert.deepEqual(history.document,after);
+});
+
+test('drag copy clears random routes and fallback including End chapter',()=>{
+  const project=createProject(),chapter=project.chapters[0],node=createNode(project,'random');
+  chapter.nodes.push(node);node.routes[0].target=chapter.startNode;node.fallback=null;
+  applyDocumentCommand(project,{chapterId:chapter.id},'duplicate-disconnected-node',{id:node.id,position:{x:0,y:0}});
+  const copy=chapter.nodes.at(-1);
+  assert.notEqual(copy.routes[0].id,node.routes[0].id);
+  assert.ok(copy.routes.every(route=>route.target===false));assert.equal(copy.fallback,false);
+  assert.equal(node.routes[0].target,chapter.startNode);assert.equal(node.fallback,null);
+});
+
 test('copy snapshots dependency closure and gives local definitions independent inventory references', () => {
   const {project,chapter,node,action,item} = localFixture(), before = structuredClone(project);
   const clipboard = captureNodeClipboard(project,chapter.id,node.id), savedClipboard = structuredClone(clipboard);

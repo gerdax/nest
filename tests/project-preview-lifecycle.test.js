@@ -5,6 +5,8 @@ import { Preview } from '../editor/preview.js';
 import { ProjectController } from '../project/ProjectController.js';
 import { DiceService } from '../dice/DiceService.js';
 import { createProject, compileChapter } from '../project/model.js';
+import { createDefinition } from '../project/cards.js';
+import { PreviewOverrides } from '../studio/preview-overrides.js';
 
 // A small DOM-shaped fixture for ownership/listeners, not rendering verification.
 class Element extends EventTarget {
@@ -35,6 +37,89 @@ function environment() {
   globalThis.requestAnimationFrame = () => 1;
   globalThis.cancelAnimationFrame = () => {};
 }
+
+function configureOverrides(overrides, project, chapter, node, effects) {
+  overrides.entries.set(overrides.key(project, chapter, node), structuredClone(effects));
+}
+
+function acceptPreviewCard(preview) {
+  preview.deck.finishMotion();
+  const event = new Event('commit');
+  event.detail = {contentId:preview.deck.content.id, action:preview.deck.content.actions[0]};
+  preview.deck.dispatchEvent(event);
+  preview.deck.finishMotion();
+}
+
+test('preview entry overrides apply once on direct start and arriving at a fork preserves earlier state',()=>{
+ environment();
+ const project=createProject(),chapter=project.chapters[0],overrides=new PreviewOverrides();
+ const start=chapter.nodes.find(node=>node.id==='arrival'),fork=chapter.nodes.find(node=>node.id==='route');
+ start.connections.next=fork.id;fork.introEnabled=false;
+ project.library.find(card=>card.id==='arrival').effects=[{op:'add',key:'health',value:-2}];
+ configureOverrides(overrides,project,chapter,fork,[{op:'add',key:'energy',value:2}]);
+ const before=structuredClone(project),preview=new ProjectPreview(new Element(),{previewOverrides:overrides});
+ try {
+  preview.play(project,chapter.id,fork.id);
+  assert.equal(preview.state.variables.energy,5,'direct start applies the entry add exactly once');
+  preview.deck.finishMotion();preview.controller.notify();
+  assert.equal(preview.state.variables.energy,5,'render and notifications do not reapply');
+  preview.play(project,chapter.id,start.id);
+  assert.equal(preview.state.variables.energy,3);
+  acceptPreviewCard(preview);
+  assert.equal(preview.state.activeNodeId,fork.id);
+  assert.equal(preview.state.variables.energy,5);
+  assert.equal(preview.state.variables.health,8,'earlier card effects survive entry override application');
+  assert.deepEqual(project,before);
+ } finally {preview.destroy();}
+});
+
+test('preview play snapshots session overrides and restart refreshes unplaced item definitions',()=>{
+ environment();
+ const project=createProject(),chapter=project.chapters[0],overrides=new PreviewOverrides();
+ const fork=chapter.nodes.find(node=>node.id==='route');fork.introEnabled=false;
+ chapter.nodes.find(node=>node.id==='arrival').connections.next=fork.id;
+ const item={...createDefinition('item','preview-local'),visibility:'local',chapterId:chapter.id};
+ const dependency={...createDefinition('item','preview-dependency'),visibility:'local',chapterId:chapter.id};
+ item.onCollect=[{op:'addItem',key:dependency.id}];project.library.push(item,dependency);
+ configureOverrides(overrides,project,chapter,fork,[{op:'add',key:'energy',value:1}]);
+ const preview=new ProjectPreview(new Element(),{previewOverrides:overrides});
+ try {
+  preview.play(project,chapter.id,'arrival');
+  configureOverrides(overrides,project,chapter,fork,[{op:'addItem',key:item.id}]);
+  acceptPreviewCard(preview);
+  assert.equal(preview.state.variables.energy,4,'active playback keeps its detached session snapshot');
+  assert.deepEqual(preview.state.collectedItems,[]);
+  preview.restart();
+  assert.ok(preview.compiled.library.some(card=>card.id===item.id));
+  assert.ok(preview.compiled.library.some(card=>card.id===dependency.id));
+  acceptPreviewCard(preview);
+  assert.equal(preview.state.collectedItems[0].definitionId,item.id);
+  assert.ok(!compileChapter(project,chapter.id).library.some(card=>card.id===item.id));
+ } finally {preview.destroy();}
+});
+
+test('next chapter and its restart compile and apply its session-only unplaced item override',()=>{
+ environment();
+ const project=createProject(),first=project.chapters[0],second=structuredClone(first),overrides=new PreviewOverrides();
+ second.id='second';second.name='Second';first.nextChapterId=second.id;project.chapters.push(second);
+ const item={...createDefinition('item','second-local'),visibility:'local',chapterId:second.id};project.library.push(item);
+ configureOverrides(overrides,project,second,second.nodes[0],[{op:'addItem',key:item.id},{op:'add',key:'energy',value:1}]);
+ const preview=new ProjectPreview(new Element(),{previewOverrides:overrides});
+ try {
+  preview.play(project,first.id);
+  assert.ok(!preview.compiled.library.some(card=>card.id===item.id));
+  preview.controller.variables.health=6;preview.controller.completed=true;preview.controller.notify();
+  assert.equal(preview.nextChapter(),true);
+  assert.equal(preview.state.variables.health,6);
+  assert.equal(preview.state.variables.energy,4);
+  assert.equal(preview.state.collectedItems[0].definitionId,item.id);
+  assert.ok(preview.compiled.library.some(card=>card.id===item.id));
+  preview.restart();
+  assert.equal(preview.state.variables.energy,4,'restart starts from carried state before reapplying overrides');
+  assert.equal(preview.state.collectedItems.length,1);
+  assert.equal(preview.state.collectedItems[0].definitionId,item.id);
+ } finally {preview.destroy();}
+});
 
 test('stopping preview clears and hides its status message',()=>{
   environment();

@@ -8,7 +8,7 @@ import { createDefinition, allowedCardKinds, isStoryKind, isConsumableKind } fro
 import { chapterVariables, createChapter, importChapter, outputsForNode } from '../project/model.js';
 import { definitionGraph } from '../project/dependencies.js';
 import { removeLibraryDefinition } from './library-removal.js';
-import { pasteNodeClipboard } from './node-clipboard.js';
+import { captureNodeClipboard, pasteNodeClipboard } from './node-clipboard.js';
 import { transferCard } from './card-transfer.js';
 import { appendLibraryCard } from './library-cards.js';
 import { sortedChapters } from '../project/chapter-navigation.js';
@@ -278,6 +278,17 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
       const added = createNode(project, data.type, data.position, chapter.id);
       chapter.nodes.push(added);
       setConnection(source, data.exit, added.id);
+      return {selection:{selected:added.id}};
+    }
+    case 'duplicate-disconnected-node': {
+      const clipboard = captureNodeClipboard(project, chapter.id, data.id);
+      const added = pasteNodeClipboard(project, chapter, clipboard, {position:data.position});
+      added.name += ' copy';
+      if (added.connections) for (const exit of Object.keys(added.connections)) added.connections[exit] = false;
+      if (added.type === 'random') {
+        for (const route of added.routes || []) route.target = false;
+        added.fallback = false;
+      }
       return {selection:{selected:added.id}};
     }
     case 'duplicate-node': {

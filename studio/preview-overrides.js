@@ -9,6 +9,16 @@ export class PreviewOverrides {
  constructor() { this.entries = new Map(); }
  key(project, chapter, node) { return JSON.stringify([project.id, chapter.id, node.id]); }
  effects(project, chapter, node) { return node ? structuredClone(this.entries.get(this.key(project,chapter,node)) || []) : []; }
+ nodeEntryEffects(project, chapter) {
+  if(project.ignoreAllOverrides===true)return {};
+  const items=eligibleInventoryItems(project,chapter);
+  return Object.fromEntries(chapter.nodes.flatMap(node=>{
+   const effects=this.effects(project,chapter,node);
+   for(const effect of effects)if(['addItem','removeItem'].includes(effect.op)&&!items.some(item=>item.id===effect.key))
+    throw new Error('Override item is unavailable in this chapter.');
+   return effects.length?[[node.id,effects]]:[];
+  }));
+ }
  clear() { this.entries.clear(); }
  remap(projectId, rename) {
   for(const [key,effects] of this.entries) {

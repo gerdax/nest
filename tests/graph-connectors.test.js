@@ -5,7 +5,12 @@ import { createDefinition,cardEditorTint } from '../project/cards.js';
 
 // This fixture exercises event routing and generated SVG, not browser layout.
 class Element {
- constructor(classes='',dataset={},parent=null){this.classes=new Set(classes.split(' '));this.dataset=dataset;this.parent=parent;this.style={setProperty(key,value){this[key]=value;}};this.children=[];this.classList={toggle:(name,on)=>on?this.classes.add(name):this.classes.delete(name)};}
+ constructor(classes='',dataset={},parent=null){this.classes=new Set(classes.split(' '));this.dataset=dataset;this.parent=parent;this.style={setProperty(key,value){this[key]=value;}};this.children=[];this.classList={toggle:(name,on)=>on?this.classes.add(name):this.classes.delete(name),remove:name=>this.classes.delete(name)};}
+ cloneNode(){return new Element([...this.classes].join(' '),{...this.dataset});}
+ removeAttribute(name){if(name==='data-id')delete this.dataset.id;}
+ setAttribute(name,value){this[name]=value;}
+ appendChild(el){this.children.push(el);el.parent=this;el.isConnected=true;}
+ remove(){this.isConnected=false;this.parent.children=this.parent.children.filter(el=>el!==this);}
  closest(selector){for(let el=this;el;el=el.parent)if(el.classes.has(selector.slice(1)))return el;return null;}
  querySelectorAll(selector){return [...this.children,...(this.cardRows||[])].filter(el=>el.classes.has(selector.slice(1)));}
  getBoundingClientRect(){return {width:0,height:0};}
@@ -41,6 +46,46 @@ function setup(){
  const graph=new GraphView(root,{onSelectMany:ids=>groups.push(ids),onMoveMany:positions=>groupMoves.push(positions),onCreateConnected:request=>creations.push(request),onDelete:id=>deleted.push(id),onSelect:id=>selections.push(id),onOpenCard:(...args)=>opened.push(args),onConnect:(...args)=>calls.push(args),onMove:(...args)=>moves.push(args)});graph.render(project,chapter,'a','b');
  return {root,graph,chapter,calls,moves,selections,opened,deleted,creations,groups,groupMoves,port:()=>root.node('a').children[0]};
 }
+function altHeaderDown(s,id='a',extra={}){
+ const heading=new Element('node-heading',{},s.root.node(id));
+ s.graph.down({target:heading,clientX:300,clientY:200,pointerId:1,button:0,altKey:true,...extra});
+}
+test('Alt-dragging a header previews a copy without moving the source or its wires, then commits at release',()=>{
+ const s=setup(),copies=[];s.graph.onDuplicate=(...args)=>copies.push(args);
+ s.graph.view.z=.5;
+ s.root.ownerDocument.documentElement={};s.root.ownerDocument.defaultView={getComputedStyle:()=>({zoom:2})};
+ const before=s.root.parts['#edges'].innerHTML;
+ s.graph.selectedIds=new Set(['a','b']);
+ altHeaderDown(s);
+ s.root.event('pointermove',s.root,350,225);
+ const ghost=s.graph.drag.ghost;
+ assert.equal(ghost.style.left,'50px');assert.equal(ghost.style.top,'25px');
+ assert.equal(ghost.dataset.id,undefined);assert.equal(ghost['aria-hidden'],'true');
+ assert.deepEqual(s.graph.position(s.chapter.nodes[0]),s.chapter.nodes[0]);
+ assert.equal(s.root.parts['#edges'].innerHTML,before);assert.deepEqual(copies,[]);
+ s.root.event('pointerup',s.root,370,240);
+ assert.deepEqual(copies,[['a',{x:70,y:40}]]);
+ assert.equal(ghost.isConnected,false);assert.deepEqual(s.moves,[]);assert.deepEqual(s.groupMoves,[]);
+});
+test('Alt-click and tiny header motion do not create copies',()=>{
+ const s=setup(),copies=[];s.graph.onDuplicate=(...args)=>copies.push(args);
+ altHeaderDown(s);s.root.event('pointerup',s.root,302,201);
+ assert.deepEqual(copies,[]);assert.deepEqual(s.moves,[]);
+});
+for(const event of ['Escape','pointercancel','lostpointercapture'])test(`${event} cancels an Alt-drag copy`,()=>{
+ const s=setup(),copies=[];s.graph.onDuplicate=(...args)=>copies.push(args);
+ altHeaderDown(s);s.root.event('pointermove',s.root,350,225);const ghost=s.graph.drag.ghost;
+ if(event==='Escape')s.root.handlers.keydown({key:'Escape'});else s.root.event(event,s.root);
+ s.root.event('pointerup',s.root,350,225);
+ assert.equal(ghost.isConnected,false);assert.deepEqual(copies,[]);assert.deepEqual(s.moves,[]);
+ assert.equal(s.chapter.nodes[0].x,0);assert.equal(s.chapter.nodes[0].connections.next,'b');
+});
+test('Alt-drag outside the header keeps ordinary node movement',()=>{
+ const s=setup(),copies=[];s.graph.onDuplicate=(...args)=>copies.push(args);
+ s.graph.down({target:s.root.node('a'),clientX:300,clientY:200,pointerId:1,button:0,altKey:true});
+ s.root.event('pointermove',s.root,350,225);s.root.event('pointerup',s.root,350,225);
+ assert.deepEqual(s.moves,[['a',50,25]]);assert.deepEqual(copies,[]);
+});
 test('Delete and Mac Backspace delete the selected beat through the graph callback',()=>{
  for(const key of ['Delete','Backspace']){
   const s=setup();let prevented=false;
@@ -345,6 +390,18 @@ test('unnamed graph cards use an escaped description fallback without modifying 
  assert.deepEqual(project,before);
 });
 
+test('graph override markers appear beside configured names and dim when ignored',()=>{
+ const s=setup();
+ assert.doesNotMatch(s.root.parts['#nodes'].rendered,/graph-override-marker/);
+ s.graph.overrideNodeIds=new Set(['a']);s.graph.render(s.graph.project,s.chapter,'a');
+ let html=s.root.parts['#nodes'].rendered;
+ assert.match(html,/<span class="badge">START · A<\/span><span class="graph-override-marker" role="img" aria-label="Overrides configured" title="Overrides configured">!<\/span>/);
+ assert.equal((html.match(/graph-override-marker/g)||[]).length,1);
+ s.graph.project.ignoreAllOverrides=true;s.graph.render(s.graph.project,s.chapter,'a');
+ assert.match(s.root.parts['#nodes'].rendered,/class="graph-override-marker ignored" role="img" aria-label="Overrides configured \(ignored\)"/);
+ s.graph.overrideNodeIds.clear();s.graph.render(s.graph.project,s.chapter,'a');
+ assert.doesNotMatch(s.root.parts['#nodes'].rendered,/graph-override-marker/);
+});
 test('beat headers show the authored name once in the badge instead of a separate type and title',()=>{
  const s=setup();s.chapter.nodes[0].name='The <box>';
  s.graph.render({library:[]},s.chapter,'a');

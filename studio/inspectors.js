@@ -160,7 +160,7 @@ export function nodeInspector(project,chapter,node,previewEffects=[]) {
   const connection=select(hideLabel?'':labelForOutput(project,node,exit),value,[['unlinked','Unlinked'],['end','End chapter'],...chapter.nodes.filter(n=>project.allowCycles!==false||n.id!==node.id).map(n=>[`target:${n.id}`,n.name])],exit,'connection');
   return hideLabel?connection.replace('<select ','<select aria-label="Next connection" '):connection;
  }).join('');
- return html+'<div class="node-overrides">'+rules(project,previewEffects,'effects','preview-overrides','effects',{chapter,label:'Overrides',help:'Temporary test state for playback starting from this beat, including Autoplay. Set or add variable values, or add and remove inventory items. Applies once at the start of the test run. Kept only until the editor is reloaded; excluded from saves and exports.',footer:button('Clear overrides','clear-overrides','data-scope="preview-overrides" '+(previewEffects.length?'':'disabled'))+availability})+'</div>';
+ return html+'<div class="node-overrides">'+rules(project,previewEffects,'effects','preview-overrides','effects',{chapter,label:'Overrides',help:'Temporary test state for this beat during playback, including Autoplay. Set or add variable values, or add and remove inventory items. Applies once on every entry to this beat, including direct starts and revisits. Kept only in this editor session until reloaded; excluded from saves and exports.',footer:button('Clear overrides','clear-overrides','data-scope="preview-overrides" '+(previewEffects.length?'':'disabled'))+availability})+'</div>';
 }
 function chapterOptions(project, selected, allowNone=false) {
  const choices=sortedChapters(project).map(chapter=>[chapter.id,chapter.name]);

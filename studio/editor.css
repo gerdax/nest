@@ -130,7 +130,7 @@ aside {overflow-anchor:none;}
 
 .artwork-positioning > .check-field {margin-top:12px;}
 
-@media(min-width:609px) {main:has(#canvas:not([hidden])) {grid-template-columns:minmax(0,1fr) 470px;}}
+@media(min-width:609px) {main:has(#canvas:not([hidden])) {grid-template-columns:minmax(0,1fr) 500px;}}
 
 #inspector label.field:has(> input[data-scope="node"][data-path="name"]) {margin-bottom:20px;}
 
@@ -170,6 +170,9 @@ aside {overflow-anchor:none;}
 .node-overrides > .state-panel::after {content:"";display:block;clear:both;}
 
 .connections-divider:has(+ h3) {margin-top:24px;}
+#inspector > h3:has(+ .introduction-controls),
+#inspector > h3:has(~ .add-card-buttons [data-slot="choices"]),
+#inspector > .connections-divider + h3 {margin-bottom:14px;}
 .field:has(input[data-path="retainInventoryItems"]) + .connections-divider {margin-top:20px;}
 
 .ignore-overrides-divider {margin:16px 0;}

@@ -53,7 +53,7 @@ const localDrafts=new LocalCardDrafts();
 const chapter=()=>project.chapters.find(c=>c.id===chapterId)||project.chapters[0];
 const node=()=>chapter().nodes.find(n=>n.id===selected);
 const definition=()=>project.library.find(d=>d.id===definitionId);
-const preview=new ProjectPreview($('#preview'),{inventoryHost:$('.preview-window-body'),onChange:state=>updatePreviewHighlight(graph,preview,chapter(),state),onStop:()=>graph.setActive(null),onCardChange:target=>{graph.setActiveCard(target);autoPanel.follow(target);},onGoToCard:goToPreviewCard});
+const preview=new ProjectPreview($('#preview'),{previewOverrides,inventoryHost:$('.preview-window-body'),onChange:state=>updatePreviewHighlight(graph,preview,chapter(),state),onStop:()=>graph.setActive(null),onCardChange:target=>{graph.setActiveCard(target);autoPanel.follow(target);},onGoToCard:goToPreviewCard});
 const previewWindow=mountPreviewWindow($('#preview-window'),{onClose:()=>preview.stop()});
 const autoplay=mountAutoplay($('#autoplay'),{getSelected:()=>graph.selectedIds.size>1?undefined:selected,onPlay:id=>play(id,{restore:false})});
 const autoPanel=mountAutoPanel($('#auto-panel'),{getTarget:()=>preview.cardTarget(),onReveal:target=>goToPreviewCard(target,{automatic:true})});
@@ -69,6 +69,7 @@ const graph=new GraphView($('#canvas'),{
  onCancelCreate:()=>nodeCreateMenu.close(),
  onConnect:(id,exit,target)=>edit('connect',{id,exit,target}),
  onMove:(id,x,y)=>edit('move-node',{id,x,y}),
+ onDuplicate:(id,position)=>edit('duplicate-disconnected-node',{id,position}),
  onMoveMany:positions=>edit('move-nodes',{positions}),
  onSelectMany:ids=>{selected=ids[0];renderGraph();renderInspector({collapseCards:true});},
  onTransferCard:data=>{preview.stop();edit('transfer-card',data);},
@@ -116,6 +117,7 @@ function edit(type,data={}, {preserveProjectSettings=false,refresh=true}={}){
 }
 function renderGraph(){
  if(mode==='chapter'){
+  graph.overrideNodeIds=new Set(chapter().nodes.filter(n=>previewOverrides.effects(project,chapter(),n).length || (['fork','linear'].includes(n.type)&&n.unavailableActions&&n.unavailableActions!=='project')).map(n=>n.id));
   graph.render(project,chapter(),selected,previewActiveNode(preview,chapter()));
   updatePreviewHighlight(graph,preview,chapter());
  }
@@ -207,7 +209,7 @@ function scopeRoot(scope,element){
 function changeField(event){const el=event.target,path=el.dataset.path,scope=el.dataset.scope;if(!path)return;
  if(scope==='preview-overrides'){
   previewOverrides.update(project,chapter(),node(),{path,value:el.value,inputType:el.type});
-  renderInspector();report('Test overrides updated. Restart this beat to apply.');return;
+  renderGraph();renderInspector();report('Test overrides updated. Restart playback to apply.');return;
  }
  const colorField=el.matches('[data-card-style-color]');let color;
  if(colorField){
@@ -270,7 +272,7 @@ function command(event){const b=event.target.closest('[data-command]');if(!b)ret
  if(b.dataset.scope==='preview-overrides'){
   if(b.disabled)return;
   previewOverrides.update(project,chapter(),node(),{command:cmd,index:b.dataset.index});
-  renderInspector();report('Test overrides updated. Restart this beat to apply.');return;
+  renderGraph();renderInspector();report('Test overrides updated. Restart playback to apply.');return;
  }
  if(cmd==='clear-image'){
   if(b.disabled)return;
@@ -473,11 +475,8 @@ bindImport($('#import'),'project');
 bindImport($('#import-chapter'),'chapter');
 function play(startNode,{restore=false,chapterId:targetChapterId=chapterId,focus=true}={}){
  try{
-  const targetChapter=project.chapters.find(c=>c.id===targetChapterId);
-  const targetNode=startNode&&targetChapter?.nodes.find(n=>n.id===startNode);
-  const initialState=targetNode?previewOverrides.initialState(project,targetChapter,targetNode):null;
   previewWindow.show({restore});
-  preview.play(project,targetChapterId,startNode,{focus:focus&&!previewWindow.minimized,initialState});
+  preview.play(project,targetChapterId,startNode,{focus:focus&&!previewWindow.minimized});
   report('Chapter ready.');return true;
  }catch(error){report(error.message);return false;}
 }
