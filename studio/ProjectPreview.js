@@ -202,8 +202,11 @@ export class ProjectPreview {
     const deck = this.deck;
     const action = deck?.content?.actions?.[deck.index ?? 0];
     const info = !this.state?.completed && !this.state?.checking && deck?.phase === 'choices' ? action?.checkInfo : null;
+    const disabledReason = !this.state?.completed && !this.state?.checking && deck?.phase === 'choices' && action?.disabled
+      ? action.disabledReason : null;
     this.actionContext?.update({
       info,
+      disabledReason,
       result: this.checkPresentation,
       selectionKey: action?.id ?? null,
       item: focusedTriggerItem(deck, this.state),

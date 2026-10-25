@@ -84,6 +84,29 @@ test('picker only commits matching project paths; cancel and unmatched names ret
   } finally { globalThis.fetch = originalFetch; }
 });
 
+test('an open editor recognizes newly added images and rejects removed images on the next selection', async () => {
+  const originalFetch = globalThis.fetch;
+  let current = catalog, calls = 0;
+  globalThis.fetch = async (_url, options) => {
+    calls++;
+    assert.equal(options.cache, 'no-store');
+    return {ok:true,json:async()=>current};
+  };
+  try {
+    const h = harness();
+    let input = h.open();input.files = [{name:'scene #1.png'}];await input.fire('change');
+    assert.equal(h.selections.length, 1);
+    current = {version:1,images:[{filename:'new.jpeg',path:'new.jpeg'}]};
+    input = h.open();input.files = [{name:'new.jpeg'}];await input.fire('change');
+    assert.equal(h.selections.length, 2);
+    assert.equal(h.selections[1][3], './assets/img/new.jpeg');
+    input = h.open();input.files = [{name:'scene #1.png'}];await input.fire('change');
+    assert.equal(h.selections.length, 2);
+    assert.match(h.errors[0], /existing path is unchanged/);
+    assert.equal(calls, 3);h.cleanup();
+  } finally { globalThis.fetch = originalFetch; }
+});
+
 test('catalog failures report inline and allow retry', async () => {
   const originalFetch = globalThis.fetch;
   let calls = 0;

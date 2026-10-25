@@ -25,6 +25,10 @@ main {grid-template-columns:minmax(0,1fr) 430px;}
 .card-definition-tag {color:var(--card-editor-tint);font-size:12px;font-weight:600;overflow-wrap:anywhere;text-align:right;}
 .card-panel .state-panel {background:color-mix(in srgb,var(--card-editor-tint) 6%,#172225);border-color:color-mix(in srgb,var(--card-editor-tint) 25%,#405153);}
 .card-panel .state-panel .entry {background:color-mix(in srgb,var(--card-editor-tint) 8%,#222f32);}
+.card-panel[data-card-source] > summary {font-size:calc(1rem + 1pt);font-weight:400;font-style:normal;}
+.card-panel[data-card-source="local"] > summary {font-style:italic;}
+.card-panel > summary .card-type-label,.card-panel > summary .card-header-rules {font-style:normal;}
+.card-custom-marker {color:inherit;font:inherit;}
 .card-type-label {float:right;margin-left:12px;font-size:12px;font-weight:650;color:var(--card-editor-tint,#d7b879);}
 .card-type-label:has(.card-item-tag) {display:inline-flex;align-items:baseline;gap:12px;white-space:nowrap;}
 .card-item-tag {font-weight:600;}
@@ -139,12 +143,13 @@ aside {overflow-anchor:none;}
 #project-settings-content [data-project-card-backs] > [data-image-picker] {margin-bottom:16px;}
 
 .image-field-actions {display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
-.image-field-actions [data-command="clear-image"] {margin-left:auto;}
+.image-field-actions [data-command="reload-image"] {margin-left:auto;}
 .chapter-delete-action {margin-top:20px;padding-top:16px;border-top:1px solid #394a4c;}
 
 .rule-entry-actions {display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap;}
 .item-reference-links {flex:1 1 180px;min-width:0;margin:6px 0 10px;}
-.rule-entry-actions > .item-reference-links {margin:0 0 0 auto;}
+.rule-entry-actions > .item-reference-links {margin:0;}
+.rule-entry-actions > [data-command="remove-rule"] {margin-left:auto;}
 .item-reference {display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:6px 12px;margin:6px 0;}
 .item-reference-location {flex:1 1 160px;min-width:0;margin:0;overflow-wrap:anywhere;}
 .item-reference-matches > summary {font-size:12px;}

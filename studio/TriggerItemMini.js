@@ -1,4 +1,5 @@
 import { applyArtworkColorize } from '../engine/artworkColorize.js';
+import { artworkUrl } from '../engine/artworkReload.js';
 import { selectTriggerItem } from '../project/state.js';
 
 export function focusedTriggerItem(deck, state) {
@@ -32,7 +33,8 @@ export class TriggerItemMini {
     // Minis contain artwork only, including when an item has no artwork.
     if (item.image) {
       const artwork = doc.createElement('div'); artwork.className = 'nest-image-vignette';
-      const image = doc.createElement('img'); image.src = item.image; image.alt = ''; image.draggable = false;
+      const image = doc.createElement('img'); image.src = artworkUrl(item.image, doc.baseURI); image.alt = ''; image.draggable = false;
+      image.setAttribute('data-artwork-source', item.image);
       applyArtworkColorize(image);
       if (item.flipImage) image.style.transform = 'scaleX(-1)';
       artwork.append(image); button.append(artwork);

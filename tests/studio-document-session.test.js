@@ -131,7 +131,8 @@ test('form commands retain number, flag, optional-bound, appearance and check co
   state.run('field',{scope:'project',path:'variables.0.min',value:'',inputType:'number'});
   assert.equal(state.history.document.variables[0].min,undefined);
   state.run('field',{scope:'definition',path:'resolution',value:'check',inputType:'select-one'});
-  assert.equal(state.history.document.library.find(d=>d.id==='explore').check.target,10);
+  assert.equal(state.history.document.library.find(d=>d.id==='explore').check.mode,'stat');
+  assert.equal(state.history.document.library.find(d=>d.id==='explore').check.difficulty,1);
   assert.deepEqual(Object.keys(state.history.document.chapters[0].nodes.find(n=>n.type==='fork').connections),['explore-choice:success','explore-choice:failure']);
   state.run('image',{scope:'definition',path:'imageScale',value:999});
   assert.equal(state.history.document.library.find(d=>d.id==='explore').imageScale,400);

@@ -9,7 +9,7 @@ function fixture(zoom='.8') {
  const world={style:{setProperty(key,value){this[key]=value;}}},handlers={},moves=[],selections=[];
  const node={id:'a',x:100,y:200};
  const el={dataset:{id:'a'},style:{},closest(selector){return selector==='.node'?this:null;},getBoundingClientRect:()=>({width:88,height:48})};
- const root={ownerDocument:{documentElement:{},defaultView:{getComputedStyle:()=>({zoom})}},
+ const root={classList:{toggle(){}},ownerDocument:{documentElement:{},defaultView:{getComputedStyle:()=>({zoom})}},
   getBoundingClientRect:()=>({left:80,top:40,width:800,height:640,right:880,bottom:680}),
   addEventListener:(name,fn)=>{handlers[name]=fn;},querySelector:()=>world,
   querySelectorAll:()=>[],focus(){},setPointerCapture(){},hasPointerCapture:()=>false};

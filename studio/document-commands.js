@@ -106,7 +106,14 @@ function changeField(project, selection, field, localDrafts) {
   parent[key] = value;
   if (['modifierVariable','contextItemId','tagId'].includes(key) && !value) delete parent[key];
   if (key === 'contextItemId' && (!value||value.startsWith('tag:'))) delete parent.contextOverrideImage;
-  if (key === 'resolution' && value === 'check') parent.check ||= {pool:[{sides:20,count:1}],modifier:0,target:10};
+  if (key === 'resolution' && value === 'check') {
+    const check = parent.check;
+    // Old Direct actions carry an unused stock custom-check template.
+    const stockCheck = check && !check.mode && !check.modifierVariable && !check.difficulty &&
+      check.modifier === 0 && check.target === 10 && check.pool?.length === 1 &&
+      check.pool[0].sides === 20 && check.pool[0].count === 1;
+    if (!check || stockCheck) parent.check = {mode:'stat',modifierVariable:variables.find(isStatVariable)?.id,difficulty:1};
+  }
   if (key === 'mode' && value === 'stat') {
     parent.difficulty ??= 1;
     if (!variables.some(v => v.id === parent.modifierVariable && isStatVariable(v))) parent.modifierVariable = variables.find(isStatVariable)?.id;

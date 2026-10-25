@@ -12,6 +12,7 @@ class Element {
   append(...nodes) { this.children.push(...nodes); }
   replaceChildren(...nodes) { this.children=nodes; }
   setAttribute(key,value) { this.attrs[key]=value; }
+  removeAttribute(key) { delete this.attrs[key]; }
 }
 globalThis.document={createElement:()=>new Element(),body:new Element()};
 const energy = amount => ({source:'variable',key:'energy',amount});

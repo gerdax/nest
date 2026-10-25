@@ -24,6 +24,7 @@ RUNTIME_FILES = (
     "engine/DeckEntranceSequence.js",
     "engine/InventoryPickup.js",
     "engine/artworkColorize.js",
+    "engine/artworkReload.js",
     "engine/cardBacks.js",
     "engine/PointerInput.js",
     "engine/geometry.js",

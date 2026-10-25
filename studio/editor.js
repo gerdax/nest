@@ -30,6 +30,7 @@ import { mountAutoPanel } from './auto-panel.js';
 import { sourceCard, revealCardEntry } from './card-navigation.js';
 import { renderCardPreviews } from './card-preview.js';
 import { bindImagePicker } from './image-picker.js';
+import { reloadArtwork } from '../engine/artworkReload.js';
 import { findPlacement } from './commands.js';
 import { applyDocumentCommand, documentScope } from './document-commands.js';
 import { transactDocument } from './document-session.js';
@@ -273,6 +274,14 @@ function command(event){const b=event.target.closest('[data-command]');if(!b)ret
   if(b.disabled)return;
   previewOverrides.update(project,chapter(),node(),{command:cmd,index:b.dataset.index});
   renderGraph();renderInspector();report('Test overrides updated. Restart playback to apply.');return;
+ }
+ if(cmd==='reload-image'){
+  if(b.disabled)return;
+  const image=b.dataset.path.split('.').reduce((value,key)=>value?.[key],scopeRoot(b.dataset.scope,b));
+  if(!image)return;
+  b.disabled=true;
+  reloadArtwork(image).then(()=>report('Image reloaded.')).catch(error=>report(`Image reload failed: ${error.message}`)).finally(()=>{b.disabled=false;});
+  return;
  }
  if(cmd==='clear-image'){
   if(b.disabled)return;

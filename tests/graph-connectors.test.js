@@ -16,7 +16,7 @@ class Element {
  getBoundingClientRect(){return {width:0,height:0};}
 }
 class Root extends Element {
- constructor(){super();this.handlers={};this.capture=null;this.parts={'#world':new Element(),'#edges':new Element(),'#nodes':new Element()};this.ownerDocument={elementFromPoint:()=>this.hit};
+ constructor(){super();this.handlers={};this.capture=null;this.parts={'#world':new Element(),'#edges':new Element(),'#nodes':new Element()};this.ownerDocument={documentElement:new Element(),elementFromPoint:()=>this.hit};
   Object.defineProperty(this.parts['#edges'],'innerHTML',{configurable:true,get:()=>this.edgeMarkup,set:html=>{
    this.edgeMarkup=html;
    this.parts['#edges'].children=[...html.matchAll(/<path class="(edge-line[^"]*)" data-source="([^"]*)" data-exit="([^"]*)"/g)].map(([,cls,source,exit])=>new Element(cls,{source,exit}));
@@ -66,6 +66,52 @@ test('Alt-dragging a header previews a copy without moving the source or its wir
  s.root.event('pointerup',s.root,370,240);
  assert.deepEqual(copies,[['a',{x:70,y:40}]]);
  assert.equal(ghost.isConnected,false);assert.deepEqual(s.moves,[]);assert.deepEqual(s.groupMoves,[]);
+});
+test('node drag cursor state covers ordinary, group and Alt-copy drags and clears on release',()=>{
+ for(const kind of ['ordinary','group','copy']){
+  const s=setup();
+  if(kind==='group')s.graph.selectedIds=new Set(['a','b']);
+  if(kind==='copy')altHeaderDown(s);else s.root.event('pointerdown',s.root.node('a'));
+  assert.equal(s.root.classes.has('graph-dragging'),true);
+  s.root.event('pointerup',s.root,300,200,2);
+  assert.equal(s.root.classes.has('graph-dragging'),true);
+  s.root.event('pointerup',s.root);
+  assert.equal(s.root.classes.has('graph-dragging'),false);
+ }
+});
+test('cancelling a node drag restores its cursor; panning and connector dragging also use the drag cursor',()=>{
+ for(const cancellation of ['Escape','pointercancel','lostpointercapture']){
+  const s=setup();s.root.event('pointerdown',s.root.node('a'));
+  assert.equal(s.root.classes.has('graph-dragging'),true);
+  if(cancellation==='Escape')s.root.handlers.keydown({key:'Escape'});else s.root.event(cancellation,s.root);
+  assert.equal(s.root.classes.has('graph-dragging'),false);
+ }
+ for(const target of ['pan','port']){
+  const s=setup();s.root.event('pointerdown',target==='pan'?s.root:s.port());
+  assert.equal(s.root.classes.has('graph-dragging'),true);s.graph.cancel();
+  assert.equal(s.root.classes.has('graph-dragging'),false);
+ }
+});
+test('all graph gestures keep the grabbing cursor until release or cancellation, including outside the graph',()=>{
+ for(const kind of ['node','pan','card','card-copy','connect','select'])for(const end of ['release','Escape','pointercancel','lostpointercapture']){
+  const s=setup();
+  s.root.ownerDocument.createElement=()=>new Element();
+  s.root.ownerDocument.defaultView={requestAnimationFrame:()=>1,cancelAnimationFrame(){}};
+  s.root.append=(...elements)=>elements.forEach(element=>s.root.appendChild(element));
+  const row=new Element('graph-card-row',{cardPlacement:'chosen-card',cardSlot:'cards',cardType:'event'},s.root.node('a'));
+  const name=new Element('graph-card-name',{},row);
+  const target=kind==='node'?s.root.node('a'):kind==='connect'?s.port():kind.startsWith('card')?name:s.root;
+  s.graph.down({target,button:0,pointerId:1,clientX:300,clientY:200,altKey:kind==='card-copy',ctrlKey:kind==='select',preventDefault(){}});
+  assert.equal(s.root.classes.has('graph-dragging'),true,`${kind}: graph cursor`);
+  assert.equal(s.root.ownerDocument.documentElement.classes.has('graph-dragging'),true,`${kind}: outside cursor`);
+  s.root.event('pointerup',s.root,1200,900,2);
+  assert.equal(s.root.ownerDocument.documentElement.classes.has('graph-dragging'),true,'another pointer cannot reset cursor');
+  if(end==='release')s.root.event('pointerup',s.root,1200,900);
+  else if(end==='Escape')s.root.handlers.keydown({key:'Escape'});
+  else s.root.event(end,s.root);
+  assert.equal(s.root.classes.has('graph-dragging'),false,`${kind}/${end}`);
+  assert.equal(s.root.ownerDocument.documentElement.classes.has('graph-dragging'),false,`${kind}/${end}: outside restored`);
+ }
 });
 test('Alt-click and tiny header motion do not create copies',()=>{
  const s=setup(),copies=[];s.graph.onDuplicate=(...args)=>copies.push(args);
@@ -185,6 +231,40 @@ test('graph groups card types with shared tints and keeps check outcomes in one 
  assert.equal(s.graph.portElements.get(node.id).size,4);
  node.introEnabled=false;s.graph.render({library},{nodes:[node,s.chapter.nodes[1]],startNode:node.id});
  assert.doesNotMatch(s.root.parts['#nodes'].rendered,/data-card-placement="intro"/);
+});
+test('graph distinguishes Library and local card names and marks enabled custom rules per placement',()=>{
+ const s=setup();
+ const library=[{...createDefinition('action','shared'),name:'Pick <lock>'},{...createDefinition('action','local'),visibility:'local',name:'Local action'}];
+ const node={id:'fork',name:'Fork',type:'fork',x:0,y:0,introEnabled:false,choices:[
+  {id:'ordinary',definitionId:'shared'},
+  {id:'custom',definitionId:'shared',overrides:{}},
+  {id:'local',definitionId:'local',overrides:{effects:[]}},
+  {id:'missing',definitionId:'missing',overrides:{effects:[]}}
+ ],connections:{ordinary:null,custom:null,local:null,missing:null}};
+ const project={library},chapter={nodes:[node],startNode:node.id},before=structuredClone({project,chapter});
+ s.graph.render(project,chapter,node.id);
+ const rows=s.root.parts['#nodes'].rendered.split('<hr class="graph-card-divider">').slice(1);
+ assert.match(rows[0],/data-card-source="library"/);assert.doesNotMatch(rows[0],/graph-card-custom-marker/);
+ assert.match(rows[1],/data-card-source="library"/);
+ assert.match(rows[1],/Pick &lt;lock&gt; <span class="graph-card-custom-marker" role="img" aria-label="Custom rules enabled" title="Custom rules enabled">\*<\/span><\/button>/);
+ assert.match(rows[2],/data-card-source="local"/);assert.doesNotMatch(rows[2],/graph-card-custom-marker/);
+ assert.match(rows[3],/data-card-source="missing"/);assert.doesNotMatch(rows[3],/graph-card-custom-marker/);
+ assert.deepEqual({project,chapter},before);
+ delete node.choices[1].overrides;s.graph.render(project,chapter,node.id);
+ assert.doesNotMatch(s.root.parts['#nodes'].rendered,/graph-card-custom-marker/);
+});
+test('graph card source styling also covers introductions and non-action card types',()=>{
+ const s=setup();
+ const library=['event','caption','item','health','energy'].map(kind=>({...createDefinition(kind,kind),name:kind,visibility:kind==='event'?'local':undefined}));
+ const node={id:'linear',name:'Linear',type:'linear',x:0,y:0,cards:library.map(d=>({id:`${d.id}-placement`,definitionId:d.id,overrides:{effects:[]}})),connections:{next:null}};
+ s.graph.render({library},{nodes:[node],startNode:node.id},node.id);
+ const html=s.root.parts['#nodes'].rendered;
+ assert.match(html,/data-card-type="event" data-card-source="local"/);
+ for(const kind of ['caption','item','health','energy'])assert.match(html,new RegExp(`data-card-type="${kind}" data-card-source="library"`));
+ assert.equal((html.match(/class="graph-card-custom-marker"/g)||[]).length,4);
+ const container={id:'box',name:'Box',type:'container',x:0,y:0,intro:{id:'intro',definitionId:'event'},items:[],connections:{next:null}};
+ s.graph.render({library},{nodes:[container],startNode:container.id},container.id);
+ assert.match(s.root.parts['#nodes'].rendered,/data-card-slot="intro"[^>]*data-card-source="local"/);
 });
 test('Linear and Container rows show their cards separately from their shared Next connector',()=>{
  const s=setup(),library=[{...createDefinition('event','event'),name:'Story'},{...createDefinition('item','item'),name:'Loot'}];
@@ -395,7 +475,7 @@ test('graph override markers appear beside configured names and dim when ignored
  assert.doesNotMatch(s.root.parts['#nodes'].rendered,/graph-override-marker/);
  s.graph.overrideNodeIds=new Set(['a']);s.graph.render(s.graph.project,s.chapter,'a');
  let html=s.root.parts['#nodes'].rendered;
- assert.match(html,/<span class="badge">START · A<\/span><span class="graph-override-marker" role="img" aria-label="Overrides configured" title="Overrides configured">!<\/span>/);
+ assert.match(html,/<span class="badge"><span class="graph-start-label">START<\/span> · A<\/span><span class="graph-override-marker" role="img" aria-label="Overrides configured" title="Overrides configured">\*<\/span>/);
  assert.equal((html.match(/graph-override-marker/g)||[]).length,1);
  s.graph.project.ignoreAllOverrides=true;s.graph.render(s.graph.project,s.chapter,'a');
  assert.match(s.root.parts['#nodes'].rendered,/class="graph-override-marker ignored" role="img" aria-label="Overrides configured \(ignored\)"/);
@@ -406,8 +486,8 @@ test('beat headers show the authored name once in the badge instead of a separat
  const s=setup();s.chapter.nodes[0].name='The <box>';
  s.graph.render({library:[]},s.chapter,'a');
  const html=s.root.parts['#nodes'].rendered;
- assert.match(html,/<span class="badge">START · The &lt;box&gt;<\/span><\/div>/);
- assert.doesNotMatch(html,/<span class="badge">START · Linear<\/span>/);
+ assert.match(html,/<span class="badge"><span class="graph-start-label">START<\/span> · The &lt;box&gt;<\/span><\/div>/);
+ assert.doesNotMatch(html,/<span class="badge"><span class="graph-start-label">START<\/span> · Linear<\/span>/);
  assert.equal((html.match(/The &lt;box&gt;/g)||[]).length,1);
 });
 

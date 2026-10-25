@@ -12,17 +12,26 @@
 #canvas .node {overflow:hidden;}
 #canvas .graph-card-divider {border:0;border-top:2px solid #080d0f;margin:0;}
 #canvas .node-heading {border-bottom:2px solid #080d0f;}
-#canvas .node-heading {position:relative;padding-right:48px;height:58px;display:flex;align-items:center;}
+#canvas .node-heading {position:relative;padding-right:48px;height:58px;display:flex;align-items:center;cursor:pointer;}
 #canvas .node-heading .badge {margin-bottom:0;min-width:0;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;}
-#canvas .graph-override-marker {display:inline-grid;place-items:center;flex:0 0 11.9px;height:11.9px;margin-left:6px;border:.85px solid currentColor;border-radius:50%;color:#e4bd72;font-size:9.35px;font-weight:700;line-height:1;letter-spacing:0;}
+#canvas .node-heading .badge {cursor:pointer;}
+/* Keep the captured drag cursor even when the pointer leaves the graph. */
+html.graph-dragging,html.graph-dragging *,#canvas.graph-dragging,#canvas.graph-dragging * {cursor:grabbing!important;}
+#canvas .node-heading .badge,#canvas .graph-override-marker {color:#91b8ab;}
+#canvas .node.random .node-heading .badge,#canvas .node.random .graph-override-marker {color:#d4b584;}
+#canvas .graph-start-label {color:#fff;}
+#canvas .graph-override-marker {display:inline-block;flex:none;margin-left:4px;font-size:13px;font-weight:700;line-height:1;letter-spacing:0;}
 #canvas .graph-override-marker.ignored {opacity:.45;}
 #canvas .graph-beat-icon {position:absolute;right:12px;top:50%;transform:translateY(-50%);width:26px;height:26px;fill:none;stroke:#e1e8e6;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;pointer-events:none;}
 #canvas .graph-card-row {padding:9px 12px;background:color-mix(in srgb,var(--card-editor-tint) 14%,#202b2e);}
 #canvas .graph-card-row.has-outputs {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:8px;align-items:start;}
-#canvas .graph-card-name {display:block;min-width:0;width:fit-content;max-width:100%;border:0;border-radius:0;padding:0;text-align:left;background:transparent;color:var(--card-editor-tint);overflow-wrap:anywhere;font-size:12px;line-height:1.6;cursor:pointer;}
+#canvas .graph-card-name {display:block;min-width:0;width:fit-content;max-width:100%;border:0;border-radius:0;padding:0;text-align:left;background:transparent;color:var(--card-editor-tint);overflow-wrap:anywhere;font-size:calc(12px + 1pt);line-height:1.6;cursor:pointer;}
 #canvas .graph-card-name {display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;line-clamp:3;max-height:4.8em;overflow:hidden;}
+#canvas .graph-card-name {font-weight:400;font-style:normal;}
+#canvas .graph-card-row[data-card-source="local"] .graph-card-name {font-style:italic;}
+#canvas .graph-card-custom-marker {color:inherit;font:inherit;}
 #canvas .graph-card-name:hover {text-decoration:underline;}
-#canvas .graph-card-name small {display:block;color:#a9b9b7;font-size:10px;}
+#canvas .graph-card-name small {display:block;color:#a9b9b7;font-size:10px;font-weight:400;font-style:normal;}
 #canvas .graph-card-label {min-width:0;}
 #canvas .graph-card-label:has(.graph-item-tag) {display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:12px;align-items:center;}
 #canvas .graph-item-tag {grid-column:2;grid-row:1;color:var(--card-editor-tint);font-size:11px;font-weight:650;line-height:1.6;text-align:right;overflow-wrap:anywhere;}

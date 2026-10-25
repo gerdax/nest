@@ -18,19 +18,13 @@ export function bindImagePicker(root, { onSelect, onError = () => {} }) {
   const activeInputs = new Set();
   const pending = new WeakMap();
   let disposed = false;
-  let catalogPromise;
-  function catalog() {
-    if (!catalogPromise) {
-      catalogPromise = fetch(new URL('./assets/image-manifest.json', doc.baseURI), { cache: 'no-store' })
-        .then(response => {
-          if (!response.ok) throw new Error('Could not load the project image catalog.');
-          return response.json();
-        }).then(value => {
-          if (value?.version !== 1 || !Array.isArray(value.images)) throw new Error('The project image catalog is invalid.');
-          return value;
-        }).catch(error => { catalogPromise = undefined; throw error; });
-    }
-    return catalogPromise;
+  async function catalog() {
+    // Files can be added or removed while the editor remains open.
+    const response = await fetch(new URL('./assets/image-manifest.json', doc.baseURI), { cache: 'no-store' });
+    if (!response.ok) throw new Error('Could not load the project image catalog.');
+    const value = await response.json();
+    if (value?.version !== 1 || !Array.isArray(value.images)) throw new Error('The project image catalog is invalid.');
+    return value;
   }
   function feedback(button, message) {
     const previous = button.nextElementSibling;

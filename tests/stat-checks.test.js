@@ -107,3 +107,23 @@ test('contextual stat check percentages and formulas match live state, including
  assert.equal(playerCheckPresentation(statCheck(1),{agility:10},definitions).label,'Very high');
  assert.equal(playerCheckPresentation({pool:[{sides:20,count:1}],target:10}),null);
 });
+
+test('selecting Dice check defaults unused and missing configurations to Stat check',()=>{
+ for(const check of [undefined,{pool:[{sides:20,count:1}],modifier:0,target:10}]) {
+  const project=createProject(),card=action(project);
+  card.resolution='direct';card.check=check;
+  applyDocumentCommand(project,{definitionId:card.id},'field',{scope:'definition',path:'resolution',value:'check',inputType:'select-one'});
+  assert.deepEqual(card.check,{mode:'stat',modifierVariable:project.variables.find(v=>v.stat).id,difficulty:1});
+  assert.match(actionFields(project,card),/<option value="stat" selected>Stat check<\/option>/);
+  assert.doesNotThrow(()=>resolveCheck(card.check,initialValues(project.variables)));
+ }
+});
+
+test('switching Resolution preserves authored stat, explicit custom and legacy custom checks',()=>{
+ for(const check of [statCheck(7),{mode:'custom',pool:[{sides:20,count:1}],modifier:0,target:10},{pool:[{sides:8,count:2}],modifier:2,target:12}]) {
+  const project=createProject(),card=action(project),selection={definitionId:card.id};
+  card.check=structuredClone(check);
+  for(const value of ['check','direct','check'])applyDocumentCommand(project,selection,'field',{scope:'definition',path:'resolution',value,inputType:'select-one'});
+  assert.deepEqual(card.check,check);
+ }
+});

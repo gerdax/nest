@@ -18,6 +18,24 @@ test('every card type defines a distinct editor tint used by both card panel con
  assert.equal(cardEditorTint('narrative'),cardEditorTint('event'));
 });
 
+test('collapsible card headers distinguish source and mark custom Library rules only',()=>{
+ const project=createProject(),chapter=project.chapters[0];
+ const shared={...createDefinition('action','shared-style'),name:'Pick <lock>'};
+ const local={...createDefinition('action','local-style'),name:'Local action',visibility:'local',chapterId:chapter.id};
+ project.library.push(shared,local);
+ for(const [definition,source] of [[shared,'library'],[local,'local']]){
+  const placement={id:`p-${source}`,definitionId:definition.id,overrides:{}};
+  const html=placementInspector(project,placement,'action',0,'choices',1,chapter);
+  assert.match(html,new RegExp(`data-card-source="${source}"`));
+  const header=html.match(/<summary>([\s\S]*?)<\/summary>/)[1];
+  if(source==='library')assert.match(header,/Pick &lt;lock&gt; <span class="card-custom-marker" role="img" aria-label="Custom rules enabled" title="Custom rules enabled">\*<\/span>/);
+  else assert.doesNotMatch(header,/card-custom-marker/);
+  delete placement.overrides;
+  assert.doesNotMatch(placementInspector(project,placement,'action',0,'choices',1,chapter).match(/<summary>([\s\S]*?)<\/summary>/)[1],/card-custom-marker/);
+ }
+ const missing=placementInspector(project,{id:'missing',definitionId:'absent',overrides:{}},'action',0,'choices',1,chapter);
+ assert.match(missing,/data-card-source="missing"/);assert.doesNotMatch(missing,/card-custom-marker/);
+});
 test('card sources sort local templates first, then shared cards by type label and name',()=>{
  const project=createProject(),node=project.chapters[0].nodes.find(n=>n.type==='fork');
  project.library=[...project.library,{...createDefinition('action','z'),name:'Zebra'},{...createDefinition('caption','a'),name:'apple'},{...createDefinition('event','b'),name:'Banana'}];

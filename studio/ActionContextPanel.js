@@ -41,10 +41,12 @@ export class ActionContextPanel {
     this.clear();
   }
 
-  update({ info = null, item = null, result = null, busy = false, selectionKey = null } = {}) {
+  update({ info = null, item = null, result = null, disabledReason = null, busy = false, selectionKey = null } = {}) {
     if (result?.total == null) result = null;
-    if (result) { info = null; item = null; }
-    if (!info && !item && !result) {
+    disabledReason = typeof disabledReason === 'string' ? disabledReason.trim() : '';
+    if (result) { info = null; item = null; disabledReason = ''; }
+    else if (disabledReason) { info = null; item = null; }
+    if (!info && !item && !result && !disabledReason) {
       this.visible = false;
       this.root.setAttribute('data-visible', 'false');
       this.root.setAttribute('aria-hidden', 'true');
@@ -54,13 +56,13 @@ export class ActionContextPanel {
       // Keep the last caption and content painted while CSS fades out.
       return;
     }
-    const mode = result ? 'result' : info && item ? 'check-item' : info ? 'check' : 'item';
-    const key = JSON.stringify([selectionKey,mode,result,
+    const mode = result ? 'result' : disabledReason ? 'reason' : info && item ? 'check-item' : info ? 'check' : 'item';
+    const key = JSON.stringify([selectionKey,mode,result,disabledReason,
       info ? [info.stat,info.chance,info.label,info.formula,info.rules] : null,item?.inventoryKey ?? item?.id]);
     const outgoing = this.visible && key !== this.presentationKey ? this.snapshot() : null;
     this.presentationKey = key;
     this.view.setAttribute('data-mode', mode);
-    this.caption.textContent = result ? `TARGET: ${result.target}  CHECK: ${result.total}` : info ? info.stat ?? '' : 'USING';
+    this.caption.textContent = result ? `TARGET: ${result.target}  CHECK: ${result.total}` : disabledReason || (info ? info.stat ?? '' : 'USING');
     this.checkDetails.hidden = !info && !result;
     this.checkChance.textContent = result ? result.success ? 'SUCCESS' : 'FAILURE' : info ? `${Math.round(parseFloat(info.chance))}%` : '';
     this.checkDetails.setAttribute('data-presentation', result ? 'result' : 'odds');

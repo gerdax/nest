@@ -5,6 +5,7 @@ import { playerCardSummary, isStoryKind, collectionEffects } from './cards.js';
 import { selectPool } from '../chapter/random.js';
 import { isInventoryContext } from '../engine/inventoryContext.js';
 import { resolveCheck } from './checks.js';
+import { actionAvailability } from './action-availability.js';
 
 /** Playback only. CardDeck remains responsible for gestures and departure choreography. */
 export class ProjectController {
@@ -35,7 +36,7 @@ export class ProjectController {
     try {this.adopt(this.locate(this.compiled.startNode),false);this.show();} catch(error){
       this.location=null;this.completed=false;
       const message=error.message==='Unlinked output'?'Unlinked output':'Playback blocked';
-      this.deck.replaceContent({id:`${this.generation}:${++this.serial}`,title:message,actions:[{id:'unavailable',label:message,disabled:true}],decisionOnly:true},{presentation:'open',animate:false});
+      this.deck.replaceContent({id:`${this.generation}:${++this.serial}`,title:message,actions:[{id:'unavailable',label:message,disabled:true,disabledReason:this.routingReason(error)||error.message||message}],decisionOnly:true},{presentation:'open',animate:false});
       this.error(error);this.notify();
     }
   }
@@ -178,7 +179,7 @@ export class ProjectController {
       while(location.index<cards.length) {
         const card=this.runtimeItem(cards[location.index],location);
         const available=conditionsMet(card.conditions,values,inventory);
-        const hiddenAction=card.kind==='action'&&this.unavailableActions(location)==='hidden'&&(!available||!affordCosts(values,inventory,card.costs,this.compiled.variables));
+        const hiddenAction=card.kind==='action'&&actionAvailability(card,values,inventory,this.compiled,this.unavailableActions(location)).hidden;
         const hiddenItem=card.kind==='item'&&this.hidesOwnedItem(card,inventory);
         if(this.linearItemRemaining(card,location,excluded)&&(available||card.kind==='action')&&!hiddenAction&&!hiddenItem)break;
         location={...location,index:location.index+1};
@@ -220,7 +221,16 @@ export class ProjectController {
     return this.next(location,output,values,inventory,new Set(),null,preview);
   }
   departureBlocked(source,location=this.location,values=this.variables,inventory=this.inventory,transition=null,excludedItem=null) {
-    if(transition==='collect'&&this.ownsItem(source,inventory))return true;
+    return !!this.departureReason(source,location,values,inventory,transition,excludedItem);
+  }
+  routingReason(error) {
+    if(error.message==='Unlinked output')return 'No connected destination';
+    if(error.message==='Automatic routing cycle')return 'Automatic routing cycle';
+    if(error.message.startsWith('Unknown node:'))return 'Connected destination is missing';
+    return '';
+  }
+  departureReason(source,location=this.location,values=this.variables,inventory=this.inventory,transition=null,excludedItem=null) {
+    if(transition==='collect'&&this.ownsItem(source,inventory))return 'Already owned';
     try {
       const outcomes=source.resolution==='check'?[true,false]:[undefined];
       for(const outcome of outcomes) {
@@ -234,10 +244,10 @@ export class ProjectController {
           this.next(location,'next',result.variables,result.inventory,new Set(),excluded,true);
         }else this.destination(source,outcome,result.variables,result.inventory,location,true,transition==='collect'?{key:this.key(location),itemId:source.id}:{key:this.key(location),itemIds:this.discardedReturns(location,source)});
       }
-      return false;
+      return '';
     }catch(error) {
       // Transaction errors retain their existing runtime error/retry behavior.
-      return error.message==='Unlinked output'||error.message==='Automatic routing cycle'||error.message.startsWith('Unknown node:');
+      return this.routingReason(error);
     }
   }
   arrivalState(destination,variables=this.variables,inventory=this.inventory) {return this.arrivalStates.get(destination) ?? {variables,inventory};}
@@ -281,23 +291,30 @@ export class ProjectController {
     const type=this.type(location),card=this.card(location),fork=type==='fork'||type==='forked',container=type==='container',linearFace=type==='linear'&&['action','item','health','energy'].includes(card?.kind),linearItem=linearFace&&card.kind==='item';
     let actions;
     if(fork)actions=this.choices(location).flatMap(c=>{
-      if(c.contextItemId&&!canTriggerItem(inventory,c.contextInventoryKey ?? c.contextItemId))return [];
-      const available=conditionsMet(c.conditions,values,inventory)&&affordCosts(values,inventory,c.costs,this.compiled.variables);
-      return !available&&this.unavailableActions(location)==='hidden'?[]:[{...this.action(c,values),disabled:!available||this.departureBlocked(c,location,values,inventory)}];
+      const availability=actionAvailability(c,values,inventory,this.compiled,this.unavailableActions(location));
+      if(availability.hidden)return [];
+      const reason=availability.disabledReason||this.departureReason(c,location,values,inventory);
+      return [{...this.action(c,values),disabled:availability.disabled||!!reason,...(reason?{disabledReason:reason}:{})}];
     });
     else if(container)actions=this.items(location,values,inventory,excludedItem).map(c=>({...this.action(c,values),alreadyOwned:this.ownsItem(c,inventory),discardDisabled:this.departureBlocked(c,location,values,inventory,'discard',excludedItem),collectDisabled:this.departureBlocked(c,location,values,inventory,'collect',excludedItem)}));
-    else if(linearFace)actions=[{...this.action(card,values),disabled:!conditionsMet(card.conditions,values,inventory)||!affordCosts(values,inventory,card.kind==='action'?card.costs:[],this.compiled.variables)}];
+    else if(linearFace) {
+      const availability=actionAvailability(card.kind==='action'?card:{...card,costs:[]},values,inventory,this.compiled,this.unavailableActions(location));
+      actions=[{...this.action(card,values),disabled:availability.disabled,...(availability.disabledReason?{disabledReason:availability.disabledReason}:{})}];
+    }
     else actions=[{id:'continue',label:'Continue',image:card?.image,flipImage:!!card?.flipImage}];
     if(linearFace) {
       if(linearItem)Object.assign(actions[0],{alreadyOwned:this.ownsItem(card,inventory),discardDisabled:this.departureBlocked(card,location,values,inventory,'discard'),collectDisabled:this.departureBlocked(card,location,values,inventory,'collect')});
-      else actions[0].disabled ||= this.departureBlocked(card,location,values,inventory);
+      else if(!actions[0].disabled) {
+        const reason=this.departureReason(card,location,values,inventory);
+        if(reason)Object.assign(actions[0],{disabled:true,disabledReason:reason});
+      }
     }
     if(container||linearItem)for(const action of actions)action.disabled ||= action.collectDisabled&&action.discardDisabled;
-    if(!actions.length)actions=[{id:'unavailable',label:'No available choices',disabled:true}];
+    if(!actions.length)actions=[{id:'unavailable',label:'No available choices',disabled:true,disabledReason:'No available choices'}];
     const payload={autoBrowse:fork||container,id:`${this.generation}:${++this.serial}`,cardBack:this.compiled.cardBack,title:card?.name ?? card?.title ?? '',heading:cardFace(card,this.compiled.variables,this.compiled.library,values).heading,text:this.body(card),cardKind:card?.kind ?? 'event',value:card?.value,summary:card&&!isStoryKind(card.kind??card.cardKind)&&fork?playerCardSummary(card,this.compiled.variables,this.compiled.library,values):'',image:card?.image ?? '',imageScale:card?.imageScale??100,imageOffsetX:card?.imageOffsetX??0,imageOffsetY:card?.imageOffsetY??0,flipImage:!!card?.flipImage,actions,directAdvance:!fork&&!container&&!linearFace,decisionOnly:linearFace||fork&&(location.sequence?!!location.sequence.decisionOnly:this.presentation(location,values,inventory)==='open'),interaction:container||linearItem?'container':'choice',discardAll:container,allowClose:false};
     if(fork)payload.choiceFollowerRatio=.82;
     payload.flipItemsOnReveal=container&&this.presentation(location,values,inventory)==='closed'||fork&&this.introductionUnlocksNext(location,values,inventory);
-    if(payload.directAdvance){payload.nextTransition='flip';payload.advanceDisabled=this.departureBlocked(card,location,values,inventory);actions[0].disabled=payload.advanceDisabled;}
+    if(payload.directAdvance){payload.nextTransition='flip';const reason=this.departureReason(card,location,values,inventory);payload.advanceDisabled=!!reason;actions[0].disabled=payload.advanceDisabled;if(reason)actions[0].disabledReason=reason;}
     if(type==='linear'&&preview&&card&&card.kind!=='item'&&card.resolution!=='check') {
       try {
         const predicted=transact(values,inventory,{triggerItem:card.contextInventoryKey??card.contextItemId,costs:card.costs,effects:card.effects},this.compiled.variables,this.compiled.library);
@@ -348,7 +365,7 @@ export class ProjectController {
     }catch(error){this.error(error);this.show({restore:true});}
   }
   transaction(source,outcome,values=this.variables,inventory=this.inventory) {return transact(values,inventory,{triggerItem:source.contextInventoryKey??source.contextItemId,costs:source.costs,effects:[...(source.effects??[]),...(outcome===undefined?[]:outcome?source.successEffects??[]:source.failureEffects??[])]},this.compiled.variables,this.compiled.library);}
-  available(source,values=this.variables,inventory=this.inventory) {return (!source.contextItemId||canTriggerItem(inventory,source.contextInventoryKey??source.contextItemId))&&conditionsMet(source.conditions,values,inventory)&&affordCosts(values,inventory,source.costs,this.compiled.variables);}
+  available(source,values=this.variables,inventory=this.inventory) {return (!(source.contextInventoryKey??source.contextItemId)||canTriggerItem(inventory,source.contextInventoryKey??source.contextItemId))&&conditionsMet(source.conditions,values,inventory)&&affordCosts(values,inventory,source.costs,this.compiled.variables);}
   commit(detail) {
     if(this.destroyed||this.completed||this.checking||this.pendingItem||this.pendingIntro||(this.type()==='container'||this.type()==='linear'&&this.card()?.kind==='item')||detail.contentId!==this.deck.content.id||this.accepted.has(detail.contentId))return;
     const action=this.deck.content.actions.find(a=>a.id===detail.action?.id&&!a.disabled);if(!action)return;

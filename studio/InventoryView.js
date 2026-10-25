@@ -1,5 +1,6 @@
 import { uiScale } from './ui-scale.js';
 import { applyArtworkColorize } from '../engine/artworkColorize.js';
+import { artworkUrl } from '../engine/artworkReload.js';
 import { DrawerMotion } from './drawer-motion.js';
 import { dialogLayout } from './dialog-layout.js';
 
@@ -86,7 +87,8 @@ export class InventoryView {
     button.setAttribute('aria-label', name(item));
     button.setAttribute('aria-pressed', 'false');
     if (item.image) {
-      const image = document.createElement('img'); image.src = item.image; image.alt = ''; image.draggable = false;
+      const image = document.createElement('img'); image.src = artworkUrl(item.image, image.ownerDocument?.baseURI); image.alt = ''; image.draggable = false;
+      image.setAttribute('data-artwork-source', item.image);
       applyArtworkColorize(image);
       if (item.flipImage) image.style.transform = 'scaleX(-1)';
       const artwork = document.createElement('div'); artwork.className = 'nest-image-vignette';

@@ -1,0 +1,202 @@
+[
+  {
+    "copy": "presentation-clock.js",
+    "source": "demos/combat/presentation-clock.js",
+    "sha256": "5aaacc040e867d438c61dd23eada3bc9393ac3eba09b1950e1cfe833dca4d06c"
+  },
+  {
+    "copy": "studio/preview-window.css",
+    "source": "demos/combat/studio/preview-window.css",
+    "sha256": "ededdb638cebbf6662c8232b7b173d6a9734ec570f10e3054299bd3df646cb21"
+  },
+  {
+    "copy": "studio/preview.css",
+    "source": "demos/combat/studio/preview.css",
+    "sha256": "62f1983496999856d1b4edd3a1013fa0759aa15e000e349cb8a5aead0deb12fa"
+  },
+  {
+    "copy": "studio/playfield.css",
+    "source": "demos/combat/studio/playfield.css",
+    "sha256": "32c35f0a073206c09fa81c4553f8fd57c37f9b9ad0b6daddbd6c3b644d5e81ec"
+  },
+  {
+    "copy": "project/card-styles.js",
+    "source": "demos/combat/project/card-styles.js",
+    "sha256": "1daedd6413b4483aa3e90d2980456438ce7fcb5ef3d28f1d5def2534fdbeb669"
+  },
+  {
+    "copy": "assets/img/hall_01.png",
+    "source": "demos/combat/assets/img/hall_01.png",
+    "sha256": "a716fc1eb2872ed0684ab60f3a719851219b329deb189be76ad2f8d45c7f0cd0"
+  },
+  {
+    "copy": "assets/img/rat.png",
+    "source": "assets/img/rat.png",
+    "sha256": "91483fca1f9a4668e47888e755a422a6414e7139b91d42aada3f9bfcdde396b1"
+  },
+  {
+    "copy": "assets/img/claws.png",
+    "source": "demos/combat/assets/img/claws.png",
+    "sha256": "31f1a4bcd8bc4aa14b3abe1149aa0c072c2534ba18797cf818916b09551c93aa"
+  },
+  {
+    "copy": "assets/img/pack.png",
+    "source": "demos/combat/assets/img/pack.png",
+    "sha256": "614ddfd645049bdd73f420577eb8cc1d3d77060fb14e6b192e8c54056b7e6191"
+  },
+  {
+    "copy": "assets/img/escape.png",
+    "source": "demos/combat/assets/img/escape.png",
+    "sha256": "0e44065079b7f9840b07e18779287722cb0e7d8f39762688469604c412bb6b56"
+  },
+  {
+    "copy": "assets/img/ui/container.png",
+    "source": "demos/combat/assets/img/ui/container.png",
+    "sha256": "55deb9bb065b995e95a3273e25d60b1ea6c581a80792af311229d29b4ec6eb9c"
+  },
+  {
+    "copy": "assets/img/ui/collect.png",
+    "source": "demos/combat/assets/img/ui/collect.png",
+    "sha256": "e7503a461a11f154d60944031bb17ecf1479f8210878bf36971cbacff5469daf"
+  },
+  {
+    "copy": "assets/img/ui/discard.png",
+    "source": "demos/combat/assets/img/ui/discard.png",
+    "sha256": "3c3b0ca88f8ca25550acc5fe725f218b953680790514cf61d4448a8e5f31d3f5"
+  },
+  {
+    "copy": "assets/img/ui/narrative.png",
+    "source": "demos/combat/assets/img/ui/narrative.png",
+    "sha256": "2444438804033f71c33c9099dcc278537159a209891a4b48351f7a771a954762"
+  },
+  {
+    "copy": "assets/img/ui/cardfront.png",
+    "source": "demos/combat/assets/img/ui/cardfront.png",
+    "sha256": "5de6b4008c559a9c40761dfe019803936425613811687810939fa779b00a5cf2"
+  },
+  {
+    "copy": "assets/img/ui/mini_place.png",
+    "source": "demos/combat/assets/img/ui/mini_place.png",
+    "sha256": "f65e93d6ec6a075bb8a257a69d9034ec46687e4a7b637d2d6545d4beb8bed51d"
+  },
+  {
+    "copy": "assets/img/ui/dice.png",
+    "source": "demos/combat/assets/img/ui/dice.png",
+    "sha256": "67351111b59d7367066e91bbfb53311cba73741c2c482464f70a8f45298ff4bd"
+  },
+  {
+    "copy": "assets/img/ui/hud-health.png",
+    "source": "demos/combat/assets/img/ui/hud-health.png",
+    "sha256": "272735600c73cc0d16820889f214c1131155522f5cd6846799e5249d070af5b9"
+  },
+  {
+    "copy": "assets/img/ui/hud-energy.png",
+    "source": "demos/combat/assets/img/ui/hud-energy.png",
+    "sha256": "b59b5de86d46b216ee914d6b937d53a774407665f83b5775cb00cddcac9af3b6"
+  },
+  {
+    "copy": "assets/img/ui/default.png",
+    "source": "demos/combat/assets/img/ui/default.png",
+    "sha256": "25fa588eaab894b9a8b506f6dfb89fa21f7fe9613404f2268978264cf2bd3f07"
+  },
+  {
+    "copy": "assets/img/ui/cardback.png",
+    "source": "demos/combat/assets/img/ui/cardback.png",
+    "sha256": "348bcb8e7248f61075d50e3c9d766938f9ff25c4356f01a71dbe74f3f890f746"
+  },
+  {
+    "copy": "assets/fonts/trotont.ttf",
+    "source": "demos/combat/assets/fonts/trotont.ttf",
+    "sha256": "4eba365ef738b0c0ea37bb0831c41fcb38dbc0edbad01b030a887907fb49251a"
+  },
+  {
+    "copy": "assets/fonts/letter.ttf",
+    "source": "demos/combat/assets/fonts/letter.ttf",
+    "sha256": "b728c94a8cf10a88af96c77e5885bb28adeae2c5d5aa556a152e77a29a37d18a"
+  },
+  {
+    "copy": "engine/DeckInteractionMotion.js",
+    "source": "engine/DeckInteractionMotion.js",
+    "sha256": "d07963d2d20921d3caff1d7fab572220d479c341a9887237fc03009061bc6787"
+  },
+  {
+    "copy": "engine/renderer.js",
+    "source": "engine/renderer.js",
+    "sha256": "2aa7812dd04bfeb51d161be18410f5fc54d296f226c8fbd8c980cb8020c8bb57"
+  },
+  {
+    "copy": "engine/CheckSurface.js",
+    "source": "engine/CheckSurface.js",
+    "sha256": "0129a9a8715d8f86d14fd0df6fad4a97a1e9931eb8cf7451a80d6c3ce5199231"
+  },
+  {
+    "copy": "engine/card-deck.css",
+    "source": "engine/card-deck.css",
+    "sha256": "813e4b98c1121d5e395a0fbe225e62089d22cd6327da014dcf7db944aac626ca"
+  },
+  {
+    "copy": "engine/cssScale.js",
+    "source": "engine/cssScale.js",
+    "sha256": "dee3252ed721fa8c3a61c353b06405d9a4274b0316a778e887859df5dd79704a"
+  },
+  {
+    "copy": "engine/presentationReadiness.js",
+    "source": "engine/presentationReadiness.js",
+    "sha256": "c96c3bb08e158982e22aa4d702e49330e16a7e24d46ea697f961184cf5c9265e"
+  },
+  {
+    "copy": "engine/MovementHistory.js",
+    "source": "engine/MovementHistory.js",
+    "sha256": "6210c6381092ae73ae2a6146cfc9c88f021c96c1b3cec7c6dcc398da351e5c38"
+  },
+  {
+    "copy": "engine/InventoryPickup.js",
+    "source": "engine/InventoryPickup.js",
+    "sha256": "3f4d49e062a724ead8de72145fdc4f036b96c371372fbb39cae31b59dc01a88f"
+  },
+  {
+    "copy": "engine/motionProfile.js",
+    "source": "engine/motionProfile.js",
+    "sha256": "c8e1549f75130884f7937dc0a68c6cdc1a2f49f011c7505089725b2d6e6dd244"
+  },
+  {
+    "copy": "engine/artworkColorize.js",
+    "source": "engine/artworkColorize.js",
+    "sha256": "9cb013b5993ab6b012db7ee0164765f6b505e185654907a28f5b4cd439e926ea"
+  },
+  {
+    "copy": "engine/DeckEntranceSequence.js",
+    "source": "engine/DeckEntranceSequence.js",
+    "sha256": "7da80aa1b328bbd0081b35a222cb9ca8abf771ecb7d42cac9d631eed58ef5623"
+  },
+  {
+    "copy": "engine/motion.js",
+    "source": "engine/motion.js",
+    "sha256": "aa093c04ba92fc0b920a3cab741ad8f2627918676ccc0dd2b4efc84ddea0bd16"
+  },
+  {
+    "copy": "engine/inventoryContext.js",
+    "source": "engine/inventoryContext.js",
+    "sha256": "ba278daf0c33076dac73cb55a0223c1533bb19d1dd74ba61883d875d6ec653b3"
+  },
+  {
+    "copy": "engine/cardBacks.js",
+    "source": "engine/cardBacks.js",
+    "sha256": "f1d7f7c2bbdab55bbc7d2d2d9edc4c23110268b272c9f73cd60fb652cc15d1e1"
+  },
+  {
+    "copy": "engine/geometry.js",
+    "source": "engine/geometry.js",
+    "sha256": "f55515589dee7f3ada786aa9bef53138767d89cf247100f767f337095bba617f"
+  },
+  {
+    "copy": "engine/PointerInput.js",
+    "source": "engine/PointerInput.js",
+    "sha256": "1c865ed6e43da84e7f436bf00f408fa778e5d188b7fdfc80df174e8f3024ca03"
+  },
+  {
+    "copy": "engine/CardDeck.js",
+    "source": "engine/CardDeck.js",
+    "sha256": "1b213c692c5254e7c1e1337c637bf3f06cf8696f3a04fa7fe667105f89aa7ae5"
+  }
+]

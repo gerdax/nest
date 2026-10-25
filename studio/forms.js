@@ -9,7 +9,7 @@ export const field = (label,value,path,scope='definition',type='text') => `<labe
 export const select = (label,value,choices,path,scope='definition') => `<label class="field">${esc(label)}<select data-scope="${esc(scope)}" data-path="${esc(path)}">${options(choices,value)}</select></label>`;
 export const checkbox = (label,value,path,scope='definition',disabled=false) => `<label class="field check-field"><input type="checkbox" data-scope="${esc(scope)}" data-path="${esc(path)}" ${value?'checked':''} ${disabled?'disabled':''}>${esc(label)}</label>`;
 export const button = (label,cmd,attrs='') => `<button type="button" data-command="${cmd}" ${attrs}>${esc(label)}</button>`;
-export const imageField=(label,value,path,scope='definition',{clearable=false}={})=>field(label,value,path,scope)+`${clearable?'<div class="image-field-actions">':''}<button type="button" data-image-picker data-scope="${esc(scope)}" data-path="${esc(path)}">Choose image file</button>${clearable?button('Clear','clear-image',`data-scope="${esc(scope)}" data-path="${esc(path)}" aria-label="Clear card image" ${value?'':'disabled'}`):''}${clearable?'</div>':''}`;
+export const imageField=(label,value,path,scope='definition',{clearable=false}={})=>field(label,value,path,scope)+`${clearable?'<div class="image-field-actions">':''}<button type="button" data-image-picker data-scope="${esc(scope)}" data-path="${esc(path)}">Choose image file</button>${clearable?button('Reload','reload-image',`data-scope="${esc(scope)}" data-path="${esc(path)}" aria-label="Reload card image" title="Reload artwork from disk" ${value?'':'disabled'}`)+button('Clear','clear-image',`data-scope="${esc(scope)}" data-path="${esc(path)}" aria-label="Clear card image" ${value?'':'disabled'}`):''}${clearable?'</div>':''}`;
 const extras=(scope,path,kind)=>`data-scope="${esc(scope)}" data-path="${esc(path)}" data-rule-kind="${kind}"`;
 export function rules(project,list=[],path,scope,kind,{label,help,chapter,footer=''}={}) {
  const vars=project.variables.map(v=>[v.id,variableLabel(v)]);
@@ -44,7 +44,7 @@ export function rules(project,list=[],path,scope,kind,{label,help,chapter,footer
    const flag=project.variables.find(v=>v.id===rule.key)?.type==='flag';
    fields+=inventory?'':flag?select('Value',String(rule.value),[['true','True'],['false','False']],`${p}.value`,scope):field('Value',rule.value,`${p}.value`,scope,'number');
   }
-  return `<div class="entry">${fields}${itemEffect?`<div class="item-effect-reference">${referenceLinks}</div>`:''}<div class="rule-entry-actions">${button('Remove','remove-rule',extras(scope,path,kind)+` data-index="${i}"`)}${itemEffect?'':referenceLinks}</div></div>`;
+  return `<div class="entry">${fields}${itemEffect?`<div class="item-effect-reference">${referenceLinks}</div>`:''}<div class="rule-entry-actions">${itemEffect?'':referenceLinks}${button('Remove','remove-rule',extras(scope,path,kind)+` data-index="${i}"`)}</div></div>`;
  }).join('');
  return html+button(`Add ${kind==='conditions'?'condition':kind==='costs'?'cost':'effect'}`,'add-rule',extras(scope,path,kind))+footer+'</details>';
 }

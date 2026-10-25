@@ -1,0 +1,10 @@
+{
+  "date": "2026-10-23",
+  "deterministicTests": {"passed": 13, "failed": 0},
+  "browser": "Chrome via Playwright, local HTTP",
+  "browserChecks": ["single copied CardDeck throughout", "rat incoming reverse flip", "three-card fan", "short swipe cancellation and accepted reveal/commit", "fixed enemy intent and die", "one paid reroll, stable selection", "exact unavailable-card copy", "result successor on same stack", "next-round label", "reset during roll and card departure", "320px layout containment", "zero-energy Recover", "roll during drag rejected", "reduced motion", "full fight and terminal lock"],
+  "review": "Independent read-only review completed; resource-copy, round-label and active-drag findings corrected and verified.",
+  "isolation": "All original tracked files unchanged; additions only under demos/rat-dice-stack. Copied sources verified by hashes.",
+  "notVerified": ["physical touch devices", "Safari", "Firefox", "assistive technology", "OS background throttling"],
+  "balance": "Exploratory rules; no difficulty or win-rate guarantee."
+}

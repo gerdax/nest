@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="pl">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nest · Szczur / kości na stosie</title><link rel="icon" href="data:,"><link rel="stylesheet" href="./engine/card-deck.css"><link rel="stylesheet" href="./studio/preview.css"><link rel="stylesheet" href="./studio/playfield.css"><link rel="stylesheet" href="./studio/preview-window.css"><link rel="stylesheet" href="./rat-demo.css"></head>
+<body><main class="demo-workspace">
+ <section class="preview-window" aria-label="Interaction preview · walka ze szczurem">
+  <header class="preview-window-bar"><span class="preview-window-handle">Interaction preview / Rat</span><span data-round>1</span></header>
+  <div class="preview-window-body nest-playfield" data-frame>
+   <section id="preview"><div class="project-preview"><div class="chapter-preview-stage">
+    <div class="player-resources" aria-label="Twoje zasoby"><span class="player-resource" data-health><img src="./assets/img/ui/hud-health.png" alt="Zdrowie"><span data-health-value>10</span><span class="resource-delta" data-health-delta></span></span><span class="player-resource" data-energy><span data-energy-value>10</span><img src="./assets/img/ui/hud-energy.png" alt="Energia"><span class="resource-delta" data-energy-delta></span></span></div>
+    <div class="chapter-preview-card-area"><div class="chapter-preview-card-layout"><div class="chapter-preview-deck" data-deck tabindex="0"></div></div></div>
+    <section class="action-context-panel rat-context" data-visible="true" aria-label="Rzut i odpowiedź">
+     <div class="dice-row" data-dice-row><div class="die-group"><span>SZCZUR · <span data-enemy-health>10</span> HP</span><span class="die-face" data-rat-die aria-label="Kość szczura"></span></div><span class="versus">:</span><div class="die-group"><span>TY</span><span class="die-face" data-player-die aria-label="Twoja kość">?</span></div></div>
+     <p class="attack-context" data-attack-context></p><p class="effect-preview" data-effect aria-live="polite" aria-atomic="true"></p>
+     <div class="roll-controls"><button type="button" data-roll hidden>Rzuć k6</button><button type="button" data-reroll hidden>Przerzut · −2 E</button><button type="button" data-main disabled>Odkryj odpowiedzi ↑</button></div>
+     <div class="browse-controls" data-browse hidden><button type="button" data-left aria-label="Poprzednia karta">←</button><span data-choice-name></span><button type="button" data-right aria-label="Następna karta">→</button></div>
+    </section>
+   </div><footer class="preview-footer"><span data-status role="status" aria-live="polite">Karta szczura odwraca się…</span><button type="button" data-reset>Restart</button></footer></div></section>
+  </div>
+ </section>
+ <aside class="demo-notes"><span class="eyebrow">ODDZIELNY MOCKUP</span><h1>Kości na stosie</h1><p>Atak szczura → swipe w górę → trzy odpowiedzi → twój rzut → wybór i zagranie → wynik na tym samym stosie.</p><p>Kości ustalają przewagę. Nawet niski wynik zostawia trzy sposoby odpowiedzi.</p><details open><summary>Zasady robocze</summary><ul><li>Gracz: 10 HP / 10 E. Szczur: 10 HP. Jego karta ustala atak za 2 lub 3 i wynik k6.</li><li>Po odsłonięciu odpowiedzi rzucasz k6. Możesz wykonać jeden przerzut za 2 E. Nowy wynik obowiązuje.</li><li><b>Attack · 2 E:</b> przewaga — zadajesz 3, tracisz 0 HP; remis — obaj tracicie do 2 HP; niższy wynik — zadajesz 1, przyjmujesz pełny atak.</li><li><b>Dodge · 1 E:</b> unikasz wszystkich obrażeń. Z przewagą dodatkowo zadajesz 1.</li><li><b>Recover · 0 E:</b> odzyskujesz do 3 E i przyjmujesz atak. Z przewagą otrzymujesz o 1 obrażenie mniej.</li><li>Brak pasywnej regeneracji. Recover jest dostępny przy 0 E. Obrażenia i odzysk energii rozliczają się w tej samej wymianie.</li><li>← → przeglądają wachlarz, ↑ odkrywa lub zagrywa. Przyciskami też można rozegrać całą walkę.</li></ul></details><details><summary>Historia <span data-history-count>0</span></summary><ol data-history></ol></details><p class="isolation-note">Osobna kopia silnika i zasobów. Główna gra i wcześniejsze demonstracje pozostają bez zmian.</p></aside>
+ </main><script type="module" src="./rat-demo.js"></script></body></html>
