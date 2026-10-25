@@ -17,7 +17,7 @@ import { LocalCardDrafts } from './local-card-drafts.js';
 import { cardKinds, cardEditorTint } from '../project/cards.js';
 import { createProject,validateProject } from '../project/model.js';
 import { definitionGraph } from '../project/dependencies.js';
-import { loadProject, readRecoveredSave } from '../project/storage.js';
+import { loadProject, readRecoveredSave, readConflictingSave } from '../project/storage.js';
 import { createPersistence, travelHistory, exportProjectDraft, exportStudioChapter, parseStudioImport } from './persistence.js';
 import { mountNodeCreateMenu } from './node-create-menu.js';
 import { GraphView } from './GraphView.js';
@@ -43,6 +43,7 @@ import { mountViewShortcuts } from './view-shortcuts.js';
 import { mountPlayShortcuts } from './play-shortcuts.js';
 import { cardLabel } from './card-label.js';
 import { confirmLibraryRemoval } from './library-removal-confirmation.js';
+import { mountSaveConflictPanel } from './save-conflict-panel.js';
 
 const $=s=>document.querySelector(s),loaded=loadProject();
 const previewOverrides = new PreviewOverrides();
@@ -81,8 +82,13 @@ const graph=new GraphView($('#canvas'),{
  onDelete:()=>{if(mode==='chapter'&&node())edit('delete-node');},
 });
 const projectSettingsWindow=mountProjectSettingsWindow($('#project-settings-overlay'),{trigger:$('#project-settings-toggle'),preview:$('#preview-window'),onOpen:()=>graph.cancel()});
-const persistence=createPersistence({loaded,onStatus:text=>{$('#save-status').textContent=text;}});
-const saveProject=project=>persistence.save(project);
+let conflictPanel;
+const persistence=createPersistence({loaded,eventTarget:window,onStatus:text=>{
+ $('#save-status').textContent=text;
+ window.removeEventListener('beforeunload',guardUnsaved);
+ if(persistence.hasUnsaved)window.addEventListener('beforeunload',guardUnsaved);
+},onConflict:conflict=>conflictPanel?.update(conflict)});
+const saveProject=project=>persistence.saveQueued(project);
 function report(text){persistence.report(text);}
 function goToPreviewCard(target,{automatic=false}={}){
  const source=sourceCard(project,target);
@@ -118,16 +124,16 @@ function edit(type,data={}, {preserveProjectSettings=false,refresh=true}={}){
   $('#errors').innerHTML=issues.map(e=>`<div>${esc(e.message)}</div>`).join('');
   refreshNodeErrors(issues);
  }
- report(outcome.failure|| (saved.ok?'Saved in this browser':errorMessage('STUDIO_SAVE_FAILED', {message: saved.error})));
- return {ok:!outcome.failure&&saved.ok,value:outcome.result?.value};
+ report(outcome.failure||'');
+ return {ok:!outcome.failure,value:outcome.result?.value,saved};
 }
 function refreshNodeErrors(issues=validateProject(project)){
  graph.setNodeErrors(nodeErrors.forChapter(project,chapter(),issues));
 }
-function renderGraph(){
+function renderGraph(issues){
  if(mode==='chapter'){
   graph.overrideNodeIds=new Set(chapter().nodes.filter(n=>previewOverrides.effects(project,chapter(),n).length || (['fork','linear'].includes(n.type)&&n.unavailableActions&&n.unavailableActions!=='project')).map(n=>n.id));
-  refreshNodeErrors();
+  refreshNodeErrors(issues);
   graph.render(project,chapter(),selected,previewActiveNode(preview,chapter()));
   updatePreviewHighlight(graph,preview,chapter());
  }
@@ -211,7 +217,7 @@ function render({preserveProjectSettings=false}={}){
  $('#canvas').hidden=mode!=='chapter';$('#library-panel').hidden=mode!=='library';$('#node-tools').hidden=mode!=='chapter';
  $('#chapter-view').classList.toggle('active-tab',mode==='chapter');$('#library-view').classList.toggle('active-tab',mode==='library');
  const issues=validateProject(project);$('#errors').innerHTML=issues.map(e=>`<div>${esc(e.message)}</div>`).join('');
- renderGraph();renderLibrary();renderInspector({preserveProjectSettings});
+ renderGraph(issues);renderLibrary();renderInspector({preserveProjectSettings});
 }
 function scopeRoot(scope,element){
  return documentScope(project,selection(),{scope,placementId:element.closest('[data-placement]')?.dataset.placement});
@@ -440,7 +446,7 @@ for(const b of document.querySelectorAll('[data-add]'))b.onclick=()=>{graph.canc
 $('#duplicate').onclick=duplicateBeat;
 $('#start').onclick=()=>{if(node()&&graph.selectedIds.size<=1)edit('set-start');};
 function travel(method){
- graph.cancel();localDrafts.reset();const result=travelHistory(history,method,persistence);
+ graph.cancel();localDrafts.reset();const result=travelHistory(history,method,{save:saveProject});
  if(result.changed){
   for(const rename of variableRenamesBetween(project,result.project)){
    previewOverrides.remap(project.id,rename);
@@ -466,6 +472,30 @@ $('#autoplay').title='Toggle Autoplay (/)';
 $('#autoplay').setAttribute('aria-keyshortcuts','/');
 function download(value,name){downloadText(JSON.stringify(value,null,2),name,'application/json');}
 function downloadText(text,name,type='text/plain'){const url=URL.createObjectURL(new Blob([text],{type}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+let deliberateReload=false;
+const conflictBackupDownload=document.createElement('button');
+conflictBackupDownload.type='button';conflictBackupDownload.textContent='Download previous save';
+conflictBackupDownload.onclick=()=>{
+ const backup=readConflictingSave();
+ if(backup.ok&&backup.text!==null)downloadText(backup.text,'nest-previous-save.nest.json','application/json');
+ else report(backup.error||'No previous save backup is available.');
+};
+function refreshConflictBackup(){conflictBackupDownload.hidden=!readConflictingSave().text;}
+$('#save-status').after(conflictBackupDownload);refreshConflictBackup();
+conflictPanel=mountSaveConflictPanel(document.querySelector('header'),{
+ onExportDraft:()=>$('#export-project').click(),
+ onExportSaved:conflict=>downloadText(conflict.primary,'nest-competing-save.nest.json','application/json'),
+ onReload:()=>{
+  if(!confirm('Reload the saved version? Your open draft will be discarded. Export this draft first if you want to keep it.'))return;
+  persistence.cancelPending();deliberateReload=true;location.reload();
+ },
+ onKeepDraft:async conflict=>{
+  const result=await persistence.saveQueued(project,{expectedPrimary:conflict.primary,preservePrimary:true});
+  if(result.ok){refreshConflictBackup();report('This draft is saved. Use Download previous save for the preserved competing version.');}
+ }
+});
+function guardUnsaved(event){if(!deliberateReload&&persistence.hasUnsaved){event.preventDefault();event.returnValue='';}}
+window.addEventListener('pageshow',()=>persistence.checkForChanges());
 let recoveryDownload;
 if(loaded.recovery){
  recoveryDownload=document.createElement('button');recoveryDownload.type='button';recoveryDownload.textContent='Download recovered save';
@@ -481,7 +511,8 @@ function bindImport(input,kind){
   try{
    const {raw,project:incoming}=parseStudioImport(await file.text(),{kind});
    preview.stop();localDrafts.reset();previewOverrides.clear();if(kind==='project')nodeClipboard=null;
-   const saved=edit('import',{raw,incoming}).ok;
+   const result=edit('import',{raw,incoming});
+   const saved=result.ok&&(await result.saved).ok;
    if(saved&&kind==='project'&&persistence.adopt().ok){recoveryDownload?.remove();report('Project imported and saved in this browser. Recovery backups retained.');}
    else if(saved&&kind==='chapter')report('Chapter imported and saved in this browser.');
    graph.fit();

@@ -282,12 +282,12 @@ export function validateProject(project, {allowDraft = false} = {}) {
         if (d) {
           if (['linear', 'fork', 'container'].includes(node.type) && !allowedCardKinds(node.type, p === node.intro ? 'intro': list(node.choices).includes(p) ? 'choices': list(node.items).includes(p) ? 'items': 'cards').includes(canonicalCardKind(d.kind))) add(errorMessage('VALIDATION_INCOMPATIBLE_CARD_KIND', {label}),
             cid, nid);
-          // Raw rule validation above reports malformed custom lists; do not try
-          // to spread an invalid collection override while collecting errors.
-          const collectionValid = !(canonicalCardKind(d.kind) === 'item' || isConsumableKind(d.kind)) || p.overrides?.onCollect === undefined
-            || Array.isArray(p.overrides.onCollect);
-          const effectsValid = p.overrides?.effects === undefined || Array.isArray(p.overrides.effects);
-          if (contextValid && collectionValid && effectsValid) inspectCard(resolvePlacement(project, p, index), label);
+          // Raw inspection above reports malformed mechanics. Resolve only when
+          // every source has list shapes, including overridden definition fields.
+          const mechanicsValid = [d, p, p.overrides].every(source => !object(source)
+            || ['conditions', 'effects', 'onCollect', 'successEffects', 'failureEffects', 'costs']
+              .every(key => source[key] === undefined || Array.isArray(source[key])));
+          if (contextValid && mechanicsValid) inspectCard(resolvePlacement(project, p, index), label);
         }
       }
       let targets = [];
@@ -327,6 +327,8 @@ export function validateProject(project, {allowDraft = false} = {}) {
           cid, nid);
         if (!validRef(raw.definitionId, definitions)) add(errorMessage('VALIDATION_UNKNOWN_LEGACY_DEFINITION', {label}), cid, nid);
         inspectCard(raw, label);
+        if (object(raw.overrides)) inspectCard(raw.overrides, label);
+        else if (raw.overrides !== undefined) add(errorMessage('VALIDATION_INVALID_LEGACY_PLACEMENT_MECHANICS', {label}), cid, nid);
         if (definitions.has(raw.definitionId)) {
           try {
             inspectCard(resolvePlacement(project, raw, index), label);

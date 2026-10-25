@@ -1,5 +1,7 @@
 # Nest audit — 25 October 2026
 
+Follow-up: [implemented fixes and verification](audit-fixes-2026-10-25.md). The findings below record the pre-fix audit state.
+
 Read-only review by GPT-6 Astra / medium. Scope is the current working tree, including preexisting uncommitted error-handling changes. No project source or original assets were changed. The lead independently verified the principal probes and owns final acceptance.
 
 ## Assessment

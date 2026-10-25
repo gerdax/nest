@@ -4,7 +4,7 @@ import { createDefinition, resolvePlacement, isStoryKind, isConsumableKind, plac
 import { chapterVariables,outputsForNode,connectionForOutput } from '../project/model.js';
 import { createNodeDefaults, nodeTypeLabel } from '../project/nodeTypes.js';
 import { definitionGraph } from '../project/dependencies.js';
-export const uid = prefix => `${prefix}-${crypto.randomUUID().slice(0,8)}`;
+export const uid = prefix => `${prefix}-${crypto.randomUUID()}`;
 export function addHealthVariable(project) {
  if(project.variables.some(variable=>variable.id==='health'))return false;
  project.variables.push({id:'health',name:'Health',type:'number',initial:10,min:0,max:10});

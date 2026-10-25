@@ -10,7 +10,7 @@ import { createStarterChapter, validateChapter, parseChapter, cloneChapter, upgr
 import { Preview } from './preview.js';
 import { saveChapter, loadChapter } from './storage.js';
 const $ = s => document.querySelector(s);
-const uid = prefix => `${prefix}-${crypto.randomUUID().slice(0,8)}`;
+const uid = prefix => `${prefix}-${crypto.randomUUID()}`;
 const loaded=loadChapter(); let doc=upgradeDecisionNodes(loaded.chapter || createStarterChapter());
 const history = new DocumentHistory(doc);
 let selected=doc.startNode,pending=null,view={x:60,y:60,z:1},previewStart;

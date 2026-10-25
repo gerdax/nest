@@ -168,7 +168,8 @@ export class ProjectController {
           if(node.type==='legacySequence')location.sequence=node.sequence;
           if(node.type==='legacyPool') {
             location.queue=selectPool(node.pool,node.count,this.rng);
-            location.sequence=node.sequences.find(s=>s.id===location.queue.shift());
+            const sequenceId=location.queue.shift();
+            location.sequence=node.sequences.find(s=>s.id===sequenceId);
             if(!location.sequence){pending.push({id:node.connections?.next,values,inventory,changed});continue;}
           }
           pending.push({location,values,inventory,changed});

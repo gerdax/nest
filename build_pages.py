@@ -40,6 +40,9 @@ RUNTIME_FILES = (
     "demo/InventoryStrip.js",
     "demo/inventory.css",
 )
+# Preserve this developer tool in source; no active host imports it.
+DEBUG_ONLY_FILES = frozenset({"studio/drawer-debug.js"})
+
 IMPORT_RE = re.compile(r"\b(?:from\s+|import\s+)['\"]([^'\"\r\n]+)['\"]")
 URL_RE = re.compile(r"url\(\s*(['\"]?)(.*?)\1\s*\)", re.IGNORECASE)
 ASSET_RE = re.compile(r"\b((?:assets/(?:img|fonts)/(?:[\w.-]+/)*)?[\w.-]+\.(?:png|ttf))")
@@ -90,7 +93,7 @@ def main() -> None:
         runtime_files.extend(source.relative_to(ROOT).as_posix() for source in sorted((ROOT / folder).rglob("*")) if source.is_file() and source.suffix in {".js", ".css"})
     runtime_files.append("editor.html")
     runtime_files.extend(source.relative_to(ROOT).as_posix() for source in sorted((ROOT / "editor").rglob("*")) if source.is_file() and source.suffix in {".js", ".css"})
-    runtime_files = list(dict.fromkeys(runtime_files))
+    runtime_files = [name for name in dict.fromkeys(runtime_files) if name not in DEBUG_ONLY_FILES]
     for relative in runtime_files:
         copy_repo_file(relative)
 

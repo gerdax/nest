@@ -1,4 +1,4 @@
-import { createError } from '../errors.js';
+import { createError, errorMessage } from '../errors.js';
 import { parseProject } from './model.js';
 export const STORAGE_KEY = 'nest.project.v2';
 export const LEGACY_STORAGE_KEY = 'nest.chapter.v1';
@@ -8,6 +8,22 @@ const message = error => error.message || String(error);
 // One exact, validated primary payload per adapter. Always reread storage before
 // using it: another tab, import, or adapter can replace the primary at any time.
 const validatedPrimary = new WeakMap();
+export const CONFLICT_STORAGE_KEY = 'nest.project.v2.conflict';
+const CONFLICT_NOTICE_KEY = 'nest.project.v2.conflict-notice';
+
+function preservePayload(store, text, prefix) {
+  let key = prefix, suffix = 1;
+  for (;;) {
+    const existing = store.getItem(key);
+    if (existing === text) return key;
+    if (existing === null) {
+      store.setItem(key, text);
+      if (store.getItem(key) !== text) throw createError('PROJECT_RECOVERY_BACKUP_COULD_NOT_BE_VERIFIED');
+      return key;
+    }
+    key = `${prefix}.${suffix++}`;
+  }
+}
 
 // Keep the exact damaged payload, including malformed JSON. Never replace an
 // older backup with a different payload, even after another damaged save.
@@ -27,11 +43,19 @@ function preserveDamagedSave(store, text) {
   if (store.getItem(RECOVERY_NOTICE_KEY) !== key) throw createError('PROJECT_RECOVERY_NOTICE_COULD_NOT_BE_VERIFIED');
   return key;
 }
-export function saveProject(project, storage) {
+export function saveProject(project, storage, options = {}) {
   try {
     const text = JSON.stringify(parseProject(JSON.stringify(project), {allowDraft:true}));
     const store = storage ?? globalThis.localStorage;
     const current = store.getItem(STORAGE_KEY);
+    if (Object.hasOwn(options, 'expectedPrimary') && current !== options.expectedPrimary) {
+      return {ok:false, conflict:true, primary:current, error:errorMessage('PROJECT_SAVE_CONFLICT')};
+    }
+    if (options.preservePrimary && current !== null && current !== text) {
+      const key = preservePayload(store, current, CONFLICT_STORAGE_KEY);
+      store.setItem(CONFLICT_NOTICE_KEY, key);
+      if (store.getItem(CONFLICT_NOTICE_KEY) !== key) throw createError('PROJECT_RECOVERY_NOTICE_COULD_NOT_BE_VERIFIED');
+    }
     if (current !== null && current !== validatedPrimary.get(store)) {
       try { parseProject(current, {allowDraft:true}); }
       catch {
@@ -39,12 +63,22 @@ export function saveProject(project, storage) {
         catch (error) { throw createError('PROJECT_DAMAGED_SAVE_NOT_REPLACED', { reason: message(error) }); }
       }
     }
-    store.setItem(STORAGE_KEY, text);
+    if (current !== text) store.setItem(STORAGE_KEY, text);
+    if (store.getItem(STORAGE_KEY) !== text) throw createError('PROJECT_SAVE_COULD_NOT_BE_VERIFIED');
     // Outgoing data was normalized and validated above. Failed writes never
     // populate this cache, and a different stored string is never trusted.
     validatedPrimary.set(store, text);
-    return {ok:true};
+    return options.includePrimary ? {ok:true, primary:text} : {ok:true};
   } catch (error) { return {ok:false,error:message(error)}; }
+}
+
+export function readConflictingSave(storage) {
+  try {
+    const store = storage ?? globalThis.localStorage;
+    const key = store.getItem(CONFLICT_NOTICE_KEY);
+    const text = key ? store.getItem(key) : null;
+    return {ok:true,text,key};
+  } catch (error) {return {ok:false,error:message(error)};}
 }
 export function loadProject(storage) {
   try {
@@ -56,16 +90,16 @@ export function loadProject(storage) {
       catch (error) {
         try {
           const backupKey = preserveDamagedSave(store, text);
-          return {project:null,error:message(error),recovery:{backupKey}};
+          return {project:null,sourceText:text,error:message(error),recovery:{backupKey}};
         } catch (backupError) {
-          return {project:null,error:message(error),recovery:{error:message(backupError)}};
+          return {project:null,sourceText:text,error:message(error),recovery:{error:message(backupError)}};
         }
       }
       const backupKey = store.getItem(RECOVERY_NOTICE_KEY);
-      return {project,...(backupKey ? {recovery:{backupKey}} : {})};
+      return {project,sourceText:text,...(backupKey ? {recovery:{backupKey}} : {})};
     }
     const old = store.getItem(LEGACY_STORAGE_KEY);
-    return {project:old === null ? null : parseProject(old, {allowDraft:true}),migrated:old !== null};
+    return {project:old === null ? null : parseProject(old, {allowDraft:true}),sourceText:null,migrated:old !== null};
   } catch (error) { return {project:null,error:message(error)}; }
 }
 

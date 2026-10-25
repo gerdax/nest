@@ -137,6 +137,7 @@ test('local item definitions use their owning chapter when the active chapter di
  assert.equal(item.onCollect[0].key,'own-item');
  applyDocumentCommand(project,selected,'inspector',{command:'add-rule',scope:'definition',path:'onCollect',ruleKind:'effects'});
  assert.equal(item.onCollect.length,2);
+ applyDocumentCommand(project,selected,'field',{scope:'definition',path:'onCollect.1.op',value:'set'});
  applyDocumentCommand(project,selected,'field',{scope:'definition',path:'onCollect.1.key',value:'chapter-flag'});
  assert.equal(item.onCollect[1].value,false,'local definition rules can use chapter variables');
 });

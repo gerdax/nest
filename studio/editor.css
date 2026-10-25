@@ -199,3 +199,7 @@ select {
 .item-effect-reference .item-reference {margin:6px 0 14px;}
 
 [data-rule-marker="T"] {color:#000;background:#dfcf78;font-weight:700;padding:0 2px;border-radius:2px;}
+/* Conflicts sit outside the graph and leave the current draft usable. */
+.save-conflict-panel{flex-shrink:0;padding:12px 18px;background:#342c18;color:#fff1c9;border-bottom:1px solid #a99254;display:grid;gap:8px}
+.save-conflict-panel[hidden]{display:none}
+.save-conflict-panel>div{display:flex;flex-wrap:wrap;gap:8px}

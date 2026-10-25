@@ -25,12 +25,12 @@ test('editor graph markers cover session effects and availability overrides, inc
  const linear=chapter.nodes.find(n=>n.type==='linear'&&n!==node);linear.unavailableActions='disabled';
  chapter.nodes.find(n=>n.type==='container').unavailableActions='hidden';
  const source=readFileSync(new URL('../studio/editor.js',import.meta.url),'utf8');
- const body=/function renderGraph\(\)\{([\s\S]*?)\n\}\nfunction renderProjectSettings/.exec(source)?.[1];
+ const body=/function renderGraph\(issues\)\{([\s\S]*?)\n\}\nfunction renderProjectSettings/.exec(source)?.[1];
  assert.ok(body,'editor renderGraph is available');
  let rendered;
  const graph={selectedIds:new Set(),render(){rendered=new Set(this.overrideNodeIds);}};
- const render=new Function('mode','graph','chapter','previewOverrides','project','selected','previewActiveNode','preview','updatePreviewHighlight','$','node','nodeClipboard','refreshNodeErrors',body);
- const run=()=>render('chapter',graph,()=>chapter,overrides,project,node.id,()=>null,null,()=>{},()=>({}),()=>node,null,()=>{});
+ const render=new Function('issues','mode','graph','chapter','previewOverrides','project','selected','previewActiveNode','preview','updatePreviewHighlight','$','node','nodeClipboard','refreshNodeErrors',body);
+ const run=()=>render(undefined,'chapter',graph,()=>chapter,overrides,project,node.id,()=>null,null,()=>{},()=>({}),()=>node,null,()=>{});
  run();assert.deepEqual(rendered,new Set([node.id,fork.id,linear.id]));
  project.ignoreAllOverrides=true;run();assert.deepEqual(rendered,new Set([node.id,fork.id,linear.id]));
  overrides.update(project,chapter,node,{command:'clear-overrides'});

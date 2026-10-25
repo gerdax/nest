@@ -77,7 +77,7 @@ test('removing or silently discarding the primary never makes a different string
   assert.equal(saveProject(project,storage).ok,true);
   storage.setItem=(key,value)=>{if(key!==STORAGE_KEY)write(key,value);};
   project.name='Silently discarded';
-  assert.equal(saveProject(project,storage).ok,true);
+  assert.match(saveProject(project,storage).error,/could not be verified/);
   storage.values.set(STORAGE_KEY,'{damage after discarded write');
   storage.setItem=write;
   assert.equal(saveProject(project,storage).ok,true);
