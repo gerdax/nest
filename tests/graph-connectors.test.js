@@ -42,9 +42,9 @@ class Root extends Element {
 }
 function setup(){
  const nodes=[{id:'a',name:'A',type:'linear',cards:[],x:0,y:0,connections:{next:'b'}},{id:'b',name:'B',type:'linear',cards:[],x:400,y:50,connections:{next:null}},{id:'c',name:'C',type:'linear',cards:[],x:600,y:150,connections:{next:null}}];
- const chapter={nodes,startNode:'a'},project={library:[],allowCycles:false},root=new Root(),calls=[],moves=[],selections=[],opened=[],deleted=[],creations=[],groups=[],groupMoves=[];
- const graph=new GraphView(root,{onSelectMany:ids=>groups.push(ids),onMoveMany:positions=>groupMoves.push(positions),onCreateConnected:request=>creations.push(request),onDelete:id=>deleted.push(id),onSelect:id=>selections.push(id),onOpenCard:(...args)=>opened.push(args),onConnect:(...args)=>calls.push(args),onMove:(...args)=>moves.push(args)});graph.render(project,chapter,'a','b');
- return {root,graph,chapter,calls,moves,selections,opened,deleted,creations,groups,groupMoves,port:()=>root.node('a').children[0]};
+ const chapter={nodes,startNode:'a'},project={library:[],allowCycles:false},root=new Root(),calls=[],moves=[],selections=[],opened=[],deleted=[],deletedGroups=[],creations=[],groups=[],groupMoves=[];
+ const graph=new GraphView(root,{onSelectMany:ids=>groups.push(ids),onMoveMany:positions=>groupMoves.push(positions),onCreateConnected:request=>creations.push(request),onDelete:id=>deleted.push(id),onDeleteMany:ids=>deletedGroups.push(ids),onSelect:id=>selections.push(id),onOpenCard:(...args)=>opened.push(args),onConnect:(...args)=>calls.push(args),onMove:(...args)=>moves.push(args)});graph.render(project,chapter,'a','b');
+ return {root,graph,chapter,calls,moves,selections,opened,deleted,deletedGroups,creations,groups,groupMoves,port:()=>root.node('a').children[0]};
 }
 function altHeaderDown(s,id='a',extra={}){
  const heading=new Element('node-heading',{},s.root.node(id));
@@ -558,12 +558,15 @@ for(const cancellation of ['Escape','pointercancel','lostpointercapture'])test(`
  s.graph.cancel();assert.deepEqual(s.groupMoves,[]);assert.equal(s.graph.position(s.chapter.nodes[0]).x,0);assert.equal(s.graph.position(s.chapter.nodes[0]).y,0);
 });
 
-test('a multi-selection cannot delete an arbitrary primary beat and clears on chapter change',()=>{
+test('Delete and Backspace dispatch a selected group once, and chapter changes clear the group',()=>{
+ for(const key of ['Delete','Backspace']){
  const s=setup();s.graph.selectedIds=new Set(['a','b']);
- s.root.handlers.keydown({key:'Delete',target:s.root,preventDefault(){assert.fail('no group delete');}});
- assert.deepEqual(s.deleted,[]);
+ let prevented=false;
+ s.root.handlers.keydown({key,target:s.root,preventDefault(){prevented=true;}});
+ assert.deepEqual(s.deleted,[]);assert.deepEqual(s.deletedGroups,[['a','b']]);assert.equal(prevented,true);assert.equal(s.root.focused,true);
  s.graph.render(s.graph.project,{...s.chapter,id:'another-chapter'},'a');
  assert.deepEqual([...s.graph.selectedIds],['a']);
+ }
 });
 
 test('canceling a modifier selection never swallows subsequent keyboard connector activation',()=>{

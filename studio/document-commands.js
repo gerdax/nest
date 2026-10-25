@@ -303,16 +303,22 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
       const added = duplicateNode(project, node); chapter.nodes.push(added);
       return {selection:{selected:added.id}};
     }
-    case 'delete-node': {
-      const definitions=placedLocalDefinitions(project,node);
-      chapter.nodes = chapter.nodes.filter(n => n.id !== node.id);
+    case 'delete-node':
+    case 'delete-nodes': {
+      const requested=type==='delete-node'?[node?.id]:data.ids;
+      if(!Array.isArray(requested)||!requested.length||requested.some(id=>!chapter?.nodes.some(candidate=>candidate.id===id))) {
+        throw createError('STUDIO_THE_SELECTED_BEAT_NO_LONGER_EXISTS');
+      }
+      const ids=new Set(requested);
+      const definitions=placedLocalDefinitions(project,chapter.nodes.filter(candidate=>ids.has(candidate.id)));
+      chapter.nodes = chapter.nodes.filter(candidate => !ids.has(candidate.id));
       removeUnplacedLocalDefinitions(project,definitions,localDrafts);
       for (const remaining of chapter.nodes) {
-        for (const key of Object.keys(remaining.connections || {})) if (remaining.connections[key] === node.id) remaining.connections[key] = false;
-        for (const route of remaining.routes || []) if (route.target === node.id) route.target = false;
-        if (remaining.fallback === node.id) remaining.fallback = false;
+        for (const key of Object.keys(remaining.connections || {})) if (ids.has(remaining.connections[key])) remaining.connections[key] = false;
+        for (const route of remaining.routes || []) if (ids.has(route.target)) route.target = false;
+        if (ids.has(remaining.fallback)) remaining.fallback = false;
       }
-      if (chapter.startNode === node.id) chapter.startNode = chapter.nodes[0]?.id || '';
+      if (ids.has(chapter.startNode)) chapter.startNode = chapter.nodes[0]?.id || '';
       return {selection:{selected:chapter.startNode}};
     }
     case 'set-start': chapter.startNode = node.id; break;

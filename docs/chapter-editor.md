@@ -120,3 +120,5 @@ To select several beats, hold Cmd (Ctrl on Windows/Linux) and drag a rectangle, 
 
 
 Graph gesture verification (25 October 2026): all 2,256 deterministic tests pass, including 88 graph-event tests. The isolated `tests/fixtures/graph-selection.html` was exercised with native in-app browser pointer gestures: click then held-second-press drag selected A/B without panning or editing; header drag moved both in one edit; ordinary drag preserved selection while panning; blank click cleared selection without adding an edit. The actual studio also retained empty selection across Library/Chapter switches with beat-specific tools disabled. The fixture reported no console warnings/errors. Static staging and `git diff --check` pass. Physical touch and platform-specific double-click-speed settings were not verified.
+
+With multiple beats selected, Delete or Backspace removes the group in one undoable edit. Incoming connections to removed beats become unlinked. If the start beat is removed, the first remaining beat becomes the start.

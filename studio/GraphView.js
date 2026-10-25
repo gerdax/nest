@@ -13,7 +13,7 @@ import { cardRuleIndicators } from './card-rule-indicators.js';
 
 /** Canvas interaction owns selection/pan, and emits completed document edits. */
 export class GraphView {
- constructor(root,{onSelect,onConnect,onMove,onDuplicate=()=>{},onSelectMany=()=>{},onMoveMany=()=>{},onOpenCard=()=>{},onTransferCard=()=>{},onRemoveCard=()=>{},onDelete=()=>{},onCreateConnected=()=>{},onCancelCreate=()=>{}}) {
+ constructor(root,{onSelect,onConnect,onMove,onDuplicate=()=>{},onSelectMany=()=>{},onMoveMany=()=>{},onOpenCard=()=>{},onTransferCard=()=>{},onRemoveCard=()=>{},onDelete=()=>{},onDeleteMany=()=>{},onCreateConnected=()=>{},onCancelCreate=()=>{}}) {
   this.onDuplicate=onDuplicate;this.overrideNodeIds=new Set();this.nodeErrors=new Map();
   this.selectedIds=new Set();this.onSelectMany=onSelectMany;this.onMoveMany=onMoveMany;
   this.onCreateConnected=onCreateConnected;this.onCancelCreate=onCancelCreate;this.creation=null;
@@ -30,8 +30,10 @@ export class GraphView {
    if(e.key==='Escape')this.cancel();
    if(!['Delete','Backspace'].includes(e.key)||e.defaultPrevented||e.repeat||e.isComposing||e.ctrlKey||e.metaKey||e.altKey||e.shiftKey||this.drag)return;
    if(e.target?.closest('input,textarea,select,[contenteditable]:not([contenteditable="false"]),[role="textbox"]'))return;
-   if(this.selectedIds.size>1||!this.nodesById?.has(this.selected))return;
-   e.preventDefault();onDelete(this.selected);
+   if(!this.nodesById?.has(this.selected))return;
+   const ids=[...this.selectedIds].filter(id=>this.nodesById.has(id));
+   e.preventDefault();
+   if(ids.length>1)onDeleteMany(ids);else onDelete(this.selected);
    // Deletion redraws node buttons; keep subsequent keyboard input on the graph.
    root.focus({preventScroll:true});
   });

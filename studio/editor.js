@@ -80,6 +80,7 @@ const graph=new GraphView($('#canvas'),{
  onTransferCard:data=>{preview.stop();edit('transfer-card',data);},
  onRemoveCard:data=>{preview.stop();edit('discard-card',data);},
  onDelete:()=>{if(mode==='chapter'&&node())edit('delete-node');},
+ onDeleteMany:ids=>{if(mode==='chapter'){preview.stop();edit('delete-nodes',{ids});}},
 });
 const projectSettingsWindow=mountProjectSettingsWindow($('#project-settings-overlay'),{trigger:$('#project-settings-toggle'),preview:$('#preview-window'),onOpen:()=>graph.cancel()});
 let conflictPanel;

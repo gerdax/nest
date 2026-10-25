@@ -182,3 +182,51 @@ test('moving multiple beats is one atomic undo step and invalid batches leave no
  assert.match(state.run('move-nodes',{positions:[positions[0],{id:'missing',x:0,y:0}]}).failure,/no longer be moved/);
  assert.deepEqual(state.history.document,current);
 });
+
+
+test('group deletion removes incoming links, repairs the start and supports one undo/redo',()=>{
+  const project=createProject(),chapter=project.chapters[0];
+  const ids=chapter.nodes.filter(node=>node.type!=='random').slice(0,2).map(node=>node.id);
+  const random=chapter.nodes.find(node=>node.type==='random');
+  random.routes[0].target=ids[0];random.fallback=ids[1];
+  const survivor=chapter.nodes.find(node=>!ids.includes(node.id)&&node.type==='linear');
+  survivor.connections.next=ids[1];
+  const state=session(project),outcome=state.run('delete-nodes',{ids});
+  assert.equal(outcome.failure,undefined);
+  const remaining=outcome.project.chapters[0];
+  assert.equal(remaining.nodes.length,chapter.nodes.length-2);
+  assert.ok(remaining.nodes.every(node=>!ids.includes(node.id)));
+  assert.equal(remaining.startNode,remaining.nodes[0].id);
+  assert.equal(outcome.result.selection.selected,remaining.startNode);
+  assert.equal(remaining.nodes.find(node=>node.id===random.id).routes[0].target,false);
+  assert.equal(remaining.nodes.find(node=>node.id===random.id).fallback,false);
+  assert.equal(remaining.nodes.find(node=>node.id===survivor.id).connections.next,false);
+  const deleted=structuredClone(state.history.document);
+  state.history.undo();assert.deepEqual(state.history.document,project);
+  state.history.redo();assert.deepEqual(state.history.document,deleted);
+});
+
+test('deleting every beat leaves an empty draft chapter and undo restores it',()=>{
+  const project=createProject(),state=session(project);
+  const outcome=state.run('delete-nodes',{ids:project.chapters[0].nodes.map(node=>node.id)});
+  assert.equal(outcome.failure,undefined);
+  assert.deepEqual(outcome.project.chapters[0].nodes,[]);
+  assert.equal(outcome.project.chapters[0].startNode,'');
+  state.history.undo();assert.deepEqual(state.history.document,project);
+});
+
+test('group deletion validates the whole batch before changing the document',()=>{
+  for(const ids of [undefined,[],['arrival','missing']]){
+    const project=createProject(),before=structuredClone(project);
+    assert.throws(()=>applyDocumentCommand(project,{chapterId:project.activeChapterId,selected:'arrival'},'delete-nodes',{ids}));
+    assert.deepEqual(project,before);
+  }
+});
+
+test('group deletion keeps the surviving start and tolerates repeated IDs',()=>{
+  const project=createProject(),chapter=project.chapters[0],id=chapter.nodes[1].id,state=session(project);
+  const outcome=state.run('delete-nodes',{ids:[id,id]});
+  assert.equal(outcome.failure,undefined);
+  assert.equal(outcome.project.chapters[0].nodes.length,chapter.nodes.length-1);
+  assert.equal(outcome.project.chapters[0].startNode,chapter.startNode);
+});
