@@ -1,3 +1,4 @@
+import { errorMessage } from '../errors.js';
 import { sortedChapters, startChapter } from '../project/chapter-navigation.js';
 import { ProjectPreview } from './ProjectPreview.js';
 import { createProject, parseProject } from '../project/model.js';
@@ -27,7 +28,7 @@ selector.addEventListener('change',play);
 document.querySelector('#play').addEventListener('click',play);
 document.querySelector('#restart').addEventListener('click',()=>{preview.restart();tools.open=false;document.querySelector('#stop').disabled=false;report('Chapter restarted.');});
 document.querySelector('#stop').addEventListener('click',()=>{preview.stop();document.querySelector('#stop').disabled=true;report('Stopped. Play or restart to begin again.');});
-document.querySelector('#import').addEventListener('change',async event=>{const file=event.target.files[0];if(!file)return;try{const imported=parseProject(await file.text());project=imported;listChapters();if(play())report(`Opened ${file.name}.`);}catch(error){report(`Could not open project or chapter: ${error.message}`,true);}event.target.value='';});
+document.querySelector('#import').addEventListener('change',async event=>{const file=event.target.files[0];if(!file)return;try{const imported=parseProject(await file.text());project=imported;listChapters();if(play())report(`Opened ${file.name}.`);}catch(error){report(errorMessage('STUDIO_COULD_NOT_OPEN_PROJECT_OR_CHAPTER', {message: error.message}),true);}event.target.value='';});
 listChapters();play();
 let requestedPanel=null;
 if(location.hash==='#dev-mode')requestedPanel=document.querySelector('#dev-mode');
@@ -35,5 +36,5 @@ else if(location.hash==='#performance-mode'||new URLSearchParams(location.search
 if(requestedPanel){
   tools.open=true;requestedPanel.open=true;requestedPanel.querySelector('summary').focus();
 }
-if(stored.error)report(`Saved project could not be loaded. ${stored.error}`,true);
+if(stored.error)report(errorMessage('STUDIO_SAVED_PROJECT_COULD_NOT_BE_LOADED', {message: stored.error}),true);
 window.addEventListener('pagehide',event=>{if(event.persisted)return;stopPerformanceTuning();preview.destroy();});

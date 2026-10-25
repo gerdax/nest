@@ -1,6 +1,7 @@
-import { chapterVariables, compileChapter } from '../project/model.js';
+import { createError } from '../errors.js';
+import { compileChapter } from '../project/model.js';
 import { initialValues, inventoryQuantity, transact } from '../project/state.js';
-import { normalizeRule } from './commands.js';
+import { newRule, normalizeRule } from './commands.js';
 import { remapVariableReferences } from './variable-ids.js';
 import { eligibleInventoryItems } from './item-options.js';
 
@@ -15,7 +16,7 @@ export class PreviewOverrides {
   return Object.fromEntries(chapter.nodes.flatMap(node=>{
    const effects=this.effects(project,chapter,node);
    for(const effect of effects)if(['addItem','removeItem'].includes(effect.op)&&!items.some(item=>item.id===effect.key))
-    throw new Error('Override item is unavailable in this chapter.');
+    throw createError('STUDIO_OVERRIDE_ITEM_IS_UNAVAILABLE_IN_THIS_CHAPTER');
    return effects.length?[[node.id,effects]]:[];
   }));
  }
@@ -31,12 +32,11 @@ export class PreviewOverrides {
   const effects=this.effects(project,chapter,node);
   if(command==='clear-overrides')effects.length=0;
   else if(command==='add-rule') {
-   const variable=chapterVariables(project,chapter)[0];
-   effects.push({op:'set',key:variable?.id||'',value:variable?.initial??0});
+   effects.push(newRule(project,'effects',chapter));
   } else if(command==='remove-rule')effects.splice(Number(index),1);
   else {
    const match=/^effects\.(\d+)\.(op|key|value)$/.exec(path||'');
-   if(!match||!effects[Number(match[1])])throw new Error('Unknown preview override.');
+   if(!match||!effects[Number(match[1])])throw createError('STUDIO_UNKNOWN_PREVIEW_OVERRIDE');
    const rule=effects[Number(match[1])],leaf=match[2];
    rule[leaf]=inputType==='number'?Number(value):leaf==='value'&&['true','false'].includes(value)?value==='true':value;
    if(['op','key'].includes(leaf))normalizeRule(project,rule,leaf,chapter);
@@ -52,7 +52,7 @@ export class PreviewOverrides {
   let state={variables:initialValues(compiled.variables),inventory:[]};
   for(const effect of effects) {
    if(['addItem','removeItem'].includes(effect.op)) {
-    if(!items.some(item=>item.id===effect.key))throw new Error('Override item is unavailable in this chapter.');
+    if(!items.some(item=>item.id===effect.key))throw createError('STUDIO_OVERRIDE_ITEM_IS_UNAVAILABLE_IN_THIS_CHAPTER');
     if(effect.op==='removeItem'&&!inventoryQuantity(state.inventory,effect.key))continue;
    }
    state=transact(state.variables,state.inventory,{effects:[effect]},compiled.variables,compiled.library);

@@ -1,3 +1,4 @@
+import { createError } from '../errors.js';
 // Revisions live only for this page session; authored paths remain unchanged.
 const revisions = new Map();
 let sequence = 0;
@@ -29,7 +30,7 @@ function preload(url, ImageConstructor) {
         resolve();
       } catch (error) { reject(error); }
     };
-    image.onerror = () => reject(new Error('The image could not be loaded.'));
+    image.onerror = () => reject(createError('ARTWORK_THE_IMAGE_COULD_NOT_BE_LOADED'));
     image.src = url;
   });
 }
@@ -38,10 +39,10 @@ function preload(url, ImageConstructor) {
 export async function reloadArtwork(image, { root = globalThis.document } = {}) {
   const doc = root?.ownerDocument ?? root;
   const source = normalizedUrl(image, doc?.baseURI);
-  if (!source) throw new Error(`Cannot reload artwork: invalid image path ${JSON.stringify(image)}.`);
+  if (!source) throw createError('ARTWORK_INVALID_IMAGE_PATH', { image });
   if (!['http:', 'https:', 'file:'].includes(new URL(source).protocol)) return artworkUrl(image, doc?.baseURI);
   const ImageConstructor = doc?.defaultView?.Image ?? globalThis.Image;
-  if (!ImageConstructor) throw new Error('Cannot reload artwork: image loading is unavailable.');
+  if (!ImageConstructor) throw createError('ARTWORK_CANNOT_RELOAD_ARTWORK_IMAGE_LOADING_IS_UNAVAILABLE');
   const revision = revisions.get(source) ?? {};
   revisions.set(source, revision);
   const request = ++sequence;
@@ -52,7 +53,7 @@ export async function reloadArtwork(image, { root = globalThis.document } = {}) 
   const hash = hashAt < 0 ? '' : source.slice(hashAt);
   const url = `${path}${path.includes('?') ? '&' : '?'}nest-artwork-reload=${Date.now()}-${request}${hash}`;
   try { await preload(url, ImageConstructor); }
-  catch (error) { throw new Error(`Could not reload artwork ${JSON.stringify(image)}. The previous image is still in use.`, { cause: error }); }
+  catch (error) { throw createError('ARTWORK_RELOAD_FAILED', { image }, { cause: error }); }
   // A slower request must never overwrite a more recent request for this source.
   if (revision.request !== request) return revision.url ?? image;
   revision.url = url;

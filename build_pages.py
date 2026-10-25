@@ -15,6 +15,7 @@ from image_catalog import image_files, image_manifest_bytes
 ROOT = Path(__file__).resolve().parent
 RUNTIME_FILES = (
     "index.html",
+    "errors.js",
     "player.html",
     "editor/preview.js",
     "editor/storage.js",

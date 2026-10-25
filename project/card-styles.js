@@ -1,3 +1,4 @@
+import { createError } from '../errors.js';
 export const defaultCardStyles = Object.freeze({ small: 10, big: 21, medium: 15 });
 export const defaultCardColors = Object.freeze({ small: '#a9bb86', big: '#d2dfb6', medium: '#d2dfb6' });
 const properties = { small: '--card-small-size', big: '--card-font-size', medium: '--card-medium-size' };
@@ -8,9 +9,9 @@ export function isCardColor(value) {
 }
 
 export function parseCardColor(value) {
-  if (typeof value !== 'string') throw new TypeError('Invalid card text color.');
+  if (typeof value !== 'string') throw createError('PROJECT_INVALID_CARD_TEXT_COLOR');
   const color = `#${value.trim().replace(/^#/, '')}`;
-  if (!isCardColor(color)) throw new TypeError('Invalid card text color.');
+  if (!isCardColor(color)) throw createError('PROJECT_INVALID_CARD_TEXT_COLOR');
   const hex = color.slice(1);
   return `#${(hex.length === 3 ? [...hex].map(char => char + char).join('') : hex).toUpperCase()}`;
 }

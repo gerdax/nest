@@ -1,3 +1,4 @@
+import { createError, errorMessage } from '../errors.js';
 const supportedImage = /\.(?:png|jpe?g|webp|gif|svg)$/i;
 
 /** Exact filename matches; paths are relative to assets/img, never local disk paths. */
@@ -21,9 +22,9 @@ export function bindImagePicker(root, { onSelect, onError = () => {} }) {
   async function catalog() {
     // Files can be added or removed while the editor remains open.
     const response = await fetch(new URL('./assets/image-manifest.json', doc.baseURI), { cache: 'no-store' });
-    if (!response.ok) throw new Error('Could not load the project image catalog.');
+    if (!response.ok) throw createError('STUDIO_COULD_NOT_LOAD_THE_PROJECT_IMAGE_CATALOG');
     const value = await response.json();
-    if (value?.version !== 1 || !Array.isArray(value.images)) throw new Error('The project image catalog is invalid.');
+    if (value?.version !== 1 || !Array.isArray(value.images)) throw createError('STUDIO_THE_PROJECT_IMAGE_CATALOG_IS_INVALID');
     return value;
   }
   function feedback(button, message) {
@@ -82,7 +83,7 @@ export function bindImagePicker(root, { onSelect, onError = () => {} }) {
           }
         }
       } catch (error) {
-        if (!disposed && root.contains(button) && pending.get(button) === token) fail(button, error.message || 'Could not select the project image.');
+        if (!disposed && root.contains(button) && pending.get(button) === token) fail(button, error.message || errorMessage('STUDIO_COULD_NOT_SELECT_THE_PROJECT_IMAGE'));
       }
     }, { once: true });
     input.click();

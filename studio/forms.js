@@ -38,7 +38,7 @@ export function rules(project,list=[],path,scope,kind,{label,help,chapter,footer
    fields=select('Spend',rule.source,[['variable','Resource'],['inventory','Item']],`${p}.source`,scope)+select('Resource or item',rule.key,rule.source==='inventory'?items:resources,`${p}.key`,scope)+(rule.source==='inventory'?'<p class="small">Consumes this item.</p>':field('Amount',rule.amount,`${p}.amount`,scope,'number'));
   } else {
    const inventory=['addItem','removeItem'].includes(rule.op);
-   fields=select('Operation',rule.op,[['set','Set variable'],['add','Add to variable'],['addItem','Add item'],['removeItem','Remove item']],`${p}.op`,scope)+select('Target',rule.key,inventory?items:vars,`${p}.key`,scope);
+   fields=select('Operation',rule.op,[['addItem','Add item'],['add','Add to variable'],['removeItem','Remove item'],['set','Set variable']],`${p}.op`,scope)+select('Target',rule.key,inventory?items:vars,`${p}.key`,scope);
    const target=inventory&&eligibleInventoryItems(project,chapter).find(item=>item.id===rule.key);
    if(inventory&&rule.key&&!target)fields+=`<p class="small">Choose ${chapter?'an item from this chapter or the shared Library':'a shared Library item'}. This saved target is unavailable for item effects.</p>`;
    const flag=project.variables.find(v=>v.id===rule.key)?.type==='flag';

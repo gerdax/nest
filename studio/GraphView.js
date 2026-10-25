@@ -14,7 +14,7 @@ import { cardRuleIndicators } from './card-rule-indicators.js';
 /** Canvas interaction owns selection/pan, and emits completed document edits. */
 export class GraphView {
  constructor(root,{onSelect,onConnect,onMove,onDuplicate=()=>{},onSelectMany=()=>{},onMoveMany=()=>{},onOpenCard=()=>{},onTransferCard=()=>{},onRemoveCard=()=>{},onDelete=()=>{},onCreateConnected=()=>{},onCancelCreate=()=>{}}) {
-  this.onDuplicate=onDuplicate;this.overrideNodeIds=new Set();
+  this.onDuplicate=onDuplicate;this.overrideNodeIds=new Set();this.nodeErrors=new Map();
   this.selectedIds=new Set();this.onSelectMany=onSelectMany;this.onMoveMany=onMoveMany;
   this.onCreateConnected=onCreateConnected;this.onCancelCreate=onCancelCreate;this.creation=null;
   this.root=root;this.onSelect=onSelect;this.onConnect=onConnect;this.onMove=onMove;this.onOpenCard=onOpenCard;this.lastPortClick=null;
@@ -68,6 +68,7 @@ export class GraphView {
   if(this.pending&&!chapter.nodes.some(n=>n.id===this.pending.nodeId&&outputsForNode(project,n,this.libraryIndex).includes(this.pending.exit)))this.pending=null;
   this.root.querySelector('#nodes').innerHTML=chapter.nodes.map(n=>`<article class="node ${n.type} ${this.selectedIds.has(n.id)?'selected':''} ${n.id===active?'active':''}" data-id="${esc(n.id)}" style="left:${this.position(n).x}px;top:${this.position(n).y}px"><div class="node-heading">${nodeIcon(n.type)}<span class="badge">${n.id===chapter.startNode?'<span class="graph-start-label">START</span> · ':''}${esc(n.name?.trim()||nodeTypeLabel(n.type))}</span>${this.overrideMarker(n.id)}</div>${n.type==='random'?`<div class="node-body">${n.routes.length} ${n.routes.length===1?'route':'routes'}</div>`:n.type.startsWith('legacy')?'<div class="node-body">Preserved legacy behaviour</div>':''}${this.cardRows(n)}</article>`).join('');
   this.nodeElements=new Map([...this.root.querySelectorAll('.node')].map(el=>[el.dataset.id,el]));
+  this.setNodeErrors(this.nodeErrors);
   this.portElements=new Map([...this.nodeElements].map(([id,el])=>[id,new Map([...el.querySelectorAll('.port')].map(port=>[port.dataset.exit,port]))]));
   this.setActiveCard(this.activeCard);
   this.transform();this.edges();
@@ -86,6 +87,23 @@ export class GraphView {
   this.active=active;
   this.nodeElements?.get(previous)?.classList.toggle('active',false);
   this.nodeElements?.get(active)?.classList.toggle('active',true);
+ }
+ // Validation and playback update errors without disturbing focus or gestures.
+ // The caller supplies only errors belonging to the displayed chapter.
+ setNodeErrors(errors) {
+  this.nodeErrors=new Map([...errors].map(([id,messages])=>[id,[...messages]]));
+  for(const [id,element] of this.nodeElements||[]){
+   const message=(this.nodeErrors.get(id)||[]).join('\n');
+   element.classList.toggle('has-error',!!message);
+   if(message){
+    element.setAttribute('aria-invalid','true');
+    element.setAttribute('aria-description',message);
+    element.setAttribute('data-error-message',message);
+    element.setAttribute('title',message);
+   }else{
+    for(const name of ['aria-invalid','aria-description','data-error-message','title'])element.removeAttribute(name);
+   }
+  }
  }
  // Match authored placements, so equal names and shared definitions stay distinct.
  setActiveCard(target) {

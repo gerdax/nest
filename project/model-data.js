@@ -1,3 +1,4 @@
+import { createError } from '../errors.js';
 import { createDefinition } from './cards.js';
 import { defaultStats } from './checks.js';
 
@@ -88,12 +89,12 @@ export function definitionUsers(project, id) {
 }
 export function createVariant(project, placement, newId, {chapterId, nodeId} = {}) {
   const next = cloneProject(project), d = next.library.find(d => d.id === placement.definitionId);
-  if (!d) throw new TypeError('Unknown definition.');
-  if (!named(newId) || next.library.some(d => d.id === newId)) throw new TypeError('Invalid or duplicate definition ID.');
+  if (!d) throw createError('PROJECT_UNKNOWN_DEFINITION');
+  if (!named(newId) || next.library.some(d => d.id === newId)) throw createError('PROJECT_INVALID_OR_DUPLICATE_DEFINITION_ID');
   const matches = definitionUsers(project, placement.definitionId).filter(u => u.placement.id === placement.id
     && (!chapterId || u.chapterId === chapterId) && (!nodeId || u.nodeId === nodeId));
   const exact = matches.find(u => u.placement === placement), target = exact || (matches.length === 1 ? matches[0] : null);
-  if (!target) throw new TypeError('Placement must identify one location.');
+  if (!target) throw createError('PROJECT_PLACEMENT_MUST_IDENTIFY_ONE_LOCATION');
   next.library.push({...cloneProject(d), id: newId, name: `${d.name} variant`});
   const node = next.chapters.find(c => c.id === target.chapterId).nodes.find(n => n.id === target.nodeId);
   const bound = [...placements(node), ...legacyArtwork(node)].find(p => p.id === placement.id && p.definitionId === placement.definitionId);

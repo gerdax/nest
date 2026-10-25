@@ -1,3 +1,4 @@
+import { createError } from '../errors.js';
 /** Node authoring metadata; callbacks keep this module independent of cards and model. */
 const storyKinds = Object.freeze(['event', 'caption']);
 const linearKinds = Object.freeze(['event', 'caption', 'action', 'item', 'health', 'energy']);
@@ -40,7 +41,7 @@ export const nodeTypeLabel = type => nodeTypeDescriptor(type)?.label || type;
 export const nodeOutputs = (node,resolve) => (nodeTypeDescriptor(node.type)?.outputs || nextOutput)(node,resolve);
 export function createNodeDefaults(type,callbacks) {
  const descriptor=nodeTypeDescriptor(type);
- if(!descriptor?.create)throw new TypeError('Unknown authoring node type.');
+ if(!descriptor?.create)throw createError('PROJECT_UNKNOWN_AUTHORING_NODE_TYPE');
  return descriptor.create(callbacks);
 }
 export function nodeSlotCardKinds(type,slot) {

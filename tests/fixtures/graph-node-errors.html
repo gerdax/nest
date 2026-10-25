@@ -1,0 +1,19 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Node error outline verification</title>
+<link rel="stylesheet" href="../../editor/editor.css"><link rel="stylesheet" href="../../studio/editor.css"><link rel="stylesheet" href="../../studio/graph-connectors.css">
+<style>body{display:block}header{padding:16px}#canvas{height:650px;width:100%}#result{display:block;padding:16px}</style>
+<header><strong>Node errors</strong><button id="fix">Fix route</button><button id="break">Break route</button></header>
+<p>The selected and playing beat has a missing target. Fix route clears its red outline while preserving the selection and playback glow.</p>
+<div id="canvas" tabindex="0" aria-label="Chapter graph"></div><output id="result"></output>
+<script type="module">
+import {GraphView} from '../../studio/GraphView.js';
+import {NodeErrors} from '../../studio/node-errors.js';
+import {createProject,validateProject} from '../../project/model.js';
+const project=createProject(),chapter=project.chapters[0],node=chapter.nodes.find(n=>n.type==='linear')??chapter.nodes[0];
+chapter.nodes=[node];chapter.startNode=node.id;node.name='Broken route';node.x=180;node.y=90;
+const output=Object.keys(node.connections)[0];node.connections[output]='missing-target';
+const errors=new NodeErrors(),graph=new GraphView(document.querySelector('#canvas'),{onSelect:()=>{},onConnect:()=>{},onMove:()=>{}});
+function render(){const issues=validateProject(project);graph.setNodeErrors(errors.forChapter(project,chapter,issues));graph.render(project,chapter,node.id,node.id);document.querySelector('#result').textContent=issues.filter(issue=>issue.nodeId===node.id).map(issue=>issue.message).join('\n')||'No errors on this beat.';}
+document.querySelector('#fix').onclick=()=>{node.connections[output]=null;render();};
+document.querySelector('#break').onclick=()=>{node.connections[output]='missing-target';render();};render();
+</script></html>

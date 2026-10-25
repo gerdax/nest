@@ -196,7 +196,6 @@ select {
 
 .check-settings > h3 {position:relative;top:-10px;}
 
-.item-effect-reference .item-reference {flex-direction:column;align-items:flex-end;gap:8px;margin:6px 0 14px;}
-.item-effect-reference .item-reference-location {flex:none;}
+.item-effect-reference .item-reference {margin:6px 0 14px;}
 
 [data-rule-marker="T"] {color:#000;background:#dfcf78;font-weight:700;padding:0 2px;border-radius:2px;}

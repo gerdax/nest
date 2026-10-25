@@ -1,3 +1,4 @@
+import { createError } from '../errors.js';
 import { isTagKey, tagIdFromKey } from './item-tags.js';
 import { isStatVariable } from './checks.js';
 /** Pure, atomic run-state operations. Inventory entries represent unique ownership. */
@@ -5,9 +6,9 @@ export function initialValues(definitions = []) {
   return Object.fromEntries(definitions.map(d => [d.id, clamp(d.initial, d)]));
 }
 function clamp(value, definition) {
-  if (isStatVariable(definition) && !Number.isInteger(value)) throw new TypeError('Stat values must be integers.');
+  if (isStatVariable(definition) && !Number.isInteger(value)) throw createError('STATE_STAT_VALUES_MUST_BE_INTEGERS');
   if (typeof value === 'number') {
-    if (!Number.isFinite(value)) throw new RangeError('Variable overflow');
+    if (!Number.isFinite(value)) throw createError('STATE_VARIABLE_OVERFLOW');
     return Math.min(definition?.max ?? Infinity, Math.max(definition?.min ?? -Infinity, value));
   }
   return value;
@@ -55,8 +56,8 @@ export function conditionsMet(conditions = [], values = {}, inventory = []) {
   });
 }
 function remove(inventory,key) {
-  if (isTagKey(key) && !inventory.some(item => concreteMatch(item,key))) throw new TypeError('Inventory costs and effects require a concrete item.');
-  if (!inventoryQuantity(inventory,key)) throw new RangeError(`Insufficient item: ${key}`);
+  if (isTagKey(key) && !inventory.some(item => concreteMatch(item,key))) throw createError('STATE_INVENTORY_COSTS_AND_EFFECTS_REQUIRE_A_CONCRETE_ITEM');
+  if (!inventoryQuantity(inventory,key)) throw createError('STATE_INSUFFICIENT_ITEM', { key });
   return inventory.filter(item => !concreteMatch(item,key));
 }
 function spend(values,inventory,costs,definitions = []) {
@@ -64,9 +65,9 @@ function spend(values,inventory,costs,definitions = []) {
   for (const cost of costs) {
     if (cost.source === 'inventory') inventory = remove(inventory,cost.key);
     else {
-      if (!Number.isFinite(cost.amount) || cost.amount < 0) throw new TypeError('Invalid cost');
-      if (typeof values[cost.key] !== 'number' || values[cost.key]-cost.amount < (defs.get(cost.key)?.min ?? 0)) throw new RangeError(`Insufficient variable: ${cost.key}`);
-      if (isStatVariable(defs.get(cost.key)) && !Number.isInteger(cost.amount)) throw new TypeError('Stat costs must be integers.');
+      if (!Number.isFinite(cost.amount) || cost.amount < 0) throw createError('STATE_INVALID_COST');
+      if (typeof values[cost.key] !== 'number' || values[cost.key]-cost.amount < (defs.get(cost.key)?.min ?? 0)) throw createError('STATE_INSUFFICIENT_VARIABLE', { key: cost.key });
+      if (isStatVariable(defs.get(cost.key)) && !Number.isInteger(cost.amount)) throw createError('STATE_STAT_COSTS_MUST_BE_INTEGERS');
       values[cost.key] -= cost.amount;
     }
   }
@@ -85,12 +86,12 @@ function ownedInventory(inventory) {
   }, []);
 }
 export function addInventory(inventory, definition) {
-  if (!definition) throw new TypeError('Invalid item definition');
+  if (!definition) throw createError('STATE_INVALID_ITEM_DEFINITION');
   const id = definition.definitionId ?? definition.id;
   const permability = definition.permability ?? 0;
-  if (!Number.isSafeInteger(permability) || permability < 0) throw new TypeError('Invalid item permability');
+  if (!Number.isSafeInteger(permability) || permability < 0) throw createError('STATE_INVALID_ITEM_PERMABILITY');
   const {remainingTriggers = permability, ...content} = definition;
-  if (permability > 0 && (!Number.isSafeInteger(remainingTriggers) || remainingTriggers < 1 || remainingTriggers > permability)) throw new TypeError('Invalid remaining item triggers');
+  if (permability > 0 && (!Number.isSafeInteger(remainingTriggers) || remainingTriggers < 1 || remainingTriggers > permability)) throw createError('STATE_INVALID_REMAINING_ITEM_TRIGGERS');
   return ownedInventory([...inventory,{...content,id,definitionId:id,inventoryKey:definition.inventoryKey ?? id,
     ...(permability > 0 ? {remainingTriggers} : {})}]);
 }
@@ -98,7 +99,7 @@ export function transact(values, inventory = [], { costs = [], effects = [], tri
   const variables = {...values};
   let items = ownedInventory(inventory);
   const triggeringItem = selectTriggerItem(items,triggerItem);
-  if (triggerItem && !triggeringItem) throw new RangeError(`Unavailable inventory trigger: ${triggerItem}`);
+  if (triggerItem && !triggeringItem) throw createError('STATE_UNAVAILABLE_INVENTORY_TRIGGER', { triggerItem });
   items = spend(variables,items,costs,definitions);
   let originalTriggerOwned = triggeringItem && items.includes(triggeringItem);
   const defs = new Map(definitions.map(d=>[d.id,d]));
@@ -116,11 +117,11 @@ export function transact(values, inventory = [], { costs = [], effects = [], tri
       if (selectedIndex >= 0) items[selectedIndex] = triggeringItem;
       continue;
     }
-    if (!Object.hasOwn(variables,effect.key) || !['set','add'].includes(effect.op)) throw new TypeError(`Unknown variable or effect: ${effect.key}`);
+    if (!Object.hasOwn(variables,effect.key) || !['set','add'].includes(effect.op)) throw createError('STATE_UNKNOWN_VARIABLE_OR_EFFECT', { key: effect.key });
     const value = effect.op === 'add' ? variables[effect.key]+effect.value : effect.value;
     const def = defs.get(effect.key);
     const expected = def?.type === 'flag' ? 'boolean' : def?.type === 'number' ? 'number' : typeof variables[effect.key];
-    if (typeof value !== expected || (effect.op === 'add' && expected !== 'number')) throw new TypeError(`Invalid variable type: ${effect.key}`);
+    if (typeof value !== expected || (effect.op === 'add' && expected !== 'number')) throw createError('STATE_INVALID_VARIABLE_TYPE', { key: effect.key });
     variables[effect.key] = clamp(value,def);
   }
   // Explicit removal already spends ownership. A later grant is a fresh item.

@@ -1,18 +1,19 @@
+import { createError, errorMessage } from '../errors.js';
 import { isTagKey, itemTag, itemTagLabel } from './item-tags.js';
 import { editorCheckSummary, isStatVariable } from './checks.js';
 import { nodeSlotCardKinds } from './nodeTypes.js';
 /** The library stores content; placements store chapter-specific behavior. */
 export const cardKinds = Object.freeze({
-  event: { label: 'Vignette', editorTint: '#96f7a7', validate: card => typeof card.text === 'string' ? [] : ['Vignette text must be a string.'] },
-  caption: { label: 'Caption', editorTint: '#e4ffeb', validate: card => typeof card.text === 'string' ? [] : ['Caption text must be a string.'] },
-  action: { label: 'Action', editorTint: '#a59bea', validate: card => ['direct','check'].includes(card.resolution) ? [] : ['Action resolution must be direct or check.'] },
+  event: { label: 'Vignette', editorTint: '#96f7a7', validate: card => typeof card.text === 'string' ? [] : [errorMessage('PROJECT_VIGNETTE_TEXT_MUST_BE_A_STRING')] },
+  caption: { label: 'Caption', editorTint: '#e4ffeb', validate: card => typeof card.text === 'string' ? [] : [errorMessage('PROJECT_CAPTION_TEXT_MUST_BE_A_STRING')] },
+  action: { label: 'Action', editorTint: '#a59bea', validate: card => ['direct','check'].includes(card.resolution) ? [] : [errorMessage('PROJECT_ACTION_RESOLUTION_MUST_BE_DIRECT_OR_CHECK')] },
   health: { label: 'Health', editorTint: '#efa3a3', validate: validateResourceCard },
   energy: { label: 'Energy', editorTint: '#9edcff', validate: validateResourceCard },
-  item: { label: 'Item', editorTint: '#dfcf78', validate: card => Array.isArray(card.onCollect) ? [] : ['Item collection effects must be a list.'] }
+  item: { label: 'Item', editorTint: '#dfcf78', validate: card => Array.isArray(card.onCollect) ? [] : [errorMessage('PROJECT_ITEM_COLLECTION_EFFECTS_MUST_BE_A_LIST')] }
 });
 function validateResourceCard(card) {
-  return [...(Number.isFinite(card.value) ? [] : ['Value must be a finite number.']),
-    ...(Array.isArray(card.onCollect) ? [] : ['Collection effects must be a list.'])];
+  return [...(Number.isFinite(card.value) ? [] : [errorMessage('PROJECT_VALUE_MUST_BE_A_FINITE_NUMBER')]),
+    ...(Array.isArray(card.onCollect) ? [] : [errorMessage('PROJECT_COLLECTION_EFFECTS_MUST_BE_A_LIST')])];
 }
 export const isConsumableKind = kind => ['health','energy'].includes(kind);
 export const resourceCollectionEffects = card => [{op:'add', key:card.kind, value:card.value}, ...(Array.isArray(card.onCollect) ? card.onCollect : [])];
@@ -37,7 +38,7 @@ export function placementOverrideKeys(kind, definition) {
 }
 export function createDefinition(kind, id) {
   kind = canonicalCardKind(kind);
-  if (!Object.hasOwn(cardKinds, kind)) throw new TypeError(`Unknown card kind: ${kind}`);
+  if (!Object.hasOwn(cardKinds, kind)) throw createError('PROJECT_UNKNOWN_CARD_KIND', { kind });
   const base = { id, kind, name: cardKinds[kind].label, showName:kind==='item'||isConsumableKind(kind), text: '', image: '' };
   if (isStoryKind(kind)) return { ...base, effects: [] };
   if (isConsumableKind(kind)) return { ...base, value: 1, onCollect: [] };
@@ -46,7 +47,7 @@ export function createDefinition(kind, id) {
 }
 export function resolvePlacement(project, placement, index) {
   const definition = index && index.usable !== false ? index.byId.get(placement.definitionId) : project.library.find(d => d?.id === placement.definitionId);
-  if (!definition) throw new TypeError(`Unknown definition: ${placement.definitionId}`);
+  if (!definition) throw createError('PROJECT_UNKNOWN_DEFINITION_ID', { definitionId: placement.definitionId });
   const overrides = definition.visibility === 'local' ? {} : Object.fromEntries(
     placementOverrideKeys(definition.kind,definition).filter(key => Object.hasOwn(placement.overrides ?? {}, key))
       .map(key => [key, placement.overrides[key]])
@@ -61,14 +62,14 @@ export function resolvePlacement(project, placement, index) {
   resolved.itemTags = project.itemTags || [];
   const contextItem = placement.contextItemId && (index && index.usable !== false ? index.itemsById.get(placement.contextItemId) : project.library.find(d => d.id === placement.contextItemId && d.kind === 'item'));
   if (placement.contextItemId && !contextItem && isTagKey(placement.contextItemId)) {
-    if (base.kind !== 'action' || !itemTag(project, placement.contextItemId)) throw new TypeError('Contextual choice needs an Action and an item tag.');
+    if (base.kind !== 'action' || !itemTag(project, placement.contextItemId)) throw createError('PROJECT_CONTEXTUAL_CHOICE_NEEDS_AN_ACTION_AND_AN_ITEM_TAG');
     const key = placement.contextItemId;
     Object.assign(resolved, {contextItemId:key, contextInventoryKey:key, inventoryLabel:itemTagLabel(project,key), entrance:'bottom', contextOverrideImage:false});
     resolved.explicitConditions = [...resolved.conditions];
     resolved.conditions.push({source:'inventory',key,op:'has'});
   } else if (placement.contextItemId) {
     const item = contextItem;
-    if (base.kind !== 'action' || !item) throw new TypeError('Contextual choice needs an Action and an Item definition.');
+    if (base.kind !== 'action' || !item) throw createError('PROJECT_CONTEXTUAL_CHOICE_NEEDS_AN_ACTION_AND_AN_ITEM_DEFINITION');
     const key = item.inventoryKey ?? item.id;
     Object.assign(resolved, {contextItemId:item.id, contextInventoryKey:key, inventoryLabel:`Inventory · ${item.name}`, entrance:'bottom', contextOverrideImage:placement.contextOverrideImage===true});
     if (placement.contextOverrideImage === true) Object.assign(resolved, {image:item.image ?? '', imageScale:item.imageScale ?? 100, imageOffsetX:item.imageOffsetX ?? 0,

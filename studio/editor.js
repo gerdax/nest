@@ -1,3 +1,4 @@
+import { errorMessage } from '../errors.js';
 import { PreviewOverrides } from './preview-overrides.js';
 import { cardRuleIndicators } from './card-rule-indicators.js';
 import { definitionDestination } from './item-reference.js';
@@ -20,6 +21,7 @@ import { loadProject, readRecoveredSave } from '../project/storage.js';
 import { createPersistence, travelHistory, exportProjectDraft, exportStudioChapter, parseStudioImport } from './persistence.js';
 import { mountNodeCreateMenu } from './node-create-menu.js';
 import { GraphView } from './GraphView.js';
+import { NodeErrors } from './node-errors.js';
 import { previewActiveNode, updatePreviewHighlight } from './preview-highlight.js';
 import { ProjectPreview } from './ProjectPreview.js';
 import { definitionInspector,nodeInspector,projectSettingsInspector,chapterSettingsInspector } from './inspectors.js';
@@ -44,6 +46,7 @@ import { confirmLibraryRemoval } from './library-removal-confirmation.js';
 
 const $=s=>document.querySelector(s),loaded=loadProject();
 const previewOverrides = new PreviewOverrides();
+const nodeErrors = new NodeErrors();
 let copiedArtwork = null;
 let nodeClipboard = null;
 let cardClipboard = null;
@@ -54,7 +57,7 @@ const localDrafts=new LocalCardDrafts();
 const chapter=()=>project.chapters.find(c=>c.id===chapterId)||project.chapters[0];
 const node=()=>chapter().nodes.find(n=>n.id===selected);
 const definition=()=>project.library.find(d=>d.id===definitionId);
-const preview=new ProjectPreview($('#preview'),{previewOverrides,inventoryHost:$('.preview-window-body'),onChange:state=>updatePreviewHighlight(graph,preview,chapter(),state),onStop:()=>graph.setActive(null),onCardChange:target=>{graph.setActiveCard(target);autoPanel.follow(target);},onGoToCard:goToPreviewCard});
+const preview=new ProjectPreview($('#preview'),{previewOverrides,inventoryHost:$('.preview-window-body'),onChange:state=>updatePreviewHighlight(graph,preview,chapter(),state),onStop:()=>graph.setActive(null),onNodeError:issue=>{if(nodeErrors.report(issue))refreshNodeErrors();},onNodeResolved:issue=>{if(nodeErrors.resolve(issue))refreshNodeErrors();},onCardChange:target=>{graph.setActiveCard(target);autoPanel.follow(target);},onGoToCard:goToPreviewCard});
 const previewWindow=mountPreviewWindow($('#preview-window'),{onClose:()=>preview.stop()});
 const autoplay=mountAutoplay($('#autoplay'),{getSelected:()=>graph.selectedIds.size>1?undefined:selected,onPlay:id=>play(id,{restore:false})});
 const autoPanel=mountAutoPanel($('#auto-panel'),{getTarget:()=>preview.cardTarget(),onReveal:target=>goToPreviewCard(target,{automatic:true})});
@@ -111,14 +114,20 @@ function edit(type,data={}, {preserveProjectSettings=false,refresh=true}={}){
  if(refresh)render({preserveProjectSettings});
  else {
   $('#undo').disabled=!history.canUndo;$('#redo').disabled=!history.canRedo;
-  $('#errors').innerHTML=validateProject(project).map(e=>`<div>${esc(e.message)}</div>`).join('');
+  const issues=validateProject(project);
+  $('#errors').innerHTML=issues.map(e=>`<div>${esc(e.message)}</div>`).join('');
+  refreshNodeErrors(issues);
  }
- report(outcome.failure|| (saved.ok?'Saved in this browser':`Save failed: ${saved.error}`));
+ report(outcome.failure|| (saved.ok?'Saved in this browser':errorMessage('STUDIO_SAVE_FAILED', {message: saved.error})));
  return {ok:!outcome.failure&&saved.ok,value:outcome.result?.value};
+}
+function refreshNodeErrors(issues=validateProject(project)){
+ graph.setNodeErrors(nodeErrors.forChapter(project,chapter(),issues));
 }
 function renderGraph(){
  if(mode==='chapter'){
   graph.overrideNodeIds=new Set(chapter().nodes.filter(n=>previewOverrides.effects(project,chapter(),n).length || (['fork','linear'].includes(n.type)&&n.unavailableActions&&n.unavailableActions!=='project')).map(n=>n.id));
+  refreshNodeErrors();
   graph.render(project,chapter(),selected,previewActiveNode(preview,chapter()));
   updatePreviewHighlight(graph,preview,chapter());
  }
@@ -280,7 +289,7 @@ function command(event){const b=event.target.closest('[data-command]');if(!b)ret
   const image=b.dataset.path.split('.').reduce((value,key)=>value?.[key],scopeRoot(b.dataset.scope,b));
   if(!image)return;
   b.disabled=true;
-  reloadArtwork(image).then(()=>report('Image reloaded.')).catch(error=>report(`Image reload failed: ${error.message}`)).finally(()=>{b.disabled=false;});
+  reloadArtwork(image).then(()=>report('Image reloaded.')).catch(error=>report(errorMessage('STUDIO_IMAGE_RELOAD_FAILED', {message: error.message}))).finally(()=>{b.disabled=false;});
   return;
  }
  if(cmd==='clear-image'){
@@ -407,7 +416,7 @@ function copyBeat(cut=false){
   if(cut){preview.stop();edit('delete-node');}
   render();report(cut?'Beat cut. Paste it into any chapter; Undo restores the original.':'Beat copied. Paste it into any chapter.');
   return true;
- }catch(error){report(`Copy failed: ${error.message}`);return false;}
+ }catch(error){report(errorMessage('STUDIO_COPY_FAILED', {message: error.message}));return false;}
 }
 function pasteBeat(){
  if(mode!=='chapter'||!nodeClipboard||nodeClipboard.projectId!==project.id)return false;
@@ -460,12 +469,12 @@ function downloadText(text,name,type='text/plain'){const url=URL.createObjectURL
 let recoveryDownload;
 if(loaded.recovery){
  recoveryDownload=document.createElement('button');recoveryDownload.type='button';recoveryDownload.textContent='Download recovered save';
- recoveryDownload.onclick=()=>{const recovered=readRecoveredSave();if(!recovered.ok){report(`Recovery download failed: ${recovered.error}`);return;}downloadText(recovered.text,'nest-recovered-save.txt');report('Recovered save downloaded as exact original text. Recovery backup retained.');};
+ recoveryDownload.onclick=()=>{const recovered=readRecoveredSave();if(!recovered.ok){report(errorMessage('STUDIO_RECOVERY_DOWNLOAD_FAILED', {message: recovered.error}));return;}downloadText(recovered.text,'nest-recovered-save.txt');report('Recovered save downloaded as exact original text. Recovery backup retained.');};
  $('#save-status').after(recoveryDownload);
 }
 $('#export-project').textContent='Export project';
-$('#export-project').onclick=()=>{try{download(exportProjectDraft(project),`${project.name.replace(/[^a-z0-9]+/gi,'-')}.nest.json`);report('Project exported. Unfinished work is included; playback requires validation errors to be fixed.');}catch(error){report(`Project export failed: ${error.message}`);}};
-$('#export-chapter').onclick=()=>{try{download(exportStudioChapter(project,chapterId),`${chapter().name.replace(/[^a-z0-9]+/gi,'-')}.chapter.json`);report('Chapter exported.');}catch(error){report(`Chapter export failed: ${error.message}`);}};
+$('#export-project').onclick=()=>{try{download(exportProjectDraft(project),`${project.name.replace(/[^a-z0-9]+/gi,'-')}.nest.json`);report('Project exported. Unfinished work is included; playback requires validation errors to be fixed.');}catch(error){report(errorMessage('STUDIO_PROJECT_EXPORT_FAILED', {message: error.message}));}};
+$('#export-chapter').onclick=()=>{try{download(exportStudioChapter(project,chapterId),`${chapter().name.replace(/[^a-z0-9]+/gi,'-')}.chapter.json`);report('Chapter exported.');}catch(error){report(errorMessage('STUDIO_CHAPTER_EXPORT_FAILED', {message: error.message}));}};
 function bindImport(input,kind){
  input.onchange=async e=>{
   const file=e.target.files[0];if(!file)return;
@@ -476,7 +485,7 @@ function bindImport(input,kind){
    if(saved&&kind==='project'&&persistence.adopt().ok){recoveryDownload?.remove();report('Project imported and saved in this browser. Recovery backups retained.');}
    else if(saved&&kind==='chapter')report('Chapter imported and saved in this browser.');
    graph.fit();
-  }catch(error){report(`Import rejected: ${error.message}`);}
+  }catch(error){report(errorMessage('STUDIO_IMPORT_REJECTED', {message: error.message}));}
   e.target.value='';
  };
 }

@@ -1,3 +1,4 @@
+import { createError } from '../errors.js';
 import { cssScale, layoutBounds } from './cssScale.js';
 import { projectedBounds, turningBounds } from './geometry.js?v=no-ending-card-1';
 import { buildDeck, decorateCard, announceDeck, renderDeck, stageNextContent, stageNextBack, stageActionDeck, scenePose, cardPose, restoreBacks } from './renderer.js?v=no-ending-card-1';
@@ -14,10 +15,10 @@ export { DEFAULT_SETTINGS };
 
 function validate(content) {
   const interaction = content?.interaction ?? 'choice';
-  if (!['choice', 'container'].includes(interaction)) throw new TypeError('Unknown interaction');
-  if (!content || !Array.isArray(content.actions) || (!content.actions.length && interaction !== 'container')) throw new TypeError('Content needs at least one action');
+  if (!['choice', 'container'].includes(interaction)) throw createError('DECK_UNKNOWN_INTERACTION');
+  if (!content || !Array.isArray(content.actions) || (!content.actions.length && interaction !== 'container')) throw createError('DECK_CONTENT_NEEDS_AT_LEAST_ONE_ACTION');
   const ids = content.actions.map(a => a.id);
-  if (new Set(ids).size !== ids.length) throw new TypeError('Action IDs must be unique');
+  if (new Set(ids).size !== ids.length) throw createError('DECK_ACTION_IDS_MUST_BE_UNIQUE');
   return {
     ...content,
     interaction,
@@ -1109,8 +1110,8 @@ export class CardDeck extends EventTarget {
 
   setActionPreview(actionId, content, { presentation = 'open' } = {}) {
     if (this.destroyed) return;
-    if (presentation !== 'open') throw new TypeError('Action previews need open presentation');
-    if (!this.content.actions.some(a => a.id === actionId)) throw new TypeError('Unknown preview action');
+    if (presentation !== 'open') throw createError('DECK_ACTION_PREVIEWS_NEED_OPEN_PRESENTATION');
+    if (!this.content.actions.some(a => a.id === actionId)) throw createError('DECK_UNKNOWN_PREVIEW_ACTION');
     this.actionPreviews.set(actionId, validate(content));
     // Create the real cards ahead of the first gesture so artwork is ready
     // before the lifting choice exposes any part of the deck underneath.
@@ -1133,7 +1134,7 @@ export class CardDeck extends EventTarget {
     if (this.destroyed) return;
     const next = validate(content);
     const selectedIndex = selectedId === undefined ? 0 : next.actions.findIndex(a => a.id === selectedId);
-    if (selectedIndex < 0) throw new TypeError('Unknown return selection');
+    if (selectedIndex < 0) throw createError('DECK_UNKNOWN_RETURN_SELECTION');
     this.returnContent = next;
     this.returnSelectedId = next.actions[selectedIndex]?.id;
     this.returnDeck = stageActionDeck(this, next, selectedIndex, this.returnDeck);
@@ -1244,8 +1245,8 @@ export class CardDeck extends EventTarget {
 
   updateActions(actions) {
     if (this.destroyed) return;
-    if (this.content.interaction !== 'choice') throw new TypeError('Only choice decks support action updates');
-    if (this.busy || this.drag || !['closed', 'choices'].includes(this.phase)) throw new Error('Cannot update actions during an active presentation');
+    if (this.content.interaction !== 'choice') throw createError('DECK_ONLY_CHOICE_DECKS_SUPPORT_ACTION_UPDATES');
+    if (this.busy || this.drag || !['closed', 'choices'].includes(this.phase)) throw createError('DECK_CANNOT_UPDATE_ACTIONS_DURING_AN_ACTIVE_PRESENTATION');
     const next = validate({ ...this.content, actions });
     const old = this.content;
     const selectedId = old.actions[this.index]?.id;
@@ -1285,8 +1286,8 @@ export class CardDeck extends EventTarget {
 
   replaceContent(content, { presentation = 'closed', transition = 'flip', animate = true, preserveInventoryContext = false } = {}) {
     if (this.destroyed) return;
-    if (!['closed', 'open'].includes(presentation)) throw new TypeError('Unknown presentation');
-    if (!['flip', 'reveal'].includes(transition)) throw new TypeError('Unknown content transition');
+    if (!['closed', 'open'].includes(presentation)) throw createError('DECK_UNKNOWN_PRESENTATION');
+    if (!['flip', 'reveal'].includes(transition)) throw createError('DECK_UNKNOWN_CONTENT_TRANSITION');
     const next = validate(content);
     // The controller resolves continuity from the actual successor, including
     // consecutive Linear items. A closed introduction always breaks the run.
@@ -1479,7 +1480,7 @@ export class CardDeck extends EventTarget {
   }
 
   waitForCheckSurface({ signal, prepare } = {}) {
-    if (this.destroyed || signal?.aborted || this.phase !== 'committing' || this.operation === 'commit') return Promise.reject(new DOMException('No pending check departure.', 'AbortError'));
+    if (this.destroyed || signal?.aborted || this.phase !== 'committing' || this.operation === 'commit') return Promise.reject(createError('DECK_NO_PENDING_CHECK_DEPARTURE'));
     stageNextBack(this);
     this.checkSurface ||= new CheckSurface(this.underlayBack);
     prepare?.(this.checkSurface.slot);

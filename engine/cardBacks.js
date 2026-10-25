@@ -1,3 +1,4 @@
+import { errorMessage } from '../errors.js';
 export const defaultCardBack = Object.freeze({
   background: './assets/img/ui/cardback.png',
   icons: Object.freeze({ default: './assets/img/ui/default.png' }),
@@ -15,16 +16,16 @@ function imagePath(value, fallback) {
 /** Validate active appearance fields; unused legacy settings are ignored. */
 export function validateCardBack(value) {
   if (value === undefined) return [];
-  if (!isRecord(value)) return ['cardBack must be an object'];
+  if (!isRecord(value)) return [errorMessage('PROJECT_CARDBACK_MUST_BE_AN_OBJECT')];
   const errors = [];
-  if (value.background !== undefined && !imagePath(value.background, null)) errors.push('cardBack.background must be a nonempty string');
+  if (value.background !== undefined && !imagePath(value.background, null)) errors.push(errorMessage('PROJECT_CARDBACK_BACKGROUND_MUST_BE_A_NONEMPTY_STRING'));
   if (value.icons !== undefined) {
-    if (!isRecord(value.icons)) errors.push('cardBack.icons must be an object');
+    if (!isRecord(value.icons)) errors.push(errorMessage('PROJECT_CARDBACK_ICONS_MUST_BE_AN_OBJECT'));
     else {
-      if (value.icons.default !== undefined && !imagePath(value.icons.default, null)) errors.push('cardBack.icons.default must be a nonempty string');
+      if (value.icons.default !== undefined && !imagePath(value.icons.default, null)) errors.push(errorMessage('PROJECT_CARDBACK_ICONS_DEFAULT_MUST_BE_A_NONEMPTY_STRING'));
     }
   }
-  if (value.iconScale !== undefined && (!Number.isFinite(value.iconScale) || value.iconScale <= 0)) errors.push('cardBack.iconScale must be a positive finite number');
+  if (value.iconScale !== undefined && (!Number.isFinite(value.iconScale) || value.iconScale <= 0)) errors.push(errorMessage('PROJECT_CARDBACK_ICONSCALE_MUST_BE_A_POSITIVE_FINITE_NUMBER'));
   return errors;
 }
 

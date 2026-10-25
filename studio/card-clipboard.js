@@ -1,3 +1,4 @@
+import { createError } from '../errors.js';
 import { canonicalCardKind, allowedCardKinds } from '../project/cards.js';
 import { definitionGraph } from '../project/dependencies.js';
 import { placements } from '../project/model-data.js';
@@ -15,7 +16,7 @@ function sourceDefinition(project,payload) {
 export function captureCardClipboard(project,chapterId,nodeId,placementId) {
  const chapter=project.chapters.find(c=>c.id===chapterId),node=chapter?.nodes.find(n=>n.id===nodeId);
  const placement=node&&placements(node).find(p=>p.id===placementId);
- if(!placement||!project.library.some(d=>d.id===placement.definitionId))throw new Error('The card no longer exists.');
+ if(!placement||!project.library.some(d=>d.id===placement.definitionId))throw createError('STUDIO_THE_CARD_NO_LONGER_EXISTS');
  const ids=definitionGraph(project).reachableFrom(placement),definitions=project.library.filter(d=>ids.has(d.id));
  return structuredClone({kind:'nest-card-clipboard',projectId:project.id,chapterId,placement,definitions,
   itemTags:project.itemTags||[],variables:captureClipboardVariables(chapter,placement,definitions)});
@@ -29,7 +30,7 @@ export function canPasteCard(project,node,placement,payload) {
 }
 /** Replace a slot, retaining its identity and the destination beat's wiring. */
 export function pasteCardClipboard(project,chapter,node,placement,payload) {
- if(!project.chapters.includes(chapter)||!chapter.nodes.includes(node)||!canPasteCard(project,node,placement,payload))throw new Error('Copy a compatible card from this project first.');
+ if(!project.chapters.includes(chapter)||!chapter.nodes.includes(node)||!canPasteCard(project,node,placement,payload))throw createError('STUDIO_COPY_A_COMPATIBLE_CARD_FROM_THIS_PROJECT_FIRST');
  const temporaryChapter={id:chapter.id,variables:[...(chapter.variables||[])],nodes:[],startNode:''};
  const temporaryProject={...project,library:[...project.library],itemTags:structuredClone(project.itemTags||[]),chapters:[temporaryChapter]};
  const copied=pasteNodeClipboard(temporaryProject,temporaryChapter,{

@@ -1,3 +1,4 @@
+import { createError } from '../errors.js';
 import { esc } from '../editor/fields.js';
 import { walk } from '../project/model-data.js';
 import { tagKey, validItemTagName, itemTagNameAvailable } from '../project/item-tags.js';
@@ -15,19 +16,19 @@ export function itemTagsEditor(project) {
 }
 export function applyTagCommand(project,{operation,id,name}) {
  if(operation==='remove') {
-  if(tagIsUsed(project,id))throw new Error('Remove assignments and rule references before deleting this tag.');
+  if(tagIsUsed(project,id))throw createError('STUDIO_REMOVE_ASSIGNMENTS_AND_RULE_REFERENCES_BEFORE_DELETING_THIS_TAG');
   project.itemTags=(project.itemTags||[]).filter(tag=>tag.id!==id);
   return;
  }
  name=name?.trim();
- if(!validItemTagName(name))throw new Error('Tag names must be a single word.');
- if(!itemTagNameAvailable(project,name,operation==='rename'?id:undefined))throw new Error('A tag with this name already exists.');
+ if(!validItemTagName(name))throw createError('STUDIO_TAG_NAMES_MUST_BE_A_SINGLE_WORD');
+ if(!itemTagNameAvailable(project,name,operation==='rename'?id:undefined))throw createError('STUDIO_A_TAG_WITH_THIS_NAME_ALREADY_EXISTS');
  if(operation==='rename') {
   const tag=project.itemTags?.find(tag=>tag.id===id);
-  if(!tag)throw new Error('The tag no longer exists.');
+  if(!tag)throw createError('STUDIO_THE_TAG_NO_LONGER_EXISTS');
   tag.name=name;
  } else if(operation==='add') {
-  if(!id||project.itemTags?.some(tag=>tag.id===id))throw new Error('Invalid tag ID.');
+  if(!id||project.itemTags?.some(tag=>tag.id===id))throw createError('STUDIO_INVALID_TAG_ID');
   (project.itemTags||=[]).push({id,name});
- } else throw new Error('Unknown tag operation.');
+ } else throw createError('STUDIO_UNKNOWN_TAG_OPERATION');
 }

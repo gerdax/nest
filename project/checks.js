@@ -1,3 +1,4 @@
+import { createError } from '../errors.js';
 /** Shared stat definitions and pure check resolution. Probabilities use exact 3d6 outcomes. */
 export const STAT_IDS = Object.freeze(['agility', 'intelligence', 'composure']);
 export const isStatVariable = variable => variable?.stat === true || STAT_IDS.includes(variable?.id);
@@ -22,13 +23,13 @@ export function probabilityLabel(probability) {
     : probability >= .1 ? 'Hard' : probability > 0 ? 'Nearly impossible' : 'Impossible';
 }
 export function resolveCheck(check, variables = {}) {
-  if (!check || typeof check !== 'object') throw new TypeError('Missing check.');
+  if (!check || typeof check !== 'object') throw createError('CHECK_MISSING_CHECK');
   const values = Array.isArray(variables) ? Object.fromEntries(variables.map(v => [v.id, v.initial])) : variables;
   if (check.mode !== 'stat') return {...check, pool:check.pool?.map(d => ({...d})),
     modifier:(check.modifier ?? 0) + (check.modifierVariable ? values?.[check.modifierVariable] : 0)};
-  if (!validStatValue(check.difficulty)) throw new RangeError('Stat difficulty must be an integer from 1 to 10.');
+  if (!validStatValue(check.difficulty)) throw createError('CHECK_STAT_DIFFICULTY_MUST_BE_AN_INTEGER_FROM_1_TO_10');
   const modifier = values?.[check.modifierVariable];
-  if (!check.modifierVariable || !validStatValue(modifier)) throw new RangeError('Stat check needs a stat value from 1 to 10.');
+  if (!check.modifierVariable || !validStatValue(modifier)) throw createError('CHECK_STAT_CHECK_NEEDS_A_STAT_VALUE_FROM_1_TO_10');
   const target = 10 + check.difficulty;
   let successes = 0;
   for (let a=1;a<=6;a++) for (let b=1;b<=6;b++) for (let c=1;c<=6;c++) if (a+b+c+modifier >= target) successes++;

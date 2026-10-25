@@ -1,3 +1,4 @@
+import { createError } from '../errors.js';
 import { isTagKey } from './item-tags.js';
 /** Shared reference analysis for portable exports, deletion and local cleanup.
  * Rebuild for each document revision; never retain indexes across edits.
@@ -87,7 +88,7 @@ export function unusedLocalDefinitions(project) {
 
 /** Mutating commands belong inside the host's undoable document transaction. */
 export function deleteDefinition(project, id) {
-  if (definitionReferences(project, id).length) throw new Error('Definition is still used by cards or gameplay rules.');
+  if (definitionReferences(project, id).length) throw createError('PROJECT_DEFINITION_IS_STILL_USED_BY_CARDS_OR_GAMEPLAY_RULES');
   project.library = project.library.filter(definition => definition.id !== id);
 }
 

@@ -1,3 +1,4 @@
+import { createError } from '../errors.js';
 import { isTagKey, tagKey, tagIdFromKey } from './item-tags.js';
 import { normalizeLocalOwnership } from './local-ownership.js';
 import { normalizeStats } from './checks.js';
@@ -13,7 +14,7 @@ import { validateProject } from './validation.js';
 export function exportChapter(project, id = project.activeChapterId) {
   project = normalizeLocalOwnership(cloneProject(project));
   const chapter = project.chapters.find(c => c.id === id);
-  if (!chapter) throw new TypeError('Unknown chapter.');
+  if (!chapter) throw createError('PROJECT_UNKNOWN_CHAPTER');
   const ids = definitionGraph(project).reachableFrom(chapter);
   const pkg = cloneProject({version: 2, kind: 'nest-chapter', library: project.library.filter(d => ids.has(d.id)),
     itemTags: project.itemTags || [], variables: project.variables, allowCycles: project.allowCycles !== false,
@@ -188,6 +189,6 @@ export function parseProject(text, {allowDraft = false} = {}) {
     chapter.variables ??= [];
   }
   const errors = validateProject(value, {allowDraft});
-  if (errors.length) throw new TypeError(errors.map(e => e.message).join('\n'));
+  if (errors.length) throw createError('PROJECT_PARSE_VALIDATION_FAILED', { messages: errors.map(e => e.message).join('\n') });
   return value;
 }

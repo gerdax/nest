@@ -1,4 +1,5 @@
-const aborted = () => new DOMException('Check presentation cancelled.', 'AbortError');
+import { createError } from '../errors.js';
+const aborted = () => createError('CHECK_PRESENTATION_CANCELLED');
 
 /** An accessible slot on the real underlay, independent of its decorative icons. */
 export class CheckSurface {

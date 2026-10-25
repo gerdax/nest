@@ -1,3 +1,4 @@
+import { errorMessage } from '../errors.js';
 import { isTagKey, tagKey, tagIdFromKey, validItemTagName } from './item-tags.js';
 import { isStatVariable, validStatValue, compatibleStatVariable } from './checks.js';
 import { validateCardBack } from '../engine/cardBacks.js';
@@ -12,24 +13,24 @@ import { createLibraryIndex } from './library-index.js';
 export function validateProject(project, {allowDraft = false} = {}) {
   const errors = [];
   const add = (message, chapterId, nodeId) => errors.push({message, ...(chapterId ? {chapterId}: {}), ...(nodeId ? {nodeId}: {})});
-  if (!object(project)) return [{message: 'Project must be an object.'}];
-  if (project.version !== 2 || project.kind !== 'nest-project') add('Project needs version 2 and kind nest-project.');
-  if (project.ignoreAllOverrides !== undefined && typeof project.ignoreAllOverrides !== 'boolean') add('Invalid ignore all overrides setting.');
-  if (project.allowCycles !== undefined && typeof project.allowCycles !== 'boolean') add('Invalid allow beat cycles setting.');
-  if (project.ownedItemsVisibility !== undefined && !['disabled','hidden'].includes(project.ownedItemsVisibility)) add('Invalid ownedItemsVisibility setting.');
-  if (project.unavailableActions !== undefined && !['disabled','hidden','triggers-only','disabled-triggers'].includes(project.unavailableActions)) add('Invalid unavailableActions setting.');
+  if (!object(project)) return [{message: errorMessage('VALIDATION_PROJECT_MUST_BE_AN_OBJECT')}];
+  if (project.version !== 2 || project.kind !== 'nest-project') add(errorMessage('VALIDATION_PROJECT_NEEDS_VERSION_2_AND_KIND_NEST_PROJECT'));
+  if (project.ignoreAllOverrides !== undefined && typeof project.ignoreAllOverrides !== 'boolean') add(errorMessage('VALIDATION_INVALID_IGNORE_ALL_OVERRIDES_SETTING'));
+  if (project.allowCycles !== undefined && typeof project.allowCycles !== 'boolean') add(errorMessage('VALIDATION_INVALID_ALLOW_BEAT_CYCLES_SETTING'));
+  if (project.ownedItemsVisibility !== undefined && !['disabled','hidden'].includes(project.ownedItemsVisibility)) add(errorMessage('VALIDATION_INVALID_OWNEDITEMSVISIBILITY_SETTING'));
+  if (project.unavailableActions !== undefined && !['disabled','hidden','triggers-only','disabled-triggers'].includes(project.unavailableActions)) add(errorMessage('VALIDATION_INVALID_UNAVAILABLEACTIONS_SETTING'));
   for (const message of validateCardBack(project.cardBack)) add(message);
   if (project.cardStyles !== undefined) {
-    if (!object(project.cardStyles)) add('Invalid card text style sizes.');
+    if (!object(project.cardStyles)) add(errorMessage('VALIDATION_INVALID_CARD_TEXT_STYLE_SIZES'));
     else for (const [key, value] of Object.entries(project.cardStyles)) {
       if (['smallColor', 'bigColor', 'mediumColor'].includes(key)) {
-        if (!isCardColor(value)) add('Invalid card text style colors.');
+        if (!isCardColor(value)) add(errorMessage('VALIDATION_INVALID_CARD_TEXT_STYLE_COLORS'));
       }
-      else if (!['small', 'big', 'medium'].includes(key) || !Number.isFinite(value) || value < 6 || value > 72) add('Invalid card text style sizes.');
+      else if (!['small', 'big', 'medium'].includes(key) || !Number.isFinite(value) || value < 6 || value > 72) add(errorMessage('VALIDATION_INVALID_CARD_TEXT_STYLE_SIZES'));
     }
   }
-  if (!named(project.id) || !named(project.name)) add('Project needs an ID and name.');
-  for (const key of ['library', 'variables', 'chapters']) if (!Array.isArray(project[key])) add(`${key} must be a list.`);
+  if (!named(project.id) || !named(project.name)) add(errorMessage('VALIDATION_PROJECT_NEEDS_AN_ID_AND_NAME'));
+  for (const key of ['library', 'variables', 'chapters']) if (!Array.isArray(project[key])) add(errorMessage('VALIDATION_MUST_BE_A_LIST', {key}));
   const library = Array.isArray(project.library) ? project.library: [], variables = Array.isArray(project.variables) ? project.variables: [],
     chapters = Array.isArray(project.chapters) ? project.chapters: [];
   // Resolution uses first matches; validation maps below intentionally use last matches.
@@ -40,29 +41,29 @@ export function validateProject(project, {allowDraft = false} = {}) {
     const ids = new Set();
     for (const v of list) {
       if (!object(v) || !named(v.id)) {
-        add(`${label} needs an ID.`);
+        add(errorMessage('VALIDATION_NEEDS_AN_ID', {label}));
         continue;
       }
-      if (ids.has(v.id)) add(`Duplicate ${label} ID: ${v.id}.`);
+      if (ids.has(v.id)) add(errorMessage('VALIDATION_DUPLICATE_ID', {label, variableId: v.id}));
       ids.add(v.id);
     }
     return ids;
   };
-  if (project.itemTags !== undefined && !Array.isArray(project.itemTags)) add('Item tags must be a list.');
+  if (project.itemTags !== undefined && !Array.isArray(project.itemTags)) add(errorMessage('VALIDATION_ITEM_TAGS_MUST_BE_A_LIST'));
   const tags = list(project.itemTags), tagIds = seen(tags, 'Item tag'), tagNames = new Set();
   for (const tag of tags.filter(object)) {
-    if (!validItemTagName(tag.name)) add(`Item tag ${tag.id}: name must be a nonempty single word.`);
+    if (!validItemTagName(tag.name)) add(errorMessage('VALIDATION_ITEM_TAG_NAME_MUST_BE_A_NONEMPTY_SINGLE_WORD', {tagId: tag.id}));
     const name = typeof tag.name === 'string' ? tag.name.toLowerCase() : '';
-    if (tagNames.has(name)) add(`Duplicate item tag name: ${tag.name}.`);
+    if (tagNames.has(name)) add(errorMessage('VALIDATION_DUPLICATE_ITEM_TAG_NAME', {tagName: tag.name}));
     tagNames.add(name);
   }
   seen(library, 'Definition');
   seen(variables, 'Variable');
   const chapterIds = seen(chapters, 'Chapter');
-  if (project.startChapterId !== undefined && (!named(project.startChapterId) || !chapterIds.has(project.startChapterId))) add('Start chapter must exist.');
+  if (project.startChapterId !== undefined && (!named(project.startChapterId) || !chapterIds.has(project.startChapterId))) add(errorMessage('VALIDATION_START_CHAPTER_MUST_EXIST'));
   for (const chapter of chapters.filter(object)) {
     if (chapter.nextChapterId !== undefined && chapter.nextChapterId !== null
-      && (!named(chapter.nextChapterId) || !chapterIds.has(chapter.nextChapterId))) add('Next chapter must exist.', chapter.id);
+      && (!named(chapter.nextChapterId) || !chapterIds.has(chapter.nextChapterId))) add(errorMessage('VALIDATION_NEXT_CHAPTER_MUST_EXIST'), chapter.id);
   }
   for (const d of library) if (object(d)) definitions.set(d.id, d);
   const report = add;
@@ -71,23 +72,23 @@ export function validateProject(project, {allowDraft = false} = {}) {
     for (const v of variables) {
       if (!object(v)) continue;
 
-      if (isStatVariable(v) && !compatibleStatVariable(v)) add(`Stat ${v.id} conflicts with the required integer 1–10 definition.`);
-      if (!['flag', 'number'].includes(v.type) || (v.type === 'flag' ? typeof v.initial !== 'boolean': !Number.isFinite(v.initial))) add(`Variable ${v.id} needs a typed initial value.`);
+      if (isStatVariable(v) && !compatibleStatVariable(v)) add(errorMessage('VALIDATION_STAT_CONFLICTS_WITH_THE_REQUIRED_INTEGER_1_10_DEFINITION', {variableId: v.id}));
+      if (!['flag', 'number'].includes(v.type) || (v.type === 'flag' ? typeof v.initial !== 'boolean': !Number.isFinite(v.initial))) add(errorMessage('VALIDATION_VARIABLE_NEEDS_A_TYPED_INITIAL_VALUE', {variableId: v.id}));
       if (v.type === 'number') {
         if (v.min !== undefined && !Number.isFinite(v.min) || v.max !== undefined && !Number.isFinite(v.max)
           || v.min !== undefined && v.max !== undefined && v.min > v.max || v.min !== undefined && v.initial < v.min
-          || v.max !== undefined && v.initial > v.max) add(`Variable ${v.id} has invalid bounds.`);
-      } else if (v.min !== undefined || v.max !== undefined) add(`Flag ${v.id} cannot have numeric bounds.`);
+          || v.max !== undefined && v.initial > v.max) add(errorMessage('VALIDATION_VARIABLE_HAS_INVALID_BOUNDS', {variableId: v.id}));
+      } else if (v.min !== undefined || v.max !== undefined) add(errorMessage('VALIDATION_FLAG_CANNOT_HAVE_NUMERIC_BOUNDS', {variableId: v.id}));
     }
   }
   inspectVariables(variables);
   const globals = new Map(variables.filter(object).map(v => [v.id, v]));
   vars = globals;
   for (const chapter of chapters.filter(object)) {
-    if (chapter.variables !== undefined && !Array.isArray(chapter.variables)) add('Chapter variables must be a list.', chapter.id);
+    if (chapter.variables !== undefined && !Array.isArray(chapter.variables)) add(errorMessage('VALIDATION_CHAPTER_VARIABLES_MUST_BE_A_LIST'), chapter.id);
     seen(list(chapter.variables), 'Chapter variable');
     inspectVariables(list(chapter.variables), chapter.id);
-    for (const variable of list(chapter.variables).filter(object)) if (globals.has(variable.id)) add(`Chapter variable ${variable.id} conflicts with a global variable.`, chapter.id);
+    for (const variable of list(chapter.variables).filter(object)) if (globals.has(variable.id)) add(errorMessage('VALIDATION_CHAPTER_VARIABLE_CONFLICTS_WITH_A_GLOBAL_VARIABLE', {variableId: variable.id}), chapter.id);
   }
   const graph = definitionGraph({...project, library: library.filter(object), chapters: chapters.filter(object).map(chapter => ({...chapter, nodes: list(chapter.nodes)}))});
   const sharedDependencies = graph.reachableFrom(library.filter(d => object(d) && d.visibility !== 'local'));
@@ -95,112 +96,112 @@ export function validateProject(project, {allowDraft = false} = {}) {
   const itemKeys = new Set(library.filter(d => d?.kind === 'item').flatMap(d => [d.id, d.inventoryKey].filter(Boolean)));
   const itemsById = new Map(library.filter(d => d?.kind === 'item').map(d => [d.id, d]));
   const itemDefinitionIds = new Set(itemsById.keys());
-  for (const tag of tags.filter(object)) if (itemKeys.has(tagKey(tag.id))) add(`Item tag ${tag.id}: reference ${tagKey(tag.id)} conflicts with a concrete item ID or inventory alias.`);
+  for (const tag of tags.filter(object)) if (itemKeys.has(tagKey(tag.id))) add(errorMessage('VALIDATION_ITEM_TAG_REFERENCE_CONFLICTS_WITH_A_CONCRETE_ITEM_ID_OR_INVENTORY_ALIAS', {tagId: tag.id, reference: tagKey(tag.id)}));
   for (const item of itemsById.values()) {
     const owner = itemsById.get(item.inventoryKey);
-    if (owner && owner !== item && (owner.inventoryKey ?? owner.id) !== (item.inventoryKey ?? item.id)) add(`Item ${item.id}: inventory alias ${item.inventoryKey} conflicts with another item ID.`);
+    if (owner && owner !== item && (owner.inventoryKey ?? owner.id) !== (item.inventoryKey ?? item.id)) add(errorMessage('VALIDATION_ITEM_INVENTORY_ALIAS_CONFLICTS_WITH_ANOTHER_ITEM_ID', {itemId: item.id, inventoryKey: item.inventoryKey}));
   }
   const validRef = (key, set) => allowDraft || set.has(key);
   function inspectConditions(list, label) {
     if (list === undefined) return;
     if (!Array.isArray(list)) {
-      add(`${label}: conditions must be a list.`);
+      add(errorMessage('VALIDATION_CONDITIONS_MUST_BE_A_LIST', {label}));
       return;
     }
     for (const c of list) {
       if (!object(c) || !['variable', 'inventory'].includes(c.source) || typeof c.key !== 'string') {
-        add(`${label}: invalid condition.`);
+        add(errorMessage('VALIDATION_INVALID_CONDITION', {label}));
         continue;
       }
       if (c.source === 'inventory') {
         if (!['has', 'missing'].includes(c.op) || !(itemKeys.has(c.key) || (isTagKey(c.key) ? tagIds.has(tagIdFromKey(c.key)) : validRef(c.key, itemKeys))) || ['gte', 'lte'].includes(c.op)
-          && (!Number.isSafeInteger(c.value) || c.value < 0)) add(`${label}: invalid inventory condition.`);
+          && (!Number.isSafeInteger(c.value) || c.value < 0)) add(errorMessage('VALIDATION_INVALID_INVENTORY_CONDITION', {label}));
       } else {
         const v = vars.get(c.key);
         if (!validRef(c.key, vars) || !['eq', 'neq', 'gte', 'lte'].includes(c.op) || !['number', 'boolean'].includes(typeof c.value)
           || typeof c.value === 'number' && !Number.isFinite(c.value) || v && (typeof c.value !== (v.type === 'flag' ? 'boolean': 'number')
-          || v.type === 'flag' && !['eq', 'neq'].includes(c.op))) add(`${label}: invalid variable condition.`);
+          || v.type === 'flag' && !['eq', 'neq'].includes(c.op))) add(errorMessage('VALIDATION_INVALID_VARIABLE_CONDITION', {label}));
       }
     }
   }
   function inspectEffects(list, label) {
     if (list === undefined) return;
     if (!Array.isArray(list)) {
-      add(`${label}: effects must be a list.`);
+      add(errorMessage('VALIDATION_EFFECTS_MUST_BE_A_LIST', {label}));
       return;
     }
     for (const e of list) {
       if (!object(e) || typeof e.key !== 'string') {
-        add(`${label}: invalid effect.`);
+        add(errorMessage('VALIDATION_INVALID_EFFECT', {label}));
         continue;
       }
       if (['addItem', 'removeItem'].includes(e.op)) {
-        if (!itemDefinitionIds.has(e.key) && (isTagKey(e.key) || !validRef(e.key, itemDefinitionIds))) add(`${label}: inventory effect needs an item.`);
+        if (!itemDefinitionIds.has(e.key) && (isTagKey(e.key) || !validRef(e.key, itemDefinitionIds))) add(errorMessage('VALIDATION_INVENTORY_EFFECT_NEEDS_AN_ITEM', {label}));
       } else {
         const v = vars.get(e.key);
         if (!['set', 'add'].includes(e.op) || !validRef(e.key, vars) || !['number', 'boolean'].includes(typeof e.value)
           || typeof e.value === 'number' && !Number.isFinite(e.value) || e.op === 'add' && typeof e.value !== 'number'
-          || v && (typeof e.value !== (v.type === 'flag' ? 'boolean': 'number') || e.op === 'add' && v.type !== 'number')) add(`${label}: invalid variable effect.`);
-        if (isStatVariable(v) && !Number.isInteger(e.value)) add(`${label}: stat changes must be integers.`);
+          || v && (typeof e.value !== (v.type === 'flag' ? 'boolean': 'number') || e.op === 'add' && v.type !== 'number')) add(errorMessage('VALIDATION_INVALID_VARIABLE_EFFECT', {label}));
+        if (isStatVariable(v) && !Number.isInteger(e.value)) add(errorMessage('VALIDATION_STAT_CHANGES_MUST_BE_INTEGERS', {label}));
         if (e.op === 'set' && v?.type === 'number' && (v.min !== undefined && e.value < v.min || v.max !== undefined
-          && e.value > v.max)) add(`${label}: set effect is outside variable bounds.`);
+          && e.value > v.max)) add(errorMessage('VALIDATION_SET_EFFECT_IS_OUTSIDE_VARIABLE_BOUNDS', {label}));
       }
     }
   }
   function inspectCard(d, label) {
-    if (d.contextOverrideImage !== undefined && typeof d.contextOverrideImage !== 'boolean') add(`${label}: Override img must be a boolean.`);
+    if (d.contextOverrideImage !== undefined && typeof d.contextOverrideImage !== 'boolean') add(errorMessage('VALIDATION_OVERRIDE_IMG_MUST_BE_A_BOOLEAN', {label}));
     for (const key of ['imageScale', 'imageOffsetX', 'imageOffsetY']) if (d[key] !== undefined && (!Number.isFinite(d[key])
-      || d[key] < (key === 'imageScale' ? 10: -100) || d[key] > (key === 'imageScale' ? 400: 100))) add(`${label}: invalid image scale or position.`);
-    if (d.value !== undefined && !Number.isFinite(d.value)) add(`${label}: Value must be a finite number.`);
+      || d[key] < (key === 'imageScale' ? 10: -100) || d[key] > (key === 'imageScale' ? 400: 100))) add(errorMessage('VALIDATION_INVALID_IMAGE_SCALE_OR_POSITION', {label}));
+    if (d.value !== undefined && !Number.isFinite(d.value)) add(errorMessage('VALIDATION_VALUE_MUST_BE_A_FINITE_NUMBER', {label}));
     if (isConsumableKind(d.kind)) inspectEffects([{op:'add',key:d.kind,value:d.value}], label);
     inspectConditions(d.conditions, label);
     for (const key of ['effects', 'onCollect', 'successEffects', 'failureEffects']) inspectEffects(d[key], label);
-    if (d.tagId !== undefined && (d.kind !== 'item' || !named(d.tagId) || !tagIds.has(d.tagId))) add(`${label}: invalid item tag.`);
-    if (d.permability !== undefined && (!Number.isSafeInteger(d.permability) || d.permability < 0)) add(`${label}: permability must be a nonnegative safe integer.`);
+    if (d.tagId !== undefined && (d.kind !== 'item' || !named(d.tagId) || !tagIds.has(d.tagId))) add(errorMessage('VALIDATION_INVALID_ITEM_TAG', {label}));
+    if (d.permability !== undefined && (!Number.isSafeInteger(d.permability) || d.permability < 0)) add(errorMessage('VALIDATION_PERMABILITY_MUST_BE_A_NONNEGATIVE_SAFE_INTEGER', {label}));
     if (d.costs !== undefined) {
-      if (!Array.isArray(d.costs)) add(`${label}: costs must be a list.`);
+      if (!Array.isArray(d.costs)) add(errorMessage('VALIDATION_COSTS_MUST_BE_A_LIST', {label}));
       else for (const c of d.costs) {
         if (!object(c) || !['variable', 'inventory'].includes(c.source) || typeof c.key !== 'string'
           || !Number.isFinite(c.amount) || c.amount <= 0 || c.source === 'inventory' && (!Number.isSafeInteger(c.amount)
           || !itemKeys.has(c.key) && (isTagKey(c.key) || !validRef(c.key, itemKeys))) || c.source === 'variable' && (!validRef(c.key, vars) || vars.has(c.key)
-          && (vars.get(c.key).type !== 'number' || isStatVariable(vars.get(c.key)) && !Number.isInteger(c.amount)))) add(`${label}: invalid cost.`);
+          && (vars.get(c.key).type !== 'number' || isStatVariable(vars.get(c.key)) && !Number.isInteger(c.amount)))) add(errorMessage('VALIDATION_INVALID_COST', {label}));
       }
     }
-    if (d.resolution !== undefined && !['direct', 'check'].includes(d.resolution)) add(`${label}: unknown resolution.`);
+    if (d.resolution !== undefined && !['direct', 'check'].includes(d.resolution)) add(errorMessage('VALIDATION_UNKNOWN_RESOLUTION', {label}));
     if (d.resolution === 'check') {
       const c = d.check;
       if (c?.mode === 'stat') {
         const variable = vars.get(c.modifierVariable);
         if (!validStatValue(c.difficulty) || typeof c.modifierVariable !== 'string' || !c.modifierVariable
-          || !validRef(c.modifierVariable, vars) || variable && (!isStatVariable(variable) || !compatibleStatVariable(variable))) add(`${label}: invalid stat check.`);
+          || !validRef(c.modifierVariable, vars) || variable && (!isStatVariable(variable) || !compatibleStatVariable(variable))) add(errorMessage('VALIDATION_INVALID_STAT_CHECK', {label}));
       } else {
-        if (c?.mode !== undefined && c.mode !== 'custom') add(`${label}: unknown check mode.`);
+        if (c?.mode !== undefined && c.mode !== 'custom') add(errorMessage('VALIDATION_UNKNOWN_CHECK_MODE', {label}));
         if (!object(c) || !Array.isArray(c.pool) || !c.pool.length || c.pool.some(d => !object(d) || ![4,
         6, 8, 10, 12, 20].includes(d.sides) || !Number.isSafeInteger(d.count) || d.count < 1 || d.count > 30)
         || c.pool.reduce((a, d) => a+(d.count || 0), 0) > 30 || !Number.isFinite(c.modifier) || !Number.isFinite(c.target)
         || c.modifierVariable !== undefined && (!validRef(c.modifierVariable, vars) || vars.has(c.modifierVariable)
-        && vars.get(c.modifierVariable).type !== 'number')) add(`${label}: invalid check.`);
+        && vars.get(c.modifierVariable).type !== 'number')) add(errorMessage('VALIDATION_INVALID_CHECK', {label}));
       }
     }
   }
   for (const d of library) {
     if (!object(d)) continue;
-    if (d.contextItemId !== undefined || d.contextOverrideImage !== undefined) add(`Definition ${d.id}: inventory context belongs to a fork choice placement.`);
+    if (d.contextItemId !== undefined || d.contextOverrideImage !== undefined) add(errorMessage('VALIDATION_DEFINITION_INVENTORY_CONTEXT_BELONGS_TO_A_FORK_CHOICE_PLACEMENT', {definitionId: d.id}));
     if (d.visibility !== undefined && !['local', 'shared'].includes(d.visibility) || !['event', 'caption',
       'narrative', 'action', 'item', 'health', 'energy'].includes(d.kind) || typeof d.name !== 'string' || typeof d.text !== 'string'
       || typeof d.image !== 'string' || d.heading !== undefined && typeof d.heading !== 'string' || d.showName !== undefined
       && typeof d.showName !== 'boolean' || d.flipImage !== undefined && typeof d.flipImage !== 'boolean'
-      || d.inventoryKey !== undefined && !named(d.inventoryKey)) add(`Definition ${d.id} has invalid content.`);
-    for (const message of cardKinds[canonicalCardKind(d.kind)]?.validate(d) || []) add(`Definition ${d.id}: ${message}`);
-    if (d.visibility !== 'local' && d.chapterId !== undefined) add(`Shared definition ${d.id} cannot have a chapter owner.`);
+      || d.inventoryKey !== undefined && !named(d.inventoryKey)) add(errorMessage('VALIDATION_DEFINITION_HAS_INVALID_CONTENT', {definitionId: d.id}));
+    for (const message of cardKinds[canonicalCardKind(d.kind)]?.validate(d) || []) add(errorMessage('VALIDATION_DEFINITION', {definitionId: d.id, message}));
+    if (d.visibility !== 'local' && d.chapterId !== undefined) add(errorMessage('VALIDATION_SHARED_DEFINITION_CANNOT_HAVE_A_CHAPTER_OWNER', {definitionId: d.id}));
     if (d.visibility === 'local') {
       const owner = chapters.find(chapter => chapter?.id === d.chapterId);
-      if (d.chapterId !== undefined && (!named(d.chapterId) || !owner)) add(`Local definition ${d.id} has an invalid chapter owner.`);
+      if (d.chapterId !== undefined && (!named(d.chapterId) || !owner)) add(errorMessage('VALIDATION_LOCAL_DEFINITION_HAS_AN_INVALID_CHAPTER_OWNER', {definitionId: d.id}));
       const users = [...scopes].filter(([, ids]) => ids.has(d.id)).map(([chapter]) => chapter);
       // Unplaced definitions still receive type/shape validation, without inventing a chapter owner.
       if (d.chapterId !== undefined) {
-        if (sharedDependencies.has(d.id)) add(`Local definition ${d.id} is referenced by a shared definition.`);
-        for (const chapter of users) if (chapter.id !== d.chapterId) add(`Local definition ${d.id} belongs to chapter ${d.chapterId}, not ${chapter.id}.`, chapter.id);
+        if (sharedDependencies.has(d.id)) add(errorMessage('VALIDATION_LOCAL_DEFINITION_IS_REFERENCED_BY_A_SHARED_DEFINITION', {definitionId: d.id}));
+        for (const chapter of users) if (chapter.id !== d.chapterId) add(errorMessage('VALIDATION_LOCAL_DEFINITION_BELONGS_TO_CHAPTER_NOT', {definitionId: d.id, ownerChapterId: d.chapterId, chapterId: chapter.id}), chapter.id);
       }
       // Missing ownership remains readable for legacy callers; parsing and all
       // authoring transactions assign explicit owners before saving.
@@ -214,72 +215,72 @@ export function validateProject(project, {allowDraft = false} = {}) {
       vars = globals;
     } else inspectCard(d, `Definition ${d.id}`);
   }
-  if (!allowDraft && !chapterIds.has(project.activeChapterId)) add('Active chapter must exist.');
+  if (!allowDraft && !chapterIds.has(project.activeChapterId)) add(errorMessage('VALIDATION_ACTIVE_CHAPTER_MUST_EXIST'));
   for (const chapter of chapters) {
     if (!object(chapter)) continue;
     const cid = chapter.id;
     vars = new Map(chapterVariables(project, chapter).filter(object).map(v => [v.id, v]));
     if (typeof chapter.name !== 'string' || !Array.isArray(chapter.nodes) || typeof chapter.startNode !== 'string') {
-      add('Invalid chapter structure.', cid);
+      add(errorMessage('VALIDATION_INVALID_CHAPTER_STRUCTURE'), cid);
       continue;
     }
     const nodeIds = seen(chapter.nodes, 'Beat');
-    if (!allowDraft && !nodeIds.has(chapter.startNode)) add('Start beat must exist.', cid);
-    if (chapter.allowCycles !== undefined && typeof chapter.allowCycles !== 'boolean') add('Invalid allow node cycles setting.', cid);
+    if (!allowDraft && !nodeIds.has(chapter.startNode)) add(errorMessage('VALIDATION_START_BEAT_MUST_EXIST'), cid);
+    if (chapter.allowCycles !== undefined && typeof chapter.allowCycles !== 'boolean') add(errorMessage('VALIDATION_INVALID_ALLOW_NODE_CYCLES_SETTING'), cid);
     if (chapter.initialValues !== undefined) {
-      if (!object(chapter.initialValues)) add('Initial values must be an object.', cid);
+      if (!object(chapter.initialValues)) add(errorMessage('VALIDATION_INITIAL_VALUES_MUST_BE_AN_OBJECT'), cid);
       else for (const [key, value]of Object.entries(chapter.initialValues)) {
         const v = vars.get(key);
-        if (isStatVariable(v) && !validStatValue(value)) add(`Invalid stat initial value: ${key}.`, cid);
+        if (isStatVariable(v) && !validStatValue(value)) add(errorMessage('VALIDATION_INVALID_STAT_INITIAL_VALUE', {key}), cid);
         if (!validRef(key, vars) || v && (typeof value !== (v.type === 'flag' ? 'boolean': 'number')
           || v.type === 'number' && (!Number.isFinite(value) || v.min !== undefined && value < v.min || v.max !== undefined
-          && value > v.max))) add(`Invalid initial value: ${key}.`, cid);
+          && value > v.max))) add(errorMessage('VALIDATION_INVALID_INITIAL_VALUE', {key}), cid);
       }
     }
     const edges = new Map();
     for (const node of chapter.nodes) {
       if (!object(node)) continue;
       const nid = node.id, label = `Beat ${nid}`;
-      if (typeof node.name !== 'string' || !Number.isFinite(node.x) || !Number.isFinite(node.y) || !nodeTypeDescriptor(node.type)) add(`${label}: invalid beat structure.`,
+      if (typeof node.name !== 'string' || !Number.isFinite(node.x) || !Number.isFinite(node.y) || !nodeTypeDescriptor(node.type)) add(errorMessage('VALIDATION_INVALID_BEAT_STRUCTURE', {label}),
         cid, nid);
       if (node.type === 'linear' && !Array.isArray(node.cards) || node.type === 'fork' && !Array.isArray(node.choices)
-        || node.type === 'container' && (!Array.isArray(node.items) || !object(node.intro))) add(`${label}: missing placements.`,
+        || node.type === 'container' && (!Array.isArray(node.items) || !object(node.intro))) add(errorMessage('VALIDATION_MISSING_PLACEMENTS', {label}),
         cid, nid);
-      if (!allowDraft && (node.type === 'linear' && !node.cards?.length || node.type === 'fork' && !node.choices?.length)) add(`${label}: needs at least one placement.`,
+      if (!allowDraft && (node.type === 'linear' && !node.cards?.length || node.type === 'fork' && !node.choices?.length)) add(errorMessage('VALIDATION_NEEDS_AT_LEAST_ONE_PLACEMENT', {label}),
         cid, nid);
       if (node.type === 'fork' && (node.intro !== undefined && !object(node.intro) || node.introEnabled === true
-        && !object(node.intro))) add(`${label}: missing introduction.`, cid, nid);
-      if (node.retainInventoryItems !== undefined && typeof node.retainInventoryItems !== 'boolean') add(`${label}: invalid inventory item persistence toggle.`, cid, nid);
-      if (node.unavailableActions !== undefined && (!['fork','linear'].includes(node.type) || !['project','disabled','hidden','triggers-only','disabled-triggers'].includes(node.unavailableActions))) add(`${label}: invalid unavailableActions setting.`, cid, nid);
-      if (node.introOnce !== undefined && typeof node.introOnce !== 'boolean') add(`${label}: invalid show once toggle.`, cid, nid);
-      if (node.introEnabled !== undefined && typeof node.introEnabled !== 'boolean') add(`${label}: invalid introduction toggle.`, cid, nid);
+        && !object(node.intro))) add(errorMessage('VALIDATION_MISSING_INTRODUCTION', {label}), cid, nid);
+      if (node.retainInventoryItems !== undefined && typeof node.retainInventoryItems !== 'boolean') add(errorMessage('VALIDATION_INVALID_INVENTORY_ITEM_PERSISTENCE_TOGGLE', {label}), cid, nid);
+      if (node.unavailableActions !== undefined && (!['fork','linear'].includes(node.type) || !['project','disabled','hidden','triggers-only','disabled-triggers'].includes(node.unavailableActions))) add(errorMessage('VALIDATION_NODE_UNAVAILABLE_ACTIONS_INVALID', {label}), cid, nid);
+      if (node.introOnce !== undefined && typeof node.introOnce !== 'boolean') add(errorMessage('VALIDATION_INVALID_SHOW_ONCE_TOGGLE', {label}), cid, nid);
+      if (node.introEnabled !== undefined && typeof node.introEnabled !== 'boolean') add(errorMessage('VALIDATION_INVALID_INTRODUCTION_TOGGLE', {label}), cid, nid);
       const ps = placements(node), pids = new Set();
       for (const p of ps) {
         if (!object(p) || !named(p.id) || typeof p.definitionId !== 'string') {
-          add(`${label}: invalid placement.`, cid, nid);
+          add(errorMessage('VALIDATION_INVALID_PLACEMENT', {label}), cid, nid);
           continue;
         }
-        if (pids.has(p.id)) add(`${label}: duplicate placement ID.`, cid, nid);
+        if (pids.has(p.id)) add(errorMessage('VALIDATION_DUPLICATE_PLACEMENT_ID', {label}), cid, nid);
         pids.add(p.id);
-        if (!validRef(p.definitionId, definitions)) add(`${label}: unknown definition ${p.definitionId}.`, cid, nid);
+        if (!validRef(p.definitionId, definitions)) add(errorMessage('VALIDATION_UNKNOWN_DEFINITION', {label, definitionId: p.definitionId}), cid, nid);
         if (p.unavailable !== undefined && !['hidden', 'disabled'].includes(p.unavailable) || p.overrides !== undefined
-          && !object(p.overrides)) add(`${label}: invalid placement options.`, cid, nid);
+          && !object(p.overrides)) add(errorMessage('VALIDATION_INVALID_PLACEMENT_OPTIONS', {label}), cid, nid);
         inspectCard(p, label);
         const d = definitions.get(p.definitionId);
         if (object(p.overrides)) {
-          if (Object.keys(p.overrides).some(k => !placementOverrideKeys(d?.kind,d).includes(k))) add(`${label}: unsupported override.`, cid, nid);
+          if (Object.keys(p.overrides).some(k => !placementOverrideKeys(d?.kind,d).includes(k))) add(errorMessage('VALIDATION_UNSUPPORTED_OVERRIDE', {label}), cid, nid);
           inspectCard(p.overrides, label);
         }
         if (p.contextOverrideImage !== undefined && !(node.type === 'fork' && list(node.choices).includes(p)
-          && canonicalCardKind(d?.kind) === 'action')) add(`${label}: Override img belongs to a native fork Action choice.`,
+          && canonicalCardKind(d?.kind) === 'action')) add(errorMessage('VALIDATION_OVERRIDE_IMG_BELONGS_TO_A_NATIVE_FORK_ACTION_CHOICE', {label}),
           cid, nid);
         const linked = p.contextItemId !== undefined && p.contextItemId !== '';
         const contextValid = !linked || named(p.contextItemId) && node.type === 'fork' && list(node.choices).includes(p)
           && canonicalCardKind(d?.kind) === 'action' && (definitions.get(p.contextItemId)?.kind === 'item' || isTagKey(p.contextItemId) && tagIds.has(tagIdFromKey(p.contextItemId)));
-        if (isTagKey(p.contextItemId) && !itemsById.has(p.contextItemId) && p.contextOverrideImage === true) add(`${label}: tag context cannot override artwork.`, cid, nid);
-        if (!contextValid) add(`${label}: inventory context needs a native fork Action choice and an Item definition or tag.`, cid, nid);
+        if (isTagKey(p.contextItemId) && !itemsById.has(p.contextItemId) && p.contextOverrideImage === true) add(errorMessage('VALIDATION_TAG_CONTEXT_CANNOT_OVERRIDE_ARTWORK', {label}), cid, nid);
+        if (!contextValid) add(errorMessage('VALIDATION_INVENTORY_CONTEXT_NEEDS_A_NATIVE_FORK_ACTION_CHOICE_AND_AN_ITEM_DEFINITION_OR_TAG', {label}), cid, nid);
         if (d) {
-          if (['linear', 'fork', 'container'].includes(node.type) && !allowedCardKinds(node.type, p === node.intro ? 'intro': list(node.choices).includes(p) ? 'choices': list(node.items).includes(p) ? 'items': 'cards').includes(canonicalCardKind(d.kind))) add(`${label}: incompatible card kind.`,
+          if (['linear', 'fork', 'container'].includes(node.type) && !allowedCardKinds(node.type, p === node.intro ? 'intro': list(node.choices).includes(p) ? 'choices': list(node.items).includes(p) ? 'items': 'cards').includes(canonicalCardKind(d.kind))) add(errorMessage('VALIDATION_INCOMPATIBLE_CARD_KIND', {label}),
             cid, nid);
           // Raw rule validation above reports malformed custom lists; do not try
           // to spread an invalid collection override while collecting errors.
@@ -292,12 +293,12 @@ export function validateProject(project, {allowDraft = false} = {}) {
       let targets = [];
       if (node.type === 'random') {
         if (!Array.isArray(node.routes)) {
-          add(`${label}: routes must be a list.`, cid, nid);
+          add(errorMessage('VALIDATION_ROUTES_MUST_BE_A_LIST', {label}), cid, nid);
         } else {
           const ids = new Set();
           for (const r of node.routes) {
             if (!object(r) || !named(r.id) || ids.has(r.id) || !Number.isFinite(r.weight) || r.weight <= 0
-              || r.target !== null && r.target !== false && typeof r.target !== 'string') add(`${label}: invalid random route.`,
+              || r.target !== null && r.target !== false && typeof r.target !== 'string') add(errorMessage('VALIDATION_INVALID_RANDOM_ROUTE', {label}),
               cid, nid);
             if (object(r)) {
               ids.add(r.id);
@@ -306,74 +307,74 @@ export function validateProject(project, {allowDraft = false} = {}) {
             }
           }
         }
-        if (node.fallback !== null && node.fallback !== false && typeof node.fallback !== 'string') add(`${label}: invalid fallback.`, cid, nid);
+        if (node.fallback !== null && node.fallback !== false && typeof node.fallback !== 'string') add(errorMessage('VALIDATION_INVALID_FALLBACK', {label}), cid, nid);
         targets.push(node.fallback);
       }
       else {
-        if (!object(node.connections)) add(`${label}: connections must be an object.`, cid, nid);
+        if (!object(node.connections)) add(errorMessage('VALIDATION_CONNECTIONS_MUST_BE_AN_OBJECT', {label}), cid, nid);
         else {
           targets = Object.values(node.connections);
-          for (const target of targets) if (target !== null && target !== false && typeof target !== 'string') add(`${label}: invalid connection.`, cid, nid);
+          for (const target of targets) if (target !== null && target !== false && typeof target !== 'string') add(errorMessage('VALIDATION_INVALID_CONNECTION', {label}), cid, nid);
           if (!allowDraft) for (const output of outputsForNode(project, node, index)) if (!Object.hasOwn(node.connections,
-            output)) add(`${label}: missing connection ${output}.`, cid, nid);
+            output)) add(errorMessage('VALIDATION_MISSING_CONNECTION', {label, output}), cid, nid);
         }
       }
       for (const raw of legacyArtwork(node)) {
-        if (raw.contextOverrideImage !== undefined || raw.contextItemId !== undefined && raw.contextItemId !== '') add(`${label}: inventory context is unsupported on legacy cards.`,
+        if (raw.contextOverrideImage !== undefined || raw.contextItemId !== undefined && raw.contextItemId !== '') add(errorMessage('VALIDATION_INVENTORY_CONTEXT_IS_UNSUPPORTED_ON_LEGACY_CARDS', {label}),
           cid, nid);
         if (!named(raw.id) || typeof raw.definitionId !== 'string' || typeof raw.image !== 'string'
-          || raw.unavailable !== undefined && !['hidden', 'disabled'].includes(raw.unavailable)) add(`${label}: invalid legacy artwork.`,
+          || raw.unavailable !== undefined && !['hidden', 'disabled'].includes(raw.unavailable)) add(errorMessage('VALIDATION_INVALID_LEGACY_ARTWORK', {label}),
           cid, nid);
-        if (!validRef(raw.definitionId, definitions)) add(`${label}: unknown legacy definition.`, cid, nid);
+        if (!validRef(raw.definitionId, definitions)) add(errorMessage('VALIDATION_UNKNOWN_LEGACY_DEFINITION', {label}), cid, nid);
         inspectCard(raw, label);
         if (definitions.has(raw.definitionId)) {
           try {
             inspectCard(resolvePlacement(project, raw, index), label);
           }
           catch {
-            add(`${label}: invalid legacy placement mechanics.`, cid, nid);
+            add(errorMessage('VALIDATION_INVALID_LEGACY_PLACEMENT_MECHANICS', {label}), cid, nid);
           }
         }
       }
       for (const seq of node.type === 'legacySequence' ? [node.sequence]: node.type === 'legacyPool' ? list(node.sequences): []) {
         if (!object(seq) || !named(seq.id) || !['linear', 'container', 'forked'].includes(seq.type) || !Array.isArray(seq.cards) || !Array.isArray(seq.exits)) {
-          add(`${label}: invalid legacy sequence.`, cid, nid);
+          add(errorMessage('VALIDATION_INVALID_LEGACY_SEQUENCE', {label}), cid, nid);
           continue;
         }
         const cardIds = new Set(seq.cards.filter(object).map(c => c.id)), exitIds = new Set(seq.exits), adjacency = new Map();
         for (const card of seq.cards) {
           if (!object(card) || !named(card.id) || typeof card.title !== 'string' || typeof card.text !== 'string' || typeof card.image !== 'string') {
-            add(`${label}: invalid legacy card.`, cid, nid);
+            add(errorMessage('VALIDATION_INVALID_LEGACY_CARD', {label}), cid, nid);
             continue;
           }
           const links = [];
           for (const choice of list(card.choices)) {
             if (!object(choice) || !named(choice.id) || typeof choice.target !== 'string') {
-              add(`${label}: invalid legacy choice.`, cid, nid);
+              add(errorMessage('VALIDATION_INVALID_LEGACY_CHOICE', {label}), cid, nid);
               continue;
             }
             if (!allowDraft) {
               if (choice.target.startsWith('card:')) {
                 const target = choice.target.slice(5);
-                if (!cardIds.has(target)) add(`${label}: unknown legacy card target.`, cid, nid);
+                if (!cardIds.has(target)) add(errorMessage('VALIDATION_UNKNOWN_LEGACY_CARD_TARGET', {label}), cid, nid);
                 else links.push(target);
-              } else if (!choice.target.startsWith('exit:') || !exitIds.has(choice.target.slice(5))) add(`${label}: unknown legacy exit.`, cid, nid);
+              } else if (!choice.target.startsWith('exit:') || !exitIds.has(choice.target.slice(5))) add(errorMessage('VALIDATION_UNKNOWN_LEGACY_EXIT', {label}), cid, nid);
             }
           }
           adjacency.set(card.id, links);
         }
-        if (!allowDraft && hasDirectedCycle(cardIds, adjacency)) add(`${label}: legacy sequence has a card cycle.`, cid, nid);
+        if (!allowDraft && hasDirectedCycle(cardIds, adjacency)) add(errorMessage('VALIDATION_LEGACY_SEQUENCE_HAS_A_CARD_CYCLE', {label}), cid, nid);
       }
 
-      if (node.type === 'legacySequence' && !object(node.sequence)) add(`${label}: missing legacy sequence.`, cid, nid);
+      if (node.type === 'legacySequence' && !object(node.sequence)) add(errorMessage('VALIDATION_MISSING_LEGACY_SEQUENCE', {label}), cid, nid);
       if (node.type === 'legacyPool' && (!Array.isArray(node.sequences) || !Array.isArray(node.pool)
         || !Number.isSafeInteger(node.count) || node.count < 1 || node.count > node.pool.length || node.pool.some(p => !object(p)
-        || !Number.isFinite(p.weight) || p.weight <= 0 || !allowDraft && !node.sequences.some(s => s.id === p.sequenceId)))) add(`${label}: invalid legacy pool.`,
+        || !Number.isFinite(p.weight) || p.weight <= 0 || !allowDraft && !node.sequences.some(s => s.id === p.sequenceId)))) add(errorMessage('VALIDATION_INVALID_LEGACY_POOL', {label}),
         cid, nid);
-      if (!allowDraft) for (const t of targets) if (t !== null && t !== false && !nodeIds.has(t)) add(`${label}: unknown target ${t}.`, cid, nid);
+      if (!allowDraft) for (const t of targets) if (t !== null && t !== false && !nodeIds.has(t)) add(errorMessage('VALIDATION_UNKNOWN_TARGET', {label, t}), cid, nid);
       edges.set(nid, targets.filter(t => t !== null && nodeIds.has(t)));
     }
-    if (!allowDraft && project.allowCycles === false && hasDirectedCycle(nodeIds, edges)) add('Chapter has a beat cycle.', cid);
+    if (!allowDraft && project.allowCycles === false && hasDirectedCycle(nodeIds, edges)) add(errorMessage('VALIDATION_CHAPTER_HAS_A_BEAT_CYCLE'), cid);
   }
   return errors;
 }

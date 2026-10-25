@@ -1,3 +1,4 @@
+import { createError } from '../errors.js';
 import { eligibleInventoryItems } from './item-options.js';
 import { createDefinition, resolvePlacement, isStoryKind, isConsumableKind, placementOverrideKeys } from '../project/cards.js';
 import { chapterVariables,outputsForNode,connectionForOutput } from '../project/model.js';
@@ -57,18 +58,18 @@ export function setCardSource(project,placement,definitionId,{allowedKinds}={}) 
  const kinds=allowedKinds || (source?[source.kind]:[]);
  if(definitionId?.startsWith('local:')){
   const kind=definitionId.slice(6);
-  if(!kinds.includes(kind))throw new Error('Choose a local card type allowed in this beat.');
+  if(!kinds.includes(kind))throw createError('STUDIO_CHOOSE_A_LOCAL_CARD_TYPE_ALLOWED_IN_THIS_BEAT');
   if(source?.visibility==='local'&&source.kind===kind)return;
   replaceCard(project,placement,kind,{copy:source?.kind===kind});
   return;
  }
  if(!definitionId){
-  if(!source)throw new Error('Choose a card source to repair the missing definition.');
+  if(!source)throw createError('STUDIO_CHOOSE_A_CARD_SOURCE_TO_REPAIR_THE_MISSING_DEFINITION');
   if(source.visibility!=='local')replaceCard(project,placement,source.kind,{copy:true});
   return;
  }
  const target=project.library.find(d=>d.id===definitionId);
- if(!target||!kinds.includes(target.kind)||target.visibility==='local')throw new Error('Choose a shared library card of the same type.');
+ if(!target||!kinds.includes(target.kind)||target.visibility==='local')throw createError('STUDIO_CHOOSE_A_SHARED_LIBRARY_CARD_OF_THE_SAME_TYPE');
  placement.definitionId=definitionId;delete placement.overrides;if(target.kind!=='action'){delete placement.contextItemId;delete placement.contextOverrideImage;}
 }
 export function promoteCard(project,placement) {
@@ -111,7 +112,7 @@ export function promoteCard(project,placement) {
 }
 export function duplicatePlacement(project,node,placement) {
  const slot=['cards','choices','items'].find(key=>node[key]?.includes(placement));
- if(!slot)throw new Error('This card slot cannot be duplicated.');
+ if(!slot)throw createError('STUDIO_THIS_CARD_SLOT_CANNOT_BE_DUPLICATED');
  const copy={...structuredClone(placement),id:uid('placement')};
  const copies=cloneLocalDefinitions(project,copy,owningChapterId(project,node));
  const definition=copies.get(placement.definitionId);if(definition)definition.name+=' copy';
@@ -169,7 +170,7 @@ export function customizeAction(project,placement) {
 export function customizeItem(project,placement) {
  const definition=project.library.find(d=>d.id===placement.definitionId);
  if(definition?.visibility==='local'){delete placement.overrides;return;}
- if(definition?.kind!=='item')throw new Error('Custom Item rules need an Item definition.');
+ if(definition?.kind!=='item')throw createError('STUDIO_CUSTOM_ITEM_RULES_NEED_AN_ITEM_DEFINITION');
  const card=resolvePlacement(project,placement);
  placement.overrides={onCollect:structuredClone(card.onCollect??[]),permability:card.permability??0};
  delete placement.effects;
@@ -177,7 +178,7 @@ export function customizeItem(project,placement) {
 export function customizeConsumable(project,placement) {
  const definition=project.library.find(d=>d.id===placement.definitionId);
  if(definition?.visibility==='local'){delete placement.overrides;return;}
- if(!isConsumableKind(definition?.kind))throw new Error('Custom collection rules need a Health or Energy definition.');
+ if(!isConsumableKind(definition?.kind))throw createError('STUDIO_CUSTOM_COLLECTION_RULES_NEED_A_HEALTH_OR_ENERGY_DEFINITION');
  // Resolved collection effects already contain the automatic resource gain.
  // Copy only authored effects so toggling custom rules cannot add it twice.
  const card={...definition,...placement.overrides};
@@ -187,12 +188,13 @@ export function customizeConsumable(project,placement) {
 export function customizeStory(project,placement) {
  const definition=project.library.find(d=>d.id===placement.definitionId);
  if(definition?.visibility==='local'){delete placement.overrides;return;}
- if(!isStoryKind(definition?.kind))throw new Error('Custom progression rules need a Vignette or Caption.');
+ if(!isStoryKind(definition?.kind))throw createError('STUDIO_CUSTOM_PROGRESSION_RULES_NEED_A_VIGNETTE_OR_CAPTION');
  const card=resolvePlacement(project,placement);
  placement.overrides={effects:structuredClone(card.effects??[])};
  delete placement.effects;
 }
 export function newRule(project,kind,chapter) {
+ if(kind==='effects')return {op:'addItem',key:eligibleInventoryItems(project,chapter)[0]?.id||''};
  const variables=chapterVariables(project,chapter);
  if(kind==='dice')return {sides:20,count:1};
  let variable=variables[0];

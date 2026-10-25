@@ -1,10 +1,11 @@
+import { createError } from '../errors.js';
 import { initialValues, transact, addInventory } from './state.js';
 import { compileChapter } from './compilation.js';
 
 /** A chapter starts fresh, except for project variables and shared owned Items. */
 export function chapterEntryState(project, chapterId, previous) {
   const chapter = project.chapters.find(chapter => chapter.id === chapterId);
-  if (!chapter) throw new TypeError(`Unknown chapter: ${chapterId}`);
+  if (!chapter) throw createError('PROJECT_UNKNOWN_CHAPTER_ID', { chapterId });
   const compiled = compileChapter(project, chapterId);
   const effects = (project.variables || []).filter(variable =>
     Object.hasOwn(previous?.variables || {}, variable.id) && !Object.hasOwn(chapter.initialValues || {}, variable.id)

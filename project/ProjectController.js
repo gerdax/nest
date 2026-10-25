@@ -1,3 +1,4 @@
+import { createError, errorMessage, errorCode } from '../errors.js';
 import { retainsInventoryItems } from './nodeTypes.js';
 import { initialValues, conditionsMet, affordCosts, transact, addInventory, canTriggerItem, inventoryQuantity } from './state.js';
 import { cardBody, cardFace, actionCardFace } from './presentation.js';
@@ -9,9 +10,9 @@ import { actionAvailability } from './action-availability.js';
 
 /** Playback only. CardDeck remains responsible for gestures and departure choreography. */
 export class ProjectController {
-  constructor(deck, compiled, {onChange=()=>{},rng=Math.random,rollCheck,onCheckResult=()=>{},onError=()=>{},initialState,nodeEntryEffects={}} = {}) {
+  constructor(deck, compiled, {onChange=()=>{},rng=Math.random,rollCheck,onCheckResult=()=>{},onError=()=>{},onStart=()=>{},onSuccess=()=>{},initialState,nodeEntryEffects={}} = {}) {
     this.deck=deck; this.compiled=compiled; this.nodes=new Map(compiled.nodes.map(n=>[n.id,n]));
-    Object.assign(this,{onChange,rng,rollCheck,onCheckResult,onError});
+    Object.assign(this,{onChange,rng,rollCheck,onCheckResult,onError,onStart,onSuccess});
     this.initialState = initialState ? structuredClone(initialState) : null;
     // Host-supplied test effects stay outside the compiled document.
     this.nodeEntryEffects = structuredClone(nodeEntryEffects);
@@ -24,18 +25,24 @@ export class ProjectController {
   get state() { return {activeNodeId:this.location?.node.id ?? null,cardId:this.card()?.id ?? null,variables:{...this.variables},collectedItems:this.inventory.map(i=>({...i})),completed:this.completed,checking:!!this.checking,idle:!this.completed&&!this.checking&&!this.pendingItem&&!this.pendingIntro&&!this.deck.busy&&!this.deck.pickup?.pending&&!this.deck.drag&&!['revealing','closing','committing','collecting'].includes(this.deck.phase)}; }
   notify() {if(!this.destroyed)this.onChange(this.state);}
   error(error) {if(!this.destroyed)this.onError(error,this.state);}
+  succeeded(nodeId) {
+    if(this.destroyed)return false;
+    const generation=this.generation;
+    this.onSuccess(nodeId);
+    return !this.destroyed&&this.generation===generation;
+  }
   restart() {
     if(this.destroyed)return;
-    ++this.generation; this.checking?.abort(); this.checking=null;this.checkPayment=null;
+    const generation=++this.generation; this.checking?.abort(); this.checking=null;this.checkPayment=null;
     this.arrivalStates = new WeakMap();
     this.deck.reset();
     this.variables=transact(initialValues(this.compiled.variables),[],{effects:Object.entries(this.initialState?.variables || {}).map(([key,value])=>({op:'set',key,value}))},this.compiled.variables).variables;
     this.inventory=(this.initialState?.inventory || []).reduce((items,item)=>addInventory(items,structuredClone(item)),[]);
     this.remaining=new Map(); this.itemReplacements=new Map(); this.accepted=new Set();this.revealedIntros=new Set();this.pendingIntro=null; this.pendingItem=null;this.pendingExchange=null;this.stagedDestination=null;this.completed=false;
     this.location=null;
-    try {this.adopt(this.locate(this.compiled.startNode),false);this.show();} catch(error){
+    try {this.adopt(this.locate(this.compiled.startNode),false);this.show();if(!this.destroyed&&this.generation===generation)this.onStart(this.compiled.startNode);} catch(error){
       this.location=null;this.completed=false;
-      const message=error.message==='Unlinked output'?'Unlinked output':'Playback blocked';
+      const message=errorCode(error)==='RUNTIME_UNLINKED_OUTPUT'?errorMessage('RUNTIME_UNLINKED_OUTPUT'):errorMessage('RUNTIME_PLAYBACK_BLOCKED');
       this.deck.replaceContent({id:`${this.generation}:${++this.serial}`,title:message,actions:[{id:'unavailable',label:message,disabled:true,disabledReason:this.routingReason(error)||error.message||message}],decisionOnly:true},{presentation:'open',animate:false});
       this.error(error);this.notify();
     }
@@ -99,7 +106,7 @@ export class ProjectController {
     if(!routes.length)return null;
     const maximum=routes.reduce((max,r)=>Math.max(max,r.weight),0);
     const total=routes.reduce((sum,r)=>sum+r.weight/maximum,0);
-    const draw=this.rng();if(!Number.isFinite(draw)||draw<0||draw>=1)throw new TypeError('Random source must return 0 ≤ n < 1');
+    const draw=this.rng();if(!Number.isFinite(draw)||draw<0||draw>=1)throw createError('RUNTIME_RANDOM_SOURCE_MUST_RETURN_0_N_1');
     let ticket=draw*total;
     return routes.find(r=>(ticket-=r.weight/maximum)<0) ?? routes.at(-1);
   }
@@ -132,12 +139,12 @@ export class ProjectController {
         }
         const id=step.id;
         if(id===null){result={completed:true};if(changed)this.arrivalStates.set(result,{variables:values,inventory});continue;}
-        if(id===false||id===undefined)throw new Error('Unlinked output');
-        if(visited.has(id))throw new Error('Automatic routing cycle');
+        if(id===false||id===undefined)throw createError('RUNTIME_UNLINKED_OUTPUT');
+        if(visited.has(id))throw createError('RUNTIME_AUTOMATIC_ROUTING_CYCLE');
         const cached=preview&&preflight.completed.get(id);
         if(cached&&cached.values===values&&cached.inventory===inventory){result=cached.result;continue;}
         visited.add(id);entered.add(id);
-        const node=this.nodes.get(id);if(!node)throw new Error(`Unknown node: ${id}`);
+        const node=this.nodes.get(id);if(!node)throw createError('RUNTIME_UNKNOWN_NODE', { id });
         pending.push({finish:true,id,random:preview&&node.type==='random',values,inventory});
         // Keep entry effects speculative until the full route succeeds. Branches
         // inherit their parent's state rather than a preceding sibling's effects.
@@ -226,9 +233,9 @@ export class ProjectController {
     return !!this.departureReason(source,location,values,inventory,transition,excludedItem);
   }
   routingReason(error) {
-    if(error.message==='Unlinked output')return 'Route unavailable';
-    if(error.message==='Automatic routing cycle')return 'Automatic routing cycle';
-    if(error.message.startsWith('Unknown node:'))return 'Connected destination is missing';
+    if(errorCode(error)==='RUNTIME_UNLINKED_OUTPUT')return errorMessage('RUNTIME_ROUTE_UNAVAILABLE');
+    if(errorCode(error)==='RUNTIME_AUTOMATIC_ROUTING_CYCLE')return errorMessage('RUNTIME_AUTOMATIC_ROUTING_CYCLE');
+    if(errorCode(error)==='RUNTIME_UNKNOWN_NODE')return errorMessage('RUNTIME_CONNECTED_DESTINATION_MISSING');
     return '';
   }
   departureReason(source,location=this.location,values=this.variables,inventory=this.inventory,transition=null,excludedItem=null) {
@@ -354,7 +361,7 @@ export class ProjectController {
     return 'closed';
   }
   reportBlocked(content=this.deck.content) {
-    if((['fork','forked'].includes(this.type())||this.type()==='linear'&&this.card()?.kind==='action')&&this.presentation()==='open'&&!content.actions.some(a=>!a.disabled))this.error(Object.assign(new Error(`No available choices at ${this.location.node.name || this.location.node.id}. Check choice requirements, costs and inventory triggers, or restart.`),{code:'NO_AVAILABLE_CHOICES'}));
+    if((['fork','forked'].includes(this.type())||this.type()==='linear'&&this.card()?.kind==='action')&&this.presentation()==='open'&&!content.actions.some(a=>!a.disabled))this.error(createError('NO_AVAILABLE_CHOICES', { nodeName: this.location.node.name || this.location.node.id }));
   }
   show({transition='flip',restore=false,presentation,animate=true,autoBrowse=true,preserveInventoryContext=false}={}) {
     if(this.completed){this.deck.endContent();if(!this.deck.busy)this.deck.completeCommit?.();this.notify();return;}
@@ -376,6 +383,7 @@ export class ProjectController {
         const content=this.content();content.id=detail.contentId;
         this.deck.replaceContent(content,{presentation:'open',transition:'flip'});
       }
+      if(!this.succeeded(this.location.node.id))return;
       this.notify();
     }catch(error){this.error(error);this.show({restore:true});}
   }
@@ -392,16 +400,18 @@ export class ProjectController {
     if(source.resolution==='check'){this.runCheck(source);return;}
     try {
       const result=this.transaction(source);const destination=this.destination(source,undefined,result.variables,result.inventory);
+      const sourceNodeId=this.location.node.id;
       const transition=this.linearTransition(this.location,destination,source);
       this.variables=result.variables;this.inventory=result.inventory;
-      this.adopt(destination,false);this.show({transition});
+      this.adopt(destination,false);if(!this.succeeded(sourceNodeId))return;this.show({transition});
     }catch(error){this.error(error);this.show({restore:true});}
   }
   async runCheck(source) {
     if(this.departureBlocked(source))return;
+    const sourceNodeId=this.location.node.id;
     const generation=this.generation,abort=new AbortController();this.checking=abort;
     try {
-      if(!this.rollCheck)throw new Error('No dice roller supplied');
+      if(!this.rollCheck)throw createError('RUNTIME_NO_DICE_ROLLER_SUPPLIED');
       const before={variables:this.variables,inventory:this.inventory};
       const check=resolveCheck(source.check,before.variables);
       const paid=transact(before.variables,before.inventory,{costs:source.costs},this.compiled.variables,this.compiled.library);
@@ -413,18 +423,18 @@ export class ProjectController {
       if(abort.signal.aborted||generation!==this.generation||this.destroyed)return;
       const dice=Array.isArray(result)?result:result?.dice;
       const raw=typeof result==='number'?result:Array.isArray(dice)?dice.reduce((sum,d)=>sum+(typeof d==='number'?d:d.value),0):result?.total;
-      if(!Number.isFinite(raw))throw new TypeError('Invalid dice result');
+      if(!Number.isFinite(raw))throw createError('RUNTIME_INVALID_DICE_RESULT');
       const modifier=check.modifier;
-      if(!Number.isFinite(modifier))throw new TypeError('Invalid check modifier');
+      if(!Number.isFinite(modifier))throw createError('RUNTIME_INVALID_CHECK_MODIFIER');
       const total=raw+modifier,success=total>=check.target;
       await this.onCheckResult({total,target:check.target,success,dice:dice??[],signal:abort.signal});
       if(abort.signal.aborted||generation!==this.generation||this.destroyed)return;
-      if(JSON.stringify({variables:this.variables,inventory:this.inventory})!==this.checkPayment.expected)throw new Error('Check requirements changed');
-      if(this.departureBlocked(source,this.location,before.variables,before.inventory))throw new Error('Unlinked output');
+      if(JSON.stringify({variables:this.variables,inventory:this.inventory})!==this.checkPayment.expected)throw createError('RUNTIME_CHECK_REQUIREMENTS_CHANGED');
+      if(this.departureBlocked(source,this.location,before.variables,before.inventory))throw createError('RUNTIME_UNLINKED_OUTPUT');
       // Resolve atomically from the original state: costs are already visible,
       // while trigger uses and effects retain their established ordering.
       const next=this.transaction(source,success,before.variables,before.inventory);const destination=this.destination(source,success,next.variables,next.inventory);
-      this.variables=next.variables;this.inventory=next.inventory;this.checkPayment=null;this.checking=null;this.adopt(destination,false);this.show();
+      this.variables=next.variables;this.inventory=next.inventory;this.checkPayment=null;this.checking=null;this.adopt(destination,false);if(!this.succeeded(sourceNodeId))return;this.show();
     }catch(error){
       if(generation!==this.generation||this.destroyed)return;
       this.restoreCheckPayment(abort);this.checking=null;if(error?.name!=='AbortError')this.error(error);this.show({restore:true});
@@ -445,13 +455,13 @@ export class ProjectController {
   }
   cancelCheck() {if(!this.checking)return false;const abort=this.checking;abort.abort();this.restoreCheckPayment(abort);this.checking=null;++this.generation;this.show({restore:true});return true;}
   collectionInventory(item, replacementId) {
-    if (this.ownsItem(item)) throw new Error('Item is already owned');
+    if (this.ownsItem(item)) throw createError('RUNTIME_ITEM_IS_ALREADY_OWNED');
     let inventory = this.inventory;
     if (replacementId) {
-      if (inventory.length < 4 || !inventory.some(owned => (owned.definitionId ?? owned.id) === replacementId)) throw new Error('Inventory replacement is no longer available');
+      if (inventory.length < 4 || !inventory.some(owned => (owned.definitionId ?? owned.id) === replacementId)) throw createError('RUNTIME_INVENTORY_REPLACEMENT_IS_NO_LONGER_AVAILABLE');
       inventory = inventory.filter(owned => (owned.definitionId ?? owned.id) !== replacementId);
     }
-    if (!replacementId && inventory.length >= 4 && this.deck.pickup) throw new Error('Choose an inventory item to replace');
+    if (!replacementId && inventory.length >= 4 && this.deck.pickup) throw createError('RUNTIME_CHOOSE_AN_INVENTORY_ITEM_TO_REPLACE');
     return inventory;
   }
   authorizeCollection(action, decision) {
@@ -491,7 +501,7 @@ export class ProjectController {
         else this.itemReplacements.get(key).delete(item.id);
         return false;
       }
-      if(this.generation===generation&&!this.destroyed)this.notify();
+      if(this.generation===generation&&!this.destroyed&&this.succeeded(this.location.node.id))this.notify();
       return true;
     } catch(error) { this.error(error); return false; }
   }
@@ -563,6 +573,7 @@ export class ProjectController {
       }
       this.variables=pending.result.variables;this.inventory=pending.result.inventory;this.pendingItem=null;
       const generation=this.generation;
+      if(!this.succeeded(this.location.node.id))return;
       this.notify();
       // Host callbacks may tear down or restart playback after accepting ownership.
       if(this.destroyed||this.generation!==generation)return;

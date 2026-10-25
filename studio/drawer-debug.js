@@ -1,3 +1,4 @@
+import { errorMessage } from '../errors.js';
 /** Reduce internal diagnostics to the events useful for drawer timing. */
 export function createDrawerTraceFilter() {
   let visible = false, revealing = false, content = null, blockers = null, ready = false;
@@ -146,7 +147,7 @@ export function mountDrawerDebug(preview) {
   const clearRows = () => { rows.length = 0; output.textContent = ''; started = previous = performance.now(); };
   const copyRows = async () => {
     try { await navigator.clipboard.writeText(rows.join('\n\n')); copy.textContent = 'Copied'; }
-    catch { copy.textContent = 'Copy failed'; }
+    catch { copy.textContent = errorMessage('STUDIO_COPY_FAILED_LABEL'); }
   };
   panel.addEventListener('toggle', toggle); clear.addEventListener('click', clearRows); copy.addEventListener('click', copyRows);
   return () => {

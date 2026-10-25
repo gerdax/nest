@@ -1,3 +1,4 @@
+import { createError } from '../errors.js';
 import { parseProject } from './model.js';
 export const STORAGE_KEY = 'nest.project.v2';
 export const LEGACY_STORAGE_KEY = 'nest.chapter.v1';
@@ -17,13 +18,13 @@ function preserveDamagedSave(store, text) {
     if (existing === text) break;
     if (existing === null) {
       store.setItem(key, text);
-      if (store.getItem(key) !== text) throw new Error('Recovery backup could not be verified.');
+      if (store.getItem(key) !== text) throw createError('PROJECT_RECOVERY_BACKUP_COULD_NOT_BE_VERIFIED');
       break;
     }
     key = `${RECOVERY_STORAGE_KEY}.${suffix++}`;
   }
   store.setItem(RECOVERY_NOTICE_KEY, key);
-  if (store.getItem(RECOVERY_NOTICE_KEY) !== key) throw new Error('Recovery notice could not be verified.');
+  if (store.getItem(RECOVERY_NOTICE_KEY) !== key) throw createError('PROJECT_RECOVERY_NOTICE_COULD_NOT_BE_VERIFIED');
   return key;
 }
 export function saveProject(project, storage) {
@@ -35,7 +36,7 @@ export function saveProject(project, storage) {
       try { parseProject(current, {allowDraft:true}); }
       catch {
         try { preserveDamagedSave(store, current); }
-        catch (error) { throw new Error(`Damaged browser save was not replaced: ${message(error)}`); }
+        catch (error) { throw createError('PROJECT_DAMAGED_SAVE_NOT_REPLACED', { reason: message(error) }); }
       }
     }
     store.setItem(STORAGE_KEY, text);
@@ -73,7 +74,7 @@ export function acknowledgeRecovery(storage) {
   try {
     const store = storage ?? globalThis.localStorage;
     store.removeItem(RECOVERY_NOTICE_KEY);
-    if (store.getItem(RECOVERY_NOTICE_KEY) !== null) throw new Error('Recovery notice could not be cleared.');
+    if (store.getItem(RECOVERY_NOTICE_KEY) !== null) throw createError('PROJECT_RECOVERY_NOTICE_COULD_NOT_BE_CLEARED');
     return {ok:true};
   } catch (error) { return {ok:false,error:message(error)}; }
 }
@@ -92,9 +93,9 @@ export function readRecoveredSave(storage) {
     const key = store.getItem(RECOVERY_NOTICE_KEY);
     if (key) {
       const text = store.getItem(key);
-      if (text === null) throw new Error('The recovery backup is no longer available.');
+      if (text === null) throw createError('PROJECT_THE_RECOVERY_BACKUP_IS_NO_LONGER_AVAILABLE');
       return {ok:true,text,key};
     }
-    throw new Error('No damaged browser save is available to download.');
+    throw createError('PROJECT_NO_DAMAGED_BROWSER_SAVE_IS_AVAILABLE_TO_DOWNLOAD');
   } catch (error) { return {ok:false,error:message(error)}; }
 }

@@ -1,8 +1,9 @@
+import { createError } from '../errors.js';
 const radians = degrees => degrees * Math.PI / 180;
 
 function dimensions(width, height, perspective) {
   if (![width, height, perspective].every(Number.isFinite) || width <= 0 || height <= 0 || perspective <= 0) {
-    throw new RangeError('Card dimensions and perspective must be positive finite numbers');
+    throw createError('GEOMETRY_CARD_DIMENSIONS_AND_PERSPECTIVE_MUST_BE_POSITIVE_FINITE_NUMBERS');
   }
 }
 
@@ -12,7 +13,7 @@ function dimensions(width, height, perspective) {
 export function projectedBounds(pose, width, height, perspective) {
   dimensions(width, height, perspective);
   const { x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, turn = 0, turnAxis = 0, face = 0, scale = 1 } = pose;
-  if (![x, y, z, rx, ry, rz, turn, turnAxis, face, scale].every(Number.isFinite)) throw new RangeError('Pose must be finite');
+  if (![x, y, z, rx, ry, rz, turn, turnAxis, face, scale].every(Number.isFinite)) throw createError('GEOMETRY_POSE_MUST_BE_FINITE');
   const [ax, ay, az] = [rx, ry, rz].map(radians);
   const cx = Math.cos(ax), sx = Math.sin(ax);
   const cy = Math.cos(ay), sy = Math.sin(ay);
@@ -34,7 +35,7 @@ export function projectedBounds(pose, width, height, perspective) {
       const depthY = -sy * rotatedX + cy * turnZ;
       const finalY = cx * rotatedY - sx * depthY;
       const finalZ = sx * rotatedY + cx * depthY + z;
-      if (finalZ >= perspective) throw new RangeError('Card crosses the perspective camera plane');
+      if (finalZ >= perspective) throw createError('GEOMETRY_CARD_CROSSES_THE_PERSPECTIVE_CAMERA_PLANE');
       const factor = perspective / (perspective - finalZ);
       const screenX = width / 2 + (afterY + x) * factor;
       const screenY = height * .45 + (height * .05 + finalY + y) * factor;
@@ -55,7 +56,7 @@ export function turningBounds(pose, width, height, perspective) {
   dimensions(width, height, perspective);
   const { x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, turnAxis = 0, scale = 1 } = pose;
   if (![x, y, z, rx, ry, rz, turnAxis, scale, pose.turn ?? 0, pose.face ?? 0].every(Number.isFinite)) {
-    throw new RangeError('Pose must be finite');
+    throw createError('GEOMETRY_POSE_MUST_BE_FINITE');
   }
   const [ax, ay, az, aa] = [rx, ry, rz, turnAxis].map(radians);
   const ca = Math.cos(aa), sa = Math.sin(aa);
@@ -68,7 +69,7 @@ export function turningBounds(pose, width, height, perspective) {
   const axis = [vx, Math.cos(ax) * uy - Math.sin(ax) * vz, Math.sin(ax) * uy + Math.cos(ax) * vz];
   const [extentX, extentY, extentZ] = axis.map(component =>
     Math.abs(component) * halfAxis + Math.sqrt(Math.max(0, 1 - component * component)) * radius);
-  if (z + extentZ >= perspective) throw new RangeError('Turn can cross the perspective camera plane');
+  if (z + extentZ >= perspective) throw createError('GEOMETRY_TURN_CAN_CROSS_THE_PERSPECTIVE_CAMERA_PLANE');
   const farFactor = perspective / (perspective - z + extentZ);
   const nearFactor = perspective / (perspective - z - extentZ);
   const interval = (center, extent, origin) => {
@@ -93,9 +94,9 @@ function support(a, b, limit) {
 // shared rotation, so radius does not pulse as an angular spring settles.
 export function handoffRadius(count, width, height, settings, rotation = { rx: 0, ry: 0, rz: 0 }) {
   dimensions(width, height, settings.perspective);
-  if (!Number.isInteger(count) || count < 2) throw new RangeError('Handoff needs at least two cards');
+  if (!Number.isInteger(count) || count < 2) throw createError('GEOMETRY_HANDOFF_NEEDS_AT_LEAST_TWO_CARDS');
   if (![settings.maxTilt, settings.stackDepth, rotation.rx ?? 0, rotation.ry ?? 0, rotation.rz ?? 0].every(Number.isFinite)) {
-    throw new RangeError('Handoff settings and rotation must be finite');
+    throw createError('GEOMETRY_HANDOFF_SETTINGS_AND_ROTATION_MUST_BE_FINITE');
   }
   const limit = Math.min(Math.abs(radians(settings.maxTilt)), Math.PI / 2);
   const halfX = support(width / 2, height / 2, limit);
@@ -104,7 +105,7 @@ export function handoffRadius(count, width, height, settings, rotation = { rx: 0
   const angle = Math.PI / count;
   const centerZ = -(1 - Math.cos(angle)) * settings.stackDepth;
   const farDenominator = settings.perspective - centerZ + depth;
-  if (settings.perspective - centerZ <= depth) throw new RangeError('Tilt can cross the perspective camera plane');
+  if (settings.perspective - centerZ <= depth) throw createError('GEOMETRY_TILT_CAN_CROSS_THE_PERSPECTIVE_CAMERA_PLANE');
   // At crossover, both centers are ±radius*sin(angle). Once all left-card
   // vertices lie left of the origin, the farthest depth gives their smallest
   // distance from it. Each side needs four projected pixels of clearance.

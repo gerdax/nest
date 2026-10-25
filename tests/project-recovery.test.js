@@ -1,3 +1,4 @@
+import { errorMessage } from '../errors.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createProject, parseProject, exportChapter } from '../project/model.js';
@@ -155,7 +156,7 @@ test('editor recovery button downloads the exact raw text and reports read failu
   const source = readFileSync(new URL('../studio/editor.js',import.meta.url),'utf8');
   const section = source.slice(source.indexOf('let recoveryDownload;'),source.indexOf("$('#export-project').textContent"));
   const downloads = [], statuses = [], button = {}, status = {after(element){assert.equal(element,button);}};
-  const context = {loaded:{recovery:{backupKey:RECOVERY_STORAGE_KEY}},document:{createElement:()=>button},
+  const context = {errorMessage,loaded:{recovery:{backupKey:RECOVERY_STORAGE_KEY}},document:{createElement:()=>button},
     $:()=>status,readRecoveredSave:()=>({ok:true,text:'{raw'}),downloadText:(...args)=>downloads.push(args),report:text=>statuses.push(text)};
   runInNewContext(section,context);
   assert.equal(button.textContent,'Download recovered save');

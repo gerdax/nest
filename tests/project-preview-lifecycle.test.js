@@ -647,3 +647,26 @@ test('visible card notifications follow selection, transitions and stop without 
  preview.restart();const count=targets.length;oldListener();assert.equal(targets.length,count);
  preview.stop();assert.equal(targets.at(-1),null);preview.destroy();
 });
+
+test('node error callbacks persist through stop and clear on a successful retry with scoped context',()=>{
+ environment();
+ const reported=[],resolved=[],project=createProject();
+ const preview=new ProjectPreview(new Element(),{onNodeError:issue=>reported.push(issue),onNodeResolved:issue=>resolved.push(issue)});
+ preview.play(project);
+ const controller=preview.controller,state=controller.state;
+ resolved.length=0;
+ const error=Object.assign(new Error('Dice presentation failed'),{code:'DICE_FAILED'});
+ controller.onError(error,state);
+ assert.deepEqual(reported,[{projectId:project.id,chapterId:preview.chapterId,nodeId:state.activeNodeId,code:'DICE_FAILED',message:'Dice presentation failed',entryFailure:false}]);
+ controller.onChange(state);
+ assert.equal(resolved.length,0);
+ preview.stop();
+ assert.equal(resolved.length,0);
+ controller.onError(error,state);
+ assert.equal(reported.length,1,'obsolete preview callbacks do not mark nodes');
+ preview.play(project);
+ assert.ok(resolved.every(issue=>issue.entryOnly),'restart does not resolve an operation failure');
+ preview.controller.onSuccess(state.activeNodeId);
+ assert.ok(resolved.some(issue=>!issue.entryOnly&&issue.projectId===project.id&&issue.nodeId===state.activeNodeId));
+ preview.destroy();
+});

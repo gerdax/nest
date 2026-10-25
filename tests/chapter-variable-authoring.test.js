@@ -54,7 +54,8 @@ test('chapter flag normalization and new rules use visible typed definitions', (
   normalizeRule(project, rule, 'key', chapter);
   assert.deepEqual(rule, {op:'set',key:'local-flag',value:false});
   project.variables = [];
-  assert.equal(newRule(project,'effects',chapter).key, 'local-counter');
+  assert.equal(newRule(project,'conditions',chapter).key, 'local-counter');
+  assert.equal(newRule(project,'effects',chapter).op, 'addItem');
   const placement=chapter.nodes[0].cards[0];
   placement.effects=[{op:'add',key:'local-counter',value:1}];
   applyDocumentCommand(project, selection, 'field', {scope:'placement',placementId:placement.id,path:'effects.0.key',value:'local-flag'});

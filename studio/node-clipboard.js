@@ -1,3 +1,4 @@
+import { createError } from '../errors.js';
 import { restoreSnapshotTags } from './tag-snapshots.js';
 import { definitionGraph } from '../project/dependencies.js';
 import { walk } from '../project/model-data.js';
@@ -30,7 +31,7 @@ function remapVariables(value, ids) {
 export function captureNodeClipboard(project, chapterId, nodeId, {cut = false} = {}) {
   const chapter = project.chapters.find(chapter => chapter.id === chapterId);
   const node = chapter?.nodes.find(node => node.id === nodeId);
-  if (!node) throw new Error('The selected beat no longer exists.');
+  if (!node) throw createError('STUDIO_THE_SELECTED_BEAT_NO_LONGER_EXISTS');
   const dependencies = definitionGraph(project).reachableFrom(node);
   const definitions = project.library.filter(definition => dependencies.has(definition.id));
   return structuredClone({kind:'nest-node-clipboard', projectId:project.id, chapterId, node, definitions,
@@ -40,10 +41,10 @@ export function captureNodeClipboard(project, chapterId, nodeId, {cut = false} =
 /** Mutate only a document draft; never consume or modify the clipboard itself. */
 export function pasteNodeClipboard(project, chapter, payload, {position} = {}) {
   if (payload?.kind !== 'nest-node-clipboard' || !payload.node || !Array.isArray(payload.definitions)) {
-    throw new Error('Copy a beat before pasting.');
+    throw createError('STUDIO_COPY_A_BEAT_BEFORE_PASTING');
   }
-  if (!project.id || payload.projectId !== project.id) throw new Error('Copied beats belong to a different project.');
-  if (!project.chapters.includes(chapter)) throw new Error('The destination chapter no longer exists.');
+  if (!project.id || payload.projectId !== project.id) throw createError('STUDIO_COPIED_BEATS_BELONG_TO_A_DIFFERENT_PROJECT');
+  if (!project.chapters.includes(chapter)) throw createError('STUDIO_THE_DESTINATION_CHAPTER_NO_LONGER_EXISTS');
   const node = structuredClone(payload.node), definitions = [], definitionIds = new Map(), inventoryIds = new Map();
   const crossChapter = chapter.id !== payload.chapterId;
   const variables = [], variableIds = new Map();

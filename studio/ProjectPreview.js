@@ -1,3 +1,4 @@
+import { createError, errorCode } from '../errors.js';
 import { nextChapter } from '../project/chapter-navigation.js';
 import { CardDeck } from '../engine/CardDeck.js';
 import { DiceService } from '../dice/DiceService.js';
@@ -18,7 +19,7 @@ import { ActionContextPanel } from './ActionContextPanel.js';
 
 /** Playback UI owns dice/inventory presentation, never chapter resolution rules. */
 export class ProjectPreview {
-  constructor(root, { onChange = () => {}, onStop = () => {}, onCardChange = () => {}, onGoToCard, inventoryDock = false, inventoryHost = null, deckSettings = {}, presentationPolicy = {}, previewOverrides = null } = {}) {
+  constructor(root, { onChange = () => {}, onStop = () => {}, onCardChange = () => {}, onGoToCard, onNodeError = () => {}, onNodeResolved = () => {}, inventoryDock = false, inventoryHost = null, deckSettings = {}, presentationPolicy = {}, previewOverrides = null } = {}) {
     this.root = root;
     this.destroyed = false;
     this.generation = 0;
@@ -26,6 +27,8 @@ export class ProjectPreview {
     this.onChange = onChange;
     this.onStop = onStop;
     this.onCardChange = onCardChange;
+    this.onNodeError = onNodeError;
+    this.onNodeResolved = onNodeResolved;
     this.onGoToCard = typeof onGoToCard === 'function' ? onGoToCard : null;
     this.deckSettings = { ...deckSettings };
     this.presentationPolicy = { ...presentationPolicy };
@@ -85,11 +88,11 @@ export class ProjectPreview {
 
   }
   play(project, chapterId, startNode, { focus = true, initialState = null } = {}) {
-    if (this.destroyed) throw new Error('Project preview has been destroyed');
+    if (this.destroyed) throw createError('STUDIO_PROJECT_PREVIEW_HAS_BEEN_DESTROYED');
     if (this.destroying) return;
     if (chapterId === undefined) chapterId = project.activeChapterId;
     const issues = validateProject(project);
-    if (issues.length) throw new Error(issues.map(issue => issue.message).join('\n'));
+    if (issues.length) throw createError('STUDIO_PREVIEW_VALIDATION_FAILED', {message: issues.map(issue => issue.message).join('\n')});
     const sourceChapter = project.chapters.find(chapter => chapter.id === chapterId);
     const nodeEntryEffects = sourceChapter ? this.previewOverrides?.nodeEntryEffects(project, sourceChapter) ?? {} : {};
     const additionalDefinitionIds = [
@@ -137,9 +140,11 @@ export class ProjectPreview {
         initialState:this.initialState,
         nodeEntryEffects,
         onChange: state => { if (active()) this.update(state); },
-        onError: (error,state) => { if (!active() || error.code === 'NO_AVAILABLE_CHOICES') return; this.hideDice(); this.errorNode = state?.activeNodeId; this.errorMessage = error.message || String(error); this.status.textContent = this.errorMessage; this.status.hidden = false; },
+        onStart: nodeId => { if (active()) this.onNodeResolved?.({projectId:this.project?.id,chapterId:this.chapterId,nodeId,entryOnly:true}); },
+        onSuccess: nodeId => { if (active()) this.onNodeResolved?.({projectId:this.project?.id,chapterId:this.chapterId,nodeId}); },
+        onError: (error,state) => { if (!active() || errorCode(error) === 'NO_AVAILABLE_CHOICES') return; this.hideDice(); this.errorNode = state?.activeNodeId; this.errorMessage = error.message || String(error); this.status.textContent = this.errorMessage; this.status.hidden = false; this.onNodeError?.({projectId:this.project?.id,chapterId:this.chapterId,nodeId:this.errorNode ?? this.startNode ?? this.compiled?.startNode,code:errorCode(error),message:this.errorMessage,entryFailure:!state?.activeNodeId}); },
         rollCheck: (pool, options) => {
-          if (!active()) throw new DOMException('Preview stopped.', 'AbortError');
+          if (!active()) throw createError('STUDIO_PREVIEW_STOPPED');
           return this.roll(pool, options);
         },
         onCheckResult: result => active() ? this.showResult(result) : undefined,
@@ -220,7 +225,7 @@ export class ProjectPreview {
     this.cardBackdrop?.setVisible(this.inventory.visible || this.actionContext?.visible);
   }
   async roll(pool, { signal, target } = {}) {
-    if (this.destroyed || signal?.aborted) throw new DOMException('Preview stopped.', 'AbortError');
+    if (this.destroyed || signal?.aborted) throw createError('STUDIO_PREVIEW_STOPPED');
     this.hideDice();
     const generation = this.diceGeneration;
     const deck = this.deck;
@@ -232,7 +237,7 @@ export class ProjectPreview {
       this.result.textContent = '';
     };
     const slot = await deck.waitForCheckSurface({ signal, prepare });
-    if (this.destroyed || generation !== this.diceGeneration || signal?.aborted) throw new DOMException('Preview stopped.', 'AbortError');
+    if (this.destroyed || generation !== this.diceGeneration || signal?.aborted) throw createError('STUDIO_PREVIEW_STOPPED');
     // Hosts implementing only the readiness contract can prepare after settling.
     if (this.overlay.parentNode !== slot) prepare(slot);
     this.diceLayer = new DiceLayer(this.overlay.querySelector('.check-tray'));

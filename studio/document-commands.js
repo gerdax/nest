@@ -1,3 +1,4 @@
+import { createError } from '../errors.js';
 import { eligibleInventoryItems } from './item-options.js';
 import { placedLocalDefinitions, removeUnplacedLocalDefinitions } from './local-definition-removal.js';
 import { applyTagCommand } from './item-tags.js';
@@ -102,7 +103,7 @@ function changeField(project, selection, field, localDrafts) {
   if ((['value','initial'].includes(key) || path.startsWith('initialValues.')) && ['true','false'].includes(value)) value = value === 'true';
   if (inputType === 'number' && raw === '') { delete parent[key]; return; }
   if (['imageScale','imageOffsetX','imageOffsetY'].includes(key)) value = clampArtwork(key, value);
-  if(key==='key'&&['addItem','removeItem'].includes(parent.op)&&value&&!eligibleInventoryItems(project,ruleChapter).some(item=>item.id===value))throw new Error('Item effects must reference an eligible item from the owning chapter or shared Library.');
+  if(key==='key'&&['addItem','removeItem'].includes(parent.op)&&value&&!eligibleInventoryItems(project,ruleChapter).some(item=>item.id===value))throw createError('STUDIO_ITEM_EFFECTS_MUST_REFERENCE_AN_ELIGIBLE_ITEM_FROM_THE_OWNING_CHAPTER_OR_SHARED_LIBRARY');
   parent[key] = value;
   if (['modifierVariable','contextItemId','tagId'].includes(key) && !value) delete parent[key];
   if (key === 'contextItemId' && (!value||value.startsWith('tag:'))) delete parent.contextOverrideImage;
@@ -205,14 +206,14 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
     case 'move-nodes': {
       for(const position of data.positions){
         const target=chapter.nodes.find(node=>node.id===position.id);
-        if(!target||!Number.isFinite(position.x)||!Number.isFinite(position.y))throw new Error('The selected beats can no longer be moved.');
+        if(!target||!Number.isFinite(position.x)||!Number.isFinite(position.y))throw createError('STUDIO_THE_SELECTED_BEATS_CAN_NO_LONGER_BE_MOVED');
         Object.assign(target,{x:position.x,y:position.y});
       }
       break;
     }
     case 'image': {
       const target = documentScope(project, selection, data);
-      if (!target) throw new Error('Select the card again before choosing its image.');
+      if (!target) throw createError('STUDIO_SELECT_THE_CARD_AGAIN_BEFORE_CHOOSING_ITS_IMAGE');
       const {parent, key} = pathTarget(target, data.path);
       parent[key] = ['imageScale','imageOffsetX','imageOffsetY'].includes(key) ? clampArtwork(key, data.value) : data.value;
       break;
@@ -228,9 +229,9 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
       return {selection:{chapterId:target.id, selected:target.startNode}};
     }
     case 'delete-chapter': {
-      if (project.chapters.length <= 1) throw new Error('The project must keep at least one chapter.');
+      if (project.chapters.length <= 1) throw createError('STUDIO_THE_PROJECT_MUST_KEEP_AT_LEAST_ONE_CHAPTER');
       const index = project.chapters.findIndex(candidate => candidate.id === (data.id ?? selection.chapterId));
-      if (index < 0) throw new Error('The chapter no longer exists.');
+      if (index < 0) throw createError('STUDIO_THE_CHAPTER_NO_LONGER_EXISTS');
       const removedChapterId = project.chapters[index].id;
       const removedDefinitions = definitionGraph(project).reachableFrom(project.chapters[index]);
       project.chapters.splice(index, 1);
@@ -259,7 +260,7 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
     }
     case 'paste-card': {
       const placement=findPlacement(node||{},data.placementId);
-      if(!placement)throw new Error('The destination card no longer exists.');
+      if(!placement)throw createError('STUDIO_THE_DESTINATION_CARD_NO_LONGER_EXISTS');
       const pasted=pasteCardClipboard(project,chapter,node,placement,data.clipboard);
       localDrafts.drafts.delete(placement.id);
       return {value:pasted.id};
@@ -280,8 +281,8 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
     }
     case 'create-connected-node': {
       const source = chapter?.nodes.find(candidate => candidate.id === data.id);
-      if (!source) throw new Error('The source beat no longer exists.');
-      if (!outputsForNode(project, source).includes(data.exit)) throw new Error('The source output no longer exists.');
+      if (!source) throw createError('STUDIO_THE_SOURCE_BEAT_NO_LONGER_EXISTS');
+      if (!outputsForNode(project, source).includes(data.exit)) throw createError('STUDIO_THE_SOURCE_OUTPUT_NO_LONGER_EXISTS');
       const added = createNode(project, data.type, data.position, chapter.id);
       chapter.nodes.push(added);
       setConnection(source, data.exit, added.id);

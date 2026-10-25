@@ -1,3 +1,4 @@
+import { createError } from '../errors.js';
 import {restoreSnapshotTags} from './tag-snapshots.js';
 import {createDefinition} from '../project/cards.js';
 import {definitionGraph,unusedLocalDefinitions} from '../project/dependencies.js';
@@ -89,7 +90,7 @@ export class LocalCardDrafts {
   const source=sourceOf(project,p);
   if(!source){setCardSource(project,p,value,{allowedKinds});return;}
   const kind=value.startsWith('local:')?value.slice(6):null;
-  if(kind&&!(allowedKinds||[source.kind]).includes(kind))throw new Error('Choose a local card type allowed in this beat.');
+  if(kind&&!(allowedKinds||[source.kind]).includes(kind))throw createError('STUDIO_CHOOSE_A_LOCAL_CARD_TYPE_ALLOWED_IN_THIS_BEAT');
   if(kind&&source.visibility==='local'&&source.kind===kind)return;
   this.capture(project,p);
   if(!kind){
@@ -132,7 +133,7 @@ export class LocalCardDrafts {
  }
  convert(project,p){
   const source=sourceOf(project,p);
-  if(!source)throw new Error('Card definition is missing.');
+  if(!source)throw createError('STUDIO_CARD_DEFINITION_IS_MISSING');
   const old=source.id;
   replaceCard(project,p,source.kind,{copy:true});
   // Explicit conversion starts a fresh local draft from the chosen Library source.
@@ -141,7 +142,7 @@ export class LocalCardDrafts {
  }
  clear(project,p){
   const source=sourceOf(project,p);
-  if(source?.visibility!=='local')throw new Error('Clear is available for local cards only.');
+  if(source?.visibility!=='local')throw createError('STUDIO_CLEAR_IS_AVAILABLE_FOR_LOCAL_CARDS_ONLY');
   const defaults=createDefinition(source.kind,source.id);
   // Inventory aliases are identity, rather than an editable field.
   if(source.inventoryKey!==undefined)defaults.inventoryKey=source.inventoryKey;

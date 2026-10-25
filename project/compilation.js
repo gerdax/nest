@@ -1,3 +1,4 @@
+import { createError } from '../errors.js';
 import { normalizeLocalOwnership } from './local-ownership.js';
 import { retainsInventoryItems } from './nodeTypes.js';
 import { canonicalCardKind, resolvePlacement } from './cards.js';
@@ -13,7 +14,7 @@ export function compileChapter(project, chapterId = project.activeChapterId, {ad
   const index = createLibraryIndex(list(project?.library));
   discardPlacementContext(project, index);
   const chapter = project.chapters.find(c => c.id === chapterId);
-  if (!chapter) throw new TypeError(`Unknown chapter: ${chapterId}`);
+  if (!chapter) throw createError('PROJECT_UNKNOWN_CHAPTER_ID', { chapterId });
   const result = cloneProject(chapter);
   result.itemTags = cloneProject(project.itemTags || []);
   result.allowCycles = project.allowCycles !== false;

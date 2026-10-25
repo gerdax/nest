@@ -74,6 +74,12 @@ html.graph-dragging,html.graph-dragging *,#canvas.graph-dragging,#canvas.graph-d
 #canvas .node.selected.connection-target,#canvas .node.selected.card-drop-target {--graph-selection-color:#b7e4d3;}
 #canvas .node.selected.card-drop-invalid {--graph-selection-color:#c67979;}
 
+/* An inner stroke survives selection, playback glow and drop-target outlines. */
+#canvas .node.has-error::after {
+  content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  box-shadow:inset 0 0 0 var(--graph-selection-width,2px) #c67979;
+}
+
 #canvas .graph-card-row:has(.graph-intro-once) {position:relative;padding-right:34px;}
 #canvas .graph-intro-once {position:absolute;right:12px;top:50%;transform:translateY(-50%);width:10px;height:14px;color:#96f7a7;pointer-events:none;}
 #canvas .graph-intro-once svg {display:block;width:100%;height:100%;fill:currentColor;}
