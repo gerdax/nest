@@ -1,0 +1,38 @@
+<!doctype html>
+<meta charset="utf-8">
+<base href="../../">
+<title>Graph selection verification</title>
+<link rel="stylesheet" href="editor/editor.css">
+<link rel="stylesheet" href="studio/graph-connectors.css">
+<style>
+body{display:block;height:auto;overflow:auto;padding:16px}h1{font-size:18px;margin:0 0 8px}#canvas{position:relative;width:1100px;height:500px;margin-top:12px}output{display:block;white-space:pre;font:13px monospace;margin-top:8px}
+</style>
+<h1>Graph selection verification</h1>
+<p>Click blank canvas to deselect. Drag it to pan. Double-click blank canvas and hold the second press to select, or Cmd/Ctrl-drag. Drag a selected header to move the group. Escape cancels.</p>
+<button id="reset">Reset fixture</button>
+<div id="canvas" tabindex="0" aria-label="Verification graph"></div>
+<output id="report" aria-live="polite"></output>
+<script type="module">
+import {GraphView} from './studio/GraphView.js';
+const root=document.querySelector('#canvas'),report=document.querySelector('#report');
+const chapter={id:'selection-fixture',startNode:'a',nodes:[
+ {id:'a',name:'Beat A',type:'linear',cards:[],x:50,y:60,connections:{next:null}},
+ {id:'b',name:'Beat B',type:'linear',cards:[],x:400,y:80,connections:{next:null}},
+ {id:'c',name:'Beat C',type:'linear',cards:[],x:800,y:280,connections:{next:null}},
+]};
+const original=structuredClone(chapter.nodes),project={library:[],allowCycles:true};
+let selected='a',edits=0;
+const draw=()=>{graph.render(project,chapter,selected);updateReport();};
+const updateReport=()=>{report.textContent=JSON.stringify({selected:[...graph.selectedIds],view:graph.view,edits,positions:chapter.nodes.map(({id,x,y})=>({id,x,y}))},null,2);};
+const move=positions=>{for(const position of positions)Object.assign(chapter.nodes.find(node=>node.id===position.id),position);edits++;draw();};
+const graph=new GraphView(root,{
+ onSelect:id=>{selected=id;graph.selectedIds=new Set([id]);draw();},
+ onSelectMany:ids=>{selected=ids[0];draw();},
+ onMove:(id,x,y)=>move([{id,x,y}]),onMoveMany:move,onConnect(){},
+});
+root.addEventListener('pointerup',updateReport);
+root.addEventListener('pointercancel',updateReport);
+root.addEventListener('keydown',updateReport);
+document.querySelector('#reset').onclick=()=>{graph.cancel();chapter.nodes=structuredClone(original);selected='a';edits=0;graph.view={x:50,y:50,z:1};draw();};
+draw();
+</script>

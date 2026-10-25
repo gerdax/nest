@@ -13,7 +13,7 @@ for(const type of ['fork','linear'])test(`${type} availability defaults, editing
  let html=nodeInspector(project,chapter,node);
  assert.match(html,/<div class="node-overrides"><details class="state-panel"><summary>Overrides · 0<\/summary>[\s\S]*<label class="field">Unavailable actions<select data-scope="node" data-path="unavailableActions"><option value="project" selected>Use project settings<\/option>/);
  assert.ok(html.indexOf('data-path="unavailableActions"')>html.indexOf('data-command="clear-overrides"'));
- if(type==='linear')assert.ok(html.indexOf('data-path="unavailableActions"')>html.indexOf('Keep inventory items on revisit'));
+ if(type==='linear')assert.ok(html.indexOf('data-path="unavailableActions"')>html.indexOf('Keep swapped items on revisit'));
  for(const policy of ['hidden','disabled','triggers-only','disabled-triggers','project']){
   applyDocumentCommand(project,selection,'field',{scope:'node',path:'unavailableActions',value:policy,inputType:'select-one'});
   assert.equal(node.unavailableActions,policy);

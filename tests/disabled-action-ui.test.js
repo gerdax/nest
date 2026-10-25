@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { ActionContextPanel } from '../studio/ActionContextPanel.js';
-import { ProjectPreview } from '../studio/ProjectPreview.js';
+import { playerUIState } from '../studio/player-ui-state.js';
 import { stageActionDeck, stageNextContent, decorateCard, announceDeck } from '../engine/renderer.js';
 
 class Element extends EventTarget {
@@ -99,9 +99,11 @@ test('preview follows selected disabled actions including a single linear action
       { id: 'blocked', disabled: true, disabledReason: 'REQUIRES: LOCKPICK', checkInfo: info },
       { id: 'enabled', checkInfo: info },
     ] } },
-    state: { idle: true }, actionContext: { update: value => { context = value; } }, syncBackdrop() {},
+    state: { idle: true },
   };
-  const sync = () => ProjectPreview.prototype.syncActionContext.call(preview);
+  const sync = () => { context = playerUIState({run:preview.state,card:{
+    action:preview.deck.content.actions[preview.deck.index],phase:preview.deck.phase,directAdvance:preview.deck.content.directAdvance,
+  }}).context; };
   sync(); assert.equal(context.disabledReason, 'REQUIRES: LOCKPICK');
   preview.deck.index = 1; sync(); assert.equal(context.disabledReason, null);
   preview.deck.content.actions = [preview.deck.content.actions[0]];

@@ -623,3 +623,114 @@ test('shared next edges belong to the last Linear card and Container items',()=>
  s.graph.setActiveCard(target('item'));assert.equal(s.graph.activeEdges.size,1);
  s.graph.setActiveCard(target('intro'));assert.equal(s.graph.activeEdges.size,0);
 });
+
+function blankPointer(s,name,x=50,y=60,timeStamp=100,extra={}) {
+ s.root.handlers[name]({target:s.root,button:0,pointerId:1,pointerType:'mouse',clientX:x,clientY:y,timeStamp,preventDefault(){},...extra});
+}
+function blankClick(s,x=50,y=60,time=100,extra={}) {
+ blankPointer(s,'pointerdown',x,y,time,extra);
+ blankPointer(s,'pointerup',x,y,time+20,extra);
+}
+
+test('an empty-canvas click clears primary and group selection without editing or panning',()=>{
+ const s=setup(),view={...s.graph.view};s.graph.selectedIds=new Set(['a','b']);
+ blankClick(s);
+ assert.equal(s.graph.selected,undefined);assert.deepEqual([...s.graph.selectedIds],[]);
+ assert.deepEqual(s.groups,[[]]);assert.deepEqual(s.graph.view,view);
+ assert.ok(s.root.nodes.every(node=>!node.classes.has('selected')));
+ s.graph.render(s.graph.project,s.chapter,undefined,s.graph.active);
+ assert.deepEqual([...s.graph.selectedIds],[]);
+ assert.deepEqual(s.moves,[]);assert.deepEqual(s.groupMoves,[]);assert.deepEqual(s.calls,[]);
+});
+
+test('double-click and held second press selects a rectangle and selected beats still move together',()=>{
+ const s=setup(),view={...s.graph.view};
+ blankClick(s);
+ blankPointer(s,'pointerdown',50,60,200,{detail:0});
+ assert.equal(s.graph.drag.kind,'select','pointerdown detail may be zero for both clicks');
+ blankPointer(s,'pointermove',650,210,240);
+ assert.match(s.root.parts['#edges'].innerHTML,/graph-selection-box/);
+ blankPointer(s,'pointerup',650,210,260);
+ assert.deepEqual(s.groups,[[],['a','b']]);assert.deepEqual(s.graph.view,view);
+ assert.deepEqual(s.moves,[]);assert.deepEqual(s.groupMoves,[]);
+ s.root.event('pointerdown',s.root.node('b'),500,160);
+ s.root.event('pointermove',s.root,600,210);s.root.event('pointerup',s.root,600,210);
+ assert.deepEqual(s.groupMoves,[[{id:'a',x:100,y:50},{id:'b',x:500,y:100}]]);
+});
+
+test('double-drag selection works in reverse at combined graph and editor zoom',()=>{
+ const s=setup();s.graph.view.z=.5;
+ s.root.ownerDocument.documentElement={};s.root.ownerDocument.defaultView={getComputedStyle:()=>({zoom:2})};
+ blankClick(s,700,260);
+ blankPointer(s,'pointerdown',700,260,200);blankPointer(s,'pointerup',100,110,260);
+ assert.deepEqual(s.groups,[[],['a','b']]);assert.deepEqual(s.graph.view,{x:50,y:50,z:.5});
+});
+
+for(const extra of [{},{pointerType:'touch'}])test(`ordinary canvas dragging pans and preserves selection, type=${extra.pointerType||'mouse'}`,()=>{
+ const s=setup();s.graph.selectedIds=new Set(['a','b']);
+ blankPointer(s,'pointerdown',300,200,100,extra);blankPointer(s,'pointermove',360,230,150,extra);
+ blankPointer(s,'pointerup',360,230,180,extra);
+ assert.deepEqual(s.graph.view,{x:110,y:80,z:1});assert.deepEqual([...s.graph.selectedIds],['a','b']);
+ assert.deepEqual(s.groups,[]);assert.deepEqual(s.moves,[]);
+ blankPointer(s,'pointerdown',360,230,220,extra);assert.equal(s.graph.drag.kind,'pan','a completed pan never arms double selection');
+ s.graph.cancel();
+});
+
+test('a pan that returns to its origin remains a drag and does not clear selection',()=>{
+ const s=setup();
+ blankPointer(s,'pointerdown',300,200);blankPointer(s,'pointermove',330,200,130);
+ blankPointer(s,'pointerup',300,200,150);
+ assert.deepEqual([...s.graph.selectedIds],['a']);assert.deepEqual(s.groups,[]);
+ assert.deepEqual(s.graph.view,{x:50,y:50,z:1});assert.equal(s.graph.lastCanvasClick,null);
+});
+
+test('tiny click jitter deselects without leaving the stage offset',()=>{
+ const s=setup();blankPointer(s,'pointerdown',50,60);blankPointer(s,'pointermove',52,61,120);
+ blankPointer(s,'pointerup',52,61,140);
+ assert.deepEqual(s.graph.view,{x:50,y:50,z:1});assert.deepEqual(s.groups,[[]]);
+});
+
+for(const guard of ['delay','distance','node','edge','wheel','cancel','chapter','touch'])test(`${guard} prevents an unrelated press becoming double-drag selection`,()=>{
+ const s=setup();blankClick(s);
+ let x=50,y=60,time=200,extra={};
+ if(guard==='delay')time=700;
+ if(guard==='distance')x=80;
+ if(guard==='touch')extra.pointerType='touch';
+ if(guard==='node'){
+  blankPointer(s,'pointerdown',100,100,150,{target:s.root.node('a')});
+  blankPointer(s,'pointerup',100,100,170,{target:s.root.node('a')});
+ }
+ if(guard==='edge')blankPointer(s,'pointerdown',100,100,150,{target:new Element('edge-hit',{source:'a',exit:'next'},s.root)});
+ if(guard==='wheel')s.root.handlers.wheel({clientX:50,clientY:60,deltaY:0,preventDefault(){}});
+ if(guard==='cancel')s.graph.cancel();
+ if(guard==='chapter')s.graph.render(s.graph.project,{...s.chapter,id:'replacement'},undefined);
+ blankPointer(s,'pointerdown',x,y,time,extra);
+ assert.equal(s.graph.drag.kind,'pan');s.graph.cancel();
+});
+
+for(const cancellation of ['Escape','pointercancel','lostpointercapture'])test(`${cancellation} cancels double-drag selection without moving or editing beats`,()=>{
+ const s=setup();blankClick(s);blankPointer(s,'pointerdown',50,60,200);blankPointer(s,'pointermove',650,210,240);
+ if(cancellation==='Escape')s.root.handlers.keydown({key:'Escape'});else s.root.event(cancellation,s.root);
+ assert.deepEqual([...s.graph.selectedIds],[]);assert.deepEqual(s.groups,[[]]);
+ assert.deepEqual(s.moves,[]);assert.deepEqual(s.groupMoves,[]);assert.equal(s.root.capture,null);
+ assert.doesNotMatch(s.root.parts['#edges'].innerHTML,/graph-selection-box/);
+});
+
+test('another pointer cannot complete or cancel a double-drag selection',()=>{
+ const s=setup();blankClick(s);blankPointer(s,'pointerdown',50,60,200);
+ blankPointer(s,'pointerup',650,210,240,{pointerId:2});assert.equal(s.graph.drag.kind,'select');
+ blankPointer(s,'pointerup',650,210,260);assert.deepEqual(s.groups.at(-1),['a','b']);
+});
+
+test('editor full rendering preserves explicit empty selection but repairs deleted selections',async()=>{
+ const {readFileSync}=await import('node:fs');
+ const source=readFileSync(new URL('../studio/editor.js',import.meta.url),'utf8');
+ const start=source.indexOf('function render({');
+ const body=source.slice(start,source.indexOf('function scopeRoot',start));
+ const render=new Function('selected','project','chapter','graph','$','chapterId','sortedChapters','history','mode','validateProject','esc','renderGraph','renderLibrary','renderInspector',body+';render();return selected;');
+ const chapter={id:'chapter',startNode:'a',nodes:[{id:'a'},{id:'b'}]},project={chapters:[chapter],activeChapterId:chapter.id};
+ for(const [selection,expected] of [[undefined,undefined],['missing','a'],['b','b']]) {
+  const element={classList:{toggle(){}}};
+  assert.equal(render(selection,project,()=>chapter,{cancelCreation(){}},()=>element,chapter.id,()=>[],{},'chapter',()=>[],value=>value,()=>{},()=>{},()=>{}),expected);
+ }
+});

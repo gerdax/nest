@@ -110,3 +110,13 @@ Shared Item placements offer **Use custom rules** for **On collect effects** and
 **Remove from Library** always asks for confirmation, including for unused definitions. When a definition is placed in chapters, removal creates an independent local card for each placement, preserving content, effective custom rules, placement IDs and connections. Undo restores the definition and its shared links in one step. Removal stays disabled with an explanation when gameplay rules still reference the source, or when converting an Item would change its shared inventory identity or carry-over into another chapter. Update those uses first.
 
 The Library inspector separates **Used in** (chapter placements) from **Referenced in** (cards whose rules depend on the selected card). Reference entries show the card name and the relevant node-style markers: **T** Inventory trigger, **R** Requirements, **C** Costs and **E** Effects. Multiple references from one card are grouped. Click a local card to reveal its exact chapter placement, or a shared card to open its Library source; marker tooltips explain the letters.
+
+
+## Graph selection and panning
+
+Drag empty canvas normally to pan; the current selection is retained during a pan. A single click on empty canvas deselects all beats, leaving the inspector empty until another beat is selected. Deselecting is view state and does not save or create an undo entry.
+
+To select several beats, hold Cmd (Ctrl on Windows/Linux) and drag a rectangle, or double-click empty canvas and keep the second press held while dragging. Beats intersecting the rectangle are selected. Drag a selected beat's header to move the selected group together in one undoable edit. Escape, pointer cancellation or lost capture cancels the gesture. The second-press shortcut requires two nearby clicks within 450 ms; a preceding pan, node/connector interaction or zoom does not arm it. Cmd/Ctrl-click still toggles individual beats. Touch dragging retains ordinary panning.
+
+
+Graph gesture verification (25 October 2026): all 2,256 deterministic tests pass, including 88 graph-event tests. The isolated `tests/fixtures/graph-selection.html` was exercised with native in-app browser pointer gestures: click then held-second-press drag selected A/B without panning or editing; header drag moved both in one edit; ordinary drag preserved selection while panning; blank click cleared selection without adding an edit. The actual studio also retained empty selection across Library/Chapter switches with beat-specific tools disabled. The fixture reported no console warnings/errors. Static staging and `git diff --check` pass. Physical touch and platform-specific double-click-speed settings were not verified.

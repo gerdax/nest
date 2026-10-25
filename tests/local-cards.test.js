@@ -206,7 +206,7 @@ test('returned-item persistence defaults and explicit overrides survive authorin
  for(const type of ['container','linear']) {
   const node=createNode(project,type);chapter.nodes.push(node);
   assert.equal(node.retainInventoryItems,type==='container');
-  assert.match(nodeInspector(project,chapter,node),/Keep inventory items on revisit/);
+  assert.match(nodeInspector(project,chapter,node),/Keep swapped items on revisit/);
   assert.match(nodeInspector(project,chapter,node),new RegExp(`data-path="retainInventoryItems"${type==='container'?' checked':''}\\s*>`));
   delete node.retainInventoryItems;
   const before=structuredClone(project);

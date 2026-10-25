@@ -209,7 +209,7 @@ function renderLibrary(){
 function render({preserveProjectSettings=false}={}){
  graph.cancelCreation();
  if(!project.chapters.some(c=>c.id===chapterId))chapterId=project.activeChapterId||project.chapters[0]?.id;
- if(!chapter()?.nodes.some(n=>n.id===selected))selected=chapter()?.startNode;
+ if(selected!==undefined&&!chapter()?.nodes.some(n=>n.id===selected))selected=chapter()?.startNode;
  $('#project-name').textContent=project.name;
  $('#chapter-selector').innerHTML=sortedChapters(project).map(c=>`<option value="${esc(c.id)}" ${c.id===chapterId?'selected':''}>${esc(c.name)}</option>`).join('');
  $('#undo').disabled=!history.canUndo;$('#redo').disabled=!history.canRedo;

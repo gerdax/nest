@@ -6,6 +6,7 @@ import { field, select, checkbox, rules } from '../studio/forms.js';
 import { variableInspector } from '../studio/inspectors.js';
 import { synchronizeConnections, customizeAction, newRule, normalizeRule } from '../studio/commands.js';
 import { transact, conditionsMet } from '../project/state.js';
+import { playerUIState } from '../studio/player-ui-state.js';
 import { ProjectPreview } from '../studio/ProjectPreview.js';
 
 test('imported IDs are escaped in every field control and initial values use opaque IDs',()=>{
@@ -52,7 +53,10 @@ test('switching an action to a check preserves its direct destination as success
 
 test('a fresh blocked-node error survives the playback status update',()=>{
  const preview=Object.create(ProjectPreview.prototype);
- Object.assign(preview,{state:{activeNodeId:'before'},errorMessage:'No available choices',errorNode:'blocked',compiled:{nodes:[{id:'blocked',name:'Locked door'}],variables:[]},root:{querySelector:()=>({setAttribute(){}})},resources:{},healthValue:{},energyValue:{},checkDetails:{},checkChance:{},checkFormula:{},checkRules:{},status:{},stateReadout:{querySelector:()=>({})},inventory:{update(){}},onChange(){},onCardChange(){}});
+ const status={};
+ Object.assign(preview,{uiRevision:0,deck:{content:{actions:[]}},state:{activeNodeId:'before'},errorMessage:'No available choices',errorNode:'blocked',compiled:{nodes:[{id:'blocked',name:'Locked door'}],variables:[]},
+  playerUI:{status,update(input){const view=playerUIState(input);status.textContent=view.status.text;status.hidden=!view.status.visible;}},
+  stateReadout:{querySelector:()=>({})},onChange(){},onCardChange(){}});
  preview.nextChapterButton={};
  preview.update({activeNodeId:'blocked',variables:{},collectedItems:[],checking:false,idle:true});
  assert.equal(preview.status.textContent,'No available choices');

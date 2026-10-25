@@ -50,6 +50,40 @@ function acceptPreviewCard(preview) {
   preview.deck.finishMotion();
 }
 
+test('a pending old-run collection answer cannot authorize or alter replacement playback',async()=>{
+  environment();
+  const preview=new ProjectPreview(new Element());
+  try {
+    preview.play(createProject());
+    let answer,authorizations=0;
+    preview.inventory.authorize=()=>new Promise(resolve=>answer=resolve);
+    const oldAdapter=preview.deck.pickup.adapter;
+    const pending=oldAdapter.authorize({id:'old-item'},{});
+    preview.restart();
+    const controller=preview.controller,inventory=controller.state.collectedItems;
+    controller.authorizeCollection=()=>{authorizations++;return true;};
+    answer({slot:0});
+    assert.equal(await pending,false);
+    assert.equal(authorizations,0);assert.equal(preview.controller,controller);
+    assert.deepEqual(controller.state.collectedItems,inventory);
+  } finally {preview.destroy();}
+});
+
+test('synchronous card observers replacing a run do not receive a stale state notification',()=>{
+  environment();let armed=false,preview;const notifications=[];
+  const first=createProject(),replacement=createProject();replacement.chapters[0].initialValues={health:4};
+  preview=new ProjectPreview(new Element(),{
+    onCardChange:()=>{if(armed){armed=false;preview.play(replacement);}},
+    onChange:state=>notifications.push(state.variables.health),
+  });
+  try {
+    preview.play(first);notifications.length=0;armed=true;
+    preview.controller.notify();
+    assert.deepEqual(notifications,[4]);assert.equal(preview.healthValue.textContent,4);
+    assert.equal(preview.playerUI.input.run,preview.state);
+  } finally {preview.destroy();}
+});
+
 test('preview entry overrides apply once on direct start and arriving at a fork preserves earlier state',()=>{
  environment();
  const project=createProject(),chapter=project.chapters[0],overrides=new PreviewOverrides();

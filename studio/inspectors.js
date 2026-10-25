@@ -156,7 +156,7 @@ export function nodeInspector(project,chapter,node,previewEffects=[]) {
   if(node.type==='legacyPool')html+=field('Legacy selections',node.count,'count','node','number');
  }
  const availability=['fork','linear'].includes(node.type)?select('Unavailable actions',node.unavailableActions??'project',[['project','Use project settings'],...unavailableActionOptions],'unavailableActions','node'):'';
- if(['container','linear'].includes(node.type))html+='<hr class="connections-divider inventory-persistence-divider">'+checkbox('Keep inventory items on revisit',retainsInventoryItems(node),'retainInventoryItems','node');
+ if(['container','linear'].includes(node.type))html+='<hr class="connections-divider inventory-persistence-divider">'+checkbox('Keep swapped items on revisit',retainsInventoryItems(node),'retainInventoryItems','node');
  html+='<hr class="connections-divider"><h3>Connections</h3>'+outputsForNode(project,node).map(exit=>{
   const target=node.type==='random'?(exit==='fallback'?node.fallback:node.routes.find(r=>r.id===exit)?.target):node.connections?.[exit];
   const value=target===null?'end':typeof target==='string'?`target:${target}`:'unlinked';

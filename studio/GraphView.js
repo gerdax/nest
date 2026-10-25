@@ -54,10 +54,11 @@ export class GraphView {
    e.preventDefault();this.lastPortClick=null;
    this.onConnect(edge.dataset.source,edge.dataset.exit,false);
   });
-  root.addEventListener('wheel',e=>{if(this.drag?.kind==='select'){e.preventDefault();return;}this.cancelCreation();e.preventDefault();const r=root.getBoundingClientRect(),scale=uiScale(root),x=(e.clientX-r.left)/scale,y=(e.clientY-r.top)/scale,old=this.view.z;this.view.z=Math.max(.25,Math.min(1.6,old*Math.exp(-e.deltaY*.001)));this.view.x=x-(x-this.view.x)*this.view.z/old;this.view.y=y-(y-this.view.y)*this.view.z/old;this.transform();},{passive:false});
+  root.addEventListener('wheel',e=>{this.lastCanvasClick=null;if(this.drag?.kind==='select'){e.preventDefault();return;}this.cancelCreation();e.preventDefault();const r=root.getBoundingClientRect(),scale=uiScale(root),x=(e.clientX-r.left)/scale,y=(e.clientY-r.top)/scale,old=this.view.z;this.view.z=Math.max(.25,Math.min(1.6,old*Math.exp(-e.deltaY*.001)));this.view.x=x-(x-this.view.x)*this.view.z/old;this.view.y=y-(y-this.view.y)*this.view.z/old;this.transform();},{passive:false});
  }
  render(project,chapter,selected,active) {
   const chapterKey=chapter.id??chapter;
+  if(this.selectionChapter!==chapterKey||selected!==this.selected)this.lastCanvasClick=null;
   if(this.selectionChapter!==chapterKey||selected!==this.selected)this.selectedIds=new Set(selected?[selected]:[]);
   this.selectionChapter=chapterKey;
   this.selectedIds=new Set([...this.selectedIds].filter(id=>chapter.nodes.some(node=>node.id===id)));
@@ -211,8 +212,15 @@ export class GraphView {
   this.cancelCreation();
   this.suppressSelectionClick=false;
   const el=e.target.closest('.node'),port=e.target.closest('.port'),edge=e.target.closest('.edge-hit');
+  const previous=this.lastCanvasClick,time=e.timeStamp??performance.now(),pointerType=e.pointerType??'mouse';
+  this.lastCanvasClick=null;
+  // PointerEvent.detail is not a portable click count. Arm this gesture only
+  // after a completed stationary blank click, never after a pan or node click.
+  const doubleDrag=!el&&!port&&!edge&&!e.altKey&&!e.shiftKey&&pointerType!=='touch'
+   &&previous&&previous.chapter===(this.chapter.id??this.chapter)&&previous.pointerType===pointerType
+   &&time>=previous.time&&time-previous.time<=450&&Math.hypot(e.clientX-previous.x,e.clientY-previous.y)<=5;
   if(!port)this.lastPortClick=null;
-  if((e.metaKey||e.ctrlKey)&&!e.altKey){
+  if(((e.metaKey||e.ctrlKey)&&!e.altKey)||doubleDrag){
    const p=this.point(e);
    this.drag={kind:'select',pointer:e.pointerId,x:e.clientX,y:e.clientY,start:p,end:p,moved:false,nodeId:el?.dataset.id,before:new Set(this.selectedIds)};
    this.suppressSelectionClick=true;this.cardDrag.suppressClick=false;
@@ -238,7 +246,7 @@ export class GraphView {
    this.drag={kind:'node',id,copy,x:e.clientX,y:e.clientY,ox:n.x,oy:n.y,px:n.x,py:n.y,pointer:e.pointerId};
    if(group){this.drag.origins=new Map([...this.selectedIds].map(id=>{const n=this.nodesById.get(id);return [id,{x:n.x,y:n.y}];}));this.drag.positions=new Map(this.drag.origins);}
   }
-  else{this.pending=null;this.drag={kind:'pan',x:e.clientX,y:e.clientY,ox:this.view.x,oy:this.view.y,pointer:e.pointerId};}
+  else{this.pending=null;this.drag={kind:'pan',x:e.clientX,y:e.clientY,ox:this.view.x,oy:this.view.y,pointer:e.pointerId,moved:false,pointerType,doubleEligible:!e.altKey&&!e.shiftKey&&pointerType!=='touch'};}
   this.setDraggingCursor(true);
   this.root.setPointerCapture(e.pointerId);
   this.root.focus({preventScroll:true});
@@ -250,7 +258,7 @@ export class GraphView {
   if(d.kind==='connect'){
    d.moved ||= Math.hypot(e.clientX-d.x,e.clientY-d.y)>4;
    const p=this.point(e);d.px=p.x;d.py=p.y;this.hoverTarget(d.moved?this.dropTarget(e,d.nodeId):null);this.edges();
-  }else if(d.kind==='pan'){const scale=uiScale(this.root);this.view.x=d.ox+(e.clientX-d.x)/scale;this.view.y=d.oy+(e.clientY-d.y)/scale;this.transform();}
+  }else if(d.kind==='pan'){d.moved ||= Math.hypot(e.clientX-d.x,e.clientY-d.y)>4;const scale=uiScale(this.root);this.view.x=d.ox+(e.clientX-d.x)/scale;this.view.y=d.oy+(e.clientY-d.y)/scale;this.transform();}
   else{
    const scale=this.view.z*uiScale(this.root),dx=(e.clientX-d.x)/scale,dy=(e.clientY-d.y)/scale;
    d.px=d.ox+dx;d.py=d.oy+dy;
@@ -276,6 +284,7 @@ export class GraphView {
  }
  up(e){
   const d=this.drag;if(!d||d.pointer!==e.pointerId)return;
+  if(d.kind==='pan')this.move(e);
   if(d.copy)this.move(e);
   if(d.kind==='select')this.updateBoxSelection(e);
   if(d.kind==='connect')d.moved ||= Math.hypot(e.clientX-d.x,e.clientY-d.y)>4;
@@ -305,6 +314,13 @@ export class GraphView {
    if(d.copy){d.ghost?.remove();if(d.moved)this.onDuplicate(d.id,{x:d.px,y:d.py});}
    else if(d.origins)this.onMoveMany([...d.positions].map(([id,p])=>({id,...p})));
    else this.onMove(d.id,d.px,d.py);
+  }else if(d.kind==='pan'&&!d.moved){
+   this.view.x=d.ox;this.view.y=d.oy;this.transform();
+   const chapter=this.chapter.id??this.chapter;
+   this.selectedIds.clear();this.selected=undefined;
+   for(const element of this.nodeElements.values())element.classList.toggle('selected',false);
+   this.onSelectMany([]);
+   if(d.doubleEligible&&chapter===(this.chapter.id??this.chapter))this.lastCanvasClick={chapter,pointerType:d.pointerType,time:e.timeStamp??performance.now(),x:e.clientX,y:e.clientY};
   }
  }
  selectionRect(d){return {x:Math.min(d.start.x,d.end.x),y:Math.min(d.start.y,d.end.y),width:Math.abs(d.start.x-d.end.x),height:Math.abs(d.start.y-d.end.y)};}
@@ -320,7 +336,7 @@ export class GraphView {
   this.edges();
  }
  cancelCreation(){if(!this.creation)return;this.creation=null;this.onCancelCreate();this.edges();}
- cancel(){this.setDraggingCursor(false);this.drag?.ghost?.remove();this.suppressSelectionClick=false;this.cardDrag.clear();this.cancelCreation();const d=this.drag,hadPending=!!this.pending;this.drag=null;this.pending=null;this.lastPortClick=null;if(d?.kind==='select')this.selectedIds=d.before;if(d?.kind==='pan'){this.view.x=d.ox;this.view.y=d.oy;}if(d&&this.root.hasPointerCapture(d.pointer))this.root.releasePointerCapture(d.pointer);if(this.project&&(d||hadPending))this.render(this.project,this.chapter,this.selected,this.active);}
+ cancel(){this.lastCanvasClick=null;this.setDraggingCursor(false);this.drag?.ghost?.remove();this.suppressSelectionClick=false;this.cardDrag.clear();this.cancelCreation();const d=this.drag,hadPending=!!this.pending;this.drag=null;this.pending=null;this.lastPortClick=null;if(d?.kind==='select')this.selectedIds=d.before;if(d?.kind==='pan'){this.view.x=d.ox;this.view.y=d.oy;}if(d&&this.root.hasPointerCapture(d.pointer))this.root.releasePointerCapture(d.pointer);if(this.project&&(d||hadPending))this.render(this.project,this.chapter,this.selected,this.active);}
  openCard(nodeId,placementId){
   if(!this.nodesById.has(nodeId)||!placementId)return;
   this.onOpenCard(nodeId,{chapterId:this.chapter.id,nodeId,placementId});
