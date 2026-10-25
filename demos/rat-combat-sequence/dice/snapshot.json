@@ -1,0 +1,242 @@
+{
+  "source": "dice/",
+  "destination": "demos/rat-combat-sequence/dice/",
+  "hashAlgorithm": "sha256",
+  "files": [
+    {
+      "path": "COPY-NOTES.md",
+      "sha256": "49e40a5875a801ef0f25f91a0ca198e07d7990743c35f3b39d500e377cb9362a",
+      "status": "new"
+    },
+    {
+      "path": "DiceService.js",
+      "sha256": "4da411279698c59b97919e46cdaca88e3ffb5771816d5a577f1b2f988070ed49",
+      "status": "modified-copy",
+      "source": "dice/DiceService.js",
+      "sourceSha256": "db83ba001db2bfc71bc2b97cbbe44eff43c52276e3119a86f2e12290ee9878a0"
+    },
+    {
+      "path": "demo.js",
+      "sha256": "572ea04825d3a235cadad1dfbcbd7d74ac3b6d30a8ab3c0a4d2a62ed63f4090d",
+      "status": "pristine",
+      "source": "dice/demo.js",
+      "sourceSha256": "572ea04825d3a235cadad1dfbcbd7d74ac3b6d30a8ab3c0a4d2a62ed63f4090d"
+    },
+    {
+      "path": "frame.html",
+      "sha256": "7d02c6581b1ea25662d7651a2169e6d013ad19af0366f0fa8f3fc48388e0a5d1",
+      "status": "pristine",
+      "source": "dice/frame.html",
+      "sourceSha256": "7d02c6581b1ea25662d7651a2169e6d013ad19af0366f0fa8f3fc48388e0a5d1"
+    },
+    {
+      "path": "frame.js",
+      "sha256": "a68c63b1226d6846acd6981a170dc517084b8051091e5e9ec29e17b127596a33",
+      "status": "modified-copy",
+      "source": "dice/frame.js",
+      "sourceSha256": "a627fdad7befaf639894c60cb97e149596b42aaff80a4c7455e0189678366ea7"
+    },
+    {
+      "path": "material-shine.js",
+      "sha256": "5b416b01ef32477b059bf6c13d496da5fe527f9d0ce0ad0dd311dd288967fe77",
+      "status": "pristine",
+      "source": "dice/material-shine.js",
+      "sourceSha256": "5b416b01ef32477b059bf6c13d496da5fe527f9d0ce0ad0dd311dd288967fe77"
+    },
+    {
+      "path": "tests/appearance.test.js",
+      "sha256": "38719c15cfea6d4f1e1bda28ca6de3019506718b21968a4d287106942cb75687",
+      "status": "new"
+    },
+    {
+      "path": "themes/nest/README.md",
+      "sha256": "f5b4289ca35d0826a5a4f1a4d8b75f802543030cd5a289bcc78f14c310927c49",
+      "status": "pristine",
+      "source": "dice/themes/nest/README.md",
+      "sourceSha256": "f5b4289ca35d0826a5a4f1a4d8b75f802543030cd5a289bcc78f14c310927c49"
+    },
+    {
+      "path": "themes/nest/nest-texture-edit.png",
+      "sha256": "b6796d651022b3a6c6eb5935e6a4563e6983eb89fc56801dec24232567322476",
+      "status": "pristine",
+      "source": "dice/themes/nest/nest-texture-edit.png",
+      "sourceSha256": "b6796d651022b3a6c6eb5935e6a4563e6983eb89fc56801dec24232567322476"
+    },
+    {
+      "path": "themes/nest/numbers.png",
+      "sha256": "70ab26c8984b27f480fd869b1b96d0f3531353df6bd5fc026e924322f65a09dc",
+      "status": "pristine",
+      "source": "dice/themes/nest/numbers.png",
+      "sourceSha256": "70ab26c8984b27f480fd869b1b96d0f3531353df6bd5fc026e924322f65a09dc"
+    },
+    {
+      "path": "themes/nest/numbers.svg",
+      "sha256": "d9a1d7d101db652cbff840ff94beaacea0d176cfeeb5deb0104c51e0728b9913",
+      "status": "pristine",
+      "source": "dice/themes/nest/numbers.svg",
+      "sourceSha256": "d9a1d7d101db652cbff840ff94beaacea0d176cfeeb5deb0104c51e0728b9913"
+    },
+    {
+      "path": "themes/nest/theme.config.json",
+      "sha256": "d96eb3d3cf38cdda016852d72c6b056c4476067e826cc55ca1981fc6cca0b197",
+      "status": "pristine",
+      "source": "dice/themes/nest/theme.config.json",
+      "sourceSha256": "d96eb3d3cf38cdda016852d72c6b056c4476067e826cc55ca1981fc6cca0b197"
+    },
+    {
+      "path": "themes/nest-black/README.md",
+      "sha256": "b954069259fd1e0f2c5186e782f176d3d3a271e3c3233e3850327272285ee64a",
+      "status": "new"
+    },
+    {
+      "path": "themes/nest-black/numbers.png",
+      "sha256": "dbbb4af0c49a50df22ddc2dacb02d175737febceac0ee63bc15336762ec89fab",
+      "status": "new"
+    },
+    {
+      "path": "themes/nest-black/theme.config.json",
+      "sha256": "4da32f7717577314f50c3eb01d17b8db88fed2e2988bd93d8ddb386b41d66295",
+      "status": "new"
+    },
+    {
+      "path": "vendor/dice-box/Dice.js",
+      "sha256": "252b30b2f7f405f1b05e32bf10bc8eef330bb2f9c40d047f693a28d1bdd39e11",
+      "status": "pristine",
+      "source": "dice/vendor/dice-box/Dice.js",
+      "sourceSha256": "252b30b2f7f405f1b05e32bf10bc8eef330bb2f9c40d047f693a28d1bdd39e11"
+    },
+    {
+      "path": "vendor/dice-box/LICENSE",
+      "sha256": "7e5eb61039091dfa069458bab611edd3fc774d8e3263ced7361d1251708fed85",
+      "status": "pristine",
+      "source": "dice/vendor/dice-box/LICENSE",
+      "sourceSha256": "7e5eb61039091dfa069458bab611edd3fc774d8e3263ced7361d1251708fed85"
+    },
+    {
+      "path": "vendor/dice-box/README.md",
+      "sha256": "b075acf7b9a40ac0bb24eaaaea705dd4bd9095cb7b9cf1e02f29dc5d3a0b1bb5",
+      "status": "pristine",
+      "source": "dice/vendor/dice-box/README.md",
+      "sourceSha256": "b075acf7b9a40ac0bb24eaaaea705dd4bd9095cb7b9cf1e02f29dc5d3a0b1bb5"
+    },
+    {
+      "path": "vendor/dice-box/assets/ammo/ammo.wasm.wasm",
+      "sha256": "007a4e93dce707e222e5f895a792a9e089f9dce65b36c057a32416644aa6be5e",
+      "status": "pristine",
+      "source": "dice/vendor/dice-box/assets/ammo/ammo.wasm.wasm",
+      "sourceSha256": "007a4e93dce707e222e5f895a792a9e089f9dce65b36c057a32416644aa6be5e"
+    },
+    {
+      "path": "vendor/dice-box/assets/themes/default/default.json",
+      "sha256": "08c4371be3c496ca2cded5c7816b9bf5b043e996f76ba6fd67f9bff320572f4f",
+      "status": "pristine",
+      "source": "dice/vendor/dice-box/assets/themes/default/default.json",
+      "sourceSha256": "08c4371be3c496ca2cded5c7816b9bf5b043e996f76ba6fd67f9bff320572f4f"
+    },
+    {
+      "path": "vendor/dice-box/assets/themes/default/diffuse-dark.png",
+      "sha256": "acf62205d3af969375998cf00af402959da870e846712b45ddbd8df5ddf5d21f",
+      "status": "pristine",
+      "source": "dice/vendor/dice-box/assets/themes/default/diffuse-dark.png",
+      "sourceSha256": "acf62205d3af969375998cf00af402959da870e846712b45ddbd8df5ddf5d21f"
+    },
+    {
+      "path": "vendor/dice-box/assets/themes/default/diffuse-light.png",
+      "sha256": "de15a8eed40be8123d301f8d0dff19be4d6577cc9ffb11086b81d7e38afd62a0",
+      "status": "pristine",
+      "source": "dice/vendor/dice-box/assets/themes/default/diffuse-light.png",
+      "sourceSha256": "de15a8eed40be8123d301f8d0dff19be4d6577cc9ffb11086b81d7e38afd62a0"
+    },
+    {
+      "path": "vendor/dice-box/assets/themes/default/normal.png",
+      "sha256": "77b7b5102d4190391d1189c8ef9eedf6d4d483afa18ce50e57f3335f13b7f5f9",
+      "status": "pristine",
+      "source": "dice/vendor/dice-box/assets/themes/default/normal.png",
+      "sourceSha256": "77b7b5102d4190391d1189c8ef9eedf6d4d483afa18ce50e57f3335f13b7f5f9"
+    },
+    {
+      "path": "vendor/dice-box/assets/themes/default/specular.jpg",
+      "sha256": "2af3b8a5da79f9b7953c550c62647e50ac56fdd7cf1c3397d6c176c1eb6fa88c",
+      "status": "pristine",
+      "source": "dice/vendor/dice-box/assets/themes/default/specular.jpg",
+      "sourceSha256": "2af3b8a5da79f9b7953c550c62647e50ac56fdd7cf1c3397d6c176c1eb6fa88c"
+    },
+    {
+      "path": "vendor/dice-box/assets/themes/default/theme.config.json",
+      "sha256": "4f55c758bca4c10405652c50037705b15bb633f998ca153d84f4c216ef67716d",
+      "status": "pristine",
+      "source": "dice/vendor/dice-box/assets/themes/default/theme.config.json",
+      "sourceSha256": "4f55c758bca4c10405652c50037705b15bb633f998ca153d84f4c216ef67716d"
+    },
+    {
+      "path": "vendor/dice-box/assets/themes/tor-enemy/symbols.png",
+      "sha256": "53265cba1c323621f3b86cc7c33acae46bc22c1e46029fc4ec3785fb5d7d9169",
+      "status": "pristine",
+      "source": "dice/vendor/dice-box/assets/themes/tor-enemy/symbols.png",
+      "sourceSha256": "53265cba1c323621f3b86cc7c33acae46bc22c1e46029fc4ec3785fb5d7d9169"
+    },
+    {
+      "path": "vendor/dice-box/assets/themes/tor-enemy/symbols.svg",
+      "sha256": "9ed91a609c63ce3b2fe438302d707d5e51a00a9f71bcaaba8b22bcaa2843102f",
+      "status": "pristine",
+      "source": "dice/vendor/dice-box/assets/themes/tor-enemy/symbols.svg",
+      "sourceSha256": "9ed91a609c63ce3b2fe438302d707d5e51a00a9f71bcaaba8b22bcaa2843102f"
+    },
+    {
+      "path": "vendor/dice-box/assets/themes/tor-enemy/theme.config.json",
+      "sha256": "5f79ec0235848a671f56ea4b6525290fedd05f2d5ac178ccea864871c121143d",
+      "status": "pristine",
+      "source": "dice/vendor/dice-box/assets/themes/tor-enemy/theme.config.json",
+      "sourceSha256": "5f79ec0235848a671f56ea4b6525290fedd05f2d5ac178ccea864871c121143d"
+    },
+    {
+      "path": "vendor/dice-box/assets/themes/tor-hero/symbols.png",
+      "sha256": "19e4fa5ff1ea6af4f7b2d0b68d13f20ad9023a4a673859abdc6e0a33a36fe6c2",
+      "status": "pristine",
+      "source": "dice/vendor/dice-box/assets/themes/tor-hero/symbols.png",
+      "sourceSha256": "19e4fa5ff1ea6af4f7b2d0b68d13f20ad9023a4a673859abdc6e0a33a36fe6c2"
+    },
+    {
+      "path": "vendor/dice-box/assets/themes/tor-hero/symbols.svg",
+      "sha256": "c487599c1b3adc12d9cd9c168610a04f5435ac5d77644beac35eb4b00815f47e",
+      "status": "pristine",
+      "source": "dice/vendor/dice-box/assets/themes/tor-hero/symbols.svg",
+      "sourceSha256": "c487599c1b3adc12d9cd9c168610a04f5435ac5d77644beac35eb4b00815f47e"
+    },
+    {
+      "path": "vendor/dice-box/assets/themes/tor-hero/theme.config.json",
+      "sha256": "4dfe35021f791e7008d1e3583b1d377fc31cff5a4ed748d88690cb4abbe8c374",
+      "status": "pristine",
+      "source": "dice/vendor/dice-box/assets/themes/tor-hero/theme.config.json",
+      "sourceSha256": "4dfe35021f791e7008d1e3583b1d377fc31cff5a4ed748d88690cb4abbe8c374"
+    },
+    {
+      "path": "vendor/dice-box/dice-box.es.js",
+      "sha256": "f20fc4b09df91ed54dd565c1141b1df4db877aa94d9686f2979607064af3ec36",
+      "status": "modified-copy",
+      "source": "dice/vendor/dice-box/dice-box.es.js",
+      "sourceSha256": "d1caccae54bd074c84eee2055dbb77073b6a95d294f973e610a71bad4bc59a89"
+    },
+    {
+      "path": "vendor/dice-box/world.none.js",
+      "sha256": "b5c079e5f7d11c41a3c96e7e8df1c5da3eb0a062b876d0d6ef64ca891d52da9c",
+      "status": "pristine",
+      "source": "dice/vendor/dice-box/world.none.js",
+      "sourceSha256": "b5c079e5f7d11c41a3c96e7e8df1c5da3eb0a062b876d0d6ef64ca891d52da9c"
+    },
+    {
+      "path": "vendor/dice-box/world.offscreen.js",
+      "sha256": "d58fa690164c745a64f0287bd00650985ef22f192fd068a6b076d1f3881cd330",
+      "status": "pristine",
+      "source": "dice/vendor/dice-box/world.offscreen.js",
+      "sourceSha256": "d58fa690164c745a64f0287bd00650985ef22f192fd068a6b076d1f3881cd330"
+    },
+    {
+      "path": "vendor/dice-box/world.onscreen.js",
+      "sha256": "9fd48a696b18ae164344def02fb2e8bfcdf300cbb8641ccef860d2461143e415",
+      "status": "pristine",
+      "source": "dice/vendor/dice-box/world.onscreen.js",
+      "sourceSha256": "9fd48a696b18ae164344def02fb2e8bfcdf300cbb8641ccef860d2461143e415"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "name": "Kości Bohatera",
+  "systemName": "tor-hero",
+  "author": "Bestiariusz Śródziemia",
+  "version": 1,
+  "meshFile": "../default/default.json",
+  "material": {
+    "type": "color",
+    "diffuseTexture": {
+      "light": "symbols.png",
+      "dark": "symbols.png"
+    },
+    "diffuseLevel": 1,
+    "specularPower": 12
+  },
+  "diceAvailable": [
+    "d6",
+    "d12"
+  ]
+}

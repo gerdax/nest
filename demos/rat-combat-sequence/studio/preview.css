@@ -1,0 +1,110 @@
+/* Perspective turns extend beyond the resting stage. The outer player/preview
+   viewport owns clipping, independently of inventory visibility. */
+.chapter-preview-stage { display:grid;grid-template-rows:auto minmax(0,1fr) var(--action-context-height,190px);place-items:center;min-height:440px;padding:24px 38px 30px;gap:clamp(42px,12vw,50px);overflow:visible; }
+.chapter-preview-card-area {width:100%;min-width:0;display:grid;place-items:center;}
+.chapter-preview-card-area,.action-context-panel {translate:0 var(--action-content-offset-y,15px);}
+.action-context-panel {translate:0 calc(var(--action-content-offset-y,15px) + 20px);}
+.nest-check-slot {position:absolute;inset:0;z-index:5;container-type:size;}
+.nest-check-slot[hidden],.check-surface[hidden] {display:none!important;}
+.nest-check-active .nest-back-icon,.nest-check-prepared .nest-back-icon {display:none!important;}
+.check-surface {position:absolute;inset:0;box-sizing:border-box;color:var(--card-text,#d2dfb6);font-family:var(--card-font,NestLetter,monospace);}
+/* The measuring anchor never changes when the result arrives. */
+.check-surface .check-tray {position:absolute;inset:16px 12px 130px;border:0;pointer-events:none;}
+.check-result {position:absolute;inset:0;}
+.nest-floating-dice-tray {background:transparent;transition:opacity 200ms linear;}
+.nest-dice-layer.dice-fading .nest-floating-dice-tray {opacity:0;}
+.chapter-preview-card-layout {
+  position:relative;width:var(--preview-card-width,min(100%,276px));aspect-ratio:3/4;
+  /* Stack and held inventory card share one moving camera plane. */
+  translate:0 var(--inventory-camera-offset,0px);
+  transition:translate 240ms cubic-bezier(.3,.15,.3,1);
+}
+.chapter-preview-deck {width:100%;aspect-ratio:3/4;margin:0;}
+.project-preview [data-status] { overflow-wrap:anywhere; }
+.project-preview [data-state] pre { white-space:pre-wrap; }
+.nest-inventory-item button { position:relative;width:100%;min-height:82px;padding:0;border:0;background:transparent;color:inherit;text-align:left; }
+.item-dialog { max-width:360px;width:calc(100vw - 32px);border:1px solid #687c58;border-radius:12px;background:#162014;color:#e3edda;padding:20px; }
+.item-dialog::backdrop { background:#000b; }
+.item-dialog > .nest-image-vignette img { display:block;width:100%;max-height:220px;object-fit:cover; }
+.item-dialog [data-summary] { color:#c0d99b;white-space:pre-line; }
+@media(max-width:420px) { .chapter-preview-stage {padding-inline:22px;min-height:390px;} .chapter-preview-card-layout {--preview-card-width:min(100%,240px);} }
+
+@font-face {font-family:NestVitals;src:url('../assets/fonts/trotont.ttf') format('truetype');font-display:swap;}
+.player-resources {width:100%;display:flex;justify-content:space-between;align-items:center;color:#b6c99b;}
+.player-resources[hidden] {display:none;}
+.player-resource {display:flex;align-items:center;gap:5px;font:62px/1 NestVitals,monospace;font-variant-numeric:tabular-nums;}
+.player-resource[hidden] {display:none;}
+.player-resource img {width:27px;height:30px;object-fit:contain;}
+.player-resource[data-health] img {width:29px;height:26px;}
+
+.preview-footer{position:absolute;inset:auto 0 0;z-index:3100;box-sizing:border-box;display:flex;align-items:flex-end;justify-content:space-between;gap:12px;min-height:44px;padding:8px 12px max(8px,env(safe-area-inset-bottom));color:#89947c;pointer-events:auto;background:#000}
+.preview-footer [data-state]{min-width:0;max-width:75%;font-size:12px}
+.preview-footer [data-state] pre{max-height:160px;overflow:auto;margin:8px 0 0}
+.preview-footer [data-preview-actions]{margin-left:auto;flex-shrink:0}
+.preview-footer [data-go-to-card]{border:0;padding:0;background:transparent;color:inherit;text-decoration:underline;font:inherit;font-size:12px}
+
+/* One stationary context panel owns the caption, body, backdrop and fade for
+   every selected-action mode. The stage grid reserves the same lane for each. */
+.action-context-panel {position:relative;z-index:2000;isolation:isolate;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;min-width:0;min-height:0;width:100%;height:100%;padding:var(--action-context-inset,24px) 0 0;text-align:center;opacity:0;visibility:hidden;pointer-events:none;transition:opacity 140ms ease,visibility 0s 140ms;}
+.action-context-panel[hidden] {display:none!important;}
+.action-context-panel[data-visible="true"] {opacity:1;visibility:visible;transition-delay:0s;}
+.action-context-view {mix-blend-mode:plus-lighter;display:flex;flex-direction:column;align-items:center;width:100%;min-width:0;}
+.action-context-blend {position:relative;isolation:isolate;width:100%;min-width:0;}
+.action-context-outgoing {position:absolute;top:0;left:0;right:0;}
+.action-context-outgoing,.action-context-outgoing * {pointer-events:none!important;}
+.action-context-caption {flex:none;width:100%;margin:0 0 var(--action-context-content-gap,14px);font-family:var(--card-font,NestLetter,monospace);font-size:var(--card-small-size,10px);font-weight:normal;line-height:1;letter-spacing:.18em;text-transform:uppercase;color:var(--card-title-color,#a9bb86);overflow-wrap:anywhere;}
+.action-context-content {display:grid;justify-items:center;align-content:start;width:100%;min-height:0;}
+.action-check-details {--odds-dark:color-mix(in srgb,var(--card-title-color,#a9bb86) 65%,black);--odds-middle:color-mix(in srgb,var(--card-medium-color,#d2dfb6) 80%,black);--odds-bright:var(--card-text,#b8cb98);width:100%;min-width:0;translate:0 calc(-1 * var(--action-context-odds-lift,15px));color:var(--odds-color,var(--odds-bright));pointer-events:none;}
+.action-check-details[data-odds-level="very-low"] {--odds-color:var(--odds-dark);}
+.action-check-details[data-odds-level="low"] {--odds-color:color-mix(in srgb,var(--odds-dark),var(--odds-middle));}
+.action-check-details[data-odds-level="medium"] {--odds-color:var(--odds-middle);}
+.action-check-details[data-odds-level="high"] {--odds-color:color-mix(in srgb,var(--odds-middle),var(--odds-bright));}
+.action-check-details[data-odds-level="very-high"] {--odds-color:var(--odds-bright);}
+.action-check-details[hidden] {display:none!important;}
+.action-check-chance {line-height:1;}
+.action-check-details[data-presentation="odds"] .action-check-chance {translate:0 3px;}
+.action-check-chance strong {display:block;font:var(--action-context-chance-size,105.6px)/.7 NestVitals,monospace;font-variant-numeric:tabular-nums;color:inherit;}
+.action-check-label {margin:var(--action-context-content-gap,14px) 0 0;font:var(--action-context-label-size,20px)/1.2 NestLetter,monospace;letter-spacing:.2em;text-transform:uppercase;color:inherit;}
+@media(prefers-reduced-motion:reduce){.action-context-panel{transition:none;}}
+
+/* Keep authored line and paragraph breaks in inventory descriptions too. */
+.item-dialog [data-description] { white-space:pre-wrap; }
+
+.chapter-preview-card-layout.is-inventory-preview .chapter-preview-deck {pointer-events:none}
+.nest-inventory-held-card {pointer-events:none;user-select:none;visibility:hidden;transition:visibility 0s 240ms}
+.is-inventory-preview .nest-inventory-held-card {visibility:visible;transition-delay:0s}
+@media(prefers-reduced-motion:reduce){.chapter-preview-card-layout,.nest-inventory-held-card{transition:none}}
+
+/* Artwork stays in normal flow beneath the panel's shared caption. */
+.nest-trigger-item {width:calc(var(--action-context-mini-height,110px) * .75);height:var(--action-context-mini-height,110px);min-width:0;}
+.nest-trigger-item[hidden] {display:none!important;}
+.action-context-panel[data-visible="true"] .nest-trigger-item {pointer-events:auto;}
+.nest-trigger-item>button {position:relative;display:block;width:100%;height:100%;box-sizing:border-box;overflow:hidden;padding:0;border:var(--mini-border-width,2px) solid #303030;border-radius:10.5px;background:#000;cursor:pointer;isolation:isolate;touch-action:none;user-select:none;-webkit-touch-callout:none;}
+.nest-trigger-item>button:focus-visible {outline:3px solid #f4e8b6;outline-offset:-4px;}
+.nest-trigger-item>button:disabled {opacity:1;}
+.nest-trigger-item .nest-image-vignette {position:absolute;inset:0;border-radius:inherit;}
+.nest-trigger-item img {width:100%;height:100%;object-fit:cover;scale:1.1;translate:0 -8%;pointer-events:none;}
+
+.nest-trigger-item>button:is(:active,[aria-pressed="true"]) {border-color:var(--mini-active-stroke,var(--card-medium-color,#d2dfb6));}
+
+.nest-card-backdrop {opacity:0;transition:opacity 140ms ease;}
+.nest-card-backdrop[data-visible="true"] {opacity:1;}
+.nest-card-backdrop-fill {position:absolute;left:0;right:0;bottom:0;top:100%;background:linear-gradient(to bottom,transparent 0,#000 30px,#000 100%);}
+@media(prefers-reduced-motion:reduce){.nest-card-backdrop{transition:none;}}
+
+/* Results reuse the exact caption and lane used by odds and USING. */
+.action-context-view[data-mode="result"] {translate:0 -10px;}
+.action-context-view[data-mode="result"] .action-context-content {order:-1;}
+.action-context-view[data-mode="result"] .action-context-caption {margin:var(--action-context-content-gap,14px) 0 0;}
+.action-check-details[data-presentation="result"] {translate:none;padding-top:16px;}
+.action-check-details[data-presentation="result"] strong {font:var(--action-context-result-size,clamp(30px,17cqw,76px))/1 NestVitals,monospace;color:var(--card-text,#b8cb98);}
+.action-check-details[data-outcome="failure"] strong {color:#71825a;}
+
+.action-context-item-column {display:flex;flex-direction:column;align-items:center;gap:var(--action-context-content-gap,14px);min-width:0;}
+.action-context-item-column[hidden],.action-context-item-column > .action-context-caption[hidden] {display:none!important;}
+.action-context-item-column > .action-context-caption {margin:0;}
+.action-context-view[data-mode="check-item"] {display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:24px;align-items:start;}
+.action-context-view[data-mode="check-item"] > .action-context-caption {grid-column:1;grid-row:1;}
+.action-context-view[data-mode="check-item"] > .action-context-content {display:contents;}
+.action-context-view[data-mode="check-item"] .action-check-details {grid-column:1;grid-row:2;}
+.action-context-view[data-mode="check-item"] .action-context-item-column {grid-column:2;grid-row:1 / span 2;translate:-25px 0;}

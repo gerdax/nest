@@ -1,0 +1,6 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import {PresentationClock} from '../presentation-clock.js';
+const delay=ms=>new Promise(r=>setTimeout(r,ms));
+function doc(){return {hidden:false,addEventListener(type,fn){this.listener=fn;},removeEventListener(){},toggle(v){this.hidden=v;this.listener();}};}
+test('cancel resolves pending work false and invalidates old revisions',async()=>{const d=doc(),c=new PresentationClock(d);const p=c.wait(100),revision=c.revision;c.cancel();assert.equal(await p,false);assert.equal(await c.wait(1,revision),false);c.destroy();});
+test('hidden document pauses and resumes result hold',async()=>{const d=doc(),c=new PresentationClock(d);d.toggle(true);let completed=false;const p=c.wait(20).then(v=>completed=v);await delay(35);assert.equal(completed,false);d.toggle(false);await p;assert.equal(completed,true);c.destroy();});
+test('animations pause on visibility and cancel with their clock',async()=>{const d=doc(),c=new PresentationClock(d);let paused=0,played=0,canceled=0;const p=c.animate({animate(){return {pause(){paused++;},play(){played++;},cancel(){canceled++;}};}},[],{duration:100});d.toggle(true);assert.equal(paused,1);d.toggle(false);assert.ok(played>=1);c.cancel();assert.equal(await p,false);assert.ok(canceled>=1);c.destroy();});

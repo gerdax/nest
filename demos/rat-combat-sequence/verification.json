@@ -1,0 +1,66 @@
+{
+  "date": "2026-10-25",
+  "baseCommit": "a7f6d56",
+  "branch": "codex/rat-combat-sequence",
+  "scope": "Only new demos/rat-combat-sequence/ files; main app, documents, assets and prior demos preserved.",
+  "deterministic": {
+    "mockup": {
+      "passed": 45,
+      "failed": 0,
+      "command": "node --test demos/rat-combat-sequence/tests/*.test.js demos/rat-combat-sequence/dice/tests/*.test.js"
+    },
+    "application": {
+      "passed": 2279,
+      "failed": 0,
+      "command": "node --test tests/*.test.js",
+      "note": "Equivalent package test command; npm and node are not on default shell PATH, bundled Node used."
+    }
+  },
+  "staging": {
+    "passed": true,
+    "command": "python3 build_pages.py /tmp/nest-pages-rat-sequence",
+    "files": 258,
+    "note": "Existing app staging only; unchanged staging script does not publish the independent mockup."
+  },
+  "browser": {
+    "engine": "Installed Google Chrome, Playwright, headless WebGL",
+    "passed": true,
+    "checks": [
+      "real WebGL rolls, enemy top/black, hero bottom/light, result on actual reverse, one stack, short/committed swipe",
+      "victory stops next enemy attack and ignores further input",
+      "death before hero choices",
+      "optional vignette swipe and ordinary action selection",
+      "hero swipe and duplicate input lock",
+      "restart during unresolved roll",
+      "simulated hidden result pauses and resumes once",
+      "error and retry without resource mutation on failure",
+      "320px geometry and controls contained",
+      "reduced motion, no weapon, full fight",
+      "front turn hides underlying originals and uses no reverse",
+      "restart during enemy arrival/roll/result, front turn, choices, player departure/roll/result"
+    ],
+    "screenshots": "/tmp/nest-rat-combat-sequence",
+    "visualInspection": [
+      "intro",
+      "black enemy die",
+      "hero choices",
+      "light hero result on check reverse",
+      "320px layout",
+      "front turn"
+    ]
+  },
+  "independentReview": {
+    "completed": true,
+    "remainingFindings": 0,
+    "corrected": "Original card layers now use display:none during clone turn, with finally cleanup; child visibility no longer exposes stationary faces."
+  },
+  "limitations": [
+    "No physical touch-device verification.",
+    "Safari and Firefox unverified.",
+    "Screen reader output unverified.",
+    "Visibility-event simulation does not test real OS background throttling or browser page-cache behavior.",
+    "No manual editor or legacy-format checks; no editor/project-schema changes made.",
+    "Throw-origin worker tests and real WebGL rolls passed; no motion-tracking measurement of dice trajectories or GPU/worker memory profiling."
+  ],
+  "whitespaceCheck": "Passes outside copied dice/vendor. Unchanged vendor copies retain upstream trailing whitespace; source hashes verified."
+}
