@@ -70,7 +70,7 @@ test('Unlinked container allows earlier take, blocks discard-all, then blocks fi
  const after=controller.state;key(deck,'ArrowDown');key(deck,'Enter');unchanged(controller,after);assert.equal(controller.items().length,1);dispose(deck,controller);
 });
 test('post-action eligibility blocks departure when remaining cards become hidden',()=>{
- const {deck,controller}=real([{id:'beat',type:'linear',cards:[{...narrative('event'),effects:[{op:'add',key:'energy',value:-4}]},{...narrative('hidden'),conditions:[{source:'variable',key:'energy',op:'gte',value:1}]}],connections:{next:false}}],{variables:energy});
+ const {deck,controller}=real([{id:'beat',type:'linear',cards:[{...narrative('event'),effects:[{op:'add',key:'energy',value:-4}]},{...narrative('hidden'),conditions:[{source:'variable',key:'energy',op:'gte',value:1}]}],connections:{next:false}}],{unavailableActions:'hidden',variables:energy});
  assert.equal(deck.content.advanceDisabled,true);const before=controller.state;key(deck,'ArrowUp');unchanged(controller,before);dispose(deck,controller);
 });
 test('automatic random routing with Unlinked eligible target is blocked without RNG draws',()=>{
@@ -126,7 +126,7 @@ test('preflight memoization is isolated across predicted values, inventory, and 
  const nodes=[{id:'beat',type:'linear',cards:[narrative('event')],connections:{next:null}},
   {id:'random',type:'random',routes:[0,1].map(i=>({id:`route${i}`,weight:1,target:'box'})),fallback:null},
   {id:'box',type:'container',introEnabled:false,items:[item('apple',{conditions:[{source:'variable',key:'energy',op:'gte',value:1},{source:'inventory',key:'token',op:'has'}]})],connections:{next:false}}];
- const {deck,controller}=real(nodes,{variables:energy});const inventory=[{id:'token',definitionId:'token'}];
+ const {deck,controller}=real(nodes,{unavailableActions:'hidden',variables:energy});const inventory=[{id:'token',definitionId:'token'}];
  const preview=(values,items,excluded=null)=>controller.locate('random',values,items,new Set(),excluded,true);
  assert.equal(preview({energy:4},inventory),null);
  assert.throws(()=>preview({energy:0},inventory),/Unlinked output/);

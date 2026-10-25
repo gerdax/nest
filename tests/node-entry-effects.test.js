@@ -57,6 +57,7 @@ test('transparent entry overrides precede card conditions and Random routing and
   {id:'random',type:'random',routes:[{id:'route',weight:1,conditions:requiresFlag(true),target:'end'}],fallback:false},
   linear('end',null,[story('end-card',{conditions:requiresFlag(false)})])];
  let draws=0;
+ for(const node of nodes)if(node.type==='linear')node.unavailableActions='hidden';
  const s=run(nodes,{hidden:[add(2)],random:[flag(true),add(3)],end:[add(4)]},{rng:()=>{draws++;return 0;}});
  assert.equal(draws,0);assert.equal(s.deck.content.advanceDisabled,false);assert.equal(s.controller.state.variables.count,0);
  s.deck.accept();assert.equal(s.controller.state.completed,true);assert.equal(s.controller.state.variables.count,9);
@@ -73,6 +74,7 @@ test('failed arrival rolls back source effects and preceding transparent entry e
 test('reconverging Random preflight distinguishes different incoming override states',()=>{
  const nodes=[linear('start','random'),{id:'random',type:'random',routes:[{id:'good',weight:1,target:'good'},{id:'bad',weight:1,target:'bad'}]},
   linear('good','join',[]),linear('bad','join',[]),linear('join',false,[story('shown',{conditions:requiresFlag(false)})])];
+ for(const node of nodes)if(node.type==='linear')node.unavailableActions='hidden';
  const s=run(nodes,{good:[flag(false)],bad:[flag(true)]});
  assert.equal(s.deck.content.advanceDisabled,true);assert.equal(s.controller.state.variables.flag,false);assert.deepEqual(s.errors,[]);s.controller.destroy();
 });
@@ -80,6 +82,7 @@ test('reconverging Random preflight distinguishes different incoming override st
 test('Random preflight sibling paths do not inherit one another’s entry effects',()=>{
  const nodes=[linear('start','random'),{id:'random',type:'random',routes:[{id:'one',weight:1,target:'one'},{id:'two',weight:1,target:'two'}]},
   linear('one',null),linear('two',false,[story('two-card',{conditions:requiresFlag(true)})])];
+ for(const node of nodes)if(node.type==='linear')node.unavailableActions='hidden';
  const s=run(nodes,{one:[flag(true)]});
  assert.equal(s.deck.content.advanceDisabled,true);assert.equal(s.controller.state.variables.flag,false);s.controller.destroy();
 });

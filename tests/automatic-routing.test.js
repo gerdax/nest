@@ -12,6 +12,7 @@ class Deck extends EventTarget {
 }
 function hiddenChain(count) {
  const project=createProject(),hidden=createDefinition('event','hidden'),shown=createDefinition('event','shown');
+ project.unavailableActions='hidden';
  hidden.conditions=[{source:'variable',key:'energy',op:'eq',value:999}];
  project.library=[hidden,shown];
  const chapter=project.chapters[0];chapter.startNode='n0';

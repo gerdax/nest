@@ -68,8 +68,8 @@ test('project inheritance, explicit overrides and legacy default remain stable',
 });
 test('departure explanations inspect both check paths and automatic routing without executing',()=>{
   for(const [resolution,connections,nodes,reason] of [
-    ['direct',{},[],'No connected destination'],
-    ['check',{'try:success':null},[],'No connected destination'],
+    ['direct',{},[],'Route unavailable'],
+    ['check',{'try:success':null},[],'Route unavailable'],
     ['direct',{try:'cycle'},[{id:'cycle',type:'random',routes:[],fallback:'cycle'}],'Automatic routing cycle'],
     ['direct',{try:'missing'},[],'Connected destination is missing'],
   ]){
@@ -136,4 +136,63 @@ test('trigger-only still hides explicit ownership requirements on the trigger it
  const rule={source:'inventory',key:'pick-alias',op:'has'};
  const source=action({contextInventoryKey:'pick-alias',explicitConditions:[rule],conditions:[rule,rule]});
  assert.equal(actionAvailability(source,{},[],compiled,'triggers-only').hidden,true);
+});
+
+test('structured reasons preserve text, order, grouping and resource identity after renames',()=>{
+  const definitions={...compiled,variables:[{...variable,name:'Stamina'},{id:'health',name:'Vitality',type:'number',min:0},{id:'other',name:'energy',type:'number',min:0}],library:[{id:'energy',kind:'item',name:'Battery'},{id:'health',kind:'item',name:'First aid'}]};
+  const source=action({contextItemId:'energy',conditions:[
+    {source:'variable',key:'health',op:'gte',value:1},
+    {source:'variable',key:'health',op:'gte',value:1},
+    {source:'variable',key:'energy',op:'eq',value:3},
+    {source:'variable',key:'other',op:'gte',value:2},
+    {source:'inventory',key:'health',op:'has'},
+  ],costs:[{source:'variable',key:'energy',amount:1},{source:'variable',key:'energy',amount:2},{source:'variable',key:'health',amount:1}]});
+  const status=actionAvailability(source,{health:0,energy:0,other:0},[],definitions);
+  assert.equal(status.disabledReason,'Requires: Battery · Requires: Vitality ≥ 1 · Requires: Stamina = 3 · Requires: energy ≥ 2 · Requires: First aid · Requires: 3 Stamina · Requires: 1 Vitality');
+  assert.deepEqual(status.disabledReasonParts,[
+    {text:'Requires: Battery'},
+    {text:'Requires: Vitality ≥ 1',resource:'health',amount:1,operator:'≥'},
+    {text:'Requires: Stamina = 3',resource:'energy',amount:3,operator:'='},
+    {text:'Requires: energy ≥ 2'},
+    {text:'Requires: First aid'},
+    {text:'Requires: 3 Stamina',resource:'energy',amount:3},
+    {text:'Requires: 1 Vitality',resource:'health',amount:1},
+  ]);
+});
+
+for(const [op,operator,value] of [['eq','=',2],['neq','≠',1],['gte','≥',2],['lte','≤',0],['has','>',2],['missing','=',1]])test(`resource condition parts retain ${op} comparator`,()=>{
+  const status=actionAvailability(action({conditions:[{source:'variable',key:'energy',op,value}]}),{energy:op==='has'?0:1},[],compiled);
+  // Variable has/missing use the same comparison vocabulary as the plain reason.
+  assert.deepEqual(status.disabledReasonParts,[{text:status.disabledReason,resource:'energy',amount:value,operator}]);
+});
+
+test('plain and enabled reasons expose text-only parts and an empty array respectively',()=>{
+  const exhausted=actionAvailability(action({contextItemId:'lockpick'}),{},[{...item,remainingTriggers:0}],compiled);
+  assert.deepEqual(exhausted.disabledReasonParts,[{text:'Lockpick exhausted'}]);
+  const enabled=actionAvailability(action(),{},[],compiled);
+  assert.deepEqual(enabled.disabledReasonParts,[]);
+  const inventoryCost=actionAvailability(action({costs:[{source:'inventory',key:'lockpick',amount:1},{source:'inventory',key:'pick-alias',amount:1}]}),{},[item],compiled);
+  assert.deepEqual(inventoryCost.disabledReasonParts,[{text:'Requires: Lockpick'}]);
+});
+
+for(const type of ['fork','container','linearFace','directAdvance'])test(`${type} content propagates availability parts`,()=>{
+  const source=action({kind:type==='directAdvance'?'narrative':type==='container'?'item':'action',costs:[{source:'variable',key:'energy',amount:3}]});
+  const node={id:'start',type:type==='linearFace'||type==='directAdvance'?'linear':type,introEnabled:false,connections:type==='fork'?{try:null}:{next:null},...(type==='fork'?{choices:[source]}:type==='container'?{items:[source]}:{cards:[source]})};
+  const deck=new Deck(),controller=new ProjectController(deck,{...compiled,startNode:'start',nodes:[node]});
+  assert.deepEqual(deck.content.actions[0].disabledReasonParts,[{text:'Requires: 3 energy',resource:'energy',amount:3}]);
+  assert.equal(deck.content.actions[0].disabledReason,'Requires: 3 energy');
+  controller.destroy();
+});
+
+test('routing-only failures do not attach availability parts',()=>{
+  for(const kind of ['action','narrative']) {
+    const source=action({kind});
+    const deck=new Deck(),controller=new ProjectController(deck,{...compiled,startNode:'start',nodes:[{id:'start',type:'linear',cards:[source],connections:{}}]});
+    assert.equal(deck.content.actions[0].disabledReason,'Route unavailable');
+    assert.equal(Object.hasOwn(deck.content.actions[0],'disabledReasonParts'),false);
+    controller.destroy();
+  }
+  const f=fixture('fork',action(),'disabled',{connections:{}});
+  assert.equal(Object.hasOwn(f.deck.content.actions[0],'disabledReasonParts'),false);
+  f.controller.destroy();
 });

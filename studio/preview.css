@@ -45,7 +45,7 @@
 
 /* One stationary context panel owns the caption, body, backdrop and fade for
    every selected-action mode. The stage grid reserves the same lane for each. */
-.action-context-panel {position:relative;z-index:2000;isolation:isolate;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;min-width:0;min-height:0;width:100%;height:100%;padding:var(--action-context-inset,24px) 0 0;text-align:center;opacity:0;visibility:hidden;pointer-events:none;transition:opacity 140ms ease,visibility 0s 140ms;}
+.action-context-panel {--odds-dark:color-mix(in srgb,var(--card-title-color,#a9bb86) 65%,black);position:relative;z-index:2000;isolation:isolate;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;min-width:0;min-height:0;width:100%;height:100%;padding:var(--action-context-inset,24px) 0 0;text-align:center;opacity:0;visibility:hidden;pointer-events:none;transition:opacity 140ms ease,visibility 0s 140ms;}
 .action-context-panel[hidden] {display:none!important;}
 .action-context-panel[data-visible="true"] {opacity:1;visibility:visible;transition-delay:0s;}
 .action-context-view {mix-blend-mode:plus-lighter;display:flex;flex-direction:column;align-items:center;width:100%;min-width:0;}
@@ -53,8 +53,10 @@
 .action-context-outgoing {position:absolute;top:0;left:0;right:0;}
 .action-context-outgoing,.action-context-outgoing * {pointer-events:none!important;}
 .action-context-caption {flex:none;width:100%;margin:0 0 var(--action-context-content-gap,14px);font-family:var(--card-font,NestLetter,monospace);font-size:var(--card-small-size,10px);font-weight:normal;line-height:1;letter-spacing:.18em;text-transform:uppercase;color:var(--card-title-color,#a9bb86);overflow-wrap:anywhere;}
+/* Reuse the darker title-color treatment used for very-low check odds. */
+.action-context-view[data-mode="reason"] > .action-context-caption {color:var(--odds-dark);}
 .action-context-content {display:grid;justify-items:center;align-content:start;width:100%;min-height:0;}
-.action-check-details {--odds-dark:color-mix(in srgb,var(--card-title-color,#a9bb86) 65%,black);--odds-middle:color-mix(in srgb,var(--card-medium-color,#d2dfb6) 80%,black);--odds-bright:var(--card-text,#b8cb98);width:100%;min-width:0;translate:0 calc(-1 * var(--action-context-odds-lift,15px));color:var(--odds-color,var(--odds-bright));pointer-events:none;}
+.action-check-details {--odds-middle:color-mix(in srgb,var(--card-medium-color,#d2dfb6) 80%,black);--odds-bright:var(--card-text,#b8cb98);width:100%;min-width:0;translate:0 calc(-1 * var(--action-context-odds-lift,15px));color:var(--odds-color,var(--odds-bright));pointer-events:none;}
 .action-check-details[data-odds-level="very-low"] {--odds-color:var(--odds-dark);}
 .action-check-details[data-odds-level="low"] {--odds-color:color-mix(in srgb,var(--odds-dark),var(--odds-middle));}
 .action-check-details[data-odds-level="medium"] {--odds-color:var(--odds-middle);}
@@ -108,3 +110,35 @@
 .action-context-view[data-mode="check-item"] > .action-context-content {display:contents;}
 .action-context-view[data-mode="check-item"] .action-check-details {grid-column:1;grid-row:2;}
 .action-context-view[data-mode="check-item"] .action-context-item-column {grid-column:2;grid-row:1 / span 2;translate:-25px 0;}
+
+.requirement-resource-amount {margin-inline-end:-.06em;}
+/* Icons paint outside a zero-height inline box so they cannot shift the text baseline. */
+.requirement-resource-icon {
+  --requirement-icon-size:1.2em;
+  --requirement-icon-bottom:-.15em;
+  display:inline-block;
+  position:relative;
+  width:var(--requirement-icon-size);
+  height:0;
+  vertical-align:baseline;
+}
+.requirement-resource-icon::before {
+  content:'';
+  position:absolute;
+  left:0;
+  bottom:var(--requirement-icon-bottom);
+  width:100%;
+  height:var(--requirement-icon-size);
+  background-color:currentColor;
+  -webkit-mask:url('../assets/img/ui/hud-energy.png') center / contain no-repeat;
+  mask:url('../assets/img/ui/hud-energy.png') center / contain no-repeat;
+}
+.requirement-resource-icon[data-resource="energy"] {
+  --requirement-icon-size:1.44em;
+  --requirement-icon-bottom:-.27em;
+}
+.requirement-resource-icon[data-resource="health"] {margin-inline-start:.3em;}
+.requirement-resource-icon[data-resource="health"]::before {
+  -webkit-mask-image:url('../assets/img/ui/hud-health.png');
+  mask-image:url('../assets/img/ui/hud-health.png');
+}

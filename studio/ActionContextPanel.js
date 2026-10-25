@@ -41,7 +41,7 @@ export class ActionContextPanel {
     this.clear();
   }
 
-  update({ info = null, item = null, result = null, disabledReason = null, busy = false, selectionKey = null } = {}) {
+  update({ info = null, item = null, result = null, disabledReason = null, disabledReasonParts = null, busy = false, selectionKey = null } = {}) {
     if (result?.total == null) result = null;
     disabledReason = typeof disabledReason === 'string' ? disabledReason.trim() : '';
     if (result) { info = null; item = null; disabledReason = ''; }
@@ -57,12 +57,15 @@ export class ActionContextPanel {
       return;
     }
     const mode = result ? 'result' : disabledReason ? 'reason' : info && item ? 'check-item' : info ? 'check' : 'item';
-    const key = JSON.stringify([selectionKey,mode,result,disabledReason,
+    const key = JSON.stringify([selectionKey,mode,result,disabledReason,disabledReasonParts,
       info ? [info.stat,info.chance,info.label,info.formula,info.rules] : null,item?.inventoryKey ?? item?.id]);
     const outgoing = this.visible && key !== this.presentationKey ? this.snapshot() : null;
     this.presentationKey = key;
     this.view.setAttribute('data-mode', mode);
-    this.caption.textContent = result ? `TARGET: ${result.target}  CHECK: ${result.total}` : disabledReason || (info ? info.stat ?? '' : 'USING');
+    this.caption.removeAttribute('aria-label');
+    if (disabledReason && Array.isArray(disabledReasonParts) && disabledReasonParts.some(part => ['health','energy'].includes(part.resource))) {
+      this.renderRequirements(disabledReason, disabledReasonParts);
+    } else this.caption.textContent = result ? `TARGET: ${result.target}  CHECK: ${result.total}` : disabledReason || (info ? info.stat ?? '' : 'USING');
     this.checkDetails.hidden = !info && !result;
     this.checkChance.textContent = result ? result.success ? 'SUCCESS' : 'FAILURE' : info ? `${Math.round(parseFloat(info.chance))}%` : '';
     this.checkDetails.setAttribute('data-presentation', result ? 'result' : 'odds');
@@ -91,6 +94,28 @@ export class ActionContextPanel {
       this.incomingAnimation = this.view.animate([{opacity:0},{opacity:1}], {duration:140,easing:'ease'});
       if (outgoing.node) this.fadeLayer({node:outgoing.node}, Number(outgoing.node.style.opacity));
     }
+  }
+
+  renderRequirements(reason, parts) {
+    const doc = this.root.ownerDocument ?? document;
+    const nodes = [];
+    const text = (value, className = '') => { const span = doc.createElement('span'); span.className = className; span.textContent = value; nodes.push(span); };
+    const sharedPrefix = parts.every(part => /^Requires: /i.test(part.text));
+    if (sharedPrefix) text('Requires: ');
+    parts.forEach((part, index) => {
+      if (index) text(sharedPrefix ? ', ' : ' · ');
+      if (['health','energy'].includes(part.resource) && Number.isFinite(part.amount)) {
+        if (!sharedPrefix) text('Requires: ');
+        text(`${part.operator ? `${part.operator} ` : ''}${part.amount}`, 'requirement-resource-amount');
+        const icon = doc.createElement('span');
+        icon.className = 'requirement-resource-icon';
+        icon.setAttribute('data-resource', part.resource);
+        icon.setAttribute('aria-hidden', 'true');
+        nodes.push(icon);
+      } else text(sharedPrefix ? part.text.replace(/^Requires: /i, '') : part.text);
+    });
+    this.caption.replaceChildren(...nodes);
+    this.caption.setAttribute('aria-label', reason);
   }
 
   snapshot() {

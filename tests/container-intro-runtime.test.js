@@ -13,9 +13,9 @@ const effect={op:'add',key:'energy',value:1};
 const item={id:'apple',definitionId:'apple',kind:'item',name:'Apple'};
 const box=extra=>({id:'box',type:'container',intro:{...story('intro'),effects:[effect]},items:[item],connections:{next:'after'},...extra});
 const after={id:'after',type:'linear',cards:[story('after')],connections:{}};
-function fixture(nodes){
+function fixture(nodes,unavailableActions){
   const deck=new Deck();const errors=[];
-  const controller=new ProjectController(deck,{startNode:nodes[0].id,nodes,variables:[{id:'energy',type:'number',initial:0}],library:[]},{onError:error=>errors.push(error)});
+  const controller=new ProjectController(deck,{startNode:nodes[0].id,nodes,unavailableActions,variables:[{id:'energy',type:'number',initial:0}],library:[]},{onError:error=>errors.push(error)});
   return {deck,controller,errors};
 }
 
@@ -39,7 +39,7 @@ for(const introEnabled of [undefined,true])test(`enabled intro retains reveal be
 });
 
 for(const items of [[],[{...item,conditions:[{source:'variable',key:'energy',op:'gte',value:1}]}]])test(`disabled intro exits without applying effects when ${items.length?'items are ineligible':'items are empty'}`,()=>{
-  const {deck,controller,errors}=fixture([box({introEnabled:false,items}),after]);
+  const {deck,controller,errors}=fixture([box({introEnabled:false,items}),after],'hidden');
   assert.equal(controller.state.activeNodeId,'after');assert.equal(controller.state.variables.energy,0);assert.equal(deck.content.text,'after');assert.deepEqual(errors,[]);controller.destroy();
 });
 
@@ -78,7 +78,7 @@ for(const once of [false,true])test(`return visits show only remaining container
  const {deck,controller,errors}=fixture([
   box({introOnce:once,items:[item,{...item,id:'pear',definitionId:'pear',conditions:[{source:'variable',key:'energy',op:'gte',value:2}]}],connections:{next:'return'}}),
   {id:'return',type:'linear',cards:[{...story('return'),effects:[effect]}],connections:{next:'box'}}
- ]);
+ ],'hidden');
  deck.emit('reveal');deck.emit('transitioncomplete',{transition:'reveal'});
  deck.emit('collect',{action:{id:'apple'}});deck.emit('transitioncomplete',{transition:'collect'});
  assert.equal(controller.state.activeNodeId,'return');

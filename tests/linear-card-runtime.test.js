@@ -38,7 +38,7 @@ for(const reduced of [false,true])test(`returning Linear skips taken items and d
   {id:'linear',type:'linear',cards:[item('one'),item('two',{conditions:[{source:'variable',key:'visit',op:'gte',value:1}]})],connections:{next:'hub'}},
   {id:'hub',type:'fork',choices:[action('again',{effects:[{op:'add',key:'visit',value:1}]}),action('end')],connections:{again:'linear',end:null}}
  ];
- const {deck,controller}=real(nodes,{variables:[{id:'visit',type:'number',initial:0}]},{onError:error=>errors.push(error)});deck.reduced=reduced;
+ const {deck,controller}=real(nodes,{unavailableActions:'hidden',variables:[{id:'visit',type:'number',initial:0}]},{onError:error=>errors.push(error)});deck.reduced=reduced;
  document.body=new Element();
  const target={slot:0,snapped:true,rect:{left:0,top:560,width:75,height:100}};
  const adapter={getTarget:()=>target,slotTarget:()=>target,preview(){},setContext(){},cancelPending(){},stageDeposit(){},clearDeposit(){},authorize:action=>controller.authorizeCollection(action,{slot:0})?{slot:0}:false};
@@ -141,10 +141,10 @@ for(const resolution of ['collect','discard'])test(`terminal Linear item ${resol
  deck[resolution]();assert.equal(controller.state.completed,false);assert.equal(controller.state.collectedItems.length,0);assert.equal(controller.state.variables.energy,4);settle();assert.equal(controller.state.completed,true);assert.equal(deck.phase,'ended');assert.equal(controller.state.collectedItems.length,resolution==='collect'?1:0);assert.equal(controller.state.variables.energy,resolution==='collect'?6:4);dispose(deck,controller);
 });
 
-test('Linear conditions skip item cards and visible unavailable actions can unlock after explicit variable refresh',()=>{
+test('Linear unmet item conditions display a disabled card and unlock after explicit variable refresh',()=>{
  const errors=[];const {deck,controller}=real(linear([{...item('skipped'),conditions:[{source:'variable',key:'energy',op:'gte',value:10}]},action('disabled',{costs:[{source:'variable',key:'energy',amount:5}]}),narrative('after')]),{variables:energy},{onError:e=>errors.push(e)});
- assert.equal(controller.state.cardId,'disabled');assert.equal(deck.phase,'choices');assert.equal(deck.content.actions[0].disabled,true);assert.equal(deck.content.nextDeckPreview,undefined);assert.equal(errors.length,1);key(deck,'ArrowUp');assert.equal(controller.state.cardId,'disabled');
- controller.variables.energy+=2;controller.show({restore:true});settle();assert.equal(deck.content.actions[0].disabled,false);key(deck,'ArrowUp');assert.equal(controller.state.cardId,'after');assert.equal(controller.state.variables.energy,1);dispose(deck,controller);
+ assert.equal(controller.state.cardId,'skipped');assert.equal(deck.phase,'choices');assert.equal(deck.content.actions[0].disabled,true);assert.equal(deck.content.nextDeckPreview,undefined);assert.equal(errors.length,0);key(deck,'ArrowUp');assert.equal(controller.state.cardId,'skipped');
+ controller.variables.energy=10;controller.show({restore:true});settle();assert.equal(deck.content.actions[0].disabled,false);deck.discard();settle();assert.equal(controller.state.cardId,'disabled');key(deck,'ArrowUp');assert.equal(controller.state.cardId,'after');assert.equal(controller.state.variables.energy,5);dispose(deck,controller);
 });
 
 test('Linear item take and discard route using resolved state without speculative random draws',()=>{
@@ -302,7 +302,7 @@ for(const hidden of [false,true])test(`swap reconciles dependent cards and survi
  const incoming=item('key');
  const dependent=item('locked',{conditions:[{source:'inventory',key:'key',op:'has'}]});
  const lost=item('needs-old',{conditions:[{source:'inventory',key:'old',op:'has'}]});
- const {deck,controller}=real([{id:'box',type:'container',introEnabled:false,items:[incoming,dependent,lost],connections:{next:null}}]);
+ const {deck,controller}=real([{id:'box',type:'container',introEnabled:false,items:[incoming,dependent,lost],connections:{next:null}}],{unavailableActions:'hidden'});
  deck.pickup=new InventoryPickup(deck,{setContext(){},preview(){},cancelPending(){},stageDeposit(){},clearDeposit(){}});
  controller.inventory=['old','b','c','d'].map(id=>item(id));controller.show({restore:true});settle();
  assert.deepEqual(deck.content.actions.map(a=>a.id),['key','needs-old']);
@@ -620,7 +620,7 @@ for(const reduced of [false,true])for(const variant of ['unlocks-next','already-
  const first={...narrative('first'),effects:variant==='still-unmet'?[]:[{op:'set',key:'ready',value:true}]};
  const next={...narrative('next'),conditions:['unlocks-next','still-unmet'].includes(variant)?requiresReady:[]};
  const later={...narrative('later'),conditions:variant==='later-only'?requiresReady:[]};
- const {deck,controller}=real(linear([first,next,later]),{variables:[{id:'ready',type:'flag',initial:false}]});deck.reduced=reduced;
+ const {deck,controller}=real(linear([first,next,later]),{unavailableActions:'hidden',variables:[{id:'ready',type:'flag',initial:false}]});deck.reduced=reduced;
  const expected=variant==='unlocks-next'?'flip':'reveal';
  assert.equal(deck.content.nextTransition,expected);assert.equal(controller.variables.ready,false);
  assert.equal(deck.start(),true);deck.move({axis:'y',x:0,y:-10});deck.cancel();settle();

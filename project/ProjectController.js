@@ -46,6 +46,9 @@ export class ProjectController {
     const override=['fork','linear'].includes(node?.type) ? node.unavailableActions : undefined;
     return (override && override!=='project' ? override : this.compiled.unavailableActions) ?? 'disabled';
   }
+  cardAvailability(card, values=this.variables, inventory=this.inventory, location=this.location) {
+    return actionAvailability(card ?? {},values,inventory,this.compiled,this.unavailableActions(location));
+  }
   ownsItem(item, inventory=this.inventory) {
     return inventory.some(owned => (owned.definitionId ?? owned.id) === (item.definitionId ?? item.id)
       || item.inventoryKey != null && owned.inventoryKey === item.inventoryKey);
@@ -90,7 +93,7 @@ export class ProjectController {
   items(location=this.location, values=this.variables, inventory=this.inventory, excluded=null) {
     if(excluded?.all&&excluded.key===this.key(location))return [];
     const raw=this.remaining.get(this.key(location)) ?? location.sequence?.items ?? location.node.items ?? [];
-    return raw.map(i=>this.runtimeItem(i,location)).filter(i=>!this.itemExcluded(i.id,location,excluded) && conditionsMet(i.conditions,values,inventory) && !this.hidesOwnedItem(i,inventory,location));
+    return raw.map(i=>this.runtimeItem(i,location)).filter(i=>!this.itemExcluded(i.id,location,excluded) && !this.cardAvailability(i,values,inventory,location).hidden && !this.hidesOwnedItem(i,inventory,location));
   }
   weighted(routes) {
     if(!routes.length)return null;
@@ -178,10 +181,9 @@ export class ProjectController {
       const cards=location.sequence?.cards ?? location.node.cards ?? [];
       while(location.index<cards.length) {
         const card=this.runtimeItem(cards[location.index],location);
-        const available=conditionsMet(card.conditions,values,inventory);
-        const hiddenAction=card.kind==='action'&&actionAvailability(card,values,inventory,this.compiled,this.unavailableActions(location)).hidden;
+        const hidden=this.cardAvailability(card,values,inventory,location).hidden;
         const hiddenItem=card.kind==='item'&&this.hidesOwnedItem(card,inventory);
-        if(this.linearItemRemaining(card,location,excluded)&&(available||card.kind==='action')&&!hiddenAction&&!hiddenItem)break;
+        if(this.linearItemRemaining(card,location,excluded)&&!hidden&&!hiddenItem)break;
         location={...location,index:location.index+1};
       }
       if(location.index>=cards.length)return this.nextStep(location);
@@ -224,7 +226,7 @@ export class ProjectController {
     return !!this.departureReason(source,location,values,inventory,transition,excludedItem);
   }
   routingReason(error) {
-    if(error.message==='Unlinked output')return 'No connected destination';
+    if(error.message==='Unlinked output')return 'Route unavailable';
     if(error.message==='Automatic routing cycle')return 'Automatic routing cycle';
     if(error.message.startsWith('Unknown node:'))return 'Connected destination is missing';
     return '';
@@ -294,19 +296,22 @@ export class ProjectController {
       const availability=actionAvailability(c,values,inventory,this.compiled,this.unavailableActions(location));
       if(availability.hidden)return [];
       const reason=availability.disabledReason||this.departureReason(c,location,values,inventory);
-      return [{...this.action(c,values),disabled:availability.disabled||!!reason,...(reason?{disabledReason:reason}:{})}];
+      return [{...this.action(c,values),disabled:availability.disabled||!!reason,...(reason?{disabledReason:reason,...(availability.disabledReason?{disabledReasonParts:availability.disabledReasonParts}:{})}:{})}];
     });
-    else if(container)actions=this.items(location,values,inventory,excludedItem).map(c=>({...this.action(c,values),alreadyOwned:this.ownsItem(c,inventory),discardDisabled:this.departureBlocked(c,location,values,inventory,'discard',excludedItem),collectDisabled:this.departureBlocked(c,location,values,inventory,'collect',excludedItem)}));
+    else if(container)actions=this.items(location,values,inventory,excludedItem).map(c=>{
+      const availability=this.cardAvailability(c,values,inventory,location);
+      return {...this.action(c,values),disabled:availability.disabled,...(availability.disabledReason?{disabledReason:availability.disabledReason,disabledReasonParts:availability.disabledReasonParts}:{}),alreadyOwned:this.ownsItem(c,inventory),discardDisabled:availability.disabled||this.departureBlocked(c,location,values,inventory,'discard',excludedItem),collectDisabled:availability.disabled||this.departureBlocked(c,location,values,inventory,'collect',excludedItem)};
+    });
     else if(linearFace) {
-      const availability=actionAvailability(card.kind==='action'?card:{...card,costs:[]},values,inventory,this.compiled,this.unavailableActions(location));
-      actions=[{...this.action(card,values),disabled:availability.disabled,...(availability.disabledReason?{disabledReason:availability.disabledReason}:{})}];
+      const availability=this.cardAvailability(card,values,inventory,location);
+      actions=[{...this.action(card,values),disabled:availability.disabled,...(availability.disabledReason?{disabledReason:availability.disabledReason,disabledReasonParts:availability.disabledReasonParts}:{})}];
     }
     else actions=[{id:'continue',label:'Continue',image:card?.image,flipImage:!!card?.flipImage}];
     if(linearFace) {
-      if(linearItem)Object.assign(actions[0],{alreadyOwned:this.ownsItem(card,inventory),discardDisabled:this.departureBlocked(card,location,values,inventory,'discard'),collectDisabled:this.departureBlocked(card,location,values,inventory,'collect')});
+      if(linearItem)Object.assign(actions[0],{alreadyOwned:this.ownsItem(card,inventory),discardDisabled:actions[0].disabled||this.departureBlocked(card,location,values,inventory,'discard'),collectDisabled:actions[0].disabled||this.departureBlocked(card,location,values,inventory,'collect')});
       else if(!actions[0].disabled) {
         const reason=this.departureReason(card,location,values,inventory);
-        if(reason)Object.assign(actions[0],{disabled:true,disabledReason:reason});
+        if(reason) {Object.assign(actions[0],{disabled:true,disabledReason:reason});delete actions[0].disabledReasonParts;}
       }
     }
     if(container||linearItem)for(const action of actions)action.disabled ||= action.collectDisabled&&action.discardDisabled;
@@ -314,8 +319,18 @@ export class ProjectController {
     const payload={autoBrowse:fork||container,id:`${this.generation}:${++this.serial}`,cardBack:this.compiled.cardBack,title:card?.name ?? card?.title ?? '',heading:cardFace(card,this.compiled.variables,this.compiled.library,values).heading,text:this.body(card),cardKind:card?.kind ?? 'event',value:card?.value,summary:card&&!isStoryKind(card.kind??card.cardKind)&&fork?playerCardSummary(card,this.compiled.variables,this.compiled.library,values):'',image:card?.image ?? '',imageScale:card?.imageScale??100,imageOffsetX:card?.imageOffsetX??0,imageOffsetY:card?.imageOffsetY??0,flipImage:!!card?.flipImage,actions,directAdvance:!fork&&!container&&!linearFace,decisionOnly:linearFace||fork&&(location.sequence?!!location.sequence.decisionOnly:this.presentation(location,values,inventory)==='open'),interaction:container||linearItem?'container':'choice',discardAll:container,allowClose:false};
     if(fork)payload.choiceFollowerRatio=.82;
     payload.flipItemsOnReveal=container&&this.presentation(location,values,inventory)==='closed'||fork&&this.introductionUnlocksNext(location,values,inventory);
-    if(payload.directAdvance){payload.nextTransition='flip';const reason=this.departureReason(card,location,values,inventory);payload.advanceDisabled=!!reason;actions[0].disabled=payload.advanceDisabled;if(reason)actions[0].disabledReason=reason;}
-    if(type==='linear'&&preview&&card&&card.kind!=='item'&&card.resolution!=='check') {
+    if(payload.directAdvance){
+      payload.nextTransition='flip';
+      const availability=this.cardAvailability(card,values,inventory,location);
+      const reason=availability.disabledReason||this.departureReason(card,location,values,inventory);
+      payload.advanceDisabled=availability.disabled||!!reason;actions[0].disabled=payload.advanceDisabled;
+      if(reason) {
+        actions[0].disabledReason=reason;
+        if(availability.disabledReason)actions[0].disabledReasonParts=availability.disabledReasonParts;
+        else delete actions[0].disabledReasonParts;
+      }
+    }
+    if(type==='linear'&&preview&&card&&!actions[0].disabled&&card.kind!=='item'&&card.resolution!=='check') {
       try {
         const predicted=transact(values,inventory,{triggerItem:card.contextInventoryKey??card.contextItemId,costs:card.costs,effects:card.effects},this.compiled.variables,this.compiled.library);
         const next=this.seek({...location,index:location.index+1},predicted.variables,predicted.inventory,new Set(),null,true);
@@ -442,7 +457,7 @@ export class ProjectController {
   authorizeCollection(action, decision) {
     if (this.destroyed || this.completed || this.checking || this.pendingItem || this.pendingIntro) return false;
     const item = this.type() === 'linear' && this.card()?.kind === 'item' ? this.card() : this.items().find(item => item.id === action.id);
-    if (!item || item.id !== action.id || !conditionsMet(item.conditions, this.variables, this.inventory)) return false;
+    if (!item || item.id !== action.id || this.cardAvailability(item).disabled) return false;
     try {
       const inventory = this.collectionInventory(item, decision.replacementId);
       if (!decision.returnToStack && this.departureBlocked(item, this.location, this.variables, inventory, 'collect')) return false;
@@ -485,7 +500,7 @@ export class ProjectController {
     const all=transition==='discard'&&detail.all===true&&!linearItem;
     if(this.destroyed||this.completed||this.checking||this.pendingItem||this.pendingIntro||(!linearItem&&this.type()!=='container')||detail.contentId!==this.deck.content.id)return;
     const item=linearItem?this.card():this.items().find(i=>i.id===detail.action?.id);
-    if(!item||item.id!==detail.action?.id||!conditionsMet(item.conditions,this.variables,this.inventory))return;
+    if(!item||item.id!==detail.action?.id||this.cardAvailability(item).disabled)return;
     let baseInventory;
     try { baseInventory = transition === 'collect' ? this.collectionInventory(item, detail.replacementId) : this.inventory; }
     catch(error) { this.error(error); this.show({restore:true}); return; }

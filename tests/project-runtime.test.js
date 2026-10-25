@@ -27,7 +27,7 @@ test('transaction costs combine atomically, inventory aliases represent ownershi
  assert.deepEqual(result.variables,{energy:5});assert.deepEqual(result.inventory,[]);assert.equal(values.energy,4);
 });
 test('conditional story skips cards and playable graph loops remain valid',()=>{
- const {deck,controller}=fixture([{id:'a',type:'linear',cards:[{...narrative('hidden'),conditions:[{source:'variable',key:'flag',op:'eq',value:true}]},narrative('shown')],connections:{next:'a'}}],{variables:[{id:'flag',type:'flag',initial:false}]});
+ const {deck,controller}=fixture([{id:'a',type:'linear',cards:[{...narrative('hidden'),conditions:[{source:'variable',key:'flag',op:'eq',value:true}]},narrative('shown')],connections:{next:'a'}}],{unavailableActions:'hidden',variables:[{id:'flag',type:'flag',initial:false}]});
  assert.equal(controller.state.cardId,'shown');deck.accept();assert.equal(controller.state.cardId,'shown');assert.equal(controller.state.completed,false);controller.destroy();
 });
 test('random conditions choose once, fallback works, transparent cycles report error',()=>{
@@ -123,7 +123,7 @@ test('costs cannot spend below minimum bounds or borrow from later effects',()=>
 });
 test('linear previews apply current effects, skip newly ineligible cards and include deterministic target deck',()=>{
  const condition=value=>[{source:'variable',key:'flag',op:'eq',value}];
- const {deck,controller}=fixture([{id:'a',type:'linear',cards:[{...narrative('start'),effects:[{op:'set',key:'flag',value:true}]},{...narrative('secret'),conditions:condition(false)},{...narrative('revealed'),conditions:condition(true)}],connections:{next:'b'}},{id:'b',type:'fork',choices:[action('choice',{conditions:condition(true)})],connections:{choice:null}}],{variables:[{id:'flag',type:'flag',initial:false}]});
+ const {deck,controller}=fixture([{id:'a',type:'linear',cards:[{...narrative('start'),effects:[{op:'set',key:'flag',value:true}]},{...narrative('secret'),conditions:condition(false)},{...narrative('revealed'),conditions:condition(true)}],connections:{next:'b'}},{id:'b',type:'fork',choices:[action('choice',{conditions:condition(true)})],connections:{choice:null}}],{unavailableActions:'hidden',variables:[{id:'flag',type:'flag',initial:false}]});
  assert.equal(deck.content.nextCardPreview.text,'revealed');assert.equal(deck.content.nextDeckPreview.content.text,'revealed');assert.equal(controller.state.variables.flag,false);deck.accept();assert.equal(controller.state.cardId,'revealed');assert.equal(deck.content.nextDeckPreview.content.decisionOnly,true);assert.equal(deck.content.nextDeckPreview.content.actions[0].disabled,false);assert.equal(deck.content.nextDeckPreview.presentation,'open');controller.destroy();
 });
 test('linear previews stop before random selection while deterministic transparent nodes are safe',()=>{
@@ -165,7 +165,7 @@ for(const changesItems of [false,true])test(`container items unfold once after i
  const intro={...narrative('intro'),effects:changesItems?[{op:'set',key:'flag',value:true}]:[]};
  const item=id=>({id,kind:'item',definitionId:id,name:id});
  const items=changesItems?[{...item('before'),conditions:[{source:'variable',key:'flag',op:'eq',value:false}]},{...item('after'),conditions:[{source:'variable',key:'flag',op:'eq',value:true}]}]:[item('one'),item('two')];
- const {deck,controller}=real([{id:'box',type:'container',intro,items,connections:{}}],{variables:[{id:'flag',type:'flag',initial:false}]});
+ const {deck,controller}=real([{id:'box',type:'container',intro,items,connections:{}}],{unavailableActions:'hidden',variables:[{id:'flag',type:'flag',initial:false}]});
  let reveals=0;deck.addEventListener('transitioncomplete',e=>{if(e.detail.transition==='reveal')reveals++;});
  const initialId=deck.content.id;key(deck,'ArrowUp');
  assert.equal(reveals,1);assert.equal(deck.phase,'choices');assert.equal(deck.fan.x,1);assert.equal(controller.state.idle,true);
@@ -174,7 +174,7 @@ for(const changesItems of [false,true])test(`container items unfold once after i
 });
 for(const reduced of [false,true])test(`container intro effects wait for accepted reveal, refresh availability and apply once, reduced=${reduced}`,()=>{
  const intro={...narrative('intro'),effects:[{op:'add',key:'energy',value:1}]};const item=id=>({id,definitionId:id,kind:'item',name:id});
- const {deck,controller}=real([{id:'box',type:'container',intro,items:[{...item('before'),conditions:[{source:'variable',key:'energy',op:'eq',value:0}]},{...item('after'),conditions:[{source:'variable',key:'energy',op:'gte',value:1}]}],connections:{}}],{variables:[{id:'energy',type:'number',initial:0}]});deck.reduced=reduced;
+ const {deck,controller}=real([{id:'box',type:'container',intro,items:[{...item('before'),conditions:[{source:'variable',key:'energy',op:'eq',value:0}]},{...item('after'),conditions:[{source:'variable',key:'energy',op:'gte',value:1}]}],connections:{}}],{unavailableActions:'hidden',variables:[{id:'energy',type:'number',initial:0}]});deck.reduced=reduced;
  assert.equal(controller.state.variables.energy,0);assert.equal(deck.content.summary,'');deck.start();deck.move({axis:'y',x:0,y:-10});deck.cancel();settle();assert.equal(controller.state.variables.energy,0);
  deck.key({key:'ArrowUp',preventDefault(){}});assert.equal(controller.state.variables.energy,1);if(!reduced)assert.equal(controller.state.idle,false);settle();assert.deepEqual(deck.content.actions.map(a=>a.id),['after']);assert.equal(deck.phase,'choices');assert.equal(controller.state.idle,true);
  deck.emit('reveal');assert.equal(controller.state.variables.energy,1);controller.show({restore:true});settle();assert.equal(deck.phase,'choices');assert.equal(controller.state.variables.energy,1);dispose(deck,controller);
@@ -185,11 +185,11 @@ test('intro effects can unlock initially ineligible items without skipping the c
 });
 test('intro reveal can auto-exit after effects hide every item, including terminal End',()=>{
  const nodes=[{id:'box',type:'container',intro:{...narrative('intro'),effects:[{op:'set',key:'flag',value:true}]},items:[{id:'item',kind:'item',definitionId:'apple',name:'Apple',conditions:[{source:'variable',key:'flag',op:'eq',value:false}]}],connections:{next:null}}];
- const {deck,controller}=real(nodes,{variables:[{id:'flag',type:'flag',initial:false}]});key(deck,'ArrowUp');assert.equal(controller.state.variables.flag,true);assert.equal(controller.state.completed,true);assert.equal(deck.phase,'ended');dispose(deck,controller);
+ const {deck,controller}=real(nodes,{unavailableActions:'hidden',variables:[{id:'flag',type:'flag',initial:false}]});key(deck,'ArrowUp');assert.equal(controller.state.variables.flag,true);assert.equal(controller.state.completed,true);assert.equal(deck.phase,'ended');dispose(deck,controller);
 });
 test('false intro with no eligible items skips node; legacy intro effects remain inactive',()=>{
  const falseCondition=[{source:'variable',key:'flag',op:'eq',value:true}];
- const skipped=fixture([{id:'box',type:'container',intro:{...narrative('intro'),conditions:falseCondition,effects:[{op:'set',key:'flag',value:true}]},items:[{id:'item',kind:'item',definitionId:'apple',conditions:falseCondition}],connections:{next:'after'}},{id:'after',type:'linear',cards:[narrative('after')]}],{variables:[{id:'flag',type:'flag',initial:false}]});assert.equal(skipped.controller.state.activeNodeId,'after');assert.equal(skipped.controller.state.variables.flag,false);skipped.controller.destroy();
+ const skipped=fixture([{id:'box',type:'container',intro:{...narrative('intro'),conditions:falseCondition,effects:[{op:'set',key:'flag',value:true}]},items:[{id:'item',kind:'item',definitionId:'apple',conditions:falseCondition}],connections:{next:'after'}},{id:'after',type:'linear',cards:[narrative('after')]}],{unavailableActions:'hidden',variables:[{id:'flag',type:'flag',initial:false}]});assert.equal(skipped.controller.state.activeNodeId,'after');assert.equal(skipped.controller.state.variables.flag,false);skipped.controller.destroy();
  const legacy=real([{id:'old',type:'legacySequence',sequence:{id:'old-box',type:'container',cards:[{...narrative('intro'),effects:[{op:'set',key:'flag',value:true}]}],items:[{id:'item',kind:'item',definitionId:'apple',label:'Apple'}],exits:['next']},connections:{}}],{variables:[{id:'flag',type:'flag',initial:false}]});key(legacy.deck,'ArrowUp');assert.equal(legacy.controller.state.variables.flag,false);dispose(legacy.deck,legacy.controller);
 });
 test('explicit variable refresh in revealed container does not reapply intro',()=>{
@@ -197,7 +197,7 @@ test('explicit variable refresh in revealed container does not reapply intro',()
 });
 for(const reduced of [false,true])test(`final visible collection retains container when it unlocks another item, reduced=${reduced}`,()=>{
  const nodes=[{id:'box',type:'container',intro:narrative('box'),items:[{id:'a',definitionId:'key',kind:'item',name:'Key'},{id:'b',definitionId:'prize',kind:'item',name:'Prize',conditions:[{source:'inventory',key:'key',op:'has'}]}],connections:{next:'after'}},{id:'after',type:'linear',cards:[narrative('after')]}];
- const {deck,controller}=real(nodes);deck.reduced=reduced;key(deck,'ArrowUp');assert.deepEqual(deck.content.actions.map(a=>a.id),['a']);
+ const {deck,controller}=real(nodes,{unavailableActions:'hidden'});deck.reduced=reduced;key(deck,'ArrowUp');assert.deepEqual(deck.content.actions.map(a=>a.id),['a']);
  deck.collect();if(!reduced){assert.equal(controller.state.collectedItems.length,0);assert.equal(controller.state.activeNodeId,'box');assert.deepEqual(deck.pending.actions.map(a=>a.id),['b']);assert.equal(deck.pendingPresentation,'open');}
  settle();assert.equal(controller.state.activeNodeId,'box');assert.equal(deck.phase,'choices');assert.deepEqual(deck.content.actions.map(a=>a.id),['b']);assert.deepEqual(controller.state.collectedItems.map(i=>i.definitionId),['key']);
  key(deck,'ArrowDown');assert.equal(controller.state.activeNodeId,'after');assert.equal(deck.phase,'closed');assert.deepEqual(controller.state.collectedItems.map(i=>i.definitionId),['key','prize']);dispose(deck,controller);
@@ -253,7 +253,7 @@ for(const reduced of [false,true])test(`linear node exits stage a back and flip,
 });
 test('linear exits flip after condition skipping, random routing, and self-loop visits',()=>{
  for(const target of ['b','random','a']) {
-  const {deck,controller}=fixture([{id:'a',type:'linear',cards:[narrative('first'),{...narrative('hidden'),conditions:[{source:'variable',key:'flag',op:'eq',value:true}]}],connections:{next:target}},{id:'random',type:'random',routes:[{id:'route',weight:1,target:'b'}]},{id:'b',type:'linear',cards:[narrative('next')]}],{variables:[{id:'flag',type:'flag',initial:false}]},{rng:()=>0});
+  const {deck,controller}=fixture([{id:'a',type:'linear',cards:[narrative('first'),{...narrative('hidden'),conditions:[{source:'variable',key:'flag',op:'eq',value:true}]}],connections:{next:target}},{id:'random',type:'random',routes:[{id:'route',weight:1,target:'b'}]},{id:'b',type:'linear',cards:[narrative('next')]}],{unavailableActions:'hidden',variables:[{id:'flag',type:'flag',initial:false}]},{rng:()=>0});
   assert.equal(deck.content.nextTransition,'flip');deck.accept();assert.equal(deck.options.transition,'flip');assert.equal(controller.state.cardId,target==='a'?'first':'next');controller.destroy();
  }
 });
@@ -460,7 +460,7 @@ test('linear item continuity uses effects and skips ineligible narrative cards',
   {id:'one',definitionId:'one',kind:'item',name:'One',onCollect:[{op:'set',key:'taken',value:true}]},
   {...narrative('hidden'),conditions:[{source:'variable',key:'taken',op:'eq',value:false}]},
   {id:'two',definitionId:'two',kind:'item',name:'Two',conditions:[{source:'variable',key:'taken',op:'eq',value:true}]}
- ],connections:{next:null}}],{variables:[{id:'taken',type:'flag',initial:false}]});
+ ],connections:{next:null}}],{unavailableActions:'hidden',variables:[{id:'taken',type:'flag',initial:false}]});
  const drawer=continuityDrawer(deck);assert.equal(drawer.visible,true);drawer.visibility.length=0;
  deck.collect();assert.equal(controller.state.variables.taken,false);await flush();settle();
  assert.equal(controller.state.cardId,'two');assert.equal(controller.state.variables.taken,true);

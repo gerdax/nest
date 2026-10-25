@@ -39,3 +39,15 @@ for(const type of ['random','container'])test(`${type} does not expose an action
  node.unavailableActions='hidden';
  assert.ok(validateProject(project).some(e=>e.message.includes('unavailableActions')));
 });
+
+for(const type of ['fork','linear'])test(`${type} Overrides header marks availability overrides even with zero effects`,()=>{
+ const project=createProject(),chapter=project.chapters[0],node=createNode(project,type);
+ chapter.nodes.push(node);
+ for(const policy of [undefined,'project','hidden','disabled','triggers-only','disabled-triggers']) {
+  node.unavailableActions=policy;
+  const summary=nodeInspector(project,chapter,node).match(/<summary>Overrides · ([^<]+)<\/summary>/)?.[1];
+  assert.equal(summary,policy&&policy!=='project'?'0 *':'0');
+ }
+ node.unavailableActions='project';
+ assert.match(nodeInspector(project,chapter,node,[{op:'set',key:'energy',value:2}]),/<summary>Overrides · 1 \*<\/summary>/);
+});

@@ -11,9 +11,9 @@ export const checkbox = (label,value,path,scope='definition',disabled=false) => 
 export const button = (label,cmd,attrs='') => `<button type="button" data-command="${cmd}" ${attrs}>${esc(label)}</button>`;
 export const imageField=(label,value,path,scope='definition',{clearable=false}={})=>field(label,value,path,scope)+`${clearable?'<div class="image-field-actions">':''}<button type="button" data-image-picker data-scope="${esc(scope)}" data-path="${esc(path)}">Choose image file</button>${clearable?button('Reload','reload-image',`data-scope="${esc(scope)}" data-path="${esc(path)}" aria-label="Reload card image" title="Reload artwork from disk" ${value?'':'disabled'}`)+button('Clear','clear-image',`data-scope="${esc(scope)}" data-path="${esc(path)}" aria-label="Clear card image" ${value?'':'disabled'}`):''}${clearable?'</div>':''}`;
 const extras=(scope,path,kind)=>`data-scope="${esc(scope)}" data-path="${esc(path)}" data-rule-kind="${kind}"`;
-export function rules(project,list=[],path,scope,kind,{label,help,chapter,footer=''}={}) {
+export function rules(project,list=[],path,scope,kind,{label,help,chapter,footer='',countSuffix=''}={}) {
  const vars=project.variables.map(v=>[v.id,variableLabel(v)]);
- let html=`<details class="state-panel"><summary>${esc(label || kind[0].toUpperCase()+kind.slice(1))} · ${list.length}</summary>`;
+ let html=`<details class="state-panel"><summary>${esc(label || kind[0].toUpperCase()+kind.slice(1))} · ${list.length}${esc(countSuffix)}</summary>`;
  if(!help&&kind==='costs')help='Spend resources or consume items when the action is committed. Dice checks pay before rolling, regardless of the outcome.';
  if(help)html+=`<p class="small">${esc(help)}</p>`;
  html+=list.map((rule,i)=>{

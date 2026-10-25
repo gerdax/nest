@@ -277,3 +277,42 @@
 
 .nest-card-value img {width:1.2em;height:1.2em;object-fit:contain;}
 .nest-card[data-card-kind="health"] .nest-card-value img {width:1em;height:1em;translate:3px -3px;}
+
+/* Unavailable faces retain their stock; only artwork fades. */
+.nest-card[data-action-disabled="true"] {
+  --card-text: #383a2e;
+  --card-title-color: #383a2e;
+  --card-medium-color: #383a2e;
+}
+.nest-card[data-action-disabled="true"] .nest-artwork { opacity: .25; }
+.nest-card[data-action-disabled="true"] :is(.nest-copy, .nest-copy *, .nest-card-type, .nest-action-energy-cost, .nest-action-energy-cost *, .nest-card-value, .nest-card-value *) {
+  color: #383a2e;
+}
+.nest-card[data-action-disabled="true"] :is(.nest-action-energy-cost, .nest-card-value) img { visibility: hidden; }
+.nest-card[data-action-disabled="true"] :is(.nest-action-energy-cost, .nest-card-value)::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  width: 1.2em;
+  height: 1.2em;
+  background-color: #383a2e;
+  -webkit-mask: var(--unavailable-value-icon, url('../assets/img/ui/hud-energy.png')) center / contain no-repeat;
+  mask: var(--unavailable-value-icon, url('../assets/img/ui/hud-energy.png')) center / contain no-repeat;
+}
+
+.nest-unavailable-icon {
+  display: none;
+  position: absolute;
+  width: 40%;
+  aspect-ratio: 1;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background: url('../assets/img/ui/unavailable.png') center / contain no-repeat;
+  z-index: 2;
+  pointer-events: none;
+}
+.nest-card[data-action-disabled="true"] .nest-unavailable-icon { display: block; }
+
+.nest-card[data-card-kind="health"] .nest-card-value { --unavailable-value-icon: url('../assets/img/ui/hud-health.png'); }
+.nest-card[data-card-kind="health"][data-action-disabled="true"] .nest-card-value::after { width:1em;height:1em;translate:3px -3px; }

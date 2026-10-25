@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { ActionContextPanel } from '../studio/ActionContextPanel.js';
 import { ProjectPreview } from '../studio/ProjectPreview.js';
-import { stageActionDeck, decorateCard, announceDeck } from '../engine/renderer.js';
+import { stageActionDeck, stageNextContent, decorateCard, announceDeck } from '../engine/renderer.js';
 
 class Element extends EventTarget {
   constructor(doc) {
@@ -109,6 +109,8 @@ test('preview follows selected disabled actions including a single linear action
   preview.state.checking = true; sync(); assert.equal(context.disabledReason, null);
   preview.state.checking = false; preview.deck.phase = 'closed';
   sync(); assert.equal(context.disabledReason, null);
+  preview.deck.content.directAdvance = true;
+  sync(); assert.equal(context.disabledReason, 'REQUIRES: LOCKPICK');
   preview.deck.phase = 'choices'; preview.state.completed = true;
   sync(); assert.equal(context.disabledReason, null);
 });
@@ -128,6 +130,10 @@ test('disabled front decoration survives retained cards and leaves backs and art
     assert.equal(front.attrs['aria-disabled'], 'true');
     assert.equal(front.attrs['aria-description'], action.disabledReason);
     assert.equal(back.attrs['data-action-disabled'], undefined);
+    const unavailable = front.children.find(child => child.className === 'nest-unavailable-icon');
+    assert.ok(unavailable);
+    assert.equal(unavailable.attrs['aria-hidden'], 'true');
+    assert.equal(back.children.some(child => child.className === 'nest-unavailable-icon'), false);
     assert.equal(front.style.filter, undefined, 'availability never overwrites inline filters');
     const live = { ...content, actions: [{ ...action, disabled: false, disabledReason: undefined }] };
     const updated = stageActionDeck(deck, live, 0, staged);
@@ -135,9 +141,41 @@ test('disabled front decoration survives retained cards and leaves backs and art
     assert.equal(front.attrs['data-action-disabled'], 'false');
     assert.equal(front.attrs['aria-description'], undefined);
     const css = readFileSync(new URL('../engine/card-deck.css', import.meta.url), 'utf8');
-    assert.doesNotMatch(css, /\[data-action-disabled="true"\][^{]*\{[^}]*(?:filter|opacity)\s*:/, 'unavailable cards keep normal brightness');
+    assert.doesNotMatch(css, /\[data-action-disabled="true"\]\s*\{[^}]*(?:filter|opacity)\s*:/, 'unavailable card stock keeps normal brightness');
     const liveRegion = new Element(doc);
     announceDeck({ content, index: 0, phase: 'choices', open: true, cards: [front], live: liveRegion });
     assert.match(liveRegion.textContent, /Unavailable choice: REQUIRES: LOCKPICK/);
   } finally { globalThis.document = original; panel.destroy(); }
+});
+
+
+test('staged story successors show disabled styling before installation and clear it on reuse',()=>{
+ const {doc,panel}=setup(),original=globalThis.document;globalThis.document=doc;
+ try {
+  const deck={mount:new Element(doc),content:{},decorate(...args){return decorateCard(this,...args);}};
+  const content={cardKind:'event',text:'Rat',directAdvance:true,actions:[{id:'continue',disabled:true,disabledReason:'Requires: Water'}]};
+  stageNextContent(deck,content);
+  assert.equal(deck.underlay.attrs['data-action-disabled'],'true');
+  assert.equal(deck.underlay.attrs['aria-description'],'Requires: Water');
+  assert.ok(deck.underlay.children.some(child=>child.className==='nest-unavailable-icon'));
+  stageNextContent(deck,{...content,actions:[{id:'continue',disabled:false}]});
+  assert.equal(deck.underlay.attrs['data-action-disabled'],'false');
+  assert.equal(deck.underlay.attrs['aria-description'],undefined);
+ }finally{globalThis.document=original;panel.destroy();}
+});
+
+test('health and energy requirements render amounts and icons with one Requires label and accessible text',()=>{
+ const {panel}=setup();
+ const disabledReason='Requires: 1 health · Requires: 3 energy';
+ panel.update({disabledReason,disabledReasonParts:[{text:'Requires: 1 health',resource:'health',amount:1},{text:'Requires: 3 energy',resource:'energy',amount:3}]});
+ assert.equal(panel.caption.attrs['aria-label'],disabledReason);
+ assert.deepEqual(panel.caption.children.filter(n=>n.className==='requirement-resource-icon').map(n=>n.attrs['data-resource']),['health','energy']);
+ assert.equal(panel.caption.children.filter(n=>n.className!=='requirement-resource-icon').map(n=>n.textContent).join(''),'Requires: 1, 3');
+ assert.ok(panel.caption.children.filter(n=>n.className==='requirement-resource-icon').every(n=>n.attrs['aria-hidden']==='true'));
+ panel.update({disabledReason:'Requires: Energy ≥ 5',disabledReasonParts:[{text:'Requires: Energy ≥ 5',resource:'energy',amount:5,operator:'≥'}]});
+ assert.equal(panel.caption.children.filter(n=>n.className!=='requirement-resource-icon').map(n=>n.textContent).join(''),'Requires: ≥ 5');
+ panel.update({disabledReason:'Route unavailable'});
+ assert.equal(panel.caption.textContent,'Route unavailable');
+ assert.equal(panel.caption.attrs['aria-label'],undefined);
+ panel.destroy();
 });

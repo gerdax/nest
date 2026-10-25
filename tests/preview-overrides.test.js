@@ -80,7 +80,7 @@ test('Overrides uses the existing collapsed state-panel and chapter-aware effect
  const f=fixture(),{project,chapter,node,overrides}=f;
  add(f,'set','testFlag',true);
  const html=nodeInspector(project,chapter,node,overrides.effects(project,chapter,node));
- assert.match(html,/<details class="state-panel"><summary>Overrides · 1<\/summary>/);
+ assert.match(html,/<details class="state-panel"><summary>Overrides · 1 \*<\/summary>/);
  assert.match(html,/data-scope="preview-overrides" data-path="effects.0.value"/);
  assert.match(html,/Chapter: Test flag/);
  assert.match(html,/Add item/);assert.match(html,/Remove item/);

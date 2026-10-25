@@ -144,6 +144,7 @@ export function buildDeck(deck, staged = null) {
   deck.scene = document.createElement('article');
   deck.scene.className = 'nest-card nest-situation';
   deck.decorate(deck.scene, deck.content.image, deck.content.heading || '', deck.content.text, deck.content.flipImage, deck.content);
+  decorateActionAvailability(deck.scene, deck.content.directAdvance ? deck.content.actions[0] : {});
   deck.sceneLayer = layerFor(deck, deck.scene);
   deck.sceneBack = backFace(deck.content);
   deck.sceneLayer.append(deck.sceneBack);
@@ -221,6 +222,12 @@ export function decorateCard(deck, element, image, title, text, flipImage = fals
     value.append(amount, icon);
     element.append(value);
   }
+  {
+    const unavailable = document.createElement('div');
+    unavailable.className = 'nest-unavailable-icon';
+    unavailable.setAttribute('aria-hidden', 'true');
+    element.append(unavailable);
+  }
   if (actionCard && presentation.actionEnergyCost > 0) {
     const cost = document.createElement('span');
     cost.className = 'nest-action-energy-cost';
@@ -258,6 +265,7 @@ export function stageNextContent(deck, content) {
   deck.underlay.replaceChildren();
   deck.underlay.style.backgroundImage = '';
   deck.decorate(deck.underlay, content.image, content.heading || '', content.text, content.flipImage, content);
+  decorateActionAvailability(deck.underlay, content.directAdvance ? content.actions[0] : {});
 }
 
 export function announceDeck(deck) {
@@ -550,6 +558,7 @@ export function renderDeck(deck, time = performance.now()) {
     deck.cards.length && (deck.returning || deck.returnLift.x > 0) ? 4 : -36, 1);
   applyPose(deck, deck.scene, deck.sceneLayer, front, 1000);
   applyPose(deck, deck.sceneBack, deck.sceneLayer, backPose(front), 1000);
+  decorateActionAvailability(deck.scene, deck.content.directAdvance ? deck.content.actions[0] : {});
   deck.scene.setAttribute('aria-hidden', String(deck.open || deck.busy));
   const painterOrder = poses.map((pose, index) => ({ index, depth: deck.fan.x === 0 ? -pose.rank : pose.front }));
   painterOrder.sort((a, b) => a.depth - b.depth || b.index - a.index);
