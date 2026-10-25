@@ -4,7 +4,7 @@ export const typingControls = 'input:not([type="checkbox"]):not([type="radio"]):
   '[contenteditable]:not([contenteditable="false"]),[role="textbox"],[role="spinbutton"],[role="combobox"]';
 
 /** Reserved keys never fall through to native activation or focus traversal. */
-export function mountViewShortcuts(root, {switchView, togglePreview, toggleAutoplay = () => false, toggleAutoPanel = () => false, enabled = () => true}) {
+export function mountViewShortcuts(root, {switchView, togglePreview, closePreview = () => false, toggleAutoplay = () => false, toggleAutoPanel = () => false, enabled = () => true}) {
   // Window capture runs before focused controls and dialog focus traps.
   const host=root.defaultView ?? root;
   const keydown = event => {
@@ -12,7 +12,8 @@ export function mountViewShortcuts(root, {switchView, togglePreview, toggleAutop
       || event.ctrlKey || event.metaKey || event.altKey || event.target?.closest?.(typingControls)) return;
     event.preventDefault();
     event.stopPropagation();
-    if (event.repeat || event.shiftKey || !enabled()) return;
+    if (event.repeat || !enabled()) return;
+    if (event.shiftKey) {if(event.key === ' ')closePreview();return;}
     const action = event.key === 'Tab' ? switchView : event.key === ' ' ? togglePreview : event.key === '/' ? toggleAutoplay : toggleAutoPanel;
     action();
   };

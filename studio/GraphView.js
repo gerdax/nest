@@ -13,8 +13,8 @@ import { cardRuleIndicators } from './card-rule-indicators.js';
 
 /** Canvas interaction owns selection/pan, and emits completed document edits. */
 export class GraphView {
- constructor(root,{onSelect,onConnect,onMove,onDuplicate=()=>{},onSelectMany=()=>{},onMoveMany=()=>{},onOpenCard=()=>{},onTransferCard=()=>{},onRemoveCard=()=>{},onDelete=()=>{},onDeleteMany=()=>{},onCreateConnected=()=>{},onCancelCreate=()=>{}}) {
-  this.onDuplicate=onDuplicate;this.overrideNodeIds=new Set();this.nodeErrors=new Map();
+ constructor(root,{onSelect,onConnect,onMove,onDuplicate=()=>{},onDuplicateMany=()=>{},onSelectMany=()=>{},onMoveMany=()=>{},onOpenCard=()=>{},onTransferCard=()=>{},onRemoveCard=()=>{},onDelete=()=>{},onDeleteMany=()=>{},onCreateConnected=()=>{},onCancelCreate=()=>{}}) {
+  this.onDuplicate=onDuplicate;this.onDuplicateMany=onDuplicateMany;this.overrideNodeIds=new Set();this.nodeErrors=new Map();
   this.selectedIds=new Set();this.onSelectMany=onSelectMany;this.onMoveMany=onMoveMany;
   this.onCreateConnected=onCreateConnected;this.onCancelCreate=onCancelCreate;this.creation=null;
   this.root=root;this.onSelect=onSelect;this.onConnect=onConnect;this.onMove=onMove;this.onOpenCard=onOpenCard;this.lastPortClick=null;
@@ -242,11 +242,11 @@ export class GraphView {
   }
   if(el){
    const copy=e.altKey&&!!e.target.closest('.node-heading');
-   const id=el.dataset.id,group=!copy&&this.selectedIds.size>1&&this.selectedIds.has(id);
+   const id=el.dataset.id,group=this.selectedIds.size>1&&this.selectedIds.has(id);
    if(!group)this.onSelect(id);
    const n=this.nodesById.get(id);
    this.drag={kind:'node',id,copy,x:e.clientX,y:e.clientY,ox:n.x,oy:n.y,px:n.x,py:n.y,pointer:e.pointerId};
-   if(group){this.drag.origins=new Map([...this.selectedIds].map(id=>{const n=this.nodesById.get(id);return [id,{x:n.x,y:n.y}];}));this.drag.positions=new Map(this.drag.origins);}
+   if(group){this.drag.origins=new Map((copy?[id,...[...this.selectedIds].filter(other=>other!==id)]:[...this.selectedIds]).map(id=>{const n=this.nodesById.get(id);return [id,{x:n.x,y:n.y}];}));if(!copy)this.drag.positions=new Map(this.drag.origins);}
   }
   else{this.pending=null;this.drag={kind:'pan',x:e.clientX,y:e.clientY,ox:this.view.x,oy:this.view.y,pointer:e.pointerId,moved:false,pointerType,doubleEligible:!e.altKey&&!e.shiftKey&&pointerType!=='touch'};}
   this.setDraggingCursor(true);
@@ -267,15 +267,21 @@ export class GraphView {
    if(d.copy){
     d.moved ||= Math.hypot(e.clientX-d.x,e.clientY-d.y)>4;
     if(!d.moved)return;
-    if(!d.ghost?.isConnected){
-     d.ghost=this.nodeElements.get(d.id).cloneNode(true);
-     d.ghost.removeAttribute('data-id');
-     d.ghost.classList.remove('active');
-     d.ghost.style.pointerEvents='none';d.ghost.style.opacity='.7';
-     d.ghost.setAttribute('aria-hidden','true');
-     this.root.querySelector('#nodes').appendChild(d.ghost);
+    if(!d.ghosts){
+     d.ghosts=new Map();
+     for(const id of d.origins?.keys()||[d.id]){
+      const ghost=this.nodeElements.get(id).cloneNode(true);
+      ghost.removeAttribute('data-id');ghost.classList.remove('active');
+      ghost.style.pointerEvents='none';ghost.style.opacity='.7';
+      ghost.setAttribute('aria-hidden','true');
+      this.root.querySelector('#nodes').appendChild(ghost);d.ghosts.set(id,ghost);
+     }
+     d.ghost=d.ghosts.get(d.id);
     }
-    d.ghost.style.left=`${d.px}px`;d.ghost.style.top=`${d.py}px`;
+    for(const [id,ghost] of d.ghosts){
+     const origin=d.origins?.get(id)||{x:d.ox,y:d.oy};
+     ghost.style.left=`${origin.x+dx}px`;ghost.style.top=`${origin.y+dy}px`;
+    }
     return;
    }
    const positions=d.origins?new Map([...d.origins].map(([id,p])=>[id,{x:p.x+dx,y:p.y+dy}])):new Map([[d.id,{x:d.px,y:d.py}]]);
@@ -313,7 +319,13 @@ export class GraphView {
    else if(!d.moved&&d.fromPort)this.activatePort(d.nodeId,d.exit,e.timeStamp??performance.now(),e.clientX,e.clientY);
    if(d.moved)this.lastPortClick=null;
   }else if(d.kind==='node'){
-   if(d.copy){d.ghost?.remove();if(d.moved)this.onDuplicate(d.id,{x:d.px,y:d.py});}
+   if(d.copy){
+    for(const ghost of d.ghosts?.values()||[])ghost.remove();
+    if(d.moved){
+     const position={x:d.px,y:d.py};
+     if(d.origins)this.onDuplicateMany([...d.origins.keys()],position);else this.onDuplicate(d.id,position);
+    }
+   }
    else if(d.origins)this.onMoveMany([...d.positions].map(([id,p])=>({id,...p})));
    else this.onMove(d.id,d.px,d.py);
   }else if(d.kind==='pan'&&!d.moved){
@@ -338,7 +350,7 @@ export class GraphView {
   this.edges();
  }
  cancelCreation(){if(!this.creation)return;this.creation=null;this.onCancelCreate();this.edges();}
- cancel(){this.lastCanvasClick=null;this.setDraggingCursor(false);this.drag?.ghost?.remove();this.suppressSelectionClick=false;this.cardDrag.clear();this.cancelCreation();const d=this.drag,hadPending=!!this.pending;this.drag=null;this.pending=null;this.lastPortClick=null;if(d?.kind==='select')this.selectedIds=d.before;if(d?.kind==='pan'){this.view.x=d.ox;this.view.y=d.oy;}if(d&&this.root.hasPointerCapture(d.pointer))this.root.releasePointerCapture(d.pointer);if(this.project&&(d||hadPending))this.render(this.project,this.chapter,this.selected,this.active);}
+ cancel(){this.lastCanvasClick=null;this.setDraggingCursor(false);for(const ghost of this.drag?.ghosts?.values()||[])ghost.remove();this.suppressSelectionClick=false;this.cardDrag.clear();this.cancelCreation();const d=this.drag,hadPending=!!this.pending;this.drag=null;this.pending=null;this.lastPortClick=null;if(d?.kind==='select')this.selectedIds=d.before;if(d?.kind==='pan'){this.view.x=d.ox;this.view.y=d.oy;}if(d&&this.root.hasPointerCapture(d.pointer))this.root.releasePointerCapture(d.pointer);if(this.project&&(d||hadPending))this.render(this.project,this.chapter,this.selected,this.active);}
  openCard(nodeId,placementId){
   if(!this.nodesById.has(nodeId)||!placementId)return;
   this.onOpenCard(nodeId,{chapterId:this.chapter.id,nodeId,placementId});
@@ -353,14 +365,14 @@ export class GraphView {
    if(this.nodesById.has(target))this.onSelect(target);
   }
  }
- centerOn(id){
+ centerOn(id,{select=true}={}){
   const node=this.nodesById.get(id);if(!node)return;
   const viewport=this.root.getBoundingClientRect(),bounds=this.nodeElements.get(id)?.getBoundingClientRect();
   const scale=uiScale(this.root),width=bounds?.width?bounds.width/(this.view.z*scale):220,height=bounds?.height?bounds.height/(this.view.z*scale):120;
   this.view.x=viewport.width/(2*scale)-(node.x+width/2)*this.view.z;
   this.view.y=viewport.height/(2*scale)-(node.y+height/2)*this.view.z;
   this.transform();
-  this.onSelect(id);
+  if(select)this.onSelect(id);
  }
  blankDrop(e){
   const r=this.root.getBoundingClientRect();

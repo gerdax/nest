@@ -9,6 +9,7 @@ function fixture({enabled=true,visible=true,windowCapture=false}={}) {
   enabled:()=>enabled,
   switchView:()=>calls.push('view'),
   togglePreview:()=>{if(!visible)return false;calls.push('preview');},
+  closePreview:()=>{if(!visible)return false;calls.push('close-preview');},
   toggleAutoplay:()=>calls.push('autoplay'),
   toggleAutoPanel:()=>calls.push('auto-panel'),
  });
@@ -40,7 +41,8 @@ test('disabled actions, repeats, and Shift variants cannot fall through to focus
  for(const options of [{enabled:false},{}])for(const properties of [{},{repeat:true},{shiftKey:true}]){
   const f=fixture(options);
   for(const key of ['Tab',' ','/','\\'])assert.equal(f.key(key,properties,'button').defaultPrevented,true);
-  if(options.enabled===false||properties.repeat||properties.shiftKey)assert.deepEqual(f.calls,[]);
+  if(options.enabled===false||properties.repeat)assert.deepEqual(f.calls,[]);
+  else if(properties.shiftKey)assert.deepEqual(f.calls,['close-preview']);
   f.stop();
  }
  const f=fixture({visible:false});assert.equal(f.key(' ').defaultPrevented,true);assert.deepEqual(f.calls,[]);
@@ -66,4 +68,16 @@ test('already handled and unrelated keys never trigger view actions',()=>{
  for(const key of ['Tab',' ']){const event=new Event('keydown',{cancelable:true});Object.assign(event,{key});root.dispatchEvent(event);}
  assert.deepEqual(calls,[]);
  const f=fixture();assert.equal(f.key('Enter').defaultPrevented,false);assert.deepEqual(f.calls,[]);
+});
+
+
+test('Shift+Space closes preview from panels and focused preview controls',()=>{
+ for(const context of ['button','#canvas','#preview-window','summary']){
+  const f=fixture();assert.equal(f.key(' ',{shiftKey:true},context).defaultPrevented,true);
+  assert.deepEqual(f.calls,['close-preview']);f.stop();
+ }
+ for(const context of typingControls.split(',')){
+  const f=fixture();assert.equal(f.key(' ',{shiftKey:true},context).defaultPrevented,false);assert.deepEqual(f.calls,[]);f.stop();
+ }
+ const f=fixture({visible:false});f.key(' ',{shiftKey:true});assert.deepEqual(f.calls,[]);
 });

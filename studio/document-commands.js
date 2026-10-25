@@ -9,7 +9,7 @@ import { createDefinition, allowedCardKinds, isStoryKind, isConsumableKind } fro
 import { chapterVariables, createChapter, importChapter, outputsForNode } from '../project/model.js';
 import { definitionGraph } from '../project/dependencies.js';
 import { removeLibraryDefinition } from './library-removal.js';
-import { captureNodeClipboard, pasteNodeClipboard } from './node-clipboard.js';
+import { captureNodeClipboard, pasteNodeClipboard, captureNodesClipboard, pasteNodesClipboard } from './node-clipboard.js';
 import { transferCard } from './card-transfer.js';
 import { appendLibraryCard } from './library-cards.js';
 import { sortedChapters } from '../project/chapter-navigation.js';
@@ -264,6 +264,24 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
       const pasted=pasteCardClipboard(project,chapter,node,placement,data.clipboard);
       localDrafts.drafts.delete(placement.id);
       return {value:pasted.id};
+    }
+    case 'paste-nodes':
+    case 'duplicate-disconnected-nodes':
+    case 'duplicate-nodes': {
+      const clipboard=type!=='paste-nodes'?captureNodesClipboard(project,chapter.id,data.ids):data.clipboard;
+      const added=pasteNodesClipboard(project,chapter,clipboard,{position:data.position});
+      if(type!=='paste-nodes')for(const node of added)node.name+=' copy';
+      if(type==='duplicate-disconnected-nodes'){
+        const ids=new Set(added.map(node=>node.id)),target=id=>ids.has(id)?id:false;
+        for(const node of added){
+          for(const key of Object.keys(node.connections||{}))node.connections[key]=target(node.connections[key]);
+          if(node.type==='random'){
+            for(const route of node.routes||[])route.target=target(route.target);
+            node.fallback=target(node.fallback);
+          }
+        }
+      }
+      return {selection:{selected:added[0].id,selectedIds:added.map(node=>node.id),mode:'chapter'},value:added[0].id};
     }
     case 'paste-node': {
       const added = pasteNodeClipboard(project, chapter, data.clipboard, {position:data.position});

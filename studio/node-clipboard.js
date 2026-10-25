@@ -28,24 +28,36 @@ function remapVariables(value, ids) {
 }
 
 /** A detached, session-local snapshot, including definitions cleanup may remove. */
-export function captureNodeClipboard(project, chapterId, nodeId, {cut = false} = {}) {
+export function captureNodeClipboard(project, chapterId, nodeId, options) {
+  const payload=captureNodesClipboard(project,chapterId,[nodeId],options);
+  const {nodes,...rest}=payload;
+  return {...rest,kind:'nest-node-clipboard',node:nodes[0]};
+}
+
+/** Capture a group with one dependency and variable snapshot. */
+export function captureNodesClipboard(project, chapterId, ids, {cut = false} = {}) {
   const chapter = project.chapters.find(chapter => chapter.id === chapterId);
-  const node = chapter?.nodes.find(node => node.id === nodeId);
-  if (!node) throw createError('STUDIO_THE_SELECTED_BEAT_NO_LONGER_EXISTS');
-  const dependencies = definitionGraph(project).reachableFrom(node);
+  const nodes = Array.isArray(ids) ? [...new Set(ids)].map(id=>chapter?.nodes.find(node=>node.id===id)) : [];
+  if (!nodes.length || nodes.some(node=>!node)) throw createError('STUDIO_THE_SELECTED_BEAT_NO_LONGER_EXISTS');
+  const dependencies = definitionGraph(project).reachableFrom(nodes);
   const definitions = project.library.filter(definition => dependencies.has(definition.id));
-  return structuredClone({kind:'nest-node-clipboard', projectId:project.id, chapterId, node, definitions,
-    variables:captureClipboardVariables(chapter, node, definitions), itemTags:project.itemTags||[], cut:!!cut});
+  return structuredClone({kind:'nest-nodes-clipboard', projectId:project.id, chapterId, nodes, definitions,
+    variables:captureClipboardVariables(chapter, nodes, definitions), itemTags:project.itemTags||[], cut:!!cut});
 }
 
 /** Mutate only a document draft; never consume or modify the clipboard itself. */
-export function pasteNodeClipboard(project, chapter, payload, {position} = {}) {
-  if (payload?.kind !== 'nest-node-clipboard' || !payload.node || !Array.isArray(payload.definitions)) {
+export function pasteNodeClipboard(project, chapter, payload, options) {
+  return pasteNodesClipboard(project,chapter,payload,options)[0];
+}
+
+export function pasteNodesClipboard(project, chapter, payload, {position} = {}) {
+  const sources=payload?.kind==='nest-node-clipboard'?[payload.node]:payload?.kind==='nest-nodes-clipboard'?payload.nodes:undefined;
+  if (!Array.isArray(sources) || !sources.length || sources.some(node=>!node||typeof node.id!=='string') || new Set(sources.map(node=>node.id)).size!==sources.length || !Array.isArray(payload.definitions)) {
     throw createError('STUDIO_COPY_A_BEAT_BEFORE_PASTING');
   }
   if (!project.id || payload.projectId !== project.id) throw createError('STUDIO_COPIED_BEATS_BELONG_TO_A_DIFFERENT_PROJECT');
   if (!project.chapters.includes(chapter)) throw createError('STUDIO_THE_DESTINATION_CHAPTER_NO_LONGER_EXISTS');
-  const node = structuredClone(payload.node), definitions = [], definitionIds = new Map(), inventoryIds = new Map();
+  const nodes = structuredClone(sources), definitions = [], definitionIds = new Map(), inventoryIds = new Map();
   const crossChapter = chapter.id !== payload.chapterId;
   const variables = [], variableIds = new Map();
   for (const source of payload.variables || []) {
@@ -83,60 +95,68 @@ export function pasteNodeClipboard(project, chapter, payload, {position} = {}) {
     definitions.push(definition);
   }
   preserveCopiedInventoryAliases(payload.definitions, clonedDefinitions, inventoryIds);
-  restoreSnapshotTags(project,[node,...definitions],payload.itemTags);
-  for (const value of [node, ...definitions]) {
+  restoreSnapshotTags(project,[...nodes,...definitions],payload.itemTags);
+  for (const value of [...nodes, ...definitions]) {
     walk(value, entry => {
       if (definitionIds.has(entry.definitionId)) entry.definitionId = definitionIds.get(entry.definitionId);
     });
     remapInventory(value, inventoryIds);
-    if (value === node || value.visibility === 'local') remapVariables(value, variableIds);
+    if (nodes.includes(value) || value.visibility === 'local') remapVariables(value, variableIds);
   }
 
   // Every placement and route gets a fresh identity, including nested legacy
   // cards and choices. Legacy sequences and exits also have internal references.
-  const identities = new Map();
-  walk(node, entry => {
-    if (entry !== node && typeof entry.id === 'string' && !identities.has(entry.id)) identities.set(entry.id, uid('placement'));
-    for (const exit of entry.exits || []) if (!identities.has(exit)) identities.set(exit, uid('exit'));
-  });
-  const remapOutput = output => {
-    if (identities.has(output)) return identities.get(output);
-    for (const suffix of [':success', ':failure']) if (output.endsWith(suffix) && identities.has(output.slice(0, -suffix.length))) {
-      return identities.get(output.slice(0, -suffix.length)) + suffix;
-    }
-    return output;
-  };
-  walk(node, entry => {
-    if (entry !== node && identities.has(entry.id)) entry.id = identities.get(entry.id);
-    if (identities.has(entry.sequenceId)) entry.sequenceId = identities.get(entry.sequenceId);
-    if (entry.exits) entry.exits = entry.exits.map(exit => identities.get(exit) || exit);
-    if (['legacySequence','legacyPool'].includes(node.type) && typeof entry.target === 'string' && /^(card|exit):/.test(entry.target)) {
-      const colon = entry.target.indexOf(':'), id = entry.target.slice(colon + 1);
-      if (identities.has(id)) entry.target = entry.target.slice(0, colon + 1) + identities.get(id);
-    }
-  });
-  const sourceId = node.id;
-  if (!payload.cut || chapter.nodes.some(candidate => candidate.id === node.id)) node.id = uid('node');
-  Object.assign(node, position || {x:(node.x ?? 100) + 40, y:(node.y ?? 100) + 40});
-  const target = id => id === sourceId ? node.id : id === null || id === false ? id
-    : chapter.id === payload.chapterId && chapter.nodes.some(candidate => candidate.id === id) ? id : false;
-  if (node.connections) {
-    const connections = Object.fromEntries(Object.entries(node.connections).map(([exit, id]) => [remapOutput(exit), target(id)]));
-    node.connections = connections;
-    // Shared definitions may have changed resolution since capture.
-    node.connections = Object.fromEntries(outputsForNode({...project, library:[...project.library, ...definitions]}, node)
-      .map(exit => [exit, connectionForOutput(connections, exit)]));
+  const outputMaps=new Map();
+  for (const node of nodes) {
+    const identities = new Map();
+    walk(node, entry => {
+      if (entry !== node && typeof entry.id === 'string' && !identities.has(entry.id)) identities.set(entry.id, uid('placement'));
+      for (const exit of entry.exits || []) if (!identities.has(exit)) identities.set(exit, uid('exit'));
+    });
+    const remapOutput = output => {
+      if (identities.has(output)) return identities.get(output);
+      for (const suffix of [':success', ':failure']) if (output.endsWith(suffix) && identities.has(output.slice(0, -suffix.length))) {
+        return identities.get(output.slice(0, -suffix.length)) + suffix;
+      }
+      return output;
+    };
+    walk(node, entry => {
+      if (entry !== node && identities.has(entry.id)) entry.id = identities.get(entry.id);
+      if (identities.has(entry.sequenceId)) entry.sequenceId = identities.get(entry.sequenceId);
+      if (entry.exits) entry.exits = entry.exits.map(exit => identities.get(exit) || exit);
+      if (['legacySequence','legacyPool'].includes(node.type) && typeof entry.target === 'string' && /^(card|exit):/.test(entry.target)) {
+        const colon = entry.target.indexOf(':'), id = entry.target.slice(colon + 1);
+        if (identities.has(id)) entry.target = entry.target.slice(0, colon + 1) + identities.get(id);
+      }
+    });
+    outputMaps.set(node,remapOutput);
   }
-  if (node.type === 'random') {
-    for (const route of node.routes || []) route.target = target(route.target);
-    node.fallback = target(node.fallback);
+  // Allocate every beat identity before resolving any peer connection.
+  const nodeIds=new Map(nodes.map(node=>[node.id,!payload.cut || chapter.nodes.some(candidate=>candidate.id===node.id)?uid('node'):node.id]));
+  const origin=sources[0],dx=(position?.x ?? (origin.x ?? 100)+40)-(origin.x ?? 100),dy=(position?.y ?? (origin.y ?? 100)+40)-(origin.y ?? 100);
+  const target = id => nodeIds.has(id) ? nodeIds.get(id) : id === null || id === false ? id
+    : chapter.id === payload.chapterId && chapter.nodes.some(candidate => candidate.id === id) ? id : false;
+  for(const node of nodes){
+    const remapOutput=outputMaps.get(node);
+    node.id=nodeIds.get(node.id);
+    node.x=(node.x ?? 100)+dx;node.y=(node.y ?? 100)+dy;
+    if (node.connections) {
+      const connections = Object.fromEntries(Object.entries(node.connections).map(([exit, id]) => [remapOutput(exit), target(id)]));
+      node.connections = connections;
+      node.connections = Object.fromEntries(outputsForNode({...project, library:[...project.library, ...definitions]}, node)
+        .map(exit => [exit, connectionForOutput(connections, exit)]));
+    }
+    if (node.type === 'random') {
+      for (const route of node.routes || []) route.target = target(route.target);
+      node.fallback = target(node.fallback);
+    }
   }
   if (variables.length) {
     chapter.variables ||= [];
     chapter.variables.push(...variables);
   }
   project.library.push(...definitions);
-  chapter.nodes.push(node);
-  if (!chapter.startNode) chapter.startNode = node.id;
-  return node;
+  chapter.nodes.push(...nodes);
+  if (!chapter.startNode) chapter.startNode = nodes[0].id;
+  return nodes;
 }

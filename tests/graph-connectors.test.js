@@ -55,7 +55,6 @@ test('Alt-dragging a header previews a copy without moving the source or its wir
  s.graph.view.z=.5;
  s.root.ownerDocument.documentElement={};s.root.ownerDocument.defaultView={getComputedStyle:()=>({zoom:2})};
  const before=s.root.parts['#edges'].innerHTML;
- s.graph.selectedIds=new Set(['a','b']);
  altHeaderDown(s);
  s.root.event('pointermove',s.root,350,225);
  const ghost=s.graph.drag.ghost;
@@ -736,4 +735,39 @@ test('editor full rendering preserves explicit empty selection but repairs delet
   const element={classList:{toggle(){}}};
   assert.equal(render(selection,project,()=>chapter,{cancelCreation(){}},()=>element,chapter.id,()=>[],{},'chapter',()=>[],value=>value,()=>{},()=>{},()=>{}),expected);
  }
+});
+
+
+test('centering a pasted group can preserve the complete selection',()=>{
+ const s=setup();s.graph.selectedIds=new Set(['a','b']);
+ s.graph.centerOn('a',{select:false});
+ assert.deepEqual([...s.graph.selectedIds],['a','b']);assert.deepEqual(s.selections,[]);
+ s.graph.centerOn('b');assert.deepEqual(s.selections,['b']);
+});
+
+
+test('Alt-dragging any selected header previews and duplicates the entire group at release',()=>{
+ const s=setup(),copies=[];s.graph.onDuplicateMany=(...args)=>copies.push(args);
+ s.graph.selectedIds=new Set(['a','b']);const before=s.root.parts['#edges'].innerHTML;
+ altHeaderDown(s,'b');s.root.event('pointermove',s.root,350,225);
+ const ghosts=s.graph.drag.ghosts;
+ assert.equal(ghosts.size,2);assert.deepEqual(s.selections,[]);
+ assert.equal(ghosts.get('a').style.left,'50px');assert.equal(ghosts.get('b').style.left,'450px');
+ assert.equal(ghosts.get('a').style.top,'25px');assert.equal(ghosts.get('b').style.top,'75px');
+ assert.equal(s.graph.position(s.chapter.nodes[0]).x,0);assert.equal(s.graph.position(s.chapter.nodes[1]).x,400);
+ assert.equal(s.root.parts['#edges'].innerHTML,before);assert.deepEqual(copies,[]);
+ s.root.event('pointerup',s.root,370,240);
+ assert.deepEqual(copies,[[['b','a'],{x:470,y:90}]]);
+ assert.ok([...ghosts.values()].every(ghost=>!ghost.isConnected));
+ assert.deepEqual(s.moves,[]);assert.deepEqual(s.groupMoves,[]);
+});
+for(const end of ['Escape','pointercancel','lostpointercapture','tiny'])test(`${end} does not duplicate or move an Alt-dragged group`,()=>{
+ const s=setup(),copies=[];s.graph.onDuplicateMany=(...args)=>copies.push(args);s.graph.selectedIds=new Set(['a','b']);
+ altHeaderDown(s);if(end!=='tiny')s.root.event('pointermove',s.root,350,225);
+ const ghosts=s.graph.drag.ghosts;
+ if(end==='Escape')s.root.handlers.keydown({key:'Escape'});else if(end!=='tiny')s.root.event(end,s.root);
+ s.root.event('pointerup',s.root,302,201);
+ assert.deepEqual(copies,[]);assert.deepEqual(s.moves,[]);assert.deepEqual(s.groupMoves,[]);
+ assert.deepEqual([...s.graph.selectedIds],['a','b']);
+ assert.ok([...ghosts?.values()||[]].every(ghost=>!ghost.isConnected));
 });

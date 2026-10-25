@@ -6,7 +6,7 @@ import { createLibraryIndex } from '../project/library-index.js';
 import { sortedChapters, startChapter } from '../project/chapter-navigation.js';
 import { remapVariableClipboard, variableRenamesBetween } from './variable-ids.js';
 import { captureCardClipboard, canPasteCard } from './card-clipboard.js';
-import { captureNodeClipboard } from './node-clipboard.js';
+import { captureNodeClipboard, captureNodesClipboard } from './node-clipboard.js';
 import { mountNodeClipboardShortcuts } from './node-clipboard-shortcuts.js';
 import { applyCardStyles, parseCardColor } from '../project/card-styles.js';
 import { nodeTypeLabel } from '../project/nodeTypes.js';
@@ -75,6 +75,7 @@ const graph=new GraphView($('#canvas'),{
  onConnect:(id,exit,target)=>edit('connect',{id,exit,target}),
  onMove:(id,x,y)=>edit('move-node',{id,x,y}),
  onDuplicate:(id,position)=>edit('duplicate-disconnected-node',{id,position}),
+ onDuplicateMany:(ids,position)=>edit('duplicate-disconnected-nodes',{ids,position}),
  onMoveMany:positions=>edit('move-nodes',{positions}),
  onSelectMany:ids=>{selected=ids[0];renderGraph();renderInspector({collapseCards:true});},
  onTransferCard:data=>{preview.stop();edit('transfer-card',data);},
@@ -117,6 +118,7 @@ function edit(type,data={}, {preserveProjectSettings=false,refresh=true}={}){
  if('selected' in patch)selected=patch.selected;
  if('definitionId' in patch)definitionId=patch.definitionId;
  if('mode' in patch)mode=patch.mode;
+ if(patch.selectedIds){graph.selected=selected;graph.selectedIds=new Set(patch.selectedIds);graph.lastCanvasClick=null;}
  const saved=saveProject(project);
  if(refresh)render({preserveProjectSettings});
  else {
@@ -139,8 +141,8 @@ function renderGraph(issues){
   updatePreviewHighlight(graph,preview,chapter());
  }
  const multiple=graph.selectedIds.size>1;
- $('#copy-node').disabled=$('#cut-node').disabled=mode!=='chapter'||!node()||multiple;
- for(const id of ['duplicate','start','play-node'])$('#'+id).disabled=mode!=='chapter'||!node()||multiple;
+ $('#copy-node').disabled=$('#cut-node').disabled=$('#duplicate').disabled=mode!=='chapter'||!node();
+ for(const id of ['start','play-node'])$('#'+id).disabled=mode!=='chapter'||!node()||multiple;
  $('#paste-node').disabled=mode!=='chapter'||!nodeClipboard||nodeClipboard.projectId!==project.id;
 }
 function renderProjectSettings(){
@@ -414,32 +416,39 @@ $('#library-match-beat').onchange=renderLibrary;
 $('#chapter-view').onclick=()=>{mode='chapter';render();};$('#library-view').onclick=()=>{mode='library';render();};
 $('#chapter-selector').onchange=e=>{preview.stop();edit('select-chapter',{id:e.target.value});graph.fit();};
 $('#add-chapter').onclick=()=>edit('add-chapter');
+function selectedBeatIds(){return graph.selectedIds.size?[...graph.selectedIds]:selected?[selected]:[];}
 function copyBeat(cut=false){
- if(mode!=='chapter'||!node()||graph.selectedIds.size>1)return false;
+ if(mode!=='chapter'||!node())return false;
  graph.cancel();
  try{
-  const data=captureNodeClipboard(project,chapterId,selected,{cut});
+  const ids=selectedBeatIds(),multiple=ids.length>1;
+  const data=multiple?captureNodesClipboard(project,chapterId,ids,{cut}):captureNodeClipboard(project,chapterId,selected,{cut});
+  if(cut){
+   preview.stop();
+   const result=edit(multiple?'delete-nodes':'delete-node',{ids});
+   if(!result.ok)return false;
+  }
   nodeClipboard={projectId:project.id,data,pasteCount:0};
-  if(cut){preview.stop();edit('delete-node');}
-  render();report(cut?'Beat cut. Paste it into any chapter; Undo restores the original.':'Beat copied. Paste it into any chapter.');
+  render();report(cut?'Selection cut. Paste it into any chapter; Undo restores the original.':'Selection copied. Paste it into any chapter.');
   return true;
  }catch(error){report(errorMessage('STUDIO_COPY_FAILED', {message: error.message}));return false;}
 }
 function pasteBeat(){
  if(mode!=='chapter'||!nodeClipboard||nodeClipboard.projectId!==project.id)return false;
- const clipboard=nodeClipboard,offset=40*(clipboard.pasteCount+1);
- const result=edit('paste-node',{clipboard:clipboard.data,position:{x:(clipboard.data.node.x||0)+offset,y:(clipboard.data.node.y||0)+offset}});
+ const clipboard=nodeClipboard,offset=40*(clipboard.pasteCount+1),origin=clipboard.data.nodes?.[0]||clipboard.data.node;
+ const result=edit(clipboard.data.nodes?'paste-nodes':'paste-node',{clipboard:clipboard.data,position:{x:(origin.x??100)+offset,y:(origin.y??100)+offset}});
  if(result.value){
   clipboard.pasteCount++;clipboard.data={...clipboard.data,cut:false};
-  graph.centerOn(result.value);$('#canvas').focus({preventScroll:true});
-  if(result.ok)report('Beat pasted. Undo removes it.');
+  graph.centerOn(result.value,{select:!clipboard.data.nodes});$('#canvas').focus({preventScroll:true});
+  if(result.ok)report('Selection pasted. Undo removes it.');
  }
  return true;
 }
 $('#copy-node').onclick=()=>copyBeat();$('#cut-node').onclick=()=>copyBeat(true);$('#paste-node').onclick=pasteBeat;
 function duplicateBeat(){
- if(mode!=='chapter'||!node()||graph.selectedIds.size>1)return false;
- edit('duplicate-node');graph.centerOn(selected);$('#canvas').focus({preventScroll:true});return true;
+ if(mode!=='chapter'||!node())return false;
+ const ids=selectedBeatIds();
+ edit(ids.length>1?'duplicate-nodes':'duplicate-node',{ids});graph.centerOn(selected,{select:ids.length<=1});$('#canvas').focus({preventScroll:true});return true;
 }
 const stopNodeClipboardShortcuts=mountNodeClipboardShortcuts(document,{copy:()=>copyBeat(),cut:()=>copyBeat(true),paste:pasteBeat,duplicate:duplicateBeat,enabled:()=>mode==='chapter'});
 for(const b of document.querySelectorAll('[data-add-kind]'))b.onclick=()=>edit('add-definition',{kind:b.dataset.addKind});
@@ -468,6 +477,7 @@ const stopViewShortcuts=mountViewShortcuts(document,{
   $(mode==='chapter'?'#canvas':'#library-panel').focus({preventScroll:true});
  },
  togglePreview:()=>{if(!previewWindow.visible)return false;previewWindow.toggle();},
+ closePreview:()=>{if(!previewWindow.visible)return false;previewWindow.hide();$('#canvas').focus({preventScroll:true});},
 });
 $('#autoplay').title='Toggle Autoplay (/)';
 $('#autoplay').setAttribute('aria-keyshortcuts','/');
