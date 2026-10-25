@@ -139,7 +139,7 @@ test('Delete and Mac Backspace delete the selected beat through the graph callba
  }
 });
 test('beat deletion ignores typing, held keys, modifiers, composition, and active gestures',()=>{
- for(const guard of [{repeat:true},{isComposing:true},{ctrlKey:true},{metaKey:true},{altKey:true},{shiftKey:true},{defaultPrevented:true},{target:{closest:()=>({})}}]){
+ for(const guard of [{repeat:true},{isComposing:true},{ctrlKey:true},{altKey:true},{shiftKey:true},{defaultPrevented:true},{target:{closest:()=>({})}}]){
   const s=setup();s.root.handlers.keydown({key:'Backspace',target:s.root,...guard,preventDefault(){assert.fail('must preserve input');}});assert.deepEqual(s.deleted,[]);
  }
  const s=setup();s.root.event('pointerdown',s.root.node('a'));
@@ -770,4 +770,21 @@ for(const end of ['Escape','pointercancel','lostpointercapture','tiny'])test(`${
  assert.deepEqual(copies,[]);assert.deepEqual(s.moves,[]);assert.deepEqual(s.groupMoves,[]);
  assert.deepEqual([...s.graph.selectedIds],['a','b']);
  assert.ok([...ghosts?.values()||[]].every(ghost=>!ghost.isConnected));
+});
+
+
+test('Cmd+Backspace deletes a single beat or selected group and retains deletion safeguards',()=>{
+ for(const group of [false,true]){
+  const s=setup();if(group)s.graph.selectedIds=new Set(['a','b']);
+  let prevented=false;s.root.handlers.keydown({key:'Backspace',metaKey:true,target:s.root,preventDefault(){prevented=true;}});
+  assert.equal(prevented,true);assert.deepEqual(s.deleted,group?[]:['a']);assert.deepEqual(s.deletedGroups,group?[['a','b']]:[]);
+ }
+ for(const guard of [{repeat:true},{isComposing:true},{ctrlKey:true},{altKey:true},{shiftKey:true},{defaultPrevented:true},{target:{closest:()=>({})}},{key:'Delete'}]){
+  const s=setup();s.graph.selectedIds=new Set(['a','b']);
+  s.root.handlers.keydown({key:'Backspace',metaKey:true,target:s.root,...guard,preventDefault(){assert.fail('preserve native input');}});
+  assert.deepEqual(s.deleted,[]);assert.deepEqual(s.deletedGroups,[]);
+ }
+ const s=setup();s.root.event('pointerdown',s.root.node('a'));
+ s.root.handlers.keydown({key:'Backspace',metaKey:true,target:s.root,preventDefault(){assert.fail('gesture active');}});
+ assert.deepEqual(s.deleted,[]);
 });

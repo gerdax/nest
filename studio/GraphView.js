@@ -28,7 +28,7 @@ export class GraphView {
   root.addEventListener('keydown',e=>{
    if(['Enter',' '].includes(e.key)){this.cardDrag.suppressClick=false;this.suppressSelectionClick=false;}
    if(e.key==='Escape')this.cancel();
-   if(!['Delete','Backspace'].includes(e.key)||e.defaultPrevented||e.repeat||e.isComposing||e.ctrlKey||e.metaKey||e.altKey||e.shiftKey||this.drag)return;
+   if(!['Delete','Backspace'].includes(e.key)||e.defaultPrevented||e.repeat||e.isComposing||e.ctrlKey||(e.metaKey&&e.key!=='Backspace')||e.altKey||e.shiftKey||this.drag)return;
    if(e.target?.closest('input,textarea,select,[contenteditable]:not([contenteditable="false"]),[role="textbox"]'))return;
    if(!this.nodesById?.has(this.selected))return;
    const ids=[...this.selectedIds].filter(id=>this.nodesById.has(id));
