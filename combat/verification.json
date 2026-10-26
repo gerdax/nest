@@ -11,11 +11,21 @@
     "pool": "3d6",
     "target": 11,
     "successOutcomes": 108,
-    "totalOutcomes": 216
+    "totalOutcomes": 216,
+    "damage": {
+      "rat": "1–2",
+      "Shoot": "1–2",
+      "Burst": "1–3"
+    },
+    "burstReload": "Use round plus next hero turn, including misses",
+    "specialSuccess": "Successful attack against its own target and at least one physical d6 = 6",
+    "poison": "Rat special success; descriptive only; no independent probability roll",
+    "burstTarget": 9,
+    "burstSuccessOutcomes": 160
   },
   "deterministic": {
     "command": "node --test tests/*.test.js",
-    "passed": 2323,
+    "passed": 2345,
     "failed": 0,
     "note": "Bundled Node executable used; no installation/build."
   },
@@ -111,5 +121,42 @@
       ]
     },
     "checks": "29 native transition tests; all2323 app tests; Chrome open/closed targets and moving midpoint; read-only independent review clear."
+  },
+  "effectArrivalPresentation": {
+    "date": "2026-10-26",
+    "passed": true,
+    "browser": {
+      "passed": true,
+      "checks": [
+        "hero HUD remains10 during success/result/slide/settling, changes to9 only on effect arrival",
+        "rat HUD remains4 through hero result/reverse slide and becomes1 only after its own effect settles; status card changes no HP",
+        "later LINEAR card publishes own resource value only after its own entrance",
+        "reset during effect entry discards old presentation",
+        "terminal hit displays zero only after death card settles"
+      ]
+    },
+    "focusedUnitTests": 9,
+    "review": "Independent reviewer found no actionable premature-update or restart issue; ran all9 focused tests.",
+    "scope": "Scenario health indicators and per-LINEAR-card resource-presentation hook; internal rule resolution remains exactly once, statuses remain descriptive."
+  },
+  "specialSuccessVerification": {
+    "passed": true,
+    "unit": "All 216 physical outcomes, damage bounds, cooldown on hit/miss, special-status gating",
+    "chrome": "Failed six, ordinary success, one or multiple sixes on success; one poison card in LINEAR; status does not change HP",
+    "script": "node combat/special-success-browser.cjs",
+    "effectArrivalRetest": "node combat/effect-presentation-browser.cjs passed with ranged damage"
+  },
+  "latestCheckpoint": {
+    "date": "2026-10-26",
+    "deterministicTests": 2345,
+    "staging": "/tmp/nest-combat-checkpoint-20261026-v2; 272 files; local references verified",
+    "chromeFocusedChecks": [
+      "HP updates after effect-card arrival",
+      "Special success poison captions",
+      "Rat one-third/two-thirds condition captions",
+      "Enemy ACTION hidden on main and underlay faces",
+      "Shoot and Burst logo-free reverse during partial swipe and all departure frames"
+    ],
+    "note": "Focused Chrome checks were run during individual changes; broad browser-check.cjs was not rerun for this checkpoint."
   }
 }

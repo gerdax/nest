@@ -67,7 +67,7 @@ export class ActionContextPanel {
       this.renderRequirements(disabledReason, disabledReasonParts);
     } else this.caption.textContent = result ? `TARGET: ${result.target}  CHECK: ${result.total}` : disabledReason || (info ? info.stat ?? '' : 'USING');
     this.checkDetails.hidden = !info && !result;
-    this.checkChance.textContent = result ? result.success ? 'SUCCESS' : 'FAILURE' : info ? `${Math.round(parseFloat(info.chance))}%` : '';
+    this.checkChance.textContent = result ? (result.label || (result.success ? 'SUCCESS' : 'FAIL')) : info ? `${Math.round(parseFloat(info.chance))}%` : '';
     this.checkDetails.setAttribute('data-presentation', result ? 'result' : 'odds');
     if (result?.total != null) this.checkDetails.setAttribute('data-outcome', result.success ? 'success' : 'failure');
     else this.checkDetails.removeAttribute('data-outcome');

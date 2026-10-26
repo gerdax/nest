@@ -252,7 +252,7 @@ test('only completed outcomes show the result caption and replace minis', () => 
   for (const success of [true,false]) {
     panel.update({item, result:{target:8,total:success?10:6,success}});
     assert.equal(caption.textContent, `TARGET: 8  CHECK: ${success?10:6}`);
-    assert.equal(panel.checkChance.textContent, success?'SUCCESS':'FAILURE');
+    assert.equal(panel.checkChance.textContent, success?'SUCCESS':'FAIL');
     assert.equal(panel.checkDetails.attrs['data-outcome'], success?'success':'failure');
     assert.equal(panel.root.attrs['data-mode'], 'result');
     assert.equal(panel.view.attrs['data-mode'], 'result');
@@ -284,5 +284,18 @@ test('combined check and trigger preserve hold interaction and clear it for roll
  assert.equal(panel.root.attrs['data-mode'],'check');assert.equal(panel.itemColumn.hidden,true);
  panel.update({item});
  assert.equal(panel.itemCaption.hidden,true);assert.equal(panel.caption.textContent,'USING');
+ panel.destroy();
+});
+
+
+test('hosts can label completed combat results HIT or MISS without changing ordinary checks',()=>{
+ const panel=setup();
+ for(const success of [true,false]){
+  panel.update({result:{target:11,total:success?12:8,success,label:success?'HIT':'MISS'}});
+  assert.equal(panel.checkChance.textContent,success?'HIT':'MISS');
+  assert.equal(panel.checkDetails.attrs['data-outcome'],success?'success':'failure');
+  panel.update({result:{target:11,total:success?12:8,success}});
+  assert.equal(panel.checkChance.textContent,success?'SUCCESS':'FAIL');
+ }
  panel.destroy();
 });
