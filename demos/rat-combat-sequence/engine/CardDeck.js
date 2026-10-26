@@ -1284,8 +1284,46 @@ export class CardDeck extends EventTarget {
     this.schedule();
   }
 
+  /** Demo-only automatic upward departure of a front or the held check back.
+   * Uses the normal departure duration/trajectory; the next front stays flat.
+   */
+  async slideToContent(content, clock, { reverse = false } = {}) {
+    const revision = clock.revision;
+    const source = reverse ? this.checkSurface?.back : this.scene;
+    if (!source) throw new Error('No visible combat card to slide');
+    const outgoing = source.cloneNode(true);
+    outgoing.setAttribute('aria-hidden', 'true');
+    const original = outgoing.style.transform;
+    const overlay = document.createElement('div');
+    overlay.className = 'nest-card-layer combat-auto-slide';
+    overlay.dataset.surface = reverse ? 'reverse' : 'front';
+    overlay.style.zIndex = '2000';
+    overlay.style.perspective = `${this.settings.perspective}px`;
+    overlay.append(outgoing);
+    const motion = this.departureMotion(0);
+    // A settled reverse starts at rest, independent of the earlier action
+    // swipe lift retained by the deck. Travel must clear the whole card.
+    const seconds = motion.duration / 1000;
+    motion.velocity = this.departureTravel() / seconds + .5 * motion.gravity * seconds;
+    const duration = this.reduced ? 0 : motion.duration;
+    // Reset pending check departure before installing a flat successor. The
+    // outgoing clone retains the actual check-back face until it leaves.
+    this.reset();
+    this.install(content);
+    this.mount.append(overlay);
+    try {
+      const frames = Array.from({length:21}, (_,index) => {
+        const offset = index / 20, seconds = motion.duration * offset / 1000;
+        const distance = motion.velocity * seconds - .5 * motion.gravity * seconds * seconds;
+        return { offset, transform:`translateY(${-distance}px) ${original}` };
+      });
+      return await clock.animate(outgoing, frames, {duration,easing:'linear'})
+        && !this.destroyed && revision === clock.revision;
+    } finally { overlay.remove(); }
+  }
+
   /** Demo-only front-to-front turn; no card back participates. */
-  async turnFrontToChoices(content, clock) {
+  async turnFrontToContent(content, clock, { presentation = 'closed' } = {}) {
     const revision = clock.revision;
     const overlay = document.createElement('div');
     overlay.className = 'nest-card-layer combat-front-turn';
@@ -1300,24 +1338,27 @@ export class CardDeck extends EventTarget {
       }
     };
     try {
-      const outgoing = this.scene.cloneNode(true);
+      const outgoing = (this.open ? this.cards[this.index] : this.scene).cloneNode(true);
       overlay.append(outgoing);
       this.mount.append(overlay);
       hideOriginals();
       const original = outgoing.style.transform;
       const duration = this.reduced ? 0 : 230;
-      if (!await clock.animate(outgoing, [{transform:original}, {transform:original+' rotateY(90deg)'}], {duration})) return false;
+      const axis = this.settings.flipAxisTilt;
+      const turn = angle => ` rotateZ(${axis}deg) rotateY(${angle}deg) rotateZ(${-axis}deg)`;
+      if (!await clock.animate(outgoing, [{transform:original}, {transform:original+turn(-90)}], {duration})) return false;
       if (this.destroyed || revision !== clock.revision) return false;
-      this.replaceContent(content, {presentation:'open', animate:false});
+      this.replaceContent(content, {presentation, animate:false});
       this.fan.x = 0; this.fan.target = 0; this.render();
-      const incoming = this.cards[this.index].cloneNode(true);
+      const incoming = (presentation === 'open' ? this.cards[this.index] : this.scene).cloneNode(true);
       const base = incoming.style.transform;
       overlay.replaceChildren(incoming);
       this.mount.append(overlay);
       hideOriginals();
-      if (!await clock.animate(incoming, [{transform:base+' rotateY(-90deg)'}, {transform:base}], {duration})) return false;
+      if (!await clock.animate(incoming, [{transform:base+turn(90)}, {transform:base}], {duration})) return false;
       if (this.destroyed || revision !== clock.revision) return false;
-      this.fan.target = 1; this.schedule();
+      if (presentation === 'open') this.fan.target = 1;
+      this.schedule();
       return true;
     } finally {
       overlay.remove();

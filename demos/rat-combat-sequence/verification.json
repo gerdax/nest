@@ -5,7 +5,7 @@
   "scope": "Only new demos/rat-combat-sequence/ files; main app, documents, assets and prior demos preserved.",
   "deterministic": {
     "mockup": {
-      "passed": 45,
+      "passed": 55,
       "failed": 0,
       "command": "node --test demos/rat-combat-sequence/tests/*.test.js demos/rat-combat-sequence/dice/tests/*.test.js"
     },
@@ -26,27 +26,25 @@
     "engine": "Installed Google Chrome, Playwright, headless WebGL",
     "passed": true,
     "checks": [
-      "real WebGL rolls, enemy top/black, hero bottom/light, result on actual reverse, one stack, short/committed swipe",
-      "victory stops next enemy attack and ignores further input",
-      "death before hero choices",
-      "optional vignette swipe and ordinary action selection",
-      "hero swipe and duplicate input lock",
-      "restart during unresolved roll",
-      "simulated hidden result pauses and resumes once",
-      "error and retry without resource mutation on failure",
-      "320px geometry and controls contained",
-      "reduced motion, no weapon, full fight",
-      "front turn hides underlying originals and uses no reverse",
-      "restart during enemy arrival/roll/result, front turn, choices, player departure/roll/result"
+      "real dice, projected top/bottom, actual check reverse, hero artwork, first intro preview before commit",
+      "success auto slides to LINEAR; canceled peeks retain resources; last effect uncovers reverse then flips to next phase",
+      "auto enemy front slide and actual hero check reverse slide without turn",
+      "misses skip captions; front turn direction matches native decreasing half-turn and tilted axis",
+      "death/victory stop immediately without redundant damage caption",
+      "multi-card LINEAR status descriptions, flat interior swipes, final reverse/flip, no extra damage",
+      "custom player death LINEAR terminates without another combat turn",
+      "simulated visibility pause/resume",
+      "failed roll retries without applying damage",
+      "320px containment",
+      "reduced motion full fight with effects",
+      "restart during rolls, departures, both effect arrivals and effect cards"
     ],
-    "screenshots": "/tmp/nest-rat-combat-sequence",
+    "screenshots": "/tmp/nest-rat-combat-flow",
     "visualInspection": [
-      "intro",
-      "black enemy die",
-      "hero choices",
-      "light hero result on check reverse",
-      "320px layout",
-      "front turn"
+      "actual hero check reverse sliding over flat effect card",
+      "last status card uncovers reverse before hero fork",
+      "intro face-up partial reveal",
+      "320px layout"
     ]
   },
   "independentReview": {
@@ -62,5 +60,51 @@
     "No manual editor or legacy-format checks; no editor/project-schema changes made.",
     "Throw-origin worker tests and real WebGL rolls passed; no motion-tracking measurement of dice trajectories or GPU/worker memory profiling."
   ],
-  "whitespaceCheck": "Passes outside copied dice/vendor. Unchanged vendor copies retain upstream trailing whitespace; source hashes verified."
+  "whitespaceCheck": "Passes outside copied dice/vendor. Unchanged vendor copies retain upstream trailing whitespace; source hashes verified.",
+  "followUp": {
+    "changes": [
+      "Corrected top/bottom physical spawn signs after actual camera projection showed +Z maps to screen bottom.",
+      "Both hero attack cards use a local preserved copy of Gemini_Generated_Image_esub9oesub9oesubd.jpeg."
+    ],
+    "deterministic": {
+      "passed": 45,
+      "failed": 0
+    },
+    "cameraProjectionMeasured": {
+      "worldZPositiveScreenYPercent": 93.6072,
+      "worldZNegativeScreenYPercent": 6.3931
+    },
+    "browser": "Passed full Chrome/WebGL browser suite, including screen-space projection of both physical throw edges and the artwork on both hero action cards."
+  },
+  "lastUpdated": "2026-10-26",
+  "flowRevision": {
+    "date": "2026-10-26",
+    "passed": true,
+    "decisions": [
+      "Misses omit effect captions.",
+      "Lethal hits show terminal caption directly."
+    ],
+    "changes": [
+      "Initial intro explicitly installs its face-up successor preview before pointerdown.",
+      "Both successful nonlethal attacks produce swipe-gated effect captions.",
+      "Caption successors uncover without any rotation.",
+      "Demo front turns now match native half-turn direction and tilt."
+    ],
+    "independentReview": "Initial constructor staging defect found and fixed; no remaining source-review findings. Independent reviewer did not run browser; lead ran Chrome acceptance.",
+    "mainApplicationChecks": "Previous 2279-test application run and static staging retained as earlier evidence; not rerun for this isolated flow change."
+  },
+  "autoLinearForkRevision": {
+    "date": "2026-10-26",
+    "agreedRules": [
+      "Intro reveals enemy face without turn.",
+      "Enemy success auto slides front up; enemy failure turns front-to-front into hero fork.",
+      "Hero success auto slides actual check reverse up; hero failure flips reverse into enemy action.",
+      "LINEAR interiors reveal next front, final card reveals reverse then flips.",
+      "Statuses remain descriptive only; HP resolves exactly once on roll.",
+      "Lethal hits use separate hero/enemy death sequences."
+    ],
+    "passed": true,
+    "independentReview": "No actionable findings. Reviewer ran 21 controller/card/clock tests; lead ran all 55 deterministic tests and full Chrome/WebGL suite.",
+    "applicationScope": "Only demos/rat-combat-sequence changed; main application worktree clean. No new main-editor/device/legacy-format checks claimed."
+  }
 }

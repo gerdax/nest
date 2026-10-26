@@ -5,7 +5,7 @@
   "files": [
     {
       "path": "COPY-NOTES.md",
-      "sha256": "49e40a5875a801ef0f25f91a0ca198e07d7990743c35f3b39d500e377cb9362a",
+      "sha256": "0c903df8fa21c3f6720ff92106474657965ebb7518f5493a7c87809c21889772",
       "status": "new"
     },
     {
@@ -45,7 +45,7 @@
     },
     {
       "path": "tests/appearance.test.js",
-      "sha256": "38719c15cfea6d4f1e1bda28ca6de3019506718b21968a4d287106942cb75687",
+      "sha256": "192fd34358ed36a35c9f1e45984fb5c7f4591abd3c4fd08ab58527a4dd73bc9c",
       "status": "new"
     },
     {
@@ -212,7 +212,7 @@
     },
     {
       "path": "vendor/dice-box/dice-box.es.js",
-      "sha256": "f20fc4b09df91ed54dd565c1141b1df4db877aa94d9686f2979607064af3ec36",
+      "sha256": "2f53296545633e17cbee65b50889427ac2621d2d82421af5019f156d66863b07",
       "status": "modified-copy",
       "source": "dice/vendor/dice-box/dice-box.es.js",
       "sourceSha256": "d1caccae54bd074c84eee2055dbb77073b6a95d294f973e610a71bad4bc59a89"

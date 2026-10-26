@@ -35,7 +35,7 @@ test('actual embedded worker starts at requested physical edge with inward veloc
     const context = { p, yt: 1.6, Math: Object.assign(Object.create(Math), { random: () => random }), dt: (a,b,t) => a*(1-t)+b*t, P: (...xyz) => xyz };
     vm.runInNewContext(`(() => {${start}})()`, context);
     assert.equal(p.startPosition[1], 8);
-    assert.equal(p.startPosition[2], throwSide === 'top' ? 4.25 : -4.25);
+    assert.equal(p.startPosition[2], throwSide === 'top' ? -4.25 : 4.25);
     assert.ok(Math.abs(p.startPosition[0]) <= 7.100001);
     let result;
     context._ = { setLinearVelocity: v => { result = v; } };

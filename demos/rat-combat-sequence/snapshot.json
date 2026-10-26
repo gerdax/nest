@@ -202,7 +202,7 @@
   {
     "copy": "engine/CardDeck.js",
     "source": "engine/CardDeck.js",
-    "sha256": "c6392f3a2fc178e601f600bb9792b6a6db2d04b3c08e79d1b217b94bc5884333",
+    "sha256": "a6f2098bbfe6907728ec224cfc204d37a13278ca67903f6615a43490f21190bd",
     "derived": true,
     "baselineSha256": "f76ca9575a44355858c3e6268f4cbd8e1e7d2b29f87b93ad79cd828a0aaa3c8c"
   },
@@ -210,5 +210,10 @@
     "copy": "assets/img/ui/unavailable.png",
     "source": "assets/img/ui/unavailable.png",
     "sha256": "ac0c6f019b25340e24a9c9640d46e57a3441799522967fe30a2ce60ef773096d"
+  },
+  {
+    "copy": "assets/img/Gemini_Generated_Image_esub9oesub9oesubd.jpeg",
+    "source": "assets/img/Gemini_Generated_Image_esub9oesub9oesubd.jpeg",
+    "sha256": "6ea904222e2f62d510a4e03457293c65c86a1f500a3812eb8b167e3b56c4e103"
   }
 ]
