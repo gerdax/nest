@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CardDeck } from '../engine/CardDeck.js';
-import { departureDistance } from '../engine/motion.js';
+import { departureDistance, spring } from '../engine/motion.js';
 
 // A deterministic browser-shaped RAF/DOM harness checks ownership and painted
 // poses; real browser compositing and touch/device behavior require visual QA.
@@ -77,11 +77,15 @@ for (const presentation of ['closed', 'open']) test(`front turn exchanges actual
   active.turn.x = -.25; deck.render(); assert.equal(angle(original), -45);
   assert.ok(original.style.transform.includes('rotateZ(7deg) rotateY(-45deg) rotateZ(-7deg)'));
   assert.equal(back.style.visibility, 'hidden'); assert.equal(successor.style.visibility, 'hidden');
-  active.turn.x = active.turn.target; active.turn.v = 0; step();
+  const turn = active.turn;
+  active.turn.x = -.5; active.turn.v = -1; deck.adoptContentTransition(); deck.render();
+  assert.equal(active.turn, turn, 'the same spring owns both halves');
+  assert.equal(active.turn.v, -1, 'angular velocity survives face handoff');
+  assert.equal(active.turn.target, -1);
   assert.equal(deck.content.id, 'hero'); assert.equal(active.phase, 'incoming');
   assert.equal(angle(successor), 90); assert.equal(deck.sceneBack.style.visibility, 'hidden');
   if (deck.open) assert.ok(deck.cardBacks.every(face => !face || face.style.visibility === 'hidden'));
-  active.turn.x = .25; deck.render(); assert.equal(angle(successor), 45);
+  active.turn.x = -.75; deck.render(); assert.equal(angle(successor), 45);
   settle(); assert.equal(await promise, true); assert.equal(angle(successor), 0); assert.equal(deck.busy, false);
   assert.equal(deck.open, presentation === 'open'); deck.destroy();
 });
@@ -187,4 +191,28 @@ test('a hero choice check uses a full native departure from the settled reverse 
   step(active.motion.duration + 16);
   assert.equal(active.adopted, true, 'check clears after the ordinary full-duration throw');
   settle(); assert.equal(await promise, true); deck.destroy();
+});
+
+test('front turn hands off without stopping and matches one native flip duration', async () => {
+  const deck = create();
+  const promise = deck.transitionContent(content('hero'), { transition: 'front-turn' });
+  const active = deck.contentTransition, started = now;
+  let midpoint = null;
+  while (deck.contentTransition && now - started < 3000) {
+    step();
+    if (active.adopted && midpoint === null) {
+      midpoint = now - started;
+      assert.ok(active.turn.v < -.1, 'handoff must still be moving');
+      assert.ok(active.turn.x > -.65, 'handoff happens at the edge, not after settling');
+    }
+  }
+  assert.equal(await promise, true);
+  const elapsed = now - started;
+  assert.ok(midpoint < elapsed * .5, 'no stop-and-restart at the midpoint');
+  // Compare against the actual same angular spring used by a native 180° flip.
+  const native = spring(1); native.target = 0; deck.flip = native;
+  let nativeMs = 0;
+  do { deck.stepAngular(native, .016); nativeMs += 16; } while (!deck.atRest(native));
+  assert.ok(Math.abs(elapsed - nativeMs) <= 32, `${elapsed}ms front turn vs ${nativeMs}ms native flip`);
+  deck.destroy();
 });

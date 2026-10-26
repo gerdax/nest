@@ -1332,7 +1332,9 @@ export class CardDeck extends EventTarget {
         // accepted gesture still owns a nonzero lift in the waiting deck.
         motion: this.departureMotion(0, checking ? { lift: 0 } : {}) };
       active.motion.continueFlight = true;
-      active.turn.target = -.5;
+      // One native half-turn, with a face handoff at its midpoint. Do not
+      // settle and restart a second spring at the edge-on boundary.
+      active.turn.target = -1;
       active.abort = () => this.cancelContentTransition();
       signal?.addEventListener('abort', active.abort, { once: true });
       this.busy = true;
@@ -1360,8 +1362,10 @@ export class CardDeck extends EventTarget {
     this.phase = 'committing';
     active.phase = active.transition === 'slide' ? 'settling' : 'incoming';
     if (active.phase === 'settling') this.operation = 'commit';
-    active.turn = spring(.5);
-    active.turn.target = 0;
+    if (active.transition === 'slide') {
+      active.turn = spring(.5);
+      active.turn.target = 0;
+    }
   }
 
   stepContentTransition(dt, time) {
@@ -1377,7 +1381,7 @@ export class CardDeck extends EventTarget {
           && projectedBounds(pose, bounds.width, bounds.height, this.settings.perspective).bottom <= -8) this.adoptContentTransition();
       } else {
         this.stepAngular(active.turn, dt);
-        if (this.atRest(active.turn)) this.adoptContentTransition();
+        if (active.turn.x <= -.5) this.adoptContentTransition();
       }
     } else {
       if (active.phase === 'incoming') this.stepAngular(active.turn, dt);

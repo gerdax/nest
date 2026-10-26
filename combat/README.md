@@ -25,7 +25,7 @@ Intro uncovers the rat face without turning. Enemy rolls automatically, black fr
 
 ## Shared additions
 
-`CardDeck.transitionContent(content, {transition:'slide'|'front-turn', surface:'front'|'check', presentation:'closed'|'open', signal})` adds general-purpose native transitions. It returns a promise resolving true on completion, false when unavailable/superseded/canceled; invalid arguments reject. The check surface must be settled and currently supports slide. Requested open presentations fan directly; hosts can use the existing `updateActions` entrance choreography for later USING cards. Existing `replaceContent`, Linear and Fork behavior is retained.
+`CardDeck.transitionContent(content, {transition:'slide'|'front-turn', surface:'front'|'check', presentation:'closed'|'open', signal})` adds general-purpose native transitions. It returns a promise resolving true on completion, false when unavailable/superseded/canceled; invalid arguments reject. The check surface must be settled and currently supports slide. Requested open presentations fan directly; hosts can use the existing `updateActions` entrance choreography for later USING cards. Front-to-front rotation uses one uninterrupted native angular spring: the visible face changes at the edge-on midpoint without stopping or resetting velocity. Existing `replaceContent`, Linear and Fork behavior is retained.
 
 Dice appearance optionally accepts `color:'black'|'light'` and `throwSide:'top'|'bottom'`. Omitting both preserves existing theme and random throw edges for all current hosts. Physical worker start positions, not canvas rotation, set direction. Vendor changes are confined to the embedded worker's start-position selection; license and source assets remain intact.
 

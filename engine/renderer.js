@@ -295,7 +295,9 @@ function renderContentTransition(deck, time) {
   }
   const outgoing = transition.phase === 'outgoing';
   const slide = transition.transition === 'slide';
-  const turn = slide ? 0 : clamp(transition.turn.x, outgoing ? -.5 : 0, outgoing ? 0 : .5) * 180;
+  const turn = slide ? 0 : (outgoing
+    ? clamp(transition.turn.x, -.5, 0)
+    : clamp(transition.turn.x + 1, 0, .5)) * 180;
   const elevation = deck.reduced ? 0 : flipLift(Math.abs(turn) / 180, deck.settings);
   if (!transition.adopted) {
     renderStagedActions(deck, staged, 20, slide && transition.presentation === 'open', 0, -24, 1);

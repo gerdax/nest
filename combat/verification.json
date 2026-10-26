@@ -15,7 +15,7 @@
   },
   "deterministic": {
     "command": "node --test tests/*.test.js",
-    "passed": 2322,
+    "passed": 2323,
     "failed": 0,
     "note": "Bundled Node executable used; no installation/build."
   },
@@ -63,5 +63,53 @@
     "Visibility simulation does not establish OS background throttling or BFCache during active dice.",
     "Editor authoring and legacy-format manual checks not run; existing ProjectPreview actual dice check exercised in Chrome.",
     "No remote backup claimed; checkpoints and integration commit are local."
-  ]
+  ],
+  "frontTurnCorrection": {
+    "date": "2026-10-26",
+    "cause": "Two independently settling angular springs stopped at the midpoint before starting the second face.",
+    "fix": "One uninterrupted native full-turn spring; preserve state and velocity at edge-on face handoff.",
+    "defaultSimulationMs": {
+      "previousTwoHalves": 1536,
+      "nativeOneTurn": 896
+    },
+    "browser": {
+      "duration": 866.5999999999999,
+      "midpoint": 150,
+      "midVelocity": -2.7683439043570477,
+      "frames": 53,
+      "backsHidden": true,
+      "minOutgoingVelocity": 3.0554093308695305,
+      "sample": [
+        {
+          "t": 2331.3,
+          "x": 0,
+          "v": 0,
+          "phase": "outgoing",
+          "back": "hidden"
+        },
+        {
+          "t": 2464.6,
+          "x": -0.4918872825106134,
+          "v": -3.0554093308695305,
+          "phase": "outgoing",
+          "back": "hidden"
+        },
+        {
+          "t": 2481.3,
+          "x": -0.5401893648286513,
+          "v": -2.7683439043570477,
+          "phase": "incoming",
+          "back": "hidden"
+        },
+        {
+          "t": 3197.9,
+          "x": -0.9938824783299157,
+          "v": -0.036872508865324276,
+          "phase": "incoming",
+          "back": "hidden"
+        }
+      ]
+    },
+    "checks": "29 native transition tests; all2323 app tests; Chrome open/closed targets and moving midpoint; read-only independent review clear."
+  }
 }
