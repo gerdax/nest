@@ -89,9 +89,9 @@ def main() -> None:
     runtime_files = list(RUNTIME_FILES)
     # Include project/studio runtime and retained v1 chapter/editor dependencies.
     # Motion tuning stays independent of the authoring interface.
-    for folder in ("chapter", "player", "project", "studio"):
+    for folder in ("engine", "chapter", "player", "project", "studio", "combat"):
         runtime_files.extend(source.relative_to(ROOT).as_posix() for source in sorted((ROOT / folder).rglob("*")) if source.is_file() and source.suffix in {".js", ".css"})
-    runtime_files.append("editor.html")
+    runtime_files.extend(("editor.html", "combat.html"))
     runtime_files.extend(source.relative_to(ROOT).as_posix() for source in sorted((ROOT / "editor").rglob("*")) if source.is_file() and source.suffix in {".js", ".css"})
     runtime_files = [name for name in dict.fromkeys(runtime_files) if name not in DEBUG_ONLY_FILES]
     for relative in runtime_files:

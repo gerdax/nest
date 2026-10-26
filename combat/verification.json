@@ -1,0 +1,67 @@
+{
+  "date": "2026-10-26",
+  "branch": "codex/combat-engine-integration",
+  "checkpoints": {
+    "original": "checkpoint/pre-combat-engine-20261026 (a7f6d56)",
+    "reference": "checkpoint/rat-combat-reference-20261026 (6dd6c00)",
+    "location": "Local shared Git repository; external push rejected by automatic approval review; no retry."
+  },
+  "scope": "Root engine/dice reusable extensions and root combat.html test scenario; no Encounter authoring/schema migration. Original main checkout and all demos unchanged.",
+  "rules": {
+    "pool": "3d6",
+    "target": 11,
+    "successOutcomes": 108,
+    "totalOutcomes": 216
+  },
+  "deterministic": {
+    "command": "node --test tests/*.test.js",
+    "passed": 2322,
+    "failed": 0,
+    "note": "Bundled Node executable used; no installation/build."
+  },
+  "browser": {
+    "passed": true,
+    "checks": [
+      "shared CardDeck/PlayerUI/DiceLayer imports, real 3d6 both sides, native SUCCESS/FAILURE/USING, real check reverse",
+      "native actual front/reverse slides, final LINEAR reverse/flip, no clone card-motion overlays, hero gesture",
+      "miss front-to-front without backs, hero miss directly to enemy",
+      "multi-card effects flat interiors, statuses do not deal damage",
+      "both terminal routes stop combat",
+      "custom multi-card death sequence",
+      "simulated hidden result pauses exactly once",
+      "error/retry without fallback or double resolution",
+      "320px containment",
+      "reduced motion full fight",
+      "restart during dice, native slides, turns, accepted hero departures; game root preserved",
+      "existing ProjectPreview actual dice check and native result unchanged, default dice overrides absent"
+    ],
+    "screenshots": "/tmp/nest-native-combat"
+  },
+  "finalVisualCheck": {
+    "passed": true,
+    "screenshots": [
+      "/tmp/nest-native-combat/final-enemy-result.png",
+      "/tmp/nest-native-combat/final-hero-result.png",
+      "/tmp/nest-native-combat/final-choices.png"
+    ],
+    "notes": "Removed host-only isolation that covered native context lane; inspected actual three-dice results and USING after correction."
+  },
+  "staging": {
+    "command": "python3 build_pages.py /tmp/nest-native-combat-final-20261026",
+    "passed": true,
+    "files": 269,
+    "localReferences": "verified"
+  },
+  "review": {
+    "independent": true,
+    "remainingFindings": 0,
+    "fixed": "Transition preparation now rechecks lifecycle/reentrancy ownership; settled check departures ignore prior action gesture lift."
+  },
+  "limits": [
+    "Physical phones/touch hardware not tested.",
+    "Safari/Firefox and screen reader output not verified.",
+    "Visibility simulation does not establish OS background throttling or BFCache during active dice.",
+    "Editor authoring and legacy-format manual checks not run; existing ProjectPreview actual dice check exercised in Chrome.",
+    "No remote backup claimed; checkpoints and integration commit are local."
+  ]
+}

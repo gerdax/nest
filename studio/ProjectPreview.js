@@ -1,3 +1,4 @@
+import { CHECK_RESULT_TIMING } from './check-presentation.js';
 import { createError, errorCode } from '../errors.js';
 import { nextChapter } from '../project/chapter-navigation.js';
 import { CardDeck } from '../engine/CardDeck.js';
@@ -213,10 +214,10 @@ export class ProjectPreview {
     const onAbort = () => { if (generation === this.diceGeneration) this.hideDice(); };
     result.signal?.addEventListener('abort', onAbort, { once: true });
     try {
-      await this.pauseResult(1100);
+      await this.pauseResult(CHECK_RESULT_TIMING.holdMs);
       if (generation !== this.diceGeneration || result.signal?.aborted) return;
       this.diceLayer?.fade();
-      await this.pauseResult(200);
+      await this.pauseResult(CHECK_RESULT_TIMING.fadeMs);
       if (generation === this.diceGeneration) {
         this.dice?.destroy(); this.dice = null;
         this.diceLayer?.destroy(); this.diceLayer = null;

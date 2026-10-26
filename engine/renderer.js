@@ -141,12 +141,13 @@ export function buildDeck(deck, staged = null) {
   const bundle = staged || stageActionDeck(deck, deck.content, deck.index);
   for (const field of ['cards', 'cardLayers', 'cardBacks', 'cardTitles']) deck[field] = bundle[field];
   if (staged) deck.mount.append(...staged.cardLayers);
-  deck.scene = document.createElement('article');
+  deck.scene = staged?.scene || document.createElement('article');
   deck.scene.className = 'nest-card nest-situation';
-  deck.decorate(deck.scene, deck.content.image, deck.content.heading || '', deck.content.text, deck.content.flipImage, deck.content);
+  if (!staged?.scene) deck.decorate(deck.scene, deck.content.image, deck.content.heading || '', deck.content.text, deck.content.flipImage, deck.content);
   decorateActionAvailability(deck.scene, deck.content.directAdvance ? deck.content.actions[0] : {});
-  deck.sceneLayer = layerFor(deck, deck.scene);
-  deck.sceneBack = backFace(deck.content);
+  deck.sceneLayer = staged?.sceneLayer || layerFor(deck, deck.scene);
+  deck.sceneBack = staged?.sceneBack || backFace(deck.content);
+  if (staged?.sceneLayer) deck.mount.append(deck.sceneLayer);
   deck.sceneLayer.append(deck.sceneBack);
   deck.live = document.createElement('span');
   deck.live.className = 'nest-live';
@@ -266,6 +267,69 @@ export function stageNextContent(deck, content) {
   deck.underlay.style.backgroundImage = '';
   deck.decorate(deck.underlay, content.image, content.heading || '', content.text, content.flipImage, content);
   decorateActionAvailability(deck.underlay, content.directAdvance ? content.actions[0] : {});
+}
+
+// Stage real engine faces for an automatic transition. These elements are
+// adopted by buildDeck, so the uncovered successor never changes DOM identity.
+export function stageContentDeck(deck, content) {
+  const bundle = stageActionDeck(deck, content);
+  bundle.scene = document.createElement('article');
+  bundle.scene.className = 'nest-card nest-situation';
+  bundle.scene.setAttribute('aria-hidden', 'true');
+  deck.decorate(bundle.scene, content.image, content.heading || '', content.text, content.flipImage, content);
+  bundle.sceneLayer = layerFor(deck, bundle.scene);
+  bundle.sceneBack = backFace(content);
+  bundle.sceneLayer.append(bundle.sceneBack);
+  return bundle;
+}
+
+// Content transitions share the native pose renderer, perspective, card lift,
+// departure trajectory and RAF clock. Only actual engine faces are presented.
+function renderContentTransition(deck, time) {
+  const transition = deck.contentTransition;
+  if (!transition || transition.phase === 'settling') return false;
+  const { source, staged } = transition;
+  for (const element of [deck.scene, deck.sceneBack, ...deck.cards, ...deck.cardBacks,
+    deck.underlay, deck.underlayBack, ...(deck.forwardDeck?.cards || []), ...(deck.forwardDeck?.cardBacks || [])]) {
+    if (element) { element.style.visibility = 'hidden'; element.setAttribute('aria-hidden', 'true'); }
+  }
+  const outgoing = transition.phase === 'outgoing';
+  const slide = transition.transition === 'slide';
+  const turn = slide ? 0 : clamp(transition.turn.x, outgoing ? -.5 : 0, outgoing ? 0 : .5) * 180;
+  const elevation = deck.reduced ? 0 : flipLift(Math.abs(turn) / 180, deck.settings);
+  if (!transition.adopted) {
+    renderStagedActions(deck, staged, 20, slide && transition.presentation === 'open', 0, -24, 1);
+    const pose = { x: 0, y: 0, z: -24, rx: 0, ry: 0, rz: 0, turn: 0,
+      visible: slide && transition.presentation === 'closed' };
+    applyPose(deck, staged.scene, staged.sceneLayer, pose, 0);
+    applyPose(deck, staged.sceneBack, staged.sceneLayer, { ...backPose(pose), visible: false }, 0);
+  }
+  if (outgoing) {
+    const distance = slide ? departureDistance(transition.motion, time) : 0;
+    const pose = { ...source.pose, y: source.pose.y - distance,
+      z: source.pose.z + (slide ? Math.min(distance * .08, deck.settings.liftHeight) : elevation),
+      turn, turnAxis: deck.settings.flipAxisTilt, visible: true };
+    applyPose(deck, source.face, source.layer, pose, 1000);
+    // The physical reverse remains hidden throughout a front-to-front turn.
+    // The incoming front replaces the outgoing front at the edge-on boundary.
+    if (source.back) source.back.style.visibility = 'hidden';
+  } else {
+    const context = poseContext(deck, time);
+    if (deck.open) {
+      deck.cards.forEach((card, index) => {
+        const pose = { ...cardPose(deck, index, time, context), turn,
+          turnAxis: deck.settings.flipAxisTilt, visible: true };
+        pose.z += elevation;
+        applyPose(deck, card, deck.cardLayers[index], pose, 100 + deck.cards.length - index);
+      });
+    } else {
+      const pose = { ...scenePose(deck, time), turn, turnAxis: deck.settings.flipAxisTilt, visible: true };
+      pose.z += elevation;
+      applyPose(deck, deck.scene, deck.sceneLayer, pose, 1000);
+    }
+  }
+  announceDeck(deck);
+  return true;
 }
 
 export function announceDeck(deck) {
@@ -503,6 +567,7 @@ function applyPose(deck, element, layer, pose, order, shadow = true) {
 
 export function renderDeck(deck, time = performance.now()) {
   if (!deck.scene) return;
+  if (renderContentTransition(deck, time)) return;
   const context = poseContext(deck, time);
   const { front } = context;
   const poses = deck.cards.map((_, index) => ({ ...cardPose(deck, index, time, context), ...(deck.coverDeparture || deck.content.flipItemsOnReveal ? { visible: false } : {}) }));

@@ -24,6 +24,16 @@ export class DiceService {
       if (!Number.isFinite(value) || value <= 0) throw new RangeError(`Invalid dice ${key}.`);
       return [[key, value]];
     }));
+    // Absence preserves the shared service's original theme and random edges.
+    for (const [key, allowed] of [
+      ['color', ['black', 'light']],
+      ['throwSide', ['top', 'bottom']]
+    ]) {
+      const value = appearance[key];
+      if (value === undefined) continue;
+      if (!allowed.includes(value)) throw new RangeError(`Invalid dice ${key}.`);
+      this.appearance[key] = value;
+    }
     this.container = null;
     this.transport = null;
     this.pending = null;
