@@ -1,3 +1,4 @@
+import {restoreFixtureDefaults} from './fixtures/combat-project-support.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createProject, compileChapter, exportChapter, importChapter, parseProject, validateProject } from '../project/model.js';
@@ -10,6 +11,7 @@ test('legacy switching settings are ignored across chapters and portable package
     project.switchCardBackIcons = setting;
     project.cardBack = { background: 'custom.png', icons: { default: 'nest.png', dice: 'dice.png' }, switchIcons: true, switchDistance: 0 };
     project.chapters.push({ ...structuredClone(project.chapters[0]), id: 'second' });
+    restoreFixtureDefaults(project);
     const saved = structuredClone(project);
     assert.deepEqual(validateProject(project), []);
     const pkg = exportChapter(project);

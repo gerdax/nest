@@ -135,14 +135,17 @@ function refreshNodeErrors(issues=validateProject(project)){
 }
 function renderGraph(issues){
  if(mode==='chapter'){
+  if(project.showDeathBeat===false&&node()?.type==='death'){selected=chapter().startNode;graph.selectedIds=new Set([selected]);}
   graph.overrideNodeIds=new Set(chapter().nodes.filter(n=>previewOverrides.effects(project,chapter(),n).length || (['fork','linear'].includes(n.type)&&n.unavailableActions&&n.unavailableActions!=='project')).map(n=>n.id));
   refreshNodeErrors(issues);
   graph.render(project,chapter(),selected,previewActiveNode(preview,chapter()));
   updatePreviewHighlight(graph,preview,chapter());
  }
  const multiple=graph.selectedIds.size>1;
- $('#copy-node').disabled=$('#cut-node').disabled=$('#duplicate').disabled=mode!=='chapter'||!node();
- for(const id of ['start','play-node'])$('#'+id).disabled=mode!=='chapter'||!node()||multiple;
+ $('#copy-node').disabled=mode!=='chapter'||!node();
+ $('#cut-node').disabled=$('#duplicate').disabled=mode!=='chapter'||!node()||[...graph.selectedIds].some(id=>chapter().nodes.find(n=>n.id===id)?.type==='death');
+ $('#start').disabled=mode!=='chapter'||!node()||multiple||node()?.type==='death';
+ for(const id of ['play-node'])$('#'+id).disabled=mode!=='chapter'||!node()||multiple;
  $('#paste-node').disabled=mode!=='chapter'||!nodeClipboard||nodeClipboard.projectId!==project.id;
 }
 function renderProjectSettings(){
@@ -150,7 +153,7 @@ function renderProjectSettings(){
  const restore=root.contains(active),path=active?.dataset.path,scope=active?.dataset.scope;
  const start=restore&&['text','search'].includes(active.type)?active.selectionStart:null;
  const end=start===null?null:active.selectionEnd,scroll=root.scrollTop;
- const sections=['data-project-variables','data-project-item-tags','data-project-card-styles','data-project-card-backs'];
+ const sections=['data-project-combat','data-project-variables','data-project-item-tags','data-project-card-styles','data-project-card-backs'];
  const expanded=sections.filter(key=>root.querySelector(`[${key}]`)?.open);
  root.innerHTML=projectSettingsInspector(project);
  for(const key of expanded)root.querySelector(`[${key}]`).open=true;
@@ -451,6 +454,11 @@ function duplicateBeat(){
  edit(ids.length>1?'duplicate-nodes':'duplicate-node',{ids});graph.centerOn(selected,{select:ids.length<=1});$('#canvas').focus({preventScroll:true});return true;
 }
 const stopNodeClipboardShortcuts=mountNodeClipboardShortcuts(document,{copy:()=>copyBeat(),cut:()=>copyBeat(true),paste:pasteBeat,duplicate:duplicateBeat,enabled:()=>mode==='chapter'});
+// Keep creation controls aligned with the canonical Library kinds.
+for(const [kind,label] of [['combatAction','New Combat Action'],['effect','New Effect Card'],['enemy','New Enemy']]){
+ const b=document.createElement('button');b.type='button';b.dataset.addKind=kind;b.textContent=label;document.querySelector('.library-create-buttons').append(b);
+}
+{const b=document.createElement('button');b.type='button';b.dataset.add='combat';b.textContent='+ Combat';document.querySelector('[data-add="random"]').after(b);}
 for(const b of document.querySelectorAll('[data-add-kind]'))b.onclick=()=>edit('add-definition',{kind:b.dataset.addKind});
 for(const b of document.querySelectorAll('[data-add]'))b.onclick=()=>{graph.cancel();edit('add-node',{type:b.dataset.add,position:{x:(150-graph.view.x)/graph.view.z,y:(140-graph.view.y)/graph.view.z}});};
 $('#duplicate').onclick=duplicateBeat;

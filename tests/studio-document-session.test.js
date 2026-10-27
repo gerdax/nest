@@ -109,14 +109,14 @@ test('deleting a beat unlinks direct, weighted and fallback references in one un
   const project=createProject(), chapter=project.chapters[0];
   chapter.nodes.find(n=>n.type==='random').fallback='arrival';
   chapter.nodes.find(n=>n.type==='random').routes[0].target='arrival';
-  chapter.nodes.at(-1).connections.next='arrival';
+  chapter.nodes.find(n=>n.id==='quiet-passage').connections.next='arrival';
   const state=session(project), result=state.run('delete-node');
   const remaining=result.project.chapters[0];
   assert.equal(remaining.startNode,'supplies');
   assert.equal(result.result.selection.selected,'supplies');
   assert.equal(remaining.nodes.find(n=>n.type==='random').routes[0].target,false);
   assert.equal(remaining.nodes.find(n=>n.type==='random').fallback,false);
-  assert.equal(remaining.nodes.at(-1).connections.next,false);
+  assert.equal(remaining.nodes.find(n=>n.id==='quiet-passage').connections.next,false);
   state.history.undo();assert.deepEqual(state.history.document,project);
 });
 
@@ -151,7 +151,7 @@ test('new chapter and beat commands return navigation without mutating the calle
   assert.equal(documentScope(beat.project,{...next,selected:node.id},{scope:'local-definition',placementId:node.items[0].id}).kind,'item');
   assert.equal(state.selection.chapterId,'chapter-1');
   assert.deepEqual(validateProject(beat.project),[]);
-  assert.equal(compileChapter(beat.project).nodes.length,2);
+  assert.equal(compileChapter(beat.project).nodes.length,3,'opening beat, added container and mandatory Death');
 });
 
 test('Add beat resolves placement after canceling an active graph pan',async()=>{
@@ -206,11 +206,11 @@ test('group deletion removes incoming links, repairs the start and supports one 
   state.history.redo();assert.deepEqual(state.history.document,deleted);
 });
 
-test('deleting every beat leaves an empty draft chapter and undo restores it',()=>{
+test('deleting every ordinary beat retains mandatory Death in a draft chapter and undo restores it',()=>{
   const project=createProject(),state=session(project);
-  const outcome=state.run('delete-nodes',{ids:project.chapters[0].nodes.map(node=>node.id)});
+  const outcome=state.run('delete-nodes',{ids:project.chapters[0].nodes.filter(node=>node.type!=='death').map(node=>node.id)});
   assert.equal(outcome.failure,undefined);
-  assert.deepEqual(outcome.project.chapters[0].nodes,[]);
+  assert.deepEqual(outcome.project.chapters[0].nodes,project.chapters[0].nodes.filter(node=>node.type==='death'));
   assert.equal(outcome.project.chapters[0].startNode,'');
   state.history.undo();assert.deepEqual(state.history.document,project);
 });

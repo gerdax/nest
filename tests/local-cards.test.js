@@ -68,7 +68,7 @@ test('disabled intro panel retains data and existing saves default to shared and
  const p=createProject(),n=p.chapters[0].nodes.find(n=>n.type==='container'),intro=structuredClone(n.intro);
  assert.match(nodeInspector(p,p.chapters[0],n),/Show introduction/);n.introEnabled=false;
  assert.doesNotMatch(nodeInspector(p,p.chapters[0],n),/data-placement="supply-intro"/);assert.deepEqual(n.intro,intro);
- assert.ok(p.library.every(d=>d.visibility===undefined));assert.deepEqual(validateProject(p),[]);
+ const deathCardId=p.chapters[0].nodes.find(node=>node.type==='death').cards[0].definitionId;assert.ok(p.library.filter(d=>d.id!==deathCardId).every(d=>d.visibility===undefined));assert.equal(p.library.find(d=>d.id===deathCardId).visibility,'local');assert.deepEqual(validateProject(p),[]);
  n.introEnabled='false';assert.ok(validateProject(p).some(e=>e.message.includes('toggle')));
 });
 

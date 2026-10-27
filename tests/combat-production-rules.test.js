@@ -1,0 +1,14 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {attackProfile,createEncounter,playerChoices,resolveCombatAttack,healthReactions,completePlayerTurn,checkOdds} from '../project/combat-rules.js';
+const check={pool:[{sides:6,count:3}],modifier:0,target:11};
+const shoot={id:'shoot',kind:'combatAction',check,attack:{source:'weapon'}};
+const burst={...shoot,id:'burst',check:{...check,target:9},attack:{source:'weapon',maxBonus:1},cooldown:1};
+const weapon={id:'pistol',kind:'item',subtype:'weapon',combat:{damage:{min:1,max:2},actions:[{definitionId:'shoot'},{definitionId:'burst'}]}};
+const enemy={health:4,attacks:[{id:'bite'}],reactions:[{id:'weak',threshold:{numerator:2,denominator:3}},{id:'hurt',threshold:{numerator:1,denominator:3}}]};
+const dice=v=>v.map(value=>({sides:6,value}));
+test('authored exact odds and source-relative ranges',()=>{assert.equal(checkOdds(check).probability,.5);assert.equal(checkOdds(burst.check).probability,160/216);assert.deepEqual(attackProfile(burst,weapon),{min:1,max:3});assert.throws(()=>attackProfile(shoot));});
+test('samples each successful range uniformly, never samples damage on miss',()=>{for(const [random,want] of [[0,1],[.34,2],[.99,3]])assert.equal(resolveCombatAttack({actor:'player',action:burst,source:weapon,targetHp:4,dice:dice([3,3,3]),random:()=>random}).damage,want);assert.equal(resolveCombatAttack({actor:'player',action:shoot,source:weapon,targetHp:4,dice:dice([1,1,1]),random:()=>assert.fail()}).damage,0);});
+test('clamps lethal damage and validates physical dice',()=>{assert.equal(resolveCombatAttack({actor:'player',action:burst,source:weapon,targetHp:1,dice:dice([6,6,6]),random:()=>.99}).targetHp,0);assert.throws(()=>resolveCombatAttack({actor:'player',action:shoot,source:weapon,targetHp:4,dice:dice([7,2,2])}));});
+test('fraction crossings choose only strongest and skip lethal',()=>{assert.equal(healthReactions(enemy,4,2)[0].id,'weak');assert.equal(healthReactions(enemy,4,1)[0].id,'hurt');assert.deepEqual(healthReactions(enemy,2,0),[]);assert.deepEqual(healthReactions(enemy,2,2),[]);});
+test('two weapons share Actions without sharing cooldown',()=>{const second={...weapon,id:'rifle',combat:{...weapon.combat,damage:{min:2,max:3}}};let state=createEncounter(enemy,'enc');const compiled={library:[shoot,burst],variables:[],combat:{defaultActions:[]}},run={variables:{},inventory:[weapon,second]};state=completePlayerTurn(state,burst,weapon);let choices=playerChoices(compiled,run,state);assert.equal(choices.find(c=>c.id==='burst@pistol').disabled,true);assert.equal(choices.find(c=>c.id==='burst@rifle').disabled,false);assert.equal(choices.find(c=>c.id==='shoot@pistol').disabled,false);state=completePlayerTurn(state,shoot,weapon);assert.equal(state.cooldowns['burst@pistol'],0);assert.deepEqual(createEncounter(enemy,'new').cooldowns,{});});

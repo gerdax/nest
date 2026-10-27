@@ -39,6 +39,7 @@ export function captureNodesClipboard(project, chapterId, ids, {cut = false} = {
   const chapter = project.chapters.find(chapter => chapter.id === chapterId);
   const nodes = Array.isArray(ids) ? [...new Set(ids)].map(id=>chapter?.nodes.find(node=>node.id===id)) : [];
   if (!nodes.length || nodes.some(node=>!node)) throw createError('STUDIO_THE_SELECTED_BEAT_NO_LONGER_EXISTS');
+  if(cut&&nodes.some(node=>node.type==='death'))throw new Error('The mandatory Death beat cannot be cut');
   const dependencies = definitionGraph(project).reachableFrom(nodes);
   const definitions = project.library.filter(definition => dependencies.has(definition.id));
   return structuredClone({kind:'nest-nodes-clipboard', projectId:project.id, chapterId, nodes, definitions,
@@ -57,6 +58,10 @@ export function pasteNodesClipboard(project, chapter, payload, {position} = {}) 
   }
   if (!project.id || payload.projectId !== project.id) throw createError('STUDIO_COPIED_BEATS_BELONG_TO_A_DIFFERENT_PROJECT');
   if (!project.chapters.includes(chapter)) throw createError('STUDIO_THE_DESTINATION_CHAPTER_NO_LONGER_EXISTS');
+  if(sources.some(node=>node.type==='death')&&chapter.id===payload.chapterId)throw new Error('Death cannot be duplicated in its chapter');
+  if(sources.filter(node=>node.type==='death').length>1)throw new Error('A chapter must have exactly one Death beat');
+  const destinationDeath=chapter.nodes.find(node=>node.id===chapter.deathNode&&node.type==='death');
+  if(sources.some(node=>node.type==='death')&&!destinationDeath)throw new Error('Destination Death beat is missing');
   const nodes = structuredClone(sources), definitions = [], definitionIds = new Map(), inventoryIds = new Map();
   const crossChapter = chapter.id !== payload.chapterId;
   const variables = [], variableIds = new Map();
@@ -132,7 +137,7 @@ export function pasteNodesClipboard(project, chapter, payload, {position} = {}) 
     outputMaps.set(node,remapOutput);
   }
   // Allocate every beat identity before resolving any peer connection.
-  const nodeIds=new Map(nodes.map(node=>[node.id,!payload.cut || chapter.nodes.some(candidate=>candidate.id===node.id)?uid('node'):node.id]));
+  const nodeIds=new Map(nodes.map(node=>[node.id,node.type==='death'?destinationDeath.id:!payload.cut || chapter.nodes.some(candidate=>candidate.id===node.id)?uid('node'):node.id]));
   const origin=sources[0],dx=(position?.x ?? (origin.x ?? 100)+40)-(origin.x ?? 100),dy=(position?.y ?? (origin.y ?? 100)+40)-(origin.y ?? 100);
   const target = id => nodeIds.has(id) ? nodeIds.get(id) : id === null || id === false ? id
     : chapter.id === payload.chapterId && chapter.nodes.some(candidate => candidate.id === id) ? id : false;
@@ -156,7 +161,7 @@ export function pasteNodesClipboard(project, chapter, payload, {position} = {}) 
     chapter.variables.push(...variables);
   }
   project.library.push(...definitions);
-  chapter.nodes.push(...nodes);
-  if (!chapter.startNode) chapter.startNode = nodes[0].id;
-  return nodes;
+  const added=nodes.map(node=>{if(node.type==='death'){destinationDeath.cards=node.cards;return destinationDeath;}chapter.nodes.push(node);return node;});
+  if (!chapter.startNode) chapter.startNode = added.find(node=>node.type!=='death')?.id||'';
+  return added;
 }

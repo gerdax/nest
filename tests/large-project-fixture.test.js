@@ -32,7 +32,7 @@ test('large fixture is deterministic, valid, forward-only and portable without s
       }
     }
     const compiled = compileChapter(project, chapter.id);
-    assert.equal(compiled.nodes.length, 60);
+    assert.equal(compiled.nodes.length, 61, 'compilation adds the mandatory Death beat to this legacy fixture');
     compiled.nodes[0].cards[0].text = 'Detached compiled card';
     compiled.library[0].text = 'Detached compiled library';
     compiled.variables[0].initial = 0;

@@ -1,3 +1,4 @@
+import {restoreFixtureDefaults} from './fixtures/combat-project-support.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createProject,createChapter,parseProject,exportChapter,importChapter,compileChapter,validateProject,normalizeLocalOwnership} from '../project/model.js';
@@ -44,7 +45,7 @@ test('new chapter creation assigns its owner before inserting the unattached fir
 });
 test('deleting a chapter removes its unplaced owned drafts but preserves another owner, with undo',()=>{
  const {p,chapter}=fixture();
- const other=createChapter('other');other.nodes=[{id:'end',type:'linear',name:'End',x:0,y:0,cards:[{id:'p',definitionId:'arrival'}],connections:{next:null}}];other.startNode='end';p.chapters.push(other);
+ const other=createChapter('other');other.nodes=[{id:'end',type:'linear',name:'End',x:0,y:0,cards:[{id:'p',definitionId:'arrival'}],connections:{next:null}}];other.startNode='end';p.chapters.push(other);restoreFixtureDefaults(p);
  const draft={id:'draft',kind:'event',name:'Draft',text:'',image:'',visibility:'local',chapterId:chapter.id,effects:[]};
  const surviving={...draft,id:'surviving',chapterId:other.id};p.library.push(draft,surviving);normalizeLocalOwnership(p);
  const before=structuredClone(p),history=new DocumentHistory(p),drafts=new LocalCardDrafts();
@@ -77,7 +78,7 @@ test('legacy migration keeps inventory aliases separate from non-Item definition
  p.library.push({id:'alias-action',kind:'action',visibility:'local',name:'Action',text:'',image:'',resolution:'direct',conditions:[{source:'inventory',key:'alias-action',op:'has'}],effects:[{op:'addItem',key:'variant-one'},{op:'addItem',key:'variant-two'}]},
  ...['variant-one','variant-two'].map(id=>({id,kind:'item',visibility:'local',name:id,text:'',image:'',inventoryKey:'alias-action',onCollect:[]})));
  chapter.nodes[0].cards=[{id:'action-placement',definitionId:'alias-action'}];
- const other=structuredClone(chapter);other.id='other';p.chapters.push(other);
+ const other=structuredClone(chapter);other.id='other';p.chapters.push(other);restoreFixtureDefaults(p);
  assert.deepEqual(validateProject(p),[]);
  normalizeLocalOwnership(p);assert.deepEqual(validateProject(p),[]);
  for(const c of p.chapters){

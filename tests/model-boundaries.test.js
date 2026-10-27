@@ -10,8 +10,10 @@ import * as packages from '../project/packages.js';
 import * as validation from '../project/validation.js';
 import * as normalization from '../project/normalization.js';
 import * as ownership from '../project/local-ownership.js';
+import * as combat from '../project/combat-model.js';
 
 const owners = {
+  ...Object.fromEntries(['createCombatAction','createEffectCard','createEnemyAttack','createEnemy','createWeapon','createCombatDefaults','ensureCombatDefaults','ensureChapterDeath','createProjectChapter'].map(name=>[name,combat])),
   cloneProject: data,
   createChapter: data,
   chapterVariables: data,
@@ -43,7 +45,7 @@ test('model internals form an acyclic graph independent of the public facade', a
   const modules = [
     'model-data.js', 'graph.js', 'compilation.js', 'migration.js',
     'packages.js', 'validation.js', 'normalization.js',
-    'dependencies.js', 'cards.js', 'nodeTypes.js', 'local-ownership.js',
+    'dependencies.js', 'cards.js', 'nodeTypes.js', 'local-ownership.js', 'combat-model.js',
   ];
   const edges = new Map(await Promise.all(modules.map(async name => {
     const source = await readFile(new URL(`../project/${name}`, import.meta.url), 'utf8');

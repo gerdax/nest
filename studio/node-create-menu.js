@@ -9,7 +9,7 @@ export function mountNodeCreateMenu({onChoose, onDismiss, returnFocus, document:
  menu.className='node-create-menu';menu.hidden=true;menu.tabIndex=-1;
  menu.setAttribute('role','dialog');menu.setAttribute('aria-label','Create and connect a beat');
  menu.innerHTML='<div class="node-create-prompt">Create and connect</div><div class="node-create-types">'+Object.entries(nodeTypes)
-  .filter(([,descriptor])=>descriptor.create)
+  .filter(([type,descriptor])=>descriptor.create&&type!=='death')
   .map(([type,descriptor])=>`<button type="button" data-node-type="${esc(type)}" title="${esc(descriptor.label)}" aria-label="Create ${esc(descriptor.label)} beat">${nodeIcon(type)}<span>${esc(descriptor.label)}</span></button>`).join('')+'</div>';
  doc.body.append(menu);
  const buttons=[...menu.querySelectorAll('[data-node-type]')];

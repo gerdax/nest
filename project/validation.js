@@ -1,3 +1,4 @@
+import { ensureCombatDefaults } from './combat-model.js';
 import { errorMessage } from '../errors.js';
 import { isTagKey, tagKey, tagIdFromKey, validItemTagName } from './item-tags.js';
 import { isStatVariable, validStatValue, compatibleStatVariable } from './checks.js';
@@ -11,10 +12,11 @@ import { definitionGraph } from './dependencies.js';
 import { createLibraryIndex } from './library-index.js';
 
 export function validateProject(project, {allowDraft = false} = {}) {
+  if(project?.version===2)project=ensureCombatDefaults(JSON.parse(JSON.stringify(project)));
   const errors = [];
   const add = (message, chapterId, nodeId) => errors.push({message, ...(chapterId ? {chapterId}: {}), ...(nodeId ? {nodeId}: {})});
   if (!object(project)) return [{message: errorMessage('VALIDATION_PROJECT_MUST_BE_AN_OBJECT')}];
-  if (project.version !== 2 || project.kind !== 'nest-project') add(errorMessage('VALIDATION_PROJECT_NEEDS_VERSION_2_AND_KIND_NEST_PROJECT'));
+  if (project.version !== 3 || project.kind !== 'nest-project') add('Project needs version 3 and kind nest-project');
   if (project.ignoreAllOverrides !== undefined && typeof project.ignoreAllOverrides !== 'boolean') add(errorMessage('VALIDATION_INVALID_IGNORE_ALL_OVERRIDES_SETTING'));
   if (project.allowCycles !== undefined && typeof project.allowCycles !== 'boolean') add(errorMessage('VALIDATION_INVALID_ALLOW_BEAT_CYCLES_SETTING'));
   if (project.ownedItemsVisibility !== undefined && !['disabled','hidden'].includes(project.ownedItemsVisibility)) add(errorMessage('VALIDATION_INVALID_OWNEDITEMSVISIBILITY_SETTING'));
@@ -148,7 +150,56 @@ export function validateProject(project, {allowDraft = false} = {}) {
       }
     }
   }
+  function typedRef(ref, kind, label) {
+    if(allowDraft&&object(ref)&&ref.definitionId==='')return;
+    if(!object(ref)||!named(ref.definitionId)){add(`${label}: expected ${kind} reference`);return;}
+    const d=definitions.get(ref.definitionId);
+    if((!d&&!allowDraft)||(d&&d.kind!==kind))add(`${label}: expected ${kind} definition ${ref.definitionId}`);
+    if(d?.visibility==='local')add(`${label}: combat references require a shared Library definition`);
+  }
+  function damage(value,label){if(!object(value)||!Number.isSafeInteger(value.min)||!Number.isSafeInteger(value.max)||value.min<0||value.max<value.min)add(`${label}: invalid damage range`);}
+  function embedded(card,kinds,label){
+    if(!object(card)||!named(card.id)||!kinds.includes(card.kind)||typeof card.name!=='string'||typeof card.text!=='string'||typeof card.image!=='string'){add(`${label}: invalid embedded card`);return;}
+    if(list(card.effects).length)add(`${label}: additional embedded Enemy card effects are deferred`);
+    inspectCard(card,label);
+  }
+  function inspectCombat(d,label){
+    if(d.kind==='effect'&&(d.onCollect!==undefined||list(d.effects).length||list(d.successEffects).length||list(d.failureEffects).length))add(`${label}: Effect Cards are presentation only and cannot apply independent effects`);
+    if(d.kind==='combatAction'){
+      for(const key of ['effects','successEffects','failureEffects'])if(list(d[key]).length)add(`${label}: additional combat effects are deferred; use the attack damage profile`);
+      if(list(d.costs).some(c=>c.source!=='variable'||c.key!=='energy'))add(`${label}: combat supports Energy costs only in this milestone`);
+      if(!object(d.attack)||!['self','weapon','none'].includes(d.attack.source))add(`${label}: invalid attack source`);
+      else {if(d.attack.source==='self')damage(d.attack.damage,label);if(d.attack.source!=='none'&&(!Number.isSafeInteger(d.attack.minBonus)||!Number.isSafeInteger(d.attack.maxBonus)))add(`${label}: invalid damage bonuses`);}
+      if(!Number.isSafeInteger(d.cooldown)||d.cooldown<0)add(`${label}: invalid cooldown`);
+    }
+    if(d.kind==='item'&&d.subtype!==undefined){
+      if(d.subtype!=='weapon'||!object(d.combat))add(`${label}: invalid Weapon profile`);
+      else {damage(d.combat.damage,label);if(list(d.combat.effects).length)add(`${label}: intrinsic effects beyond damage are deferred`);if(!Array.isArray(d.combat.effects)||!Array.isArray(d.combat.actions))add(`${label}: Weapon effects/actions must be lists`);else {inspectEffects(d.combat.effects,label);for(const ref of d.combat.actions)typedRef(ref,'combatAction',label);if(new Set(d.combat.actions.map(r=>r?.definitionId)).size!==d.combat.actions.length)add(`${label}: duplicate Provided combat Action`);}}
+    }
+    if(d.kind==='enemy'){
+      if(!Number.isSafeInteger(d.health)||d.health<1||typeof d.introEnabled!=='boolean')add(`${label}: invalid Enemy health/introduction`);
+      for(const key of ['intro','attacks','reactions','death'])if(!Array.isArray(d[key]))add(`${label}: Enemy ${key} must be a list`);
+      if(!list(d.attacks).length||!list(d.death).length||(d.introEnabled&&!list(d.intro).length))add(`${label}: Enemy requires attack, death and enabled introduction content`);
+      const ids=new Set();const identity=card=>{if(object(card)){if(ids.has(card.id))add(`${label}: duplicate embedded identity ${card.id}`);ids.add(card.id);}};
+      for(const card of list(d.intro)){identity(card);embedded(card,['event','caption'],label);}
+      identity(d.hit);embedded(d.hit,['effect'],label);
+      for(const card of list(d.death)){identity(card);embedded(card,['event','caption'],label);}
+      for(const attack of list(d.attacks)){
+        identity(attack);
+        if(!object(attack)||!named(attack.id)||typeof attack.name!=='string'||typeof attack.text!=='string'||typeof attack.image!=='string'){add(`${label}: invalid embedded attack`);continue;}
+        inspectCard({...attack,kind:undefined,resolution:'check'},label);damage(attack.damage,label);
+        if(list(attack.costs).length||list(attack.effects).length)add(`${label}: Enemy costs/additional effects are deferred in this milestone`);
+        if(!Array.isArray(attack.costs)||!Array.isArray(attack.effects))add(`${label}: attack costs/effects must be lists`);
+      }
+      for(const r of list(d.reactions)){
+        identity(r);const t=r?.threshold;
+        if(!object(r)||!named(r.id)||!object(t)||!Number.isSafeInteger(t.numerator)||!Number.isSafeInteger(t.denominator)||t.denominator<=0||t.numerator<=0||t.numerator>=t.denominator)add(`${label}: invalid health threshold`);
+        identity(r?.card);embedded(r?.card,['caption','effect'],label);
+      }
+    }
+  }
   function inspectCard(d, label) {
+    inspectCombat(d,label);
     if (d.contextOverrideImage !== undefined && typeof d.contextOverrideImage !== 'boolean') add(errorMessage('VALIDATION_OVERRIDE_IMG_MUST_BE_A_BOOLEAN', {label}));
     for (const key of ['imageScale', 'imageOffsetX', 'imageOffsetY']) if (d[key] !== undefined && (!Number.isFinite(d[key])
       || d[key] < (key === 'imageScale' ? 10: -100) || d[key] > (key === 'imageScale' ? 400: 100))) add(errorMessage('VALIDATION_INVALID_IMAGE_SCALE_OR_POSITION', {label}));
@@ -188,7 +239,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
     if (!object(d)) continue;
     if (d.contextItemId !== undefined || d.contextOverrideImage !== undefined) add(errorMessage('VALIDATION_DEFINITION_INVENTORY_CONTEXT_BELONGS_TO_A_FORK_CHOICE_PLACEMENT', {definitionId: d.id}));
     if (d.visibility !== undefined && !['local', 'shared'].includes(d.visibility) || !['event', 'caption',
-      'narrative', 'action', 'item', 'health', 'energy'].includes(d.kind) || typeof d.name !== 'string' || typeof d.text !== 'string'
+      'narrative', 'action', 'item', 'health', 'energy', 'combatAction', 'effect', 'enemy'].includes(d.kind) || typeof d.name !== 'string' || typeof d.text !== 'string'
       || typeof d.image !== 'string' || d.heading !== undefined && typeof d.heading !== 'string' || d.showName !== undefined
       && typeof d.showName !== 'boolean' || d.flipImage !== undefined && typeof d.flipImage !== 'boolean'
       || d.inventoryKey !== undefined && !named(d.inventoryKey)) add(errorMessage('VALIDATION_DEFINITION_HAS_INVALID_CONTENT', {definitionId: d.id}));
@@ -215,6 +266,9 @@ export function validateProject(project, {allowDraft = false} = {}) {
       vars = globals;
     } else inspectCard(d, `Definition ${d.id}`);
   }
+  if(typeof project.showDeathBeat!=='boolean')add('Show death beat must be a boolean');
+  if(!object(project.combat))add('Project requires combat settings');
+  else {if(!Array.isArray(project.combat.defaultActions))add('Default combat Actions must be a list');else {if(new Set(project.combat.defaultActions.map(r=>r?.definitionId)).size!==project.combat.defaultActions.length)add('Duplicate Default combat Action');for(const ref of project.combat.defaultActions){typedRef(ref,'combatAction','Default combat Action');if(definitions.get(ref?.definitionId)?.attack?.source==='weapon')add('Default combat Action requires a source Weapon');}}typedRef(project.combat.playerHit,'effect','Player Hit');}
   if (!allowDraft && !chapterIds.has(project.activeChapterId)) add(errorMessage('VALIDATION_ACTIVE_CHAPTER_MUST_EXIST'));
   for (const chapter of chapters) {
     if (!object(chapter)) continue;
@@ -224,7 +278,13 @@ export function validateProject(project, {allowDraft = false} = {}) {
       add(errorMessage('VALIDATION_INVALID_CHAPTER_STRUCTURE'), cid);
       continue;
     }
+    if(chapter.nodes.some(n=>n?.type==='combat')) {
+      const health=vars.get('health');
+      if(!health||health.type!=='number'||!Number.isSafeInteger(health.initial)||(health.min!==undefined&&health.min>0)||(health.max!==undefined&&(!Number.isSafeInteger(health.max)||health.max<1)))add('Combat requires integer player Health with bounds allowing zero',cid);
+    }
     const nodeIds = seen(chapter.nodes, 'Beat');
+    if(chapter.nodes.filter(n=>n?.type==='death').length!==1 || chapter.nodes.find(n=>n?.id===chapter.deathNode)?.type!=='death')add('Chapter must select exactly one Death beat',cid);
+    if(chapter.startNode===chapter.deathNode)add('Death cannot be the chapter start beat',cid);
     if (!allowDraft && !nodeIds.has(chapter.startNode)) add(errorMessage('VALIDATION_START_BEAT_MUST_EXIST'), cid);
     if (chapter.allowCycles !== undefined && typeof chapter.allowCycles !== 'boolean') add(errorMessage('VALIDATION_INVALID_ALLOW_NODE_CYCLES_SETTING'), cid);
     if (chapter.initialValues !== undefined) {
@@ -254,6 +314,8 @@ export function validateProject(project, {allowDraft = false} = {}) {
       if (node.unavailableActions !== undefined && (!['fork','linear'].includes(node.type) || !['project','disabled','hidden','triggers-only','disabled-triggers'].includes(node.unavailableActions))) add(errorMessage('VALIDATION_NODE_UNAVAILABLE_ACTIONS_INVALID', {label}), cid, nid);
       if (node.introOnce !== undefined && typeof node.introOnce !== 'boolean') add(errorMessage('VALIDATION_INVALID_SHOW_ONCE_TOGGLE', {label}), cid, nid);
       if (node.introEnabled !== undefined && typeof node.introEnabled !== 'boolean') add(errorMessage('VALIDATION_INVALID_INTRODUCTION_TOGGLE', {label}), cid, nid);
+      if(node.type==='death' && (!Array.isArray(node.cards)||!node.cards.length||node.intro!==undefined||!object(node.connections)||Object.keys(node.connections).length))add('Death requires cards and no introduction or connections',cid,nid);
+      if(node.type==='combat'){typedRef(node.enemy,'enemy',label);if(['intro','introEnabled','cards','attacks','health','hit','reactions','death','combat'].some(key=>Object.hasOwn(node,key)))add('Combat does not support encounter overrides',cid,nid);if(object(node.connections)&&Object.keys(node.connections).some(k=>k!=='victory'))add('Combat has only a Victory output',cid,nid);}
       const ps = placements(node), pids = new Set();
       for (const p of ps) {
         if (!object(p) || !named(p.id) || typeof p.definitionId !== 'string') {
@@ -280,7 +342,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
         if (isTagKey(p.contextItemId) && !itemsById.has(p.contextItemId) && p.contextOverrideImage === true) add(errorMessage('VALIDATION_TAG_CONTEXT_CANNOT_OVERRIDE_ARTWORK', {label}), cid, nid);
         if (!contextValid) add(errorMessage('VALIDATION_INVENTORY_CONTEXT_NEEDS_A_NATIVE_FORK_ACTION_CHOICE_AND_AN_ITEM_DEFINITION_OR_TAG', {label}), cid, nid);
         if (d) {
-          if (['linear', 'fork', 'container'].includes(node.type) && !allowedCardKinds(node.type, p === node.intro ? 'intro': list(node.choices).includes(p) ? 'choices': list(node.items).includes(p) ? 'items': 'cards').includes(canonicalCardKind(d.kind))) add(errorMessage('VALIDATION_INCOMPATIBLE_CARD_KIND', {label}),
+          if (['linear', 'fork', 'container', 'death'].includes(node.type) && !allowedCardKinds(node.type, p === node.intro ? 'intro': list(node.choices).includes(p) ? 'choices': list(node.items).includes(p) ? 'items': 'cards').includes(canonicalCardKind(d.kind))) add(errorMessage('VALIDATION_INCOMPATIBLE_CARD_KIND', {label}),
             cid, nid);
           // Raw inspection above reports malformed mechanics. Resolve only when
           // every source has list shapes, including overridden definition fields.
@@ -326,6 +388,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
           || raw.unavailable !== undefined && !['hidden', 'disabled'].includes(raw.unavailable)) add(errorMessage('VALIDATION_INVALID_LEGACY_ARTWORK', {label}),
           cid, nid);
         if (!validRef(raw.definitionId, definitions)) add(errorMessage('VALIDATION_UNKNOWN_LEGACY_DEFINITION', {label}), cid, nid);
+        if(['enemy','combatAction','effect'].includes(definitions.get(raw.definitionId)?.kind))add('Combat-only definitions cannot enter legacy beat slots',cid,nid);
         inspectCard(raw, label);
         if (object(raw.overrides)) inspectCard(raw.overrides, label);
         else if (raw.overrides !== undefined) add(errorMessage('VALIDATION_INVALID_LEGACY_PLACEMENT_MECHANICS', {label}), cid, nid);
@@ -373,6 +436,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
         || !Number.isSafeInteger(node.count) || node.count < 1 || node.count > node.pool.length || node.pool.some(p => !object(p)
         || !Number.isFinite(p.weight) || p.weight <= 0 || !allowDraft && !node.sequences.some(s => s.id === p.sequenceId)))) add(errorMessage('VALIDATION_INVALID_LEGACY_POOL', {label}),
         cid, nid);
+      if(targets.includes(chapter.deathNode))add('Death cannot have incoming graph connections',cid,nid);
       if (!allowDraft) for (const t of targets) if (t !== null && t !== false && !nodeIds.has(t)) add(errorMessage('VALIDATION_UNKNOWN_TARGET', {label, t}), cid, nid);
       edges.set(nid, targets.filter(t => t !== null && nodeIds.has(t)));
     }

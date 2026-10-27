@@ -1,3 +1,4 @@
+import {restoreFixtureDefaults} from './fixtures/combat-project-support.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -12,6 +13,7 @@ import {chapterSettingsInspector} from '../studio/inspectors.js';
 function session(count=3) {
  const project=createProject();
  project.chapters=Array.from({length:count},(_,index)=>({...structuredClone(project.chapters[0]),id:`chapter-${index+1}`}));
+ restoreFixtureDefaults(project);
  const history=new DocumentHistory(project),drafts=new LocalCardDrafts();
  const remove=id=>transactDocument(history,drafts,draft=>applyDocumentCommand(draft,{chapterId:id},'delete-chapter',{id},drafts));
  return {project,history,remove};
@@ -57,7 +59,7 @@ for(const [deleted,next] of [['chapter-1','chapter-2'],['chapter-2','chapter-3']
   assert.equal(outcome.project.chapters.some(chapter=>chapter.id===deleted),false);
   assert.equal(outcome.project.activeChapterId,next);
   assert.deepEqual(outcome.result.selection,{chapterId:next,selected:before.chapters[0].startNode});
-  assert.deepEqual(outcome.project.library,before.library);
+  assert.deepEqual(outcome.project.library,before.library.filter(definition=>definition.chapterId!==deleted),'shared definitions and other chapter defaults survive; deleted Death Caption is removed');
   assert.deepEqual(outcome.project.variables,before.variables);
   assert.deepEqual(validateProject(outcome.project),[]);
   assert.deepEqual(s.project,before);

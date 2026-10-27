@@ -1,3 +1,4 @@
+import {restoreFixtureDefaults} from './fixtures/combat-project-support.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createProject, compileChapter, parseProject, validateProject, exportChapter, importChapter} from '../project/model.js';
@@ -20,7 +21,7 @@ function fixture(kind='event') {
  project.library.push(definition);
  const placement={id:'placed',definitionId:definition.id};
  const node={id:'beat',name:'Beat',type:'linear',x:0,y:0,cards:[placement],connections:{next:null}};
- chapter.nodes=[node];chapter.startNode=node.id;
+ chapter.nodes=[node];chapter.startNode=node.id;restoreFixtureDefaults(project);
  return {project,chapter,definition,placement,node};
 }
 const mechanics=card=>Object.fromEntries(['conditions','effects','onCollect','costs','check','resolution','successEffects','failureEffects','value','permability'].filter(key=>card[key]!==undefined).map(key=>[key,card[key]]));

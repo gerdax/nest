@@ -1,3 +1,4 @@
+import {restoreFixtureDefaults} from './fixtures/combat-project-support.js';
 import { normalizeLocalOwnership } from '../project/local-ownership.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -17,6 +18,7 @@ function fixture() {
   }};
   const node = {id:'item-beat', name:'Item', type:'linear', x:0, y:0, cards:[placement], connections:{next:null}};
   chapter.nodes = [node]; chapter.startNode = node.id;
+  restoreFixtureDefaults(project);
   return {project, chapter, definition, placement, node};
 }
 

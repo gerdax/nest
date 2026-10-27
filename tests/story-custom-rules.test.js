@@ -1,3 +1,4 @@
+import {restoreFixtureDefaults} from './fixtures/combat-project-support.js';
 import { normalizeLocalOwnership } from '../project/local-ownership.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -15,6 +16,7 @@ function fixture(kind = 'event') {
   const placement = {id:'story-card', definitionId:definition.id, conditions:[{...condition}], overrides:{effects:[effect(4)]}};
   const node = {id:'story-beat', name:'Story', type:'linear', x:0, y:0, cards:[placement], connections:{next:null}};
   chapter.nodes = [node]; chapter.startNode = node.id;
+  restoreFixtureDefaults(project);
   return {project, chapter, definition, placement, node};
 }
 class Deck extends EventTarget {
@@ -146,6 +148,7 @@ function reusedLocalFixture({both = false, crossChapter = false} = {}) {
     id:'other-beat',name:'Other beat',type:'linear',x:0,y:0,cards:[sibling],connections:{next:null}
   }]});
   else node.cards.push(sibling);
+  restoreFixtureDefaults(project);
   // Allocation must avoid definitions whether or not they are currently placed.
   project.library.push({...createDefinition('event', 'story-2'), visibility:'local'});
   return {...state, sibling, original:structuredClone(definition)};

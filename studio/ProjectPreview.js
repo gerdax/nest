@@ -10,6 +10,7 @@ import { nodeTypeLabel } from '../project/nodeTypes.js';
 import { previewCardTarget } from './preview-card-target.js';
 import { DiceLayer } from './DiceLayer.js';
 import { PlayerUI } from './PlayerUI.js';
+import { CHECK_RESULT_TIMING } from './check-presentation.js';
 
 /** Playback UI owns dice/inventory presentation, never chapter resolution rules. */
 export class ProjectPreview {
@@ -121,7 +122,10 @@ export class ProjectPreview {
     if (state.checking || (this.errorMessage && this.errorNode !== state.activeNodeId)) this.errorMessage = null;
     if (!state.checking) this.checkPresentation = null;
     this.state = state;
-    this.nextChapterButton.hidden = !state.completed || !this.followingChapter();
+    this.nextChapterButton.hidden = !!state.terminalReason || !state.completed || !this.followingChapter();
+    if (!this.enemyReadout) { this.enemyReadout=document.createElement('span'); this.enemyReadout.className='combat-enemy-health'; this.root.querySelector('.chapter-preview-stage').append(this.enemyReadout); }
+    this.enemyReadout.hidden=!state.combat;
+    this.enemyReadout.textContent=state.combat?`${state.combat.enemyName} · ${state.combat.enemyHp} HP`:'';
     ++this.uiRevision;
     // Host diagnostics/navigation are deliberately outside the player UI.
     const variables = state.variables || {};
@@ -157,9 +161,9 @@ export class ProjectPreview {
       interaction:{busy:!!deck?.state?.busy, dragging:!!deck?.drag},
       definitions:{variables:this.compiled?.variables ?? [], library:this.compiled?.library ?? []},
       feedback:{result:this.checkPresentation, status:{
-        text:this.errorMessage || (state?.completed ? 'Chapter complete.' : state?.checking ? 'Resolving attempt…'
+        text:this.errorMessage || (state?.terminalReason==='death' ? 'Death.' : state?.completed ? 'Chapter complete.' : state?.checking ? 'Resolving attempt…'
           : state ? `Playing · ${node?.name || ''} · ${nodeTypeLabel(node?.type) || ''}` : ''),
-        visible:!!this.errorMessage || !!state?.completed,
+        visible:!!this.errorMessage || !!state?.completed || !!state?.terminalReason,
       }},
     };
   }
@@ -178,7 +182,7 @@ export class ProjectPreview {
   get healthValue() { return this.playerUI.healthValue; }
   get energyValue() { return this.playerUI.energyValue; }
   get status() { return this.playerUI.status; }
-  async roll(pool, { signal, target } = {}) {
+  async roll(pool, { signal, target, surface='check', color, throwSide } = {}) {
     if (this.destroyed || signal?.aborted) throw createError('STUDIO_PREVIEW_STOPPED');
     this.hideDice();
     const generation = this.diceGeneration;
@@ -190,12 +194,13 @@ export class ProjectPreview {
       this.result.removeAttribute('data-outcome');
       this.result.textContent = '';
     };
-    const slot = await deck.waitForCheckSurface({ signal, prepare });
+    const slot = surface==='front' ? deck.scene : await deck.waitForCheckSurface({ signal, prepare });
+    if (surface==='front') prepare(slot);
     if (this.destroyed || generation !== this.diceGeneration || signal?.aborted) throw createError('STUDIO_PREVIEW_STOPPED');
     // Hosts implementing only the readiness contract can prepare after settling.
     if (this.overlay.parentNode !== slot) prepare(slot);
     this.diceLayer = new DiceLayer(this.overlay.querySelector('.check-tray'));
-    const dice = this.dice = new DiceService({ appearance: this.diceLayer.appearance }).mount(this.diceLayer.tray);
+    const dice = this.dice = new DiceService({ appearance: {...this.diceLayer.appearance,...(color?{color}:{}),...(throwSide?{throwSide}:{})} }).mount(this.diceLayer.tray);
     try { return await dice.roll(pool, { signal }); }
     catch (error) { if (generation === this.diceGeneration) this.hideDice(); throw error; }
   }
@@ -208,15 +213,15 @@ export class ProjectPreview {
   async showResult(result) {
     if (this.destroyed || result.signal?.aborted) return;
     const generation = this.diceGeneration;
-    this.checkPresentation = { target: result.target, total: result.total, success: result.success };
+    this.checkPresentation = { target: result.target, total: result.total, success: result.success, ...(result.label?{label:result.label}:{}) };
     this.syncPlayerUI();
     const onAbort = () => { if (generation === this.diceGeneration) this.hideDice(); };
     result.signal?.addEventListener('abort', onAbort, { once: true });
     try {
-      await this.pauseResult(1100);
+      await this.pauseResult(CHECK_RESULT_TIMING.holdMs);
       if (generation !== this.diceGeneration || result.signal?.aborted) return;
       this.diceLayer?.fade();
-      await this.pauseResult(200);
+      await this.pauseResult(CHECK_RESULT_TIMING.fadeMs);
       if (generation === this.diceGeneration) {
         this.dice?.destroy(); this.dice = null;
         this.diceLayer?.destroy(); this.diceLayer = null;
@@ -239,7 +244,7 @@ export class ProjectPreview {
   }
   nextChapter() {
     const next = this.followingChapter();
-    if (this.destroyed || !this.state?.completed || !this.controller || !next) return false;
+    if (this.destroyed || this.state?.terminalReason || !this.state?.completed || !this.controller || !next) return false;
     const initialState = chapterEntryState(this.project, next.id, this.controller.state);
     this.play(this.project, next.id, undefined, {initialState});
     return this.chapterId === next.id;
@@ -256,6 +261,7 @@ export class ProjectPreview {
     this.playerUI.endInteractions();
     controller?.destroy(); deck?.destroy();
     this.playerUI.reset();
+    if(this.enemyReadout)this.enemyReadout.hidden=true;
     this.state = null; this.errorMessage = null; this.errorNode = null; this.compiled = null;
     this.hideDice();
     this.mount.replaceChildren(); this.stateReadout.hidden = true;

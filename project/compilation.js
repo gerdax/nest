@@ -1,3 +1,4 @@
+import { ensureCombatDefaults } from './combat-model.js';
 import { createError } from '../errors.js';
 import { normalizeLocalOwnership } from './local-ownership.js';
 import { retainsInventoryItems } from './nodeTypes.js';
@@ -10,12 +11,14 @@ import { discardPlacementContext, normalizeSingleItems } from './normalization.j
 
 export function compileChapter(project, chapterId = project.activeChapterId, {additionalDefinitionIds = []} = {}) {
   // All resolved mechanics and normalization must operate on detached data.
-  project = normalizeLocalOwnership(cloneProject(project));
+  project = normalizeLocalOwnership(ensureCombatDefaults(cloneProject(project)));
   const index = createLibraryIndex(list(project?.library));
   discardPlacementContext(project, index);
   const chapter = project.chapters.find(c => c.id === chapterId);
   if (!chapter) throw createError('PROJECT_UNKNOWN_CHAPTER_ID', { chapterId });
   const result = cloneProject(chapter);
+  result.combat = cloneProject(project.combat);
+  result.showDeathBeat = project.showDeathBeat;
   result.itemTags = cloneProject(project.itemTags || []);
   result.allowCycles = project.allowCycles !== false;
   result.ownedItemsVisibility = project.ownedItemsVisibility ?? 'disabled';
@@ -24,7 +27,7 @@ export function compileChapter(project, chapterId = project.activeChapterId, {ad
   result.cardBack = {...projectCardBack(project)};
   result.cardStyles = cloneProject(project.cardStyles || {});
   const graph = definitionGraph(project);
-  const reachable = graph.reachableFrom([chapter, ...additionalDefinitionIds.map(definitionId => ({definitionId})), ...project.library.filter(d => d.visibility !== 'local')]);
+  const reachable = graph.reachableFrom([chapter, project.combat, ...additionalDefinitionIds.map(definitionId => ({definitionId})), ...project.library.filter(d => d.visibility !== 'local')]);
   result.library = project.library.filter(d => d.visibility !== 'local' || reachable.has(d.id)).map(d => ({
     ...cloneProject(d),
     kind: canonicalCardKind(d.kind),

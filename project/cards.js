@@ -1,9 +1,13 @@
+import { createCombatAction, createEffectCard, createEnemy } from './combat-model.js';
 import { createError, errorMessage } from '../errors.js';
 import { isTagKey, itemTag, itemTagLabel } from './item-tags.js';
 import { editorCheckSummary, isStatVariable } from './checks.js';
 import { nodeSlotCardKinds } from './nodeTypes.js';
 /** The library stores content; placements store chapter-specific behavior. */
 export const cardKinds = Object.freeze({
+  combatAction: {label:'Combat Action',editorTint:'#d99bea',validate:()=>[]},
+  effect: {label:'Effect Card',editorTint:'#edb4dc',validate:()=>[]},
+  enemy: {label:'Enemy',editorTint:'#ef947c',validate:()=>[]},
   event: { label: 'Vignette', editorTint: '#96f7a7', validate: card => typeof card.text === 'string' ? [] : [errorMessage('PROJECT_VIGNETTE_TEXT_MUST_BE_A_STRING')] },
   caption: { label: 'Caption', editorTint: '#e4ffeb', validate: card => typeof card.text === 'string' ? [] : [errorMessage('PROJECT_CAPTION_TEXT_MUST_BE_A_STRING')] },
   action: { label: 'Action', editorTint: '#a59bea', validate: card => ['direct','check'].includes(card.resolution) ? [] : [errorMessage('PROJECT_ACTION_RESOLUTION_MUST_BE_DIRECT_OR_CHECK')] },
@@ -39,6 +43,9 @@ export function placementOverrideKeys(kind, definition) {
 export function createDefinition(kind, id) {
   kind = canonicalCardKind(kind);
   if (!Object.hasOwn(cardKinds, kind)) throw createError('PROJECT_UNKNOWN_CARD_KIND', { kind });
+  if(kind==='combatAction')return createCombatAction(id);
+  if(kind==='effect')return createEffectCard(id);
+  if(kind==='enemy')return createEnemy(id);
   const base = { id, kind, name: cardKinds[kind].label, showName:kind==='item'||isConsumableKind(kind), text: '', image: '' };
   if (isStoryKind(kind)) return { ...base, effects: [] };
   if (isConsumableKind(kind)) return { ...base, value: 1, onCollect: [] };
@@ -82,7 +89,7 @@ export function resolvePlacement(project, placement, index) {
 /** Only upfront variable costs belong in the Action energy marker. */
 export const isActionEnergyCost = cost => cost.source !== 'inventory' && cost.key === 'energy';
 export function actionEnergyCost(card) {
-  if (canonicalCardKind(card?.kind ?? card?.cardKind) !== 'action') return 0;
+  if (!['action','combatAction'].includes(canonicalCardKind(card?.kind ?? card?.cardKind))) return 0;
   return (card.costs || []).filter(isActionEnergyCost).reduce((total, cost) => total + cost.amount, 0);
 }
 export function cardSummaryParts(card, variables = [], library = [], itemTags = card.itemTags || [], { omitActionEnergyCost = false } = {}) {

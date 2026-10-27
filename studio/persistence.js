@@ -153,7 +153,7 @@ export function parseStudioImport(text, {kind} = {}) {
   const raw = JSON.parse(text);
   if (kind !== undefined) {
     if (!['project', 'chapter'].includes(kind)) throw createError('STUDIO_UNKNOWN_STUDIO_IMPORT_KIND');
-    if (raw?.version !== 2 || raw.kind !== `nest-${kind}`) {
+    if (![2,3].includes(raw?.version) || raw.kind !== `nest-${kind}`) {
       throw createError('STUDIO_EXPECTED_A_VERSION_2_NEST_FILE', {kind});
     }
   }

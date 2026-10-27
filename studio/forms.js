@@ -50,7 +50,7 @@ export function rules(project,list=[],path,scope,kind,{label,help,chapter,footer
 }
 export function actionFields(project,action,prefix='',scope='definition',chapter) {
  const p=key=>prefix+key;
- let html=rules(project,action.conditions,p('conditions'),scope,'conditions',{chapter,label:'Requirements',help:'All requirements must pass before this action can be selected. Requirements do not spend resources.'})+rules(project,action.costs,p('costs'),scope,'costs',{chapter})+rules(project,action.effects,p('effects'),scope,'effects',{chapter,label:'Progression effects',help:'Apply when the action completes. For a dice check, these apply on either outcome.'});
+ let html=rules(project,action.conditions,p('conditions'),scope,'conditions',{chapter,label:'Requirements',help:'All requirements must pass before this action can be selected. Requirements do not spend resources.'})+rules(project,action.costs,p('costs'),scope,'costs',{chapter})+(action.kind==='combatAction'?'':rules(project,action.effects,p('effects'),scope,'effects',{chapter,label:'Progression effects',help:'Apply when the action completes. For a dice check, these apply on either outcome.'}));
  html+=select('Resolution',action.resolution||'direct',[['direct','Direct'],['check','Dice check']],p('resolution'),scope);
  if(action.resolution==='check') {
   const check=action.check||{pool:[{sides:20,count:1}],modifier:0,target:10};
@@ -67,7 +67,7 @@ export function actionFields(project,action,prefix='',scope='definition',chapter
   html+=button('Add dice','add-rule',extras(scope,p('check.pool'),'dice'))+field('Modifier',check.modifier,p('check.modifier'),scope,'number')+select('Variable modifier',check.modifierVariable||'',[['','None'],...project.variables.filter(v=>v.type==='number').map(v=>[v.id,variableLabel(v)])],p('check.modifierVariable'),scope)+field('Target',check.target,p('check.target'),scope,'number');
   }
   html+='</div>';
-  html+=rules(project,action.successEffects,p('successEffects'),scope,'effects',{chapter,label:'On success effects'})+rules(project,action.failureEffects,p('failureEffects'),scope,'effects',{chapter,label:'On failure effects'});
+  if(action.kind!=='combatAction')html+=rules(project,action.successEffects,p('successEffects'),scope,'effects',{chapter,label:'On success effects'})+rules(project,action.failureEffects,p('failureEffects'),scope,'effects',{chapter,label:'On failure effects'});
  }
  return html;
 }

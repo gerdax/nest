@@ -1,3 +1,4 @@
+import {restoreFixtureDefaults} from './fixtures/combat-project-support.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { libraryRemovalPlan, removeLibraryDefinition } from '../studio/library-removal.js';
@@ -163,7 +164,7 @@ for (const selfLink of [false,true]) test(`Item carry-over blocks removal before
   const other={id:'next-chapter',name:'Next',variables:[],startNode:'next-node',nodes:[{
     id:'next-node',name:'Next',type:'linear',x:0,y:0,cards:[{id:'next-card',definitionId:'arrival'}],connections:{next:null},
   }]};
-  project.chapters.push(other);chapter.nextChapterId=selfLink ? chapter.id : other.id;
+  project.chapters.push(other);restoreFixtureDefaults(project);chapter.nextChapterId=selfLink ? chapter.id : other.id;
   assert.deepEqual(validateProject(project),[]);
   const compiled=compileChapter(project,chapter.id).nodes.at(-1).cards[0];
   const previous={variables:{},collectedItems:addInventory([],compiled)};

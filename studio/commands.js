@@ -123,6 +123,7 @@ export function duplicatePlacement(project,node,placement) {
  return copy;
 }
 export function duplicateNode(project,source) {
+ if(source.type==='death')throw new Error('Death cannot be duplicated');
  const node=structuredClone(source);node.id=uid('node');node.name+=' copy';node.x+=40;node.y+=40;
  cloneLocalDefinitions(project,node,owningChapterId(project,source));
  return node;
@@ -143,6 +144,7 @@ function cloneLocalDefinitions(project,value,chapterId) {
  return copies;
 }
 export function createNode(project,type,position={x:100,y:100},chapterId) {
+ if(type==='death')throw new Error('Each chapter already owns its mandatory Death beat');
  const defaults=createNodeDefaults(type,{makePlacement:kind=>makePlacement(project,kind,undefined,chapterId),uid});
  const node={id:uid('node'),name:nodeTypeLabel(type),type,...position,connections:{},...defaults};
  if(type==='random')delete node.connections;

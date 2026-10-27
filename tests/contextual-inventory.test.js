@@ -1,3 +1,4 @@
+import {restoreFixtureDefaults} from './fixtures/combat-project-support.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -109,7 +110,7 @@ for(const presentation of ['open','closed'])test(`explicit state refresh reconci
 });
 
 test('context item dependencies export transitively, remap collisions and protect local cleanup/deletion',()=>{
-  const project=fixture();project.chapters[0].nodes=project.chapters[0].nodes.filter(n=>n.id==='door');project.chapters[0].startNode='door';
+  const project=fixture();project.chapters[0].nodes=project.chapters[0].nodes.filter(n=>n.id==='door'||n.type==='death');project.chapters[0].startNode='door';restoreFixtureDefaults(project);
   const key=project.library.find(d=>d.id==='key');key.visibility='local';key.onCollect=[{op:'addItem',key:'potion'}];
   const references=definitionReferences(project,'key');assert.equal(references.some(r=>r.kind==='contextItem'),true);
   assert.throws(()=>deleteDefinition(project,'key'),/still used/);assert.equal(cleanupLocalDefinitions(project),0);

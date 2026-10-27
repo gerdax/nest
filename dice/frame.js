@@ -53,8 +53,15 @@ window.NestDiceFrame = {
       if (disposed) throw new Error('Dice tray closed.');
       box = new DiceBox({
         container: '#tray', id: 'nest-dice-canvas', origin: base.origin,
-        assetPath: new URL('assets/', base).pathname, theme: 'nest',
-        externalThemes: { nest: new URL('./themes/nest', import.meta.url).href },
+        assetPath: new URL('assets/', base).pathname,
+        theme: appearance.get('color') === 'black' ? 'nest-black' : 'nest',
+        // The camera maps positive world Z to the bottom of the tray.
+        ...(['top', 'bottom'].includes(appearance.get('throwSide'))
+          ? { throwSide: appearance.get('throwSide') } : {}),
+        externalThemes: {
+          nest: new URL('./themes/nest', import.meta.url).href,
+          'nest-black': new URL('./themes/nest-black', import.meta.url).href
+        },
         offscreen: false, scale: scale(), settleTimeout: 2000,
         mass: 2.4, gravity: 2.7, friction: 0.95, restitution: 0.05,
         angularDamping: 0.78, linearDamping: 0.68, spinForce: 3, throwForce: 4,

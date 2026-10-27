@@ -11,6 +11,22 @@ function walk(value, visit, path = []) {
   }
 }
 
+/** Typed definition slots use a single object reference shape across settings,
+ * Weapon links, Combat beats, placements and clipboard/import remapping. */
+export function definitionReferenceKind(path) {
+  return path.includes('defaultActions') || path.includes('actions') ? 'combatAction'
+    : path.includes('playerHit') ? 'effect' : path.includes('enemy') ? 'enemy' : 'placement';
+}
+export function enumerateDefinitionReferences(value) {
+  const references=[];
+  walk(value,(entry,path)=>{if(typeof entry.definitionId==='string')references.push({definitionId:entry.definitionId,kind:definitionReferenceKind(path),placement:entry,path});});
+  return references;
+}
+export function remapDefinitionReferences(value, definitions) {
+  for(const ref of enumerateDefinitionReferences(value))if(definitions.has(ref.definitionId))ref.placement.definitionId=definitions.get(ref.definitionId);
+  return value;
+}
+
 export function definitionGraph(project) {
   const definitions = new Map((project.library || []).map(definition => [definition.id, definition]));
   const itemKeys = new Map();
@@ -25,7 +41,7 @@ export function definitionGraph(project) {
     const references = [];
     walk(value, (entry, path) => {
       if (typeof entry.definitionId === 'string') references.push({
-        ...context, definitionId: entry.definitionId, kind: 'placement', placement: entry, path,
+        ...context, definitionId: entry.definitionId, kind: definitionReferenceKind(path), placement: entry, path,
       });
       // Tags describe a class of owned items; they do not depend on any
       // particular definition or pull another chapter's local items into scope.
@@ -40,7 +56,7 @@ export function definitionGraph(project) {
     });
     return references;
   }
-  const references = [];
+  const references = scan(project.combat, {projectSetting:true});
   for (const chapter of project.chapters || []) {
     const { nodes, ...settings } = chapter;
     references.push(...scan(settings, { chapter, chapterId: chapter.id }));

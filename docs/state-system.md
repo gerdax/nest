@@ -49,7 +49,7 @@ This is a Library definition; a container placement might be `{"id":"tonic-loot"
 
 Unknown variables/items, wrong types, out-of-bound initial values and invalid quantities block playback/import/export. Draft autosave retains incomplete references for repair. Removing definitions does not silently rewrite mechanics. Project variable names are display labels; stable IDs identify references.
 
-V1 chapters load through migration with prefixed variable IDs and stable inventory aliases. The retained `chapter/state.js` and chapter controller still support v1 integrations. Equip slots, combat, arbitrary scripts and persistent cross-run state are deferred. Deterministic tests cover rule calculations and timing contracts; they do not establish editor/browser/device behavior.
+V1 chapters load through migration with prefixed variable IDs and stable inventory aliases. The retained `chapter/state.js` and chapter controller still support v1 integrations. Equip slots, arbitrary scripts and persistent cross-run state are deferred. Combat and committed-health Death routing are documented in [combat](combat.md). Deterministic tests cover rule calculations and timing contracts; they do not establish editor/browser/device behavior.
 
 Item quantities are currently disabled: each collected card grants one owned item, repeated collection does not stack, and item effects/costs add or remove that ownership. Existing quantity fields are discarded on load/export; former inventory quantity comparisons become Owned/Missing requirements. Numeric resource amounts remain configurable.
 

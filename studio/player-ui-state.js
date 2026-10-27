@@ -8,7 +8,7 @@ import { selectTriggerItem } from '../project/state.js';
 export function playerUIState({ run = null, card = {}, interaction = {}, feedback = {}, definitions = {} } = {}) {
   const action = card.action;
   const choices = card.phase === 'choices';
-  const ordinaryContext = !!run && !run.completed && !run.checking;
+  const ordinaryContext = !!run && !run.completed && !run.terminalReason && !run.checking;
   const faceVisible = choices || card.phase === 'closed' && card.directAdvance;
   const result = feedback.result?.total != null ? feedback.result : null;
   const reason = ordinaryContext && faceVisible && action?.disabled ? action.disabledReason : null;

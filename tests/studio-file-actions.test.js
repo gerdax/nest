@@ -1,3 +1,4 @@
+import {restoreFixtureDefaults} from './fixtures/combat-project-support.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createProject, exportChapter, parseProject} from '../project/model.js';
@@ -47,16 +48,16 @@ test('chapter export validates transitive dependencies and exported settings', (
   assert.throws(() => exportStudioChapter(project), /iconScale/);
 });
 
-test('scoped project import accepts version 2 project drafts and preserves raw input', () => {
-  const project = createProject();
+for(const version of [2,3])test(`scoped project import accepts version ${version} project drafts and preserves raw input`, () => {
+  const project = createProject();project.version=version;
   project.chapters[0].nodes[0].connections.next = 'unfinished';
   const imported = parseStudioImport(JSON.stringify(project), {kind:'project'});
   assert.deepEqual(imported.raw, project);
-  assert.deepEqual(imported.project, project);
+  assert.deepEqual(imported.project, {...project,version:3});
 });
 
-test('scoped chapter import accepts playable chapters and rejects drafts', () => {
-  const project = createProject(), pkg = exportChapter(project);
+for(const version of [2,3])test(`scoped version ${version} chapter import accepts playable chapters and rejects drafts`, () => {
+  const project = createProject(), pkg = exportChapter(project);pkg.version=version;
   const imported = parseStudioImport(JSON.stringify(pkg), {kind:'chapter'});
   assert.deepEqual(imported.raw, pkg);
   assert.equal(imported.project.chapters[0].id, pkg.chapter.id);
@@ -79,7 +80,7 @@ test('unscoped imports keep project, chapter and legacy compatibility', () => {
   for (const raw of [project, pkg, legacy]) {
     const imported = parseStudioImport(JSON.stringify(raw));
     assert.deepEqual(imported.raw, raw);
-    assert.equal(imported.project.version, 2);
+    assert.equal(imported.project.version, 3);
     assert.equal(imported.project.kind, 'nest-project');
   }
 });
@@ -89,7 +90,7 @@ test('scoped chapter export keeps the shared project design when exporting a dif
  const project=createProject(),first=project.chapters[0];
  project.cardBack={background:'shared-project.png'};
  const second=structuredClone(first);second.id='second';
- project.chapters.push(second);
+ project.chapters.push(second);restoreFixtureDefaults(project);
  const before=structuredClone(project);
  const pkg=exportStudioChapter(project,'second');
  assert.equal(pkg.cardBack.background,'shared-project.png');

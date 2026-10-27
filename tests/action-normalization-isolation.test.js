@@ -1,3 +1,4 @@
+import {restoreFixtureDefaults} from './fixtures/combat-project-support.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createProject, compileChapter, parseProject, validateProject, discardPlacementContext, exportChapter, importChapter} from '../project/model.js';
@@ -19,6 +20,7 @@ function fixture(type, additions) {
     connections:type === 'fork' ? Object.fromEntries(placements.map(p => [p.id, null])) : {next:null}};
   chapter.nodes = [node];
   chapter.startNode = node.id;
+  restoreFixtureDefaults(project);
   return {project, chapter, definition, placements, slot};
 }
 

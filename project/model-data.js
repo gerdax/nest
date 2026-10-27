@@ -1,3 +1,4 @@
+import { ensureCombatDefaults } from './combat-model.js';
 import { createError } from '../errors.js';
 import { createDefinition } from './cards.js';
 import { defaultStats } from './checks.js';
@@ -42,8 +43,8 @@ export function createProject() {
     image: './assets/img/city.png'};
   const item = {...createDefinition('item', 'flashlight'), name: 'Flashlight', image: './assets/img/flashlight.png'};
   const action = {...createDefinition('action', 'explore'), name: 'Explore', text: 'Follow the corridor', image: './assets/img/corridor_02.png'};
-  return {
-    version: 2,
+  return ensureCombatDefaults({
+    version: 3,
     kind: 'nest-project',
     id: 'project-1',
     name: 'First expedition',
@@ -78,7 +79,7 @@ export function createProject() {
           cards: [{id: 'quiet-card', definitionId: 'arrival'}], connections: {next: null}}
       ]
     }]
-  };
+  });
 }
 
 export function definitionUsers(project, id) {

@@ -8,3 +8,5 @@ export { validateProject } from './validation.js';
 export { normalizeSingleItems, discardPlacementContext } from './normalization.js';
 
 export { normalizeLocalOwnership } from './local-ownership.js';
+
+export { createCombatAction, createEffectCard, createEnemyAttack, createEnemy, createWeapon, createCombatDefaults, ensureCombatDefaults, ensureChapterDeath, createProjectChapter } from './combat-model.js';

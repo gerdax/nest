@@ -1,10 +1,10 @@
 import { createError } from '../errors.js';
 import { cssScale, layoutBounds } from './cssScale.js';
 import { projectedBounds, turningBounds } from './geometry.js?v=no-ending-card-1';
-import { buildDeck, decorateCard, announceDeck, renderDeck, stageNextContent, stageNextBack, stageActionDeck, scenePose, cardPose, restoreBacks } from './renderer.js?v=no-ending-card-1';
+import { buildDeck, decorateCard, announceDeck, renderDeck, stageNextContent, stageNextBack, stageActionDeck, stageContentDeck, scenePose, cardPose, restoreBacks } from './renderer.js?v=no-ending-card-1';
 import { DeckInteractionMotion } from './DeckInteractionMotion.js';
 import { DeckEntranceSequence } from './DeckEntranceSequence.js';
-import { DEFAULT_SETTINGS, settingsWith, spring, springStep, qualifies, resistance, modulo, clamp, carouselPose, flipLift } from './motion.js?v=no-ending-card-1';
+import { DEFAULT_SETTINGS, settingsWith, spring, springStep, qualifies, resistance, modulo, clamp, carouselPose, flipLift, departureDistance } from './motion.js?v=no-ending-card-1';
 import { PointerInput } from './PointerInput.js?v=no-ending-card-1';
 import { resolveBackAppearance } from './cardBacks.js';
 import { InventoryPickup } from './InventoryPickup.js';
@@ -76,6 +76,8 @@ export class CardDeck extends EventTarget {
     this.frame = 0;
     this.last = 0;
     this.operation = null;
+    this.contentTransition = null;
+    this.departureWaiters = new Set();
     this.commitMotion = null;
     this.collectMotion = null;
     this.backTransition = null;
@@ -130,6 +132,11 @@ export class CardDeck extends EventTarget {
     }, {
       signal: this.abort.signal
     });
+    globalThis.addEventListener?.('pagehide', () => {
+      this.input.cancel();
+      this.cancel();
+      this.finishMotion();
+    }, { signal: this.abort.signal });
     this.resizeBounds = mount.getBoundingClientRect();
     this.resize = new ResizeObserver(entries => {
       const bounds = mount.getBoundingClientRect();
@@ -241,7 +248,7 @@ export class CardDeck extends EventTarget {
 
   stepAngular(state, dt) {
     // These states use degrees, except flip, which represents half a turn.
-    const precision = state === this.flip || state === this.nextFlip ? 1 / 180 : .05;
+    const precision = state === this.flip || state === this.nextFlip || state === this.contentTransition?.turn ? 1 / 180 : .05;
     return springStep(state, dt, { ...this.angularSettings(), precision });
   }
 
@@ -893,14 +900,14 @@ export class CardDeck extends EventTarget {
     return;
   }
 
-  departureMotion(pointerVelocity) {
+  departureMotion(pointerVelocity, { lift = this.l.x } = {}) {
     const duration = this.settings.commitDuration;
     const seconds = duration / 1000;
-    const distance = Math.max(120, this.departureTravel() - this.l.x * layoutBounds(this.mount).height * (this.groupChoiceMotion&&this.cards.length>1?this.followerRatio:1));
+    const distance = Math.max(120, this.departureTravel() - lift * layoutBounds(this.mount).height * (this.groupChoiceMotion&&this.cards.length>1?this.followerRatio:1));
     const gravity = Math.min(this.settings.gravity, distance / (seconds * seconds));
     return {
       start: performance.now(), duration, continueFlight: this.grabCards.size > 0,
-      lift: this.l.x, browse: this.b.x,
+      lift, browse: this.b.x,
       gravity, velocity: Math.max(-pointerVelocity, distance / seconds + .5 * gravity * seconds)
     };
   }
@@ -1284,8 +1291,155 @@ export class CardDeck extends EventTarget {
     this.schedule();
   }
 
+  /** Present a successor on the existing engine faces without a user commit.
+   * Resolves false when unavailable or canceled; cancellation emits no event.
+   * Invalid content/options reject. Only a ready physical check can be slid.
+   */
+  async transitionContent(content, { transition = 'slide', surface = 'front', presentation = 'closed', signal } = {}) {
+    if (!['slide', 'front-turn'].includes(transition)) throw createError('DECK_UNKNOWN_CONTENT_TRANSITION');
+    if (!['front', 'check'].includes(surface)) throw new TypeError('Unknown content transition surface');
+    if (!['closed', 'open'].includes(presentation)) throw createError('DECK_UNKNOWN_PRESENTATION');
+    const next = validate(content);
+    const checking = surface === 'check';
+    const available = () => !this.destroyed && !signal?.aborted && !this.contentTransition
+      && !this.pickup?.pending && !this.collectMotion && (checking
+        ? transition === 'slide' && this.checkSurface?.ready && !this.checkSurface.turning
+          && this.checkSurface.back === this.underlayBack && this.phase === 'committing'
+          && this.operation !== 'commit' && !this.commitMotion
+        : !this.busy && ['closed', 'choices'].includes(this.phase));
+    if (!available()) return false;
+    const sourceContent = this.content, sourceRevision = this.presentationRevision;
+    const stillOwned = () => available() && this.content === sourceContent && this.presentationRevision === sourceRevision;
+    // Cancel/finish can synchronously emit completion events. A host callback
+    // may reset, destroy, replace or begin another transition before returning.
+    this.input.cancel();
+    if (!stillOwned()) return false;
+    if (!checking) this.finishMotion();
+    if (!stillOwned()) return false;
+    this.cancelPresentationHint();
+    const source = checking
+      ? { face: this.checkSurface.back, back: this.underlay, layer: this.underlayLayer,
+        pose: { x: 0, y: 0, z: -24, rx: 0, ry: 0, rz: 0 } }
+      : this.open
+        ? { face: this.cards[this.index], back: this.cardBacks[this.index], layer: this.cardLayers[this.index], pose: cardPose(this, this.index) }
+        : { face: this.scene, back: this.sceneBack, layer: this.sceneLayer, pose: scenePose(this) };
+    if (!source.face || !source.layer) return false;
+    const staged = stageContentDeck(this, next);
+    return new Promise(resolve => {
+      const active = this.contentTransition = { transition, surface, presentation, next, source, staged, resolve, signal,
+        phase: 'outgoing', adopted: false, turn: spring(),
+        previous: { busy: this.busy, phase: this.phase, operation: this.operation },
+        // A settled check starts at rest even when the departed choice's
+        // accepted gesture still owns a nonzero lift in the waiting deck.
+        motion: this.departureMotion(0, checking ? { lift: 0 } : {}) };
+      active.motion.continueFlight = true;
+      // One native half-turn, with a face handoff at its midpoint. Do not
+      // settle and restart a second spring at the edge-on boundary.
+      active.turn.target = -1;
+      active.abort = () => this.cancelContentTransition();
+      signal?.addEventListener('abort', active.abort, { once: true });
+      this.busy = true;
+      this.operation = null;
+      this.phase = 'committing';
+      this.render();
+      this.schedule();
+    });
+  }
+
+  adoptContentTransition() {
+    const active = this.contentTransition;
+    if (!active || active.adopted) return;
+    active.adopted = true;
+    // The check's actual reverse has left the viewport before its slot retires.
+    this.clearCheckSurface();
+    this.commitMotion = this.collectMotion = this.pending = null;
+    this.install(active.next, { open: active.presentation === 'open', staged: active.staged,
+      stagedDepth: active.transition === 'slide' ? 1 : 0 });
+    this.entranceSequence.clear();
+    this.presentationBrowsePending = false;
+    this.fan.target = this.open ? 1 : 0;
+    this.busy = true;
+    this.operation = null;
+    this.phase = 'committing';
+    active.phase = active.transition === 'slide' ? 'settling' : 'incoming';
+    if (active.phase === 'settling') this.operation = 'commit';
+    if (active.transition === 'slide') {
+      active.turn = spring(.5);
+      active.turn.target = 0;
+    }
+  }
+
+  stepContentTransition(dt, time) {
+    const active = this.contentTransition;
+    if (!active) return;
+    if (active.phase === 'outgoing') {
+      if (active.transition === 'slide') {
+        const distance = departureDistance(active.motion, time);
+        const bounds = layoutBounds(this.mount);
+        const pose = { ...active.source.pose, y: active.source.pose.y - distance,
+          z: active.source.pose.z + Math.min(distance * .08, this.settings.liftHeight) };
+        if (time - active.motion.start >= active.motion.duration
+          && projectedBounds(pose, bounds.width, bounds.height, this.settings.perspective).bottom <= -8) this.adoptContentTransition();
+      } else {
+        this.stepAngular(active.turn, dt);
+        if (active.turn.x <= -.5) this.adoptContentTransition();
+      }
+    } else {
+      if (active.phase === 'incoming') this.stepAngular(active.turn, dt);
+      for (const state of [this.n, this.fan]) this.stepPosition(state, dt);
+      if ((active.phase !== 'incoming' || this.atRest(active.turn)) && this.atRest(this.n) && this.atRest(this.fan)) {
+        this.completeContentTransition();
+        return;
+      }
+    }
+    this.render(time);
+    this.schedule();
+  }
+
+  completeContentTransition() {
+    const active = this.contentTransition;
+    if (!active) return;
+    this.adoptContentTransition();
+    this.n = spring();
+    this.fan = spring(this.open ? 1 : 0);
+    this.contentTransition = null;
+    active.signal?.removeEventListener('abort', active.abort);
+    this.busy = false;
+    this.operation = null;
+    this.phase = this.open ? 'choices' : 'closed';
+    this.render();
+    active.resolve(true);
+    this.emit('transitioncomplete', { transition: active.transition });
+    this.input.resume();
+  }
+
+  cancelContentTransition() {
+    const active = this.contentTransition;
+    if (!active) return;
+    this.contentTransition = null;
+    active.signal?.removeEventListener('abort', active.abort);
+    cancelAnimationFrame(this.frame);
+    this.frame = 0;
+    this.last = 0;
+    if (!active.adopted) {
+      for (const layer of [...active.staged.cardLayers, active.staged.sceneLayer]) layer.remove();
+      Object.assign(this, active.previous);
+    } else {
+      this.n = spring();
+      this.fan = spring(this.open ? 1 : 0);
+      this.phase = this.open ? 'choices' : 'closed';
+      this.busy = false;
+      this.operation = null;
+    }
+    this.render();
+    if (!active.adopted && active.surface === 'check') active.source.face.removeAttribute('aria-hidden');
+    active.resolve(false);
+    this.input.resume();
+  }
+
   replaceContent(content, { presentation = 'closed', transition = 'flip', animate = true, preserveInventoryContext = false } = {}) {
     if (this.destroyed) return;
+    this.cancelContentTransition();
     if (!['closed', 'open'].includes(presentation)) throw createError('DECK_UNKNOWN_PRESENTATION');
     if (!['flip', 'reveal'].includes(transition)) throw createError('DECK_UNKNOWN_CONTENT_TRANSITION');
     const next = validate(content);
@@ -1410,7 +1564,12 @@ export class CardDeck extends EventTarget {
     const introduction = this.commitMotion?.introduction === true;
     const all = this.commitMotion?.discardAll === true;
     const singleDiscard = this.commitMotion?.discardItem === true;
+    const departingContentId = this.content.id;
+    const didDepart = !!this.commitMotion;
     this.commitMotion = null;
+    if (didDepart) for (const waiter of [...(this.departureWaiters ?? [])]) {
+      if (waiter.contentId === departingContentId) waiter.finish();
+    }
     if (all || singleDiscard) {
       this.groupLeaveActive = false;
       this.interactionMotion.clearFollowers();
@@ -1479,6 +1638,26 @@ export class CardDeck extends EventTarget {
     }
   }
 
+  /** Resolves after the accepted outgoing face leaves, before successor animation. */
+  waitForDeparture(contentId, {signal} = {}) {
+    if (this.destroyed || signal?.aborted || this.content.id !== contentId)
+      return Promise.reject(new DOMException('Departure superseded', 'AbortError'));
+    if (!this.commitMotion) return this.phase==='committing' ? Promise.resolve() : Promise.reject(new DOMException('No accepted departure', 'AbortError'));
+    this.departureWaiters ??= new Set();
+    return new Promise((resolve, reject) => {
+      const waiter = {contentId};
+      const cleanup = () => { this.departureWaiters.delete(waiter); signal?.removeEventListener('abort', abort); };
+      const abort = () => {cleanup(); reject(new DOMException('Departure canceled', 'AbortError'));};
+      waiter.finish = () => {cleanup(); resolve();};
+      waiter.abort = abort;
+      this.departureWaiters.add(waiter);
+      signal?.addEventListener('abort', abort, {once:true});
+    });
+  }
+  cancelDepartureWaiters() {
+    for (const waiter of [...(this.departureWaiters ?? [])]) waiter.abort();
+  }
+
   waitForCheckSurface({ signal, prepare } = {}) {
     if (this.destroyed || signal?.aborted || this.phase !== 'committing' || this.operation === 'commit') return Promise.reject(createError('DECK_NO_PENDING_CHECK_DEPARTURE'));
     stageNextBack(this);
@@ -1496,6 +1675,7 @@ export class CardDeck extends EventTarget {
   updateSettings(patch) {
     if (this.destroyed) return;
     this.settings = settingsWith(patch, this.settings);
+    if (this.contentTransition) { this.finishMotion(); return; }
     // Live geometry edits can invalidate a turn that has already begun. Adopt
     // safely rather than rotating into a departing card's newly projected area.
     if (this.commitMotion && this.nextFlip.target === 0
@@ -1507,7 +1687,9 @@ export class CardDeck extends EventTarget {
   }
 
   reset({ preserveInventoryContext = false } = {}) {
+    this.cancelDepartureWaiters();
     if (this.destroyed) return;
+    this.cancelContentTransition();
     this.clearCheckSurface();
     this.inventoryExchangeReturning = false;
     this.preserveInventoryContext = preserveInventoryContext;
@@ -1580,6 +1762,7 @@ export class CardDeck extends EventTarget {
     if (this.destroyed) return;
     let dt = this.last ? Math.min((t - this.last) / 1000, 0.05) : 1 / 60;
     this.last = t;
+    if (this.contentTransition) { this.stepContentTransition(dt, t); return; }
     const pickupMoving = this.pickup?.step(dt);
     // Releasing into a replacement question is still a held presentation.
     // Settling l/rotation/grab here would undo the stack's take-depth recession
@@ -1684,6 +1867,7 @@ export class CardDeck extends EventTarget {
     this.frame = 0;
     this.last = 0;
     this.clearGrab();
+    if (this.contentTransition) { this.completeContentTransition(); return; }
     if (this.drag) return;
     if (this.collectMotion) {
       this.completeCollection();
@@ -1769,7 +1953,9 @@ export class CardDeck extends EventTarget {
   }
 
   destroy() {
+    this.cancelDepartureWaiters();
     if (this.destroyed) return;
+    this.cancelContentTransition();
     this.clearCheckSurface();
     this.pickup?.reset();
     this.pickup?.adapter.setContext(false);

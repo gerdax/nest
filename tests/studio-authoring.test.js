@@ -56,7 +56,7 @@ test('a fresh blocked-node error survives the playback status update',()=>{
  const status={};
  Object.assign(preview,{uiRevision:0,deck:{content:{actions:[]}},state:{activeNodeId:'before'},errorMessage:'No available choices',errorNode:'blocked',compiled:{nodes:[{id:'blocked',name:'Locked door'}],variables:[]},
   playerUI:{status,update(input){const view=playerUIState(input);status.textContent=view.status.text;status.hidden=!view.status.visible;}},
-  stateReadout:{querySelector:()=>({})},onChange(){},onCardChange(){}});
+  stateReadout:{querySelector:()=>({})},enemyReadout:{},onChange(){},onCardChange(){}});
  preview.nextChapterButton={};
  preview.update({activeNodeId:'blocked',variables:{},collectedItems:[],checking:false,idle:true});
  assert.equal(preview.status.textContent,'No available choices');

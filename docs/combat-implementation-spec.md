@@ -1,5 +1,7 @@
 # Combat implementation specification — Rat encounter
 
+Implementation status and verification: [M0–M7 checkpoint](combat-implementation-status.md).
+
 Prepared 27 October 2026. Planning milestone; no combat schema or editor/runtime
 implementation is introduced by this document.
 

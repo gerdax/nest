@@ -1,3 +1,4 @@
+import { ensureCombatDefaults } from './combat-model.js';
 import { createError } from '../errors.js';
 import { isTagKey, tagKey, tagIdFromKey } from './item-tags.js';
 import { normalizeLocalOwnership } from './local-ownership.js';
@@ -5,7 +6,7 @@ import { normalizeStats } from './checks.js';
 import { parseChapter } from '../chapter/model.js';
 import { canonicalCardKind } from './cards.js';
 import { projectCardBack } from './card-backs.js';
-import { definitionGraph } from './dependencies.js';
+import { definitionGraph, remapDefinitionReferences } from './dependencies.js';
 import { cloneProject, list, named, object, unique, walk } from './model-data.js';
 import { migrateChapter } from './migration.js';
 import { discardPlacementContext, normalizeSingleItems } from './normalization.js';
@@ -15,8 +16,9 @@ export function exportChapter(project, id = project.activeChapterId) {
   project = normalizeLocalOwnership(cloneProject(project));
   const chapter = project.chapters.find(c => c.id === id);
   if (!chapter) throw createError('PROJECT_UNKNOWN_CHAPTER');
-  const ids = definitionGraph(project).reachableFrom(chapter);
-  const pkg = cloneProject({version: 2, kind: 'nest-chapter', library: project.library.filter(d => ids.has(d.id)),
+  ensureCombatDefaults(project);
+  const ids = definitionGraph(project).reachableFrom([chapter,project.combat]);
+  const pkg = cloneProject({version: 3, kind: 'nest-chapter', combat:project.combat, showDeathBeat:project.showDeathBeat, library: project.library.filter(d => ids.has(d.id)),
     itemTags: project.itemTags || [], variables: project.variables, allowCycles: project.allowCycles !== false,
     ownedItemsVisibility: project.ownedItemsVisibility ?? 'disabled', unavailableActions: project.unavailableActions ?? 'disabled',
     ...(project.ignoreAllOverrides !== undefined ? {ignoreAllOverrides: project.ignoreAllOverrides} : {}),
@@ -30,11 +32,13 @@ export function exportChapter(project, id = project.activeChapterId) {
 }
 
 export function importChapter(project, pkgOrV1) {
+  if(![1,2,3].includes(pkgOrV1?.version))throw new Error('Unsupported chapter package version');
   // Importing merges chapter content; destination project-wide playback settings
   // (including ignoreAllOverrides) continue to govern the imported beats.
-  const next = normalizeLocalOwnership(cloneProject(project));
-  const imported = pkgOrV1.version === 1 ? migrateChapter(pkgOrV1) : pkgOrV1.kind === 'nest-project' ? cloneProject(pkgOrV1) : {library: cloneProject(pkgOrV1.library),
+  const next = normalizeLocalOwnership(ensureCombatDefaults(cloneProject(project)));
+  const imported = pkgOrV1.version === 1 ? migrateChapter(pkgOrV1) : pkgOrV1.kind === 'nest-project' ? cloneProject(pkgOrV1) : {combat:cloneProject(pkgOrV1.combat || {}),library: cloneProject(pkgOrV1.library),
     itemTags: cloneProject(pkgOrV1.itemTags || []), variables: cloneProject(pkgOrV1.variables || []), chapters: [cloneProject(pkgOrV1.chapter)]};
+  ensureCombatDefaults(imported);
   normalizeLocalOwnership(imported);
   const concreteIds = new Set(imported.library.filter(d => d.kind === 'item').map(d => d.id));
   const concreteKeys = new Set(imported.library.filter(d => d.kind === 'item').flatMap(d => [d.id,d.inventoryKey].filter(Boolean)));
@@ -126,8 +130,7 @@ export function importChapter(project, pkgOrV1) {
     const owner = group.find(item => reused.has(item.id)) || group.find(item => item.id === d.inventoryKey);
     aliases.set(d.inventoryKey, owner ? (reused.has(owner.id) ? d.inventoryKey: defMap.get(owner.id)): unique(d.inventoryKey, inventoryUsed));
   }
-  const remap = value => walk(value, v => {
-    if (v.definitionId && defMap.has(v.definitionId)) v.definitionId = defMap.get(v.definitionId);
+  const remap = value => {remapDefinitionReferences(value,defMap);return walk(value, v => {
     if (v.contextItemId && !tagContextRefs.has(v) && defMap.has(v.contextItemId)) v.contextItemId = defMap.get(v.contextItemId);
     if (v.key) {
       if (v.source === 'inventory' || ['addItem', 'removeItem'].includes(v.op)) v.key = tagRuleRefs.has(v) ? v.key : itemMap.get(v.key) || aliases.get(v.key) || v.key;
@@ -135,6 +138,7 @@ export function importChapter(project, pkgOrV1) {
     }
     if (v.modifierVariable) v.modifierVariable = ruleVarMap.get(v.modifierVariable) || v.modifierVariable;
   });
+  };
   for (const d of imported.library) {
     const old = d.id;
     if (reused.has(old)) continue;
@@ -169,9 +173,9 @@ export function parseProject(text, {allowDraft = false} = {}) {
     parseChapter(text, {allowDraft});
     value = migrateChapter(value);
   }
-  else if (value?.version === 2 && value.kind === 'nest-chapter') {
+  else if ([2,3].includes(value?.version) && value.kind === 'nest-chapter') {
     if (named(value.chapter?.nextChapterId) && value.chapter.nextChapterId !== value.chapter.id) delete value.chapter.nextChapterId;
-    value = {version: 2, kind: 'nest-project',
+    value = {version: value.version, kind: 'nest-project', combat:value.combat, showDeathBeat:value.showDeathBeat,
     id: `${value.chapter?.id || 'chapter'}-project`, name: value.chapter?.name, activeChapterId: value.chapter?.id, startChapterId: value.chapter?.id,
     itemTags: value.itemTags, library: value.library, variables: value.variables || [], allowCycles: value.allowCycles,
     ownedItemsVisibility: value.ownedItemsVisibility, unavailableActions: value.unavailableActions,
@@ -179,6 +183,11 @@ export function parseProject(text, {allowDraft = false} = {}) {
     cardStyles: value.cardStyles || {}, cardBack: value.cardBack,
     chapters: [value.chapter]};
   }
+  if (![2,3].includes(value?.version) || value?.kind !== 'nest-project') throw new Error('Unsupported project format or version');
+  // Missing fields only: explicit invalid references remain visible diagnostics.
+  if(value.combat===undefined)delete value.combat;
+  if(value.showDeathBeat===undefined)delete value.showDeathBeat;
+  ensureCombatDefaults(value);
   for (const definition of list(value?.library)) if (object(definition)) definition.kind = canonicalCardKind(definition.kind);
   normalizeLocalOwnership(value);
   discardPlacementContext(value);

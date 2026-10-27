@@ -1,3 +1,4 @@
+import {restoreFixtureDefaults} from './fixtures/combat-project-support.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -47,6 +48,7 @@ test('automatic cleanup keeps all shared cards, other chapters and transitive ru
   const other={id:'other',name:'Other',startNode:'other-node',nodes:[],variables:[]};
   const otherNode=createNode(project,'linear',undefined,other.id);other.nodes.push(otherNode);other.startNode=otherNode.id;
   project.chapters.push(other);project.library.push(item,orphan,shared);
+  restoreFixtureDefaults(project);
  });
  const before=s.history.document;
  const result=s.run('field',{scope:'project',path:'name',value:'Edited'}).project;

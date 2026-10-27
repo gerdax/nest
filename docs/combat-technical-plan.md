@@ -1,5 +1,7 @@
 # Combat technical implementation plan
 
+Implementation status and verification: [M0–M7 checkpoint](combat-implementation-status.md).
+
 27 October 2026. Planning deliverable prepared with Astra's architecture review.
 No runtime, schema or editor implementation is introduced by this document.
 

@@ -43,6 +43,10 @@ export function definitionUsage(project, id) {
  };
  for (const ref of users) {
   if (ref.kind === 'placement') continue;
+  if(['combatAction','effect','enemy'].includes(ref.kind)){
+   const owner=ref.sourceDefinition;
+   addReference(key(['combat',owner?.id,ref.chapterId,ref.nodeId,ref.path]),owner?{name:owner.name||owner.id,source:'Library',definitionId:owner.id}:ref.projectSetting?{name:'Project combat settings',unavailableReason:'Open Project settings to edit this selection.'}:{name:`${ref.chapter?.name||''} → ${ref.node?.name||'Combat'}`,chapterId:ref.chapterId,nodeId:ref.nodeId},'B');continue;
+  }
   const entry = ref.sourceDefinition ? null : ancestor(ref);
   const relativePath = entry ? ref.path.slice(entry.path.length) : ref.path;
   const marker = ref.kind === 'contextItem' ? 'T' : relativePath.map(part => ruleMarkers[part]).find(Boolean);
@@ -71,5 +75,5 @@ export function definitionUsage(project, id) {
    addReference(key(['context', ref.chapterId, ref.nodeId, ownerPath]), {name:owner?.name || fallbackName || ref.node?.name || ref.chapter?.name || 'Chapter settings', chapterId:ref.chapterId, ...(ref.nodeId !== undefined ? {nodeId:ref.nodeId} : {})}, marker);
   }
  }
- return {placements, references:[...rows.values()].map(({letters, ...row}) => ({...row, markers:markerLabels.filter(([letter]) => letters.has(letter)).map(marker => [...marker])}))};
+ return {placements, references:[...rows.values()].map(({letters, ...row}) => ({...row, markers:[...markerLabels.filter(([letter]) => letters.has(letter)).map(marker => [...marker]),...(letters.has('B')?[['B','Combat reference']]:[])]}))};
 }

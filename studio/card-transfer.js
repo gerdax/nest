@@ -8,7 +8,7 @@ import { makePlacement } from './commands.js';
 
 /** The main authoring collection used for insertion drops. */
 export function cardTransferSlot(node) {
-  if (node?.type === 'linear') return 'cards';
+  if (['linear','death'].includes(node?.type)) return 'cards';
   if (node?.type === 'fork') return 'choices';
   if (node?.type === 'container') return 'items';
   return null;
@@ -61,6 +61,7 @@ export function transferCard(project, chapter, {sourceNodeId, sourceChapterId, p
   const crossChapter = sourceChapter !== chapter;
   const target = chapter.nodes.find(node => node.id === targetNodeId);
   const origin = placementLocation(source, placementId);
+  if(source?.type==='death'&&!copy&&source.cards.length<=1&&source!==target)return null;
   const introDestination = requestedSlot === 'intro';
   if (introDestination && (!Object.hasOwn(nodeTypeDescriptor(target?.type)?.slots || {}, 'intro')
     || (targetPlacementId !== undefined && targetPlacementId !== target?.intro?.id))) return null;

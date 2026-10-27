@@ -10,6 +10,8 @@ const legacyOutputs = node => Object.keys(node.connections || {});
 const introduction = makePlacement => ({introEnabled:false, introOnce:false, intro:makePlacement('event')});
 
 export const nodeTypes = Object.freeze({
+ combat: Object.freeze({label:'Combat',iconPath:'M5 5L19 19M19 5L5 19',slots:Object.freeze({}),outputs:()=>['victory'],create:()=>({enemy:{definitionId:''},connections:{victory:false}})}),
+ death: Object.freeze({label:'Death',iconPath:'M5 5L19 19M19 5L5 19',slots:Object.freeze({cards:storyKinds}),defaultKinds:Object.freeze({cards:'caption'}),outputs:()=>[],create:({makePlacement})=>({cards:[makePlacement('caption')],connections:{}})}),
  linear: Object.freeze({
   label:'Linear', iconPath:'M3 12H21', slots:Object.freeze({cards:linearKinds}), outputs:nextOutput,
   defaultKinds:Object.freeze({cards:'caption'}),

@@ -1,3 +1,4 @@
+import {restoreFixtureDefaults} from './fixtures/combat-project-support.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {chapterVariables, createChapter, createProject, compileChapter, validateProject, parseProject, exportChapter, importChapter} from '../project/model.js';
@@ -44,6 +45,7 @@ test('other chapters do not see locals or unrelated local definitions', () => {
   const other = structuredClone(chapter); other.id='other'; other.variables=[];
   other.nodes[2].choices[0].definitionId='explore';
   project.chapters.push(other);
+  restoreFixtureDefaults(project);
   assert.deepEqual(validateProject(project),[]);
   const compiled=compileChapter(project,other.id);
   assert.equal(compiled.variables.some(v=>v.id==='tension'),false);
@@ -131,6 +133,7 @@ test('different chapters can independently define the same local ID through proj
   const {project,chapter}=fixture();
   const other=structuredClone(chapter);other.id='other';other.variables[0].initial=8;
   project.chapters.push(other);
+  restoreFixtureDefaults(project);
   assert.deepEqual(validateProject(project),[]);
   const target=createProject(), merged=importChapter(target,project), imported=merged.chapters.slice(1);
   assert.deepEqual(validateProject(merged),[]);

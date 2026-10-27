@@ -1,3 +1,4 @@
+import { combatDefinitionFields,combatProjectFields,combatNodeFields } from './combat-authoring.js';
 import { cardRuleIndicators } from './card-rule-indicators.js';
 import { itemTagsEditor } from './item-tags.js';
 import { cardLabel, cardFallbackLabel } from './card-label.js';
@@ -39,7 +40,9 @@ export function cardFields(project,definition,scope='definition',showPreview=tru
  if(definition.kind==='item')html+=select('Tag',definition.tagId||'',[['','None'],...(project.itemTags||[]).map(tag=>[tag.id,tag.name])],'tagId',scope);
  html+=field('Description',definition.text,'text',scope,'textarea');
  if(showRules)html+=cardRuleFields(project,definition,scope,chapter);
- if(showPreview)html+=`<div class="inspector-card-preview" data-card-preview data-preview-definition="${esc(definition.id)}"></div>`+artworkControls(definition,scope);
+ if(scope==='definition'&&definition.kind==='enemy')html+=artworkControls(definition,scope);
+ if(scope==='definition')html+=combatDefinitionFields(project,definition);
+ if(showPreview&&definition.kind!=='enemy')html+=`<div class="inspector-card-preview" data-card-preview data-preview-definition="${esc(definition.id)}"></div>`+artworkControls(definition,scope);
  return html;
 }
 function cardRuleFields(project,definition,scope,chapter) {
@@ -81,7 +84,8 @@ export function placementInspector(project,p,kind,index,slot,count=Infinity,chap
  const definition=project.library.find(d=>d.id===p.definitionId),local=definition?.visibility==='local';
  const source=definition?(local?'local':'library'):'missing';
  const customMarker=definition&&!local&&p.overrides?' <span class="card-custom-marker" role="img" aria-label="Custom rules enabled" title="Custom rules enabled">*</span>':'';
- const nodeType=slot==='choices'?'fork':slot==='items'?'container':'linear';
+ const death=chapter?.nodes.some(n=>n.type==='death'&&n.cards?.includes(p));
+ const nodeType=death?'death':slot==='choices'?'fork':slot==='items'?'container':'linear';
  const kinds=allowedCardKinds(nodeType,slot);
  kind=definition?.kind || kind;
  const compareLabels=(a,b)=>a.localeCompare(b,undefined,{sensitivity:'base',numeric:true});
@@ -123,7 +127,7 @@ export function placementInspector(project,p,kind,index,slot,count=Infinity,chap
  html+='</details>';
  if(slot==='intro')return html;
  const arrow=(direction,label,disabled)=>`<button type="button" class="card-order-arrow" data-command="move-placement" ${attr} data-direction="${direction}" aria-label="${label}" title="${label}" ${disabled?'disabled':''}><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="${direction<0?'M3 10 8 5l5 5':'M3 6l5 5 5-5'}"/></svg></button>`;
- return `<div class="card-placement-row">${html}<div class="card-order-controls">${arrow(-1,'Move card up',index===0)}${arrow(1,'Move card down',index===count-1)}</div><button type="button" class="card-remove-button" data-command="remove-placement" ${attr} aria-label="Remove card" title="Remove card"><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="m3 3 10 10M13 3 3 13"/></svg></button></div>`;
+ return `<div class="card-placement-row">${html}<div class="card-order-controls">${arrow(-1,'Move card up',index===0)}${arrow(1,'Move card down',index===count-1)}</div><button type="button" class="card-remove-button" data-command="remove-placement" ${attr} aria-label="Remove card" title="Remove card" ${death&&count<=1?'disabled':''}><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="m3 3 10 10M13 3 3 13"/></svg></button></div>`;
 }
 function introductionControls(node) {
  const enabled=node.type==='fork'?!!node.intro&&node.introEnabled!==false:node.introEnabled!==false;
@@ -137,6 +141,8 @@ export function nodeInspector(project,chapter,node,previewEffects=[]) {
  }
  project={...project,variables:chapterVariables(project,chapter).map(v=>({...v,variableScope:(chapter.variables||[]).includes(v)?'chapter':'global'}))};
  let html=field('Beat name',node.name,'name','node');
+ if(node.type==='combat')html+=combatNodeFields(project,node);
+ if(node.type==='death')html+='<p class="small">Mandatory chapter Death. Plays when committed health reaches zero, then stops. This beat has no graph connections.</p>';
  const descriptor=nodeTypeDescriptor(node.type);
  for(const [slot,kinds] of Object.entries(descriptor?.slots||{})) {
   const kind=descriptor.defaultKinds[slot];
@@ -164,11 +170,12 @@ export function nodeInspector(project,chapter,node,previewEffects=[]) {
  }
  const availability=['fork','linear'].includes(node.type)?select('Unavailable actions',node.unavailableActions??'project',[['project','Use project settings'],...unavailableActionOptions],'unavailableActions','node'):'';
  if(['container','linear'].includes(node.type))html+='<hr class="connections-divider inventory-persistence-divider">'+checkbox('Keep swapped items on revisit',retainsInventoryItems(node),'retainInventoryItems','node');
+ if(node.type==='death')return html;
  html+='<hr class="connections-divider"><h3>Connections</h3>'+outputsForNode(project,node).map(exit=>{
   const target=node.type==='random'?(exit==='fallback'?node.fallback:node.routes.find(r=>r.id===exit)?.target):node.connections?.[exit];
   const value=target===null?'end':typeof target==='string'?`target:${target}`:'unlinked';
   const hideLabel=['container','linear'].includes(node.type)&&exit==='next';
-  const connection=select(hideLabel?'':labelForOutput(project,node,exit),value,[['unlinked','Unlinked'],['end','End chapter'],...chapter.nodes.filter(n=>project.allowCycles!==false||n.id!==node.id).map(n=>[`target:${n.id}`,n.name])],exit,'connection');
+  const connection=select(hideLabel?'':labelForOutput(project,node,exit),value,[['unlinked','Unlinked'],...(node.type==='combat'?[]:[['end','End chapter']]),...chapter.nodes.filter(n=>n.type!=='death'&&(project.allowCycles!==false||n.id!==node.id)).map(n=>[`target:${n.id}`,n.name])],exit,'connection');
   return hideLabel?connection.replace('<select ','<select aria-label="Next connection" '):connection;
  }).join('');
  const hasOverrides=previewEffects.length>0 || !!(availability && node.unavailableActions && node.unavailableActions!=='project');
@@ -181,7 +188,7 @@ function chapterOptions(project, selected, allowNone=false) {
  return choices;
 }
 export function projectSettingsInspector(project) {
- return `${field('Project name',project.name,'name','project')}${select('Already-owned items',project.ownedItemsVisibility??'disabled',[['disabled','Show unavailable'],['hidden','Skip / hide']],'ownedItemsVisibility','project')}${select('Unavailable actions',project.unavailableActions??'disabled',unavailableActionOptions,'unavailableActions','project')}${checkbox('Allow beat cycles',project.allowCycles!==false,'allowCycles','project')}<p class="small">Allow routes to revisit beats in all chapters. Automatic routing loops still stop playback.</p><details class="state-panel" data-project-variables><summary>Project variables</summary>${project.variables.map((v,i)=>`<div class="entry">${field('Variable name',v.name||v.id,`variables.${i}.name`,'project')}${isStatVariable(v)?'<p class="small">Stat · Integer 1–10 · Shown in the action check panel</p>':select('Type',v.type,[['flag','Flag'],['number','Number']],`variables.${i}.type`,'project')}${v.type==='flag'?select('Default',String(v.initial),[['true','True'],['false','False']],`variables.${i}.initial`,'project'):field('Default',v.initial,`variables.${i}.initial`,'project','number')}${v.type==='number'&&!isStatVariable(v)?field('Minimum optional',v.min,`variables.${i}.min`,'project','number')+field('Maximum optional',v.max,`variables.${i}.max`,'project','number'):''}${isStatVariable(v)?'':button('Remove variable','remove-variable',`data-index="${i}"`)}</div>`).join('')}${button('Add variable','add-variable')}${project.variables.some(v=>v.id==='health')?'':button('Add health','add-health')}</details><details id="item-tags-editor" class="state-panel" data-project-item-tags>${itemTagsEditor(project)}</details><details class="state-panel" data-project-card-backs><summary>Card backs</summary>${cardBackFields(project)}</details><details class="state-panel" data-project-card-styles><summary>Card text styles</summary>${['small','big','medium'].map(key=>`<div class="card-style-row"><label class="field artwork-slider">${key[0].toUpperCase()+key.slice(1)}<output>${project.cardStyles?.[key]??defaultCardStyles[key]}px</output><input type="range" min="6" max="72" step="1" value="${project.cardStyles?.[key]??defaultCardStyles[key]}" data-scope="project" data-path="cardStyles.${key}" data-card-style-slider></label><label class="field card-style-color">Color (HEX)<input type="text" spellcheck="false" maxlength="7" pattern="#?[0-9a-fA-F]{3}([0-9a-fA-F]{3})?" aria-label="${key[0].toUpperCase()+key.slice(1)} text color hex" value="${esc(project.cardStyles?.[`${key}Color`]??defaultCardColors[key])}" placeholder="${defaultCardColors[key]}" data-scope="project" data-path="cardStyles.${key}Color" data-card-style-color></label></div>`).join('')}<p class="small">Small: ACTION and ITEM labels. Big: vignette/caption descriptions and action/item names. Medium: action/item descriptions and inventory action requirements/labels. Applies across the project.</p></details><div class="project-start-controls">${checkbox('Ignore all overrides',project.ignoreAllOverrides===true,'ignoreAllOverrides','project')}<p class="small">Skip all beat Overrides during playback, including Unavailable actions.</p><hr class="connections-divider ignore-overrides-divider">${select('Start chapter',project.startChapterId??startChapter(project)?.id,chapterOptions(project,project.startChapterId),'startChapterId','project')}${button('Play from the start','play-from-start','class="play-from-start"')}</div>`;
+ return combatProjectFields(project)+`${field('Project name',project.name,'name','project')}${select('Already-owned items',project.ownedItemsVisibility??'disabled',[['disabled','Show unavailable'],['hidden','Skip / hide']],'ownedItemsVisibility','project')}${select('Unavailable actions',project.unavailableActions??'disabled',unavailableActionOptions,'unavailableActions','project')}${checkbox('Allow beat cycles',project.allowCycles!==false,'allowCycles','project')}<p class="small">Allow routes to revisit beats in all chapters. Automatic routing loops still stop playback.</p><details class="state-panel" data-project-variables><summary>Project variables</summary>${project.variables.map((v,i)=>`<div class="entry">${field('Variable name',v.name||v.id,`variables.${i}.name`,'project')}${isStatVariable(v)?'<p class="small">Stat · Integer 1–10 · Shown in the action check panel</p>':select('Type',v.type,[['flag','Flag'],['number','Number']],`variables.${i}.type`,'project')}${v.type==='flag'?select('Default',String(v.initial),[['true','True'],['false','False']],`variables.${i}.initial`,'project'):field('Default',v.initial,`variables.${i}.initial`,'project','number')}${v.type==='number'&&!isStatVariable(v)?field('Minimum optional',v.min,`variables.${i}.min`,'project','number')+field('Maximum optional',v.max,`variables.${i}.max`,'project','number'):''}${isStatVariable(v)?'':button('Remove variable','remove-variable',`data-index="${i}"`)}</div>`).join('')}${button('Add variable','add-variable')}${project.variables.some(v=>v.id==='health')?'':button('Add health','add-health')}</details><details id="item-tags-editor" class="state-panel" data-project-item-tags>${itemTagsEditor(project)}</details><details class="state-panel" data-project-card-backs><summary>Card backs</summary>${cardBackFields(project)}</details><details class="state-panel" data-project-card-styles><summary>Card text styles</summary>${['small','big','medium'].map(key=>`<div class="card-style-row"><label class="field artwork-slider">${key[0].toUpperCase()+key.slice(1)}<output>${project.cardStyles?.[key]??defaultCardStyles[key]}px</output><input type="range" min="6" max="72" step="1" value="${project.cardStyles?.[key]??defaultCardStyles[key]}" data-scope="project" data-path="cardStyles.${key}" data-card-style-slider></label><label class="field card-style-color">Color (HEX)<input type="text" spellcheck="false" maxlength="7" pattern="#?[0-9a-fA-F]{3}([0-9a-fA-F]{3})?" aria-label="${key[0].toUpperCase()+key.slice(1)} text color hex" value="${esc(project.cardStyles?.[`${key}Color`]??defaultCardColors[key])}" placeholder="${defaultCardColors[key]}" data-scope="project" data-path="cardStyles.${key}Color" data-card-style-color></label></div>`).join('')}<p class="small">Small: ACTION and ITEM labels. Big: vignette/caption descriptions and action/item names. Medium: action/item descriptions and inventory action requirements/labels. Applies across the project.</p></details><div class="project-start-controls">${checkbox('Ignore all overrides',project.ignoreAllOverrides===true,'ignoreAllOverrides','project')}<p class="small">Skip all beat Overrides during playback, including Unavailable actions.</p><hr class="connections-divider ignore-overrides-divider">${select('Start chapter',project.startChapterId??startChapter(project)?.id,chapterOptions(project,project.startChapterId),'startChapterId','project')}${button('Play from the start','play-from-start','class="play-from-start"')}</div>`;
 }
 
 export function chapterSettingsInspector(project,chapter) {

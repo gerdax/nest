@@ -4,11 +4,13 @@ import { cardSummary, playerCardSummary, canonicalCardKind, isStoryKind, isConsu
 /** Shared front-face content for gameplay and authoring previews. */
 export const cardBody = card => card?.text ?? '';
 export function cardFace(card, variables=[], library=[], values) {
- const cardKind=canonicalCardKind(card?.kind ?? card?.cardKind ?? 'event');
+ const authoredKind=canonicalCardKind(card?.kind ?? card?.cardKind ?? 'event');
+ const cardKind=authoredKind==='effect'?'health':authoredKind==='combatAction'?'action':authoredKind;
  return {
   cardKind,
   ...(cardKind==='action'?{actionEnergyCost:actionEnergyCost(card)}:{}),
-  ...(isConsumableKind(cardKind)?{value:card.value}:{}),
+  ...(isConsumableKind(cardKind)?{value:authoredKind==='effect'?(card.value??-2):card.value}:{}),
+  ...(authoredKind==='effect'?{typeLabel:'EFFECT'}:{}),
   ...(card?.inventoryLabel?{inventoryLabel:card.inventoryLabel}:{}),
   heading:(cardKind==='action'||(cardKind==='item'||isConsumableKind(cardKind))&&card?.showName===true)?(card?.name ?? card?.label ?? 'Continue'):'',
   text:cardBody(card),

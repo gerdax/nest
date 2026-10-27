@@ -1,3 +1,5 @@
+import { applyCombatArrayCommand } from './combat-authoring.js';
+import { createWeapon } from '../project/combat-model.js';
 import { createError } from '../errors.js';
 import { eligibleInventoryItems } from './item-options.js';
 import { placedLocalDefinitions, removeUnplacedLocalDefinitions } from './local-definition-removal.js';
@@ -6,7 +8,7 @@ import { allocateVariableId, renameVariable } from './variable-ids.js';
 import { pasteCardClipboard } from './card-clipboard.js';
 import { isStatVariable } from '../project/checks.js';
 import { createDefinition, allowedCardKinds, isStoryKind, isConsumableKind } from '../project/cards.js';
-import { chapterVariables, createChapter, importChapter, outputsForNode } from '../project/model.js';
+import { chapterVariables, createProjectChapter, importChapter, outputsForNode } from '../project/model.js';
 import { definitionGraph } from '../project/dependencies.js';
 import { removeLibraryDefinition } from './library-removal.js';
 import { captureNodeClipboard, pasteNodeClipboard, captureNodesClipboard, pasteNodesClipboard } from './node-clipboard.js';
@@ -41,6 +43,7 @@ export function documentScope(project, selection, {scope, placementId}) {
   if (scope === 'local-definition') return project.library.find(card => card.id === placement?.definitionId);
 }
 export function setConnection(node, exit, target) {
+  if(node?.type==='death')throw new Error('Death has no connections');
   if (node.type === 'random') {
     if (exit === 'fallback') node.fallback = target;
     else node.routes.find(route => route.id === exit).target = target;
@@ -52,6 +55,7 @@ function changeField(project, selection, field, localDrafts) {
   const {scope, path, value:raw, checked, inputType, colorField, color} = field;
   const chapter = chapterFor(project, selection), node = nodeFor(project, selection);
   if (scope === 'connection') {
+    if(raw.startsWith('target:')&&chapter.nodes.find(n=>n.id===raw.slice(7))?.type==='death')throw new Error('Death cannot have incoming connections');
     setConnection(node, path, raw === 'unlinked' ? false : raw === 'end' ? null : raw.slice(7));
     return;
   }
@@ -85,6 +89,7 @@ function changeField(project, selection, field, localDrafts) {
     else delete root.overrides;
     return;
   }
+  if(scope==='definition'&&path==='introEnabled'&&checked&&root.kind==='enemy'&&!root.intro?.length)root.intro=[{id:uid('embedded'),kind:'event',name:'Introduction',text:'',image:'',effects:[]}];
   if (scope === 'node' && path === 'introEnabled' && checked && root.type === 'fork' && !root.intro) root.intro = makePlacement(project, 'event', undefined, chapterFor(project, selection).id);
   if (scope === 'placement' && path === 'definitionId') {
     localDrafts.switchSource(project, root, raw, {allowedKinds:allowedCardKinds(node.type, node.intro === root ? 'intro' : node.type === 'container' ? 'items' : 'cards')});
@@ -100,11 +105,19 @@ function changeField(project, selection, field, localDrafts) {
     return;
   }
   let value = inputType === 'checkbox' ? checked : ['number','range'].includes(inputType) || ['sides','difficulty'].includes(key) ? Number(raw) : raw;
+  if(scope==='definition'&&/^reactions\.\d+\.threshold\.percent$/.test(path)) {
+    if(!Number.isFinite(value)||value<=0||value>=100)throw new Error('Health threshold must be between 0 and 100 percent');
+    let numerator=Math.round(value*1000000),denominator=100000000;
+    const gcd=(a,b)=>b?gcd(b,a%b):a,divisor=gcd(numerator,denominator);
+    parent.numerator=numerator/divisor;parent.denominator=denominator/divisor;return;
+  }
   if ((['value','initial'].includes(key) || path.startsWith('initialValues.')) && ['true','false'].includes(value)) value = value === 'true';
   if (inputType === 'number' && raw === '') { delete parent[key]; return; }
   if (['imageScale','imageOffsetX','imageOffsetY'].includes(key)) value = clampArtwork(key, value);
   if(key==='key'&&['addItem','removeItem'].includes(parent.op)&&value&&!eligibleInventoryItems(project,ruleChapter).some(item=>item.id===value))throw createError('STUDIO_ITEM_EFFECTS_MUST_REFERENCE_AN_ELIGIBLE_ITEM_FROM_THE_OWNING_CHAPTER_OR_SHARED_LIBRARY');
   parent[key] = value;
+  if(scope==='definition'&&path==='subtype'){if(value==='weapon')root.combat??=createWeapon(root.id).combat;else delete root.subtype;return;}
+  if(scope==='definition'&&path==='attack.source'){root.attack.minBonus??=0;root.attack.maxBonus??=0;if(value==='self')root.attack.damage??={min:1,max:1};return;}
   if (['modifierVariable','contextItemId','tagId'].includes(key) && !value) delete parent[key];
   if (key === 'contextItemId' && (!value||value.startsWith('tag:'))) delete parent.contextOverrideImage;
   if (key === 'resolution' && value === 'check') {
@@ -132,6 +145,7 @@ function inspectorCommand(project, selection, data, localDrafts) {
   const node = nodeFor(project, selection), placement = findPlacement(node || {}, data.placement);
   const descriptor = {scope:data.scope, placementId:data.placement};
   switch (data.command) {
+    case 'combat-add':case 'combat-remove':case 'combat-move':applyCombatArrayCommand(documentScope(project,selection,descriptor),data);break;
     case 'reset-artwork': {
       const root = documentScope(project, selection, descriptor);
       delete root.imageScale; delete root.imageOffsetX; delete root.imageOffsetY;
@@ -155,6 +169,7 @@ function inspectorCommand(project, selection, data, localDrafts) {
     case 'duplicate-placement': duplicatePlacement(project, node, placement); break;
     case 'remove-placement': {
       if(!placement)return;
+      if(node.type==='death'&&node.cards.length<=1)throw new Error('Death must keep at least one card');
       const definitions=placedLocalDefinitions(project,placement);
       if(node.intro===placement){
         if(node.type==='container')node.intro=makePlacement(project,'event',undefined,chapterFor(project,selection).id);
@@ -201,7 +216,7 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
     case 'item-tag': return applyTagCommand(project,data);
     case 'field': return changeField(project, selection, data, localDrafts);
     case 'inspector': return inspectorCommand(project, selection, data, localDrafts);
-    case 'connect': setConnection(chapter.nodes.find(n => n.id === data.id), data.exit, data.target); break;
+    case 'connect': if(chapter.nodes.find(n=>n.id===data.target)?.type==='death')throw new Error('Death cannot have incoming connections');setConnection(chapter.nodes.find(n => n.id === data.id), data.exit, data.target); break;
     case 'move-node': Object.assign(chapter.nodes.find(n => n.id === data.id), {x:data.x, y:data.y}); break;
     case 'move-nodes': {
       for(const position of data.positions){
@@ -245,7 +260,7 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
       return {selection:{chapterId:next.id, selected:next.startNode}};
     }
     case 'add-chapter': {
-      const added = createChapter(uid('chapter'), `Chapter ${project.chapters.length+1}`), first = createNode(project, 'linear', undefined, added.id);
+      const added = createProjectChapter(project,uid('chapter'), `Chapter ${project.chapters.length+1}`), first = createNode(project, 'linear', undefined, added.id);
       added.nodes.push(first); added.startNode = first.id; project.chapters.push(added); project.activeChapterId = added.id;
       return {selection:{chapterId:added.id, selected:first.id}};
     }
@@ -327,6 +342,7 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
       if(!Array.isArray(requested)||!requested.length||requested.some(id=>!chapter?.nodes.some(candidate=>candidate.id===id))) {
         throw createError('STUDIO_THE_SELECTED_BEAT_NO_LONGER_EXISTS');
       }
+      if(requested.some(id=>chapter.nodes.find(n=>n.id===id)?.type==='death'))throw new Error('The mandatory Death beat cannot be deleted or cut');
       const ids=new Set(requested);
       const definitions=placedLocalDefinitions(project,chapter.nodes.filter(candidate=>ids.has(candidate.id)));
       chapter.nodes = chapter.nodes.filter(candidate => !ids.has(candidate.id));
@@ -336,10 +352,10 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
         for (const route of remaining.routes || []) if (ids.has(route.target)) route.target = false;
         if (ids.has(remaining.fallback)) remaining.fallback = false;
       }
-      if (ids.has(chapter.startNode)) chapter.startNode = chapter.nodes[0]?.id || '';
+      if (ids.has(chapter.startNode)) chapter.startNode = chapter.nodes.find(n=>n.type!=='death')?.id || '';
       return {selection:{selected:chapter.startNode}};
     }
-    case 'set-start': chapter.startNode = node.id; break;
+    case 'set-start': if(node.type==='death')throw new Error('Death cannot be the chapter start');chapter.startNode = node.id; break;
     case 'import': {
       const next = data.raw.kind === 'nest-project' ? data.incoming : importChapter(project, data.raw);
       const active = next.chapters.find(c => c.id === next.activeChapterId) || next.chapters[0];

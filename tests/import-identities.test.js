@@ -1,3 +1,4 @@
+import {restoreFixtureDefaults} from './fixtures/combat-project-support.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createProject, importChapter, validateProject } from '../project/model.js';
@@ -102,8 +103,9 @@ test('chapter cycle validation handles ten thousand beats and detects a closing 
   chapter.startNode='n0';chapter.nodes=Array.from({length:count},(_,i)=>({
     id:`n${i}`,name:'Beat',type:'linear',x:0,y:0,cards:[{id:'card',definitionId:'arrival'}],connections:{next:i+1<count?`n${i+1}`:null},
   }));
+  restoreFixtureDefaults(project);
   assert.deepEqual(validateProject(project),[]);
-  chapter.nodes.at(-1).connections.next='n0';
+  chapter.nodes[count-1].connections.next='n0';
   assert.ok(validateProject(project).some(e=>e.message==='Chapter has a beat cycle.'));
 });
 
@@ -115,6 +117,7 @@ test('legacy card cycle validation handles ten thousand cards and detects a clos
     }],
   }))};
   chapter.startNode='legacy';chapter.nodes=[{id:'legacy',name:'Legacy',type:'legacySequence',x:0,y:0,sequence,connections:{next:null}}];
+  restoreFixtureDefaults(project);
   assert.deepEqual(validateProject(project),[]);
   sequence.cards.at(-1).choices[0].target='card:c0';
   assert.ok(validateProject(project).some(e=>e.message.includes('legacy sequence has a card cycle')));

@@ -1,3 +1,4 @@
+import {restoreFixtureDefaults} from './fixtures/combat-project-support.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createProject, compileChapter, exportChapter, importChapter, parseProject, validateProject } from '../project/model.js';
@@ -8,6 +9,7 @@ const appearance = name => ({background: `${name}.png`, icons: {default: `${name
 function twoChapters() {
   const project = createProject();
   project.chapters.push({...structuredClone(project.chapters[0]), id: 'second'});
+  restoreFixtureDefaults(project);
   return project;
 }
 

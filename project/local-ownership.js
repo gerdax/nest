@@ -1,4 +1,4 @@
-import { definitionGraph } from './dependencies.js';
+import { definitionGraph, remapDefinitionReferences } from './dependencies.js';
 import { cloneProject, list, object, unique, walk } from './model-data.js';
 
 /**
@@ -7,7 +7,8 @@ import { cloneProject, list, object, unique, walk } from './model-data.js';
  * detached copies of its whole local dependency graph, including inventory aliases.
  * Unplaced drafts infer their chapter from variable rules before using active/first.
  * Explicit owners are preserved (including invalid owners, for validation to report).
- * Historical dependencies of shared definitions become shared without losing data.
+ * Preserve historical promotion for existing story/item rules. Combat reference
+ * roots require explicit shared definitions and never silently promote locals.
  */
 export function normalizeLocalOwnership(project) {
   if (!object(project)) return project;
@@ -17,7 +18,7 @@ export function normalizeLocalOwnership(project) {
   const chapterIds = new Set(chapters.map(chapter => chapter.id));
   const graph = definitionGraph({...project, library,
     chapters: chapters.map(chapter => ({...chapter, nodes: list(chapter.nodes).filter(object)}))});
-  const shared = graph.reachableFrom(library.filter(definition => definition.visibility !== 'local'));
+  const shared = graph.reachableFrom(library.filter(definition => definition.visibility !== 'local' && !['combatAction','effect','enemy'].includes(definition.kind) && definition.subtype!=='weapon'));
   for (const definition of library) if (definition.visibility === 'local' && shared.has(definition.id)) {
     definition.visibility = 'shared';
     delete definition.chapterId;
@@ -95,12 +96,13 @@ export function normalizeLocalOwnership(project) {
       aliases.set(key, aliasOwners.get(key) === chapter.id ? key
         : identity && map.has(identity.id) ? map.get(identity.id) : unique(`${key}-${chapter.id}`, used));
     }
-    const remap = value => walk(value, entry => {
-      for (const key of ['definitionId', 'contextItemId']) if (map.has(entry[key])) entry[key] = map.get(entry[key]);
+    const remap = value => {remapDefinitionReferences(value,map);return walk(value, entry => {
+      if(map.has(entry.contextItemId))entry.contextItemId=map.get(entry.contextItemId);
       if (entry.source === 'inventory' || ['addItem', 'removeItem'].includes(entry.op)) {
         entry.key = itemIds.get(entry.key) ?? aliases.get(entry.key) ?? entry.key;
       }
     });
+    };
     remap(chapter);
     for (const [original, copy] of copies.get(chapter.id)) {
       remap(copy);

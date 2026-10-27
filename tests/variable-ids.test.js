@@ -1,3 +1,4 @@
+import {restoreFixtureDefaults} from './fixtures/combat-project-support.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {variableIdFromName,allocateVariableId,renameVariable,remapVariableClipboard,variableRenamesBetween} from '../studio/variable-ids.js';
@@ -26,7 +27,7 @@ function fixture(){
  d.conditions=[{source:'variable',key:'old_flag',op:'eq',value:false}];d.effects=[{op:'set',key:'old_flag',value:true}];
  const other=structuredClone(chapter);other.id='other';other.variables=[...chapter.variables.map(v=>({...v}))];
  const copied=structuredClone(d);copied.id='other-action';copied.chapterId=other.id;p.library.push(copied);
- other.nodes=[{...structuredClone(node),choices:[{id:'other-choice',definitionId:copied.id}],connections:{'other-choice':null}}];other.startNode=node.id;p.chapters.push(other);
+ other.nodes=[{...structuredClone(node),choices:[{id:'other-choice',definitionId:copied.id}],connections:{'other-choice':null}}];other.startNode=node.id;p.chapters.push(other);restoreFixtureDefaults(p);
  normalizeLocalOwnership(p);synchronizeConnections(p);
  return {p,chapter,node,d};
 }

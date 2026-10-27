@@ -1,3 +1,4 @@
+import {restoreFixtureDefaults} from './fixtures/combat-project-support.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createProject, compileChapter, exportChapter, importChapter, parseProject, validateProject, normalizeLocalOwnership} from '../project/model.js';
@@ -123,6 +124,7 @@ test('tag requirements and triggers preserve local ownership without importing m
   p.chapters.push({id:'chapter-2',name:'Second chapter',startNode:'items',variables:[],nodes:[
     {id:'items',name:'Items',type:'container',x:0,y:0,intro:{id:'intro',definitionId:'arrival'},items:[{id:'second-item',definitionId:other.id}],connections:{next:null}}
   ]});
+  restoreFixtureDefaults(p);
   // Neither a shared requirement nor a contextual tag trigger creates item edges.
   const graph = definitionGraph(p);
   assert.equal(graph.reachableFrom(action).has(first.id),false);

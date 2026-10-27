@@ -1,3 +1,4 @@
+import {restoreFixtureDefaults} from './fixtures/combat-project-support.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ProjectPreview } from '../studio/ProjectPreview.js';
@@ -135,7 +136,7 @@ test('preview play snapshots session overrides and restart refreshes unplaced it
 test('next chapter and its restart compile and apply its session-only unplaced item override',()=>{
  environment();
  const project=createProject(),first=project.chapters[0],second=structuredClone(first),overrides=new PreviewOverrides();
- second.id='second';second.name='Second';first.nextChapterId=second.id;project.chapters.push(second);
+ second.id='second';second.name='Second';first.nextChapterId=second.id;project.chapters.push(second);restoreFixtureDefaults(project);
  const item={...createDefinition('item','second-local'),visibility:'local',chapterId:second.id};project.library.push(item);
  configureOverrides(overrides,project,second,second.nodes[0],[{op:'addItem',key:item.id},{op:'add',key:'energy',value:1}]);
  const preview=new ProjectPreview(new Element(),{previewOverrides:overrides});
@@ -170,7 +171,7 @@ test('next chapter requires completion and carries only shared inventory; restar
   environment();
   const project=createProject(), first=project.chapters[0], second=structuredClone(first);
   second.id='second';second.name='Second';second.variables=[{id:'chapter_flag',type:'flag',initial:false}];second.initialValues={energy:7};
-  project.chapters.push(second);first.nextChapterId=second.id;
+  project.chapters.push(second);restoreFixtureDefaults(project);first.nextChapterId=second.id;
   project.library.push({id:'chapter-wedge',kind:'item',visibility:'local',chapterId:first.id,name:'Wedge',text:'',image:'',permability:0,onCollect:[]});
   project.library.push({id:'shared-key',kind:'item',name:'Key',text:'',image:'',permability:2,onCollect:[]});
   const preview=new ProjectPreview(new Element());preview.play(project);
@@ -191,7 +192,7 @@ test('next chapter requires completion and carries only shared inventory; restar
 test('chapter completion follows only its explicit target, independent of stored or alphabetical order',()=>{
   environment();
   const project=createProject(), first=project.chapters[0], second=structuredClone(first),third=structuredClone(first);
-  second.id='second';second.name='Alpha';third.id='third';third.name='Zulu';project.chapters.push(second,third);
+  second.id='second';second.name='Alpha';third.id='third';third.name='Zulu';project.chapters.push(second,third);restoreFixtureDefaults(project);
   const preview=new ProjectPreview(new Element());preview.play(project);
   preview.controller.completed=true;preview.controller.notify();
   assert.equal(preview.nextChapterButton.hidden,true);assert.equal(preview.nextChapter(),false);

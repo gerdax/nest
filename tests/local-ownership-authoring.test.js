@@ -1,3 +1,4 @@
+import {restoreFixtureDefaults} from './fixtures/combat-project-support.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createProject, createChapter, validateProject } from '../project/model.js';
@@ -10,6 +11,7 @@ import { transferCard } from '../studio/card-transfer.js';
 function fixture() {
  const project=createProject(), source=project.chapters[0], destination=createChapter('other');
  project.chapters.push(destination);
+ restoreFixtureDefaults(project);
  const node=createNode(project,'fork',undefined,source.id);source.nodes.push(node);
  const action=project.library.find(d=>d.id===node.choices[0].definitionId);
  const first={...createDefinition('item','local-first'),visibility:'local',chapterId:source.id,inventoryKey:'first-alias'};

@@ -1,3 +1,4 @@
+import { ensureCombatDefaults } from './combat-model.js';
 import { createDefinition } from './cards.js';
 import { cloneProject, unique, walk } from './model-data.js';
 
@@ -64,5 +65,5 @@ export function migrateChapter(v1) {
     if (v.source === 'inventory' && aliases.has(v.key)) v.key = aliases.get(v.key);
   });
   project.chapters.push(chapter);
-  return project;
+  return ensureCombatDefaults(project);
 }

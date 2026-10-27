@@ -13,6 +13,7 @@ export function renderCardPreviews(root,project,node,chapterId) {
   let card;
   try { card=placement?resolvePlacement(project,placement):project.library.find(d=>d.id===mount.dataset.previewDefinition); }
   catch { mount.replaceChildren(); continue; } // Incomplete drafts can reference missing definitions.
+  if(mount.dataset.previewPath)card=mount.dataset.previewPath.split('.').reduce((value,key)=>value?.[key],card);
   if(!card)continue;
   const chapter=project.chapters?.find(chapter=>placement?(chapterId?chapter.id===chapterId:chapter.nodes.includes(node)):card.visibility==='local'&&chapter.id===card.chapterId);
   const variables=chapterVariables(project,chapter).map(variable=>({...variable,initial:chapter?.initialValues?.[variable.id]??variable.initial}));

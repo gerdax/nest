@@ -1,0 +1,74 @@
+# Combat implementation checkpoint — M0–M7
+
+27 October 2026. Implemented in the isolated `combat-production` worktree;
+the original main checkout and reference combat mockup remain preserved.
+
+## Milestone delivery
+
+| Milestone | Delivered |
+| --- | --- |
+| M0 | Native v3 contracts and separate authored Rat fixture; agreed product decisions remain in the specification. |
+| M1 | Weapon/Combat Action/Effect/Enemy definitions, mandatory Death, typed reference closure, migration, validation, compilation, package and storage compatibility. |
+| M2 | Shared native slide/turn transitions and exact departure completion, staged rendering, black/light physical dice and shared result timing. |
+| M3 | Protected chapter Death authoring, graph-only visibility, replacement paste and global committed-health interruption. |
+| M4 | Pure source-bound combat rules, exact odds, sampled damage, ordered attacks, percentage reactions and per-Weapon Action cooldowns. |
+| M5 | Production coordinator on the existing deck and player state; pending damage, retry guards, player Death and explicit/blocked Victory. |
+| M6 | Library inspectors, embedded Enemy cards and artwork, project combat settings, Combat Enemy selector and Victory connection. |
+| M7 | Regression suite, staging, architecture review, browser acceptance and this reviewable checkpoint. |
+
+The [authoring/runtime guide](combat.md) describes the implemented fields and
+explicitly deferred mechanics. The [technical plan](combat-technical-plan.md)
+remains the original architectural plan rather than a new product specification.
+
+## Verification evidence
+
+- Full deterministic suite: **2,390 passed, 0 failed, 0 skipped** using the bundled
+  Node runtime with `node --test tests/*.test.js`.
+- Static staging: `python3 build_pages.py /tmp/nest-combat-release-stage-20261027`:
+  280 files; local HTML, module and CSS references verified; 103 artwork/font assets.
+- `git diff --check` passed. Original artwork and prototypes were preserved;
+  the ported dice vendor change retains its existing provenance/license.
+- Astra independently reviewed coordinator state/commitment and integration
+  contracts. Findings concerning retry state, presentation progression and
+  pre-payment check values were fixed and covered by behavioral tests.
+- Existing tests were adapted to mandatory project defaults/Death and native v3;
+  their original ownership, import and routing assertions remain exercised.
+
+Real in-app browser checks used the production player/editor at port 8960:
+Pistol collection, Rat intro, actual bundled black/light dice with hits/misses,
+Punch/Shoot/Burst choices, deferred damage, one-turn Burst cooldown and recovery,
+stronger-only Rat reaction, lethal Enemy damage, Enemy death and connected
+Victory to the next story beat. Player health, Energy and inventory persisted.
+
+Editor checks covered Library Weapon references, self-contained Enemy fields,
+Combat selection/Victory, protected Death controls and graph-only visibility.
+A separate isolated test changed player starting Health to 1 and Bite target to
+3: pending damage left Health unchanged, accepted departure committed zero and
+turned to the hidden chapter Death beat; its final card produced a Death dead end.
+These authored test changes are not part of the fixture source/defaults.
+
+Deterministic tests additionally cover unlinked Victory blackout, canceled and
+duplicate callbacks, restart/destroy, presentation failures/retries, multiple
+source Weapons, exact threshold boundaries, ordinary lethal paths, Death paste
+undo/redo, upgrades, storage recovery and package reference remapping.
+
+## Verification limits
+
+The authored fixture was imported into the real editor and its controls inspected;
+a complete encounter was not authored manually from an entirely blank project.
+Unlinked Victory and lifecycle cases have deterministic coverage; they were not
+all repeated manually in the browser. Reduced motion and narrow-layout edge
+cases were not manually verified in this acceptance run. Physical phones, Safari/Firefox and screen readers were not tested.
+No deterministic test is presented as evidence of those device/browser checks.
+
+Poison/statuses, Defend/Block, ammo/equipment, multi-enemy combat, fleeing,
+attack schemes/randomness, healing re-cross rules, finite-use Weapons, shared
+cooldowns, post-death retry and durable combat resume remain deferred as agreed.
+Additional non-damage combat effects and Enemy costs are rejected with explicit
+validation diagnostics rather than being silently ignored.
+
+## Try it
+
+Run `python3 serve.py --host 127.0.0.1 --port 8960` from this worktree.
+Open `player.html?example=rat` for the non-saving example, or `editor.html`
+for Library/chapter authoring. The example does not replace browser storage.

@@ -59,7 +59,7 @@ test('old placement context is discarded on load and export without changing def
 
 test('action names always appear while item names follow showName',()=>{
  const project=createProject();
- for(const definition of project.library){
+ for(const definition of project.library.filter(card=>['event','caption','action','item'].includes(card.kind))){
   assert.equal(definition.showName,definition.kind==='item');
   const before=cardFace(definition,project.variables,project.library);assert.equal(before.heading,['action','item'].includes(definition.kind)?definition.name:'');
   definition.showName=true;assert.equal(cardFace(definition,project.variables,project.library).heading,['action','item'].includes(definition.kind)?definition.name:'');

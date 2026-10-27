@@ -1,3 +1,4 @@
+import {restoreFixtureDefaults} from './fixtures/combat-project-support.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createProject,createChapter,validateProject,normalizeLocalOwnership} from '../project/model.js';
@@ -60,7 +61,7 @@ test('cross chapter paste copies item dependencies and chapter variables with de
  const itemId=item.items[0].definitionId;
  definition(p,source).effects=[{op:'addItem',key:itemId},{op:'set',key:'found',value:true}];
  definition(p,source).conditions=[{source:'inventory',key:itemId,op:'has'}];
- const other=createChapter('other'),targetNode=createNode(p,'fork',undefined,other.id);other.nodes.push(targetNode);other.startNode=targetNode.id;p.chapters.push(other);
+ const other=createChapter('other'),targetNode=createNode(p,'fork',undefined,other.id);other.nodes.push(targetNode);other.startNode=targetNode.id;p.chapters.push(other);restoreFixtureDefaults(p);
  const target=targetNode.choices[0],payload=captureCardClipboard(p,c.id,a.id,source.id);
  pasteCardClipboard(p,other,targetNode,target,payload);synchronizeConnections(p);
  const copied=definition(p,target),copiedItem=p.library.find(d=>d.id===copied.effects[0].key);

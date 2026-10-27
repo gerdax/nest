@@ -65,11 +65,13 @@ export class GraphView {
   this.selectionChapter=chapterKey;
   this.selectedIds=new Set([...this.selectedIds].filter(id=>chapter.nodes.some(node=>node.id===id)));
   this.project=project;this.chapter=chapter;this.selected=selected;this.active=active;
-  this.nodesById=new Map(chapter.nodes.map(node=>[node.id,node]));
+  const visibleNodes=chapter.nodes.filter(node=>node.type!=='death'||project.showDeathBeat!==false);
+  this.selectedIds=new Set([...this.selectedIds].filter(id=>visibleNodes.some(n=>n.id===id)));
+  this.nodesById=new Map(visibleNodes.map(node=>[node.id,node]));
   this.libraryIndex=createLibraryIndex(project.library);
   this.definitionsById=new Map(project.library.map(definition=>[definition.id,definition]));
   if(this.pending&&!chapter.nodes.some(n=>n.id===this.pending.nodeId&&outputsForNode(project,n,this.libraryIndex).includes(this.pending.exit)))this.pending=null;
-  this.root.querySelector('#nodes').innerHTML=chapter.nodes.map(n=>`<article class="node ${n.type} ${this.selectedIds.has(n.id)?'selected':''} ${n.id===active?'active':''}" data-id="${esc(n.id)}" style="left:${this.position(n).x}px;top:${this.position(n).y}px"><div class="node-heading">${nodeIcon(n.type)}<span class="badge">${n.id===chapter.startNode?'<span class="graph-start-label">START</span> · ':''}${esc(n.name?.trim()||nodeTypeLabel(n.type))}</span>${this.overrideMarker(n.id)}</div>${n.type==='random'?`<div class="node-body">${n.routes.length} ${n.routes.length===1?'route':'routes'}</div>`:n.type.startsWith('legacy')?'<div class="node-body">Preserved legacy behaviour</div>':''}${this.cardRows(n)}</article>`).join('');
+  this.root.querySelector('#nodes').innerHTML=visibleNodes.map(n=>`<article class="node ${n.type} ${this.selectedIds.has(n.id)?'selected':''} ${n.id===active?'active':''}" data-id="${esc(n.id)}" style="left:${this.position(n).x}px;top:${this.position(n).y}px"><div class="node-heading">${nodeIcon(n.type)}<span class="badge">${n.id===chapter.startNode?'<span class="graph-start-label">START</span> · ':''}${esc(n.name?.trim()||nodeTypeLabel(n.type))}</span>${this.overrideMarker(n.id)}</div>${n.type==='random'?`<div class="node-body">${n.routes.length} ${n.routes.length===1?'route':'routes'}</div>`:n.type.startsWith('legacy')?'<div class="node-body">Preserved legacy behaviour</div>':''}${this.cardRows(n)}</article>`).join('');
   this.nodeElements=new Map([...this.root.querySelectorAll('.node')].map(el=>[el.dataset.id,el]));
   this.setNodeErrors(this.nodeErrors);
   this.portElements=new Map([...this.nodeElements].map(([id,el])=>[id,new Map([...el.querySelectorAll('.port')].map(port=>[port.dataset.exit,port]))]));
@@ -146,7 +148,7 @@ export class GraphView {
  }
  cardRows(node){
   const descriptor=nodeTypeDescriptor(node.type),outputs=outputsForNode(this.project,node,this.libraryIndex),used=new Set();
-  let html='';
+  let html=node.type==='combat'?`<div class="node-body">Enemy · ${esc(this.definitionsById.get(node.enemy?.definitionId)?.name||'Choose Enemy')}</div>`:'';
   for(const slot of Object.keys(descriptor?.slots||{})){
    const placements=slot==='intro'?(node.intro&&node.introEnabled!==false?[node.intro]:[]):node[slot]||[];
    for(const placement of placements){
@@ -197,7 +199,7 @@ export class GraphView {
   // Compensate for graph and editor zoom so selection stays two screen pixels wide.
   world.style.setProperty('--graph-selection-width',`${2/(this.view.z*uiScale(this.root))}px`);
  }
- validTarget(id,source) {return (id!==source||this.project.allowCycles!==false)&&this.nodesById.has(id);}
+ validTarget(id,source) {return this.nodesById.get(id)?.type!=='death'&&(id!==source||this.project.allowCycles!==false)&&this.nodesById.has(id);}
  dropTarget(e,source) {
   const r=this.root.getBoundingClientRect();
   if(e.clientX<r.left||e.clientX>=r.right||e.clientY<r.top||e.clientY>=r.bottom)return null;
@@ -242,6 +244,7 @@ export class GraphView {
   }
   if(el){
    const copy=e.altKey&&!!e.target.closest('.node-heading');
+   if(copy&&[...this.selectedIds,el.dataset.id].some(id=>this.nodesById.get(id)?.type==='death'))return;
    const id=el.dataset.id,group=this.selectedIds.size>1&&this.selectedIds.has(id);
    if(!group)this.onSelect(id);
    const n=this.nodesById.get(id);
@@ -343,6 +346,7 @@ export class GraphView {
   if(!d.moved)return;
   const r=this.selectionRect(d),scale=this.view.z*uiScale(this.root);
   this.selectedIds=new Set(this.chapter.nodes.filter(n=>{
+   if(!this.nodesById.has(n.id))return false;
    const bounds=this.nodeElements.get(n.id)?.getBoundingClientRect(),width=bounds?.width?bounds.width/scale:220,height=bounds?.height?bounds.height/scale:120;
    return n.x<=r.x+r.width&&n.x+width>=r.x&&n.y<=r.y+r.height&&n.y+height>=r.y;
   }).map(n=>n.id));
@@ -380,5 +384,5 @@ export class GraphView {
   const hit=this.root.ownerDocument.elementFromPoint(e.clientX,e.clientY);
   return (!hit||this.root.contains(hit))&&!hit?.closest('.node');
  }
- fit(){if(!this.chapter.nodes.length)return;const nodes=this.chapter.nodes,r=this.root.getBoundingClientRect(),scale=uiScale(this.root),minX=Math.min(...nodes.map(n=>n.x)),minY=Math.min(...nodes.map(n=>n.y)),maxX=Math.max(...nodes.map(n=>n.x+220)),maxY=Math.max(...nodes.map(n=>n.y+220));this.view.z=Math.max(.25,Math.min(1,(r.width/scale-80)/(maxX-minX),(r.height/scale-80)/(maxY-minY)));this.view.x=40-minX*this.view.z;this.view.y=40-minY*this.view.z;this.transform();}
+ fit(){const nodes=this.chapter.nodes.filter(n=>n.type!=='death'||this.project?.showDeathBeat!==false);if(!nodes.length)return;const r=this.root.getBoundingClientRect(),scale=uiScale(this.root),minX=Math.min(...nodes.map(n=>n.x)),minY=Math.min(...nodes.map(n=>n.y)),maxX=Math.max(...nodes.map(n=>n.x+220)),maxY=Math.max(...nodes.map(n=>n.y+220));this.view.z=Math.max(.25,Math.min(1,(r.width/scale-80)/(maxX-minX),(r.height/scale-80)/(maxY-minY)));this.view.x=40-minX*this.view.z;this.view.y=40-minY*this.view.z;this.transform();}
 }

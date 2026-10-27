@@ -1,3 +1,4 @@
+import {restoreFixtureDefaults} from './fixtures/combat-project-support.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createProject, exportChapter, importChapter, parseProject, validateProject} from '../project/model.js';
@@ -8,6 +9,7 @@ function fixture() {
   const project = createProject(), chapter = project.chapters[0];
   project.chapters = ['Zulu', 'Alpha', 'Alpha'].map((name, index) => ({...structuredClone(chapter), id:`chapter-${index + 1}`, name}));
   project.activeChapterId = 'chapter-2';
+  restoreFixtureDefaults(project);
   return project;
 }
 

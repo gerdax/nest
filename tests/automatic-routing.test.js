@@ -1,3 +1,4 @@
+import {restoreFixtureDefaults} from './fixtures/combat-project-support.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ProjectController } from '../project/ProjectController.js';
@@ -17,6 +18,7 @@ function hiddenChain(count) {
  project.library=[hidden,shown];
  const chapter=project.chapters[0];chapter.startNode='n0';
  chapter.nodes=Array.from({length:count+1},(_,i)=>({id:`n${i}`,name:`Beat ${i}`,type:'linear',x:i,y:0,cards:[{id:`p${i}`,definitionId:i===count?'shown':'hidden'}],connections:{next:i<count?`n${i+1}`:null}}));
+ restoreFixtureDefaults(project);
  return project;
 }
 

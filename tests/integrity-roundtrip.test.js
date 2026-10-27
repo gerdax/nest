@@ -1,3 +1,4 @@
+import {restoreFixtureDefaults} from './fixtures/combat-project-support.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createProject, compileChapter, parseProject, exportChapter, importChapter, normalizeSingleItems, validateProject} from '../project/model.js';
@@ -110,6 +111,7 @@ function availabilityProject(type, projectPolicy, flag) {
   chapter.nodes = [{id:'start', name:'Start', type, x:0, y:0,
     unavailableActions:projectPolicy === 'hidden' ? 'disabled' : 'hidden',
     ...(type === 'fork' ? {choices:cards, connections:{blocked:null, available:null}} : {cards, connections:{next:null}})}];
+  restoreFixtureDefaults(project);
   return project;
 }
 

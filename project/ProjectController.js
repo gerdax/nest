@@ -1,3 +1,5 @@
+import {CombatCoordinator} from './CombatCoordinator.js';
+import {definition as combatDefinition} from './combat-rules.js';
 import { createError, errorMessage, errorCode } from '../errors.js';
 import { retainsInventoryItems } from './nodeTypes.js';
 import { initialValues, conditionsMet, affordCosts, transact, addInventory, canTriggerItem, inventoryQuantity } from './state.js';
@@ -22,7 +24,7 @@ export class ProjectController {
     for(const [name,listener] of Object.entries(this.listeners)) deck.addEventListener(name,listener);
     this.restart();
   }
-  get state() { return {activeNodeId:this.location?.node.id ?? null,cardId:this.card()?.id ?? null,variables:{...this.variables},collectedItems:this.inventory.map(i=>({...i})),completed:this.completed,checking:!!this.checking,idle:!this.completed&&!this.checking&&!this.pendingItem&&!this.pendingIntro&&!this.deck.busy&&!this.deck.pickup?.pending&&!this.deck.drag&&!['revealing','closing','committing','collecting'].includes(this.deck.phase)}; }
+  get state() { return {activeNodeId:this.location?.node.id ?? null,cardId:this.card()?.id ?? null,variables:{...this.variables},collectedItems:this.inventory.map(i=>({...i})),completed:this.completed,terminalReason:this.terminalReason,combat:this.combat?.state??null,checking:!!this.checking||!!this.combat?.checking,idle:(!this.combat||this.combat.idle)&&!this.halted&&!this.deathHandoff&&!this.completed&&!this.checking&&!this.pendingItem&&!this.pendingIntro&&!this.pendingExchange&&!this.deck.busy&&!this.deck.pickup?.pending&&!this.deck.drag&&!['revealing','closing','committing','collecting'].includes(this.deck.phase)}; }
   notify() {if(!this.destroyed)this.onChange(this.state);}
   error(error) {if(!this.destroyed)this.onError(error,this.state);}
   succeeded(nodeId) {
@@ -33,12 +35,14 @@ export class ProjectController {
   }
   restart() {
     if(this.destroyed)return;
+    this.combat?.dispose();this.combat=null;this.combatOperations=new Set();
     const generation=++this.generation; this.checking?.abort(); this.checking=null;this.checkPayment=null;
     this.arrivalStates = new WeakMap();
+    this.deathHandoff?.abort();this.deathHandoff=null;
     this.deck.reset();
     this.variables=transact(initialValues(this.compiled.variables),[],{effects:Object.entries(this.initialState?.variables || {}).map(([key,value])=>({op:'set',key,value}))},this.compiled.variables).variables;
     this.inventory=(this.initialState?.inventory || []).reduce((items,item)=>addInventory(items,structuredClone(item)),[]);
-    this.remaining=new Map(); this.itemReplacements=new Map(); this.accepted=new Set();this.revealedIntros=new Set();this.pendingIntro=null; this.pendingItem=null;this.pendingExchange=null;this.stagedDestination=null;this.completed=false;
+    this.remaining=new Map(); this.itemReplacements=new Map(); this.accepted=new Set();this.revealedIntros=new Set();this.pendingIntro=null; this.pendingItem=null;this.pendingExchange=null;this.stagedDestination=null;this.completed=false;this.halted=false;this.terminalReason=null;this.deathHandoff=null;
     this.location=null;
     try {this.adopt(this.locate(this.compiled.startNode),false);this.show();if(!this.destroyed&&this.generation===generation)this.onStart(this.compiled.startNode);} catch(error){
       this.location=null;this.completed=false;
@@ -47,7 +51,37 @@ export class ProjectController {
       this.error(error);this.notify();
     }
   }
-  type(location=this.location) {return location?.sequence?.type ?? location?.node.type;}
+  type(location=this.location) {const type=location?.sequence?.type ?? location?.node.type;return type==='death'?'linear':type;}
+  // Pure selection: callers may inspect hypothetical transactions without
+  // changing playback, consuming RNG, or committing entry effects.
+  deathDestination(values=this.variables,location=this.location) {
+    if(location?.node.type==='death'||typeof values?.health!=='number'||!Number.isFinite(values.health)||values.health>0)return null;
+    const node=this.nodes.get(this.compiled.deathNode);
+    return node?.type==='death'?{node,index:0,queue:[]}:null;
+  }
+  handoffDeath({animate=false}={}) {
+    if(this.destroyed||this.halted||this.deathHandoff||this.checking||this.checkPayment||this.pendingItem||this.pendingIntro||this.pendingExchange)return false;
+    const selected=this.deathDestination();if(!selected)return false;
+    const generation=this.generation;
+    const destination=this.locate(selected.node.id);
+    this.pendingIntro=null;this.pendingExchange=null;this.stagedDestination=null;
+    this.adopt(destination,false);
+    if(this.destroyed||generation!==this.generation)return false;
+    if(animate&&typeof this.deck.transitionContent==='function'&&!this.halted) {
+      const abort=new AbortController();this.deathHandoff=abort;
+      const content=this.content(),presentation=this.presentation();
+      Promise.resolve(this.deck.transitionContent(content,{transition:'front-turn',surface:'front',presentation,signal:abort.signal})).then(accepted=>{
+        if(this.destroyed||generation!==this.generation||this.deathHandoff!==abort)return;
+        this.deathHandoff=null;
+        if(!accepted)this.show();else this.notify();
+      }).catch(error=>{
+        if(this.destroyed||generation!==this.generation||this.deathHandoff!==abort)return;
+        this.deathHandoff=null;this.error(error);this.show();
+      });
+      this.notify();
+    }else this.show({transition:'flip'});
+    return true;
+  }
   unavailableActions(location=this.location) {
     const node=location?.node;
     const override=['fork','linear'].includes(node?.type) ? node.unavailableActions : undefined;
@@ -126,12 +160,15 @@ export class ProjectController {
       while(pending.length) {
         const step=pending.pop();
         let {values,inventory,changed}=step;
+        if(step.halted){result={halted:true,terminalReason:'death'};if(changed)this.arrivalStates.set(result,{variables:values,inventory});continue;}
         if(step.finish) {
           if(step.random)result=null;
           if(preview){preflight.completed.set(step.id,{values,inventory,result});visited.delete(step.id);entered.delete(step.id);}
           continue;
         }
         if(step.location) {
+          const death=this.deathDestination(values,step.location);
+          if(death){pending.push({id:death.node.id,values,inventory,changed});continue;}
           const next=this.seekStep(step.location,values,inventory,excluded);
           if(next.ready){result=next.location;if(changed)this.arrivalStates.set(result,{variables:values,inventory});}
           else pending.push({...next,values,inventory,changed});
@@ -146,6 +183,8 @@ export class ProjectController {
         visited.add(id);entered.add(id);
         const node=this.nodes.get(id);if(!node)throw createError('RUNTIME_UNKNOWN_NODE', { id });
         pending.push({finish:true,id,random:preview&&node.type==='random',values,inventory});
+        const death=this.deathDestination(values,{node});
+        if(death){pending.push({id:death.node.id,values,inventory,changed});continue;}
         // Keep entry effects speculative until the full route succeeds. Branches
         // inherit their parent's state rather than a preceding sibling's effects.
         for(const effect of Object.hasOwn(this.nodeEntryEffects,id)?this.nodeEntryEffects[id]:[]) {
@@ -153,6 +192,8 @@ export class ProjectController {
           const state=transact(values,inventory,{effects:[effect]},this.compiled.variables,this.compiled.library);
           values=state.variables;inventory=state.inventory;changed=true;
         }
+        const enteredDeath=this.deathDestination(values,{node});
+        if(enteredDeath){pending.push({id:enteredDeath.node.id,values,inventory,changed});continue;}
         if(node.type==='random') {
           const routes=(node.routes ?? []).filter(r=>r.weight>0&&conditionsMet(r.conditions,values,inventory));
           if(preview) {
@@ -204,6 +245,7 @@ export class ProjectController {
     return {ready:true,location};
   }
   nextStep(location,output='next') {
+    if(location.node.type==='death')return {halted:true,terminalReason:'death'};
     if(location.queue?.length) {
       const queue=[...location.queue],id=queue.shift();
       return {location:{...location,sequence:location.node.sequences.find(s=>s.id===id),queue,index:0,ownedItemsAtEntry:undefined}};
@@ -218,6 +260,8 @@ export class ProjectController {
     return this.traverse(this.nextStep(location,output),values,inventory,visited,excluded,preview,preflight);
   }
   destination(source,success,values=this.variables,inventory=this.inventory,location=this.location,preview=false,excluded=null) {
+    const death=this.deathDestination(values,location);
+    if(death)return this.locate(death.node.id,values,inventory,new Set(),excluded,preview);
     const type=this.type(location);
     if(type==='linear') {
       return this.seek({...location,index:location.index+1},values,inventory,new Set(),excluded,preview);
@@ -246,6 +290,9 @@ export class ProjectController {
       for(const outcome of outcomes) {
         const collected=transition==='collect'?addInventory(inventory,{...source,text:this.body(source)}):inventory;
         const result=transact(values,collected,{triggerItem:transition?undefined:source.contextInventoryKey??source.contextItemId,costs:transition?[]:source.costs,effects:transition?(transition==='collect'?collectionEffects(source):[]):[...(source.effects??[]),...(outcome===undefined?[]:outcome?source.successEffects??[]:source.failureEffects??[])]},this.compiled.variables,this.compiled.library);
+        // A lethal accepted result always has its implicit Death route, even
+        // when this action's ordinary output is unlinked.
+        if(this.deathDestination(result.variables,location))continue;
         // A full drawer can exchange this item without leaving its stack slot.
         if(transition==='collect'&&this.deck.pickup&&inventory.length>=4&&!inventory.some(owned=>(owned.definitionId??owned.id)===(source.definitionId??source.id)||source.inventoryKey&&owned.inventoryKey===source.inventoryKey))continue;
         if(this.type(location)==='container') {
@@ -262,9 +309,14 @@ export class ProjectController {
   }
   arrivalState(destination,variables=this.variables,inventory=this.inventory) {return this.arrivalStates.get(destination) ?? {variables,inventory};}
   adopt(destination,notify=true) {
-    const state=this.arrivalState(destination);this.arrivalStates.delete(destination);
+    if(this.combat&&destination?.node!==this.location?.node){this.combat.dispose();this.combat=null;}
+    let state=this.arrivalState(destination);this.arrivalStates.delete(destination);
+    const death=this.deathDestination(state.variables,destination?.node?destination:this.location);
+    if(death){destination=this.locate(death.node.id,state.variables,state.inventory);state=this.arrivalState(destination,state.variables,state.inventory);this.arrivalStates.delete(destination);}
     this.variables=state.variables;this.inventory=state.inventory;
-    this.completed=!!destination.completed;if(!this.completed)this.location=destination;if(notify)this.notify();
+    this.completed=!!destination.completed;this.halted=!!destination.halted;this.terminalReason=destination.terminalReason??null;
+    if(!this.completed&&!this.halted)this.location=destination;
+    if(notify){if(this.location?.node.type==='combat'&&!this.halted&&!this.completed)this.show();else this.notify();}
   }
   body(card) {return cardBody(card);}
   action(card,values=this.variables) {
@@ -274,7 +326,7 @@ export class ProjectController {
     return {...content,label:card.name ?? card.label ?? 'Continue',...face};
   }
   linearTransition(location, destination, source=this.card(location), values=this.variables, inventory=this.inventory) {
-    const revealing=this.type(location)==='linear'&&!['action','item','health','energy'].includes(source?.kind)&&destination&&!destination.completed&&this.key(location)===this.key(destination)&&destination.index>location.index;
+    const revealing=this.type(location)==='linear'&&!['action','item','health','energy'].includes(source?.kind)&&destination&&!destination.completed&&!destination.halted&&this.key(location)===this.key(destination)&&destination.index>location.index;
     if(!revealing)return 'flip';
     if(destination.index===location.index+1) {
       const following=this.runtimeItem((location.sequence?.cards??location.node.cards)[destination.index],location);
@@ -297,6 +349,10 @@ export class ProjectController {
     }catch { return false; }
   }
   content(location=this.location,values=this.variables,inventory=this.inventory,preview=true,excludedItem=null) {
+    if(location?.node.type==='combat') {
+      const enemy=combatDefinition(this.compiled.library,location.node.enemy);
+      return {id:`combat-preview:${location.node.id}`,interaction:'choice',directAdvance:true,allowClose:false,cardKind:'caption',text:enemy?.name??'Combat',advanceDisabled:true,actions:[{id:'wait',label:'Combat',disabled:true}]};
+    }
     ({variables:values,inventory}=this.arrivalState(location,values,inventory));
     const type=this.type(location),card=this.card(location),fork=type==='fork'||type==='forked',container=type==='container',linearFace=type==='linear'&&['action','item','health','energy'].includes(card?.kind),linearItem=linearFace&&card.kind==='item';
     let actions;
@@ -341,9 +397,9 @@ export class ProjectController {
     if(type==='linear'&&preview&&card&&!actions[0].disabled&&card.kind!=='item'&&card.resolution!=='check') {
       try {
         const predicted=transact(values,inventory,{triggerItem:card.contextInventoryKey??card.contextItemId,costs:card.costs,effects:card.effects},this.compiled.variables,this.compiled.library);
-        const next=this.seek({...location,index:location.index+1},predicted.variables,predicted.inventory,new Set(),null,true);
+        const next=this.destination(card,undefined,predicted.variables,predicted.inventory,location,true);
         payload.nextTransition=this.linearTransition(location,next,card,values,inventory);
-        if(next&&!next.completed) {
+        if(next&&!next.completed&&!next.halted) {
           const nextContent=this.content(next,predicted.variables,predicted.inventory,false);
           payload.nextDeckPreview={content:nextContent,presentation:this.presentation(next,predicted.variables,predicted.inventory)};
           if(this.type(next)==='linear')payload.nextCardPreview={title:nextContent.title,heading:nextContent.heading,text:nextContent.text,image:nextContent.image,imageScale:nextContent.imageScale,imageOffsetX:nextContent.imageOffsetX,imageOffsetY:nextContent.imageOffsetY,flipImage:nextContent.flipImage,cardKind:nextContent.cardKind,value:nextContent.value};
@@ -365,7 +421,15 @@ export class ProjectController {
     if((['fork','forked'].includes(this.type())||this.type()==='linear'&&this.card()?.kind==='action')&&this.presentation()==='open'&&!content.actions.some(a=>!a.disabled))this.error(createError('NO_AVAILABLE_CHOICES', { nodeName: this.location.node.name || this.location.node.id }));
   }
   show({transition='flip',restore=false,presentation,animate=true,autoBrowse=true,preserveInventoryContext=false}={}) {
-    if(this.completed){this.deck.endContent();if(!this.deck.busy)this.deck.completeCommit?.();this.notify();return;}
+    if(this.location?.node.type==='combat'&&!this.completed&&!this.halted){
+      if(!this.combat){
+        const enemy=combatDefinition(this.compiled.library,this.location.node.enemy);
+        if(!enemy)throw new Error('Missing Enemy definition');
+        this.combat=new CombatCoordinator(this,enemy,this.location.node);void this.combat.start();
+      }
+      return;
+    }
+    if(this.completed||this.halted){this.deck.endContent();if(!this.deck.busy)this.deck.completeCommit?.();this.notify();return;}
     if(restore)this.deck.reset();
     if(this.type()==='container'&&!conditionsMet(this.card()?.conditions,this.variables,this.inventory)){this.location.introRevealed=true;this.revealedIntros.add(this.key());}
     const content=this.content();
@@ -373,13 +437,18 @@ export class ProjectController {
     this.deck.replaceContent(content,{presentation:presentation ?? this.presentation(),transition,animate,preserveInventoryContext});this.reportBlocked(content);this.notify();
   }
   reveal(detail) {
-    if(this.destroyed||this.completed||this.checking||this.pendingItem||this.pendingIntro||!['container','fork'].includes(this.location.node.type)||!this.introEnabled()||detail.contentId!==this.deck.content.id||this.introShown())return;
+    if(this.destroyed||this.completed||this.halted||this.deathHandoff||this.checking||this.pendingItem||this.pendingIntro||this.pendingExchange||!['container','fork'].includes(this.location.node.type)||!this.introEnabled()||detail.contentId!==this.deck.content.id||this.introShown())return;
     const intro=this.card();
     if(!conditionsMet(intro?.conditions,this.variables,this.inventory))return;
     try {
       const result=transact(this.variables,this.inventory,{effects:intro?.effects},this.compiled.variables,this.compiled.library);
       this.location.introRevealed=true;this.revealedIntros.add(this.key());this.pendingIntro={contentId:detail.contentId};
       this.variables=result.variables;this.inventory=result.inventory;
+      if(this.deathDestination()&&this.deck.commitMotion?.introduction) {
+        const sourceNodeId=this.location.node.id;
+        if(!this.succeeded(sourceNodeId))return;
+        this.pendingIntro=null;this.handoffDeath();return;
+      }
       if(['container','fork'].includes(this.type())&&this.deck.commitMotion?.introduction) {
         const content=this.content();content.id=detail.contentId;
         this.deck.replaceContent(content,{presentation:'open',transition:'flip'});
@@ -391,7 +460,8 @@ export class ProjectController {
   transaction(source,outcome,values=this.variables,inventory=this.inventory) {return transact(values,inventory,{triggerItem:source.contextInventoryKey??source.contextItemId,costs:source.costs,effects:[...(source.effects??[]),...(outcome===undefined?[]:outcome?source.successEffects??[]:source.failureEffects??[])]},this.compiled.variables,this.compiled.library);}
   available(source,values=this.variables,inventory=this.inventory) {return (!(source.contextInventoryKey??source.contextItemId)||canTriggerItem(inventory,source.contextInventoryKey??source.contextItemId))&&conditionsMet(source.conditions,values,inventory)&&affordCosts(values,inventory,source.costs,this.compiled.variables);}
   commit(detail) {
-    if(this.destroyed||this.completed||this.checking||this.pendingItem||this.pendingIntro||(this.type()==='container'||this.type()==='linear'&&this.card()?.kind==='item')||detail.contentId!==this.deck.content.id||this.accepted.has(detail.contentId))return;
+    if(this.combat){void this.combat.accept(detail);return;}
+    if(this.destroyed||this.completed||this.halted||this.deathHandoff||this.checking||this.pendingItem||this.pendingIntro||this.pendingExchange||(this.type()==='container'||this.type()==='linear'&&this.card()?.kind==='item')||detail.contentId!==this.deck.content.id||this.accepted.has(detail.contentId))return;
     const action=this.deck.content.actions.find(a=>a.id===detail.action?.id&&!a.disabled);if(!action)return;
     const source=['fork','forked'].includes(this.type())?this.choices().find(c=>c.id===action.id):this.card();
     if(!source||!this.available(source)||this.departureBlocked(source)){this.show({restore:true});return;}
@@ -466,7 +536,8 @@ export class ProjectController {
     return inventory;
   }
   authorizeCollection(action, decision) {
-    if (this.destroyed || this.completed || this.checking || this.pendingItem || this.pendingIntro) return false;
+    if(this.combat)return false;
+    if (this.destroyed || this.completed || this.halted || this.deathHandoff || this.checking || this.pendingItem || this.pendingIntro || this.pendingExchange) return false;
     const item = this.type() === 'linear' && this.card()?.kind === 'item' ? this.card() : this.items().find(item => item.id === action.id);
     if (!item || item.id !== action.id || this.cardAvailability(item).disabled) return false;
     try {
@@ -507,9 +578,10 @@ export class ProjectController {
     } catch(error) { this.error(error); return false; }
   }
   resolveItem(detail,transition) {
+    if(this.combat)return;
     const linearItem=this.type()==='linear'&&this.card()?.kind==='item';
     const all=transition==='discard'&&detail.all===true&&!linearItem;
-    if(this.destroyed||this.completed||this.checking||this.pendingItem||this.pendingIntro||(!linearItem&&this.type()!=='container')||detail.contentId!==this.deck.content.id)return;
+    if(this.destroyed||this.completed||this.halted||this.deathHandoff||this.checking||this.pendingItem||this.pendingIntro||this.pendingExchange||(!linearItem&&this.type()!=='container')||detail.contentId!==this.deck.content.id)return;
     const item=linearItem?this.card():this.items().find(i=>i.id===detail.action?.id);
     if(!item||item.id!==detail.action?.id||this.cardAvailability(item).disabled)return;
     let baseInventory;
@@ -522,10 +594,11 @@ export class ProjectController {
       const result=transact(this.variables,inventory,{effects:transition==='collect'?collectionEffects(item):[]},this.compiled.variables,this.compiled.library);
       this.pendingItem={item,key:this.key(),linearItem,all,transition,contentId:detail.contentId,result,removedIds:transition==='discard'?this.discardedReturns(this.location,item):[]};
       if(detail.final||linearItem||all) {
-        const retainContainer=!linearItem&&!all&&this.items(this.location,result.variables,result.inventory,item.id).length>0;
+        const death=this.deathDestination(result.variables);
+        const retainContainer=!death&&!linearItem&&!all&&this.items(this.location,result.variables,result.inventory,item.id).length>0;
         const excluded=transition==='collect'?{key:this.key(),itemId:item.id}:null;
-        this.stagedDestination=linearItem?this.destination(item,undefined,result.variables,result.inventory):retainContainer?this.location:this.next(this.location,'next',result.variables,result.inventory,new Set(),excluded);
-        if(this.stagedDestination.completed)this.deck.endContent();
+        this.stagedDestination=death?this.locate(death.node.id,result.variables,result.inventory):linearItem?this.destination(item,undefined,result.variables,result.inventory):retainContainer?this.location:this.next(this.location,'next',result.variables,result.inventory,new Set(),excluded);
+        if(this.stagedDestination.completed||this.stagedDestination.halted)this.deck.endContent();
         else {
           const content=this.content(this.stagedDestination,result.variables,result.inventory,true,retainContainer?item.id:null);
           if(retainContainer)content.autoBrowse=false;
@@ -541,6 +614,7 @@ export class ProjectController {
     if(this.pendingIntro&&detail.transition==='reveal'&&detail.contentId===this.pendingIntro.contentId) {
       this.pendingIntro=null;
       try {
+        if(this.handoffDeath({animate:true}))return;
         if(this.type()==='container'&&!this.items().length){
           if(this.departureBlocked(this.card()??{},this.location,this.variables,this.inventory,'discard'))this.show({presentation:'open',animate:false});
           else {this.adopt(this.next(this.location),false);this.show();}
@@ -558,6 +632,7 @@ export class ProjectController {
     }
     if(this.pendingExchange&&detail.transition==='cancel'&&detail.contentId===this.pendingExchange.contentId) {
       this.pendingExchange=null;
+      if(this.handoffDeath({animate:true}))return;
       // Ownership and collection effects can change sibling visibility or flags.
       // Reconcile only after the returned face has reached its original slot.
       this.deck.refreshInventoryActions(this.content().actions);
@@ -579,6 +654,7 @@ export class ProjectController {
       // Host callbacks may tear down or restart playback after accepting ownership.
       if(this.destroyed||this.generation!==generation)return;
       if(!this.stagedDestination) {
+        if(this.handoffDeath({animate:true}))return;
         if(!this.items().length){this.adopt(this.next(this.location),false);this.show();}
         else {
           const visible=this.items().map(i=>i.id),shown=this.deck.content.actions.map(a=>a.id);
@@ -591,8 +667,33 @@ export class ProjectController {
           }
         }
       }
-    }else if(detail.transition==='commit'&&this.stagedDestination){const destination=this.stagedDestination,generation=this.generation;this.stagedDestination=null;this.adopt(destination);if(!this.destroyed&&this.generation===generation&&!this.completed)this.reportBlocked();}
+    }else if(detail.transition==='commit'&&this.stagedDestination){const destination=this.stagedDestination,generation=this.generation;this.stagedDestination=null;this.adopt(destination);if(!this.destroyed&&this.generation===generation&&!this.completed&&!this.halted)this.reportBlocked();}
     else this.notify();
   }
-  destroy() {if(this.destroyed)return;this.destroyed=true;++this.generation;this.checking?.abort();this.checking=null;this.checkPayment=null;for(const [name,listener]of Object.entries(this.listeners))this.deck.removeEventListener(name,listener);}
+  commitCombatDamage(operationId, health) {
+    if(this.destroyed||!this.combat)return false;
+    this.combatOperations??=new Set();
+    if(this.combatOperations.has(operationId))return this.variables.health>0;
+    const result=transact(this.variables,this.inventory,{effects:[{op:'set',key:'health',value:health}]},this.compiled.variables,this.compiled.library);
+    this.variables=result.variables;this.inventory=result.inventory;this.combatOperations.add(operationId);
+    if(this.deathDestination()){this.handoffDeath();return false;}
+    this.notify();return true;
+  }
+  combatVictoryReason() {
+    const target=this.location?.node.connections?.victory;
+    if(typeof target!=='string'||!target||!this.nodes.has(target))return 'Route unavailable';
+    try {this.next(this.location,'victory',this.variables,this.inventory,new Set(),null,true);return '';}
+    catch(error){return this.routingReason(error)||'Route unavailable';}
+  }
+  completeCombatVictory() {
+    if(!this.combat||this.combatVictoryReason())return false;
+    const generation=this.generation,nodeId=this.location.node.id;
+    try {
+      const destination=this.next(this.location,'victory');
+      this.combat.dispose();this.combat=null;
+      if(!this.succeeded(nodeId)||this.generation!==generation)return false;
+      this.adopt(destination,false);this.show();return true;
+    }catch(error){this.error(error);return false;}
+  }
+  destroy() {if(this.destroyed)return;this.combat?.dispose();this.combat=null;this.destroyed=true;++this.generation;this.deathHandoff?.abort();this.deathHandoff=null;this.checking?.abort();this.checking=null;this.checkPayment=null;for(const [name,listener]of Object.entries(this.listeners))this.deck.removeEventListener(name,listener);}
 }

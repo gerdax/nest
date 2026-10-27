@@ -1,3 +1,4 @@
+import {createRatCombatProject} from '../project/combat-fixture.js';
 import { errorMessage } from '../errors.js';
 import { sortedChapters, startChapter } from '../project/chapter-navigation.js';
 import { ProjectPreview } from './ProjectPreview.js';
@@ -7,7 +8,8 @@ import { mountMotionTuning } from '../player/motion-tuning.js';
 import { mountPerformanceTuning } from '../player/performance-tuning.js';
 
 const message=document.querySelector('#message'),title=document.querySelector('#chapter-name'),selector=document.querySelector('#chapter-selector');
-const stored=loadProject();let project=stored.project??createProject();
+const example=new URLSearchParams(location.search).get('example')==='rat';
+const stored=example?{}:loadProject();let project=example?createRatCombatProject():stored.project??createProject();
 const preview=new ProjectPreview(document.querySelector('#preview'),{inventoryDock:true,inventoryHost:document.querySelector('.player-screen'),onChange:()=>{
   selector.value=preview.chapterId;
   title.textContent=project.chapters.find(chapter=>chapter.id===preview.chapterId)?.name||'Chapter';
