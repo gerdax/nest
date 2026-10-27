@@ -32,3 +32,11 @@ properties, action-specific outcomes and cooldowns. Barehanded Actions define
 their own damage/effects. This design is not implemented in the production
 project schema or editor. See [Weapons and combat actions](weapons-and-combat-actions.md)
 for ownership, source binding, effect-card timing and the inspected mockup's scope.
+
+The [Combat implementation specification — Rat encounter](combat-implementation-spec.md)
+records the next milestone, separating agreed decisions, implementation proposals,
+reference mockup values and unresolved questions. It does not mark combat implemented.
+
+The [Combat technical implementation plan](combat-technical-plan.md), prepared
+with Astra's architecture review, covers versioning, references, Death routing,
+shared presentation, pure rules, gameplay integration and editor milestones.

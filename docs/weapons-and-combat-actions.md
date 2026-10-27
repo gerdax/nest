@@ -4,6 +4,17 @@ Decision agreed on 27 October 2026. This document records the intended design;
 it does not introduce a project schema, editor controls or production combat.
 Field names below are conceptual until implementation.
 
+Later authoring decision: player combat Actions are a separate Library type,
+**Combat Action**, based on Action machinery with combat-specific fields. They
+are usable only within Combat/Encounter beats for now, not ordinary beat card
+slots. Weapons reference these Library definitions; barehanded player attacks
+use the same type with their own damage. Enemy attacks remain authored inside
+Enemy definitions. See A43 in the implementation specification.
+
+The next milestone is specified in [Combat implementation specification — Rat
+encounter](combat-implementation-spec.md), with explicit agreed/proposed/open
+statuses and authoring/runtime acceptance gates.
+
 ## Weapon is a special inventory item
 
 **Weapon: Pistol** is an Item with weapon-specific properties and provided combat
@@ -80,6 +91,13 @@ magazine capacity and an explicit Reload action have not been agreed here.
 Item `permability` is a trigger-use budget, not a reload timer.
 
 ## Outcome cards and commitment
+
+Effect Card is now agreed as a separate Library type for system-triggered
+mechanical-effect presentation, with the mockup's player-damage card layout.
+It is distinct from world-interaction Health/Energy cards and does not execute
+their collection effects. Shared Player Hit is selected in Project settings;
+enemy-specific effect presentation is embedded in Enemy definitions. Death
+sequences remain separate. See decisions A37–A38 in the implementation spec.
 
 Attack rules resolve damage/effects once and supply values and targets to the
 resulting cards. A shared player-hit card can show different damage values;
