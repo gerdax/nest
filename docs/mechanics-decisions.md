@@ -21,3 +21,14 @@ A cabinet can therefore offer Use key (Direct), Pick lock (Check with Success/Fa
 The project Library contains explicit Narrative, Action and Item definitions shared across chapters. Placements own added rules, chapter wiring. Project variables provide defaults and bounds; chapters may override their initial values. Inventory tracks ownership by item definition and supports inspection. Collecting applies `onCollect` effects after take completion. Item Permability limits accepted inventory-triggered Actions: 0 is permanent, positive values share one remaining-trigger budget per owned item. Both check outcomes count; the last trigger removes the item. Direct consumable use has been removed; consumables are deferred as a separate card type.
 
 Combat, equipment, persistent cross-run inventory, automatic chapter destinations and 4d6 advantage remain deferred. These features are not implied by Random routing, checks or item trigger limits.
+
+## Weapons provide combat actions — agreed design, 27 October 2026
+
+Weapon is a special type of inventory Item, for example **Weapon: Pistol**.
+Scene-authored contextual Actions require an item; carried Weapons instead
+provide the attacks offered in combat. Weapons own base damage and intrinsic
+attack effects. Their linked Actions own checks, costs, use/modification of those
+properties, action-specific outcomes and cooldowns. Barehanded Actions define
+their own damage/effects. This design is not implemented in the production
+project schema or editor. See [Weapons and combat actions](weapons-and-combat-actions.md)
+for ownership, source binding, effect-card timing and the inspected mockup's scope.

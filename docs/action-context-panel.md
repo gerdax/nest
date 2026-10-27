@@ -3,7 +3,7 @@
 `studio/ActionContextPanel.js` owns the stationary details below the selected action.
 Its single caption and content container switch between item-trigger details
 (`USING` and an artwork mini), stat checks (stat/value, percentage and chance
-label), and roll results (`TARGET / CHECK` and `SUCCESS` or `FAILURE`).
+label), and roll results (`TARGET / CHECK` and `SUCCESS` or `FAIL`).
 The result caption is the very same node and keeps the same typography and
 position. Outcome text uses NestVitals; failure uses the darker small-text color. Checks take precedence when both are present, preserving current behavior.
 

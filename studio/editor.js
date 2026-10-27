@@ -174,7 +174,7 @@ function renderInspector({collapseCards=false,preserveProjectSettings=false}={})
  const expanded=sameInspector?[...$('#inspector').querySelectorAll('details')].map((el,i)=>el.open?i:-1):[];
  $('#settings').innerHTML=chapterSettingsInspector(project,chapter());
  if(!preserveProjectSettings)renderProjectSettings();
- $('#inspector').innerHTML=mode==='library'?definitionInspector(project,definition()):multiple?`<p class="small">${graph.selectedIds.size} beats selected. Drag a selected beat’s header to move them together.</p>`:nodeInspector(project,chapter(),node(),previewOverrides.effects(project,chapter(),node()));
+ $('#inspector').innerHTML=mode==='library'?definitionInspector(project,definition()):multiple?`<p class="small">${graph.selectedIds.size} beats selected.</p>`:nodeInspector(project,chapter(),node(),previewOverrides.effects(project,chapter(),node()));
  renderCardPreviews($('#inspector'),project,node(),chapterId);
  refreshCardClipboardButtons();
  applyCardStyles(preview.mount,project.cardStyles);
@@ -185,7 +185,7 @@ function renderInspector({collapseCards=false,preserveProjectSettings=false}={})
  if(collapseCards)for(const entry of $('#inspector').querySelectorAll('details[data-placement],details[data-sequence]')){entry.open=false;entry.classList.remove('card-navigation-target');}
  $('#inspector').dataset.key=inspectorKey;
  const panelLabel=multiple?'Multiple beats':mode==='library'?(cardKinds[definition()?.kind]?.label||'Library'):nodeTypeLabel(node()?.type)||'Beat';
- $('#panel-title').closest('.tabs').hidden=mode==='library';
+ $('#panel-title').closest('.tabs').hidden=mode==='library'||(!multiple&&!node());
  $('#panel-title').innerHTML=`<span>${esc(panelLabel)}</span>${mode==='chapter'&&!multiple?nodeIcon(node()?.type):''}`;
  if(sameInspector&&focusedSetting){
   const next=[...settings.querySelectorAll('[data-path]')].find(el=>el.dataset.scope===focusedSetting.scope&&el.dataset.path===focusedSetting.path);

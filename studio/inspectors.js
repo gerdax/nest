@@ -98,7 +98,11 @@ export function placementInspector(project,p,kind,index,slot,count=Infinity,chap
  if(local)html+=cardFields(project,definition,'local-definition',false,false,chapter);
  // Placement fields use a dedicated scope and are selected by their stable ID.
  html+=`<div class="placement-fields" ${attr}>`;
- if(slot==='choices'&&kind==='action')html+=select('Inventory trigger',p.contextItemId||'',inventoryItemOptions(project,chapter,p.contextItemId,{allowNone:true,includeTags:true}),'contextItemId','placement')+itemReferenceLinks(project,p.contextItemId,chapter);
+ if(kind==='action') {
+  const enabled=slot==='choices';
+  html+=select('Inventory trigger',enabled?p.contextItemId||'':'',enabled?inventoryItemOptions(project,chapter,p.contextItemId,{allowNone:true,includeTags:true}):[['','None']],'contextItemId','placement',{disabled:!enabled});
+  if(enabled)html+=itemReferenceLinks(project,p.contextItemId,chapter);
+ }
  if(local&&kind==='action')html+=cardRuleFields(project,definition,'local-definition',chapter);
  if(kind!=='action')html+=rules(project,p.conditions,'conditions','placement','conditions',{chapter,label:'Appearance conditions',help:kind==='item'?'All conditions must pass for this item to appear here. They do not limit Action triggers after collection.':'All conditions must pass for this card to appear here.'});
  if(local&&kind!=='action')html+=cardRuleFields(project,definition,'local-definition',chapter);
@@ -127,7 +131,10 @@ function introductionControls(node) {
 }
 
 export function nodeInspector(project,chapter,node,previewEffects=[]) {
- if(!node)return '<p>Select a beat.</p>';
+ if(!node) {
+  const count=chapter.nodes.length;
+  return `<p class="small">${count} ${count===1?'beat':'beats'} on stage.</p>`;
+ }
  project={...project,variables:chapterVariables(project,chapter).map(v=>({...v,variableScope:(chapter.variables||[]).includes(v)?'chapter':'global'}))};
  let html=field('Beat name',node.name,'name','node');
  const descriptor=nodeTypeDescriptor(node.type);

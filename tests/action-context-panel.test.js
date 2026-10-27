@@ -252,7 +252,7 @@ test('only completed outcomes show the result caption and replace minis', () => 
   for (const success of [true,false]) {
     panel.update({item, result:{target:8,total:success?10:6,success}});
     assert.equal(caption.textContent, `TARGET: 8  CHECK: ${success?10:6}`);
-    assert.equal(panel.checkChance.textContent, success?'SUCCESS':'FAILURE');
+    assert.equal(panel.checkChance.textContent, success?'SUCCESS':'FAIL');
     assert.equal(panel.checkDetails.attrs['data-outcome'], success?'success':'failure');
     assert.equal(panel.root.attrs['data-mode'], 'result');
     assert.equal(panel.view.attrs['data-mode'], 'result');
