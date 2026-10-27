@@ -23,11 +23,13 @@ Intro uncovers the rat face without turning. Enemy rolls automatically, black fr
 
 `rules.js` owns pure rules and raw-roll interpretation. `cards.js` defines this scenario's content. `scenario.js` coordinates existing presentation APIs; `PresentationDelay.js` only pauses result delays while hidden. Card movement uses the real deck scheduler, native trajectories/springs and actual face elements. No cloned card overlay or separate card-animation clock is used. Native engine finish/resize/background policy remains in force; scenario generations/aborts protect delayed callbacks and HP resolution.
 
-## Effect arrival and resource indicators
+## Effect commitment and resource indicators
 
-Rolls resolve once internally for outcome/routing, but neither HP indicator publishes damage during the result, automatic departure, or incoming-card settling. Each effect card's `resourcePresentation` values are revealed only after that card finishes arriving on the scene. LINEAR interiors use the same boundary as the initial automatic slide. Previewing or canceling a swipe never reveals the next card's effect. Arrival is recorded per sequence/card index to avoid duplicate publication; restarting discards pending presentation. A lethal result publishes zero HP when the first death card settles. Description-only statuses publish no resource changes.
+A resolved roll samples pending damage once, but actual HP and both indicators remain unchanged during the result, effect entrance and inspection. Each LINEAR card commits its resource values only after its accepted swipe departure finishes. A preview or canceled gesture applies nothing. Each sequence/card index commits once; duplicate input is blocked and restart discards pending effects. Description-only cards change no resources.
 
-This metadata is internal to the test scenario, not an Encounter project schema. Future resource/status presentations should use this same per-card arrival hook rather than updating indicators from the dice-result callback. Focused browser reproduction: `node combat/effect-presentation-browser.cjs`.
+A lethal hit on the rat first shows its ordinary damage card; that swipe applies zero HP and reveals the death sequence through the same LINEAR reveal. A lethal rat attack follows the same pattern: the player damage card commits zero HP on swipe, then reveals the ending card. Lethal hits skip descriptive statuses such as poison. The last terminal card finishes the sequence only after its swipe. Earlier terminal cards, when configured, also follow ordinary LINEAR progression. No further combat turn starts while effects are uncommitted.
+
+The scenario's internal `resourcePresentation` metadata now represents a pending resource commit, rather than arrival-time display data. This remains separate from an Encounter authoring schema. Run `node combat/effect-presentation-browser.cjs` for focused Chrome checks.
 
 ## Shared additions
 
@@ -43,4 +45,4 @@ Dice appearance optionally accepts `color:'black'|'light'` and `throwSide:'top'|
 
 Browser acceptance exercises real three-dice outcomes and native result/USING UI, actual face identity during auto slides, miss turns, LINEAR previews, status cards, death, reset, error/retry, narrow layout and reduced motion. It also runs a real existing ProjectPreview check with default dice overrides absent. Scripted scenario outcomes exercise all branches without depending on luck. Simulated visibility events do not prove OS throttling. Physical phones, Safari, Firefox, screen-reader output and legacy project files need separate verification. Recorded outcomes are in `verification.json`.
 
-Rat damage is followed by a native caption when cumulative damage first crosses one third or two thirds of starting HP: “Rat seems slightly weakened.” / “Rat seems severely hurt.” Only the stronger caption is shown when one hit crosses both thresholds; lethal hits keep the death sequence. These descriptions do not require a special dice success and cause no extra damage.
+Rat damage is followed by a native caption when cumulative damage first crosses one third or two thirds of starting HP: “Rat seems weakened.” / “Rat seems severely hurt.” Only the stronger caption is shown when one hit crosses both thresholds; lethal hits keep the death sequence. These descriptions do not require a special dice success and cause no extra damage.

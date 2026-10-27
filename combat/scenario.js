@@ -21,8 +21,8 @@ export class CombatScenario {
  setPhase(phase){this.phase=phase;this.frame.dataset.phase=phase;this.frame.dataset.ui=phase==='choice'||phase==='hero-enter'?'fork':['intro','rat-effect','hero-effect','death-linear','ended'].includes(phase)?'linear':'auto';this.trace.push(phase);this.mount.inert=this.root.hidden||!['intro','rat-effect','hero-effect','death-linear','choice'].includes(phase);this.panel();}
  restart(config={}){
   this.epoch++;this.abort?.abort();this.abort=new AbortController();this.clock.cancel();this.hideDice();this.deck?.destroy();this.playerUI?.reset();this.checkResult=null;
-  this.settings={intro:this.$('[name=intro]').checked,weapon:this.$('[name=weapon]').checked,interlude:this.$('[name=interlude]').checked,...config};
-  this.state=initial(this.settings);this.ratStartingHp=this.state.ratHp;this.presentedResources={heroHp:this.state.heroHp,ratHp:this.state.ratHp};this.uiRevision++;this.trace=[];this.history=[];this.linear=null;this.checkResult=null;this.$('[data-error]').hidden=true;this.$('[data-history]').replaceChildren();
+  this.settings={heroHp:2,energy:3,intro:this.$('[name=intro]').checked,weapon:this.$('[name=weapon]').checked,interlude:this.$('[name=interlude]').checked,...config};
+  this.state={...initial(this.settings),energy:this.settings.energy};this.ratStartingHp=this.state.ratHp;this.weaponIntroduced=false;this.presentedResources={heroHp:this.state.heroHp,ratHp:this.state.ratHp};this.uiRevision++;this.trace=[];this.history=[];this.linear=null;this.checkResult=null;this.$('[data-error]').hidden=true;this.$('[data-history]').replaceChildren();
   this.deck=new CardDeck(this.mount,{content:this.settings.intro?introCard(this.state):ratCard(1)});
   this.deck.addEventListener('commit',e=>void this.accept(e.detail.action));this.deck.addEventListener('selection',()=>this.panel());
   this.deck.install(this.deck.content);
@@ -47,54 +47,60 @@ export class CombatScenario {
    if(!await this.clock.wait(0)||epoch!==this.epoch)return;
    const total=rollTotal(outcome.dice);
    const effects=sampleAttackEffects({actor,action,value:total,dice:outcome.dice},this.random);
-   const resolved=resolveAttack(this.state,{actor,action,value:total,...effects});this.state=resolved.state;this.history.push(resolved.result);this.hud();
+   const resolved=resolveAttack(this.state,{actor,action,value:total,...effects});this.state={...resolved.state,heroHp:this.state.heroHp,ratHp:this.state.ratHp};this.history.push(resolved.result);this.hud();
    this.checkResult={target:attackTarget(actor,action),total,success:resolved.result.success,label:resolved.result.success?'SUCCESS':'MISS',specialSuccess:resolved.result.specialSuccess};
    this.setPhase(actor+'-result');
    if(!await this.clock.wait(CHECK_RESULT_TIMING.holdMs)||epoch!==this.epoch)return;
    this.diceLayer?.fade();
    if(!await this.clock.wait(CHECK_RESULT_TIMING.fadeMs)||epoch!==this.epoch)return;
    this.hideDice();this.checkResult=null;this.syncUI();
-   if(terminal(this.state)){await this.showEnd({reverse:actor==='hero'});return;}
-   if(actor==='rat')await this.afterRat(resolved.result);else await this.afterHero(resolved.result);
+   if(terminal(resolved.state)){await this.showEnd({reverse:actor==='hero',resolvedState:resolved.state,result:resolved.result});return;}
+   if(actor==='rat')await this.afterRat(resolved.result,resolved.state);else await this.afterHero(resolved.result,resolved.state);
   }catch(error){if(epoch!==this.epoch||this.abort.signal.aborted)return;this.hideDice();this.setPhase('error');this.$('[data-error]').hidden=false;this.$('[data-error-message]').textContent=error.message;}
  }
  retry(){if(this.phase==='error'&&this.rollRequest)void this.attack(this.rollRequest.actor,this.rollRequest.action,this.rollRequest.slot);}
- async afterRat(result){
-  if(result.success)await this.startLinear(effectCards(this.state,result,{statuses:this.settings.interlude,ratStartingHp:this.ratStartingHp}),{
-   content:choices(this.state),presentation:'open'
+ async afterRat(result,resolvedState=this.state){
+  if(result.success)await this.startLinear(effectCards(resolvedState,result,{statuses:this.settings.interlude,ratStartingHp:this.ratStartingHp}),{
+   content:this.choiceContent(),presentation:'open'
   },'rat-effect');
   else await this.showChoices();
  }
- async afterHero(result){
+ async afterHero(result,resolvedState=this.state){
   if(!result.success){await this.enterRat(true);return;}
-  await this.startLinear(effectCards(this.state,result,{statuses:this.settings.interlude,ratStartingHp:this.ratStartingHp}),{
+  await this.startLinear(effectCards(resolvedState,result,{statuses:this.settings.interlude,ratStartingHp:this.ratStartingHp}),{
    content:ratCard(this.state.round),presentation:'closed'
   },'hero-effect',{reverse:true});
  }
  async startLinear(cards,successor,phase,{reverse=false}={}){
   const epoch=this.epoch;
-  const sequence=this.linear={cards,index:0,successor,phase,presented:new Set()};
+  const sequence=this.linear={cards,index:0,successor,phase,committed:new Set()};
   this.setPhase(phase==='death-linear'?'ending':phase+'-enter');
   const content=linearCard(cards,0,successor);
   if(!await this.deck.transitionContent(content,{transition:'slide',surface:reverse?'check':'front',signal:this.abort.signal})||epoch!==this.epoch)return;
-  this.presentLinearCard(sequence);
-  this.setPhase(!successor&&cards.length===1?'ended':phase);
+  this.setPhase(phase);
  }
- // One arrival boundary for every LINEAR effect. A canceled transition,
- // a preview under a drag, or repeat notification must not reveal resources.
- presentLinearCard(sequence){
-  if(this.linear!==sequence||sequence.presented.has(sequence.index))return;
-  sequence.presented.add(sequence.index);
-  this.presentedResources={...this.presentedResources,...sequence.cards[sequence.index].resourcePresentation};
+ // A committed swipe applies the outgoing card once, after departure.
+ commitLinearCard(sequence,index){
+  if(this.linear!==sequence||sequence.committed.has(index))return;
+  sequence.committed.add(index);
+  const resources=sequence.cards[index].resourcePresentation;
+  this.state={...this.state,...resources};
+  this.presentedResources={...this.presentedResources,...resources};
   this.hud();
  }
  async advanceLinear(){
-  const sequence=this.linear,epoch=this.epoch;if(!sequence)return;
-  if(sequence.index+1<sequence.cards.length){
+  const sequence=this.linear,epoch=this.epoch;if(!sequence||sequence.advancing)return;
+  sequence.advancing=true;const index=sequence.index;
+  this.setPhase(sequence.phase+'-departing');
+  const last=index===sequence.cards.length-1;
+  if(last&&!sequence.successor)this.deck.endContent();
+  while(epoch===this.epoch&&this.deck.commitMotion){if(!await this.clock.wait(16))return;}
+  if(epoch!==this.epoch||this.linear!==sequence)return;
+  this.commitLinearCard(sequence,index);
+  if(!last){
    sequence.index++;this.setPhase(sequence.phase+'-enter');
    if(await this.incoming(linearCard(sequence.cards,sequence.index,sequence.successor),{transition:'reveal'})&&epoch===this.epoch){
-    this.presentLinearCard(sequence);
-    this.setPhase(!sequence.successor&&sequence.index===sequence.cards.length-1?'ended':sequence.phase);
+    sequence.advancing=false;this.setPhase(sequence.phase);
    }
    return;
   }
@@ -103,25 +109,28 @@ export class CombatScenario {
   if(sequence.phase==='rat-effect')await this.showChoices({fromLinear:true});
   else await this.enterRat(true);
  }
+ choiceContent(){return choices(this.state,{introduceWeapon:!this.weaponIntroduced});}
  async showChoices({fromLinear=false}={}){
-  const epoch=this.epoch;this.setPhase('hero-enter');const content=choices(this.state);
+  const epoch=this.epoch;this.setPhase('hero-enter');const content=this.choiceContent();
   if(fromLinear){
    if(!await this.incoming(content,{presentation:'open',transition:'flip'}))return;
   }else{
-   if(!await this.deck.transitionContent({...content,actions:content.actions.filter(a=>a.id==='attack')},{transition:'front-turn',surface:'front',presentation:'open',signal:this.abort.signal}))return;
+   if(!await this.deck.transitionContent({...content,actions:content.actions.filter(a=>a.entrance!=='bottom')},{transition:'front-turn',surface:'front',presentation:'open',signal:this.abort.signal}))return;
    if(!await this.ready(epoch))return;
-   if(this.state.weapon){this.deck.updateActions(content.actions);if(!await this.ready(epoch))return;}
+   if(content.actions.some(a=>a.entrance==='bottom')){this.deck.updateActions(content.actions);if(!await this.ready(epoch))return;}
   }
-  if(epoch===this.epoch)this.setPhase('choice');
+  if(epoch===this.epoch){if(this.state.weapon)this.weaponIntroduced=true;this.setPhase('choice');}
  }
- async showEnd({reverse=false}={}){
+ async showEnd({reverse=false,resolvedState=this.state,result=null}={}){
   // Kept separate from ordinary effects; these definitions can contain a
   // custom hero-death sequence or the rat's default enemy-death sequence.
-  const outcome=terminal(this.state);
+  const outcome=terminal(resolvedState);
   const cards=outcome==='death'?(this.settings.heroDeathCards??deathCards(outcome))
    :(this.settings.enemyDeathCards??deathCards(outcome));
-  const resources={heroHp:this.state.heroHp,ratHp:this.state.ratHp};
-  const ending=[{...cards[0],resourcePresentation:{...resources,...cards[0].resourcePresentation}},...cards.slice(1)];
+  const resources={heroHp:resolvedState.heroHp,ratHp:resolvedState.ratHp};
+  const hitEffects=result?effectCards(resolvedState,result).filter(card=>card.cardKind==='health'):[];
+  const ending=hitEffects.length?[...hitEffects,...cards]
+   :[{...cards[0],resourcePresentation:{...resources,...cards[0].resourcePresentation}},...cards.slice(1)];
   await this.startLinear(ending,null,'death-linear',{reverse});
  }
  async accept(action){const epoch=this.epoch;
@@ -136,9 +145,9 @@ export class CombatScenario {
  browse(direction){if(this.phase!=='choice'||this.deck.state.busy)return;this.deck.key({key:direction<0?'ArrowLeft':'ArrowRight',preventDefault(){},repeat:false});}
  hideDice(){this.dice?.destroy();this.dice=null;this.diceLayer?.destroy();this.diceLayer=null;this.overlay?.remove();this.overlay=null;}
  uiInput(){const state=this.state;return {
-  revision:this.uiRevision,run:state?{variables:{health:this.presentedResources.heroHp},collectedItems:state.weapon?[{id:'weapon',definitionId:'weapon',inventoryKey:'weapon',name:'Broń',label:'Broń',image:'./assets/img/claws.png'}]:[],completed:!!terminal(state),checking:/-roll$|-result$/.test(this.phase),idle:['choice','intro','rat-effect','hero-effect','death-linear'].includes(this.phase)}:null,
+  revision:this.uiRevision,run:state?{variables:{health:this.presentedResources.heroHp,energy:state.energy},collectedItems:state.weapon?[{id:'weapon',definitionId:'weapon',inventoryKey:'weapon',name:'Broń',label:'Broń',image:'./assets/img/claws.png'}]:[],completed:!!terminal(state),checking:/-roll$|-result$/.test(this.phase),idle:['choice','intro','rat-effect','hero-effect','death-linear'].includes(this.phase)}:null,
   card:{action:this.deck?.content.actions[this.deck.index],phase:this.deck?.phase,directAdvance:this.deck?.content.directAdvance},interaction:{busy:!!this.deck?.state.busy,dragging:!!this.deck?.drag},
-  definitions:{variables:[{id:'health',type:'number',max:10}],library:[]},feedback:{result:this.checkResult,status:{text:this.$('[data-phase-label]').textContent,visible:true}}
+  definitions:{variables:[{id:'health',type:'number',max:10},{id:'energy',type:'number',max:10}],library:[]},feedback:{result:this.checkResult,status:{text:this.$('[data-phase-label]').textContent,visible:true}}
  };}
  syncUI(){this.playerUI.update(this.uiInput());}
  hud(){this.uiRevision++;this.$('[data-enemy-health]').textContent=this.presentedResources.ratHp;this.$('[data-round]').textContent=`Runda ${this.state.round}`;this.$('[data-history]').replaceChildren(...this.history.map(r=>{const li=this.root.createElement('li');li.textContent=`${r.actor==='rat'?'Szczur':'Bohater'} · ${r.action} · ${r.value} / 18 · ${r.success?'SUCCESS':'MISS'} · −${r.damage} HP`;return li;}));this.syncUI();}

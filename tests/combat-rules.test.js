@@ -165,12 +165,12 @@ test('special status cards require a special success and never stack per six', (
 test('rat condition captions appear once at crossed thirds, using only the strongest crossed threshold',()=>{
  const captions=(hp,damage,max=4)=>effectCards({...initial(),ratHp:hp},{actor:'hero',damage},{ratStartingHp:max}).slice(1);
  assert.deepEqual(captions(3,1),[]);
- assert.equal(captions(2,1)[0].text,'Rat seems slightly weakened.');
+ assert.equal(captions(2,1)[0].text,'Rat seems weakened.');
  assert.equal(captions(1,1)[0].text,'Rat seems severely hurt.');
  assert.equal(captions(1,3).length,1);
  assert.equal(captions(1,3)[0].text,'Rat seems severely hurt.');
  assert.deepEqual(captions(0,2),[],'lethal hit has no condition caption');
- assert.equal(captions(6,3,9)[0].text,'Rat seems slightly weakened.');
+ assert.equal(captions(6,3,9)[0].text,'Rat seems weakened.');
  assert.deepEqual(captions(5,1,9),[],'same range does not repeat');
  assert.equal(captions(3,2,9)[0].text,'Rat seems severely hurt.');
  assert.deepEqual(captions(2,1,9),[],'severe range does not repeat');

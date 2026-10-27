@@ -25,7 +25,7 @@
   },
   "deterministic": {
     "command": "node --test tests/*.test.js",
-    "passed": 2345,
+    "passed": 2343,
     "failed": 0,
     "note": "Bundled Node executable used; no installation/build."
   },
@@ -158,5 +158,11 @@
       "Shoot and Burst logo-free reverse during partial swipe and all departure frames"
     ],
     "note": "Focused Chrome checks were run during individual changes; broad browser-check.cjs was not rerun for this checkpoint."
+  },
+  "effectSwipeCommit": {
+    "date": "2026-10-26",
+    "unitTests": 7,
+    "status": "Passed focused Chrome check: actual state and HUD, canceled swipe, poison, rat damage/condition, restart, death and victory. Historical arrival-time checks above are superseded.",
+    "semantics": "Actual HP and HUD commit after accepted outgoing swipe departure; terminal cards require swipe; restart and canceled gestures apply nothing"
   }
 }

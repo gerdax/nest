@@ -3,9 +3,9 @@ export const actions=(weapon,burstReload=0)=>[
  {id:'attack',checkTarget:attackTarget('hero','attack'),label:'Shoot',heading:'Shoot',cardKind:'action',image:'./assets/img/Gemini_Generated_Image_esub9oesub9oesubd.jpeg',text:'1–2 damage',checkInfo:{stat:'ATAK',chance:'50',label:'3d6 ≥ 11',formula:'3d6 ≥ 11',rules:'Suma trzech kości'}},
  ...(weapon?[{id:'weapon',checkTarget:attackTarget('hero','weapon'),label:'Burst',heading:'Burst',cardKind:'action',image:'./assets/img/Gemini_Generated_Image_esub9oesub9oesubd.jpeg',text:'1–3 damage\nReloads: 2 rounds',checkInfo:{stat:'ATAK',chance:'74',label:'3d6 ≥ 9',formula:'3d6 ≥ 9',rules:'Suma trzech kości'},inventoryLabel:'USING · Broń',contextItemId:'weapon',disabled:burstReload>0,disabledReason:burstReload>0?'Reloading: 1 round':undefined,entrance:burstReload>0?undefined:'bottom'}]:[])
 ];
-export function choices(state){return {id:`choices-${state.round}`,interaction:'choice',decisionOnly:true,allowClose:false,autoBrowse:false,actions:actions(state.weapon,state.burstReload??0)};}
+export function choices(state,{introduceWeapon=true}={}){return {id:`choices-${state.round}`,interaction:'choice',decisionOnly:true,allowClose:false,autoBrowse:false,actions:actions(state.weapon,state.burstReload??0).map(action=>introduceWeapon?action:{...action,entrance:undefined})};}
 export function narrative(id,text,{end=false}={}){return {id,interaction:'choice',directAdvance:true,allowClose:false,cardKind:'caption',heading:'',text,advanceDisabled:end,actions:[{id:'continue',label:'Dalej',disabled:false}]};}
-export function ratCard(round){return {id:`rat-${round}`,interaction:'choice',directAdvance:true,allowClose:false,cardKind:'action',heading:'Rat attacks you...',text:'',image:'./assets/img/Gemini_Generated_Image_mwbnlrmwbnlrmwbn.png',flipImage:true,imageOffsetX:15,imageOffsetY:8,advanceDisabled:true,actions:[{id:'wait',label:'Rat attacks you...',disabled:false}]};}
+export function ratCard(round){return {id:`rat-${round}`,interaction:'choice',directAdvance:true,allowClose:false,cardKind:'action',heading:'Rat attacks you...',text:'',image:'./assets/img/Gemini_Generated_Image_mwbnlrmwbnlrmwbn.png',flipImage:true,imageScale:95,imageOffsetX:10,imageOffsetY:8,advanceDisabled:true,actions:[{id:'wait',label:'Rat attacks you...',disabled:false}]};}
 
 /** Stage the actual successor before the first drag; swipe only uncovers it. */
 export function revealCaption(id,text,next,presentation='closed') {
@@ -28,7 +28,7 @@ export function effectCards(state,result,{statuses=false,ratStartingHp=4}={}) {
   const tier=hp=>3*(ratStartingHp-hp)>=2*ratStartingHp?2:3*(ratStartingHp-hp)>=ratStartingHp?1:0;
   const current=tier(state.ratHp),previous=tier(state.ratHp+result.damage);
   if(current>previous)cards.push(narrative(`rat-condition-${current}-${state.round}`,current===2
-   ? 'Rat seems severely hurt.' : 'Rat seems slightly weakened.'));
+   ? 'Rat seems severely hurt.' : 'Rat seems weakened.'));
  }
 
  if(enemy?result.poisoned:statuses&&result.specialSuccess)cards.push(narrative(`${result.actor}-status-${state.round}`,enemy
@@ -38,7 +38,7 @@ export function effectCards(state,result,{statuses=false,ratStartingHp=4}={}) {
 }
 export function deathCards(outcome) {
  return [narrative(outcome,outcome==='death'
-  ? 'Szczur zatapia zęby.\n\nUpadasz. To koniec.'
+  ? 'So.. this is how it feels. And suddenly you feel nothing. You die.'
   : 'The rat falls down dead in a puddle of its own blood.',{end:true})];
 }
 /** Interior cards uncover fronts. The last card uncovers a reverse and flips. */
@@ -48,5 +48,5 @@ export function linearCard(cards,index,successor=null) {
  const next=cards[index+1];
  if(next)return {...card,nextTransition:'reveal',nextDeckPreview:{content:linearCard(cards,index+1,successor),presentation:'closed'}};
  if(successor)return {...card,nextTransition:'flip',nextDeckPreview:successor};
- return {...card,advanceDisabled:true};
+ return {...card,advanceDisabled:false};
 }
