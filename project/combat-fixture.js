@@ -1,5 +1,5 @@
 import {createProject} from './model-data.js';
-import {createCombatAction,createWeapon,createEnemy,createEnemyAttack} from './combat-model.js';
+import {createCombatAction,createWeapon,createEnemy,createEnemyAction} from './combat-model.js';
 /** Explicit sample only. Never installed into the user's current project automatically. */
 export function createRatCombatProject(){
  const project=createProject();project.id='rat-combat-example';project.name='Rat encounter';
@@ -10,8 +10,8 @@ export function createRatCombatProject(){
  const pistol={...createWeapon('pistol'),name:'Pistol',image:shoot.image,combat:{damage:{min:1,max:2},effects:[],actions:[shoot,burst]}};
  const enemy=createEnemy('rat');enemy.name='Rat';enemy.health=4;enemy.introEnabled=true;
  enemy.text='A rat jumps out of the corner!';enemy.image='./assets/img/rat.png';
- enemy.attacks=[{...createEnemyAttack('bite'),name:'Rat attacks you...',image:'./assets/img/Gemini_Generated_Image_mwbnlrmwbnlrmwbn.png',flipImage:true,imageScale:95,imageOffsetX:10,imageOffsetY:8}];
- enemy.hit={...enemy.hit,name:'Rat takes damage!',image:'./assets/img/rat_hit.png',imageScale:85,imageOffsetX:5,imageOffsetY:3};
+ enemy.actions=[{...createEnemyAction('bite'),name:'Rat attacks you...',image:'./assets/img/Gemini_Generated_Image_mwbnlrmwbnlrmwbn.png',flipImage:true,imageScale:95,imageOffsetX:10,imageOffsetY:8}];
+ enemy.hit={...enemy.hit,name:'Health damage',text:'Rat takes damage!',image:'./assets/img/rat_hit.png',imageScale:85,imageOffsetX:5,imageOffsetY:3};
  enemy.reactions=[{id:'weakened',threshold:{numerator:2,denominator:3},card:{id:'weak-card',kind:'caption',name:'Caption',image:'',text:'Rat seems weakened.'}},{id:'hurt',threshold:{numerator:1,denominator:3},card:{id:'hurt-card',kind:'caption',name:'Caption',image:'',text:'Rat seems severely hurt.'}}];
  enemy.death=[{id:'rat-dead',kind:'caption',name:'Caption',image:'',text:'The rat falls down dead in a puddle of its own blood.'}];
  const playerHit=project.library.find(d=>d.id===project.combat.playerHit.definitionId);Object.assign(playerHit,{name:'You take damage!',imageScale:85,imageOffsetY:3});

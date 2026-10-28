@@ -11,7 +11,7 @@ export const cardKinds = Object.freeze({
   event: { label: 'Vignette', editorTint: '#96f7a7', validate: card => typeof card.text === 'string' ? [] : [errorMessage('PROJECT_VIGNETTE_TEXT_MUST_BE_A_STRING')] },
   caption: { label: 'Caption', editorTint: '#e4ffeb', validate: card => typeof card.text === 'string' ? [] : [errorMessage('PROJECT_CAPTION_TEXT_MUST_BE_A_STRING')] },
   action: { label: 'Action', editorTint: '#a59bea', validate: card => ['direct','check'].includes(card.resolution) ? [] : [errorMessage('PROJECT_ACTION_RESOLUTION_MUST_BE_DIRECT_OR_CHECK')] },
-  consumable: { label: 'Consumable', editorTint: '#efa3a3', validate: validateResourceCard },
+  consumable: { label: 'Consumable', editorTint: '#9edcff', validate: validateResourceCard },
   item: { label: 'Item', editorTint: '#dfcf78', validate: card => Array.isArray(card.onCollect) ? [] : [errorMessage('PROJECT_ITEM_COLLECTION_EFFECTS_MUST_BE_A_LIST')] }
 });
 function validateResourceCard(card) {

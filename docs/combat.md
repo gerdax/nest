@@ -40,10 +40,13 @@ wrong-kind, local or ambiguous sources remain explicit diagnostics. Names,
 artwork, rules and stable Action identities survive migration. The original
 input files remain unchanged.
 
-**Enemy** contains its optional main-card introduction, ordered attacks,
-damage feedback, percentage reactions and one required death card. All artwork
+**Enemy** contains its optional main-card introduction, ordered Actions,
+**Effect cards → Health damage**, percentage reactions and one required death card.
+Health damage has a fixed editor label and no editable Name. Its Description
+uses the large heading style in preview and combat. Existing name-only damage
+copy migrates into Description once, preserving the displayed text. All artwork
 sections use preview → artwork path → image scale/position. Reaction percentages
-retain exact fraction boundaries. New Enemies have an attack, damage Effect
+retain exact fraction boundaries. New Enemies have an Attack Action, damage Effect
 Card and death card; artwork is optional for testing. Use a separate Enemy
 variant rather than local Combat beat overrides.
 
@@ -98,7 +101,10 @@ Energy checks use pre-payment values, matching displayed odds.
 Burst cooldown is per Action/source Weapon, starts on resolved hit/miss, and
 clears after another completed player Action. Effect-card swipes are not turns.
 Cooldowns reset between encounters. Pistol has unlimited uses; USING never
-implicitly consumes it. Enemy attacks follow their authored repeating order.
+implicitly consumes it. Enemy Actions follow their authored repeating order. Each has an explicit Action
+type; Attack is the initial supported type, with its own check and damage fields.
+Legacy `attacks` lists migrate to `actions` of type `attack`, retaining identity,
+presentation, order and rules. Additional types remain deferred.
 
 ## Format and compatibility
 
@@ -114,7 +120,7 @@ require shared Library definitions and do not silently promote local content.
 
 ## Deliberately deferred
 
-Poison/statuses, Defend/Block, ammunition, equipment, multiple enemies, fleeing,
+Poison/statuses, advanced blocking rules, ammunition, equipment, multiple enemies, fleeing,
 schemes/random attack selection, healing re-cross rules, finite-use weapon rules,
 shared cooldown groups, post-death retry UX and durable combat resume are deferred.
 Additional intrinsic/Action/embedded Enemy effects beyond the authored damage
@@ -137,3 +143,42 @@ Consumable subtype, preserving identities, local/shared ownership, placements,
 custom rules and artwork. Project and chapter imports/exports and clipboard
 copies retain the new form. Migration is idempotent and original files are not
 rewritten; saving/exporting produces the migrated document.
+
+Library card editors open their collapsible sections closed by default. Sections
+manually expanded stay open during subsequent edits of the same card.
+
+## Shared Combat Action types
+
+Common default Actions, Weapon-owned Actions and Enemy Actions share one
+Combat Action structure and offer **Attack**, **Defend** and
+**Wait**. Existing Actions migrate to Attack without changing their check, damage
+or availability; no new Actions are injected into authored projects.
+
+- Attack retains own/source damage, Direct/Check resolution and existing rules.
+- Defend is direct and spends the turn. Its damage reduction defaults to 1 and
+  applies to the next opposing attack, then expires on hit or miss. Protection does
+  not stack or carry between encounters. Fully blocked attacks show BLOCKED.
+- Wait is direct and spends the turn with no other effect.
+
+Requirements, Energy costs and cooldowns remain available. Defend/Wait hide
+attack-only check/damage fields; prior attack settings are retained if the type
+is changed back, and the Attack resolution can be configured again. Protection
+is granted after accepted departure; dice/presentation retries reuse frozen
+results and do not apply protection, turns or costs twice.
+
+Enemy Actions use the same type, resolution, check, own-damage profile and
+Defend reduction fields. Existing Enemy root damage ranges migrate into
+`attack.damage` without changing the range or other authored content. Their
+ordered selection remains separate from player choice. Enemy availability
+requirements, Energy costs, cooldowns and Weapon sources remain unsupported and
+are diagnosed rather than ignored.
+
+Direct Enemy Actions (Defend, Wait or a direct Attack) show their card until
+accepted departure. Both sides gain protection after their Defend card commits;
+only the opponent's next Attack consumes it. Wait/Defend do not consume the
+opponent's protection. Neither protection nor turns are repeated on retry.
+
+Action type is above Description in Common, Weapon and Enemy editors. The
+**Effect** section contains type-specific mechanical fields; Effect Cards remain
+presentation. Statuses, initiative manipulation, extra turns and escape routing
+are outside this simple implementation.

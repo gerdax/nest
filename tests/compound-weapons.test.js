@@ -44,7 +44,7 @@ test('embedded Action rules are validated and traversed as Weapon dependencies',
 });
 test('runtime uses owned Actions independently from Library and isolates cooldown by source Weapon',()=>{
  const {project,weapon}=legacyWeaponProject();migrateWeaponActions(project);const second=structuredClone(weapon);second.id='rifle';second.combat.damage={min:4,max:5};
- project.library.push(second);const compiled=compileChapter(project),run={variables:{energy:20},inventory:[weapon,second]},encounter=createEncounter({health:10,attacks:[{}]},'fight');
+ project.library.push(second);const compiled=compileChapter(project),run={variables:{energy:20},inventory:[weapon,second]},encounter=createEncounter({health:10,actions:[{type:'attack'}]},'fight');
  let choices=playerChoices(compiled,run,encounter);assert.equal(choices.find(c=>c.id==='shoot@rifle').profile.min,5);
  const state=completePlayerTurn(encounter,weapon.combat.actions[0],weapon);choices=playerChoices(compiled,run,state);
  assert(choices.find(c=>c.id==='shoot@pistol').disabled);assert(!choices.find(c=>c.id==='shoot@rifle').disabled);

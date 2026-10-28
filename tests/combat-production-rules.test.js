@@ -5,7 +5,7 @@ const check={pool:[{sides:6,count:3}],modifier:0,target:11};
 const shoot={id:'shoot',kind:'combatAction',check,attack:{source:'weapon'}};
 const burst={...shoot,id:'burst',check:{...check,target:9},attack:{source:'weapon',maxBonus:1},cooldown:1};
 const weapon={id:'pistol',kind:'item',subtype:'weapon',combat:{damage:{min:1,max:2},actions:[shoot,burst]}};
-const enemy={health:4,attacks:[{id:'bite'}],reactions:[{id:'weak',threshold:{numerator:2,denominator:3}},{id:'hurt',threshold:{numerator:1,denominator:3}}]};
+const enemy={health:4,actions:[{id:'bite',type:'attack'}],reactions:[{id:'weak',threshold:{numerator:2,denominator:3}},{id:'hurt',threshold:{numerator:1,denominator:3}}]};
 const dice=v=>v.map(value=>({sides:6,value}));
 test('authored exact odds and source-relative ranges',()=>{assert.equal(checkOdds(check).probability,.5);assert.equal(checkOdds(burst.check).probability,160/216);assert.deepEqual(attackProfile(burst,weapon),{min:1,max:3});assert.throws(()=>attackProfile(shoot));});
 test('samples each successful range uniformly, never samples damage on miss',()=>{for(const [random,want] of [[0,1],[.34,2],[.99,3]])assert.equal(resolveCombatAttack({actor:'player',action:burst,source:weapon,targetHp:4,dice:dice([3,3,3]),random:()=>random}).damage,want);assert.equal(resolveCombatAttack({actor:'player',action:shoot,source:weapon,targetHp:4,dice:dice([1,1,1]),random:()=>assert.fail()}).damage,0);});

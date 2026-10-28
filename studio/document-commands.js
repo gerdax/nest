@@ -117,8 +117,14 @@ function changeField(project, selection, field, localDrafts) {
   if (['imageScale','imageOffsetX','imageOffsetY'].includes(key)) value = clampArtwork(key, value);
   if(key==='key'&&['addItem','removeItem'].includes(parent.op)&&value&&!eligibleInventoryItems(project,ruleChapter).some(item=>item.id===value))throw createError('STUDIO_ITEM_EFFECTS_MUST_REFERENCE_AN_ELIGIBLE_ITEM_FROM_THE_OWNING_CHAPTER_OR_SHARED_LIBRARY');
   parent[key] = value;
+  if(scope==='definition'&&key==='type'&&parent.kind==='combatAction'){
+    if(!['attack','defend','wait'].includes(value))throw new Error('Unsupported Combat Action type');
+    if(['defend','wait'].includes(value))parent.resolution='direct';
+    if(value==='defend')parent.damageReduction??=1;
+    return;
+  }
   if(scope==='definition'&&path==='subtype'&&root.kind==='item'){if(value==='weapon')root.combat??=createWeapon(root.id).combat;else delete root.subtype;return;}
-  if(scope==='definition'&&(path==='attack.source'||/^combat\.actions\.\d+\.attack\.source$/.test(path))){parent.minBonus??=0;parent.maxBonus??=0;if(value==='self')parent.damage??={min:1,max:1};return;}
+  if(scope==='definition'&&(path==='attack.source'||/^(?:combat\.)?actions\.\d+\.attack\.source$/.test(path))){parent.minBonus??=0;parent.maxBonus??=0;if(value==='self')parent.damage??={min:1,max:1};return;}
   if (['modifierVariable','contextItemId','tagId'].includes(key) && !value) delete parent[key];
   if (key === 'contextItemId' && (!value||value.startsWith('tag:'))) delete parent.contextOverrideImage;
   if (key === 'resolution' && value === 'check') {
@@ -272,7 +278,7 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
     }
     case 'use-common-action': {
       const action=project.library.find(d=>d.id===data.id&&d.kind==='combatAction'&&d.visibility!=='local');
-      if(!action||action.attack?.source==='weapon')throw new Error('Default combat Actions must work without a Weapon');
+      if(!action||action.type==='attack'&&action.attack?.source==='weapon')throw new Error('Default combat Actions must work without a Weapon');
       if(!project.combat.defaultActions.some(ref=>ref.definitionId===action.id))project.combat.defaultActions.push({definitionId:action.id});break;
     }
     case 'move-common-action': {

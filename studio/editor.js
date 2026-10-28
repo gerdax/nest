@@ -189,6 +189,7 @@ function renderInspector({collapseCards=false,preserveProjectSettings=false}={})
  if(globalInitialValuesOpen)settings.querySelector('[data-global-initial-values]').open=true;
  if(chapterVariablesOpen)settings.querySelector('[data-chapter-variables]').open=true;
  if(sameInspector)[...$('#inspector').querySelectorAll('details')].forEach((el,i)=>{el.open=expanded.includes(i);});
+ else if(mode==='library')for(const section of $('#inspector').querySelectorAll('details'))section.open=false;
  if(collapseCards)for(const entry of $('#inspector').querySelectorAll('details[data-placement],details[data-sequence]')){entry.open=false;entry.classList.remove('card-navigation-target');}
  $('#inspector').dataset.key=inspectorKey;
  const panelLabel=multiple?'Multiple beats':mode==='library'?(cardKinds[definition()?.kind]?.label||'Library'):nodeTypeLabel(node()?.type)||'Beat';
@@ -443,7 +444,7 @@ $('#library-search-clear').onclick=()=>{
  $('#library-search').value='';renderLibrary();$('#library-search').focus();
 };
 $('#library-match-beat').onchange=renderLibrary;
-$('#chapter-view').onclick=()=>{mode='chapter';render();};$('#library-view').onclick=()=>{mode='library';libraryTab=isCommonDefinition(definition())?'common':'content';render();};
+$('#chapter-view').onclick=()=>{mode='chapter';render();};$('#library-view').onclick=()=>{mode='library';libraryTab='content';render();};
 $('#chapter-selector').onchange=e=>{preview.stop();edit('select-chapter',{id:e.target.value});graph.fit();};
 $('#add-chapter').onclick=()=>edit('add-chapter');
 function selectedBeatIds(){return graph.selectedIds.size?[...graph.selectedIds]:selected?[selected]:[];}
@@ -508,7 +509,7 @@ const stopViewShortcuts=mountViewShortcuts(document,{
  toggleAutoPanel:()=>$('#auto-panel').click(),
  enabled:()=>$('#project-settings-overlay').hidden&&!graph.drag&&!graph.pending&&!graph.creation&&!preview.deck?.input?.active,
  switchView:()=>{
-  graph.cancel();mode=mode==='chapter'?'library':'chapter';render();
+  graph.cancel();mode=mode==='chapter'?'library':'chapter';if(mode==='library')libraryTab='content';render();
   $(mode==='chapter'?'#canvas':'#library-panel').focus({preventScroll:true});
  },
  togglePreview:()=>{if(!previewWindow.visible)return false;previewWindow.toggle();},

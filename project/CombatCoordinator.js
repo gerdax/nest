@@ -1,7 +1,7 @@
 import {resolveCheck} from './checks.js';
 import {transact} from './state.js';
-import {definition,createEncounter,playerChoices,resolveCombatAttack,healthReactions,completePlayerTurn,completeEnemyTurn} from './combat-rules.js';
-import {combatCard,enemyAttackCard,combatChoices} from './combat-presentation.js';
+import {definition,createEncounter,playerChoices,resolveCombatAttack,healthReactions,completePlayerTurn,completeEnemyTurn,applyActionProtection} from './combat-rules.js';
+import {combatCard,enemyActionCard,combatChoices} from './combat-presentation.js';
 
 /** One encounter; ProjectController remains the sole owner of player run state. */
 export class CombatCoordinator {
@@ -13,7 +13,7 @@ export class CombatCoordinator {
  }
  get state(){return {id:this.encounter.id,phase:this.phase,enemyName:this.enemy.name,enemyHp:this.encounter.enemyHp,startingHp:this.encounter.startingHp,round:this.encounter.round};}
  get checking(){return /roll|result/.test(this.phase);}
- get idle(){return ['intro','choice','effects','enemy-death'].includes(this.phase)&&!this.advancing;}
+ get idle(){return ['intro','choice','effects','enemy-death','enemy-action'].includes(this.phase)&&!this.advancing;}
  active(){return !this.disposed&&!this.abort.signal.aborted&&!this.host.destroyed&&this.host.generation===this.generation&&this.host.combat===this;}
  token(){return `${this.encounter.id}:${++this.serial}`;}
  snapshot(){return {variables:{...this.host.variables},inventory:this.host.inventory.map(i=>structuredClone(i))};}
@@ -38,15 +38,21 @@ export class CombatCoordinator {
    }else await this.enterEnemy();
   }catch(error){this.fail(error);}
  }
- attackCard(){return enemyAttackCard(this.enemy.attacks[this.encounter.attackIndex],this.token());}
+ actionCard(){return enemyActionCard(this.enemy.actions[this.encounter.actionIndex],this.token());}
  choices(){return playerChoices(this.host.compiled,this.snapshot(),this.encounter);}
  choiceContent(){return combatChoices(this.choices(),this.token(),this.host.variables);}
  async enterEnemy({reveal=false}={}){
   if(!this.active())return;
   this.resume={kind:'enemy'};this.sequence=null;this.setPhase('enemy-enter');
-  const content=this.introSuccessor??this.attackCard();this.introSuccessor=null;
+  const content=this.introSuccessor??this.actionCard();this.introSuccessor=null;
   if(!await this.replace(content,{transition:reveal?'reveal':'flip'}))return;
-  if(this.active())await this.attack('enemy',this.enemy.attacks[this.encounter.attackIndex]);
+  if(this.active()){const action=this.enemy.actions[this.encounter.actionIndex];if(action.resolution==='direct')this.setPhase('enemy-action');else await this.performEnemyAction(action);}
+ }
+ async performEnemyAction(action){
+  switch(action?.type){
+   case 'attack':case 'defend':case 'wait':return this.attack('enemy',action);
+   default:throw new Error(`Unsupported Enemy Action type: ${action?.type??'(missing)'}`);
+  }
  }
  async showChoices(){
   if(!this.active())return;
@@ -71,18 +77,19 @@ export class CombatCoordinator {
    }
    // Direct choices have no physical check face. Finish their accepted departure
    // before installing the successor through the deck's normal commit contract.
-   if(actor==='player'&&action.resolution==='direct'&&contentId)await this.deck.waitForDeparture(contentId,{signal:this.abort.signal});
+   if(action.resolution==='direct'&&contentId)await this.deck.waitForDeparture(contentId,{signal:this.abort.signal});
    if(!this.active())return;
    const check=action.resolution==='direct'?null:resolveCheck(action.check,before.variables);
    const result=!check?{dice:[]}:await this.host.rollCheck(check.pool,{signal:this.abort.signal,surface:actor==='enemy'?'front':'check',color:actor==='enemy'?'black':'light',throwSide:actor==='enemy'?'top':'bottom'});
    if(!this.active())return;
-   const resolved=resolveCombatAttack({id:this.token(),actor,action,source,targetHp:actor==='enemy'?this.host.variables.health:this.encounter.enemyHp,values:before.variables,dice:Array.isArray(result)?result:result.dice,random:this.host.rng});
+   const resolved=resolveCombatAttack({id:this.token(),actor,action,source,targetHp:actor==='enemy'?this.host.variables.health:this.encounter.enemyHp,values:before.variables,dice:Array.isArray(result)?result:result.dice,random:this.host.rng,damageReduction:actor==='enemy'?this.encounter.guard??0:this.encounter.enemyGuard??0});
    this.pending=resolved;this.resume={kind:'resolution'};if(this.payment)this.payment.final=true;
    if(actor==='player')this.encounter=completePlayerTurn(this.encounter,action,source);
+   else this.encounter=applyActionProtection(this.encounter,'enemy',action);
    this.setPhase(`${actor}-result`);
-   if(action.resolution!=='direct')await this.host.onCheckResult({target:resolved.target,total:resolved.total,success:resolved.success,label:resolved.success?'SUCCESS':'MISS',signal:this.abort.signal});
+   if(action.resolution!=='direct')await this.host.onCheckResult({target:resolved.target,total:resolved.total,success:resolved.success,label:resolved.success?(resolved.blockedDamage>0&&resolved.damage===0?'BLOCKED':'SUCCESS'):'MISS',signal:this.abort.signal});
    if(!this.active())return;
-   await this.presentResolution({replace:actor==='player'&&action.resolution==='direct'});
+   await this.presentResolution({replace:action.resolution==='direct'});
   }catch(error){
    this.refundPayment();
    this.fail(error);
@@ -146,13 +153,17 @@ export class CombatCoordinator {
   step.contentId??=this.token();
   const content=combatCard(step.card,step.contentId,{value:step.value,disabledReason:reason});
   if(!last){content.nextTransition='reveal';content.nextDeckPreview={content:this.sequenceContent(index+1),presentation:'closed'};}
-  else if(sequence.kind==='intro'){this.introSuccessor??=this.attackCard();content.nextTransition='reveal';content.nextDeckPreview={content:this.introSuccessor,presentation:'closed'};}
+  else if(sequence.kind==='intro'){this.introSuccessor??=this.actionCard();content.nextTransition='reveal';content.nextDeckPreview={content:this.introSuccessor,presentation:'closed'};}
   else content.nextTransition='flip';
   return content;
  }
  async accept(detail){
   if(!this.active()||this.advancing||detail.contentId!==this.deck.content.id||this.accepted.has(detail.contentId))return;
   if(this.phase==='error'){await this.retry();return;}
+  if(this.phase==='enemy-action'){
+   const action=this.enemy.actions[this.encounter.actionIndex];this.accepted.add(detail.contentId);
+   await this.attack('enemy',action,null,{contentId:detail.contentId});return;
+  }
   if(this.phase==='choice'){
    const choice=this.choices().find(c=>c.id===detail.action?.id);
    if(!choice||choice.disabled)return;

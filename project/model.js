@@ -9,4 +9,4 @@ export { normalizeSingleItems, discardPlacementContext } from './normalization.j
 
 export { normalizeLocalOwnership } from './local-ownership.js';
 
-export { createCombatAction, createEffectCard, createEnemyAttack, createEnemy, createWeapon, createCombatDefaults, ensureCombatDefaults, ensureChapterDeath, createProjectChapter } from './combat-model.js';
+export { createCombatAction, createEffectCard, createEnemyAttack, createEnemyAction, migrateEnemyActions, createEnemy, createWeapon, createCombatDefaults, ensureCombatDefaults, ensureChapterDeath, createProjectChapter } from './combat-model.js';

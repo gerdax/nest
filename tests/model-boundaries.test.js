@@ -13,7 +13,7 @@ import * as ownership from '../project/local-ownership.js';
 import * as combat from '../project/combat-model.js';
 
 const owners = {
-  ...Object.fromEntries(['createCombatAction','createEffectCard','createEnemyAttack','createEnemy','createWeapon','createCombatDefaults','ensureCombatDefaults','ensureChapterDeath','createProjectChapter'].map(name=>[name,combat])),
+  ...Object.fromEntries(['createCombatAction','createEffectCard','createEnemyAttack','createEnemyAction','migrateEnemyActions','createEnemy','createWeapon','createCombatDefaults','ensureCombatDefaults','ensureChapterDeath','createProjectChapter'].map(name=>[name,combat])),
   cloneProject: data,
   createChapter: data,
   chapterVariables: data,

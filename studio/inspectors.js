@@ -1,4 +1,4 @@
-import { combatDefinitionFields,combatProjectFields,combatNodeFields } from './combat-authoring.js';
+import { combatDefinitionFields,combatProjectFields,combatNodeFields,combatActionTypeField } from './combat-authoring.js';
 import { cardRuleIndicators } from './card-rule-indicators.js';
 import { itemTagsEditor } from './item-tags.js';
 import { cardLabel, cardFallbackLabel } from './card-label.js';
@@ -39,7 +39,10 @@ export function cardFields(project,definition,scope='definition',showPreview=tru
  if(scope==='definition'&&isStoryKind(definition.kind))html+=select('Card type',definition.kind,[['event','Vignette'],['caption','Caption']],'kind',scope);
  if(isConsumableKind(definition.kind))html+=select('Consumable subtype',definition.subtype,[['health','Health'],['energy','Energy']],'subtype',scope);
  if(definition.kind==='item')html+=select('Item subtype',definition.subtype||'',[['','Ordinary Item'],['weapon','Weapon']],'subtype',scope)+select('Tag',definition.tagId||'',[['','None'],...(project.itemTags||[]).map(tag=>[tag.id,tag.name])],'tagId',scope);
+ if(definition.kind==='combatAction')html+=combatActionTypeField(definition,'',scope);
+ if(definition.kind==='enemy')html+=field('Starting health',definition.health,'health',scope,'number');
  html+=field('Description',definition.text,'text',scope,'textarea');
+ if(definition.kind==='enemy')html+=checkbox('Show introduction',definition.introEnabled,'introEnabled',scope);
  if(showRules)html+=cardRuleFields(project,definition,scope,chapter);
  if(scope==='definition'&&(definition.kind==='enemy'||definition.kind==='item'&&definition.subtype==='weapon'))html+=(showPreview?`<div class="inspector-card-preview" data-card-preview data-preview-definition="${esc(definition.id)}"></div>`:'')+artworkControls(definition,scope);
  if(scope==='definition')html+=combatDefinitionFields(project,definition);

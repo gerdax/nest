@@ -1,4 +1,4 @@
-import { ensureCombatDefaults, migrateWeaponActions } from './combat-model.js';
+import { ensureCombatDefaults, migrateWeaponActions, migrateEnemyActions, migrateCombatActionTypes } from './combat-model.js';
 import { errorMessage } from '../errors.js';
 import { isTagKey, tagKey, tagIdFromKey, validItemTagName } from './item-tags.js';
 import { isStatVariable, validStatValue, compatibleStatVariable } from './checks.js';
@@ -13,7 +13,7 @@ import { createLibraryIndex } from './library-index.js';
 
 export function validateProject(project, {allowDraft = false} = {}) {
   if(project?.version===2)project=ensureCombatDefaults(JSON.parse(JSON.stringify(project)));
-  else if(project?.version===3)project=migrateWeaponActions(structuredClone(project));
+  else if(project?.version===3)project=migrateCombatActionTypes(migrateEnemyActions(migrateWeaponActions(structuredClone(project))));
   const errors = [];
   const add = (message, chapterId, nodeId) => errors.push({message, ...(chapterId ? {chapterId}: {}), ...(nodeId ? {nodeId}: {})});
   if (!object(project)) return [{message: errorMessage('VALIDATION_PROJECT_MUST_BE_AN_OBJECT')}];
@@ -164,13 +164,16 @@ export function validateProject(project, {allowDraft = false} = {}) {
     if(list(card.effects).length)add(`${label}: additional embedded Enemy card effects are deferred`);
     inspectCard(card,label);
   }
-  function inspectCombat(d,label){
+  function inspectCombat(d,label,enemyAction=false){
     if(d.kind==='effect'&&(d.onCollect!==undefined||list(d.effects).length||list(d.successEffects).length||list(d.failureEffects).length))add(`${label}: Effect Cards are presentation only and cannot apply independent effects`);
     if(d.kind==='combatAction'){
-      for(const key of ['effects','successEffects','failureEffects'])if(list(d[key]).length)add(`${label}: additional combat effects are deferred; use the attack damage profile`);
-      if(list(d.costs).some(c=>c.source!=='variable'||c.key!=='energy'))add(`${label}: combat supports Energy costs only in this milestone`);
-      if(!object(d.attack)||!['self','weapon','none'].includes(d.attack.source))add(`${label}: invalid attack source`);
-      else {if(d.attack.source==='self')damage(d.attack.damage,label);if(d.attack.source!=='none'&&(!Number.isSafeInteger(d.attack.minBonus)||!Number.isSafeInteger(d.attack.maxBonus)))add(`${label}: invalid damage bonuses`);}
+      if(!['attack','defend','wait'].includes(d.type))add(`${label}: unsupported Combat Action type`);
+      if(['defend','wait'].includes(d.type)&&d.resolution!=='direct')add(`${label}: Defend and Wait are direct Actions`);
+      if(d.type==='defend'&&(!Number.isSafeInteger(d.damageReduction)||d.damageReduction<1))add(`${label}: Defend requires positive integer damage reduction`);
+      for(const key of ['effects','successEffects','failureEffects'])if(!enemyAction&&list(d[key]).length)add(`${label}: additional combat effects are deferred; use the attack damage profile`);
+      if(!enemyAction&&list(d.costs).some(c=>c?.source!=='variable'||c?.key!=='energy'))add(`${label}: combat supports Energy costs only in this milestone`);
+      if(d.type==='attack'){if(!object(d.attack)||!['self','weapon','none'].includes(d.attack.source))add(`${label}: invalid attack source`);
+      else {if(d.attack.source==='self')damage(d.attack.damage,label);if(d.attack.source!=='none'&&(!Number.isSafeInteger(d.attack.minBonus)||!Number.isSafeInteger(d.attack.maxBonus)))add(`${label}: invalid damage bonuses`);}}
       if(!Number.isSafeInteger(d.cooldown)||d.cooldown<0)add(`${label}: invalid cooldown`);
     }
     if(d.kind==='item'&&d.subtype!==undefined){
@@ -187,20 +190,27 @@ export function validateProject(project, {allowDraft = false} = {}) {
     }
     if(d.kind==='enemy'){
       if(!Number.isSafeInteger(d.health)||d.health<1||typeof d.introEnabled!=='boolean')add(`${label}: invalid Enemy health/introduction`);
-      for(const key of ['attacks','reactions','death'])if(!Array.isArray(d[key]))add(`${label}: Enemy ${key} must be a list`);
-      if(!list(d.attacks).length||!list(d.death).length)add(`${label}: Enemy requires attack and death content`);
+      for(const key of ['actions','reactions','death'])if(!Array.isArray(d[key]))add(`${label}: Enemy ${key} must be a list`);
+      if(!list(d.actions).length||!list(d.death).length)add(`${label}: Enemy requires action and death content`);
+      if(Object.hasOwn(d,'attacks'))add(`${label}: legacy attacks conflict with Enemy actions`);
       const ids=new Set();const identity=card=>{if(object(card)){if(ids.has(card.id))add(`${label}: duplicate embedded identity ${card.id}`);ids.add(card.id);}};
       if(list(d.death).length>1)add(`${label}: Enemy death supports only one card`);
       if(list(d.intro).length>1)add(`${label}: Enemy introduction supports only one card`);
       for(const card of list(d.intro)){identity(card);embedded(card,['event','caption'],label);}
       identity(d.hit);embedded(d.hit,['effect'],label);
       for(const card of list(d.death)){identity(card);embedded(card,['event','caption'],label);}
-      for(const attack of list(d.attacks)){
-        identity(attack);
-        if(!object(attack)||!named(attack.id)||typeof attack.name!=='string'||typeof attack.text!=='string'||typeof attack.image!=='string'){add(`${label}: invalid embedded attack`);continue;}
-        inspectCard({...attack,kind:undefined,resolution:'check'},label);damage(attack.damage,label);
-        if(list(attack.costs).length||list(attack.effects).length)add(`${label}: Enemy costs/additional effects are deferred in this milestone`);
-        if(!Array.isArray(attack.costs)||!Array.isArray(attack.effects))add(`${label}: attack costs/effects must be lists`);
+      for(const action of list(d.actions)){
+        identity(action);
+        if(!object(action)||!named(action.id)||typeof action.name!=='string'||typeof action.text!=='string'||typeof action.image!=='string'){add(`${label}: invalid embedded Enemy Action`);continue;}
+        if(action.kind!=='combatAction'){add(`${label}: invalid embedded Enemy Action kind`);continue;}
+        inspectCard(action,label,true);
+        if(typeof action.target!=='string'||!action.target.trim())add(`${label}: invalid Enemy Action target`);
+        if(Object.hasOwn(action,'damage'))add(`${label}: legacy Enemy damage conflicts with the shared attack profile`);
+        if(action.type==='attack'&&action.attack?.source==='weapon')add(`${label}: Enemy Actions cannot use a Weapon attack source`);
+        if(list(action.costs).length||['effects','successEffects','failureEffects'].some(key=>list(action[key]).length))add(`${label}: Enemy costs/additional effects are deferred in this milestone`);
+        if(list(action.conditions).length)add(`${label}: Enemy Action conditions are deferred while actions are performed in order`);
+        if(Number.isSafeInteger(action.cooldown)&&action.cooldown>0)add(`${label}: Enemy Action cooldown is deferred while actions are performed in order`);
+        if(!Array.isArray(action.costs)||!Array.isArray(action.effects))add(`${label}: Enemy Action costs/effects must be lists`);
       }
       for(const r of list(d.reactions)){
         identity(r);const t=r?.threshold;
@@ -209,8 +219,8 @@ export function validateProject(project, {allowDraft = false} = {}) {
       }
     }
   }
-  function inspectCard(d, label) {
-    inspectCombat(d,label);
+  function inspectCard(d, label, enemyAction=false) {
+    inspectCombat(d,label,enemyAction);
     if (d.contextOverrideImage !== undefined && typeof d.contextOverrideImage !== 'boolean') add(errorMessage('VALIDATION_OVERRIDE_IMG_MUST_BE_A_BOOLEAN', {label}));
     for (const key of ['imageScale', 'imageOffsetX', 'imageOffsetY']) if (d[key] !== undefined && (!Number.isFinite(d[key])
       || d[key] < (key === 'imageScale' ? 10: -100) || d[key] > (key === 'imageScale' ? 400: 100))) add(errorMessage('VALIDATION_INVALID_IMAGE_SCALE_OR_POSITION', {label}));
@@ -279,7 +289,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
   }
   if(typeof project.showDeathBeat!=='boolean')add('Show death beat must be a boolean');
   if(!object(project.combat))add('Project requires combat settings');
-  else {if(!Array.isArray(project.combat.defaultActions))add('Default combat Actions must be a list');else {if(new Set(project.combat.defaultActions.map(r=>r?.definitionId)).size!==project.combat.defaultActions.length)add('Duplicate Default combat Action');for(const ref of project.combat.defaultActions){typedRef(ref,'combatAction','Default combat Action');if(definitions.get(ref?.definitionId)?.attack?.source==='weapon')add('Default combat Action requires a source Weapon');}}typedRef(project.combat.playerHit,'effect','Player Hit');}
+  else {if(!Array.isArray(project.combat.defaultActions))add('Default combat Actions must be a list');else {if(new Set(project.combat.defaultActions.map(r=>r?.definitionId)).size!==project.combat.defaultActions.length)add('Duplicate Default combat Action');for(const ref of project.combat.defaultActions){typedRef(ref,'combatAction','Default combat Action');if(definitions.get(ref?.definitionId)?.type==='attack'&&definitions.get(ref?.definitionId)?.attack?.source==='weapon')add('Default combat Action requires a source Weapon');}}typedRef(project.combat.playerHit,'effect','Player Hit');}
   if (!allowDraft && !chapterIds.has(project.activeChapterId)) add(errorMessage('VALIDATION_ACTIVE_CHAPTER_MUST_EXIST'));
   for (const chapter of chapters) {
     if (!object(chapter)) continue;
@@ -326,7 +336,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
       if (node.introOnce !== undefined && typeof node.introOnce !== 'boolean') add(errorMessage('VALIDATION_INVALID_SHOW_ONCE_TOGGLE', {label}), cid, nid);
       if (node.introEnabled !== undefined && typeof node.introEnabled !== 'boolean') add(errorMessage('VALIDATION_INVALID_INTRODUCTION_TOGGLE', {label}), cid, nid);
       if(node.type==='death' && (!Array.isArray(node.cards)||!node.cards.length||node.intro!==undefined||!object(node.connections)||Object.keys(node.connections).length))add('Death requires cards and no introduction or connections',cid,nid);
-      if(node.type==='combat'){typedRef(node.enemy,'enemy',label);if(['intro','introEnabled','cards','attacks','health','hit','reactions','death','combat'].some(key=>Object.hasOwn(node,key)))add('Combat does not support encounter overrides',cid,nid);if(object(node.connections)&&Object.keys(node.connections).some(k=>k!=='victory'))add('Combat has only a Victory output',cid,nid);}
+      if(node.type==='combat'){typedRef(node.enemy,'enemy',label);if(['intro','introEnabled','cards','attacks','actions','health','hit','reactions','death','combat'].some(key=>Object.hasOwn(node,key)))add('Combat does not support encounter overrides',cid,nid);if(object(node.connections)&&Object.keys(node.connections).some(k=>k!=='victory'))add('Combat has only a Victory output',cid,nid);}
       const ps = placements(node), pids = new Set();
       for (const p of ps) {
         if (!object(p) || !named(p.id) || typeof p.definitionId !== 'string') {

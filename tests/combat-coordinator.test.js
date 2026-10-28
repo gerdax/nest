@@ -23,8 +23,8 @@ function select(h,name='Shoot'){const choice=h.c.choices().find(c=>c.action.name
 test('player dice failure refunds provisional costs and retry restores current player choices without an enemy turn',async()=>{
  const h=harness();await reachPlayer(h);const shoot=h.host.compiled.library.find(d=>d.id==='pistol').combat.actions.find(d=>d.name==='Shoot');shoot.costs=[{source:'variable',key:'energy',amount:1}];
  let rolls=0;h.host.rollCheck=async()=>{rolls++;throw new Error('Dice unavailable');};
- const round=h.c.encounter.round,index=h.c.encounter.attackIndex;await select(h);
- assert.equal(h.c.phase,'error');assert.equal(h.host.variables.energy,3);assert.equal(h.c.pending,null);assert.equal(h.c.encounter.round,round);assert.equal(h.c.encounter.attackIndex,index);
+ const round=h.c.encounter.round,index=h.c.encounter.actionIndex;await select(h);
+ assert.equal(h.c.phase,'error');assert.equal(h.host.variables.energy,3);assert.equal(h.c.pending,null);assert.equal(h.c.encounter.round,round);assert.equal(h.c.encounter.actionIndex,index);
  h.host.inventory=[];await h.c.retry();assert.equal(h.c.phase,'choice');assert.equal(rolls,1);assert(!h.c.choices().some(c=>c.action.name==='Shoot'));assert(h.c.choices().some(c=>c.action.name==='Punch'));h.c.dispose();
 });
 test('canceled valid player result retries from the error front with frozen outcome and one cooldown',async()=>{
@@ -67,4 +67,59 @@ test('enabled introduction uses the main Enemy presentation and ignores legacy i
  await h.c.start();assert.equal(h.c.phase,'intro');
  for(const [key,value] of Object.entries({text:'Main Enemy text',image:'main.png',imageScale:125,imageOffsetX:8,flipImage:true,cardKind:'event'}))assert.equal(h.deck.content[key],value);
  await swipe(h);assert.equal(h.c.phase,'effects');h.c.dispose();
+});
+
+function addSupport(h,type){
+ const action={...structuredClone(h.host.compiled.library.find(d=>d.name==='Punch')),id:type,definitionId:type,name:type==='defend'?'Defend':'Wait',type,resolution:'direct',...(type==='defend'?{damageReduction:1}:{})};
+ h.host.compiled.library.push(action);h.host.compiled.combat.defaultActions.push({definitionId:action.id});return action;
+}
+async function useDirect(h,name){const promise=select(h,name);await tick();h.deck.depart();await promise;await tick();}
+test('Defend blocks one damage on the next attack and Wait then passes an unprotected turn',async()=>{
+ const h=harness();addSupport(h,'defend');addSupport(h,'wait');await reachPlayer(h);
+ const health=h.host.variables.health,commits=h.commits,round=h.c.encounter.round;let rolls=0;const labels=[];
+ h.host.rollCheck=async(pool,options)=>{rolls++;assert.equal(options.surface,'front');return {dice:[4,4,4]};};h.host.onCheckResult=async result=>labels.push(result.label);
+ const pending=select(h,'Defend');await tick();assert.equal(h.c.encounter.guard,0);assert.equal(h.c.encounter.round,round);
+ h.deck.depart();await pending;await tick();assert.equal(h.c.phase,'choice');assert.equal(h.host.variables.health,health);assert.equal(h.commits,commits);assert.equal(h.c.encounter.guard,0);assert.equal(rolls,1);assert(labels.includes('BLOCKED'));
+ await useDirect(h,'Wait');assert.equal(h.c.phase,'effects');assert.equal(h.host.variables.health,health);assert.equal(h.c.pending.damage,1);await swipe(h);assert.equal(h.host.variables.health,health-1);h.c.dispose();
+});
+test('Defend expires on a missed enemy attack and does not carry into the following turn',async()=>{
+ const h=harness();addSupport(h,'defend');addSupport(h,'wait');await reachPlayer(h);
+ h.host.rollCheck=async()=>({dice:[1,1,1]});await useDirect(h,'Defend');assert.equal(h.c.phase,'choice');assert.equal(h.c.encounter.guard,0);
+ h.host.rollCheck=async()=>({dice:[4,4,4]});await useDirect(h,'Wait');assert.equal(h.c.pending.blockedDamage,0);assert.equal(h.c.pending.damage,1);h.c.dispose();
+});
+test('enemy dice failure retains Defend protection until a valid result, without granting another player turn',async()=>{
+ const h=harness();addSupport(h,'defend');await reachPlayer(h);let rolls=0;
+ h.host.rollCheck=async()=>{if(++rolls===1)throw new Error('Dice unavailable');return {dice:[4,4,4]};};
+ await useDirect(h,'Defend');assert.equal(h.c.phase,'error');assert.equal(h.c.encounter.guard,1);const round=h.c.encounter.round;
+ await h.c.retry();assert.equal(h.c.phase,'choice');assert.equal(h.c.encounter.guard,0);assert.equal(h.c.encounter.round,round);assert.equal(rolls,2);h.c.dispose();
+});
+test('canceled Defend departure commits neither protection nor a player turn',async()=>{
+ const h=harness();addSupport(h,'defend');await reachPlayer(h);const round=h.c.encounter.round;
+ const pending=select(h,'Defend');await tick();h.c.dispose();h.deck.depart();await pending;
+ assert.equal(h.c.encounter.guard,0);assert.equal(h.c.encounter.round,round);
+});
+
+function enemySequence(h,types){const base=h.c.enemy.actions[0];h.c.enemy.actions=types.map((type,i)=>({...structuredClone(base),id:`enemy-${type}-${i}`,name:`Enemy ${type}`,type,resolution:type==='attack'?'check':'direct',...(type==='defend'?{damageReduction:1}:{})}));}
+test('Enemy Defend grants protection only on accepted departure and blocks the next player attack',async()=>{
+ const h=harness();enemySequence(h,['defend','wait']);await h.c.start();assert.equal(h.c.phase,'enemy-action');assert(h.c.idle);assert.equal(h.c.encounter.enemyGuard,0);
+ const id=h.deck.content.id,pending=h.c.accept({contentId:id,action:{id:'continue'}});await tick();assert.equal(h.c.encounter.enemyGuard,0);await h.c.accept({contentId:id,action:{id:'continue'}});
+ h.deck.depart();await pending;assert.equal(h.c.phase,'choice');assert.equal(h.c.encounter.enemyGuard,1);assert.equal(h.c.encounter.actionIndex,1);
+ await select(h,'Punch');assert.equal(h.c.encounter.enemyHp,4);assert.equal(h.c.encounter.enemyGuard,0);assert.equal(h.c.phase,'enemy-action');
+ await swipe(h);assert.equal(h.c.phase,'choice');assert.equal(h.c.encounter.actionIndex,0);h.c.dispose();
+});
+test('both actors use the same protection rule and support Actions preserve protection until an attack',async()=>{
+ const h=harness();addSupport(h,'defend');addSupport(h,'wait');enemySequence(h,['wait','defend','attack']);await h.c.start();await swipe(h);
+ await useDirect(h,'Defend');assert.equal(h.c.phase,'enemy-action');assert.equal(h.c.encounter.guard,1);assert.equal(h.c.encounter.enemyGuard,0);
+ await swipe(h);assert.equal(h.c.phase,'choice');assert.equal(h.c.encounter.guard,1);assert.equal(h.c.encounter.enemyGuard,1);
+ await useDirect(h,'Wait');assert.equal(h.c.phase,'choice');assert.equal(h.host.variables.health,10);assert.equal(h.c.encounter.guard,0);assert.equal(h.c.encounter.enemyGuard,1);
+ await select(h,'Punch');assert.equal(h.c.encounter.enemyHp,4);assert.equal(h.c.encounter.enemyGuard,0);assert.equal(h.c.phase,'enemy-action');h.c.dispose();
+});
+test('Enemy direct Attack defers its damage until accepted damage-card departure',async()=>{
+ const h=harness();enemySequence(h,['attack']);h.c.enemy.actions[0].resolution='direct';let rolls=0;h.host.rollCheck=async()=>{rolls++;throw new Error('No dice expected');};
+ await h.c.start();assert.equal(h.c.phase,'enemy-action');assert.equal(h.host.variables.health,10);await swipe(h);assert.equal(rolls,0);assert.equal(h.c.phase,'effects');assert.equal(h.host.variables.health,10);
+ await swipe(h);assert.equal(h.host.variables.health,9);assert.equal(h.commits,1);assert.equal(h.c.phase,'choice');h.c.dispose();
+});
+test('canceling an Enemy Defend departure grants no protection and does not advance its list',async()=>{
+ const h=harness();enemySequence(h,['defend','wait']);await h.c.start();const pending=h.c.accept({contentId:h.deck.content.id,action:{id:'continue'}});await tick();h.c.dispose();h.deck.depart();await pending;
+ assert.equal(h.c.encounter.enemyGuard,0);assert.equal(h.c.encounter.actionIndex,0);
 });

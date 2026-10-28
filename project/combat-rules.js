@@ -6,10 +6,12 @@ export const definition = (library, ref) => entries(library).find(d => d.id === 
 export const sourceKey = item => item ? item.inventoryKey ?? item.definitionId ?? item.id : 'default';
 export const cooldownKey = (action, item) => `${action.definitionId ?? action.id}@${sourceKey(item)}`;
 export function createEncounter(enemy, id) {
-  if (!enemy || !Number.isSafeInteger(enemy.health) || enemy.health < 1 || !enemy.attacks?.length) throw new Error('Enemy needs positive health and an attack');
-  return {id,enemyHp:enemy.health,startingHp:enemy.health,attackIndex:0,round:1,cooldowns:{}};
+  if (!enemy || !Number.isSafeInteger(enemy.health) || enemy.health < 1 || !enemy.actions?.length) throw new Error('Enemy needs positive health and an Action');
+  if(enemy.actions.some(action=>!['attack','defend','wait'].includes(action?.type)))throw new Error('Unsupported Enemy Action type');
+  return {id,enemyHp:enemy.health,startingHp:enemy.health,actionIndex:0,round:1,cooldowns:{},guard:0,enemyGuard:0};
 }
 export function attackProfile(action, source) {
+  if(['defend','wait'].includes(action.type))return null;
   const profile = action.attack ?? {source:'self',damage:action.damage};
   if (profile.source === 'none') return null;
   if (profile.source === 'weapon' && (!source || source.subtype !== 'weapon')) throw new Error('Attack requires its source weapon');
@@ -23,7 +25,7 @@ export function playerChoices(compiled, run, encounter) {
   const add=(value,source=null)=>{
     const action=source?value:definition(compiled.library,value);
     if (!action || action.kind !== 'combatAction') throw new Error('Missing Combat Action');
-    if(!source && action.attack?.source==='weapon') throw new Error('Default Action requires a weapon');
+    if(!source && !['defend','wait'].includes(action.type)&&action.attack?.source==='weapon') throw new Error('Default Action requires a weapon');
     const profile=attackProfile(action,source), key=cooldownKey(action,source);
     const reason=!conditionsMet(action.conditions,run.variables,run.inventory)?'Requirements not met'
       : !affordCosts(run.variables,run.inventory,action.costs,compiled.variables)?'Not enough Energy'
@@ -56,8 +58,9 @@ export function diceTotal(dice,pool) {
     return sum+value;
   },0);
 }
-export function resolveCombatAttack({actor,action,source=null,targetHp,values={},dice,random=Math.random,id}) {
+export function resolveCombatAttack({actor,action,source=null,targetHp,values={},dice,random=Math.random,id,damageReduction=0}) {
   if(!['player','enemy'].includes(actor)||!Number.isSafeInteger(targetHp)||targetHp<1)throw new Error('Invalid combat target');
+  if(!Number.isSafeInteger(damageReduction)||damageReduction<0)throw new Error('Invalid damage reduction');
   const check=action.resolution==='direct'?null:resolveCheck(action.check,values);
   const raw=check?diceTotal(dice,check.pool):0,total=raw+(check?.modifier??0);
   const success=!check||total>=check.target;
@@ -67,8 +70,8 @@ export function resolveCombatAttack({actor,action,source=null,targetHp,values={}
     if(profile.min===profile.max)rolledDamage=profile.min;
     else {const draw=random();if(!Number.isFinite(draw)||draw<0||draw>=1)throw new Error('Invalid damage random sample');rolledDamage=profile.min+Math.floor(draw*(profile.max-profile.min+1));}
   }
-  const damage=Math.min(targetHp,rolledDamage);
-  return Object.freeze({id,actor,action:structuredClone(action),source:source?structuredClone(source):null,dice:structuredClone(dice??[]),total,target:check?.target??0,success,rolledDamage,damage,targetHp:targetHp-damage});
+  const blockedDamage=Math.min(rolledDamage,damageReduction),damage=Math.min(targetHp,rolledDamage-blockedDamage);
+  return Object.freeze({id,actor,action:structuredClone(action),source:source?structuredClone(source):null,dice:structuredClone(dice??[]),total,target:check?.target??0,success,rolledDamage,blockedDamage,damage,targetHp:targetHp-damage});
 }
 export function healthReactions(enemy,before,after) {
   if(after<=0||after>=before)return [];
@@ -77,12 +80,19 @@ export function healthReactions(enemy,before,after) {
     return before*d>enemy.health*n && after*d<=enemy.health*n;
   }).sort((a,b)=>a.threshold.numerator/a.threshold.denominator-b.threshold.numerator/b.threshold.denominator).slice(0,1);
 }
+/** Same protection rule, applied relative to the acting side. */
+export function applyActionProtection(encounter,actor,action){
+ const own=actor==='player'?'guard':'enemyGuard',opponent=actor==='player'?'enemyGuard':'guard',next={...encounter};
+ if(action.type==='defend')next[own]=action.damageReduction;
+ if((action.type??'attack')==='attack')next[opponent]=0;
+ return next;
+}
 export function completePlayerTurn(encounter, action, source) {
-  const next={...encounter,cooldowns:{...encounter.cooldowns},round:encounter.round+1};
+  const next={...applyActionProtection(encounter,'player',action),cooldowns:{...encounter.cooldowns},round:encounter.round+1};
   for(const key of Object.keys(next.cooldowns))next.cooldowns[key]=Math.max(0,next.cooldowns[key]-1);
   if((action.cooldown??0)>0)next.cooldowns[cooldownKey(action,source)]=action.cooldown;
   return next;
 }
 export function completeEnemyTurn(encounter,enemy) {
-  return {...encounter,attackIndex:(encounter.attackIndex+1)%enemy.attacks.length};
+  return {...encounter,actionIndex:(encounter.actionIndex+1)%enemy.actions.length};
 }
