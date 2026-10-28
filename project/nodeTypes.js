@@ -1,7 +1,7 @@
 import { createError } from '../errors.js';
 /** Node authoring metadata; callbacks keep this module independent of cards and model. */
 const storyKinds = Object.freeze(['event', 'caption']);
-const linearKinds = Object.freeze(['event', 'caption', 'action', 'item', 'health', 'energy']);
+const linearKinds = Object.freeze(['event', 'caption', 'action', 'item', 'consumable']);
 const branchKinds = Object.freeze(['event', 'caption', 'action']);
 const itemKinds = Object.freeze(['item']);
 const objects = value => Array.isArray(value) ? value.filter(v => v !== null && typeof v === 'object' && !Array.isArray(v)) : [];
@@ -10,8 +10,8 @@ const legacyOutputs = node => Object.keys(node.connections || {});
 const introduction = makePlacement => ({introEnabled:false, introOnce:false, intro:makePlacement('event')});
 
 export const nodeTypes = Object.freeze({
- combat: Object.freeze({label:'Combat',iconPath:'M5 5L19 19M19 5L5 19',slots:Object.freeze({}),outputs:()=>['victory'],create:()=>({enemy:{definitionId:''},connections:{victory:false}})}),
- death: Object.freeze({label:'Death',iconPath:'M5 5L19 19M19 5L5 19',slots:Object.freeze({cards:storyKinds}),defaultKinds:Object.freeze({cards:'caption'}),outputs:()=>[],create:({makePlacement})=>({cards:[makePlacement('caption')],connections:{}})}),
+ combat: Object.freeze({label:'Combat',iconPath:'M8 5V19M16 5V19',slots:Object.freeze({}),outputs:()=>['victory'],create:()=>({enemy:{definitionId:''},connections:{victory:false}})}),
+ death: Object.freeze({label:'Death',iconPath:'M12 11a1 1 0 1 0 0 2a1 1 0 1 0 0-2',slots:Object.freeze({cards:storyKinds}),defaultKinds:Object.freeze({cards:'caption'}),outputs:()=>[],create:({makePlacement})=>({cards:[makePlacement('caption')],connections:{}})}),
  linear: Object.freeze({
   label:'Linear', iconPath:'M3 12H21', slots:Object.freeze({cards:linearKinds}), outputs:nextOutput,
   defaultKinds:Object.freeze({cards:'caption'}),

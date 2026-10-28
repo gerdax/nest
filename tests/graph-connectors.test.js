@@ -259,7 +259,7 @@ test('graph card source styling also covers introductions and non-action card ty
  s.graph.render({library},{nodes:[node],startNode:node.id},node.id);
  const html=s.root.parts['#nodes'].rendered;
  assert.match(html,/data-card-type="event" data-card-source="local"/);
- for(const kind of ['caption','item','health','energy'])assert.match(html,new RegExp(`data-card-type="${kind}" data-card-source="library"`));
+ for(const kind of ['caption','item','consumable'])assert.match(html,new RegExp(`data-card-type="${kind}" data-card-source="library"`));
  assert.equal((html.match(/class="graph-card-custom-marker"/g)||[]).length,4);
  const container={id:'box',name:'Box',type:'container',x:0,y:0,intro:{id:'intro',definitionId:'event'},items:[],connections:{next:null}};
  s.graph.render({library},{nodes:[container],startNode:container.id},container.id);

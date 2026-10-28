@@ -1,3 +1,4 @@
+import { normalizeConsumableCard } from '../project/cards.js';
 import { createError } from '../errors.js';
 import { restoreSnapshotTags } from './tag-snapshots.js';
 import { definitionGraph } from '../project/dependencies.js';
@@ -87,7 +88,7 @@ export function pasteNodesClipboard(project, chapter, payload, {position} = {}) 
     // chapters every local definition receives an independent destination owner.
     const sharedInventoryDependency = !crossChapter && source.kind === 'item' && sharedDependencies.has(source.id);
     if ((!cloneLocal || source.visibility !== 'local' || sharedInventoryDependency) && existing) continue;
-    const definition = structuredClone(source);
+    const definition = normalizeConsumableCard(structuredClone(source));
     if (cloneLocal && source.visibility === 'local' && !sharedInventoryDependency) {
       definition.id = uid(source.kind);
       delete definition.inventoryKey;

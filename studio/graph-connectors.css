@@ -18,7 +18,6 @@
 /* Keep the captured drag cursor even when the pointer leaves the graph. */
 html.graph-dragging,html.graph-dragging *,#canvas.graph-dragging,#canvas.graph-dragging * {cursor:grabbing!important;}
 #canvas .node-heading .badge,#canvas .graph-override-marker {color:#91b8ab;}
-#canvas .node.random .node-heading .badge,#canvas .node.random .graph-override-marker {color:#d4b584;}
 #canvas .graph-start-label {color:#fff;}
 #canvas .graph-override-marker {display:inline-block;flex:none;margin-left:4px;font-size:13px;font-weight:700;line-height:1;letter-spacing:0;}
 #canvas .graph-override-marker.ignored {opacity:.45;}

@@ -15,8 +15,8 @@ Implemented first Rat milestone, 27 October 2026. This is the current behavior;
   heading and signed resolved-health layout. It is not a negative Health pickup
   and never executes collection effects. Shared Player Hit is selected in
   Project settings and receives damage values from combat.
-- **Enemy** contains its own attacks and presentation: optional intro, ordered
-  attacks, damage Effect Card, percentage health reactions and death sequence.
+- **Enemy** contains its own attacks and presentation: an optional introduction using its main card’s artwork/text, ordered
+  attacks, damage Effect Card, percentage health reactions and one required death card.
   Add/reorder/edit those entries directly inside the Enemy inspector. Embedded
   artwork has scale/offset/flip controls and previews. Reactions have percentage
   controls plus exact fraction controls; untouched thirds remain exact.
@@ -24,7 +24,7 @@ Implemented first Rat milestone, 27 October 2026. This is the current behavior;
   as Punch. Carrying Weapons adds their source-bound choices. The same Combat
   Action can serve different Weapons without sharing their cooldowns or damage.
 
-New Enemies start with an attack, damage Effect Card and death card. Intro and
+New Enemies start with an attack, damage Effect Card and death card. Introduction and
 health reactions are optional; missing artwork does not block testing. Use a
 separate Enemy variant for changed content; Combat beats have no local overrides.
 
@@ -98,3 +98,17 @@ for this milestone. Enemy Energy costs are similarly deferred. Ordinary story
 progression effects and Health/Energy collection retain their existing semantics.
 
 See the [M0–M7 checkpoint](combat-implementation-status.md) for verification evidence and limits.
+
+## Consumable authoring
+
+The Library has one **+ Consumable** button, initially selecting Health.
+Consumables use `kind: 'consumable'` and `subtype: 'health' | 'energy'`.
+The subtype selects the resource changed by Value; additional collection rules
+retain their explicit targets. Switching subtype preserves name, value, artwork
+and rules. Consumables never enter inventory. Effect Card remains separate.
+
+Loading existing Health/Energy definitions converts their kind into the matching
+Consumable subtype, preserving identities, local/shared ownership, placements,
+custom rules and artwork. Project and chapter imports/exports and clipboard
+copies retain the new form. Migration is idempotent and original files are not
+rewritten; saving/exporting produces the migrated document.

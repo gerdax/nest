@@ -4,7 +4,7 @@ export const createEffectCard=id=>base(id,'effect','Effect Card');
 export const createEnemyAttack=id=>({...base(id,'combatAction','Attack'),check:{pool:[{sides:6,count:3}],modifier:0,target:11},damage:{min:1,max:2},costs:[],effects:[]});
 export const createCombatAction=id=>({...base(id,'combatAction','Combat Action'),conditions:[],costs:[],effects:[],resolution:'check',check:{pool:[{sides:6,count:3}],modifier:0,target:11},successEffects:[],failureEffects:[],target:'enemy',attack:{source:'self',damage:{min:1,max:1},minBonus:0,maxBonus:0},cooldown:0});
 export const createWeapon=id=>({...base(id,'item','Weapon'),subtype:'weapon',onCollect:[],permability:0,combat:{damage:{min:1,max:2},effects:[],actions:[]}});
-export const createEnemy=id=>({...base(id,'enemy','Enemy'),health:4,introEnabled:false,intro:[],attacks:[createEnemyAttack(`${id}-attack`)],hit:createEffectCard(`${id}-hit`),reactions:[],death:[{...base(`${id}-death`,'caption','Death'),effects:[]}]});
+export const createEnemy=id=>({...base(id,'enemy','Enemy'),health:4,introEnabled:false,attacks:[createEnemyAttack(`${id}-attack`)],hit:createEffectCard(`${id}-hit`),reactions:[],death:[{...base(`${id}-death`,'caption','Death'),effects:[]}]});
 const object=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
 const allocate=(base,used)=>{let id=base,n=2;while(used.has(id))id=`${base}-${n++}`;used.add(id);return id;};
 export function ensureChapterDeath(project,chapter){

@@ -455,7 +455,7 @@ function duplicateBeat(){
 }
 const stopNodeClipboardShortcuts=mountNodeClipboardShortcuts(document,{copy:()=>copyBeat(),cut:()=>copyBeat(true),paste:pasteBeat,duplicate:duplicateBeat,enabled:()=>mode==='chapter'});
 // Keep creation controls aligned with the canonical Library kinds.
-for(const [kind,label] of [['combatAction','New Combat Action'],['effect','New Effect Card'],['enemy','New Enemy']]){
+for(const [kind,label] of [['combatAction','+ Combat Action'],['effect','+ Effect Card'],['enemy','+ Enemy']]){
  const b=document.createElement('button');b.type='button';b.dataset.addKind=kind;b.textContent=label;document.querySelector('.library-create-buttons').append(b);
 }
 {const b=document.createElement('button');b.type='button';b.dataset.add='combat';b.textContent='+ Combat';document.querySelector('[data-add="random"]').after(b);}

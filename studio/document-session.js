@@ -1,6 +1,7 @@
 import { unusedLocalDefinitions, definitionGraph } from '../project/dependencies.js';
 import { remapVariableReferences } from './variable-ids.js';
 import { discardPlacementContext, normalizeLocalOwnership } from '../project/model.js';
+import { normalizeSingleItems } from '../project/normalization.js';
 import { synchronizeConnections } from './commands.js';
 
 /** Commit one document command. UI selection, rendering and persistence stay in the host. */
@@ -14,6 +15,7 @@ export function transactDocument(history, localDrafts, command) {
       const next = result.project ?? draft;
       // Existing unplaced drafts are authored data, including imported drafts.
       const preserved = new Set(unusedLocalDefinitions(result.project ?? previous).map(card => card.id));
+      normalizeSingleItems(next);
       normalizeLocalOwnership(next);
       discardPlacementContext(next);
       synchronizeConnections(next);

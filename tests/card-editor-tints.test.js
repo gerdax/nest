@@ -47,7 +47,7 @@ test('card sources sort local templates first, then shared cards by type label a
  const linear=placementInspector(project,project.chapters[0].nodes[0].cards[0],'event',0,'cards');
  const linearSource=linear.match(/<select[^>]*data-path="definitionId"[^>]*>([\s\S]*?)<\/select>/)[1];
  const linearIds=[...linearSource.matchAll(/<option value="([^"]+)"/g)].map(match=>match[1]);
- assert.deepEqual(linearIds.slice(0,6),['local:action','local:caption','local:energy','local:health','local:item','local:event']);
+ assert.deepEqual(linearIds.slice(0,5),['local:action','local:caption','local:consumable','local:item','local:event']);
  assert.deepEqual(project.library.map(d=>d.id),before);
  const panel=nodeInspector(project,project.chapters[0],node);
  assert.match(panel,/<div class="add-card-buttons">[\s\S]*?\+ Action[\s\S]*?\+ Vignette[\s\S]*?\+ Caption/);

@@ -61,3 +61,10 @@ test('valid result feedback failure retries its saved resolution without another
 test('active player dice AbortError restores choices; disposal AbortError stays silent',async()=>{const h=harness();await reachPlayer(h);h.host.rollCheck=async()=>{throw new DOMException('Dice canceled','AbortError');};await select(h);assert.equal(h.c.phase,'error');await h.c.retry();assert.equal(h.c.phase,'choice');assert.equal(h.errors.length,1);h.c.dispose();});
 
 test('Energy-modified check freezes displayed pre-payment values while charging the cost',async()=>{const h=harness();await reachPlayer(h);const punch=h.host.compiled.library.find(d=>d.name==='Punch');punch.costs=[{source:'variable',key:'energy',amount:2}];punch.check={pool:[{sides:6,count:3}],modifier:0,target:11,modifierVariable:'energy'};h.host.rollCheck=async()=>({dice:[{sides:6,value:3},{sides:6,value:3},{sides:6,value:3}]});await select(h,'Punch');assert.equal(h.host.variables.energy,1);assert.equal(h.c.pending.total,12);assert.equal(h.c.pending.success,true);h.c.dispose();});
+
+test('enabled introduction uses the main Enemy presentation and ignores legacy intro cards',async()=>{
+ const h=harness();Object.assign(h.c.enemy,{introEnabled:true,text:'Main Enemy text',image:'main.png',imageScale:125,imageOffsetX:8,flipImage:true,intro:[{kind:'event',text:'Old intro',image:'old.png'}]});
+ await h.c.start();assert.equal(h.c.phase,'intro');
+ for(const [key,value] of Object.entries({text:'Main Enemy text',image:'main.png',imageScale:125,imageOffsetX:8,flipImage:true,cardKind:'event'}))assert.equal(h.deck.content[key],value);
+ await swipe(h);assert.equal(h.c.phase,'effects');h.c.dispose();
+});

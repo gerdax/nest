@@ -11,17 +11,22 @@ export const cardKinds = Object.freeze({
   event: { label: 'Vignette', editorTint: '#96f7a7', validate: card => typeof card.text === 'string' ? [] : [errorMessage('PROJECT_VIGNETTE_TEXT_MUST_BE_A_STRING')] },
   caption: { label: 'Caption', editorTint: '#e4ffeb', validate: card => typeof card.text === 'string' ? [] : [errorMessage('PROJECT_CAPTION_TEXT_MUST_BE_A_STRING')] },
   action: { label: 'Action', editorTint: '#a59bea', validate: card => ['direct','check'].includes(card.resolution) ? [] : [errorMessage('PROJECT_ACTION_RESOLUTION_MUST_BE_DIRECT_OR_CHECK')] },
-  health: { label: 'Health', editorTint: '#efa3a3', validate: validateResourceCard },
-  energy: { label: 'Energy', editorTint: '#9edcff', validate: validateResourceCard },
+  consumable: { label: 'Consumable', editorTint: '#efa3a3', validate: validateResourceCard },
   item: { label: 'Item', editorTint: '#dfcf78', validate: card => Array.isArray(card.onCollect) ? [] : [errorMessage('PROJECT_ITEM_COLLECTION_EFFECTS_MUST_BE_A_LIST')] }
 });
 function validateResourceCard(card) {
-  return [...(Number.isFinite(card.value) ? [] : [errorMessage('PROJECT_VALUE_MUST_BE_A_FINITE_NUMBER')]),
+  return [...(['health','energy'].includes(card.subtype) ? [] : ['Consumable subtype must be health or energy']), ...(Number.isFinite(card.value) ? [] : [errorMessage('PROJECT_VALUE_MUST_BE_A_FINITE_NUMBER')]),
     ...(Array.isArray(card.onCollect) ? [] : [errorMessage('PROJECT_COLLECTION_EFFECTS_MUST_BE_A_LIST')])];
 }
-export const isConsumableKind = kind => ['health','energy'].includes(kind);
-export const resourceCollectionEffects = card => [{op:'add', key:card.kind, value:card.value}, ...(Array.isArray(card.onCollect) ? card.onCollect : [])];
-export const canonicalCardKind = kind => kind === 'narrative' ? 'event' : kind;
+export const isConsumableKind = kind => ['consumable','health','energy'].includes(kind);
+// Health/Energy remain accepted at legacy input and visual-face boundaries.
+export const consumableResource = card => (card?.kind??card?.cardKind)==='consumable'?card.subtype:(card?.kind??card?.cardKind);
+export function normalizeConsumableCard(card) {
+ if(card&&['health','energy'].includes(card.kind)){card.subtype=card.kind;card.kind='consumable';}
+ return card;
+}
+export const resourceCollectionEffects = card => [{op:'add', key:consumableResource(card), value:card.value}, ...(Array.isArray(card.onCollect) ? card.onCollect : [])];
+export const canonicalCardKind = kind => kind === 'narrative' ? 'event' : ['health','energy'].includes(kind)?'consumable':kind;
 export const cardEditorTint = kind => cardKinds[canonicalCardKind(kind)]?.editorTint || '#aab8bb';
 export const isStoryKind = kind => ['event','caption'].includes(canonicalCardKind(kind));
 // Compiled placements include their added effects in onCollect. Legacy callers
@@ -41,6 +46,7 @@ export function placementOverrideKeys(kind, definition) {
   return [...new Set([...keys,...legacy])];
 }
 export function createDefinition(kind, id) {
+  const resource=['health','energy'].includes(kind)?kind:'health';
   kind = canonicalCardKind(kind);
   if (!Object.hasOwn(cardKinds, kind)) throw createError('PROJECT_UNKNOWN_CARD_KIND', { kind });
   if(kind==='combatAction')return createCombatAction(id);
@@ -48,7 +54,7 @@ export function createDefinition(kind, id) {
   if(kind==='enemy')return createEnemy(id);
   const base = { id, kind, name: cardKinds[kind].label, showName:kind==='item'||isConsumableKind(kind), text: '', image: '' };
   if (isStoryKind(kind)) return { ...base, effects: [] };
-  if (isConsumableKind(kind)) return { ...base, value: 1, onCollect: [] };
+  if (isConsumableKind(kind)) return { ...base, subtype:resource, value: 1, onCollect: [] };
   if (kind === 'item') return { ...base, onCollect: [], permability: 0 };
   return { ...base, conditions: [], costs: [], effects: [], resolution: 'direct', check: {pool: [{sides:20,count:1}], modifier:0,target:10}, successEffects: [], failureEffects: [] };
 }
@@ -59,7 +65,7 @@ export function resolvePlacement(project, placement, index) {
     placementOverrideKeys(definition.kind,definition).filter(key => Object.hasOwn(placement.overrides ?? {}, key))
       .map(key => [key, placement.overrides[key]])
   );
-  const base = {...definition, ...overrides, kind:canonicalCardKind(definition.kind)};
+  const base = normalizeConsumableCard({...definition, ...overrides});base.kind=canonicalCardKind(base.kind);
   const resolved = {...base, conditions:[...(base.conditions || []),...(placement.conditions || [])], effects:[...(base.effects || []),...(placement.effects || [])], id:placement.id, definitionId:definition.id, unavailable:placement.unavailable ?? 'disabled', inventoryKey:definition.inventoryKey ?? definition.id};
   if (isConsumableKind(base.kind)) {
     resolved.onCollect = [...resourceCollectionEffects(base), ...(placement.effects || [])];

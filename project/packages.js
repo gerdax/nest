@@ -26,6 +26,7 @@ export function exportChapter(project, id = project.activeChapterId) {
     chapter});
   pkg.chapter.variables ??= [];
   if (named(pkg.chapter.nextChapterId) && pkg.chapter.nextChapterId !== pkg.chapter.id) delete pkg.chapter.nextChapterId;
+  normalizeSingleItems(pkg);
   for (const definition of pkg.library) definition.kind = canonicalCardKind(definition.kind);
   discardPlacementContext({library: pkg.library, chapters: [pkg.chapter]});
   return normalizeStats(normalizeSingleItems(pkg));
@@ -38,6 +39,8 @@ export function importChapter(project, pkgOrV1) {
   const next = normalizeLocalOwnership(ensureCombatDefaults(cloneProject(project)));
   const imported = pkgOrV1.version === 1 ? migrateChapter(pkgOrV1) : pkgOrV1.kind === 'nest-project' ? cloneProject(pkgOrV1) : {combat:cloneProject(pkgOrV1.combat || {}),library: cloneProject(pkgOrV1.library),
     itemTags: cloneProject(pkgOrV1.itemTags || []), variables: cloneProject(pkgOrV1.variables || []), chapters: [cloneProject(pkgOrV1.chapter)]};
+  normalizeSingleItems(next);
+  normalizeSingleItems(imported);
   ensureCombatDefaults(imported);
   normalizeLocalOwnership(imported);
   const concreteIds = new Set(imported.library.filter(d => d.kind === 'item').map(d => d.id));
@@ -188,6 +191,7 @@ export function parseProject(text, {allowDraft = false} = {}) {
   if(value.combat===undefined)delete value.combat;
   if(value.showDeathBeat===undefined)delete value.showDeathBeat;
   ensureCombatDefaults(value);
+  normalizeSingleItems(value);
   for (const definition of list(value?.library)) if (object(definition)) definition.kind = canonicalCardKind(definition.kind);
   normalizeLocalOwnership(value);
   discardPlacementContext(value);

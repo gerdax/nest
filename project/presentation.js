@@ -1,11 +1,11 @@
 import { resolveCheck, playerCheckPresentation } from './checks.js';
-import { cardSummary, playerCardSummary, canonicalCardKind, isStoryKind, isConsumableKind, actionEnergyCost } from './cards.js';
+import { cardSummary, playerCardSummary, canonicalCardKind, isStoryKind, isConsumableKind, consumableResource, actionEnergyCost } from './cards.js';
 
 /** Shared front-face content for gameplay and authoring previews. */
 export const cardBody = card => card?.text ?? '';
 export function cardFace(card, variables=[], library=[], values) {
  const authoredKind=canonicalCardKind(card?.kind ?? card?.cardKind ?? 'event');
- const cardKind=authoredKind==='effect'?'health':authoredKind==='combatAction'?'action':authoredKind;
+ const cardKind=authoredKind==='consumable'?consumableResource(card):authoredKind==='enemy'?'event':authoredKind==='effect'?'health':authoredKind==='combatAction'?'action':authoredKind;
  return {
   cardKind,
   ...(cardKind==='action'?{actionEnergyCost:actionEnergyCost(card)}:{}),

@@ -31,8 +31,8 @@ export class CombatCoordinator {
  }
  async start(){
   try{
-   if(this.enemy.introEnabled&&this.enemy.intro?.length){
-    this.resume={kind:'sequence'};this.sequence={kind:'intro',steps:this.enemy.intro.map(card=>({card})),index:0};
+   if(this.enemy.introEnabled){
+    this.resume={kind:'sequence'};this.sequence={kind:'intro',steps:[{card:{...this.enemy,kind:'event'}}],index:0};
     this.setPhase('entering');await this.replace(this.sequenceContent(),{transition:'flip'});
     if(this.active())this.setPhase('intro');
    }else await this.enterEnemy();

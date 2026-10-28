@@ -11,7 +11,7 @@ import { discardPlacementContext, normalizeSingleItems } from './normalization.j
 
 export function compileChapter(project, chapterId = project.activeChapterId, {additionalDefinitionIds = []} = {}) {
   // All resolved mechanics and normalization must operate on detached data.
-  project = normalizeLocalOwnership(ensureCombatDefaults(cloneProject(project)));
+  project = normalizeSingleItems(normalizeLocalOwnership(ensureCombatDefaults(cloneProject(project))));
   const index = createLibraryIndex(list(project?.library));
   discardPlacementContext(project, index);
   const chapter = project.chapters.find(c => c.id === chapterId);

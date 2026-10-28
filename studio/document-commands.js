@@ -89,12 +89,12 @@ function changeField(project, selection, field, localDrafts) {
     else delete root.overrides;
     return;
   }
-  if(scope==='definition'&&path==='introEnabled'&&checked&&root.kind==='enemy'&&!root.intro?.length)root.intro=[{id:uid('embedded'),kind:'event',name:'Introduction',text:'',image:'',effects:[]}];
   if (scope === 'node' && path === 'introEnabled' && checked && root.type === 'fork' && !root.intro) root.intro = makePlacement(project, 'event', undefined, chapterFor(project, selection).id);
   if (scope === 'placement' && path === 'definitionId') {
     localDrafts.switchSource(project, root, raw, {allowedKinds:allowedCardKinds(node.type, node.intro === root ? 'intro' : node.type === 'container' ? 'items' : 'cards')});
     return;
   }
+  if(['definition','local-definition'].includes(scope)&&root.kind==='consumable'&&path==='subtype'&&!['health','energy'].includes(raw))throw new Error('Consumable subtype must be health or energy');
   const {parent, key} = pathTarget(root, path);
   if(['project','chapter'].includes(scope)&&/^variables\.\d+\.name$/.test(path)){
     return {variableRename:renameVariable(project,parent,raw,scope==='chapter'?chapter:undefined)};
@@ -116,7 +116,7 @@ function changeField(project, selection, field, localDrafts) {
   if (['imageScale','imageOffsetX','imageOffsetY'].includes(key)) value = clampArtwork(key, value);
   if(key==='key'&&['addItem','removeItem'].includes(parent.op)&&value&&!eligibleInventoryItems(project,ruleChapter).some(item=>item.id===value))throw createError('STUDIO_ITEM_EFFECTS_MUST_REFERENCE_AN_ELIGIBLE_ITEM_FROM_THE_OWNING_CHAPTER_OR_SHARED_LIBRARY');
   parent[key] = value;
-  if(scope==='definition'&&path==='subtype'){if(value==='weapon')root.combat??=createWeapon(root.id).combat;else delete root.subtype;return;}
+  if(scope==='definition'&&path==='subtype'&&root.kind==='item'){if(value==='weapon')root.combat??=createWeapon(root.id).combat;else delete root.subtype;return;}
   if(scope==='definition'&&path==='attack.source'){root.attack.minBonus??=0;root.attack.maxBonus??=0;if(value==='self')root.attack.damage??={min:1,max:1};return;}
   if (['modifierVariable','contextItemId','tagId'].includes(key) && !value) delete parent[key];
   if (key === 'contextItemId' && (!value||value.startsWith('tag:'))) delete parent.contextOverrideImage;

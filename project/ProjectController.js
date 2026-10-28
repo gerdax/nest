@@ -326,7 +326,7 @@ export class ProjectController {
     return {...content,label:card.name ?? card.label ?? 'Continue',...face};
   }
   linearTransition(location, destination, source=this.card(location), values=this.variables, inventory=this.inventory) {
-    const revealing=this.type(location)==='linear'&&!['action','item','health','energy'].includes(source?.kind)&&destination&&!destination.completed&&!destination.halted&&this.key(location)===this.key(destination)&&destination.index>location.index;
+    const revealing=this.type(location)==='linear'&&!['action','item','consumable','health','energy'].includes(source?.kind)&&destination&&!destination.completed&&!destination.halted&&this.key(location)===this.key(destination)&&destination.index>location.index;
     if(!revealing)return 'flip';
     if(destination.index===location.index+1) {
       const following=this.runtimeItem((location.sequence?.cards??location.node.cards)[destination.index],location);
@@ -354,7 +354,7 @@ export class ProjectController {
       return {id:`combat-preview:${location.node.id}`,interaction:'choice',directAdvance:true,allowClose:false,cardKind:'caption',text:enemy?.name??'Combat',advanceDisabled:true,actions:[{id:'wait',label:'Combat',disabled:true}]};
     }
     ({variables:values,inventory}=this.arrivalState(location,values,inventory));
-    const type=this.type(location),card=this.card(location),fork=type==='fork'||type==='forked',container=type==='container',linearFace=type==='linear'&&['action','item','health','energy'].includes(card?.kind),linearItem=linearFace&&card.kind==='item';
+    const type=this.type(location),card=this.card(location),fork=type==='fork'||type==='forked',container=type==='container',linearFace=type==='linear'&&['action','item','consumable','health','energy'].includes(card?.kind),linearItem=linearFace&&card.kind==='item';
     let actions;
     if(fork)actions=this.choices(location).flatMap(c=>{
       const availability=actionAvailability(c,values,inventory,this.compiled,this.unavailableActions(location));
@@ -380,7 +380,7 @@ export class ProjectController {
     }
     if(container||linearItem)for(const action of actions)action.disabled ||= action.collectDisabled&&action.discardDisabled;
     if(!actions.length)actions=[{id:'unavailable',label:'No available choices',disabled:true,disabledReason:'No available choices'}];
-    const payload={autoBrowse:fork||container,id:`${this.generation}:${++this.serial}`,cardBack:this.compiled.cardBack,title:card?.name ?? card?.title ?? '',heading:cardFace(card,this.compiled.variables,this.compiled.library,values).heading,text:this.body(card),cardKind:card?.kind ?? 'event',value:card?.value,summary:card&&!isStoryKind(card.kind??card.cardKind)&&fork?playerCardSummary(card,this.compiled.variables,this.compiled.library,values):'',image:card?.image ?? '',imageScale:card?.imageScale??100,imageOffsetX:card?.imageOffsetX??0,imageOffsetY:card?.imageOffsetY??0,flipImage:!!card?.flipImage,actions,directAdvance:!fork&&!container&&!linearFace,decisionOnly:linearFace||fork&&(location.sequence?!!location.sequence.decisionOnly:this.presentation(location,values,inventory)==='open'),interaction:container||linearItem?'container':'choice',discardAll:container,allowClose:false};
+    const payload={autoBrowse:fork||container,id:`${this.generation}:${++this.serial}`,cardBack:this.compiled.cardBack,title:card?.name ?? card?.title ?? '',heading:cardFace(card,this.compiled.variables,this.compiled.library,values).heading,text:this.body(card),cardKind:card?.kind==='consumable'?card.subtype:card?.kind ?? 'event',value:card?.value,summary:card&&!isStoryKind(card.kind??card.cardKind)&&fork?playerCardSummary(card,this.compiled.variables,this.compiled.library,values):'',image:card?.image ?? '',imageScale:card?.imageScale??100,imageOffsetX:card?.imageOffsetX??0,imageOffsetY:card?.imageOffsetY??0,flipImage:!!card?.flipImage,actions,directAdvance:!fork&&!container&&!linearFace,decisionOnly:linearFace||fork&&(location.sequence?!!location.sequence.decisionOnly:this.presentation(location,values,inventory)==='open'),interaction:container||linearItem?'container':'choice',discardAll:container,allowClose:false};
     if(fork)payload.choiceFollowerRatio=.82;
     payload.flipItemsOnReveal=container&&this.presentation(location,values,inventory)==='closed'||fork&&this.introductionUnlocksNext(location,values,inventory);
     if(payload.directAdvance){
@@ -411,7 +411,7 @@ export class ProjectController {
   presentation(location=this.location,values=this.variables,inventory=this.inventory) {
     ({variables:values,inventory}=this.arrivalState(location,values,inventory));
     const type=this.type(location);
-    if(type==='linear'&&['action','item','health','energy'].includes(this.card(location)?.kind))return 'open';
+    if(type==='linear'&&['action','item','consumable','health','energy'].includes(this.card(location)?.kind))return 'open';
     if(type==='fork')return this.introEnabled(location)&&!this.introShown(location)&&conditionsMet(this.card(location)?.conditions,values,inventory)?'closed':'open';
     if(type==='forked')return location.sequence.decisionOnly?'open':'closed';
     if(type==='container'&&(!this.introEnabled(location)||this.introShown(location)||!conditionsMet(this.card(location)?.conditions,values,inventory)))return 'open';

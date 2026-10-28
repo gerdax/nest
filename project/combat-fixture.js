@@ -9,7 +9,7 @@ export function createRatCombatProject(){
  const burst={...createCombatAction('pistol-burst'),name:'Burst',image:shoot.image,check:{pool:[{sides:6,count:3}],modifier:0,target:9},attack:{source:'weapon',minBonus:0,maxBonus:1},cooldown:1};
  const pistol={...createWeapon('pistol'),name:'Pistol',image:shoot.image,combat:{damage:{min:1,max:2},effects:[],actions:[{definitionId:shoot.id},{definitionId:burst.id}]}};
  const enemy=createEnemy('rat');enemy.name='Rat';enemy.health=4;enemy.introEnabled=true;
- enemy.intro=[{id:'rat-intro',kind:'event',name:'Rat intro',text:'A rat jumps out of the corner!',image:'./assets/img/rat.png'}];
+ enemy.text='A rat jumps out of the corner!';enemy.image='./assets/img/rat.png';
  enemy.attacks=[{...createEnemyAttack('bite'),name:'Rat attacks you...',image:'./assets/img/Gemini_Generated_Image_mwbnlrmwbnlrmwbn.png',flipImage:true,imageScale:95,imageOffsetX:10,imageOffsetY:8}];
  enemy.hit={...enemy.hit,name:'Rat takes damage!',image:'./assets/img/rat_hit.png',imageScale:85,imageOffsetX:5,imageOffsetY:3};
  enemy.reactions=[{id:'weakened',threshold:{numerator:2,denominator:3},card:{id:'weak-card',kind:'caption',name:'Caption',image:'',text:'Rat seems weakened.'}},{id:'hurt',threshold:{numerator:1,denominator:3},card:{id:'hurt-card',kind:'caption',name:'Caption',image:'',text:'Rat seems severely hurt.'}}];

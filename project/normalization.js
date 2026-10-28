@@ -1,4 +1,4 @@
-import { resolvePlacement, isStoryKind } from './cards.js';
+import { resolvePlacement, isStoryKind, normalizeConsumableCard } from './cards.js';
 import { createLibraryIndex } from './library-index.js';
 import { cloneProject, list, object, placements, legacyArtwork, unique } from './model-data.js';
 import { outputsForNode, connectionForOutput } from './graph.js';
@@ -26,6 +26,7 @@ export function normalizeSingleItems(project) {
   };
   const card = value => {
     if (!object(value)) return;
+    normalizeConsumableCard(value);
     stripItemMetadata(value);
     rules(value);
     if (object(value.overrides)) {

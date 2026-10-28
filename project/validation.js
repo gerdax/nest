@@ -3,7 +3,7 @@ import { errorMessage } from '../errors.js';
 import { isTagKey, tagKey, tagIdFromKey, validItemTagName } from './item-tags.js';
 import { isStatVariable, validStatValue, compatibleStatVariable } from './checks.js';
 import { validateCardBack } from '../engine/cardBacks.js';
-import { cardKinds, resolvePlacement, canonicalCardKind, allowedCardKinds, placementOverrideKeys, isConsumableKind } from './cards.js';
+import { cardKinds, resolvePlacement, canonicalCardKind, allowedCardKinds, placementOverrideKeys, isConsumableKind, consumableResource } from './cards.js';
 import { nodeTypeDescriptor } from './nodeTypes.js';
 import { isCardColor } from './card-styles.js';
 import { object, named, list, placements, legacyArtwork, chapterVariables } from './model-data.js';
@@ -178,9 +178,11 @@ export function validateProject(project, {allowDraft = false} = {}) {
     }
     if(d.kind==='enemy'){
       if(!Number.isSafeInteger(d.health)||d.health<1||typeof d.introEnabled!=='boolean')add(`${label}: invalid Enemy health/introduction`);
-      for(const key of ['intro','attacks','reactions','death'])if(!Array.isArray(d[key]))add(`${label}: Enemy ${key} must be a list`);
-      if(!list(d.attacks).length||!list(d.death).length||(d.introEnabled&&!list(d.intro).length))add(`${label}: Enemy requires attack, death and enabled introduction content`);
+      for(const key of ['attacks','reactions','death'])if(!Array.isArray(d[key]))add(`${label}: Enemy ${key} must be a list`);
+      if(!list(d.attacks).length||!list(d.death).length)add(`${label}: Enemy requires attack and death content`);
       const ids=new Set();const identity=card=>{if(object(card)){if(ids.has(card.id))add(`${label}: duplicate embedded identity ${card.id}`);ids.add(card.id);}};
+      if(list(d.death).length>1)add(`${label}: Enemy death supports only one card`);
+      if(list(d.intro).length>1)add(`${label}: Enemy introduction supports only one card`);
       for(const card of list(d.intro)){identity(card);embedded(card,['event','caption'],label);}
       identity(d.hit);embedded(d.hit,['effect'],label);
       for(const card of list(d.death)){identity(card);embedded(card,['event','caption'],label);}
@@ -204,7 +206,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
     for (const key of ['imageScale', 'imageOffsetX', 'imageOffsetY']) if (d[key] !== undefined && (!Number.isFinite(d[key])
       || d[key] < (key === 'imageScale' ? 10: -100) || d[key] > (key === 'imageScale' ? 400: 100))) add(errorMessage('VALIDATION_INVALID_IMAGE_SCALE_OR_POSITION', {label}));
     if (d.value !== undefined && !Number.isFinite(d.value)) add(errorMessage('VALIDATION_VALUE_MUST_BE_A_FINITE_NUMBER', {label}));
-    if (isConsumableKind(d.kind)) inspectEffects([{op:'add',key:d.kind,value:d.value}], label);
+    if (isConsumableKind(d.kind)) inspectEffects([{op:'add',key:consumableResource(d),value:d.value}], label);
     inspectConditions(d.conditions, label);
     for (const key of ['effects', 'onCollect', 'successEffects', 'failureEffects']) inspectEffects(d[key], label);
     if (d.tagId !== undefined && (d.kind !== 'item' || !named(d.tagId) || !tagIds.has(d.tagId))) add(errorMessage('VALIDATION_INVALID_ITEM_TAG', {label}));
@@ -239,7 +241,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
     if (!object(d)) continue;
     if (d.contextItemId !== undefined || d.contextOverrideImage !== undefined) add(errorMessage('VALIDATION_DEFINITION_INVENTORY_CONTEXT_BELONGS_TO_A_FORK_CHOICE_PLACEMENT', {definitionId: d.id}));
     if (d.visibility !== undefined && !['local', 'shared'].includes(d.visibility) || !['event', 'caption',
-      'narrative', 'action', 'item', 'health', 'energy', 'combatAction', 'effect', 'enemy'].includes(d.kind) || typeof d.name !== 'string' || typeof d.text !== 'string'
+      'narrative', 'action', 'item', 'consumable', 'combatAction', 'effect', 'enemy'].includes(d.kind) || typeof d.name !== 'string' || typeof d.text !== 'string'
       || typeof d.image !== 'string' || d.heading !== undefined && typeof d.heading !== 'string' || d.showName !== undefined
       && typeof d.showName !== 'boolean' || d.flipImage !== undefined && typeof d.flipImage !== 'boolean'
       || d.inventoryKey !== undefined && !named(d.inventoryKey)) add(errorMessage('VALIDATION_DEFINITION_HAS_INVALID_CONTENT', {definitionId: d.id}));
