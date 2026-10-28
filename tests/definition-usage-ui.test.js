@@ -6,6 +6,7 @@ import {createProject} from '../project/model.js';
 import {createDefinition} from '../project/cards.js';
 import {definitionInspector} from '../studio/inspectors.js';
 import {definitionUsagePanel} from '../studio/definition-usage-view.js';
+import {isCommonDefinition} from '../studio/common-library.js';
 import {definitionDestination} from '../studio/item-reference.js';
 
 function fixture() {
@@ -66,11 +67,12 @@ function host() {
   const source = readFileSync(new URL('../studio/editor.js', import.meta.url), 'utf8');
   const start = source.indexOf('function command(event){'), end = source.indexOf('for(const root of', start);
   const calls = [], context = {
-    chapterId:'before', selected:'old', mode:'library', project:createProject(),definitionDestination,
+    chapterId:'before', selected:'old', mode:'library', libraryTab:'content', project:createProject(),definitionDestination,isCommonDefinition,
     goToPreviewCard:target => calls.push(['card', {...target}]),
     graph:{fit:() => calls.push(['fit'])},
     render:() => calls.push(['render']),
   };
+  context.definition=()=>context.project.library.find(d=>d.id===context.definitionId);
   runInNewContext(source.slice(start, end), context);
   return {context, calls, click:dataset => context.command({target:{closest:() => ({dataset})}})};
 }

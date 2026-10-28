@@ -1,3 +1,4 @@
+import {isCommonDefinition,commonLibrary,commonRoleControls} from './common-library.js';
 import { errorMessage } from '../errors.js';
 import { PreviewOverrides } from './preview-overrides.js';
 import { cardRuleIndicators } from './card-rule-indicators.js';
@@ -53,6 +54,7 @@ let nodeClipboard = null;
 let cardClipboard = null;
 const artworkClipboardKey = 'nest.artwork.clipboard';
 let project=loaded.project||createProject(),chapterId=project.activeChapterId,selected=project.chapters.find(c=>c.id===chapterId)?.startNode,definitionId=project.library.find(d=>d.visibility!=='local')?.id,mode='chapter';
+let libraryTab='content';
 const history=new DocumentHistory(project);
 const localDrafts=new LocalCardDrafts();
 const chapter=()=>project.chapters.find(c=>c.id===chapterId)||project.chapters[0];
@@ -178,6 +180,7 @@ function renderInspector({collapseCards=false,preserveProjectSettings=false}={})
  $('#settings').innerHTML=chapterSettingsInspector(project,chapter());
  if(!preserveProjectSettings)renderProjectSettings();
  $('#inspector').innerHTML=mode==='library'?definitionInspector(project,definition()):multiple?`<p class="small">${graph.selectedIds.size} beats selected.</p>`:nodeInspector(project,chapter(),node(),previewOverrides.effects(project,chapter(),node()));
+ if(mode==='library'&&isCommonDefinition(definition())){const panel=$('#inspector').querySelector('.card-definition-panel');if(panel)panel.insertAdjacentHTML('afterbegin',commonRoleControls(project,definition()));}
  renderCardPreviews($('#inspector'),project,node(),chapterId);
  refreshCardClipboardButtons();
  applyCardStyles(preview.mount,project.cardStyles);
@@ -199,12 +202,17 @@ function renderInspector({collapseCards=false,preserveProjectSettings=false}={})
  sidebar.scrollTop=sameInspector?scroll:0;
 }
 function renderLibrary(){
+ const common=libraryTab==='common';
+ $('#library-list').hidden=common;$('#library-common').hidden=!common;
+ $('.library-create-buttons').hidden=common;$('.library-search-controls').hidden=common;$('.library-intro > .small').hidden=common;
+ for(const tab of ['content','common']){const button=$(`#library-${tab}-tab`);button.setAttribute('aria-selected',String(tab===libraryTab));button.tabIndex=tab===libraryTab?0:-1;button.classList.toggle('active-tab',tab===libraryTab);}
+ $('#library-common').innerHTML=commonLibrary(project);for(const entry of $('#library-common').querySelectorAll('[data-definition]')){entry.classList.toggle('selected',entry.dataset.definition===definitionId);entry.setAttribute('aria-pressed',String(entry.dataset.definition===definitionId));}renderCardPreviews($('#library-common'),project,node(),chapterId);
  const libraryIndex=createLibraryIndex(project.library);
  const query=$('#library-search').value.toLowerCase();
  $('#library-search-clear').hidden=!query;
  const dependencies=definitionGraph(project);
  const match=$('#library-match-beat').checked;
- $('#library-list').innerHTML=project.library.filter(d=>d.visibility!=='local'&&`${cardLabel(d)} ${cardKinds[d.kind]?.label||d.kind} ${d.kind} ${(project.itemTags||[]).find(tag=>tag.id===d.tagId)?.name||''}`.toLowerCase().includes(query)).map(d=>{
+ $('#library-list').innerHTML=project.library.filter(d=>d.visibility!=='local'&&!isCommonDefinition(d)&&`${cardLabel(d)} ${cardKinds[d.kind]?.label||d.kind} ${d.kind} ${(project.itemTags||[]).find(tag=>tag.id===d.tagId)?.name||''}`.toLowerCase().includes(query)).map(d=>{
   const compatible=!!libraryCardSlot(node(),d);
   const indicators=cardRuleIndicators(project,{definitionId:d.id},libraryIndex);
   const indicatorLabel=indicators.map(([letter,label])=>`${letter}: ${label}`).join('; ');
@@ -216,6 +224,7 @@ function render({preserveProjectSettings=false}={}){
  graph.cancelCreation();
  if(!project.chapters.some(c=>c.id===chapterId))chapterId=project.activeChapterId||project.chapters[0]?.id;
  if(selected!==undefined&&!chapter()?.nodes.some(n=>n.id===selected))selected=chapter()?.startNode;
+ if(mode==='library'&&definition()?.visibility!=='local'&&isCommonDefinition(definition())!==(libraryTab==='common'))definitionId=project.library.find(d=>d.visibility!=='local'&&isCommonDefinition(d)===(libraryTab==='common'))?.id;
  $('#project-name').textContent=project.name;
  $('#chapter-selector').innerHTML=sortedChapters(project).map(c=>`<option value="${esc(c.id)}" ${c.id===chapterId?'selected':''}>${esc(c.name)}</option>`).join('');
  $('#undo').disabled=!history.canUndo;$('#redo').disabled=!history.canRedo;
@@ -290,7 +299,8 @@ function refreshCardClipboardButtons(){
   button.title=button.disabled?'Copy a compatible card from this project first.':'Replace this card with the copied card. Undo restores it.';
  }
 }
-function command(event){const b=event.target.closest('[data-command]');if(!b)return;const cmd=b.dataset.command;
+function command(event){const b=event.target.closest('[data-command]');if(!b||b.disabled)return;const cmd=b.dataset.command;
+ if(['add-common-action','use-common-action','remove-common-action','move-common-action','use-common-effect'].includes(cmd)){libraryTab='common';edit(cmd,{id:b.dataset.actionId,direction:b.dataset.direction});return;}
  if(b.dataset.scope==='preview-overrides'){
   if(b.disabled)return;
   previewOverrides.update(project,chapter(),node(),{command:cmd,index:b.dataset.index});
@@ -364,11 +374,11 @@ function command(event){const b=event.target.closest('[data-command]');if(!b)ret
   }else{
    definitionId=destination.definition.id;
    if(destination.chapter){chapterId=destination.chapter.id;selected=destination.chapter.startNode||destination.chapter.nodes[0]?.id;}
-   mode='library';render();
+   mode='library';libraryTab=isCommonDefinition(definition())?'common':'content';render();
   }
   return;
  }
- if(cmd==='edit-shared'){definitionId=b.dataset.definition;mode='library';render();return;}
+ if(cmd==='edit-shared'){definitionId=b.dataset.definition;mode='library';libraryTab=isCommonDefinition(definition())?'common':'content';render();return;}
  if(cmd==='back-to-beat'){mode='chapter';render();return;}
  if(cmd==='jump-use'){
   if(b.disabled)return;
@@ -398,6 +408,22 @@ mountLibraryCardActions($('#library-list'),{
   preview.stop();edit('add-library-card',{definitionId:id});
  },
 });
+$('#library-common').addEventListener('click',event=>{
+ const entry=event.target.closest('[data-definition]');
+ if(entry){definitionId=entry.dataset.definition;for(const item of $('#library-common').querySelectorAll('[data-definition]')){item.classList.toggle('selected',item===entry);item.setAttribute('aria-pressed',String(item===entry));}renderInspector();return;}
+ command(event);
+});
+for(const tab of ['content','common'])$(`#library-${tab}-tab`).onkeydown=event=>{
+ if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();
+ const target=event.key==='Home'?'content':event.key==='End'?'common':tab==='content'?'common':'content';
+ $(`#library-${target}-tab`).click();$(`#library-${target}-tab`).focus();
+};
+for(const tab of ['content','common'])$(`#library-${tab}-tab`).onclick=()=>{
+ libraryTab=tab;
+ const candidates=project.library.filter(d=>d.visibility!=='local'&&isCommonDefinition(d)===(tab==='common'));
+ if(!candidates.some(d=>d.id===definitionId))definitionId=candidates[0]?.id;
+ render();
+};
 $('#project-settings-content').addEventListener('submit',event=>{
  if(!event.target.matches('[data-add-tag-form]'))return;
  event.preventDefault();
@@ -416,7 +442,7 @@ $('#library-search-clear').onclick=()=>{
  $('#library-search').value='';renderLibrary();$('#library-search').focus();
 };
 $('#library-match-beat').onchange=renderLibrary;
-$('#chapter-view').onclick=()=>{mode='chapter';render();};$('#library-view').onclick=()=>{mode='library';render();};
+$('#chapter-view').onclick=()=>{mode='chapter';render();};$('#library-view').onclick=()=>{mode='library';libraryTab=isCommonDefinition(definition())?'common':'content';render();};
 $('#chapter-selector').onchange=e=>{preview.stop();edit('select-chapter',{id:e.target.value});graph.fit();};
 $('#add-chapter').onclick=()=>edit('add-chapter');
 function selectedBeatIds(){return graph.selectedIds.size?[...graph.selectedIds]:selected?[selected]:[];}
@@ -455,7 +481,7 @@ function duplicateBeat(){
 }
 const stopNodeClipboardShortcuts=mountNodeClipboardShortcuts(document,{copy:()=>copyBeat(),cut:()=>copyBeat(true),paste:pasteBeat,duplicate:duplicateBeat,enabled:()=>mode==='chapter'});
 // Keep creation controls aligned with the canonical Library kinds.
-for(const [kind,label] of [['combatAction','+ Combat Action'],['effect','+ Effect Card'],['enemy','+ Enemy']]){
+for(const [kind,label] of [['enemy','+ Enemy']]){
  const b=document.createElement('button');b.type='button';b.dataset.addKind=kind;b.textContent=label;document.querySelector('.library-create-buttons').append(b);
 }
 {const b=document.createElement('button');b.type='button';b.dataset.add='combat';b.textContent='+ Combat';document.querySelector('[data-add="random"]').after(b);}

@@ -1,6 +1,6 @@
 import { isStatVariable } from '../project/checks.js';
 import {field,select,checkbox,button,imageField,rules,actionFields,esc} from './forms.js';
-import {createEnemyAttack,createEffectCard} from '../project/combat-model.js';
+import {createEnemyAttack,createEffectCard,createCombatAction} from '../project/combat-model.js';
 import {uid,pathTarget} from './commands.js';
 const refs=(project,kind)=>[['','Choose a Library definition'],...project.library.filter(d=>d.kind===kind&&d.visibility!=='local').map(d=>[d.id,d.name||d.id])];
 const attrs=(path,scope='definition')=>`data-scope="${scope}" data-path="${esc(path)}"`;
@@ -24,9 +24,20 @@ function checkFields(project,check,prefix){
  if(c.mode==='stat')return heading+select('Stat',c.modifierVariable||'',[['','Choose stat'],...project.variables.filter(isStatVariable).map(v=>[v.id,v.name||v.id])],`${prefix}.modifierVariable`)+select('Difficulty',String(c.difficulty??1),Array.from({length:10},(_,i)=>[String(i+1),String(i+1)]),`${prefix}.difficulty`);
  return heading+(c.pool||[]).map((die,i)=>'<div class="row">'+select('Dice',String(die.sides),[4,6,8,10,12,20].map(s=>[String(s),`d${s}`]),`${prefix}.pool.${i}.sides`)+field('Count',die.count,`${prefix}.pool.${i}.count`,'definition','number')+button('Remove dice','remove-rule',`${attrs(`${prefix}.pool`)} data-index="${i}"` )+'</div>').join('')+button('Add dice','add-rule',`${attrs(`${prefix}.pool`)} data-rule-kind="dice"`)+field('Modifier',c.modifier,`${prefix}.modifier`,'definition','number')+select('Variable modifier',c.modifierVariable||'',[['','None'],...project.variables.filter(v=>v.type==='number').map(v=>[v.id,v.name||v.id])],`${prefix}.modifierVariable`)+field('Target',c.target,`${prefix}.target`,'definition','number');
 }
+function combatActionFields(project,action,prefix=''){
+ const path=key=>prefix+key;
+ return actionFields(project,action,prefix)+select('Attack properties',action.attack?.source||'none',[['self','Own damage'],['weapon','Source Weapon'],['none','No attack']],path('attack.source'))+(action.attack?.source==='self'?damageFields(action.attack.damage,path('attack.damage')):'')+(action.attack?.source!=='none'?field('Minimum damage bonus',action.attack?.minBonus??0,path('attack.minBonus'),'definition','number')+field('Maximum damage bonus',action.attack?.maxBonus??0,path('attack.maxBonus'),'definition','number'):'')+field('Cooldown (following player turns)',action.cooldown??0,path('cooldown'),'definition','number');
+}
+function weaponActions(project,weapon){
+ return '<h3>Combat Actions</h3><p class="small">Owned by this Weapon and available while the player carries it.</p>'+(weapon.combat?.actions||[]).map((action,i)=>{
+ const path=`combat.actions.${i}`;
+ if(action.kind!=='combatAction')return '<p class="small">Missing Combat Action. Restore its source definition to migrate it.</p>';
+ return `<details class="entry combat-embedded" open><summary>${esc(action.name||'Combat Action')}</summary>`+field('Name',action.name,`${path}.name`)+field('Description',action.text,`${path}.text`,'definition','textarea')+embeddedImage(action,path,weapon.id)+combatActionFields(project,action,`${path}.`)+controls('combat.actions',i,weapon.combat.actions.length)+'</details>';
+ }).join('')+add('+ Combat Action','combat.actions','weapon-action');
+}
 export function combatDefinitionFields(project,d){
- if(d.kind==='combatAction')return actionFields(project,d)+select('Attack properties',d.attack?.source||'none',[['self','Own damage'],['weapon','Source Weapon'],['none','No attack']], 'attack.source')+(d.attack?.source==='self'?damageFields(d.attack.damage,'attack.damage'):'')+(d.attack?.source!=='none'?field('Minimum damage bonus',d.attack?.minBonus??0,'attack.minBonus','definition','number')+field('Maximum damage bonus',d.attack?.maxBonus??0,'attack.maxBonus','definition','number'):'')+field('Cooldown (following player turns)',d.cooldown??0,'cooldown','definition','number');
- if(d.kind==='item')return (d.subtype==='weapon'?`<h3>Weapon damage</h3>${damageFields(d.combat?.damage,'combat.damage')}<p class="small">This milestone resolves damage from the Weapon profile. Additional intrinsic effects and statuses are deferred.</p>${combatReferenceList(project,d.combat?.actions,'combat.actions','Provided combat Actions')}`:'');
+ if(d.kind==='combatAction')return combatActionFields(project,d);
+ if(d.kind==='item')return (d.subtype==='weapon'?`<h3>Weapon damage</h3>${damageFields(d.combat?.damage,'combat.damage')}<p class="small">This milestone resolves damage from the Weapon profile. Additional intrinsic effects and statuses are deferred.</p>${weaponActions(project,d)}`:'');
  if(d.kind==='effect')return '<p class="small">Combat supplies the resolved signed health change. Preview sample: −2. This card applies no collection effects.</p>';
  if(d.kind!=='enemy')return '';
  let html=field('Starting health',d.health,'health','definition','number')+checkbox('Show introduction',d.introEnabled,'introEnabled');
@@ -35,7 +46,7 @@ export function combatDefinitionFields(project,d){
  html+='<h3>Health reactions</h3><p class="small">At or below this percentage of starting health. If multiple thresholds are crossed, only the strongest reaction is shown.</p>'+(d.reactions||[]).map((r,i)=>`<div class="entry">${field('Remaining health threshold (%)',Number((r.threshold.numerator/r.threshold.denominator*100).toFixed(6)),`reactions.${i}.threshold.percent`,'definition','number')}<details><summary>Exact threshold</summary>${field('Threshold numerator',r.threshold.numerator,`reactions.${i}.threshold.numerator`,'definition','number')}${field('Threshold denominator',r.threshold.denominator,`reactions.${i}.threshold.denominator`,'definition','number')}</details>${embeddedCard(r.card,`reactions.${i}.card`,d.id,{kinds:['caption','effect'],heading:'Reaction card'})}${controls('reactions',i,d.reactions.length)}</div>`).join('')+add('Add health reaction','reactions','reaction');
  return html+'<h3>Enemy death</h3>'+embeddedCard(d.death?.[0],'death.0',d.id,{kinds:['event','caption'],heading:'Enemy death'});
 }
-export function combatProjectFields(project){return '<details class="state-panel" data-project-combat open><summary>Combat and Death</summary>'+combatReferenceList(project,project.combat?.defaultActions,'combat.defaultActions','Default combat Actions','project')+select('Player Hit Effect Card',project.combat?.playerHit?.definitionId||'',refs(project,'effect'),'combat.playerHit.definitionId','project')+checkbox('Show death beat in chapter graph',project.showDeathBeat!==false,'showDeathBeat','project')+'</details>';}
+export function combatProjectFields(project){return '<details class="state-panel" data-project-combat open><summary>Death beat</summary>'+checkbox('Show death beat in chapter graph',project.showDeathBeat!==false,'showDeathBeat','project')+'</details>';}
 export function combatNodeFields(project,node){
  const enemy=project.library.find(d=>d.id===node.enemy?.definitionId&&d.kind==='enemy'&&d.visibility!=='local');
  return select('Enemy',node.enemy?.definitionId||'',refs(project,'enemy'),'enemy.definitionId','node')+button('Go to definition','go-to-definition',`data-definition="${esc(enemy?.id||'')}" ${enemy?'':'disabled'}`)+'<p class="small">Uses the Enemy’s authored health, ordered attacks and presentation. Victory continues through the connected beat.</p>';
@@ -52,6 +63,7 @@ export function applyCombatArrayCommand(root,data){
   let value;const id=uid('embedded');
   if(data.factory==='reference')value={definitionId:''};
   else if(data.factory==='attack')value=createEnemyAttack(id);
+  else if(data.factory==='weapon-action')value={...createCombatAction(id),attack:{source:'weapon',minBonus:0,maxBonus:0}};
   else if(data.factory==='reaction')value={id,threshold:{numerator:1,denominator:2},card:{id:uid('caption'),kind:'caption',name:'Reaction',text:'',image:'',effects:[]}};
   else if(data.factory==='effect')value=createEffectCard(id);
   else value={id,kind:data.factory==='event'?'event':'caption',name:data.factory==='event'?'Introduction':'Death',text:'',image:'',effects:[]};

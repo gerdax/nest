@@ -4,7 +4,7 @@ import {attackProfile,createEncounter,playerChoices,resolveCombatAttack,healthRe
 const check={pool:[{sides:6,count:3}],modifier:0,target:11};
 const shoot={id:'shoot',kind:'combatAction',check,attack:{source:'weapon'}};
 const burst={...shoot,id:'burst',check:{...check,target:9},attack:{source:'weapon',maxBonus:1},cooldown:1};
-const weapon={id:'pistol',kind:'item',subtype:'weapon',combat:{damage:{min:1,max:2},actions:[{definitionId:'shoot'},{definitionId:'burst'}]}};
+const weapon={id:'pistol',kind:'item',subtype:'weapon',combat:{damage:{min:1,max:2},actions:[shoot,burst]}};
 const enemy={health:4,attacks:[{id:'bite'}],reactions:[{id:'weak',threshold:{numerator:2,denominator:3}},{id:'hurt',threshold:{numerator:1,denominator:3}}]};
 const dice=v=>v.map(value=>({sides:6,value}));
 test('authored exact odds and source-relative ranges',()=>{assert.equal(checkOdds(check).probability,.5);assert.equal(checkOdds(burst.check).probability,160/216);assert.deepEqual(attackProfile(burst,weapon),{min:1,max:3});assert.throws(()=>attackProfile(shoot));});

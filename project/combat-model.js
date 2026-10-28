@@ -7,6 +7,30 @@ export const createWeapon=id=>({...base(id,'item','Weapon'),subtype:'weapon',onC
 export const createEnemy=id=>({...base(id,'enemy','Enemy'),health:4,introEnabled:false,attacks:[createEnemyAttack(`${id}-attack`)],hit:createEffectCard(`${id}-hit`),reactions:[],death:[{...base(`${id}-death`,'caption','Death'),effects:[]}]});
 const object=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
 const allocate=(base,used)=>{let id=base,n=2;while(used.has(id))id=`${base}-${n++}`;used.add(id);return id;};
+/** Upgrade legacy Weapon links to independently owned Actions. Unresolved links
+ * survive unchanged so validation can explain the missing source. */
+export function migrateWeaponActions(project){
+ if(!object(project)||!Array.isArray(project.library))return project;
+ const definitions=new Map(),duplicateIds=new Set(),migrated=new Set();
+ for(const d of project.library.filter(object)){if(definitions.has(d.id))duplicateIds.add(d.id);definitions.set(d.id,d);}
+ for(const weapon of project.library){
+  if(weapon?.kind!=='item'||weapon.subtype!=='weapon'||!Array.isArray(weapon.combat?.actions))continue;
+  weapon.combat.actions=weapon.combat.actions.map(ref=>{
+   if(!object(ref)||typeof ref.definitionId!=='string'||ref.kind==='combatAction')return ref;
+   const source=definitions.get(ref.definitionId);if(source?.kind!=='combatAction'||source.visibility==='local'||duplicateIds.has(ref.definitionId))return ref;
+   const action={...structuredClone(source),...structuredClone(ref),id:ref.id??source.id};
+   delete action.definitionId;delete action.visibility;delete action.chapterId;
+   migrated.add(source.id);return action;
+  });
+ }
+ // Only remove sources copied above, and only when no authored reference still
+ // needs them. Other standalone/common Actions are never inferred to be unused.
+ const referenced=new Set();
+ const visit=value=>{if(Array.isArray(value))value.forEach(visit);else if(object(value)){if(typeof value.definitionId==='string')referenced.add(value.definitionId);Object.values(value).forEach(visit);}};
+ visit(project);
+ project.library=project.library.filter(d=>!migrated.has(d?.id)||referenced.has(d.id));
+ return project;
+}
 export function ensureChapterDeath(project,chapter){
  if(!object(chapter)||!Array.isArray(chapter.nodes)||!Array.isArray(project.library)||Object.hasOwn(chapter,'deathNode'))return chapter;
  const existing=chapter.nodes.filter(n=>n?.type==='death');if(existing.length){chapter.deathNode=existing[0].id;return chapter;}
@@ -23,7 +47,7 @@ export function ensureCombatDefaults(project){
  if(!Object.hasOwn(project.combat,'defaultActions')){const id=allocate('punch',used);project.library.push({...createCombatAction(id),name:'Punch'});project.combat.defaultActions=[{definitionId:id}];}
  if(!Object.hasOwn(project.combat,'playerHit')){const id=allocate('player-hit',used);project.library.push({...createEffectCard(id),name:'Player Hit',image:'./assets/img/player_hit.png'});project.combat.playerHit={definitionId:id};}}
  if(!Object.hasOwn(project,'showDeathBeat'))project.showDeathBeat=true;
- for(const chapter of Array.isArray(project.chapters)?project.chapters:[])ensureChapterDeath(project,chapter);project.version=3;return project;
+ for(const chapter of Array.isArray(project.chapters)?project.chapters:[])ensureChapterDeath(project,chapter);migrateWeaponActions(project);project.version=3;return project;
 }
 export const createCombatDefaults=ensureCombatDefaults;
 export function createProjectChapter(project,id='chapter-1',name='First chapter'){const chapter={id,name,startNode:'',variables:[],nodes:[]};ensureChapterDeath(project,chapter);return chapter;}

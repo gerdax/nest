@@ -35,7 +35,7 @@ export function normalizeSingleItems(project) {
     }
     for (const choice of list(value.choices)) card(choice);
     if(value.kind==='enemy'){for(const child of [...list(value.intro),...list(value.attacks),value.hit,...list(value.reactions).map(r=>r?.card),...list(value.death)])card(child);}
-    if(object(value.combat))rules(value.combat);
+    if(object(value.combat)){rules(value.combat);for(const action of list(value.combat.actions))card(action);}
   };
   const sequence = value => {
     if (!object(value)) return;

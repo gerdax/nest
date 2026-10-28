@@ -45,7 +45,7 @@ export function definitionUsage(project, id) {
   if (ref.kind === 'placement') continue;
   if(['combatAction','effect','enemy'].includes(ref.kind)){
    const owner=ref.sourceDefinition;
-   addReference(key(['combat',owner?.id,ref.chapterId,ref.nodeId,ref.path]),owner?{name:owner.name||owner.id,source:'Library',definitionId:owner.id}:ref.projectSetting?{name:'Project combat settings',unavailableReason:'Open Project settings to edit this selection.'}:{name:`${ref.chapter?.name||''} → ${ref.node?.name||'Combat'}`,chapterId:ref.chapterId,nodeId:ref.nodeId},'B');continue;
+   addReference(key(['combat',owner?.id,ref.chapterId,ref.nodeId,ref.path]),owner?{name:owner.name||owner.id,source:'Library',definitionId:owner.id}:ref.projectSetting?{name:'Common combat definitions',unavailableReason:'Edit default Actions and player feedback in Library → Common.'}:{name:`${ref.chapter?.name||''} → ${ref.node?.name||'Combat'}`,chapterId:ref.chapterId,nodeId:ref.nodeId},'B');continue;
   }
   const entry = ref.sourceDefinition ? null : ancestor(ref);
   const relativePath = entry ? ref.path.slice(entry.path.length) : ref.path;

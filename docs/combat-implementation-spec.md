@@ -1,5 +1,11 @@
 # Combat implementation specification — Rat encounter
 
+**28 October 2026 authoring amendment:** Weapons now own embedded Combat Actions;
+weaponless default Actions and shared player Effect Cards are edited in Library
+→ Common. Library → Content retains story definitions. This supersedes earlier
+Weapon→Action reference authoring and Project-settings selectors below. See the
+[current guide](combat.md) for the implemented layout and migration behavior.
+
 Implementation status and verification: [M0–M7 checkpoint](combat-implementation-status.md).
 
 Prepared 27 October 2026. Planning milestone; no combat schema or editor/runtime

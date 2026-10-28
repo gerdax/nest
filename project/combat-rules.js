@@ -20,8 +20,8 @@ export function attackProfile(action, source) {
 }
 export function playerChoices(compiled, run, encounter) {
   const result=[];
-  const add=(ref,source=null)=>{
-    const action=definition(compiled.library,ref);
+  const add=(value,source=null)=>{
+    const action=source?value:definition(compiled.library,value);
     if (!action || action.kind !== 'combatAction') throw new Error('Missing Combat Action');
     if(!source && action.attack?.source==='weapon') throw new Error('Default Action requires a weapon');
     const profile=attackProfile(action,source), key=cooldownKey(action,source);
@@ -31,7 +31,7 @@ export function playerChoices(compiled, run, encounter) {
     result.push({id:key,action:structuredClone(action),source:source?structuredClone(source):null,profile,disabled:!!reason,disabledReason:reason});
   };
   for(const ref of compiled.combat?.defaultActions??[])add(ref);
-  for(const item of run.inventory??[])if(item.subtype==='weapon')for(const ref of item.combat?.actions??[])add(ref,item);
+  for(const item of run.inventory??[])if(item.subtype==='weapon')for(const action of item.combat?.actions??[])add(action,item);
   return result;
 }
 export function checkOdds(check, values={}) {

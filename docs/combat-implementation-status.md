@@ -72,3 +72,20 @@ validation diagnostics rather than being silently ignored.
 Run `python3 serve.py --host 127.0.0.1 --port 8960` from this worktree.
 Open `player.html?example=rat` for the non-saving example, or `editor.html`
 for Library/chapter authoring. The example does not replace browser storage.
+
+## 28 October 2026 authoring follow-up
+
+Checkpoint before this work: `5103cc6` (Consumable migration and previous UI
+refinements). Library now has Content/Common tabs; Common directly edits default
+Actions and player damage feedback, including ordering, undoable creation and
+preserved unassigned definitions. Weapons own embedded Actions; old reference
+sources migrate without losing names, presentation, mechanics or live references.
+
+Verification: 2,411 deterministic tests passed with no failures/skips; static
+staging to `/tmp/nest-common-final-stage-20261028` verified 281 files and 103 assets.
+An independent review checked migration, dependency closure and a collision import
+probe involving a nested Weapon Action inventory condition. Real browser checks
+covered Common navigation/feedback, default Action creation and Undo, Content
+filtering, migrated Pistol Shoot/Burst editors, scaled feedback previews and a
+production Rat run reaching Punch/Shoot/Burst choices with physical dice. Device,
+Safari/Firefox and screen-reader checks were not repeated.

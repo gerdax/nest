@@ -1,5 +1,11 @@
 # Weapons and combat actions
 
+**28 October 2026 authoring amendment:** Weapons now own embedded Combat Actions;
+weaponless default Actions and shared player Effect Cards are edited in Library
+→ Common. Library → Content retains story definitions. This supersedes earlier
+Weapon→Action reference authoring and Project-settings selectors below. See the
+[current guide](combat.md) for the implemented layout and migration behavior.
+
 Decision agreed on 27 October 2026. This document records the intended design;
 it does not introduce a project schema, editor controls or production combat.
 Field names below are conceptual until implementation.

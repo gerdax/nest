@@ -1,4 +1,4 @@
-import { ensureCombatDefaults } from './combat-model.js';
+import { ensureCombatDefaults, migrateWeaponActions } from './combat-model.js';
 import { errorMessage } from '../errors.js';
 import { isTagKey, tagKey, tagIdFromKey, validItemTagName } from './item-tags.js';
 import { isStatVariable, validStatValue, compatibleStatVariable } from './checks.js';
@@ -13,6 +13,7 @@ import { createLibraryIndex } from './library-index.js';
 
 export function validateProject(project, {allowDraft = false} = {}) {
   if(project?.version===2)project=ensureCombatDefaults(JSON.parse(JSON.stringify(project)));
+  else if(project?.version===3)project=migrateWeaponActions(structuredClone(project));
   const errors = [];
   const add = (message, chapterId, nodeId) => errors.push({message, ...(chapterId ? {chapterId}: {}), ...(nodeId ? {nodeId}: {})});
   if (!object(project)) return [{message: errorMessage('VALIDATION_PROJECT_MUST_BE_AN_OBJECT')}];
@@ -174,7 +175,15 @@ export function validateProject(project, {allowDraft = false} = {}) {
     }
     if(d.kind==='item'&&d.subtype!==undefined){
       if(d.subtype!=='weapon'||!object(d.combat))add(`${label}: invalid Weapon profile`);
-      else {damage(d.combat.damage,label);if(list(d.combat.effects).length)add(`${label}: intrinsic effects beyond damage are deferred`);if(!Array.isArray(d.combat.effects)||!Array.isArray(d.combat.actions))add(`${label}: Weapon effects/actions must be lists`);else {inspectEffects(d.combat.effects,label);for(const ref of d.combat.actions)typedRef(ref,'combatAction',label);if(new Set(d.combat.actions.map(r=>r?.definitionId)).size!==d.combat.actions.length)add(`${label}: duplicate Provided combat Action`);}}
+      else {damage(d.combat.damage,label);if(list(d.combat.effects).length)add(`${label}: intrinsic effects beyond damage are deferred`);if(!Array.isArray(d.combat.effects)||!Array.isArray(d.combat.actions))add(`${label}: Weapon effects/actions must be lists`);else {
+        inspectEffects(d.combat.effects,label);
+        for(const action of d.combat.actions){
+          if(object(action)&&typeof action.definitionId==='string'){typedRef(action,'combatAction',label);add(`${label}: unresolved embedded Weapon Action ${action.definitionId}`);continue;}
+          if(!object(action)||!named(action.id)||action.kind!=='combatAction'||typeof action.name!=='string'||typeof action.text!=='string'||typeof action.image!=='string'){add(`${label}: invalid embedded Weapon Action`);continue;}
+          inspectCard(action,`${label} / ${action.name}`);
+        }
+        if(new Set(d.combat.actions.map(r=>r?.id)).size!==d.combat.actions.length)add(`${label}: duplicate Provided combat Action identity`);
+      }}
     }
     if(d.kind==='enemy'){
       if(!Number.isSafeInteger(d.health)||d.health<1||typeof d.introEnabled!=='boolean')add(`${label}: invalid Enemy health/introduction`);

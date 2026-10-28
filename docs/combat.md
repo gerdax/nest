@@ -4,29 +4,51 @@ Implemented first Rat milestone, 27 October 2026. This is the current behavior;
 [product specification](combat-implementation-spec.md) records decisions and
 [technical plan](combat-technical-plan.md) records milestone architecture.
 
-## Library and project settings
+## Library: Content and Common
 
-- **Weapon** is an Item subtype. Set its damage range and select its **Provided
-  combat Actions**. Its normal collection, inventory and artwork behavior remain.
-- **Combat Action** is a distinct Library type. Configure requirements, Energy
-  costs, Direct/Check resolution, own/source/no attack properties, range bonuses,
-  cooldown and artwork. It cannot be placed in ordinary beat slots.
-- **Effect Card** is a distinct presentation type, with the mockup's artwork,
-  heading and signed resolved-health layout. It is not a negative Health pickup
-  and never executes collection effects. Shared Player Hit is selected in
-  Project settings and receives damage values from combat.
-- **Enemy** contains its own attacks and presentation: an optional introduction using its main card’s artwork/text, ordered
-  attacks, damage Effect Card, percentage health reactions and one required death card.
-  Add/reorder/edit those entries directly inside the Enemy inspector. Embedded
-  artwork has scale/offset/flip controls and previews. Reactions have percentage
-  controls plus exact fraction controls; untouched thirds remain exact.
-- **Default combat Actions** in Project settings supply weaponless choices such
-  as Punch. Carrying Weapons adds their source-bound choices. The same Combat
-  Action can serve different Weapons without sharing their cooldowns or damage.
+**Content** keeps the story-building Library grid: Vignettes, Captions, story
+Actions, Items/Weapons, Consumables and Enemies. Its existing creation, search,
+compatibility and placement controls remain. **Common** contains project-wide
+combat definitions; it does not offer chapter placement.
 
-New Enemies start with an attack, damage Effect Card and death card. Introduction and
-health reactions are optional; missing artwork does not block testing. Use a
-separate Enemy variant for changed content; Combat beats have no local overrides.
+- **Default combat Actions** lists weaponless Actions such as Punch. Select one
+  to edit its presentation, check, requirements, Energy cost, own/no damage and
+  cooldown in the right panel. Add, reorder, remove from defaults or reassign
+  existing Actions here. Removing a default preserves its definition under
+  **Unassigned common cards**; it does not delete authored content.
+- **Player combat feedback** has a fixed **Damage received** entry with a small
+  preview. Select it to edit the Effect Card directly. Combat supplies the
+  signed damage value; the card has no independent collection effects.
+- Unassigned Common definitions remain editable, including preserved unused
+  definitions from old projects. They are not automatically available in combat.
+
+**Weapon** remains an Item subtype, combining its inventory representation,
+base damage and full embedded Combat Action definitions. Edit Shoot/Burst
+inside Pistol; each owns its name, artwork, check, Energy cost, damage profile
+selection/modifiers and cooldown. Carrying a Weapon adds its owned Actions.
+Action identities and cooldowns are scoped by source Weapon; editing one
+Weapon's Action does not modify another Weapon. Player weaponless Actions
+retain the same Combat Action structure, owned by Common instead.
+
+Old Weapon→Library Action references migrate to independent embedded copies.
+The old source is removed only if all references have migrated and no remaining
+reference needs it; default/shared references retain their source. Missing,
+wrong-kind, local or ambiguous sources remain explicit diagnostics. Names,
+artwork, rules and stable Action identities survive migration. The original
+input files remain unchanged.
+
+**Enemy** contains its optional main-card introduction, ordered attacks,
+damage feedback, percentage reactions and one required death card. All artwork
+sections use preview → artwork path → image scale/position. Reaction percentages
+retain exact fraction boundaries. New Enemies have an attack, damage Effect
+Card and death card; artwork is optional for testing. Use a separate Enemy
+variant rather than local Combat beat overrides.
+
+Project settings retain **Show death beat in chapter graph**. Default Actions
+and player feedback are edited in Common, without separate settings selectors.
+Internally Common definitions retain the existing project-level reference and
+package machinery; this is an authoring organization change, not a second
+runtime Library or a new run-state owner.
 
 ## Chapter beats
 

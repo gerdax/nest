@@ -41,9 +41,9 @@ export function cardFields(project,definition,scope='definition',showPreview=tru
  if(definition.kind==='item')html+=select('Item subtype',definition.subtype||'',[['','Ordinary Item'],['weapon','Weapon']],'subtype',scope)+select('Tag',definition.tagId||'',[['','None'],...(project.itemTags||[]).map(tag=>[tag.id,tag.name])],'tagId',scope);
  html+=field('Description',definition.text,'text',scope,'textarea');
  if(showRules)html+=cardRuleFields(project,definition,scope,chapter);
- if(scope==='definition'&&definition.kind==='enemy')html+=(showPreview?`<div class="inspector-card-preview" data-card-preview data-preview-definition="${esc(definition.id)}"></div>`:'')+artworkControls(definition,scope);
+ if(scope==='definition'&&(definition.kind==='enemy'||definition.kind==='item'&&definition.subtype==='weapon'))html+=(showPreview?`<div class="inspector-card-preview" data-card-preview data-preview-definition="${esc(definition.id)}"></div>`:'')+artworkControls(definition,scope);
  if(scope==='definition')html+=combatDefinitionFields(project,definition);
- if(showPreview&&definition.kind!=='enemy')html+=`<div class="inspector-card-preview" data-card-preview data-preview-definition="${esc(definition.id)}"></div>`+artworkControls(definition,scope);
+ if(showPreview&&definition.kind!=='enemy'&&!(definition.kind==='item'&&definition.subtype==='weapon'))html+=`<div class="inspector-card-preview" data-card-preview data-preview-definition="${esc(definition.id)}"></div>`+artworkControls(definition,scope);
  return html;
 }
 function cardRuleFields(project,definition,scope,chapter) {

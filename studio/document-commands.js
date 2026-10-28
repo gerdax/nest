@@ -117,7 +117,7 @@ function changeField(project, selection, field, localDrafts) {
   if(key==='key'&&['addItem','removeItem'].includes(parent.op)&&value&&!eligibleInventoryItems(project,ruleChapter).some(item=>item.id===value))throw createError('STUDIO_ITEM_EFFECTS_MUST_REFERENCE_AN_ELIGIBLE_ITEM_FROM_THE_OWNING_CHAPTER_OR_SHARED_LIBRARY');
   parent[key] = value;
   if(scope==='definition'&&path==='subtype'&&root.kind==='item'){if(value==='weapon')root.combat??=createWeapon(root.id).combat;else delete root.subtype;return;}
-  if(scope==='definition'&&path==='attack.source'){root.attack.minBonus??=0;root.attack.maxBonus??=0;if(value==='self')root.attack.damage??={min:1,max:1};return;}
+  if(scope==='definition'&&(path==='attack.source'||/^combat\.actions\.\d+\.attack\.source$/.test(path))){parent.minBonus??=0;parent.maxBonus??=0;if(value==='self')parent.damage??={min:1,max:1};return;}
   if (['modifierVariable','contextItemId','tagId'].includes(key) && !value) delete parent[key];
   if (key === 'contextItemId' && (!value||value.startsWith('tag:'))) delete parent.contextOverrideImage;
   if (key === 'resolution' && value === 'check') {
@@ -263,6 +263,25 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
       const added = createProjectChapter(project,uid('chapter'), `Chapter ${project.chapters.length+1}`), first = createNode(project, 'linear', undefined, added.id);
       added.nodes.push(first); added.startNode = first.id; project.chapters.push(added); project.activeChapterId = added.id;
       return {selection:{chapterId:added.id, selected:first.id}};
+    }
+    case 'add-common-action': {
+      const added=createDefinition('combatAction',uid('combatAction'));project.library.push(added);
+      project.combat.defaultActions.push({definitionId:added.id});
+      return {selection:{definitionId:added.id,mode:'library'}};
+    }
+    case 'use-common-action': {
+      const action=project.library.find(d=>d.id===data.id&&d.kind==='combatAction'&&d.visibility!=='local');
+      if(!action||action.attack?.source==='weapon')throw new Error('Default combat Actions must work without a Weapon');
+      if(!project.combat.defaultActions.some(ref=>ref.definitionId===action.id))project.combat.defaultActions.push({definitionId:action.id});break;
+    }
+    case 'move-common-action': {
+      const list=project.combat.defaultActions,index=list.findIndex(ref=>ref.definitionId===data.id),target=index+Number(data.direction);
+      if(index>=0&&target>=0&&target<list.length)[list[index],list[target]]=[list[target],list[index]];break;
+    }
+    case 'remove-common-action': project.combat.defaultActions=project.combat.defaultActions.filter(ref=>ref.definitionId!==data.id);break;
+    case 'use-common-effect': {
+      if(!project.library.some(d=>d.id===data.id&&d.kind==='effect'&&d.visibility!=='local'))throw new Error('Select an Effect Card');
+      project.combat.playerHit={definitionId:data.id};break;
     }
     case 'add-definition': {
       const added = createDefinition(data.kind, uid(data.kind)); project.library.push(added);
