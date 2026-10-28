@@ -177,10 +177,11 @@ function renderInspector({collapseCards=false,preserveProjectSettings=false}={})
  const inspectorKey=`${mode}:${mode==='library'?definitionId:`${chapterId}:${selected}`}`;
  const sameInspector=$('#inspector').dataset.key===inspectorKey;
  const expanded=sameInspector?[...$('#inspector').querySelectorAll('details')].map((el,i)=>el.open?i:-1):[];
+ $('#settings').hidden=mode==='library';
  $('#settings').innerHTML=chapterSettingsInspector(project,chapter());
  if(!preserveProjectSettings)renderProjectSettings();
  $('#inspector').innerHTML=mode==='library'?definitionInspector(project,definition()):multiple?`<p class="small">${graph.selectedIds.size} beats selected.</p>`:nodeInspector(project,chapter(),node(),previewOverrides.effects(project,chapter(),node()));
- if(mode==='library'&&isCommonDefinition(definition())){const panel=$('#inspector').querySelector('.card-definition-panel');if(panel)panel.insertAdjacentHTML('afterbegin',commonRoleControls(project,definition()));}
+ if(mode==='library'&&isCommonDefinition(definition())){const panel=$('#inspector').querySelector('.card-definition-panel');if(panel){panel.insertAdjacentHTML('afterbegin',commonRoleControls(project,definition()));const oldRemoval=panel.querySelector('[data-command="delete-definition"]');if(oldRemoval){oldRemoval.previousElementSibling?.remove();oldRemoval.remove();}const deletion=panel.querySelector('.common-delete');if(deletion)panel.append(deletion);}}
  renderCardPreviews($('#inspector'),project,node(),chapterId);
  refreshCardClipboardButtons();
  applyCardStyles(preview.mount,project.cardStyles);
@@ -229,7 +230,7 @@ function render({preserveProjectSettings=false}={}){
  $('#chapter-selector').innerHTML=sortedChapters(project).map(c=>`<option value="${esc(c.id)}" ${c.id===chapterId?'selected':''}>${esc(c.name)}</option>`).join('');
  $('#undo').disabled=!history.canUndo;$('#redo').disabled=!history.canRedo;
 
- $('#canvas').hidden=mode!=='chapter';$('#library-panel').hidden=mode!=='library';$('#node-tools').hidden=mode!=='chapter';
+ $('#canvas').hidden=mode!=='chapter';$('#library-panel').hidden=mode!=='library';$('#node-tools').hidden=mode!=='chapter';$('#library-tabs').hidden=mode!=='library';
  $('#chapter-view').classList.toggle('active-tab',mode==='chapter');$('#library-view').classList.toggle('active-tab',mode==='library');
  const issues=validateProject(project);$('#errors').innerHTML=issues.map(e=>`<div>${esc(e.message)}</div>`).join('');
  renderGraph(issues);renderLibrary();renderInspector({preserveProjectSettings});
@@ -300,7 +301,7 @@ function refreshCardClipboardButtons(){
  }
 }
 function command(event){const b=event.target.closest('[data-command]');if(!b||b.disabled)return;const cmd=b.dataset.command;
- if(['add-common-action','use-common-action','remove-common-action','move-common-action','use-common-effect'].includes(cmd)){libraryTab='common';edit(cmd,{id:b.dataset.actionId,direction:b.dataset.direction});return;}
+ if(['add-common-action','use-common-action','remove-common-action','move-common-action','use-common-effect','delete-common-card'].includes(cmd)){libraryTab='common';const result=edit(cmd,{id:b.dataset.actionId,direction:b.dataset.direction});if(cmd==='delete-common-card'&&result.ok)report('Common card deleted. Undo restores it.');return;}
  if(b.dataset.scope==='preview-overrides'){
   if(b.disabled)return;
   previewOverrides.update(project,chapter(),node(),{command:cmd,index:b.dataset.index});

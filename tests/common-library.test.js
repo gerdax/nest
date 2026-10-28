@@ -47,3 +47,18 @@ test('Weapon inspector owns full Action editors and artwork in the established o
  applyDocumentCommand(p,s,'field',{scope:'definition',path:'combat.actions.2.attack.source',value:'self'});assert.deepEqual(a.attack.damage,{min:1,max:1});
  assert.deepEqual(validateProject(p),[]);
 });
+
+test('Delete card removes a default and its definition atomically and Undo restores both',()=>{
+ const p=createProject(),id=p.combat.defaultActions[0].definitionId,s=selection(p),history=new DocumentHistory(p),drafts=new LocalCardDrafts();
+ const result=transactDocument(history,drafts,doc=>applyDocumentCommand(doc,s,'delete-common-card',{id}));
+ assert(!result.failure);assert(!history.document.library.some(d=>d.id===id));assert(!history.document.combat.defaultActions.some(ref=>ref.definitionId===id));
+ assert.deepEqual(validateProject(history.document),[]);history.undo();assert(history.document.library.some(d=>d.id===id));assert(history.document.combat.defaultActions.some(ref=>ref.definitionId===id));
+ assert(commonRoleControls(history.document,history.document.library.find(d=>d.id===id)).includes('data-command="delete-common-card"'));
+});
+test('required damage feedback and other live references block deletion without changing membership',()=>{
+ const p=createProject(),s=selection(p),hit=p.combat.playerHit.definitionId;
+ assert.throws(()=>applyDocumentCommand(p,s,'delete-common-card',{id:hit}),/required/);
+ const punch=p.combat.defaultActions[0].definitionId;
+ p.library.push({id:'legacy-weapon',kind:'item',subtype:'weapon',name:'Weapon',text:'',image:'',onCollect:[],permability:0,combat:{damage:{min:1,max:2},effects:[],actions:[{definitionId:punch}]}});
+ const before=JSON.stringify(p);assert.throws(()=>applyDocumentCommand(p,s,'delete-common-card',{id:punch}),/references/i);assert.equal(JSON.stringify(p),before);
+});

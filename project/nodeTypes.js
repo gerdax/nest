@@ -11,14 +11,14 @@ const introduction = makePlacement => ({introEnabled:false, introOnce:false, int
 
 export const nodeTypes = Object.freeze({
  combat: Object.freeze({label:'Combat',iconPath:'M8 5V19M16 5V19',slots:Object.freeze({}),outputs:()=>['victory'],create:()=>({enemy:{definitionId:''},connections:{victory:false}})}),
- death: Object.freeze({label:'Death',iconPath:'M12 11a1 1 0 1 0 0 2a1 1 0 1 0 0-2',slots:Object.freeze({cards:storyKinds}),defaultKinds:Object.freeze({cards:'caption'}),outputs:()=>[],create:({makePlacement})=>({cards:[makePlacement('caption')],connections:{}})}),
+ death: Object.freeze({label:'Death',iconPath:'M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6',slots:Object.freeze({cards:storyKinds}),defaultKinds:Object.freeze({cards:'caption'}),outputs:()=>[],create:({makePlacement})=>({cards:[makePlacement('caption')],connections:{}})}),
  linear: Object.freeze({
-  label:'Linear', iconPath:'M3 12H21', slots:Object.freeze({cards:linearKinds}), outputs:nextOutput,
+  label:'Linear', iconPath:'M4.35 12H19.65', slots:Object.freeze({cards:linearKinds}), outputs:nextOutput,
   defaultKinds:Object.freeze({cards:'caption'}),
   create:({makePlacement}) => ({retainInventoryItems:false,cards:[makePlacement('caption')]})
  }),
  fork: Object.freeze({
-  label:'Fork', iconPath:'M3 12H10L14 7H21M10 12L14 17H21', slots:Object.freeze({intro:storyKinds, choices:branchKinds}),
+  label:'Fork', iconPath:'M3 12H7L11 6.5H21M7 12L11 17.5H21', slots:Object.freeze({intro:storyKinds, choices:branchKinds}),
   defaultKinds:Object.freeze({intro:'event',choices:'action'}),
   outputs:(node,resolve) => objects(node.choices).flatMap(p => {
    let card;try { card=resolve?.(p); } catch {}
@@ -27,12 +27,12 @@ export const nodeTypes = Object.freeze({
   create:({makePlacement}) => ({...introduction(makePlacement),choices:[makePlacement('action'),makePlacement('action')]})
  }),
  container: Object.freeze({
-  label:'Container', iconPath:'M6 6H18V18H6Z', slots:Object.freeze({intro:storyKinds, items:itemKinds}), outputs:nextOutput,
+  label:'Container', iconPath:'M3.72 7.408756875V16.591243125H20.28V7.408756875', slots:Object.freeze({intro:storyKinds, items:itemKinds}), outputs:nextOutput,
   defaultKinds:Object.freeze({intro:'event',items:'item'}),
   create:({makePlacement}) => ({...introduction(makePlacement),retainInventoryItems:true,items:[makePlacement('item')]})
  }),
  random: Object.freeze({
-  label:'Random', iconPath:'M3 7H6L18 17H21M3 17H6L18 7H21', slots:Object.freeze({}), outputs:node => [...objects(node.routes).map(r=>r.id),'fallback'],
+  label:'Random', iconPath:'M3 6.25H7L17 17.75H21M3 17.75H7L9 15.45M15 8.55L17 6.25H21', slots:Object.freeze({}), outputs:node => [...objects(node.routes).map(r=>r.id),'fallback'],
   create:({uid}) => ({routes:[{id:uid('route'),name:'Route 1',target:false,weight:1,conditions:[]}],fallback:false})
  }),
  legacySequence: Object.freeze({label:'Legacy sequence', slots:Object.freeze({}), outputs:legacyOutputs}),

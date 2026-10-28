@@ -1,3 +1,4 @@
+import {deleteCommonCard} from './common-card-removal.js';
 import { applyCombatArrayCommand } from './combat-authoring.js';
 import { createWeapon } from '../project/combat-model.js';
 import { createError } from '../errors.js';
@@ -277,6 +278,10 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
     case 'move-common-action': {
       const list=project.combat.defaultActions,index=list.findIndex(ref=>ref.definitionId===data.id),target=index+Number(data.direction);
       if(index>=0&&target>=0&&target<list.length)[list[index],list[target]]=[list[target],list[index]];break;
+    }
+    case 'delete-common-card': {
+      deleteCommonCard(project,data.id);
+      return {selection:{definitionId:project.combat.defaultActions[0]?.definitionId||project.combat.playerHit?.definitionId,mode:'library'}};
     }
     case 'remove-common-action': project.combat.defaultActions=project.combat.defaultActions.filter(ref=>ref.definitionId!==data.id);break;
     case 'use-common-effect': {

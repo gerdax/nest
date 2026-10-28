@@ -14,11 +14,14 @@ combat definitions; it does not offer chapter placement.
 - **Default combat Actions** lists weaponless Actions such as Punch. Select one
   to edit its presentation, check, requirements, Energy cost, own/no damage and
   cooldown in the right panel. Add, reorder, remove from defaults or reassign
-  existing Actions here. Removing a default preserves its definition under
+  existing Actions here. **Delete card** at the bottom of the right editor deletes
+  an Action and removes its default membership in one undoable transaction.
+  **Remove from defaults** only changes availability and preserves its definition under
   **Unassigned common cards**; it does not delete authored content.
 - **Player combat feedback** has a fixed **Damage received** entry with a small
   preview. Select it to edit the Effect Card directly. Combat supplies the
-  signed damage value; the card has no independent collection effects.
+  signed damage value; the card has no independent collection effects. This
+  required feedback entry cannot be deleted; its editor explains that constraint.
 - Unassigned Common definitions remain editable, including preserved unused
   definitions from old projects. They are not automatically available in combat.
 
