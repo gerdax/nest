@@ -5,11 +5,11 @@ import {definitionInspector} from '../studio/inspectors.js';
 import {cardFace} from '../project/presentation.js';
 import {combatCard} from '../project/combat-presentation.js';
 
-test('Enemy Effect cards uses a fixed Health damage label without an editable name',()=>{
+test('Enemy Effect cards has an editable editor Name under Health damage',()=>{
  const p=createProject(),enemy=createEnemy('rat');p.library.push(enemy);
  const html=definitionInspector(p,enemy);
  assert(html.includes('<h3>Effect cards</h3>'));assert(html.includes('<summary>Health damage</summary>'));
- assert(!html.includes('data-path="hit.name"'));assert(html.includes('data-path="hit.text"'));
+ assert(html.includes('data-path="hit.name"'));assert(html.includes('data-path="hit.text"'));
 });
 test('Enemy damage Description is the large heading in both preview and combat',()=>{
  const enemy=createEnemy('rat');enemy.hit.text='The rat reels!';enemy.hit.name='Internal name';
@@ -28,4 +28,22 @@ test('legacy name-only Enemy damage copy migrates once and cleared descriptions 
 test('legacy Description is preserved rather than replaced with its old name',()=>{
  const p=createProject(),enemy=createEnemy('rat');delete enemy.hit.headingFromDescription;enemy.hit.name='Old name';enemy.hit.text='Existing Description';p.library.push(enemy);
  assert.equal(parseProject(JSON.stringify(p)).library.find(d=>d.id==='rat').hit.text,'Existing Description');
+});
+
+test('player and Enemy Effect Cards display Description and never their editor Name',()=>{
+ const p=createProject(),player=p.library.find(d=>d.id===p.combat.playerHit.definitionId),enemy=createEnemy('rat');
+ for(const card of [player,enemy.hit]){
+  Object.assign(card,{name:'Editor label only',text:'You feel the impact.',headingFromDescription:false});
+  for(const face of [cardFace(card),combatCard(card,'feedback',{value:-2})]){
+   assert.equal(face.heading,'You feel the impact.');assert.equal(face.text,'');
+  }
+  card.text='';assert.equal(combatCard(card,'empty').heading,'');assert.equal(cardFace(card).heading,'');
+ }
+});
+test('legacy player feedback migrates name-only text once without changing the editor label',()=>{
+ const p=createProject(),player=p.library.find(d=>d.id===p.combat.playerHit.definitionId);
+ delete player.headingFromDescription;player.name='You have been hit!';player.text='';
+ const loaded=parseProject(JSON.stringify(p)),hit=loaded.library.find(d=>d.id===player.id);
+ assert.equal(hit.name,player.name);assert.equal(hit.text,player.name);
+ hit.text='';const again=parseProject(JSON.stringify(loaded));assert.equal(again.library.find(d=>d.id===player.id).text,'');
 });

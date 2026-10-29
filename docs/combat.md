@@ -42,8 +42,9 @@ input files remain unchanged.
 
 **Enemy** contains its optional main-card introduction, ordered Actions,
 **Effect cards → Health damage**, percentage reactions and one required death card.
-Health damage has a fixed editor label and no editable Name. Its Description
-uses the large heading style in preview and combat. Existing name-only damage
+Player and Enemy Effect Cards use Name only as an editor label. Description
+is the player-facing message, using the same large heading style in preview and combat.
+Enemy Health damage retains its fixed section label and exposes an editable card Name. Existing name-only damage
 copy migrates into Description once, preserving the displayed text. All artwork
 sections use preview → artwork path → image scale/position. Reaction percentages
 retain exact fraction boundaries. New Enemies have an Attack Action, damage Effect

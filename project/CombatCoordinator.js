@@ -38,9 +38,9 @@ export class CombatCoordinator {
    }else await this.enterEnemy();
   }catch(error){this.fail(error);}
  }
- actionCard(){return enemyActionCard(this.enemy.actions[this.encounter.actionIndex],this.token());}
+ actionCard(){return {...enemyActionCard(this.enemy.actions[this.encounter.actionIndex],this.token()),cardBack:this.host.compiled.cardBack};}
  choices(){return playerChoices(this.host.compiled,this.snapshot(),this.encounter);}
- choiceContent(){return combatChoices(this.choices(),this.token(),this.host.variables);}
+ choiceContent(){return {...combatChoices(this.choices(),this.token(),this.host.variables),cardBack:this.host.compiled.cardBack};}
  async enterEnemy({reveal=false}={}){
   if(!this.active())return;
   this.resume={kind:'enemy'};this.sequence=null;this.setPhase('enemy-enter');
@@ -151,7 +151,7 @@ export class CombatCoordinator {
   const sequence=this.sequence,step=sequence.steps[index],last=index===sequence.steps.length-1;
   const reason=last&&sequence.kind==='enemy-death'?this.host.combatVictoryReason():'';
   step.contentId??=this.token();
-  const content=combatCard(step.card,step.contentId,{value:step.value,disabledReason:reason});
+  const content={...combatCard(step.card,step.contentId,{value:step.value,disabledReason:reason}),cardBack:this.host.compiled.cardBack};
   if(!last){content.nextTransition='reveal';content.nextDeckPreview={content:this.sequenceContent(index+1),presentation:'closed'};}
   else if(sequence.kind==='intro'){this.introSuccessor??=this.actionCard();content.nextTransition='reveal';content.nextDeckPreview={content:this.introSuccessor,presentation:'closed'};}
   else content.nextTransition='flip';
@@ -198,7 +198,7 @@ export class CombatCoordinator {
  fail(error){
   if(!this.active())return;
   this.advancing=false;this.setPhase('error');this.host.error(error);
-  const card={id:this.token(),interaction:'choice',directAdvance:true,allowClose:false,cardKind:'caption',text:`Combat paused: ${error.message}\n\nSwipe to retry.`,actions:[{id:'retry',label:'Retry'}]};
+  const card={id:this.token(),cardBack:this.host.compiled.cardBack,interaction:'choice',directAdvance:true,allowClose:false,cardKind:'caption',text:`Combat paused: ${error.message}\n\nSwipe to retry.`,actions:[{id:'retry',label:'Retry'}]};
   this.deck.replaceContent(card,{animate:false});if(this.deck.mount)this.deck.mount.inert=false;
  }
  async retry(){

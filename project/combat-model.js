@@ -1,6 +1,6 @@
 /** Canonical combat authoring data; no scenario fixtures are installed here. */
 const base=(id,kind,name)=>({id,kind,name,showName:true,text:'',image:''});
-export const createEffectCard=id=>base(id,'effect','Effect Card');
+export const createEffectCard=id=>({...base(id,'effect','Effect Card'),headingFromDescription:true});
 export const createCombatAction=id=>({...base(id,'combatAction','Combat Action'),type:'attack',conditions:[],costs:[],effects:[],resolution:'check',check:{pool:[{sides:6,count:3}],modifier:0,target:11},successEffects:[],failureEffects:[],target:'opponent',attack:{source:'self',damage:{min:1,max:1},minBonus:0,maxBonus:0},cooldown:0});
 export const createEnemyAction=id=>({...createCombatAction(id),name:'Attack',attack:{source:'self',damage:{min:1,max:2},minBonus:0,maxBonus:0}});
 // Retain the old factory entry point for existing integrations.
@@ -76,15 +76,15 @@ export function ensureCombatDefaults(project){
  const used=new Set(project.library.map(d=>d?.id));if(!Object.hasOwn(project,'combat'))project.combat={};
  if(object(project.combat)){
  if(!Object.hasOwn(project.combat,'defaultActions')){const id=allocate('punch',used);project.library.push({...createCombatAction(id),name:'Punch'});project.combat.defaultActions=[{definitionId:id}];}
- if(!Object.hasOwn(project.combat,'playerHit')){const id=allocate('player-hit',used);project.library.push({...createEffectCard(id),name:'Player Hit',image:'./assets/img/player_hit.png'});project.combat.playerHit={definitionId:id};}}
- // Enemy damage cards use one authored Description as their large heading.
+ if(!Object.hasOwn(project.combat,'playerHit')){const id=allocate('player-hit',used);project.library.push({...createEffectCard(id),name:'Player Hit',text:'You take damage!',image:'./assets/img/player_hit.png'});project.combat.playerHit={definitionId:id};}}
+ // All Effect Cards use Description as player-facing text; Name is an editor label.
  // Carry legacy name-only copy across once; an intentionally cleared description
  // stays empty on future loads.
- for(const enemy of project.library){
-  const hit=enemy?.kind==='enemy'?enemy.hit:null;
-  if(hit?.kind==='effect'&&!Object.hasOwn(hit,'headingFromDescription')){
-   if(!hit.text)hit.text=hit.name??'';
-   hit.headingFromDescription=true;
+ for(const definition of project.library){
+  const effects=[definition,...(definition?.kind==='enemy'?[definition.hit,...(Array.isArray(definition.reactions)?definition.reactions:[]).map(r=>r?.card)]:[])];
+  for(const effect of effects)if(effect?.kind==='effect'&&effect.headingFromDescription!==true){
+   if(!effect.text)effect.text=effect.name??'';
+   effect.headingFromDescription=true;
   }
  }
  if(!Object.hasOwn(project,'showDeathBeat'))project.showDeathBeat=true;

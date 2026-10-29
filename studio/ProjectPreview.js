@@ -123,9 +123,6 @@ export class ProjectPreview {
     if (!state.checking) this.checkPresentation = null;
     this.state = state;
     this.nextChapterButton.hidden = !!state.terminalReason || !state.completed || !this.followingChapter();
-    if (!this.enemyReadout) { this.enemyReadout=document.createElement('span'); this.enemyReadout.className='combat-enemy-health'; this.root.querySelector('.chapter-preview-stage').append(this.enemyReadout); }
-    this.enemyReadout.hidden=!state.combat;
-    this.enemyReadout.textContent=state.combat?`${state.combat.enemyName} · ${state.combat.enemyHp} HP`:'';
     ++this.uiRevision;
     // Host diagnostics/navigation are deliberately outside the player UI.
     const variables = state.variables || {};
@@ -133,8 +130,8 @@ export class ProjectPreview {
       id: item.definitionId ?? item.id,
       name: item.name || item.label || 'Item',
     }));
-    this.stateReadout.hidden = !Object.keys(variables).length && !ownedItems.length;
-    this.stateReadout.querySelector('pre').textContent = `Variables\n${JSON.stringify(variables, null, 2)}\n\nOwned items\n${JSON.stringify(ownedItems, null, 2)}`;
+    this.stateReadout.hidden = !Object.keys(variables).length && !ownedItems.length && !state.combat;
+    this.stateReadout.querySelector('pre').textContent = `Variables\n${JSON.stringify(variables, null, 2)}\n\nOwned items\n${JSON.stringify(ownedItems, null, 2)}`+(state.combat?`\n\nCombat\n${JSON.stringify(state.combat, null, 2)}`:'');
     const generation = this.generation;
     this.syncPlayerUI();
     this.syncCardLink();
@@ -261,7 +258,6 @@ export class ProjectPreview {
     this.playerUI.endInteractions();
     controller?.destroy(); deck?.destroy();
     this.playerUI.reset();
-    if(this.enemyReadout)this.enemyReadout.hidden=true;
     this.state = null; this.errorMessage = null; this.errorNode = null; this.compiled = null;
     this.hideDice();
     this.mount.replaceChildren(); this.stateReadout.hidden = true;

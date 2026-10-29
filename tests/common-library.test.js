@@ -13,7 +13,7 @@ const selection=p=>({chapterId:p.chapters[0].id,selected:p.chapters[0].startNode
 test('Library Common has direct default Action and fixed player feedback entries',()=>{
  const p=createRatCombatProject(),groups=commonLibraryGroups(p),html=commonLibrary(p);
  assert.equal(groups.actions.length,1);assert.equal(groups.actions[0].definition.name,'Punch');assert.equal(groups.hit.definition.kind,'effect');assert.equal(groups.unassigned.length,0);
- assert(html.includes('Default combat Actions'));assert(html.includes('Damage received'));assert(html.includes('data-command="add-common-action"'));
+ assert(html.includes('Combat Actions'));assert(html.includes('Damage received'));assert(html.includes('data-command="add-common-action"'));
  assert(html.includes('data-preview-definition="punch"'));assert(html.includes(`data-preview-definition="${groups.hit.id}"`));
  assert(!projectSettingsInspector(p).includes('combat.defaultActions'));assert(!projectSettingsInspector(p).includes('combat.playerHit'));
  const doc=readFileSync(new URL('../editor.html',import.meta.url),'utf8');assert(doc.includes('role="tablist" aria-label="Library"'));assert(doc.includes('>Content</button>'));assert(doc.includes('>Common</button>'));

@@ -1,4 +1,5 @@
 import {CombatCoordinator} from './CombatCoordinator.js';
+import {combatCard,enemyActionCard} from './combat-presentation.js';
 import {definition as combatDefinition} from './combat-rules.js';
 import { createError, errorMessage, errorCode } from '../errors.js';
 import { retainsInventoryItems } from './nodeTypes.js';
@@ -351,7 +352,14 @@ export class ProjectController {
   content(location=this.location,values=this.variables,inventory=this.inventory,preview=true,excludedItem=null) {
     if(location?.node.type==='combat') {
       const enemy=combatDefinition(this.compiled.library,location.node.enemy);
-      return {id:`combat-preview:${location.node.id}`,interaction:'choice',directAdvance:true,allowClose:false,cardKind:'caption',text:enemy?.name??'Combat',advanceDisabled:true,actions:[{id:'wait',label:'Combat',disabled:true}]};
+      if(!enemy)throw new Error('Missing Enemy definition');
+      const id=`combat-preview:${location.node.id}`;
+      const action={...enemyActionCard(enemy.actions[0],`${id}:action`),cardBack:this.compiled.cardBack};
+      if(!enemy.introEnabled)return {...action,id};
+      const content={...combatCard({...enemy,kind:'event'},id),cardBack:this.compiled.cardBack};
+      content.nextTransition='reveal';
+      content.nextDeckPreview={content:action,presentation:'closed'};
+      return content;
     }
     ({variables:values,inventory}=this.arrivalState(location,values,inventory));
     const type=this.type(location),card=this.card(location),fork=type==='fork'||type==='forked',container=type==='container',linearFace=type==='linear'&&['action','item','consumable','health','energy'].includes(card?.kind),linearItem=linearFace&&card.kind==='item';

@@ -123,3 +123,53 @@ test('canceling an Enemy Defend departure grants no protection and does not adva
  const h=harness();enemySequence(h,['defend','wait']);await h.c.start();const pending=h.c.accept({contentId:h.deck.content.id,action:{id:'continue'}});await tick();h.c.dispose();h.deck.depart();await pending;
  assert.equal(h.c.encounter.enemyGuard,0);assert.equal(h.c.encounter.actionIndex,0);
 });
+
+test('incoming combat preview uses the actual intro face without a disabled placeholder',async()=>{
+ const {ProjectController}=await import('../project/ProjectController.js');
+ const h=harness();h.c.enemy.introEnabled=true;
+ Object.assign(h.c.enemy,{image:'rat-art.png',imageScale:115,imageOffsetX:7,imageOffsetY:-3,flipImage:true,text:'A rat blocks your path.'});
+ const enemy=h.host.compiled.library.find(d=>d.id==='rat');Object.assign(enemy,h.c.enemy);
+ const preview=ProjectController.prototype.content.call({compiled:h.host.compiled},{node:h.c.node});
+ await h.c.start();
+ for(const field of ['heading','text','image','imageScale','imageOffsetX','imageOffsetY','flipImage','cardKind','advanceDisabled','directAdvance'])assert.deepEqual(preview[field],h.deck.content[field],field);
+ assert.equal(preview.actions[0].disabled,false);
+ assert.equal(preview.nextDeckPreview.content.image,h.deck.content.nextDeckPreview.content.image);
+ h.c.dispose();
+});
+
+test('combat without introduction previews its first Enemy Action',async()=>{
+ const {ProjectController}=await import('../project/ProjectController.js');
+ const h=harness();const enemy=h.host.compiled.library.find(d=>d.id==='rat');enemy.introEnabled=false;
+ const preview=ProjectController.prototype.content.call({compiled:h.host.compiled},{node:h.c.node});
+ assert.equal(preview.heading,enemy.actions[0].name);
+ assert.equal(preview.image,enemy.actions[0].image);
+ assert.equal(preview.cardKind,'action');h.c.dispose();
+});
+
+test('automatic Enemy check stays locked without unavailable styling',async()=>{
+ const h=harness();let release;
+ h.host.rollCheck=()=>new Promise(resolve=>{release=resolve;});
+ const starting=h.c.start();await tick();
+ assert.equal(h.c.phase,'enemy-roll');
+ assert.equal(h.deck.content.advanceDisabled,true);
+ assert.equal(h.deck.content.actions[0].disabled,false);
+ assert.equal(h.deck.mount.inert,true);
+ const id=h.deck.content.id;
+ await h.c.accept({contentId:id,action:{id:'wait'}});
+ assert.equal(h.deck.content.id,id);assert.equal(h.c.phase,'enemy-roll');
+ release({dice:[4,4,4]});await starting;h.c.dispose();
+});
+
+test('combat previews, Actions, feedback, choices and retry retain the project card back',async()=>{
+ const {ProjectController}=await import('../project/ProjectController.js');
+ const h=harness();const back={background:'project-back.png',icons:{default:'project-icon.png'}};
+ h.host.compiled.cardBack=back;
+ const enemy=h.host.compiled.library.find(d=>d.id==='rat');enemy.introEnabled=true;
+ const preview=ProjectController.prototype.content.call({compiled:h.host.compiled},{node:h.c.node});
+ assert.deepEqual(preview.cardBack,back);assert.deepEqual(preview.nextDeckPreview.content.cardBack,back);
+ assert.deepEqual(h.c.actionCard().cardBack,back);assert.deepEqual(h.c.choiceContent().cardBack,back);
+ h.c.enemy.introEnabled=true;await h.c.start();assert.deepEqual(h.deck.content.cardBack,back);
+ await swipe(h);assert.equal(h.c.phase,'effects');assert.deepEqual(h.deck.content.cardBack,back);
+ await swipe(h);assert.equal(h.c.phase,'choice');assert.deepEqual(h.deck.content.cardBack,back);
+ h.c.fail(new Error('Test retry'));assert.deepEqual(h.deck.content.cardBack,back);h.c.dispose();
+});

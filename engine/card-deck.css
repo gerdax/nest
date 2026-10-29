@@ -3,6 +3,11 @@
   src: url('../assets/fonts/letter.ttf') format('truetype');
   font-display: swap;
 }
+@font-face {
+  font-family: NestVitals;
+  src: url('../assets/fonts/trotont.ttf') format('truetype');
+  font-display: swap;
+}
 .nest-deck {
   position: relative;
   touch-action: none;
@@ -271,10 +276,13 @@
   align-items: center;
   gap: .2em;
   color: var(--card-text, #d2dfb6);
-  font: var(--card-font-size, 21px)/1 var(--card-font, NestLetter, monospace);
+  font: calc(var(--card-font-size, 21px) * 2.6)/1 NestVitals, monospace;
+  transform: scale(.85);
+  transform-origin: top right;
   pointer-events: none;
 }
 
+.nest-card-value > span {font-size:2em;line-height:.7;translate:0 -4px;}
 .nest-card-value img {width:1.2em;height:1.2em;object-fit:contain;}
 .nest-card[data-card-kind="health"] .nest-card-value img {width:1em;height:1em;translate:3px -3px;}
 
@@ -319,4 +327,3 @@
 
 /* Encounter-local readout; player resources retain their shared HUD. */
 .chapter-preview-stage { position:relative; }
-.combat-enemy-health { position:absolute; top:calc(var(--playfield-hud-height, 40px) + 24px); right:28px; z-index:4; color:#b6c99b; font-size:12px; text-transform:uppercase; letter-spacing:.06em; }
