@@ -1,3 +1,4 @@
+import { attackProfile } from './combat-rules.js';
 import { ensureCombatDefaults, migrateWeaponActions, migrateEnemyActions, migrateCombatActionTypes } from './combat-model.js';
 import { errorMessage } from '../errors.js';
 import { isTagKey, tagKey, tagIdFromKey, validItemTagName } from './item-tags.js';
@@ -75,6 +76,8 @@ export function validateProject(project, {allowDraft = false} = {}) {
     for (const v of variables) {
       if (!object(v)) continue;
 
+      if (v.id === 'health' && v.type === 'number' && (!Number.isSafeInteger(v.initial)
+        || [v.min,v.max].some(bound => bound !== undefined && !Number.isSafeInteger(bound)))) add('Health requires integer Health values and bounds');
       if (isStatVariable(v) && !compatibleStatVariable(v)) add(errorMessage('VALIDATION_STAT_CONFLICTS_WITH_THE_REQUIRED_INTEGER_1_10_DEFINITION', {variableId: v.id}));
       if (!['flag', 'number'].includes(v.type) || (v.type === 'flag' ? typeof v.initial !== 'boolean': !Number.isFinite(v.initial))) add(errorMessage('VALIDATION_VARIABLE_NEEDS_A_TYPED_INITIAL_VALUE', {variableId: v.id}));
       if (v.type === 'number') {
@@ -145,6 +148,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
         if (!['set', 'add'].includes(e.op) || !validRef(e.key, vars) || !['number', 'boolean'].includes(typeof e.value)
           || typeof e.value === 'number' && !Number.isFinite(e.value) || e.op === 'add' && typeof e.value !== 'number'
           || v && (typeof e.value !== (v.type === 'flag' ? 'boolean': 'number') || e.op === 'add' && v.type !== 'number')) add(errorMessage('VALIDATION_INVALID_VARIABLE_EFFECT', {label}));
+        if (e.key === 'health' && v?.type === 'number' && ['set','add'].includes(e.op) && !Number.isSafeInteger(e.value)) add(`${label}: Health effects require integer Health values`);
         if (isStatVariable(v) && !Number.isInteger(e.value)) add(errorMessage('VALIDATION_STAT_CHANGES_MUST_BE_INTEGERS', {label}));
         if (e.op === 'set' && v?.type === 'number' && (v.min !== undefined && e.value < v.min || v.max !== undefined
           && e.value > v.max)) add(errorMessage('VALIDATION_SET_EFFECT_IS_OUTSIDE_VARIABLE_BOUNDS', {label}));
@@ -164,7 +168,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
     if(list(card.effects).length)add(`${label}: additional embedded Enemy card effects are deferred`);
     inspectCard(card,label);
   }
-  function inspectCombat(d,label,enemyAction=false){
+  function inspectCombat(d,label,enemyAction=false,source){
     if(d.kind==='effect'&&(d.onCollect!==undefined||list(d.effects).length||list(d.successEffects).length||list(d.failureEffects).length))add(`${label}: Feedback presentations are presentation only and cannot apply independent effects`);
     if(d.kind==='combatAction'){
       if(!['attack','defend','wait'].includes(d.type))add(`${label}: unsupported Combat Action type`);
@@ -175,6 +179,9 @@ export function validateProject(project, {allowDraft = false} = {}) {
       if(!enemyAction&&list(d.costs).some(c=>c?.key==='health'&&!Number.isSafeInteger(c.amount)))add(`${label}: combat Health costs require integer amounts`);
       if(d.type==='attack'){if(!object(d.attack)||!['self','weapon','none'].includes(d.attack.source))add(`${label}: invalid attack source`);
       else {if(d.attack.source==='self')damage(d.attack.damage,label);if(d.attack.source!=='none'&&(!Number.isSafeInteger(d.attack.minBonus)||!Number.isSafeInteger(d.attack.maxBonus)))add(`${label}: invalid damage bonuses`);}}
+      if(d.type==='attack' && object(d.attack) && ['self','none','weapon'].includes(d.attack.source) && (d.attack.source!=='weapon'||source)) {
+        try { attackProfile(d,source); } catch { add(`${label}: invalid effective attack damage range`); }
+      }
       if(!Number.isSafeInteger(d.cooldown)||d.cooldown<0)add(`${label}: invalid cooldown`);
     }
     if(d.kind==='item'&&d.subtype!==undefined){
@@ -184,7 +191,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
         for(const action of d.combat.actions){
           if(object(action)&&typeof action.definitionId==='string'){typedRef(action,'combatAction',label);add(`${label}: unresolved embedded Weapon Action ${action.definitionId}`);continue;}
           if(!object(action)||!named(action.id)||action.kind!=='combatAction'||typeof action.name!=='string'||typeof action.text!=='string'||typeof action.image!=='string'){add(`${label}: invalid embedded Weapon Action`);continue;}
-          inspectCard(action,`${label} / ${action.name}`);
+          inspectCard(action,`${label} / ${action.name}`,false,d);
         }
         if(new Set(d.combat.actions.map(r=>r?.id)).size!==d.combat.actions.length)add(`${label}: duplicate Provided combat Action identity`);
       }}
@@ -220,8 +227,8 @@ export function validateProject(project, {allowDraft = false} = {}) {
       }
     }
   }
-  function inspectCard(d, label, enemyAction=false) {
-    inspectCombat(d,label,enemyAction);
+  function inspectCard(d, label, enemyAction=false, source) {
+    inspectCombat(d,label,enemyAction,source);
     if (d.contextOverrideImage !== undefined && typeof d.contextOverrideImage !== 'boolean') add(errorMessage('VALIDATION_OVERRIDE_IMG_MUST_BE_A_BOOLEAN', {label}));
     for (const key of ['imageScale', 'imageOffsetX', 'imageOffsetY']) if (d[key] !== undefined && (!Number.isFinite(d[key])
       || d[key] < (key === 'imageScale' ? 10: -100) || d[key] > (key === 'imageScale' ? 400: 100))) add(errorMessage('VALIDATION_INVALID_IMAGE_SCALE_OR_POSITION', {label}));
@@ -234,6 +241,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
     if (d.costs !== undefined) {
       if (!Array.isArray(d.costs)) add(errorMessage('VALIDATION_COSTS_MUST_BE_A_LIST', {label}));
       else for (const c of d.costs) {
+        if(c?.source==='variable' && c.key==='health' && !Number.isSafeInteger(c.amount)) add(`${label}: Health costs require integer amounts`);
         if (!object(c) || !['variable', 'inventory'].includes(c.source) || typeof c.key !== 'string'
           || c.hideBadge!==undefined&&typeof c.hideBadge!=='boolean'
           || !Number.isFinite(c.amount) || c.amount <= 0 || c.source === 'inventory' && (!Number.isSafeInteger(c.amount)
@@ -314,6 +322,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
       if (!object(chapter.initialValues)) add(errorMessage('VALIDATION_INITIAL_VALUES_MUST_BE_AN_OBJECT'), cid);
       else for (const [key, value]of Object.entries(chapter.initialValues)) {
         const v = vars.get(key);
+        if (key === 'health' && v?.type === 'number' && !Number.isSafeInteger(value)) add('Chapter initial Health requires integer Health values', cid);
         if (isStatVariable(v) && !validStatValue(value)) add(errorMessage('VALIDATION_INVALID_STAT_INITIAL_VALUE', {key}), cid);
         if (!validRef(key, vars) || v && (typeof value !== (v.type === 'flag' ? 'boolean': 'number')
           || v.type === 'number' && (!Number.isFinite(value) || v.min !== undefined && value < v.min || v.max !== undefined

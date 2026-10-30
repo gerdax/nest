@@ -1,6 +1,6 @@
 # Combat authoring and runtime
 
-Implemented first Rat milestone, 27 October 2026. This is the current behavior;
+Production combat is included in the canonical `main` branch. The first Rat milestone was implemented on 27 October 2026 and has since gained Common/Weapon-owned Action authoring, Defend/Wait, Health costs and outcome effects. This guide describes the current behavior;
 [product specification](combat-implementation-spec.md) records decisions and
 [technical plan](combat-technical-plan.md) records milestone architecture.
 
@@ -102,10 +102,10 @@ Energy checks use pre-payment values, matching displayed odds.
 Burst cooldown is per Action/source Weapon, starts on resolved hit/miss, and
 clears after another completed player Action. Effect-card swipes are not turns.
 Cooldowns reset between encounters. Pistol has unlimited uses; USING never
-implicitly consumes it. Enemy Actions follow their authored repeating order. Each has an explicit Action
-type; Attack is the initial supported type, with its own check and damage fields.
+implicitly consumes it. Enemy Actions follow their authored repeating order. Attack, Defend and Wait
+are supported, with the type-specific properties described below.
 Legacy `attacks` lists migrate to `actions` of type `attack`, retaining identity,
-presentation, order and rules. Additional types remain deferred.
+presentation, order and rules. Types beyond Attack, Defend and Wait remain deferred.
 
 ## Format and compatibility
 
@@ -228,3 +228,23 @@ presentation-only and never changes affordability, payment or refund amounts.
 
 The temporary per-effect dice checkboxes have been removed. Any saved checkbox
 metadata is ignored; common progression effects once again apply on both outcomes.
+
+
+## Validation and interruption safeguards — 30 October 2026
+
+Numeric player Health uses safe integers across the whole run, including ordinary
+story/collection effects, Consumables, chapter overrides and carried state.
+Fractional Health is diagnosed rather than rounded; Energy retains its existing
+numeric rules. Effective attack ranges combine the authored bonuses with the
+own/source Weapon range and must remain nonnegative, ordered safe integers.
+Invalid ranges are reported before playback instead of preventing all choices.
+
+The displayed check formula includes the resolved modifier, including stat or
+variable bonuses. The compact probability display rounds to a whole percentage;
+its calculation still uses the full resolved probability. A `+3` modifier on
+`3d6 ≥ 11` therefore displays `3d6 + 3 ≥ 11` and `84%`.
+
+Observers may stop/restart playback during phase/payment notifications. An old
+encounter must not spend resources, refund a replacement run or publish later
+presentation after such a lifecycle change. See the
+[integrity fix report](audit-fixes-2026-10-30.md) for regression and browser evidence.

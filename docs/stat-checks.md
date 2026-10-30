@@ -12,9 +12,9 @@ Matching stat and difficulty succeeds on 135 of 216 outcomes (62.5%). There are
 no critical rolls, variable dice pools, automatic encounter scaling or hidden
 rerolls. Even certain/impossible tests physically roll three d6.
 
-The check card keeps its authored description. A prominent exact success
-probability, rounded to one decimal percentage point, appears by or below the
-card. A smaller contextual panel below it shows the stat name and current value
+The check card keeps its authored description. A prominent success
+probability, rounded to a whole percentage in the compact player panel, appears
+by or below the card. A smaller contextual panel below it shows the stat name and current value
 with the formula, for example **Agility 3 · 3d6 + 3 ≥ 15**. The global player
 HUD remains limited to Health and Energy; stats and formulas are available in
 this check panel. The probability is calculated from all 216 possible 3d6
@@ -23,8 +23,9 @@ results and updates from the current run state.
 Award +1 at meaningful milestones. Author later difficulty around expected
 growth, with easier/harder exceptions. A difficulty-5 check rises from 37.5% at
 stat 3 to 83.8% at stat 7. Earlier encounters retain their original difficulty.
-Campaign saves and cross-chapter carryover remain separate work: selecting a
-chapter or restarting still starts a fresh run.
+Durable campaign resume remains deferred. Explicit Next chapter links carry
+project variables and shared Items; restart restores that chapter’s entry
+snapshot, while selecting a chapter or pressing Play starts a fresh run.
 
 ## Motion and state ownership
 
@@ -118,7 +119,7 @@ retained; no invisible RNG fallback is introduced.
 ## October 17 contextual check panel update
 
 Stat check fronts now retain only the authored fiction; the selected Action's
-one-decimal success percentage appears below the card, followed by its current
+rounded whole success percentage appears below the card, followed by its current
 stat value, formula and applicable resource-rule summary. These details track
 selection and inventory effects, disappear for non-stat actions and committed
 rolls, and reset on Stop/Restart. Custom checks keep their existing presentation.

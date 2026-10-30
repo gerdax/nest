@@ -18,7 +18,7 @@ export class CombatCoordinator {
  active(){return !this.disposed&&!this.abort.signal.aborted&&!this.host.destroyed&&this.host.generation===this.generation&&this.host.combat===this;}
  token(){return `${this.encounter.id}:${++this.serial}`;}
  snapshot(){return {variables:{...this.host.variables},inventory:this.host.inventory.map(i=>structuredClone(i))};}
- setPhase(phase){this.phase=phase;if(this.deck.mount){const mount=this.deck.mount,wasInert=mount.inert;mount.inert=!this.idle;const doc=mount.ownerDocument;if(wasInert&&this.idle&&doc&&doc.activeElement===doc.body)mount.focus?.({preventScroll:true});}this.host.notify();}
+ setPhase(phase){this.phase=phase;if(this.deck.mount){const mount=this.deck.mount,wasInert=mount.inert;mount.inert=!this.idle;const doc=mount.ownerDocument;if(wasInert&&this.idle&&doc&&doc.activeElement===doc.body)mount.focus?.({preventScroll:true});}this.host.notify();return this.active();}
  async replace(content,options={}){
   if(!this.active())return false;
   return new Promise((resolve,reject)=>{
@@ -34,7 +34,7 @@ export class CombatCoordinator {
   try{
    if(this.enemy.introEnabled){
     this.resume={kind:'sequence'};this.sequence={kind:'intro',steps:[{card:{...this.enemy,kind:'event'}}],index:0};
-    this.setPhase('entering');await this.replace(this.sequenceContent(),{transition:'flip'});
+    if(!this.setPhase('entering'))return;await this.replace(this.sequenceContent(),{transition:'flip'});
     if(this.active())this.setPhase('intro');
    }else await this.enterEnemy();
   }catch(error){this.fail(error);}
@@ -44,7 +44,7 @@ export class CombatCoordinator {
  choiceContent(){return {...combatChoices(this.choices(),this.token(),this.host.variables),cardBack:this.host.compiled.cardBack};}
  async enterEnemy({reveal=false}={}){
   if(!this.active())return;
-  this.resume={kind:'enemy'};this.sequence=null;this.setPhase('enemy-enter');
+  this.resume={kind:'enemy'};this.sequence=null;if(!this.setPhase('enemy-enter'))return;
   const content=this.introSuccessor??this.actionCard();this.introSuccessor=null;
   if(!await this.replace(content,{transition:reveal?'reveal':'flip'}))return;
   if(this.active()){const action=this.enemy.actions[this.encounter.actionIndex];if(action.resolution==='direct')this.setPhase('enemy-action');else await this.performEnemyAction(action);}
@@ -57,7 +57,7 @@ export class CombatCoordinator {
  }
  async showChoices(){
   if(!this.active())return;
-  this.resume={kind:'choices'};this.sequence=null;this.setPhase('player-enter');const content=this.choiceContent();
+  this.resume={kind:'choices'};this.sequence=null;if(!this.setPhase('player-enter'))return;const content=this.choiceContent();
   if(!content.actions.some(a=>!a.disabled))throw new Error('No available combat Actions. Configure a usable default Action.');
   if(this.deck.phase==='committing')await this.replace(content,{presentation:'open',transition:'flip'});
   else {
@@ -69,12 +69,13 @@ export class CombatCoordinator {
  async attack(actor,action,source=null,{contentId}={}){
   if(!this.active())return;
   this.resume={kind:actor==='player'?'choices':'enemy'};
-  this.setPhase(`${actor}-roll`);
+  if(!this.setPhase(`${actor}-roll`))return;
   const before=this.snapshot();this.payment=null;
   try{
    if(actor==='player'){
     const paid=transact(before.variables,before.inventory,{costs:action.costs??[]},this.host.compiled.variables,this.host.compiled.library);
     this.payment={before,paid,final:false};this.host.variables=paid.variables;this.host.inventory=paid.inventory;this.host.notify();
+    if(!this.active())return;
    }
    // Direct choices have no physical check face. Finish their accepted departure
    // before installing the successor through the deck's normal commit contract.
@@ -87,7 +88,7 @@ export class CombatCoordinator {
    this.pending=resolved;this.resume={kind:'resolution'};if(this.payment)this.payment.final=true;
    if(actor==='player')this.encounter=completePlayerTurn(this.encounter,action,source);
    else this.encounter=applyActionProtection(this.encounter,'enemy',action);
-   this.setPhase(`${actor}-result`);
+   if(!this.setPhase(`${actor}-result`))return;
    if(action.resolution!=='direct')await this.host.onCheckResult({target:resolved.target,total:resolved.total,success:resolved.success,label:resolved.success?(resolved.blockedDamage>0&&resolved.damage===0?'BLOCKED':'SUCCESS'):'MISS',signal:this.abort.signal});
    if(!this.active())return;
    await this.presentResolution({replace:action.resolution==='direct'});
@@ -124,7 +125,7 @@ export class CombatCoordinator {
   if(sequence.index>=sequence.steps.length){await this.completeSequence();return;}
   const step=sequence.steps[sequence.index],content=this.sequenceContent();
   this.accepted.delete(step.contentId);
-  this.setPhase('effect-enter');
+  if(!this.setPhase('effect-enter'))return;
   if(replace||this.deck.phase==='committing'){
    if(!replace&&surface==='check'){
     const entered=await this.deck.transitionContent(content,{transition:'slide',surface,signal:this.abort.signal});
@@ -145,6 +146,9 @@ export class CombatCoordinator {
  refundPayment(){
   const payment=this.payment;
   if(!payment||payment.final||payment.refunded)return;
+  // Disposal may refund this run, but a late failure must never restore an old
+  // snapshot over a replacement run or a different encounter.
+  if(this.host.generation!==this.generation||this.host.combat!==this)return;
   payment.refunded=true;this.host.variables=payment.before.variables;this.host.inventory=payment.before.inventory;
   if(this.active())this.host.notify();
  }
@@ -172,7 +176,7 @@ export class CombatCoordinator {
   }
   if(!this.sequence||!['intro','effects','enemy-death'].includes(this.phase))return;
   if(this.sequence.kind==='enemy-death'&&this.sequence.index===this.sequence.steps.length-1&&this.host.combatVictoryReason())return;
-  this.accepted.add(detail.contentId);this.advancing=true;const sequence=this.sequence,step=sequence.steps[sequence.index];this.setPhase('departing');
+  this.accepted.add(detail.contentId);this.advancing=true;const sequence=this.sequence,step=sequence.steps[sequence.index];if(!this.setPhase('departing'))return;
   try{
    await this.deck.waitForDeparture(detail.contentId,{signal:this.abort.signal});if(!this.active())return;
    if(step.operation&&!this.committed.has(step.id)){
@@ -215,7 +219,8 @@ export class CombatCoordinator {
  }
  fail(error){
   if(!this.active())return;
-  this.advancing=false;this.setPhase('error');this.host.error(error);
+  this.advancing=false;if(!this.setPhase('error'))return;this.host.error(error);
+  if(!this.active())return;
   const card={id:this.token(),cardBack:this.host.compiled.cardBack,interaction:'choice',directAdvance:true,allowClose:false,cardKind:'caption',text:`Combat paused: ${error.message}\n\nSwipe to retry.`,actions:[{id:'retry',label:'Retry'}]};
   this.deck.replaceContent(card,{animate:false});if(this.deck.mount)this.deck.mount.inert=false;
  }

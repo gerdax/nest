@@ -8,13 +8,24 @@ Inventory rule pickers (requirements, costs, effects and Inventory trigger) offe
 
 The player HUD displays Health and Energy when the project defines numeric variables with IDs `health` and `energy`. It uses their authored values and maximum bounds; playback does not add variables or change their definitions. Flags with these IDs remain ordinary flags and have no numeric HUD meter. Agility, Intelligence and Composure are available in the contextual stat-check panel rather than the global HUD.
 
+## Numeric Health integrity
+
+A numeric variable with ID `health` uses safe integers for defaults, bounds,
+chapter overrides, costs, consumable values and effects. Validation reports
+fractional or unsafe values; runtime transactions also reject them atomically,
+including values carried into another chapter. Values are never silently
+rounded. This tightens formerly accepted fractional story Health authoring;
+repair those values explicitly before playback. Energy and other numeric
+variables may still be fractional. Flags named `health` retain their existing
+story behavior; combat requires numeric Health with bounds allowing zero.
+
 ## Requirements, costs and effects
 
 Rules are structured data; no JavaScript is evaluated. Variable conditions support equals, does not equal, at least and at most; flags support equality/inequality. Inventory conditions check owned/not owned against item definitions or preserved migration aliases. All conditions must pass. Action placements choose whether unmet requirements hide the action or show it disabled. Costs also determine affordability. If no action is available, the author must supply a usable route; the runtime does not invent a destination.
 
 Conditions check state without changing it or spending resources. Effects set/add variables or add/remove item ownership. Numeric values are clamped to their bounds; overflow and invalid item removal fail atomically. Narrative and direct-action effects apply once on accepted progression. Item `onCollect` effects apply once for the completed take and never on discard. Each item definition can be owned once; aliases preserve old v1 checks. Action placements use source rules or one complete customized rule set. Existing additional Action conditions/effects are folded into customized rules for shared cards or into the source for Custom cards on load. Vignettes and Captions also use either source progression effects or one customized progression effect set. Existing additional progression effects are folded into custom rules for shared cards or into local definitions, preserving appearance conditions separately.
 
-An Action can use a **Stat check** (`3d6 + Agility/Intelligence/Composure ≥ 10 + difficulty`) or a **Custom check** (existing dice/modifier/target, default `1d20 + 0 ≥ 10`). Stat checks show the exact success probability to one decimal place and a contextual panel with the stat value and formula. Common effects and Success/Failure effects commit with costs after the completed roll/result and valid routing. Both success and failure spend attempt costs. Escape cannot cancel a committed roll; editor Stop/Restart or interruption/technical error aborts without spending or applying effects. Direct actions spend costs and apply common effects in the same atomic transaction. Dice physics remains independent of this interpretation. See [Stats and card-based checks](stat-checks.md) for progression and presentation details.
+An Action can use a **Stat check** (`3d6 + Agility/Intelligence/Composure ≥ 10 + difficulty`) or a **Custom check** (existing dice/modifier/target, default `1d20 + 0 ≥ 10`). The compact player panel shows the computed probability rounded to a whole percentage and the contextual resolved formula. Common effects and Success/Failure effects commit with costs after the completed roll/result and valid routing. Both success and failure spend attempt costs. Escape cannot cancel a committed roll; editor Stop/Restart or interruption/technical error aborts without spending or applying effects. Direct actions spend costs and apply common effects in the same atomic transaction. Dice physics remains independent of this interpretation. See [Stats and card-based checks](stat-checks.md) for progression and presentation details.
 
 New Random routes filter their weighted destinations using conditions. Narrative cards whose placement conditions fail are skipped; ineligible container items are omitted. Empty eligible containers continue. **Project settings → Allow beat cycles** enables revisits across all chapters and is checked by default. A runtime traversal guard blocks automatic routing-only loops with an **Automatic routing cycle** error; internal card cycles in legacy sequences are rejected by validation.
 

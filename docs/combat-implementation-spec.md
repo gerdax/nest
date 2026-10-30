@@ -1,5 +1,11 @@
 # Combat implementation specification — Rat encounter
 
+> Historical first-milestone scope. Production combat is implemented and is
+> included in the canonical main version. Later work added Defend/Wait, Health
+> costs and progression/outcome effects. Use [the current combat guide](combat.md)
+> and [implementation checkpoints](combat-implementation-status.md) for current
+> behavior and verification; the original decisions below remain preserved.
+
 **28 October 2026 authoring amendment:** Weapons now own embedded Combat Actions;
 weaponless default Actions and shared player Effect Cards are edited in Library
 → Common. Library → Content retains story definitions. This supersedes earlier

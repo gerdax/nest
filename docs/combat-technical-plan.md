@@ -1,5 +1,11 @@
 # Combat technical implementation plan
 
+> Historical first-milestone scope. Production combat is implemented and is
+> included in the canonical main version. Later work added Defend/Wait, Health
+> costs and progression/outcome effects. Use [the current combat guide](combat.md)
+> and [implementation checkpoints](combat-implementation-status.md) for current
+> behavior and verification; the original decisions below remain preserved.
+
 Implementation status and verification: [M0–M7 checkpoint](combat-implementation-status.md).
 
 27 October 2026. Planning deliverable prepared with Astra's architecture review.

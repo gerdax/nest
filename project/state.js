@@ -6,10 +6,13 @@ export function initialValues(definitions = []) {
   return Object.fromEntries(definitions.map(d => [d.id, clamp(d.initial, d)]));
 }
 function clamp(value, definition) {
+  if (definition?.id === 'health' && definition.type === 'number' && !Number.isSafeInteger(value)) throw createError('STATE_HEALTH_VALUES_MUST_BE_INTEGERS');
   if (isStatVariable(definition) && !Number.isInteger(value)) throw createError('STATE_STAT_VALUES_MUST_BE_INTEGERS');
   if (typeof value === 'number') {
     if (!Number.isFinite(value)) throw createError('STATE_VARIABLE_OVERFLOW');
-    return Math.min(definition?.max ?? Infinity, Math.max(definition?.min ?? -Infinity, value));
+    const bounded = Math.min(definition?.max ?? Infinity, Math.max(definition?.min ?? -Infinity, value));
+    if (definition?.id === 'health' && definition.type === 'number' && !Number.isSafeInteger(bounded)) throw createError('STATE_HEALTH_VALUES_MUST_BE_INTEGERS');
+    return bounded;
   }
   return value;
 }
@@ -67,6 +70,7 @@ function spend(values,inventory,costs,definitions = []) {
     else {
       if (!Number.isFinite(cost.amount) || cost.amount < 0) throw createError('STATE_INVALID_COST');
       if (typeof values[cost.key] !== 'number' || values[cost.key]-cost.amount < (defs.get(cost.key)?.min ?? 0)) throw createError('STATE_INSUFFICIENT_VARIABLE', { key: cost.key });
+      if (cost.key === 'health' && (!Number.isSafeInteger(cost.amount) || !Number.isSafeInteger(values[cost.key]-cost.amount))) throw createError('STATE_HEALTH_VALUES_MUST_BE_INTEGERS');
       if (isStatVariable(defs.get(cost.key)) && !Number.isInteger(cost.amount)) throw createError('STATE_STAT_COSTS_MUST_BE_INTEGERS');
       values[cost.key] -= cost.amount;
     }

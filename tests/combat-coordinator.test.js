@@ -311,3 +311,62 @@ test('obsolete per-effect checkbox metadata no longer gates common progression e
  h.host.compiled.library.find(d=>d.name==='Punch').effects=[{op:'add',key:'energy',value:1,onDiceSuccess:false,onDiceFailure:false}];
  await select(h,'Punch');assert.equal(h.host.variables.energy,4);h.c.dispose();
 });
+
+
+for(const boundary of ['player-roll','payment','player-result','effect-enter','error'])for(const lifecycle of ['restart','stop'])test(`${lifecycle} from ${boundary} observer cannot mutate or publish through the old combat`,async()=>{
+ const h=harness();await reachPlayer(h);
+ const punch=h.host.compiled.library.find(d=>d.name==='Punch');punch.costs=[{source:'variable',key:'energy',amount:1}];
+ let stopped=false,rolls=0,feedback=0;const content=h.deck.content;
+ h.host.rollCheck=async()=>{rolls++;if(boundary==='error')throw new Error('Roll failed');return {dice:[4,4,4]};};
+ h.host.onCheckResult=async()=>{feedback++;};
+ const fresh={health:8,energy:7};
+ h.host.notify=()=>{
+  const reached=boundary==='payment'?h.host.variables.energy===2:h.c.phase===boundary;
+  if(stopped||!reached)return;
+  stopped=true;h.c.dispose();h.host.combat=null;
+  if(lifecycle==='restart'){h.host.generation++;h.host.variables={...fresh};h.host.inventory=[];}
+ };
+ await select(h,'Punch');
+ assert.equal(stopped,true);assert.equal(h.host.combat,null);assert.equal(h.deck.content,content);
+ assert.deepEqual(h.host.variables,lifecycle==='restart'?fresh:{health:9,energy:['player-result','effect-enter'].includes(boundary)?2:3});
+ assert.equal(rolls,['player-roll','payment'].includes(boundary)?0:1);
+ assert.equal(feedback,boundary==='effect-enter'?1:0);
+ assert.equal(h.errors.length,0);
+});
+
+test('a late rejected roll cannot refund an old payment into a replacement encounter',async()=>{
+ const h=harness();await reachPlayer(h);
+ h.host.compiled.library.find(d=>d.name==='Punch').costs=[{source:'variable',key:'energy',amount:1}];
+ let reject;h.host.rollCheck=()=>new Promise((_,failure)=>{reject=failure;});
+ const pending=select(h,'Punch');await tick();
+ // Ownership changes before the rejection is delivered, even without disposal.
+ h.host.generation++;h.host.combat=null;h.host.variables={health:8,energy:7};
+ reject(new Error('Late failure'));await pending;
+ assert.deepEqual(h.host.variables,{health:8,energy:7});assert.equal(h.errors.length,0);h.c.dispose();
+});
+
+for(const boundary of ['player-roll','payment'])for(const lifecycle of ['restart','destroy'])test(`real ProjectController ${lifecycle} during ${boundary} prevents a stale player attempt`,async()=>{
+ const fixture=harness(),deck=fixture.deck;fixture.c.dispose();
+ deck.reset=function(){this.content={id:'reset'};this.phase='closed';};
+ const compiled=fixture.host.compiled;compiled.startNode=compiled.nodes.find(n=>n.type==='combat').id;
+ const punch=compiled.library.find(d=>d.name==='Punch');punch.costs=[{source:'variable',key:'energy',amount:1}];
+ let armed=false,controller,oldCombat,playerRolls=0;
+ controller=new ProjectController(deck,compiled,{
+  initialState:{variables:{health:10,energy:3}},
+  rollCheck:async(pool,options)=>{if(options.surface==='check')playerRolls++;return {dice:[4,4,4]};},
+  onChange:state=>{
+   if(!armed||state.combat?.phase!=='player-roll'||(boundary==='payment'&&state.variables.energy!==2))return;
+   armed=false;controller[lifecycle]();
+  },
+ });
+ await tick();oldCombat=controller.combat;
+ const h={c:oldCombat,deck};
+ if(oldCombat.phase==='effects')await swipe(h);
+ assert.equal(oldCombat.phase,'choice');armed=true;
+ await select(h,'Punch');await tick();
+ assert.equal(armed,false);assert.equal(oldCombat.disposed,true);assert.equal(oldCombat.pending,null);
+ assert.equal(controller.variables.energy,3);assert.equal(playerRolls,0);
+ if(lifecycle==='restart')assert.notEqual(controller.combat,oldCombat);
+ else assert.equal(controller.destroyed,true);
+ controller.destroy();
+});

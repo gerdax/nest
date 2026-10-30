@@ -8,8 +8,8 @@ Graph card rows show rule letters beneath the card name: **T** for an Inventory 
 
 Dice Actions now offer **Stat check** with Agility, Intelligence or Composure and
 difficulty 1–10, alongside the existing **Custom check** controls. Global stats
-start at 3 and stay out of the global player HUD. The exact one-decimal success
-probability appears by or below the card; a smaller contextual panel below
+start at 3 and stay out of the global player HUD. The computed success probability
+appears rounded to a whole percentage in the compact player panel; a smaller contextual panel below
 shows the current stat value and formula. The underlying card back hosts the
 dice and result after the Action leaves. See [Stats and card-based checks](stat-checks.md).
 

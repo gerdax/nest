@@ -3,7 +3,7 @@
 // run in isolated processes with forced GC; they are not browser memory limits.
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
-import {cpSync, mkdtempSync, readFileSync, writeFileSync, rmSync} from 'node:fs';
+import {cpSync, existsSync, mkdtempSync, readFileSync, writeFileSync, rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {resolve, join, dirname} from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
@@ -30,9 +30,17 @@ if (process.argv[2] === '--heap') {
   for(let i=0;i<80;i++) history.transact(draft=>{draft.chapters[0].nodes[0].name=`History ${i}`;});
   global.gc();
   const full=process.memoryUsage();
-  let undos=0;while(history.undo())undos++;
-  assert.equal(undos,80);
-  assert.equal(history.document.chapters[0].nodes[0].name,project.chapters[0].nodes[0].name);
+  const checkBudget=()=>{if(Number.isFinite(history.maxBytes))assert.ok(history.retainedBytes<=history.maxBytes);};
+  checkBudget();
+  const retainedBytes=history.retainedBytes??null;
+  let undos=0;
+  while(history.undo()){
+    undos++;
+    assert.equal(history.document.chapters[0].nodes[0].name,undos===80?project.chapters[0].nodes[0].name:`History ${79-undos}`);
+    checkBudget();
+  }
+  assert.ok(undos>0&&undos<=80);
+  if(!Number.isFinite(history.maxBytes))assert.equal(undos,80);
   global.gc();
   const redo=process.memoryUsage();
   // Keep both source and history live through the final measurement.
@@ -40,8 +48,17 @@ if (process.argv[2] === '--heap') {
   const delta=usage=>({heapMiB:rounded((usage.heapUsed-before.heapUsed)/2**20),
     arrayBuffersMiB:rounded((usage.arrayBuffers-before.arrayBuffers)/2**20),
     totalMiB:rounded((usage.heapUsed-before.heapUsed+usage.arrayBuffers-before.arrayBuffers)/2**20)});
-  console.log(JSON.stringify({initialHistory:delta(initial),full80History:delta(full),
-    redo80History:delta(redo),undoSteps:undos}));
+  let redos=0;
+  while(history.redo()){
+    redos++;
+    assert.equal(history.document.chapters[0].nodes[0].name,`History ${79-undos+redos}`);
+    checkBudget();
+  }
+  assert.equal(redos,undos);
+  assert.equal(history.document.chapters[0].nodes[0].name,'History 79');
+  console.log(JSON.stringify({initialHistory:delta(initial),after80Edits:delta(full),
+    afterRetainedUndos:delta(redo),undoSteps:undos,redoSteps:redos,retainedBytes,
+    historyByteBudget:history.maxBytes??null}));
 } else {
   const profileOnly=process.argv.includes('--profile-only');
   const baselineRoot=process.argv.slice(2).find(value=>value!=='--profile-only');
@@ -49,13 +66,13 @@ if (process.argv[2] === '--heap') {
   const report={node:process.version,method:{timing:'3 warmups, median of 9; versions run sequentially; excludes DOM and real storage I/O',
     save:'saveWarm reuses an adapter with the last successful primary; saveUncachedPrimary seeds a fresh adapter with valid JSON each time',
     profile:'Mean exclusive/inclusive CPU scope times across 7 transactions/saves; instrumentation adds overhead',
-    heap:'One fresh --expose-gc process per workload/version, retained heap+ArrayBuffer delta after GC, full 80 undo steps; excludes process/native overhead'},results:{}};
+    heap:'One fresh --expose-gc process per workload/version, retained heap+ArrayBuffer delta after GC, 80 edits followed by all retained undo steps within each version’s history budget, then validated redo; excludes process/native overhead'},results:{}};
   if(!profileOnly)for(const [version,root] of Object.entries(roots)) {
     const {createLargeProject}=await load(root,'tests/fixtures/large-project.js');
     const {DocumentHistory}=await load(root,'editor/DocumentHistory.js');
     const {LocalCardDrafts}=await load(root,'studio/local-card-drafts.js');
     const {transactDocument}=await load(root,'studio/document-session.js');
-    const {saveProject}=await load(root,'project/storage.js');
+    const {saveProject,STORAGE_KEY}=await load(root,'project/storage.js');
     const rows=[];
     for(const beats of [60,120,600]) {
       const project=createLargeProject({beatsPerChapter:beats}),history=new DocumentHistory(project),drafts=new LocalCardDrafts();
@@ -66,7 +83,8 @@ if (process.argv[2] === '--heap') {
         const edit=performance.now()-start;assert.equal(result.failure,undefined);
         start=performance.now();const saved=saveProject(result.project,storage);const saveWarm=performance.now()-start;
         assert.equal(saved.ok,true);
-        const uncached=memoryStore();uncached.setItem('nest.project.v2',storage.getItem('nest.project.v2'));
+        const uncached=memoryStore(),primary=storage.getItem(STORAGE_KEY);
+        assert.equal(typeof primary,'string');uncached.setItem(STORAGE_KEY,primary);
         start=performance.now();assert.equal(saveProject(result.project,uncached).ok,true);
         const saveUncachedPrimary=performance.now()-start;
         start=performance.now();assert.equal(history.undo(),true);history.document;const undoRead=performance.now()-start;
@@ -90,6 +108,7 @@ if (process.argv[2] === '--heap') {
       for(const folder of ['project','studio','chapter','engine','editor','demo','dice'])
         cpSync(join(root,folder),join(temp,folder),{recursive:true,filter:path=>!path.includes('/vendor')&&!path.includes('/themes')});
       cpSync(join(root,'tests/fixtures'),join(temp,'tests/fixtures'),{recursive:true});
+      if(existsSync(join(root,'errors.js')))cpSync(join(root,'errors.js'),join(temp,'errors.js'));
       writeFileSync(join(temp,'package.json'),'{"type":"module"}');
       const modules=['project/dependencies.js','project/local-ownership.js','project/normalization.js',
         'project/validation.js','project/packages.js','studio/commands.js','chapter/model.js'];

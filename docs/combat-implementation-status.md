@@ -1,7 +1,15 @@
-# Combat implementation checkpoint — M0–M7
+# Combat implementation checkpoints
 
-27 October 2026. Implemented in the isolated `combat-production` worktree;
-the original main checkout and reference combat mockup remain preserved.
+Current production behavior is documented in [combat.md](combat.md). The
+implementation and subsequent fixes are included on the canonical `main`
+branch; the worktree notes below describe where the original checkpoints were
+verified. Later sections supersede the original milestone's deferred scope.
+
+## Historical M0–M7 checkpoint
+
+27 October 2026. This checkpoint was implemented in the isolated
+`combat-production` worktree while the then-current main checkout and reference
+combat mockup were preserved. Main now includes the production implementation.
 
 ## Milestone delivery
 
@@ -70,7 +78,7 @@ costs still receive explicit validation diagnostics. See [current action semanti
 
 ## Try it
 
-Run `python3 serve.py --host 127.0.0.1 --port 8960` from this worktree.
+Run `python3 serve.py --host 127.0.0.1 --port 8960` from the current checkout.
 Open `player.html?example=rat` for the non-saving example, or `editor.html`
 for Library/chapter authoring. The example does not replace browser storage.
 
@@ -94,3 +102,19 @@ Safari/Firefox and screen-reader checks were not repeated.
 Later authoring work shares the existing On success/On failure effect sections
 with checked Combat Actions. Progression effects remain common to either outcome;
 per-effect dice checkboxes are no longer used.
+
+
+## 30 October 2026 integrity follow-up
+
+The current implementation includes Attack/Defend/Wait, Energy/Health costs,
+shared progression and outcome-effect editors. The original M0–M7 deferrals
+above are historical; the [current guide](combat.md) owns the feature list.
+
+All six confirmed audit findings were addressed: numeric Health and effective
+damage validation, observer lifecycle guards, modifier display, exchange
+compensation and the authoring benchmark. Verification passed 2,591 main tests,
+31 isolated demo tests, static staging and the repaired benchmark. Astra found
+no remaining blocking issues in its final review. Browser verification confirmed
+Pistol collection, entry into production combat and `3d6 + 3 ≥ 11` with `84%`.
+Physical devices and other browsers were not retested. Full details and
+reproduction commands are in [the integrity fix report](audit-fixes-2026-10-30.md).

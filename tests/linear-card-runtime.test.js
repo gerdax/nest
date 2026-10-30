@@ -633,3 +633,73 @@ for(const reduced of [false,true])for(const variant of ['unlocks-next','already-
  assert.equal(controller.state.cardId,variant==='still-unmet'?'later':'next');
  dispose(deck,controller);
 });
+
+
+for(const reduced of [false,true])for(const fault of ['before-deck','decorate','deposit','cancel','return-render'])test(`exchange failure restores ownership and displayed content: ${fault}, reduced=${reduced}`,async()=>{
+ const {InventoryPickup}=await import('../engine/InventoryPickup.js');
+ const errors=[],incoming=item('incoming',{onCollect:[{op:'add',key:'energy',value:1}]});
+ const {deck,controller}=real([{id:'box',type:'container',introEnabled:false,items:[incoming],connections:{next:null}}],{variables:energy},{onError:e=>errors.push(e)});
+ deck.reduced=reduced;let deposited=false,armed=false;
+ const once=()=>{if(armed){armed=false;throw Error('injected '+fault);}};
+ deck.pickup=new InventoryPickup(deck,{setContext(){},preview(){},cancelPending(){if(fault==='cancel')once();},stageDeposit(){deposited=true;if(fault==='deposit')once();},clearDeposit(){deposited=false;}});
+ controller.inventory=['a','b','c','d'].map(id=>item(id));controller.show({restore:true});settle();
+ const snapshot=element=>({text:element.textContent??'',image:element.src??'',children:element.children.map(snapshot)});
+ const before=controller.inventory,beforeEnergy=controller.variables.energy,original=deck.content,originalFace=snapshot(deck.cards[0]);
+ if(fault==='before-deck')deck.exchangePickup=()=>{once();return false;};
+ if(fault==='decorate'){const native=deck.decorate;deck.decorate=function(...args){once();return native.apply(this,args);};}
+ if(fault==='return-render'){const native=deck.render;deck.render=function(...args){if(this.inventoryExchangeReturning)once();return native.apply(this,args);};}
+ armed=true;
+ assert.equal(controller.exchangeCollection(deck.content.actions[0],{slot:1,replacementId:'b',returnToStack:true}),false);
+ settle();
+ assert.deepEqual(controller.inventory,before);assert.equal(controller.variables.energy,beforeEnergy);
+ assert.equal(controller.pendingExchange,null);assert.equal(controller.itemReplacements.size,0);
+ assert.equal(deck.content.actions[0].definitionId,original.actions[0].definitionId);
+ assert.equal(deck.content.actions[0].label,original.actions[0].label);
+ assert.deepEqual(snapshot(deck.cards[0]),originalFace,'the live face, including nested text/artwork, is restored');
+ assert.equal(deck.phase,'choices');assert.equal(deck.busy,false);assert.equal(deposited,false);
+ assert(errors.some(e=>e.message==='injected '+fault));dispose(deck,controller);
+});
+
+test('recovery reports a repeated adapter failure without retaining gameplay changes',async()=>{
+ const {InventoryPickup}=await import('../engine/InventoryPickup.js');
+ const errors=[];const {deck,controller}=real([{id:'box',type:'container',introEnabled:false,items:[item('incoming')],connections:{next:null}}],{},{onError:e=>errors.push(e)});
+ let broken=false;deck.pickup=new InventoryPickup(deck,{setContext(){},preview(){},cancelPending(){},stageDeposit(){throw Error('deposit failed');},clearDeposit(){if(broken)throw Error('cleanup failed');}});
+ controller.inventory=['a','b','c','d'].map(id=>item(id));controller.show({restore:true});settle();const before=controller.inventory;broken=true;
+ assert.equal(controller.exchangeCollection(deck.content.actions[0],{slot:1,replacementId:'b',returnToStack:true}),false);
+ assert.deepEqual(controller.inventory,before);assert.equal(controller.pendingExchange,null);
+ assert.equal(errors[0].message,'deposit failed');assert.match(errors[1].message,/recovery failed: cleanup failed/);
+ broken=false;dispose(deck,controller);
+});
+
+for(const phase of ['deposit','recovery'])test(`exchange cleanup never overwrites a callback restart: ${phase}`,async()=>{
+ const {InventoryPickup}=await import('../engine/InventoryPickup.js');
+ const {deck,controller}=real([{id:'box',type:'container',introEnabled:false,items:[item('incoming')],connections:{next:null}}]);
+ let armed=false;const restart=()=>{if(armed){armed=false;controller.restart();}};
+ deck.pickup=new InventoryPickup(deck,{setContext(){},preview(){},cancelPending(){if(phase==='recovery')restart();},stageDeposit(){if(phase==='deposit')restart();throw Error('deposit failed');},clearDeposit(){}});
+ controller.inventory=['a','b','c','d'].map(id=>item(id));controller.show({restore:true});settle();armed=true;
+ assert.equal(controller.exchangeCollection(deck.content.actions[0],{slot:1,replacementId:'b',returnToStack:true}),false);
+ settle();assert.deepEqual(controller.inventory,[]);assert.equal(controller.pendingExchange,null);assert.equal(controller.itemReplacements.size,0);
+ assert.equal(deck.content.actions[0].definitionId,'incoming');assert.equal(deck.busy,false);dispose(deck,controller);
+});
+
+for(const reduced of [false,true])test(`observer failure after accepted exchange retains committed ownership, reduced=${reduced}`,async()=>{
+ const {InventoryPickup}=await import('../engine/InventoryPickup.js');
+ const errors=[];const {deck,controller}=real([{id:'box',type:'container',introEnabled:false,items:[item('incoming')],connections:{next:null}}],{},{onError:e=>errors.push(e)});
+ deck.reduced=reduced;deck.pickup=new InventoryPickup(deck,{setContext(){},preview(){},cancelPending(){},stageDeposit(){},clearDeposit(){}});
+ controller.inventory=['a','b','c','d'].map(id=>item(id));controller.show({restore:true});settle();
+ let armed=true;controller.onSuccess=()=>{if(armed){armed=false;throw Error('observer failed');}};
+ assert.equal(controller.exchangeCollection(deck.content.actions[0],{slot:1,replacementId:'b',returnToStack:true}),true);
+ settle();assert.deepEqual(controller.inventory.map(i=>i.definitionId),['a','c','d','incoming']);assert.equal(controller.pendingExchange,null);assert.equal(deck.content.actions[0].definitionId,'b');
+ assert(errors.some(e=>e.message==='observer failed'));dispose(deck,controller);
+});
+
+test('exception after synchronous completion still reports an accepted exchange',async()=>{
+ const {InventoryPickup}=await import('../engine/InventoryPickup.js');const errors=[];
+ const {deck,controller}=real([{id:'box',type:'container',introEnabled:false,items:[item('incoming')],connections:{next:null}}],{},{onError:e=>errors.push(e)});
+ deck.reduced=true;deck.pickup=new InventoryPickup(deck,{setContext(){},preview(){},cancelPending(){},stageDeposit(){},clearDeposit(){}});
+ controller.inventory=['a','b','c','d'].map(id=>item(id));controller.show({restore:true});settle();
+ const native=deck.exchangePickup;deck.exchangePickup=function(...args){native.apply(this,args);throw Error('late failure');};
+ assert.equal(controller.exchangeCollection(deck.content.actions[0],{slot:1,replacementId:'b',returnToStack:true}),true);
+ assert.deepEqual(controller.inventory.map(i=>i.definitionId),['a','c','d','incoming']);assert.equal(controller.pendingExchange,null);assert.equal(deck.content.actions[0].definitionId,'b');
+ assert(errors.some(e=>e.message==='late failure'));dispose(deck,controller);
+});

@@ -1473,7 +1473,7 @@ export class CardDeck extends EventTarget {
     }
     const hintState = !animate && presentation === 'open' && this.content.autoBrowse && next.autoBrowse && this.cards.length > 1
       ? { pending: this.presentationBrowsePending, hint: this.presentationHint, browse: { ...this.b } } : null;
-    this.reset({ preserveInventoryContext });
+    if(this.reset({ preserveInventoryContext })===false)return;
     this.install(next, { open: presentation === 'open', preserveInventoryContext });
     if (presentation === 'open' && !animate) {
       this.entrances.clear();
@@ -1699,7 +1699,10 @@ export class CardDeck extends EventTarget {
     this.clearCheckSurface();
     this.inventoryExchangeReturning = false;
     this.preserveInventoryContext = preserveInventoryContext;
+    const content=this.content,revision=this.presentationRevision;
     this.pickup?.reset();
+    // Adapter cleanup may synchronously restart or destroy the host.
+    if(this.destroyed||this.content!==content||this.presentationRevision!==revision)return false;
     this.input.cancel();
     cancelAnimationFrame(this.frame);
     this.frame = 0;
@@ -1716,6 +1719,7 @@ export class CardDeck extends EventTarget {
     this.pending = null;
     this.busy = false;
     this.install(this.content, { preserveInventoryContext });
+    return true;
   }
 
   schedule() {

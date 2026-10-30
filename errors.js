@@ -39,6 +39,7 @@ export const errorDefinitions = Object.freeze({
   PROJECT_PLACEMENT_MUST_IDENTIFY_ONE_LOCATION: Object.freeze({ message: "Placement must identify one location.", type: TypeError }),
   PROJECT_DEFINITION_IS_STILL_USED_BY_CARDS_OR_GAMEPLAY_RULES: Object.freeze({ message: "Definition is still used by cards or gameplay rules.", type: Error }),
   STATE_STAT_VALUES_MUST_BE_INTEGERS: Object.freeze({ message: "Stat values must be integers.", type: TypeError }),
+  STATE_HEALTH_VALUES_MUST_BE_INTEGERS: Object.freeze({ message: "Health requires integer Health values within safe bounds.", type: TypeError }),
   STATE_VARIABLE_OVERFLOW: Object.freeze({ message: "Variable overflow", type: RangeError }),
   STATE_INVENTORY_COSTS_AND_EFFECTS_REQUIRE_A_CONCRETE_ITEM: Object.freeze({ message: "Inventory costs and effects require a concrete item.", type: TypeError }),
   STATE_INVALID_COST: Object.freeze({ message: "Invalid cost", type: TypeError }),

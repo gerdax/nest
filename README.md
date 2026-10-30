@@ -4,6 +4,20 @@
 
 Three tools share native JavaScript modules and the existing Nest artwork: the project player, project studio, and independent 3D dice tray. No package installation or application build is required. Local changes do not update the published site until explicitly deployed.
 
+## Current version
+
+`main` is the canonical development branch and includes the production combat
+implementation. The normal player and studio support authored Combat/Death
+beats, Weapon-owned Actions, Common Actions, Enemies, Attack/Defend/Wait,
+Health/Energy costs and common/success/failure progression effects. Open
+[player.html?example=rat](player.html?example=rat) for the non-saving production
+example. The isolated `demos/` remain preserved references.
+
+Use [combat authoring](docs/combat.md) for current behavior. The dated combat
+specification and technical plan record earlier milestone scope. See the
+[30 October integrity fixes](docs/audit-fixes-2026-10-30.md) for the latest
+verification and remaining limitations.
+
 ## Local development
 
 ```sh
@@ -18,7 +32,7 @@ The server listens on all IPv4 interfaces by default for phone testing. Connect 
 - `/editor.html` opens the project studio with Library and Chapter views.
 - `/dice.html` opens the independent 3D dice tray.
 
-The player includes an expandable Motion tuning panel with its Copy settings action inside. Tuning applies to the chapter being played and stays available across Play, Restart, and JSON imports. There is no fixture selector; author scenarios in the studio and play their project or chapter JSON. Stat checks show their exact success probability to one decimal place by or below the card, with the stat value and formula in a smaller contextual panel. The global HUD displays Health and Energy.
+The player includes an expandable Motion tuning panel with its Copy settings action inside. Tuning applies to the chapter being played and stays available across Play, Restart, and JSON imports. There is no fixture selector; author scenarios in the studio and play their project or chapter JSON. Check probabilities are calculated from the resolved rules and shown as rounded whole percentages in the compact player panel, with the resolved formula in context. The global HUD displays Health and Energy.
 
 Run verification with `npm test` or `node --test tests/*.test.js`.
 
@@ -26,7 +40,7 @@ Run verification with `npm test` or `node --test tests/*.test.js`.
 
 Ordinary situation cards reveal choices with an upward swipe. Browse actions left or right, then swipe up to choose. The outgoing action stack exposes the next situation's reverse, which flips to its front. Ordinary choices stay open after reveal unless a host explicitly allows closing.
 
-A container starts with its description covering the items. One swipe up reveals the item carousel directly. Browse left or right and drag the selected item down into the four-slot inventory drawer to take it; the remaining cards rearrange smoothly. Swipe up to leave the container and discard all remaining items, with the selected card leading the departing stack. Items already taken stay in inventory. While browsing items, the bottom drawer stays visible over a black-to-transparent gradient. The large card keeps its original size and tilt during the drag. Crossing the upper drawer boundary switches to a separate mini that follows the pointer. Dragging farther down snaps it into the row; only an occupied hovered slot shifts its queue toward the nearest free slot. Hovering an empty slot leaves stored items still; when full, only the hovered replacement target moves down. Reversing above the drawer restores the full card before release. Releasing the floating mini before insertion cancels the pickup. Hold a mini to inspect it; minis cannot be dragged. A full drawer highlights replacement targets and asks for confirmation before discarding the old item. Keyboard collection uses the next empty slot or offers a replacement picker. Automatic story-effect grants retain their existing behavior for now; overflow remains inspectable and blocks further manual pickups until space is available. Item cards in Linear sequences retain individual upward discard.
+A container starts with its description covering the items. One swipe up reveals the item carousel directly. Browse left or right and drag the selected item down into the four-slot inventory drawer to take it; the remaining cards rearrange smoothly. Swipe up to leave the container and discard all remaining items, with the selected card leading the departing stack. Items already taken stay in inventory. While browsing items, the bottom drawer stays visible over a black-to-transparent gradient. The large card keeps its original size and tilt during the drag. Crossing the upper drawer boundary switches to a separate mini that follows the pointer. Dragging farther down snaps it into the row; only an occupied hovered slot shifts its queue toward the nearest free slot. Hovering an empty slot leaves stored items still; when full, only the hovered replacement target moves down. Reversing above the drawer restores the full card before release. Releasing the floating mini before insertion cancels the pickup. Hold a mini to inspect it; minis cannot be dragged. With a full drawer, a direct drop exchanges the incoming item with the hovered owned item, returning the displaced item to the stack. Keyboard collection uses the next empty slot; when full, it offers a replacement picker and confirmation before discarding the selected old item. Automatic story-effect grants retain their existing behavior for now; overflow remains inspectable and blocks further manual pickups until space is available. Item cards in Linear sequences retain individual upward discard.
 
 Taken or explicitly granted Items enter the run inventory. Each Item definition can be owned once. Items enable contextual Actions; `permability: 0` makes an Item permanent, while positive values limit its accepted Action triggers. Health and Energy cards apply their resource effects on collection and do not occupy inventory slots. There is no manual Item Use action. Restart restores the chapter entry state; reload starts a fresh run. Explicit Next chapter links carry project variables and owned shared Items, including remaining triggers; chapter-local Items do not carry. Equipment remains deferred. Reusable card-based combat and chapter Death beats are implemented; see [combat authoring](docs/combat.md). See [state authoring](docs/state-system.md) for the current rules.
 
@@ -126,7 +140,7 @@ The current prototype owns its artwork in `assets/img` and fonts in `assets/font
 
 The lid experiment and its controls have been removed from the active prototype.
 
-The studio Library stores shared Vignette, Caption, Action, Item, Health and Energy definitions across chapters. Chapter beats place those definitions and own their connections. Direct actions have one output; check actions have Success and Failure outputs. Linear cards advance with one swipe; visible narrative headings are optional. See [studio authoring](docs/chapter-editor.md) for reuse, local settings and v1 migration.
+The studio Library stores shared Vignette, Caption, story Action, Item/Weapon, Consumable and Enemy definitions across chapters; Common owns default Combat Actions and player damage Feedback. Chapter beats place those definitions and own their connections. Direct actions have one output; check actions have Success and Failure outputs. Linear cards advance with one swipe; visible narrative headings are optional. See [studio authoring](docs/chapter-editor.md) for reuse, local settings and v1 migration.
 
 ## Architecture and reusable capabilities
 

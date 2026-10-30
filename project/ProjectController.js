@@ -561,6 +561,24 @@ export class ProjectController {
     const item = this.type()==='linear' ? this.card() : this.items().find(item=>item.id===action.id);
     const displaced = this.inventory.find(owned=>(owned.definitionId??owned.id)===decision.replacementId);
     if (!displaced || !item || !this.deck.pickup || this.deck.busy || this.deck.drag || this.deck.phase!=='choices') return false;
+    const generation=this.generation;
+    let exchange,deckAccepted=false;
+    const current=()=>!this.destroyed&&this.generation===generation;
+    const rollback=(restorePresentation=true)=>{
+      if(!exchange||!current()||this.pendingExchange!==exchange.token||exchange.token.completed||deckAccepted)return;
+      this.variables=exchange.variables;this.inventory=exchange.inventory;this.pendingExchange=null;
+      if(exchange.hadMap){
+        if(exchange.replacement)this.itemReplacements.get(exchange.key).set(item.id,exchange.replacement);
+        else this.itemReplacements.get(exchange.key).delete(item.id);
+      }else this.itemReplacements.delete(exchange.key);
+      // Staging may already have redecorated the live face. Recover from the
+      // original content, rather than resetting the provisional replacement.
+      if(!restorePresentation||this.deck.content.id!==exchange.content.id)return;
+      this.deck.content=exchange.content;
+      this.deck.reset();
+      if(!current()||this.deck.destroyed||this.deck.content!==exchange.content)return;
+      this.deck.replaceContent(exchange.content,{presentation:'open',animate:false});
+    };
     try {
       const {context,...itemContent}=item;
       const inventory=addInventory(this.collectionInventory(item,decision.replacementId),{...itemContent,text:this.body(item)});
@@ -569,21 +587,29 @@ export class ProjectController {
       // conditions have served their purpose; the returned owned item stays visible.
       const returned={...displaced,id:item.id,definitionId:displaced.definitionId??displaced.id,conditions:[]};
       const returnedAction={...this.action(returned,result.variables),discardDisabled:this.departureBlocked(returned,this.location,result.variables,result.inventory,'discard'),collectDisabled:false};
-      const key=this.key(),generation=this.generation;
-      const previous={variables:this.variables,inventory:this.inventory,replacement:this.itemReplacements.get(key)?.get(item.id)};
-      if (!this.itemReplacements.has(key)) this.itemReplacements.set(key,new Map());
+      const key=this.key(),token={contentId:this.deck.content.id};
+      exchange={key,token,content:this.deck.content,variables:this.variables,inventory:this.inventory,
+        hadMap:this.itemReplacements.has(key),replacement:this.itemReplacements.get(key)?.get(item.id)};
+      if (!exchange.hadMap) this.itemReplacements.set(key,new Map());
       this.itemReplacements.get(key).set(item.id,returned);
-      this.variables=result.variables;this.inventory=result.inventory;
-      this.pendingExchange={contentId:this.deck.content.id};
+      this.variables=result.variables;this.inventory=result.inventory;this.pendingExchange=token;
       if (!this.deck.exchangePickup(returnedAction,decision)) {
-        this.variables=previous.variables;this.inventory=previous.inventory;this.pendingExchange=null;
-        if(previous.replacement)this.itemReplacements.get(key).set(item.id,previous.replacement);
-        else this.itemReplacements.get(key).delete(item.id);
-        return false;
+        rollback(false);return token.completed===true;
       }
-      if(this.generation===generation&&!this.destroyed&&this.succeeded(this.location.node.id))this.notify();
+      // Completion may fire synchronously. Later observer errors must never
+      // reverse an exchange already accepted by the deck or its completion.
+      deckAccepted=true;
+      if(current()&&this.succeeded(this.location.node.id))this.notify();
       return true;
-    } catch(error) { this.error(error); return false; }
+    } catch(error) {
+      let recoveryError;
+      try{rollback();}catch(cause){recoveryError=new Error('Inventory presentation recovery failed: '+cause.message,{cause});}
+      if(current()){
+        this.error(error);
+        if(recoveryError&&current())this.error(recoveryError);
+      }
+      return deckAccepted||exchange?.token.completed===true;
+    }
   }
   resolveItem(detail,transition) {
     if(this.combat)return;
@@ -639,6 +665,7 @@ export class ProjectController {
       return;
     }
     if(this.pendingExchange&&detail.transition==='cancel'&&detail.contentId===this.pendingExchange.contentId) {
+      this.pendingExchange.completed=true;
       this.pendingExchange=null;
       if(this.handoffDeath({animate:true}))return;
       // Ownership and collection effects can change sibling visibility or flags.
