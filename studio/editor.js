@@ -292,7 +292,9 @@ $('#inspector').addEventListener('input',event=>{
  const el=event.target;if(!el.matches('[data-artwork-slider]'))return;
  el.closest('label').querySelector('output').textContent=`${el.value}%`;
  const source=scopeRoot(el.dataset.scope,el);if(!source)return;
- const draft={...project,library:project.library.map(d=>d.id===source.id?{...d,[el.dataset.path]:Number(el.value)}:d)};
+ const updated=structuredClone(source),keys=el.dataset.path.split('.'),key=keys.pop();
+ const parent=keys.reduce((value,key)=>value?.[key],updated);if(!parent)return;parent[key]=Number(el.value);
+ const draft={...project,library:project.library.map(d=>d.id===source.id?updated:d)};
  renderCardPreviews($('#inspector'),draft,node(),chapterId);
 });
 
@@ -353,7 +355,7 @@ function command(event){const b=event.target.closest('[data-command]');if(!b||b.
   return;
  }
  if(cmd==='copy-artwork'){
-  const card=scopeRoot(b.dataset.scope,b);if(!card)return;
+  const card=(b.dataset.artworkPath||'').split('.').filter(Boolean).reduce((value,key)=>value?.[key],scopeRoot(b.dataset.scope,b));if(!card)return;
   copiedArtwork=artworkSettings(card);
   try{localStorage.setItem(artworkClipboardKey,JSON.stringify(copiedArtwork));}catch{}
   report('Image settings copied, including the path.');return;
@@ -363,7 +365,7 @@ function command(event){const b=event.target.closest('[data-command]');if(!b||b.
   let settings=copiedArtwork;
   try{const saved=localStorage.getItem(artworkClipboardKey);if(saved)settings=parseArtworkSettings(saved);}catch{}
   if(!settings){report('Copy image settings from a card first.');return;}
-  edit('paste-artwork',{id:card.id,settings});return;
+  edit('paste-artwork',{id:card.id,path:b.dataset.artworkPath,settings});return;
  }
  if(cmd==='delete-chapter'){
   if(b.disabled)return;

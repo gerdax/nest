@@ -85,7 +85,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, #0000 25%, #0006 48%, #000000f5 100%);
+  background: linear-gradient(180deg, #0000 55%, #0006 72%, #000000f5 100%);
 }
 .nest-copy {
   font-family: var(--card-font, NestLetter, monospace);
@@ -96,6 +96,11 @@
   padding: var(--card-padding, 26px);
   z-index: 1;
   color: var(--card-text, #d2dfb6);
+}
+/* Keep the authored composition fixed while the physical card gets smaller.
+   Only its contents zoom; hit targets and engine motion retain their bounds. */
+.nest-copy,.nest-card-type,.nest-action-energy-cost,.nest-card-value {
+  zoom:var(--card-content-scale,1);
 }
 .nest-card-title, .nest-card-type {
   font-size: var(--card-small-size, 10px);
@@ -284,6 +289,7 @@
 
 .nest-card-value > span {font-size:2em;line-height:.7;translate:0 -4px;}
 .nest-card-value img {width:1.14em;height:1.14em;object-fit:contain;}
+.nest-card[data-card-kind="energy"] .nest-card-value {right:calc(var(--card-padding,26px) - 8px);}
 .nest-card[data-card-kind="health"] .nest-card-value img {width:.95em;height:.95em;translate:3px -3px;}
 
 /* Unavailable faces retain their stock; only artwork fades. */

@@ -5,11 +5,11 @@ import {definitionInspector} from '../studio/inspectors.js';
 import {cardFace} from '../project/presentation.js';
 import {combatCard} from '../project/combat-presentation.js';
 
-test('Enemy Effect cards has an editable editor Name under Health damage',()=>{
+test('Enemy Health damage hides its internal editor Name',()=>{
  const p=createProject(),enemy=createEnemy('rat');p.library.push(enemy);
  const html=definitionInspector(p,enemy);
- assert(html.includes('<h3>Effect cards</h3>'));assert(html.includes('<summary>Health damage</summary>'));
- assert(html.includes('data-path="hit.name"'));assert(html.includes('data-path="hit.text"'));
+ assert(html.includes('<h3>Effects Feedback</h3>'));assert(html.includes('<summary>Health damage</summary>'));
+ assert(!html.includes('data-path="hit.name"'));assert(html.includes('data-path="hit.text"'));
 });
 test('Enemy damage Description is the large heading in both preview and combat',()=>{
  const enemy=createEnemy('rat');enemy.hit.text='The rat reels!';enemy.hit.name='Internal name';
@@ -30,7 +30,7 @@ test('legacy Description is preserved rather than replaced with its old name',()
  assert.equal(parseProject(JSON.stringify(p)).library.find(d=>d.id==='rat').hit.text,'Existing Description');
 });
 
-test('player and Enemy Effect Cards display Description and never their editor Name',()=>{
+test('player and Enemy Feedback presentations display Description and never their editor Name',()=>{
  const p=createProject(),player=p.library.find(d=>d.id===p.combat.playerHit.definitionId),enemy=createEnemy('rat');
  for(const card of [player,enemy.hit]){
   Object.assign(card,{name:'Editor label only',text:'You feel the impact.',headingFromDescription:false});
@@ -46,4 +46,31 @@ test('legacy player feedback migrates name-only text once without changing the e
  const loaded=parseProject(JSON.stringify(p)),hit=loaded.library.find(d=>d.id===player.id);
  assert.equal(hit.name,player.name);assert.equal(hit.text,player.name);
  hit.text='';const again=parseProject(JSON.stringify(loaded));assert.equal(again.library.find(d=>d.id===player.id).text,'');
+});
+
+test('Enemy Actions use authored Description as their headline, without repeating the editor Name',async()=>{
+ const {enemyActionCard,combatChoices}=await import('../project/combat-presentation.js');
+ for(const type of ['attack','defend','wait']){
+  const action={...createEnemy('rat').actions[0],type,name:'Internal action label',text:'The rat lunges at you!'};
+  const face=enemyActionCard(action,'enemy-action');assert.equal(face.heading,action.text);assert.equal(face.text,'');
+  action.text='';assert.equal(enemyActionCard(action,'empty').heading,'');
+  const player=combatChoices([{id:'player',action,profile:null}],'choices').actions[0];assert.equal(player.heading,action.name);
+ }
+});
+
+test('player health damage edits Description without exposing its internal Name',()=>{
+ const p=createProject(),hit=p.library.find(d=>d.id===p.combat.playerHit.definitionId);
+ const html=definitionInspector(p,hit);assert(!html.includes('data-path="name"'));assert(html.includes('data-path="text"'));
+});
+
+test('Enemy reactions allow Caption and Vignette; old Effect reactions preserve their presentation on import',()=>{
+ const p=createProject(),enemy=createEnemy('rat');p.library.push(enemy);
+ enemy.reactions=[{id:'reaction',threshold:{numerator:1,denominator:2},card:{id:'reaction-card',kind:'caption',name:'Hurt',text:'The rat retreats.',image:''}}];
+ for(const kind of ['caption','event']){enemy.reactions[0].card.kind=kind;assert.deepEqual(validateProject(p),[]);}
+ enemy.reactions[0].card.kind='effect';assert(validateProject(p).length>0);
+ for(const image of ['', 'rat-hurt.png']){
+  Object.assign(enemy.reactions[0].card,{image,text:'The rat retreats.'});
+  const loaded=parseProject(JSON.stringify(p)).library.find(d=>d.id===enemy.id).reactions[0].card;
+  assert.equal(loaded.kind,image?'event':'caption');assert.equal(loaded.text,'The rat retreats.');assert.equal(loaded.image,image);
+ }
 });

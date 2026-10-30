@@ -154,7 +154,8 @@ function inspectorCommand(project, selection, data, localDrafts) {
   switch (data.command) {
     case 'combat-add':case 'combat-remove':case 'combat-move':applyCombatArrayCommand(documentScope(project,selection,descriptor),data);break;
     case 'reset-artwork': {
-      const root = documentScope(project, selection, descriptor);
+      const root = (data.artworkPath||'').split('.').filter(Boolean).reduce((value,key)=>value?.[key],documentScope(project, selection, descriptor));
+      if(!root)break;
       delete root.imageScale; delete root.imageOffsetX; delete root.imageOffsetY;
       break;
     }
@@ -240,7 +241,11 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
       parent[key] = ['imageScale','imageOffsetX','imageOffsetY'].includes(key) ? clampArtwork(key, data.value) : data.value;
       break;
     }
-    case 'paste-artwork': Object.assign(project.library.find(card => card.id === data.id), data.settings); break;
+    case 'paste-artwork': {
+      const root=project.library.find(card=>card.id===data.id);
+      const card=(data.path||'').split('.').filter(Boolean).reduce((value,key)=>value?.[key],root);
+      if(card)Object.assign(card,data.settings);break;
+    }
     case 'add-library-card': {
       const added = appendLibraryCard(project, chapter, node, data.definitionId);
       return added ? {value:added.id} : {};
@@ -291,7 +296,7 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
     }
     case 'remove-common-action': project.combat.defaultActions=project.combat.defaultActions.filter(ref=>ref.definitionId!==data.id);break;
     case 'use-common-effect': {
-      if(!project.library.some(d=>d.id===data.id&&d.kind==='effect'&&d.visibility!=='local'))throw new Error('Select an Effect Card');
+      if(!project.library.some(d=>d.id===data.id&&d.kind==='effect'&&d.visibility!=='local'))throw new Error('Select Feedback');
       project.combat.playerHit={definitionId:data.id};break;
     }
     case 'add-definition': {

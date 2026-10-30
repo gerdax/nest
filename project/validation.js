@@ -165,7 +165,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
     inspectCard(card,label);
   }
   function inspectCombat(d,label,enemyAction=false){
-    if(d.kind==='effect'&&(d.onCollect!==undefined||list(d.effects).length||list(d.successEffects).length||list(d.failureEffects).length))add(`${label}: Effect Cards are presentation only and cannot apply independent effects`);
+    if(d.kind==='effect'&&(d.onCollect!==undefined||list(d.effects).length||list(d.successEffects).length||list(d.failureEffects).length))add(`${label}: Feedback presentations are presentation only and cannot apply independent effects`);
     if(d.kind==='combatAction'){
       if(!['attack','defend','wait'].includes(d.type))add(`${label}: unsupported Combat Action type`);
       if(['defend','wait'].includes(d.type)&&d.resolution!=='direct')add(`${label}: Defend and Wait are direct Actions`);
@@ -215,7 +215,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
       for(const r of list(d.reactions)){
         identity(r);const t=r?.threshold;
         if(!object(r)||!named(r.id)||!object(t)||!Number.isSafeInteger(t.numerator)||!Number.isSafeInteger(t.denominator)||t.denominator<=0||t.numerator<=0||t.numerator>=t.denominator)add(`${label}: invalid health threshold`);
-        identity(r?.card);embedded(r?.card,['caption','effect'],label);
+        identity(r?.card);embedded(r?.card,['caption','event'],label);
       }
     }
   }

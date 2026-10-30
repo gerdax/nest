@@ -101,7 +101,7 @@ export class CombatCoordinator {
   const steps=[];
   if(result.damage>0){
    const template=result.actor==='enemy'?definition(this.host.compiled.library,this.host.compiled.combat.playerHit):this.enemy.hit;
-   if(!template)throw new Error('Missing damage Effect Card');
+   if(!template)throw new Error('Missing damage Feedback');
    steps.push({card:template,value:-result.damage,operation:result.actor==='enemy'?'playerDamage':'enemyDamage',targetHp:result.targetHp,id:`${result.id}:damage`});
   }
   let terminal=false;

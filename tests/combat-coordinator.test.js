@@ -141,7 +141,7 @@ test('combat without introduction previews its first Enemy Action',async()=>{
  const {ProjectController}=await import('../project/ProjectController.js');
  const h=harness();const enemy=h.host.compiled.library.find(d=>d.id==='rat');enemy.introEnabled=false;
  const preview=ProjectController.prototype.content.call({compiled:h.host.compiled},{node:h.c.node});
- assert.equal(preview.heading,enemy.actions[0].name);
+ assert.equal(preview.heading,enemy.actions[0].text);
  assert.equal(preview.image,enemy.actions[0].image);
  assert.equal(preview.cardKind,'action');h.c.dispose();
 });

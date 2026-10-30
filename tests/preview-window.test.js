@@ -20,14 +20,15 @@ class Element extends EventTarget {
 }
 function emit(element,name,values={}){const event=new Event(name,{cancelable:true});Object.assign(event,values);element.dispatchEvent(event);return event;}
 function fixture(){
- const root=new Element(),handle=new Element(),close=new Element(),toggle=new Element(),body=new Element(),viewport=new Element();
+ const root=new Element(),handle=new Element(),close=new Element(),toggle=new Element(),body=new Element(),viewport=new Element(),grip=new Element(),reset=new Element(),sizeReadout=new Element(),bar=new Element();
  viewport.innerWidth=1000;viewport.innerHeight=800;globalThis.window=viewport;
  root.hidden=true;root.style.left='24px';root.style.top='100px';
- root.querySelector=selector=>({'[data-preview-drag]':handle,'[data-preview-close]':close,'[data-preview-minimize]':toggle,'.preview-window-body':body})[selector];
- body.getBoundingClientRect=()=>({height:root.classes.has('minimized')?parseFloat(root.styles.get('--preview-body-height')):Math.min(440,viewport.innerHeight-66)});
- root.getBoundingClientRect=()=>({left:parseFloat(root.style.left),top:parseFloat(root.style.top),width:Math.min(420,viewport.innerWidth-16),height:root.classes.has('minimized')?50:body.getBoundingClientRect().height+50});
+ root.querySelector=selector=>({'[data-preview-drag]':handle,'[data-preview-close]':close,'[data-preview-minimize]':toggle,'.preview-window-body':body,'[data-preview-resize]':grip,'[data-preview-reset]':reset,'[data-preview-size]':sizeReadout,'.preview-window-bar':bar})[selector];
+ bar.getBoundingClientRect=()=>({height:50});
+ body.getBoundingClientRect=()=>({width:parseFloat(root.styles.get('--preview-custom-width')||420)-2,height:root.classes.has('minimized')?parseFloat(root.styles.get('--preview-body-height')):parseFloat(root.styles.get('--preview-custom-height')||Math.min(440,viewport.innerHeight-66))});
+ root.getBoundingClientRect=()=>({left:parseFloat(root.style.left),top:parseFloat(root.style.top),width:Math.min(parseFloat(root.styles.get('--preview-custom-width')||420),viewport.innerWidth-16),height:root.classes.has('minimized')?50:body.getBoundingClientRect().height+50});
  let closes=0;const api=mountPreviewWindow(root,{onClose:()=>closes++});
- return {root,handle,close,toggle,body,viewport,api,get closes(){return closes;}};
+ return {root,handle,close,toggle,body,viewport,grip,reset,sizeReadout,bar,api,get closes(){return closes;}};
 }
 
 test('minimization keeps layout dimensions, hides interactions and focuses its toggle',()=>{
@@ -124,4 +125,41 @@ test('80% editor scale preserves preview drag distance, viewport clamping and mi
  assert.equal(f.root.getBoundingClientRect().left+f.root.getBoundingClientRect().width,992);
  assert.equal(f.root.getBoundingClientRect().top+f.root.getBoundingClientRect().height,792);
  f.api.destroy();
+});
+
+test('free resizing changes the playfield width and height independently and Reset restores defaults',()=>{
+ const f=fixture();f.api.show();
+ emit(f.grip,'pointerdown',{button:0,isPrimary:true,pointerId:8,clientX:500,clientY:500});
+ assert.equal(f.grip.hasPointerCapture(8),true);
+ emit(f.grip,'pointermove',{pointerId:8,clientX:540,clientY:480});
+ assert.equal(f.root.styles.get('--preview-custom-width'),'460px');assert.equal(f.root.styles.get('--preview-custom-height'),'420px');
+ emit(f.grip,'pointerup',{pointerId:8});assert.equal(f.grip.hasPointerCapture(8),false);
+ emit(f.grip,'keydown',{key:'ArrowDown',shiftKey:true});assert.equal(f.root.styles.get('--preview-custom-height'),'460px');
+ emit(f.reset,'click');assert.equal(f.root.styles.has('--preview-custom-width'),false);assert.equal(f.root.styles.has('--preview-custom-height'),false);
+ assert.equal(f.closes,0);f.api.destroy();
+});
+test('custom viewport is retained through minimizing/reopening and kept within the desktop',()=>{
+ const f=fixture();f.api.show();f.api.setSize(390,600);f.api.minimize();
+ assert.equal(f.root.styles.get('--preview-body-height'),'600px');f.api.hide();f.api.show();f.api.restore();
+ assert.equal(f.root.styles.get('--preview-custom-width'),'392px');assert.equal(f.root.styles.get('--preview-custom-height'),'600px');
+ f.viewport.innerWidth=320;f.viewport.innerHeight=400;emit(f.viewport,'resize');
+ assert.equal(f.root.styles.get('--preview-custom-width'),'304px');assert.equal(f.root.styles.get('--preview-custom-height'),'332px');
+ f.api.resetSize();assert.equal(f.api.minimized,false);f.api.destroy();
+});
+test('resize cancellation and destruction release pointer capture without closing playback',()=>{
+ const f=fixture();f.api.show();emit(f.grip,'pointerdown',{button:0,pointerId:9,clientX:0,clientY:0});
+ emit(f.grip,'pointercancel',{pointerId:9});assert.equal(f.grip.hasPointerCapture(9),false);
+ emit(f.grip,'pointerdown',{button:0,pointerId:10,clientX:0,clientY:0});f.api.destroy();assert.equal(f.grip.hasPointerCapture(10),false);
+ for(const element of [f.grip,f.reset])for(const listeners of element.listeners.values())assert.equal(listeners.size,0);
+ assert.equal(f.closes,0);
+});
+
+test('free resize converts pointer movement through editor zoom exactly once',()=>{
+ const f=fixture(),scale=.8;
+ f.root.ownerDocument={documentElement:{},defaultView:{getComputedStyle:()=>({zoom:String(scale)})}};
+ for(const el of [f.root,f.body,f.bar]){const bounds=el.getBoundingClientRect;el.getBoundingClientRect=()=>Object.fromEntries(Object.entries(bounds()).map(([key,value])=>[key,value*scale]));}
+ f.api.show();emit(f.grip,'pointerdown',{button:0,pointerId:20,clientX:0,clientY:0});
+ emit(f.grip,'pointermove',{pointerId:20,clientX:80,clientY:40});
+ assert.equal(f.root.styles.get('--preview-custom-width'),'520px');assert.equal(f.root.styles.get('--preview-custom-height'),'490px');
+ emit(f.reset,'click');assert.equal(f.grip.hasPointerCapture(20),false);assert.equal(f.root.styles.has('--preview-custom-width'),false);f.api.destroy();
 });

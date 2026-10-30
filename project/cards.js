@@ -6,7 +6,7 @@ import { nodeSlotCardKinds } from './nodeTypes.js';
 /** The library stores content; placements store chapter-specific behavior. */
 export const cardKinds = Object.freeze({
   combatAction: {label:'Combat Action',editorTint:'#d99bea',validate:()=>[]},
-  effect: {label:'Effect Card',editorTint:'#edb4dc',validate:()=>[]},
+  effect: {label:'Feedback',editorTint:'#edb4dc',validate:()=>[]},
   enemy: {label:'Enemy',editorTint:'#ef947c',validate:()=>[]},
   event: { label: 'Vignette', editorTint: '#96f7a7', validate: card => typeof card.text === 'string' ? [] : [errorMessage('PROJECT_VIGNETTE_TEXT_MUST_BE_A_STRING')] },
   caption: { label: 'Caption', editorTint: '#e4ffeb', validate: card => typeof card.text === 'string' ? [] : [errorMessage('PROJECT_CAPTION_TEXT_MUST_BE_A_STRING')] },

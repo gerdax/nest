@@ -38,3 +38,11 @@ test('Enemy death is one required editable card without list controls',()=>{
  e.death.push({...e.death[0],id:'extra-death'});
  assert(validateProject(p).some(message=>String(message.message??message).includes('Enemy death supports only one card')));
 });
+
+test('Enemy reaction headings use percentage and name, and death heading uses only its name',()=>{
+ const p=createProject(),enemy=createEnemy('enemy');p.library.push(enemy);
+ enemy.reactions=[{id:'reaction',threshold:{numerator:3,denominator:4},card:{id:'reaction-card',kind:'caption',name:'Wounded',text:'',image:''}}];
+ const html=definitionInspector(p,enemy);
+ assert(html.includes('<summary>75% · Wounded</summary>'));assert(html.includes('<summary>Death</summary>'));
+ assert(!html.includes('<summary>Enemy death ·'));assert(!html.includes('Exact threshold'));
+});

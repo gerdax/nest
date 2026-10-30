@@ -19,7 +19,7 @@ combat definitions; it does not offer chapter placement.
   **Remove from defaults** only changes availability and preserves its definition under
   **Unassigned common cards**; it does not delete authored content.
 - **Player combat feedback** has a fixed **Damage received** entry with a small
-  preview. Select it to edit the Effect Card directly. Combat supplies the
+  preview. Select it to edit the Feedback directly. Combat supplies the
   signed damage value; the card has no independent collection effects. This
   required feedback entry cannot be deleted; its editor explains that constraint.
 - Unassigned Common definitions remain editable, including preserved unused
@@ -41,10 +41,10 @@ artwork, rules and stable Action identities survive migration. The original
 input files remain unchanged.
 
 **Enemy** contains its optional main-card introduction, ordered Actions,
-**Effect cards → Health damage**, percentage reactions and one required death card.
-Player and Enemy Effect Cards use Name only as an editor label. Description
+**Effects Feedback → Health damage**, percentage reactions and one required death card.
+Player and Enemy Feedback presentations use Name only as an editor label. Description
 is the player-facing message, using the same large heading style in preview and combat.
-Enemy Health damage retains its fixed section label and exposes an editable card Name. Existing name-only damage
+Health damage uses a fixed section label; its internal Name is not editable. Existing name-only damage
 copy migrates into Description once, preserving the displayed text. All artwork
 sections use preview → artwork path → image scale/position. Reaction percentages
 retain exact fraction boundaries. New Enemies have an Attack Action, damage Effect
@@ -137,7 +137,7 @@ The Library has one **+ Consumable** button, initially selecting Health.
 Consumables use `kind: 'consumable'` and `subtype: 'health' | 'energy'`.
 The subtype selects the resource changed by Value; additional collection rules
 retain their explicit targets. Switching subtype preserves name, value, artwork
-and rules. Consumables never enter inventory. Effect Card remains separate.
+and rules. Consumables never enter inventory. Feedback remains separate.
 
 Loading existing Health/Energy definitions converts their kind into the matching
 Consumable subtype, preserving identities, local/shared ownership, placements,
@@ -180,7 +180,7 @@ only the opponent's next Attack consumes it. Wait/Defend do not consume the
 opponent's protection. Neither protection nor turns are repeated on retry.
 
 Action type is above Description in Common, Weapon and Enemy editors. The
-**Effect** section contains type-specific mechanical fields; Effect Cards remain
+**Effect** section contains type-specific mechanical fields; Feedback presentations remain
 presentation. Statuses, initiative manipulation, extra turns and escape routing
 are outside this simple implementation.
 

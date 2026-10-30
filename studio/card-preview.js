@@ -2,6 +2,7 @@ import { chapterVariables } from '../project/model.js';
 import { decorateCard } from '../engine/renderer.js';
 import { resolvePlacement } from '../project/cards.js';
 import { cardFace, actionCardFace } from '../project/presentation.js';
+import { enemyActionCard } from '../project/combat-presentation.js';
 import { findPlacement } from './commands.js';
 import { applyCardStyles } from '../project/card-styles.js';
 
@@ -13,6 +14,7 @@ export function renderCardPreviews(root,project,node,chapterId) {
   let card;
   try { card=placement?resolvePlacement(project,placement):project.library.find(d=>d.id===mount.dataset.previewDefinition); }
   catch { mount.replaceChildren(); continue; } // Incomplete drafts can reference missing definitions.
+  const enemyAction=card?.kind==='enemy'&&/^actions\.\d+$/.test(mount.dataset.previewPath??'');
   if(mount.dataset.previewPath)card=mount.dataset.previewPath.split('.').reduce((value,key)=>value?.[key],card);
   if(!card)continue;
   const chapter=project.chapters?.find(chapter=>placement?(chapterId?chapter.id===chapterId:chapter.nodes.includes(node)):card.visibility==='local'&&chapter.id===card.chapterId);
@@ -20,7 +22,7 @@ export function renderCardPreviews(root,project,node,chapterId) {
   const values=Object.fromEntries(variables.map(variable=>[variable.id,variable.initial]));
   const typed={...card,itemTags:project.itemTags||[]};
   let face;
-  try {face=actionCardFace(typed,variables,project.library,values);}
+  try {face=enemyAction?enemyActionCard(typed,'preview'):actionCardFace(typed,variables,project.library,values);}
   catch {
    // Unfinished checks must still show their artwork and authored text.
    face=cardFace(typed,variables,project.library,values);

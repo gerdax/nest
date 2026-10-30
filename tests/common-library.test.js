@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {commonLibrary,commonLibraryGroups,commonRoleControls,isCommonDefinition} from '../studio/common-library.js';
+import {commonLibrary,commonLibraryGroups,commonRoleControls,isCommonDefinition,combatActionSummary} from '../studio/common-library.js';
 import {createProject,validateProject,parseProject} from '../project/model.js';
 import {createRatCombatProject} from '../project/combat-fixture.js';
 import {definitionInspector,projectSettingsInspector} from '../studio/inspectors.js';
@@ -61,4 +61,26 @@ test('required damage feedback and other live references block deletion without 
  const punch=p.combat.defaultActions[0].definitionId;
  p.library.push({id:'legacy-weapon',kind:'item',subtype:'weapon',name:'Weapon',text:'',image:'',onCollect:[],permability:0,combat:{damage:{min:1,max:2},effects:[],actions:[{definitionId:punch}]}});
  const before=JSON.stringify(p);assert.throws(()=>applyDocumentCommand(p,s,'delete-common-card',{id:punch}),/references/i);assert.equal(JSON.stringify(p),before);
+});
+
+test('Common Action summaries show mechanics and authored rule definitions without runtime odds or Description',()=>{
+ const p=createRatCombatProject(),action=p.library.find(d=>d.id==='punch');
+ Object.assign(action,{text:'Private authored description',attack:{source:'self',damage:{min:2,max:4},minBonus:1,maxBonus:2},conditions:[{source:'variable',key:'agility',op:'gte',value:3}],costs:[{source:'variable',key:'energy',amount:1}],cooldown:1});
+ const lines=combatActionSummary(p,action);
+ assert.deepEqual(lines,['Damage: 3–6 · Check: 3d6 ≥ 11 · Cooldown: 1 turn','Requires: Agility ≥ 3 · Cost: 1 Energy']);
+ const html=commonLibrary(p);assert(html.includes('common-action-summary'));assert(!html.includes(action.text));assert(!lines.join(' ').includes('%'));
+ assert.equal(action.text,'Private authored description');
+});
+test('Defend, Wait and inherited Weapon summaries use their own mechanical fields',()=>{
+ const p=createRatCombatProject(),action=p.library.find(d=>d.id==='punch');action.resolution='direct';
+ action.type='defend';action.damageReduction=2;assert.deepEqual(combatActionSummary(p,action),['Reduces next incoming attack damage by 2 · Direct']);
+ action.type='wait';assert.deepEqual(combatActionSummary(p,action),['Passes the turn · Direct']);
+ action.type='attack';action.attack={source:'weapon',minBonus:0,maxBonus:1};assert.deepEqual(combatActionSummary(p,action),['Damage: Source Weapon (+1 maximum) · Direct']);
+ action.attack={source:'none'};assert.deepEqual(combatActionSummary(p,action),['No damage · Direct']);
+});
+test('incomplete Common Actions remain selectable and summary values are escaped',()=>{
+ const p=createRatCombatProject(),action=p.library.find(d=>d.id==='punch');action.attack={source:'self'};action.check=null;
+ assert.deepEqual(combatActionSummary(p,action),['Damage: Not configured · Check: Not configured']);
+ p.variables.find(v=>v.id==='energy').name='<b>Fuel</b>';action.costs=[{source:'variable',key:'energy',amount:1}];
+ assert(commonLibrary(p).includes('Cost: 1 &lt;b&gt;Fuel&lt;/b&gt;'));
 });

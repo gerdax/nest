@@ -8,7 +8,7 @@ export function enemyActionCard(action,id) {
  const direct=action.resolution==='direct';
  // Automatic Actions are locked by advanceDisabled and the coordinator phase;
  // they are executing, rather than unavailable due to unmet player rules.
- return {...combatCard({...action,kind:'combatAction'},id),heading:action.name??'Enemy action',advanceDisabled:!direct,actions:[{id:direct?'continue':'wait',label:direct?'Continue':action.name??'Action',disabled:false}]};
+ return {...combatCard({...action,kind:'combatAction'},id),heading:action.text??'',text:'',advanceDisabled:!direct,actions:[{id:direct?'continue':'wait',label:direct?'Continue':action.name??'Action',disabled:false}]};
 }
 
 export function combatChoices(choices,id,values={}) {

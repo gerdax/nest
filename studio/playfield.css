@@ -1,6 +1,8 @@
 /* The same game composition in either host. Container dimensions describe the
    whole mobile frame, never the desktop window around the editor preview. */
 .nest-playfield {
+  /* Reset interaction preview: 240px baseline × the existing 1.14 card factor. */
+  --card-reference-width:273.6;
   --playfield-safe-top:0px;
   --playfield-safe-bottom:0px;
   --playfield-safe-left:12px;

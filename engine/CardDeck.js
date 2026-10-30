@@ -1,5 +1,6 @@
 import { createError } from '../errors.js';
 import { cssScale, layoutBounds } from './cssScale.js';
+import { syncCardContentScale } from './cardSizing.js';
 import { projectedBounds, turningBounds } from './geometry.js?v=no-ending-card-1';
 import { buildDeck, decorateCard, announceDeck, renderDeck, stageNextContent, stageNextBack, stageActionDeck, stageContentDeck, scenePose, cardPose, restoreBacks } from './renderer.js?v=no-ending-card-1';
 import { DeckInteractionMotion } from './DeckInteractionMotion.js';
@@ -138,12 +139,14 @@ export class CardDeck extends EventTarget {
       this.finishMotion();
     }, { signal: this.abort.signal });
     this.resizeBounds = mount.getBoundingClientRect();
+    syncCardContentScale(mount);
     this.resize = new ResizeObserver(entries => {
       const bounds = mount.getBoundingClientRect();
       // ResizeObserver delivers an initial notification even when dimensions
       // are unchanged. It must not finish a just-started presentation.
       if (entries?.length && bounds.width === this.resizeBounds.width && bounds.height === this.resizeBounds.height) return;
       this.resizeBounds = bounds;
+      syncCardContentScale(mount);
       const wasDragging = !!this.drag;
       if (this.pickup?.pending || this.pickup?.mix.x > 0 && !this.collectMotion) { this.pickup.cancel(); this.cancelPickup(); }
       if (wasDragging) { this.input.cancel(); this.cancel(); }
