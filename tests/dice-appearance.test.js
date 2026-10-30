@@ -1,3 +1,4 @@
+import {diceAppearanceScale} from '../dice/appearance-scale.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -43,11 +44,11 @@ async function frameConfig(search) {
   let config;
   class FakeDiceBox { constructor(options) { config = options; } async init() {} }
   const window = { location: { search }, Worker: class {}, addEventListener() {} };
-  const context = vm.createContext({ window, URL, URLSearchParams, FakeDiceBox,
+  const context = vm.createContext({ diceAppearanceScale, window, URL, URLSearchParams, FakeDiceBox,
     document: { createElement: () => ({ getContext: () => ({ getExtension: () => null }) }), getElementById: () => ({ clientWidth: 200, clientHeight: 120 }) },
     ResizeObserver: class { observe() {} }
   });
-  vm.runInContext(source.replaceAll('import.meta.url', JSON.stringify(url.href)).replace("import(new URL('dice-box.es.js', base).href)", 'Promise.resolve({ default: FakeDiceBox })'), context);
+  vm.runInContext(source.replace(/^import .*appearance-scale.*;\n/,'').replaceAll('import.meta.url', JSON.stringify(url.href)).replace("import(new URL('dice-box.es.js', base).href)", 'Promise.resolve({ default: FakeDiceBox })'), context);
   await window.NestDiceFrame.init();
   return config;
 }

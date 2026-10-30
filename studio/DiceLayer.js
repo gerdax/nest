@@ -27,7 +27,12 @@ export class DiceLayer {
       if (this.closed) return;
       const rect = this.anchor.getBoundingClientRect();
       const scale=uiScale(this.host);
-      this.appearance ||= Object.freeze({ ...floatingDiceAppearance, referenceWidth:rect.width/scale, referenceHeight:rect.height/scale });
+      const composition=Number.parseFloat(doc.defaultView?.getComputedStyle?.(this.anchor)?.getPropertyValue?.('--playfield-scale'));
+      const proportional=Number.isFinite(composition)&&composition>0;
+      const referenceScale=scale*(proportional?composition:1);
+      this.appearance ||= Object.freeze({ ...floatingDiceAppearance, referenceWidth:rect.width/referenceScale, referenceHeight:rect.height/referenceScale,
+        ...(proportional?{referenceViewportHeight:rect.height*HEIGHT/referenceScale}:{}),
+      });
       const viewportWidth = doc.defaultView?.innerWidth || doc.documentElement?.clientWidth || Infinity;
       const viewportHeight = doc.defaultView?.innerHeight || doc.documentElement?.clientHeight || Infinity;
       const width = Math.min(rect.width * WIDTH, viewportWidth), height = Math.min(rect.height * HEIGHT, viewportHeight);

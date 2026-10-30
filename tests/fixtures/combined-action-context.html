@@ -8,11 +8,11 @@
 <link rel="stylesheet" href="studio/preview.css">
 <link rel="stylesheet" href="studio/playfield.css">
 <style>
-*{box-sizing:border-box}body{margin:0;padding:16px;background:#172020;color:#dce5ce;font:14px system-ui}main{display:flex;gap:24px;align-items:flex-start}#frame{width:390px;height:800px;flex:none}aside{max-width:300px}button{padding:8px;margin:4px;background:#263838;color:#e3edda;border:1px solid #687c58;border-radius:5px}#frame.compact{width:320px;height:640px}#frame.wide{width:676px;height:767px}
+*{box-sizing:border-box}body{margin:0;padding:16px;background:#172020;color:#dce5ce;font:14px system-ui}main{display:flex;gap:24px;align-items:flex-start}#frame{width:390px;height:800px;flex:none}aside{max-width:300px}button{padding:8px;margin:4px;background:#263838;color:#e3edda;border:1px solid #687c58;border-radius:5px}#frame.compact{width:320px;height:640px}#frame.wide{width:676px;height:767px}#frame.roomy{width:588px;height:911px}#frame.tall{width:495px;height:927px}#frame.reference{width:359px;height:745px}#frame.scaled{width:538.5px;height:1117.5px}
 </style>
 <main><section id="frame" class="nest-playfield"><div id="preview"></div></section><aside>
 <h1>Combined action context</h1><p>Stat odds and USING appear together for the combined action. Hold the miniature to inspect its item. Check-only, item-only and compact layouts retain the same interaction.</p>
-<button data-mode="combined">Combined</button><button data-mode="check">Check only</button><button data-mode="item">Item only</button><button data-mode="certain">100% odds</button><button id="compact">Toggle compact</button><button id="wide">Toggle wide</button>
+<button data-mode="combined">Combined</button><button data-mode="check">Check only</button><button data-mode="item">Item only</button><button data-mode="certain">100% odds</button><button id="compact">Toggle compact</button><button id="wide">Toggle wide</button><button id="roomy">588 × 911</button><button id="tall">495 × 927</button><button id="reference">Reset composition</button><button id="scaled">150% composition</button><button id="two-actions">Two actions</button>
 </aside></main>
 <script type="module">
 import {ProjectPreview} from './studio/ProjectPreview.js';
@@ -25,11 +25,14 @@ const preview=new ProjectPreview(document.querySelector('#preview'),{onGoToCard:
 function play(mode){
  action.resolution=mode==='item'?'direct':'check';
  if(mode==='check')delete placement.contextItemId;else placement.contextItemId=item.id;
- node.connections=mode==='item'?{[placement.id]:null}:{[`${placement.id}:success`]:null,[`${placement.id}:failure`]:null};
+ node.connections=Object.fromEntries(node.choices.flatMap(choice=>mode==='item'?[[choice.id,null]]:[[''+choice.id+':success',null],[''+choice.id+':failure',null]]));
  preview.play(project,chapter.id,node.id,{initialState:{variables:{energy:4,health:8,agility:mode==='certain'?10:3},inventory:[item]}});
 }
 for(const button of document.querySelectorAll('[data-mode]'))button.onclick=()=>play(button.dataset.mode);
-document.querySelector('#compact').onclick=()=>{const frame=document.querySelector('#frame');frame.classList.remove('wide');frame.classList.toggle('compact');};
-document.querySelector('#wide').onclick=()=>{const frame=document.querySelector('#frame');frame.classList.remove('compact');frame.classList.toggle('wide');};
+for(const name of ['compact','wide','roomy','tall','reference','scaled'])document.querySelector(`#${name}`).onclick=()=>{
+ const frame=document.querySelector('#frame');
+ for(const other of ['compact','wide','roomy','tall','reference','scaled'])frame.classList.toggle(other,other===name);
+};
+document.querySelector('#two-actions').onclick=()=>{if(node.choices.length===1)node.choices.push({id:'second-choice',definitionId:action.id});play('combined');};
 play('combined');
 </script>

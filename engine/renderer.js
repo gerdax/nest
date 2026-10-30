@@ -300,8 +300,8 @@ function renderContentTransition(deck, time) {
     : clamp(transition.turn.x + 1, 0, .5)) * 180;
   const elevation = deck.reduced ? 0 : flipLift(Math.abs(turn) / 180, deck.settings);
   if (!transition.adopted) {
-    renderStagedActions(deck, staged, 20, slide && transition.presentation === 'open', 0, -24, 1);
-    const pose = { x: 0, y: 0, z: -24, rx: 0, ry: 0, rz: 0, turn: 0,
+    renderStagedActions(deck, staged, 20, slide && transition.presentation === 'open', 0, -24*(deck.settings.layoutScale??1), 1);
+    const pose = { x: 0, y: 0, z: -24*(deck.settings.layoutScale??1), rx: 0, ry: 0, rz: 0, turn: 0,
       visible: slide && transition.presentation === 'closed' };
     applyPose(deck, staged.scene, staged.sceneLayer, pose, 0);
     applyPose(deck, staged.sceneBack, staged.sceneLayer, { ...backPose(pose), visible: false }, 0);
@@ -360,7 +360,7 @@ function anchorRecedingTop(pose, depth, width, height, perspective) {
 export function scenePose(deck, time = performance.now(), travel = deck.departureTravel(), bounds = null) {
   const lift = deck.p.x * travel + (deck.commitMotion ? departureDistance(deck.commitMotion, time) : 0);
   const pose = {
-    x: 0, y: -lift, z: 16 - deck.n.x * 40 + deck.grabAmount() + Math.min(Math.abs(lift) * 0.08, deck.settings.liftHeight),
+    x: 0, y: -lift, z: (16 - deck.n.x * 40)*(deck.settings.layoutScale??1) + deck.grabAmount() + Math.min(Math.abs(lift) * 0.08, deck.settings.liftHeight),
     rx: deck.rotationX.x * (1 - clamp(deck.p.x, 0, 1)),
     ry: deck.rotationY.x * (1 - clamp(deck.p.x, 0, 1)),
     turn: clamp(deck.flip.x, 0, 1) * 180, turnAxis: deck.settings.flipAxisTilt,
@@ -368,7 +368,7 @@ export function scenePose(deck, time = performance.now(), travel = deck.departur
     visible: !deck.skipCover && !(deck.busy && !deck.commitMotion && deck.operation !== 'commit')
   };
   if (!deck.reduced) pose.z += flipLift(deck.flip.x, deck.settings);
-  const depth = deck.n.x * 40 * (deck.takeDepthRatio || 0);
+  const depth = deck.n.x * 40*(deck.settings.layoutScale??1) * (deck.takeDepthRatio || 0);
   if (depth > 0) {
     const area = bounds || layoutBounds(deck.mount);
     anchorRecedingTop(pose, depth, area.width, area.height, deck.settings.perspective);
@@ -377,8 +377,8 @@ export function scenePose(deck, time = performance.now(), travel = deck.departur
 }
 
 function orbitRadius(deck, width, height, count = deck.cards.length) {
-  if (count < 2) return 18;
-  const key = [width, height, count, deck.settings.perspective, deck.settings.stackDepth, deck.settings.maxTilt].join(':');
+  if (count < 2) return 18*(deck.settings.layoutScale??1);
+  const key = [width, height, count, deck.settings.perspective, deck.settings.stackDepth, deck.settings.maxTilt,deck.settings.layoutScale??1].join(':');
   if (deck.orbitKey !== key) {
     deck.orbitKey = key;
     deck.orbitRadius = handoffRadius(count, width, height, deck.settings);
@@ -457,7 +457,7 @@ function baseCardPose(deck, index, time, context) {
   const pose = carouselPose(slot, cursor, count, width, deck.settings, radius);
   const fan = clamp(deck.fan.x, 0, 1);
   const rank = ((slot - selectedSlot) % count + count) % count;
-  const compressedZ = 4 - deck.n.x * 40 - rank * deck.settings.stackDepth;
+  const compressedZ = (4 - deck.n.x * 40)*(deck.settings.layoutScale??1) - rank * deck.settings.stackDepth;
   pose.scale = scale;
   const rotationWeight = deck.rotationOwner === 'actions' ? Math.pow(Math.max(0, pose.front), 4) : 0;
   // Friction can carry a tiny amount of the cover's tilt into the compressed
@@ -547,7 +547,7 @@ function baseCardPose(deck, index, time, context) {
     pose.y -= entrance.travel.x;
     pose.visible &&= entrance.startAt !== null && time >= entrance.startAt;
   }
-  anchorRecedingTop(pose, deck.n.x * 40 * (deck.takeDepthRatio || 0), width, height, deck.settings.perspective);
+  anchorRecedingTop(pose, deck.n.x * 40*(deck.settings.layoutScale??1) * (deck.takeDepthRatio || 0), width, height, deck.settings.perspective);
   return pose;
 }
 
@@ -561,9 +561,9 @@ function applyPose(deck, element, layer, pose, order, shadow = true) {
   layer.style.zIndex = String(order);
   layer.style.perspective = `${deck.settings.perspective}px`;
   // Elevation changes the footprint of the shadow, never the card's opacity.
-  const elevation = Math.max(0, pose.z + 24);
+  const elevation = Math.max(0, pose.z + 24*(deck.settings.layoutScale??1));
   element.style.boxShadow = shadow
-    ? `var(--card-edge-strata, 0 2px 0 #29301c), 0 ${8 + elevation * .16}px ${18 + elevation * .4}px #000b`
+    ? `var(--card-edge-strata, 0 2px 0 #29301c), 0 ${8*(deck.settings.layoutScale??1) + elevation * .16}px ${18*(deck.settings.layoutScale??1) + elevation * .4}px #000b`
     : 'var(--card-edge-strata, none)';
 }
 
@@ -603,7 +603,7 @@ export function renderDeck(deck, time = performance.now()) {
     || (deck.phase === 'choices' && deck.l.x > 0 && deck.forwardOwner === deck.content.actions[deck.index]?.id));
   if (deck.underlay) {
     const stagedPose = {
-      x: 0, y: 0, z: -24 - (deck.nextTakeDepth || 0), rx: 0, ry: 0, rz: 0, scale: nextScale,
+      x: 0, y: 0, z: -24*(deck.settings.layoutScale??1) - (deck.nextTakeDepth || 0), rx: 0, ry: 0, rz: 0, scale: nextScale,
       turn: deck.nextFlip.x * 180, turnAxis: deck.settings.flipAxisTilt,
       visible: (((deck.content.directAdvance || deck.content.flipItemsOnReveal) && deck.p.x > 0 && !deck.busy) || (deck.phase === 'committing' && (!!deck.commitMotion || deck.operation !== 'commit')) || (deck.phase === 'collecting' && deck.collectMotion?.final)
         || (deck.phase === 'choices' && (deck.content.interaction === 'container' ? (resolution && deck.l.x !== 0) || (deck.groupLeaveActive && deck.l.x > 0) : deck.l.x > 0)
@@ -617,12 +617,12 @@ export function renderDeck(deck, time = performance.now()) {
   }
   const forwardTurns = deck.pending?.decisionOnly && deck.pendingTransition === 'flip'
     || !deck.busy && (deck.content.flipItemsOnReveal || deck.content.directAdvance && deck.content.nextTransition === 'flip') && deck.forwardDeck?.content.decisionOnly;
-  renderStagedActions(deck, deck.forwardDeck, 20, forwardActive, 0, -36 - (deck.nextTakeDepth || 0), nextScale, forwardTurns ? deck.nextFlip.x * 180 : 0, true, deck.nextTakeDepth || 0, context.bounds);
+  renderStagedActions(deck, deck.forwardDeck, 20, forwardActive, 0, -36*(deck.settings.layoutScale??1) - (deck.nextTakeDepth || 0), nextScale, forwardTurns ? deck.nextFlip.x * 180 : 0, true, deck.nextTakeDepth || 0, context.bounds);
   renderStagedActions(deck, deck.returnDeck, 500,
     (deck.phase === 'closing' && deck.returning)
       || deck.returnLift.x > 0,
     -(1 - clamp(deck.returnLift.x, 0, 1)) * context.travel,
-    deck.cards.length && (deck.returning || deck.returnLift.x > 0) ? 4 : -36, 1);
+    deck.cards.length && (deck.returning || deck.returnLift.x > 0) ? 4*(deck.settings.layoutScale??1) : -36*(deck.settings.layoutScale??1), 1);
   applyPose(deck, deck.scene, deck.sceneLayer, front, 1000);
   applyPose(deck, deck.sceneBack, deck.sceneLayer, backPose(front), 1000);
   decorateActionAvailability(deck.scene, deck.content.directAdvance ? deck.content.actions[0] : {});
@@ -645,7 +645,7 @@ export function renderDeck(deck, time = performance.now()) {
   announceDeck(deck);
 }
 
-function renderStagedActions(deck, bundle, baseOrder, visible, y = 0, z = -36, scale = 1, turn = 0, suppressEntrances = false, takeDepth = 0, bounds = null) {
+function renderStagedActions(deck, bundle, baseOrder, visible, y = 0, z = -36*(deck.settings.layoutScale??1), scale = 1, turn = 0, suppressEntrances = false, takeDepth = 0, bounds = null) {
   if (!bundle) return;
   const presented = bundle.content.actions.flatMap((action, i) => suppressEntrances && action.entrance === 'bottom' ? [] : [i]);
   const slots = new Map(presented.map((index, slot) => [index, slot]));

@@ -109,5 +109,6 @@ export function handoffRadius(count, width, height, settings, rotation = { rx: 0
   // At crossover, both centers are ±radius*sin(angle). Once all left-card
   // vertices lie left of the origin, the farthest depth gives their smallest
   // distance from it. Each side needs four projected pixels of clearance.
-  return Math.max(18, (halfX + 4 * farDenominator / settings.perspective) / Math.sin(angle));
+  const scale=settings.layoutScale??1;
+  return Math.max(18*scale, (halfX + 4*scale * farDenominator / settings.perspective) / Math.sin(angle));
 }

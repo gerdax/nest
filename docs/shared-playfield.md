@@ -5,6 +5,15 @@ The interaction preview is the primary composition reference. Both hosts now loa
 desktop editor window no longer determines card, HUD, drawer or dice-tray sizing.
 The engine mount retains its 3:4 ratio, without scaling a wrapper around it.
 
+The current reference is the reset preview at 359 × 745. A single fit scale
+controls game dimensions, typography, HUD, action context, drawer and dice.
+Equal-aspect viewport changes preserve the composition proportionally; only
+aspect changes redistribute space. Card fan offsets, depth and perspective use
+the same scale, while authored motion settings remain baseline values.
+The verification results below describe earlier layout passes; their compact
+height breakpoint and minimum-height scrolling fallback have been replaced by
+this proportional model.
+
 Health and energy use 62px numerals and slightly larger icons in both hosts. The
 HUD lane and inventory allowance remain reserved when hidden. Run state and Go to
 card remain editor chrome; standalone Controls remains browser chrome. Inventory

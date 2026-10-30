@@ -7,6 +7,7 @@ import { applyCardStyles } from '../project/card-styles.js';
 import { acquireDock } from '../editor/dockOwnership.js';
 import { playerUIState } from './player-ui-state.js';
 import { layoutBounds } from '../engine/cssScale.js';
+import { playfieldLayout } from './playfield-layout.js';
 
 /** Player presentation owns views and geometry; gameplay owns every mutation. */
 export class PlayerUI {
@@ -50,12 +51,26 @@ export class PlayerUI {
     this.actionContext = new ActionContextPanel(root.querySelector('[data-action-context]'), {
       onHold:item => this.cardPreview.show(item), canHold:() => this.canInspect && !this.destroyed && playerUIState(this.getInput?.() ?? this.input).canInspect,
     });
+    const playfield=root.closest?.('.nest-playfield')??root;
+    const setStyle=(element,key,value)=>{
+      if(element.style.setProperty)element.style.setProperty(key,value);
+      else element.style[key]=value;
+    };
     this.syncContextWidth=()=>{
       if(this.destroyed)return;
+      const bounds=layoutBounds(root),layout=playfieldLayout(bounds.width,bounds.height);
+      if(layout){
+        setStyle(playfield,'--playfield-scale',String(layout.scale));
+        setStyle(root,'--playfield-composition-lift',`${layout.lift}px`);
+      }
       const width=layoutBounds(mount).width;
-      if(Number.isFinite(width)&&width>0)this.actionContext.root.style.width=`${width}px`;
+      if(Number.isFinite(width)&&width>0){
+        this.actionContext.root.style.width=`${width}px`;
+        this.resources.style.width=`${width}px`;
+      }
     };
     this.contextResize=new ResizeObserver(this.syncContextWidth);
+    this.contextResize.observe(root);
     this.contextResize.observe(mount);
     this.syncContextWidth();
   }

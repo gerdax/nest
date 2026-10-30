@@ -4,7 +4,7 @@ import { DiceService, validatePool } from '../dice/DiceService.js';
 const container = { appendChild() {} };
 test('appearance options are validated and passed to the physical transport',async()=>{
   let received;
-  const appearance={sizeMultiplier:1.2,referenceWidth:250,referenceHeight:200};
+  const appearance={sizeMultiplier:1.2,referenceWidth:250,referenceHeight:200,referenceViewportHeight:300};
   const service=new DiceService({appearance,transportFactory:(_,options)=>{
     received=options;return {ready:Promise.resolve(),roll:async()=>[{sides:6,value:3}],destroy(){}};
   }}).mount(container);

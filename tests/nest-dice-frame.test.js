@@ -1,9 +1,10 @@
+import {diceAppearanceScale} from '../dice/appearance-scale.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 
-for (const floating of [false,true]) test(`compact sizing and resize preserve physical scale without reroll, floating=${floating}`, async () => {
+for (const floating of [false,true,'game']) test(`compact sizing and resize preserve physical scale without reroll, floating=${floating}`, async () => {
   const url = new URL('../dice/frame.js', import.meta.url);
   const source = await readFile(url, 'utf8');
   const tray = { clientWidth: floating ? 400 : 200, clientHeight: floating ? 240 : 120 };
@@ -20,13 +21,13 @@ for (const floating of [false,true]) test(`compact sizing and resize preserve ph
     async roll(pool) { calls.rolls.push(pool); return []; }
   }
   const window = {
-    location: { search: floating ? '?sizeMultiplier=1.2&referenceWidth=125&referenceHeight=80&renderOverscan=2' : '' },
+    location: { search: floating ? '?sizeMultiplier=1.2&referenceWidth=125&referenceHeight=80&renderOverscan=2'+(floating==='game'?'&referenceViewportHeight=120':'') : '' },
     Worker: class {},
     addEventListener() {},
     dispatchEvent(event) { if (event.type === 'resize') calls.resize++; }
   };
   const context = vm.createContext({
-    window, URL, URLSearchParams, Event, FakeDiceBox, FakeEngine,
+    diceAppearanceScale, window, URL, URLSearchParams, Event, FakeDiceBox, FakeEngine,
     document: {
       getElementById: () => tray,
       createElement: () => ({ getContext: () => ({ getExtension: () => null }) }),
@@ -43,7 +44,7 @@ for (const floating of [false,true]) test(`compact sizing and resize preserve ph
   // Keep browser globals and lifecycle intact, replacing only the vendor import.
   const vendorImport = "import(new URL('dice-box.es.js', base).href)";
   assert.ok(source.includes(vendorImport));
-  vm.runInContext(source.replaceAll('import.meta.url', JSON.stringify(url.href)).replace(vendorImport, 'Promise.resolve({ default: FakeDiceBox })').replace("import(new URL('Dice.js', base).href)",'Promise.resolve({E:FakeEngine})'), context);
+  vm.runInContext(source.replace(/^import .*appearance-scale.*;\n/,'').replaceAll('import.meta.url', JSON.stringify(url.href)).replace(vendorImport, 'Promise.resolve({ default: FakeDiceBox })').replace("import(new URL('Dice.js', base).href)",'Promise.resolve({E:FakeEngine})'), context);
   await window.NestDiceFrame.init();
   assert.equal(box.config.theme, 'nest');
   assert.equal(box.config.size, undefined, 'retain original physics arena');
@@ -59,8 +60,8 @@ for (const floating of [false,true]) test(`compact sizing and resize preserve ph
   assert.equal(frames.size, 1, 'resize callbacks are coalesced');
   [...frames.values()][0]();
   await new Promise(resolve => setImmediate(resolve));
-  assert.equal(calls.updates.at(-1).scale, floating ? 12 * 80 / 600 * 1.2 : (4400 / 1.5) / 600);
-  if(floating)assert.equal(calls.updates.at(-1).scale*1200,box.config.scale*240);
+  assert.equal(calls.updates.at(-1).scale, floating==='game'?box.config.scale:floating ? 12 * 80 / 600 * 1.2 : (4400 / 1.5) / 600);
+  if(floating&&floating!=='game')assert.equal(calls.updates.at(-1).scale*1200,box.config.scale*240);
   assert.equal(camera.fov, floating ? 2*Math.atan(Math.tan(.25/2)*2) : .25, 'resize never compounds camera widening');
   assert.equal(calls.rolls.length, 0);
   assert.equal(calls.resize, 1);

@@ -1,21 +1,31 @@
 /* The same game composition in either host. Container dimensions describe the
    whole mobile frame, never the desktop window around the editor preview. */
 .nest-playfield {
-  /* Reset interaction preview: 240px baseline × the existing 1.14 card factor. */
+  /* One 359 × 745 reset composition; every game dimension uses its fit scale. */
+  --playfield-scale:1;
+  --card-layout-scale:var(--playfield-scale);
   --card-reference-width:273.6;
   --playfield-safe-top:0px;
   --playfield-safe-bottom:0px;
-  --playfield-safe-left:12px;
-  --playfield-safe-right:12px;
-  --playfield-drawer-width:min(320px,calc(100cqw - var(--playfield-safe-left) - var(--playfield-safe-right) - 48px));
-  --playfield-mini-height:calc((var(--playfield-drawer-width) - 24px) / 3);
-  --playfield-footer-height:44px;
-  --playfield-drawer-space:calc(var(--playfield-mini-height) + 46px + var(--playfield-footer-height) + var(--playfield-safe-bottom));
-  --playfield-hud-height:62px;
-  --action-context-height:190px;
-  --playfield-gap:clamp(12px,2cqh,24px);
+  --playfield-safe-left:calc(12px * var(--playfield-scale));
+  --playfield-safe-right:calc(12px * var(--playfield-scale));
+  --playfield-drawer-width:min(calc(320px * var(--playfield-scale)),calc(100cqw - var(--playfield-safe-left) - var(--playfield-safe-right) - 48px * var(--playfield-scale)));
+  --playfield-mini-height:calc((var(--playfield-drawer-width) - 24px * var(--playfield-scale)) / 3);
+  --playfield-footer-height:calc(44px * var(--playfield-scale));
+  --playfield-drawer-space:calc(var(--playfield-mini-height) + 46px * var(--playfield-scale) + var(--playfield-footer-height) + var(--playfield-safe-bottom));
+  --playfield-hud-height:calc(62px * var(--playfield-scale));
+  --action-context-height:calc(190px * var(--playfield-scale));
+  --action-content-offset-y:calc(15px * var(--playfield-scale));
+  --action-context-inset:calc(24px * var(--playfield-scale));
+  --action-context-content-gap:calc(14px * var(--playfield-scale));
+  --action-context-chance-size:calc(105.6px * var(--playfield-scale));
+  --action-context-label-size:calc(20px * var(--playfield-scale));
+  --action-context-mini-height:calc(110px * var(--playfield-scale));
+  --action-context-odds-lift:calc(15px * var(--playfield-scale));
+  --action-context-result-size:calc(46.5px * var(--playfield-scale));
+  --playfield-gap:calc(14.9px * var(--playfield-scale));
   position:relative;container-type:size;container-name:playfield;background:#000;color:#dce5ce;
-  font:15px/1.5 system-ui,sans-serif;
+  font:calc(15px * var(--playfield-scale))/1.5 system-ui,sans-serif;
 }
 .nest-playfield #preview {
   box-sizing:border-box;height:100%;margin:0;border:0;
@@ -27,56 +37,65 @@
   grid-template-rows:var(--playfield-hud-height) minmax(0,1fr) var(--action-context-height);
   align-items:stretch;justify-items:stretch;
   height:100%;min-height:0;
-  padding:clamp(12px,2cqh,20px) max(28px,var(--playfield-safe-right)) clamp(12px,2cqh,20px) max(28px,var(--playfield-safe-left));
+  padding:calc(14.9px * var(--playfield-scale)) max(calc(28px * var(--playfield-scale)),var(--playfield-safe-right)) calc(14.9px * var(--playfield-scale)) max(calc(28px * var(--playfield-scale)),var(--playfield-safe-left));
   gap:var(--playfield-gap);overflow:visible;
 }
 .nest-playfield #preview .player-resources {
-  justify-self:center;align-self:center;width:min(100%,276px);height:100%;
+  justify-self:center;align-self:center;width:min(100%,276px);max-width:100%;height:100%;
 }
 /* Editor's legacy [hidden] rule must not collapse this reserved lane. */
 .nest-playfield #preview .player-resources[hidden] {display:flex!important;visibility:hidden;}
-.nest-playfield #preview .player-resource {font-size:var(--playfield-hud-height);}
-.nest-playfield #preview .player-resource img {width:27px;height:30px;}
-.nest-playfield #preview .player-resource[data-health] img {width:29px;height:26px;}
+.nest-playfield #preview .player-resource {font-size:var(--playfield-hud-height);gap:calc(5px * var(--playfield-scale));}
+.nest-playfield #preview .player-resource img {width:calc(27px * var(--playfield-scale));height:calc(30px * var(--playfield-scale));}
+.nest-playfield #preview .player-resource[data-health] img {width:calc(29px * var(--playfield-scale));height:calc(26px * var(--playfield-scale));}
 .nest-playfield .chapter-preview-card-area {
   container-type:size;min-width:0;min-height:0;align-self:stretch;justify-self:stretch;
   display:grid;place-items:end center;
 }
 .nest-playfield #preview .chapter-preview-card-layout {
-  /* Grow the measured mount, so gestures and drawer flights share its geometry. */
-  --large-card-size-factor:1.14;
-  --preview-card-width:min(calc(276px * var(--large-card-size-factor)),100%,calc(100cqh * .75));
+  /* The deck measures this real size; no transformed gesture coordinate plane. */
+  --preview-card-width:min(calc(273.6px * var(--playfield-scale)),100%,calc(100cqh * .75));
 }
-/* Interaction preview uses its original 240px baseline. The layout owns
-   sizing; the deck and inventory camera card both fill this same plane. */
-.preview-window .nest-playfield #preview .chapter-preview-card-layout {
-  --preview-card-width:min(calc(240px * var(--large-card-size-factor)),100%,calc(100cqh * .75));
+.nest-playfield #preview .chapter-preview-card-layout,
+.nest-playfield #preview .action-context-panel {
+  position:relative;top:calc(8px * var(--playfield-scale) - var(--playfield-composition-lift,0px));
 }
+.nest-playfield #preview .action-context-panel {translate:0 calc(35px * var(--playfield-scale));}
+.nest-playfield .action-context-caption {font-size:calc(var(--card-small-size,10px) * var(--playfield-scale));}
+.nest-playfield .action-context-view[data-mode="check-item"] {padding-inline:calc(10.944px * var(--playfield-scale));}
+.nest-playfield .action-check-details[data-presentation="odds"] .action-check-chance {translate:0 calc(3px * var(--playfield-scale));}
+.nest-playfield .action-context-view[data-mode="result"] {translate:0 calc(-10px * var(--playfield-scale));}
+.nest-playfield .action-check-details[data-presentation="result"] {padding-top:calc(16px * var(--playfield-scale));}
+.nest-playfield .nest-trigger-item>button {border-width:calc(2px * var(--playfield-scale));border-radius:calc(10.5px * var(--playfield-scale));}
+.nest-playfield .nest-card {border-radius:calc(var(--card-radius,20px) * var(--playfield-scale));border-width:calc(1px * var(--playfield-scale));}
+.nest-playfield .check-surface .check-tray {inset:calc(16px * var(--playfield-scale)) calc(12px * var(--playfield-scale)) calc(130px * var(--playfield-scale));}
+.nest-playfield .nest-card-backdrop-fill {background:linear-gradient(to bottom,transparent 0,#000 calc(30px * var(--playfield-scale)),#000 100%);}
 .nest-playfield .preview-status-row {
-  position:absolute;inset:auto 12px var(--playfield-drawer-space);z-index:20;text-align:center;display:block;
+  position:absolute;inset:auto calc(12px * var(--playfield-scale)) var(--playfield-drawer-space);z-index:20;text-align:center;display:block;
 }
 .nest-playfield .preview-status-row [data-status] {
   max-height:20cqh;overflow:auto;background:#000;margin:0;padding:4px;
 }
 .nest-playfield .nest-inventory-surface .nest-inventory-drawer {
-  bottom:calc(var(--playfield-footer-height) + var(--playfield-safe-bottom) + var(--inventory-drawer-lift,24px));
-  padding:30px var(--playfield-safe-right) 16px var(--playfield-safe-left);
+  bottom:calc(var(--playfield-footer-height) + var(--playfield-safe-bottom) + var(--inventory-drawer-lift,calc(24px * var(--playfield-scale))));
+  padding:calc(30px * var(--playfield-scale)) var(--playfield-safe-right) calc(16px * var(--playfield-scale)) var(--playfield-safe-left);
 }
-.nest-playfield .nest-inventory-drawer .nest-inventory-cards {width:var(--playfield-drawer-width);max-width:none;gap:8px;}
-.nest-playfield .preview-footer {padding-bottom:max(8px,var(--playfield-safe-bottom));}
+.nest-playfield .nest-inventory-drawer .nest-inventory-cards {width:var(--playfield-drawer-width);max-width:none;gap:calc(8px * var(--playfield-scale));}
+.nest-playfield .preview-footer {min-height:var(--playfield-footer-height);padding:calc(8px * var(--playfield-scale)) calc(12px * var(--playfield-scale)) max(calc(8px * var(--playfield-scale)),var(--playfield-safe-bottom));}
+.nest-playfield .preview-footer [data-state],.nest-playfield .preview-footer [data-go-to-card] {font-size:calc(12px * var(--playfield-scale));}
+.nest-playfield .nest-inventory-drawer .nest-inventory-slot>button {border-width:calc(2px * var(--playfield-scale));border-radius:calc(10.5px * var(--playfield-scale));clip-path:inset(0 round calc(10.5px * var(--playfield-scale)));}
+.nest-playfield .nest-inventory-drawer .nest-inventory-slot.is-empty>span {font-size:calc(24px * var(--playfield-scale));}
+.nest-playfield .nest-inventory-drawer .nest-inventory-hint {min-height:calc(16px * var(--playfield-scale));font-size:calc(11px * var(--playfield-scale));}
+.nest-playfield .nest-inventory-drawer {gap:calc(6px * var(--playfield-scale));}
 .nest-playfield .nest-inventory-drawer dialog {
   inset:var(--playfield-safe-top) 0 var(--playfield-safe-bottom);
   max-height:min(calc(100cqh - 32px - var(--playfield-safe-top) - var(--playfield-safe-bottom)),calc(100svh - 32px));
-  font:15px/1.5 system-ui,sans-serif;
+  font:calc(15px * var(--playfield-scale))/1.5 system-ui,sans-serif;
 }
-.nest-playfield .item-dialog h3 {font-size:18px;margin:0 0 12px;}
-.nest-playfield .item-dialog .row {display:flex;flex-wrap:wrap;gap:8px;}
+.nest-playfield .item-dialog {max-width:calc(360px * var(--playfield-scale));width:calc(100% - 32px * var(--playfield-scale));padding:calc(20px * var(--playfield-scale));}
+.nest-playfield .item-dialog h3 {font-size:calc(18px * var(--playfield-scale));margin:0 0 calc(12px * var(--playfield-scale));}
+.nest-playfield .item-dialog .row {display:flex;flex-wrap:wrap;gap:calc(8px * var(--playfield-scale));}
 .nest-playfield .item-dialog .row > * {flex:0 0 auto;}
 .nest-playfield .item-dialog button {
-  margin:0;font:inherit;background:#24351e;color:#e3edda;border:1px solid #687c58;border-radius:8px;padding:9px 14px;cursor:pointer;
-}
-
-/* Both context modes use the same compact lane and typography controls. */
-@container playfield (max-height:700px) {
-  .chapter-preview-stage {--action-context-height:140px;--action-context-inset:12px;--action-context-content-gap:10px;--action-context-chance-size:59.2px;--action-context-label-size:16px;--action-context-mini-height:88px;}
+  margin:0;font:inherit;background:#24351e;color:#e3edda;border:1px solid #687c58;border-radius:calc(8px * var(--playfield-scale));padding:calc(9px * var(--playfield-scale)) calc(14px * var(--playfield-scale));cursor:pointer;
 }

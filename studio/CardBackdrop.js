@@ -23,8 +23,9 @@ export class CardBackdrop {
     const frame = this.root.getBoundingClientRect();
     if (!Number.isFinite(anchor.bottom) || !(frame.height > 0)) return;
     const scale = this.root.clientHeight > 0 ? frame.height / this.root.clientHeight : 1;
+    const composition=Number.parseFloat(this.anchor.ownerDocument?.defaultView?.getComputedStyle?.(this.anchor)?.getPropertyValue?.('--playfield-scale'))||1;
     // Clear the lower fan corners too; retain the original 30px fade below them.
-    this.fill.style.top = `${Math.max(0, (anchor.bottom - frame.top) / scale + 24)}px`;
+    this.fill.style.top = `${Math.max(0, (anchor.bottom - frame.top) / scale + 24*composition)}px`;
   }
 
   setVisible(visible) {

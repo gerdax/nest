@@ -90,7 +90,7 @@ export function flipLift(progress, settings = DEFAULT_SETTINGS) {
   // Pick up early enough to see the size change before the face is edge-on,
   // hold through the turn, then gently put the card down as its front lands.
   const pickup = clamp(Math.min(phase, 1 - phase) / .3, 0, 1);
-  return Math.min(160, settings.perspective * .14) * pickup * pickup * (3 - 2 * pickup);
+  return Math.min(160*(settings.layoutScale??1), settings.perspective * .14) * pickup * pickup * (3 - 2 * pickup);
 }
 
 export function revealScale(exposedPixels, height, settings = DEFAULT_SETTINGS) {
@@ -108,14 +108,15 @@ export function carouselPose(index, cursor, count, width, settings = DEFAULT_SET
   const angle = (index - cursor) * Math.PI * 2 / count;
   const front = Math.cos(angle);
   const phase = Math.sin(cursor * Math.PI) ** 2;
-  const radius = 18 + (peakRadius === null ? width * .28 : peakRadius - 18) * phase;
+  const scale=settings.layoutScale??1;
+  const radius = 18*scale + (peakRadius === null ? width * .28 : peakRadius - 18*scale) * phase;
   // Two opposite points on a circular orbit align at rest. Give the rear
   // card the same small fan as larger sets, reducing this offset geometrically
   // during browsing so the existing crossover clearance stays unchanged.
   const rearFan = count === 2 ? (1 - front) * .5 * (1 - phase) : 0;
   return {
-    x: count === 1 ? 0 : Math.sin(angle) * radius + rearFan * 18,
-    y: (1 - front) * 7,
+    x: count === 1 ? 0 : Math.sin(angle) * radius + rearFan * 18*scale,
+    y: (1 - front) * 7*scale,
     z: -(1 - front) * settings.stackDepth,
     rx: 0,
     ry: -(Math.sin(angle) + rearFan) * settings.maxTilt * .65,

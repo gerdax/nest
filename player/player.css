@@ -5,14 +5,14 @@
   --player-safe-bottom:env(safe-area-inset-bottom,0px);
   --player-safe-left:max(12px,env(safe-area-inset-left,0px));
   --player-safe-right:max(12px,env(safe-area-inset-right,0px));
-  position:relative;height:100vh;height:100svh;min-height:560px;overflow-x:clip;
+  position:relative;height:100vh;height:100svh;overflow-x:clip;
 }
 body.standalone-player.has-inventory-dock {padding-bottom:0;}
 .standalone-player .player-screen {
-  --playfield-safe-top:calc(60px + env(safe-area-inset-top,0px));
+  --playfield-safe-top:calc(60px * var(--playfield-scale,1) + env(safe-area-inset-top,0px));
   --playfield-safe-bottom:env(safe-area-inset-bottom,0px);
-  --playfield-safe-left:max(12px,env(safe-area-inset-left,0px));
-  --playfield-safe-right:max(12px,env(safe-area-inset-right,0px));
+  --playfield-safe-left:max(calc(12px * var(--playfield-scale,1)),env(safe-area-inset-left,0px));
+  --playfield-safe-right:max(calc(12px * var(--playfield-scale,1)),env(safe-area-inset-right,0px));
   box-sizing:border-box;width:100%;max-width:none;height:100%;margin:0;padding:0;
 }
 .standalone-player .nest-inventory-surface .preview-footer {display:none;}

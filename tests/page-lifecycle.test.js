@@ -1,3 +1,4 @@
+import {diceAppearanceScale} from '../dice/appearance-scale.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -39,8 +40,8 @@ test('dice frame keeps workers and WebGL alive across cached departures before t
     terminate() { this.terminations++; }
   };
   const document = {querySelectorAll: () => [{getContext: () => ({getExtension: () => ({loseContext() { lostContexts++; }})})}]};
-  const frameSource = source('../dice/frame.js').replaceAll('import.meta.url', JSON.stringify(new URL('../dice/frame.js', import.meta.url).href));
-  runInNewContext(frameSource, {window, document, URL, URLSearchParams, cancelAnimationFrame() {}});
+  const frameSource = source('../dice/frame.js').replace(/^import .*appearance-scale.*;\n/,'').replaceAll('import.meta.url', JSON.stringify(new URL('../dice/frame.js', import.meta.url).href));
+  runInNewContext(frameSource, {diceAppearanceScale, window, document, URL, URLSearchParams, cancelAnimationFrame() {}});
   new window.Worker();
   pagehide(window, true);
   new window.Worker();

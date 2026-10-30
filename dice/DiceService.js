@@ -18,7 +18,7 @@ export class DiceService {
     if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new RangeError('timeoutMs must be positive.');
     this.timeoutMs = timeoutMs;
     this.transportFactory = transportFactory;
-    this.appearance = Object.fromEntries(['sizeMultiplier','referenceWidth','referenceHeight','renderOverscan'].flatMap(key => {
+    this.appearance = Object.fromEntries(['sizeMultiplier','referenceWidth','referenceHeight','referenceViewportHeight','renderOverscan'].flatMap(key => {
       const value = appearance[key] ?? (key === 'sizeMultiplier' ? 1 : undefined);
       if (value === undefined) return [];
       if (!Number.isFinite(value) || value <= 0) throw new RangeError(`Invalid dice ${key}.`);

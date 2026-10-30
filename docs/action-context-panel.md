@@ -33,9 +33,14 @@ Change these CSS custom properties on the stage to tune both modes together:
 | `--action-context-label-size` | `20px` | Success-chance label size |
 | `--action-context-odds-lift` | `15px` | Move percentage and odds label up together without moving the caption |
 
-The existing `--playfield-gap` controls space between stage rows. A named container
-query supplies compact values for frames at most 700px tall. Project card colors
-and small typography also apply to the panel.
+These are design values at the 359 × 745 reset reference. `studio/playfield-layout.js`
+fits that composition uniformly to the current game viewport. `--playfield-scale`
+scales HUD, cards, context typography, minis, drawer and spacing together; there is
+no compact-height typography breakpoint. Extra height caused by a different
+aspect ratio is shared above and below the card/context group. Extra width is
+shared at the sides. Proportional resizing therefore preserves normalized positions,
+sizes and text wrapping. Project card colors and small typography also apply to
+the panel.
 
 Percentage and odds labels use five color steps at the 20%, 40%, 60% and 80%
 chance thresholds. The dark endpoint uses 65% of the small-style color mixed

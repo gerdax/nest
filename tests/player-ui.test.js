@@ -115,8 +115,19 @@ test('action information column follows the real card width through resize and e
  const {ui,mount,doc}=fixture();assert.equal(ui.actionContext.root.style.width,'276px');assert.equal(ui.contextResize.target,mount);
  doc.documentElement={};doc.defaultView.getComputedStyle=()=>({zoom:'.8'});
  mount.getBoundingClientRect=()=>({width:192,height:256});ui.contextResize.callback();
- assert.equal(ui.actionContext.root.style.width,'240px');
- mount.getBoundingClientRect=()=>({width:252,height:336});ui.contextResize.callback();assert.equal(ui.actionContext.root.style.width,'315px');
+ assert.equal(ui.actionContext.root.style.width,'240px');assert.equal(ui.resources.style.width,'240px');
+ mount.getBoundingClientRect=()=>({width:252,height:336});ui.contextResize.callback();assert.equal(ui.actionContext.root.style.width,'315px');assert.equal(ui.resources.style.width,'315px');
  ui.destroy();assert.equal(ui.contextResize.disconnected,true);
- mount.getBoundingClientRect=()=>({width:100,height:133});ui.contextResize.callback();assert.equal(ui.actionContext.root.style.width,'315px');
+ mount.getBoundingClientRect=()=>({width:100,height:133});ui.contextResize.callback();assert.equal(ui.actionContext.root.style.width,'315px');assert.equal(ui.resources.style.width,'315px');
+});
+
+test('viewport scaling uses layout pixels and keeps the reset proportions',()=>{
+ const {ui,root,doc}=fixture();
+ doc.documentElement={};doc.defaultView.getComputedStyle=()=>({zoom:'.8'});
+ for(const factor of [.75,1,1.5]){
+  root.getBoundingClientRect=()=>({width:359*factor*.8,height:745*factor*.8});ui.contextResize.callback();
+  assert(Math.abs(Number(root.style['--playfield-scale'])-factor)<1e-10);
+  assert(Math.abs(parseFloat(root.style['--playfield-composition-lift']))<1e-10);
+ }
+ ui.destroy();
 });

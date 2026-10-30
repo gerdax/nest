@@ -1,3 +1,4 @@
+import {diceAppearanceScale} from './appearance-scale.js';
 // Dice Box has no disposal API. This disposable document owns all its workers.
 const workers = new Set();
 const BrowserWorker = window.Worker;
@@ -19,11 +20,10 @@ const scale = () => {
   const { clientWidth, clientHeight } = document.getElementById('tray');
   const overscan = setting('renderOverscan', 1);
   const width = clientWidth / overscan, height = clientHeight / overscan;
-  // Keep the normal tray's readable pixel size, while leaving compact trays
-  // enough physical space for several dice to settle side by side.
-  const referenceWidth = setting('referenceWidth', width), referenceHeight = setting('referenceHeight', height);
-  const referenceScale = Math.min(12, (4400 / 1.5) / Math.max(1, referenceHeight), 12 * Math.max(0.4, referenceWidth / Math.max(1, referenceHeight)));
-  return referenceScale * referenceHeight / Math.max(1, height) * setting('sizeMultiplier', 1);
+  return diceAppearanceScale(width,height,{
+    referenceWidth:setting('referenceWidth',width),referenceHeight:setting('referenceHeight',height),
+    referenceViewportHeight:setting('referenceViewportHeight',height),sizeMultiplier:setting('sizeMultiplier',1),
+  });
 };
 async function resize() {
   if (disposed || !box) return;

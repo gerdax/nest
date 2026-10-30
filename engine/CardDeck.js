@@ -1,6 +1,6 @@
 import { createError } from '../errors.js';
 import { cssScale, layoutBounds } from './cssScale.js';
-import { syncCardContentScale } from './cardSizing.js';
+import { syncCardContentScale, cardLayoutSettings } from './cardSizing.js';
 import { projectedBounds, turningBounds } from './geometry.js?v=no-ending-card-1';
 import { buildDeck, decorateCard, announceDeck, renderDeck, stageNextContent, stageNextBack, stageActionDeck, stageContentDeck, scenePose, cardPose, restoreBacks } from './renderer.js?v=no-ending-card-1';
 import { DeckInteractionMotion } from './DeckInteractionMotion.js';
@@ -39,7 +39,8 @@ export class CardDeck extends EventTarget {
   } = {}) {
     super();
     this.mount = mount;
-    this.settings = settingsWith(settings);
+    this.baseSettings = settingsWith(settings);
+    this.settings = cardLayoutSettings(mount,this.baseSettings);
     this.content = validate(content);
     this.interactionMotion = new DeckInteractionMotion();
     this.entranceSequence = new DeckEntranceSequence();
@@ -147,6 +148,7 @@ export class CardDeck extends EventTarget {
       if (entries?.length && bounds.width === this.resizeBounds.width && bounds.height === this.resizeBounds.height) return;
       this.resizeBounds = bounds;
       syncCardContentScale(mount);
+      this.settings=cardLayoutSettings(mount,this.baseSettings);
       const wasDragging = !!this.drag;
       if (this.pickup?.pending || this.pickup?.mix.x > 0 && !this.collectMotion) { this.pickup.cancel(); this.cancelPickup(); }
       if (wasDragging) { this.input.cancel(); this.cancel(); }
@@ -331,7 +333,7 @@ export class CardDeck extends EventTarget {
     if (!this.pending || (this.pendingPresentation !== 'closed' && !this.pending?.decisionOnly) || !this.commitMotion || this.nextFlip.target === 0) return;
     if (time < this.commitMotion.start + Math.max(0, this.commitMotion.duration - this.settings.flipLeadMs)) return;
     const { width, height } = layoutBounds(this.mount);
-    const area = turningBounds({ x: 0, y: 0, z: -24 + (this.reduced ? 0 : flipLift(.5, this.settings)), turnAxis: this.settings.flipAxisTilt }, width, height, this.settings.perspective);
+    const area = turningBounds({ x: 0, y: 0, z: -24*(this.settings.layoutScale??1) + (this.reduced ? 0 : flipLift(.5, this.settings)), turnAxis: this.settings.flipAxisTilt }, width, height, this.settings.perspective);
     if ((this.coverDeparture ? [scenePose(this, time)] : this.cards.map((_, i) => cardPose(this, i, time))).every(pose => projectedBounds(pose, width, height, this.settings.perspective).bottom <= area.top - 8)) {
       this.nextFlip.target = 0;
     }
@@ -1322,7 +1324,7 @@ export class CardDeck extends EventTarget {
     this.cancelPresentationHint();
     const source = checking
       ? { face: this.checkSurface.back, back: this.underlay, layer: this.underlayLayer,
-        pose: { x: 0, y: 0, z: -24, rx: 0, ry: 0, rz: 0 } }
+        pose: { x: 0, y: 0, z: -24*(this.settings.layoutScale??1), rx: 0, ry: 0, rz: 0 } }
       : this.open
         ? { face: this.cards[this.index], back: this.cardBacks[this.index], layer: this.cardLayers[this.index], pose: cardPose(this, this.index) }
         : { face: this.scene, back: this.sceneBack, layer: this.sceneLayer, pose: scenePose(this) };
@@ -1501,7 +1503,7 @@ export class CardDeck extends EventTarget {
     this.clearGrab();
     this.backTransition = backTransition;
     this.nextTakeDepth = 0;
-    this.takeDepthRatio = stagedDepth > 0 ? takeRecession / (stagedDepth * 40) : 0;
+    this.takeDepthRatio = stagedDepth > 0 ? takeRecession / (stagedDepth * 40*(this.settings.layoutScale??1)) : 0;
     this.groupLeaveActive = false;
     if (open && content.flipItemsOnReveal) content = { ...content, flipItemsOnReveal: false };
     this.content = content;
@@ -1562,7 +1564,7 @@ export class CardDeck extends EventTarget {
   completeCommit() {
     if (this.destroyed || this.phase === 'ended') return;
     const takeRecession = this.nextTakeDepth || 0;
-    const stagedDepth = 1 + takeRecession / 40;
+    const stagedDepth = 1 + takeRecession / (40*(this.settings.layoutScale??1));
     const backTransition = this.backTransition;
     const introduction = this.commitMotion?.introduction === true;
     const all = this.commitMotion?.discardAll === true;
@@ -1677,7 +1679,8 @@ export class CardDeck extends EventTarget {
 
   updateSettings(patch) {
     if (this.destroyed) return;
-    this.settings = settingsWith(patch, this.settings);
+    this.baseSettings = settingsWith(patch, this.baseSettings??this.settings);
+    this.settings = cardLayoutSettings(this.mount,this.baseSettings);
     if (this.contentTransition) { this.finishMotion(); return; }
     // Live geometry edits can invalidate a turn that has already begun. Adopt
     // safely rather than rotating into a departing card's newly projected area.
