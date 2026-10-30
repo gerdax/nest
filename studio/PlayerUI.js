@@ -6,6 +6,7 @@ import { ActionContextPanel } from './ActionContextPanel.js';
 import { applyCardStyles } from '../project/card-styles.js';
 import { acquireDock } from '../editor/dockOwnership.js';
 import { playerUIState } from './player-ui-state.js';
+import { layoutBounds } from '../engine/cssScale.js';
 
 /** Player presentation owns views and geometry; gameplay owns every mutation. */
 export class PlayerUI {
@@ -49,6 +50,14 @@ export class PlayerUI {
     this.actionContext = new ActionContextPanel(root.querySelector('[data-action-context]'), {
       onHold:item => this.cardPreview.show(item), canHold:() => this.canInspect && !this.destroyed && playerUIState(this.getInput?.() ?? this.input).canInspect,
     });
+    this.syncContextWidth=()=>{
+      if(this.destroyed)return;
+      const width=layoutBounds(mount).width;
+      if(Number.isFinite(width)&&width>0)this.actionContext.root.style.width=`${width}px`;
+    };
+    this.contextResize=new ResizeObserver(this.syncContextWidth);
+    this.contextResize.observe(mount);
+    this.syncContextWidth();
   }
 
   applyStyles(styles) {
@@ -153,6 +162,7 @@ export class PlayerUI {
     this.actionContext.destroy();
     this.cardPreview.destroy();
     this.footerResize?.disconnect();
+    this.contextResize.disconnect();
     this.backdrop.destroy();
     this.surface.destroy();
     this.releaseDock?.();

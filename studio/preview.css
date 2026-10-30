@@ -109,7 +109,8 @@
 .action-context-view[data-mode="check-item"] > .action-context-caption {grid-column:1;grid-row:1;}
 .action-context-view[data-mode="check-item"] > .action-context-content {display:contents;}
 .action-context-view[data-mode="check-item"] .action-check-details {grid-column:1;grid-row:2;}
-.action-context-view[data-mode="check-item"] .action-context-item-column {grid-column:2;grid-row:1 / span 2;translate:-25px 0;}
+.action-context-view[data-mode="check-item"] .action-context-item-column {grid-column:2;grid-row:1 / span 2;}
+.action-context-panel {justify-self:center;max-width:100%;}
 
 .requirement-resource-amount {margin-inline-end:-.06em;}
 /* Icons paint outside a zero-height inline box so they cannot shift the text baseline. */

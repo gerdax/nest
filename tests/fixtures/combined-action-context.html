@@ -8,11 +8,11 @@
 <link rel="stylesheet" href="studio/preview.css">
 <link rel="stylesheet" href="studio/playfield.css">
 <style>
-*{box-sizing:border-box}body{margin:0;padding:16px;background:#172020;color:#dce5ce;font:14px system-ui}main{display:flex;gap:24px;align-items:flex-start}#frame{width:390px;height:800px;flex:none}aside{max-width:300px}button{padding:8px;margin:4px;background:#263838;color:#e3edda;border:1px solid #687c58;border-radius:5px}#frame.compact{width:320px;height:640px}
+*{box-sizing:border-box}body{margin:0;padding:16px;background:#172020;color:#dce5ce;font:14px system-ui}main{display:flex;gap:24px;align-items:flex-start}#frame{width:390px;height:800px;flex:none}aside{max-width:300px}button{padding:8px;margin:4px;background:#263838;color:#e3edda;border:1px solid #687c58;border-radius:5px}#frame.compact{width:320px;height:640px}#frame.wide{width:676px;height:767px}
 </style>
 <main><section id="frame" class="nest-playfield"><div id="preview"></div></section><aside>
 <h1>Combined action context</h1><p>Stat odds and USING appear together for the combined action. Hold the miniature to inspect its item. Check-only, item-only and compact layouts retain the same interaction.</p>
-<button data-mode="combined">Combined</button><button data-mode="check">Check only</button><button data-mode="item">Item only</button><button data-mode="certain">100% odds</button><button id="compact">Toggle compact</button>
+<button data-mode="combined">Combined</button><button data-mode="check">Check only</button><button data-mode="item">Item only</button><button data-mode="certain">100% odds</button><button id="compact">Toggle compact</button><button id="wide">Toggle wide</button>
 </aside></main>
 <script type="module">
 import {ProjectPreview} from './studio/ProjectPreview.js';
@@ -29,6 +29,7 @@ function play(mode){
  preview.play(project,chapter.id,node.id,{initialState:{variables:{energy:4,health:8,agility:mode==='certain'?10:3},inventory:[item]}});
 }
 for(const button of document.querySelectorAll('[data-mode]'))button.onclick=()=>play(button.dataset.mode);
-document.querySelector('#compact').onclick=()=>document.querySelector('#frame').classList.toggle('compact');
+document.querySelector('#compact').onclick=()=>{const frame=document.querySelector('#frame');frame.classList.remove('wide');frame.classList.toggle('compact');};
+document.querySelector('#wide').onclick=()=>{const frame=document.querySelector('#frame');frame.classList.remove('compact');frame.classList.toggle('wide');};
 play('combined');
 </script>

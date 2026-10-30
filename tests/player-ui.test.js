@@ -22,12 +22,12 @@ class Element extends EventTarget {
 function fixture() {
   const doc=Object.assign(new EventTarget(),{defaultView:Object.assign(new EventTarget(),{innerWidth:800,innerHeight:1000}),createElement:()=>new Element(doc)});
   doc.body=new Element(doc);globalThis.document=doc;
-  globalThis.ResizeObserver=class {observe(){}disconnect(){this.disconnected=true;}};
+  globalThis.ResizeObserver=class {constructor(callback){this.callback=callback;}observe(target){this.target=target;}disconnect(){this.disconnected=true;}};
   const root=new Element(doc),mount=new Element(doc),footer=new Element(doc),host=new Element(doc);
   const input={revision:1,run:{idle:true,variables:{health:6},collectedItems:[]},
     card:{phase:'choices',action:{id:'choice',checkInfo:{stat:'Agility: 3',chance:'50%',label:'Medium'}}},interaction:{},feedback:{},definitions:{variables:[{id:'health',type:'number',max:10}]}};
   const ui=new PlayerUI(root,{mount,footer,inventoryHost:host,getInput:()=>input});
-  return {ui,input,root,host,footer,doc};
+  return {ui,input,root,host,footer,doc,mount};
 }
 
 test('one owner hosts the drawer, context, HUD and backdrop without owning the host tools',()=>{
@@ -109,4 +109,14 @@ test('reset settles visibility, cancels holds/dialogs and permits restart; destr
   input.revision++;ui.update(input);assert.equal(ui.actionContext.visible,true);
   ui.destroy();ui.update(input);ui.setInventoryContext(true);ui.reset();
   assert.equal(ui.actionContext.root.hidden,true);
+});
+
+test('action information column follows the real card width through resize and editor zoom',()=>{
+ const {ui,mount,doc}=fixture();assert.equal(ui.actionContext.root.style.width,'276px');assert.equal(ui.contextResize.target,mount);
+ doc.documentElement={};doc.defaultView.getComputedStyle=()=>({zoom:'.8'});
+ mount.getBoundingClientRect=()=>({width:192,height:256});ui.contextResize.callback();
+ assert.equal(ui.actionContext.root.style.width,'240px');
+ mount.getBoundingClientRect=()=>({width:252,height:336});ui.contextResize.callback();assert.equal(ui.actionContext.root.style.width,'315px');
+ ui.destroy();assert.equal(ui.contextResize.disconnected,true);
+ mount.getBoundingClientRect=()=>({width:100,height:133});ui.contextResize.callback();assert.equal(ui.actionContext.root.style.width,'315px');
 });
