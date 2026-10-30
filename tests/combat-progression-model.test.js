@@ -17,9 +17,9 @@ for(const context of ['common','weapon','enemy'])for(const type of ['attack','de
  action.effects.push({op:'add',key:'missing-variable',value:1});assert(validateProject(project).length>0);
 });
 
-test('progression support does not enable independent Feedback or outcome-specific combat effects',()=>{
+test('combat outcome effects are supported while Feedback remains presentation only',()=>{
  const project=createRatCombatProject(),action=project.library.find(d=>d.id===project.combat.defaultActions[0].definitionId);
- action.successEffects=[{op:'add',key:'energy',value:1}];assert(validateProject(project).some(i=>i.message.includes('outcome-specific combat effects')));
+ action.successEffects=[{op:'add',key:'energy',value:1}];assert.deepEqual(validateProject(project),[]);
  action.successEffects=[];project.library.find(d=>d.id===project.combat.playerHit.definitionId).effects=[{op:'add',key:'energy',value:1}];
  assert(validateProject(project).some(i=>i.message.includes('presentation only')));
 });

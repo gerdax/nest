@@ -124,8 +124,8 @@ require shared Library definitions and do not silently promote local content.
 Poison/statuses, advanced blocking rules, ammunition, equipment, multiple enemies, fleeing,
 schemes/random attack selection, healing re-cross rules, finite-use weapon rules,
 shared cooldown groups, post-death retry UX and durable combat resume are deferred.
-Weapon intrinsic effects beyond the authored damage profile, combat outcome-specific
-effects and Enemy Energy costs remain deferred. Common Action Progression effects
+Weapon intrinsic effects beyond the authored damage profile and Enemy resource
+costs remain deferred. Common Action Progression effects
 are supported as described below. Ordinary story progression effects and
 Health/Energy collection retain their existing semantics.
 
@@ -202,12 +202,13 @@ numeric variables keep their existing numeric rules. Enemy effects affect that s
 a separate Enemy inventory. Requirements, Energy/Health costs and cooldown controls
 retain their existing player-only availability; Enemy actions still run in order.
 
-Progression effects apply once on completion, according to each effect’s
-**On dice fail** / **On dice success** selections. Both default checked; neither
-checked skips that effect on a dice action. Misses use the fail selection and
-fully blocked successful hits use the success selection. Direct Attack, Defend
-and Wait ignore these boxes and apply their progression effects normally. For damaging actions they commit when the damage
-Feedback is advanced; otherwise they commit before the next turn. Intrinsic
+Progression effects apply once on completion, on either dice outcome, including
+misses and fully blocked hits. Checked Combat Actions also expose **On success
+effects** and **On failure effects**, using the same separate lists as ordinary
+Actions. Completion applies common progression first, then the matching outcome
+list. A blocked hit is still success. Direct actions ignore both outcome lists
+and hide their editors while retaining saved contents. For damaging actions, all
+completion effects commit when the damage Feedback is advanced; otherwise they commit before the next turn. Intrinsic
 player health damage and progression operations share one transaction, in that
 order, before testing for death. Enemy HP and run changes publish together. This
 means authored healing can offset damage, weapon removal changes subsequent
@@ -224,3 +225,6 @@ provisional during a check and is refunded if the attempt fails technically or
 is cancelled. Completion applies progression effects before the global death
 check, allowing authored healing to offset a Health cost. **Hide badge** is
 presentation-only and never changes affordability, payment or refund amounts.
+
+The temporary per-effect dice checkboxes have been removed. Any saved checkbox
+metadata is ignored; common progression effects once again apply on both outcomes.

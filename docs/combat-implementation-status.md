@@ -65,9 +65,8 @@ Poison/statuses, Defend/Block, ammo/equipment, multi-enemy combat, fleeing,
 attack schemes/randomness, healing re-cross rules, finite-use Weapons, shared
 cooldowns, post-death retry and durable combat resume remain deferred as agreed.
 Later authoring work added common Combat Action Progression effects. Type-specific
-properties remain separate; poison/statuses, Weapon intrinsic and combat
-outcome-specific effects, and Enemy costs still receive explicit validation
-diagnostics. See [current action semantics](combat.md#action-properties-and-progression-effects).
+properties remain separate; poison/statuses, Weapon intrinsic effects and Enemy
+costs still receive explicit validation diagnostics. See [current action semantics](combat.md#action-properties-and-progression-effects).
 
 ## Try it
 
@@ -91,3 +90,7 @@ covered Common navigation/feedback, default Action creation and Undo, Content
 filtering, migrated Pistol Shoot/Burst editors, scaled feedback previews and a
 production Rat run reaching Punch/Shoot/Burst choices with physical dice. Device,
 Safari/Firefox and screen-reader checks were not repeated.
+
+Later authoring work shares the existing On success/On failure effect sections
+with checked Combat Actions. Progression effects remain common to either outcome;
+per-effect dice checkboxes are no longer used.

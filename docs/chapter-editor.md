@@ -141,11 +141,8 @@ contribution to the top-right resource badge. Requirements and payment are
 unchanged. Existing item/other-variable costs remain intact as disabled legacy
 selections until explicitly retargeted or removed.
 
-
-Each Action Progression effect has **On dice fail** and **On dice success**
-checkboxes beside Remove. Both default checked, including saved effects with no
-explicit flags. For dice checks, only the matching checked effects run; unchecking
-both skips that effect on both outcomes. Direct actions ignore the saved boxes
-and apply the effect normally. Changing resolution preserves the selections.
-The same rules apply to common, Weapon-owned and Enemy Combat Actions. Existing
-separate On success/On failure effect lists remain supported.
+Action Progression effects apply on completion, on either dice outcome. Use the
+separate **On success effects** and **On failure effects** lists on ordinary and
+Combat Actions for outcome-specific changes. These sections appear for dice checks
+after Check settings and before the card preview. Direct actions hide and ignore
+the lists without deleting their saved contents.

@@ -23,13 +23,13 @@ for(const type of ['attack','defend','wait'])for(const context of ['common','wea
  assert.equal((html.match(/<h4>Action properties<\/h4>/g)||[]).length,1);
  assert(!html.includes('<h4>Effect</h4>'));
  assert.equal((html.match(/<summary>Progression effects · 3<\/summary>/g)||[]).length,1);
- assert(html.includes('Apply when the action completes. For dice checks, use the outcome boxes below. Direct actions ignore these boxes.'));
+ assert(html.includes('Apply when the action completes. For a dice check, these apply on either outcome.'));
  for(const suffix of ['0.op','0.key','0.value','1.op','1.key','2.op','2.key'])assert(html.includes(`data-path="${prefix}effects.${suffix}"`),suffix);
  assert.equal((html.match(new RegExp(`data-command="add-rule" data-scope="definition" data-path="${prefix.replaceAll('.','\\.')}effects" data-rule-kind="effects"`,'g'))||[]).length,1);
  assert(html.includes(`data-command="remove-rule" data-scope="definition" data-path="${prefix}effects" data-rule-kind="effects" data-index="2"`));
  for(const path of ['conditions.0.key','costs.0.amount','cooldown'])assert.equal(html.includes(`data-path="${prefix}${path}"`),context!=='enemy',path);
- assert(!html.includes(`data-path="${prefix}successEffects"`));
- assert(!html.includes(`data-path="${prefix}failureEffects"`));
+ assert.equal(html.includes(`data-path="${prefix}successEffects"`),type==='attack');
+ assert.equal(html.includes(`data-path="${prefix}failureEffects"`),type==='attack');
  if(type==='attack')assert(html.includes(`data-path="${prefix}attack.source"`));
  if(type==='defend')assert(html.includes(`data-path="${prefix}damageReduction"`));
  if(type==='wait')assert(html.includes('Passes the turn.'));

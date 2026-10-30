@@ -17,7 +17,7 @@ export function artworkEditor(card,scope='definition',prefix='') {
 }
 export const imageField=(label,value,path,scope='definition',{clearable=false}={})=>field(label,value,path,scope)+`${clearable?'<div class="image-field-actions">':''}<button type="button" data-image-picker data-scope="${esc(scope)}" data-path="${esc(path)}">Choose image file</button>${clearable?button('Reload','reload-image',`data-scope="${esc(scope)}" data-path="${esc(path)}" aria-label="Reload card image" title="Reload artwork from disk" ${value?'':'disabled'}`)+button('Clear','clear-image',`data-scope="${esc(scope)}" data-path="${esc(path)}" aria-label="Clear card image" ${value?'':'disabled'}`):''}${clearable?'</div>':''}`;
 const extras=(scope,path,kind)=>`data-scope="${esc(scope)}" data-path="${esc(path)}" data-rule-kind="${kind}"`;
-export function rules(project,list=[],path,scope,kind,{label,help,chapter,footer='',countSuffix='',diceOutcomes=false}={}) {
+export function rules(project,list=[],path,scope,kind,{label,help,chapter,footer='',countSuffix=''}={}) {
  const vars=project.variables.map(v=>[v.id,variableLabel(v)]);
  let html=`<details class="state-panel"><summary>${esc(label || kind[0].toUpperCase()+kind.slice(1))} · ${list.length}${esc(countSuffix)}</summary>`;
  if(!help&&kind==='costs')help='Spend Energy or Health when the action is committed. Dice checks pay before rolling, regardless of the outcome.';
@@ -57,15 +57,14 @@ export function rules(project,list=[],path,scope,kind,{label,help,chapter,footer
    const flag=project.variables.find(v=>v.id===rule.key)?.type==='flag';
    fields+=inventory?'':flag?select('Value',String(rule.value),[['true','True'],['false','False']],`${p}.value`,scope):field('Value',rule.value,`${p}.value`,scope,'number');
   }
-  const outcomes=kind==='effects'&&diceOutcomes;
-  const controls=outcomes?`<div class="progression-outcome-controls">${checkbox('On dice fail',rule.onDiceFailure!==false,`${p}.onDiceFailure`,scope)}${checkbox('On dice success',rule.onDiceSuccess!==false,`${p}.onDiceSuccess`,scope)}</div>`:kind==='costs'?checkbox('Hide badge',rule.hideBadge===true,`${p}.hideBadge`,scope):itemEffect?'':referenceLinks;
-  return `<div class="entry">${fields}${itemEffect?`<div class="item-effect-reference">${referenceLinks}</div>`:''}${kind==='costs'&&referenceLinks?`<div class="item-effect-reference">${referenceLinks}</div>`:''}<div class="rule-entry-actions${kind==='costs'?' cost-entry-actions':outcomes?' progression-entry-actions':''}">${controls}${button('Remove','remove-rule',extras(scope,path,kind)+` data-index="${i}"`)}</div></div>`;
+  const controls=kind==='costs'?checkbox('Hide badge',rule.hideBadge===true,`${p}.hideBadge`,scope):itemEffect?'':referenceLinks;
+  return `<div class="entry">${fields}${itemEffect?`<div class="item-effect-reference">${referenceLinks}</div>`:''}${kind==='costs'&&referenceLinks?`<div class="item-effect-reference">${referenceLinks}</div>`:''}<div class="rule-entry-actions${kind==='costs'?' cost-entry-actions':''}">${controls}${button('Remove','remove-rule',extras(scope,path,kind)+` data-index="${i}"`)}</div></div>`;
  }).join('');
  return html+button(`Add ${kind==='conditions'?'condition':kind==='costs'?'cost':'effect'}`,'add-rule',extras(scope,path,kind))+footer+'</details>';
 }
 export function actionFields(project,action,prefix='',scope='definition',chapter) {
  const p=key=>prefix+key;
- let html=rules(project,action.conditions,p('conditions'),scope,'conditions',{chapter,label:'Requirements',help:'All requirements must pass before this action can be selected. Requirements do not spend resources.'})+rules(project,action.costs,p('costs'),scope,'costs',{chapter})+(action.kind==='combatAction'?'':rules(project,action.effects,p('effects'),scope,'effects',{chapter,diceOutcomes:true,label:'Progression effects',help:'Apply when the action completes. For dice checks, use the outcome boxes below. Direct actions ignore these boxes.'}));
+ let html=rules(project,action.conditions,p('conditions'),scope,'conditions',{chapter,label:'Requirements',help:'All requirements must pass before this action can be selected. Requirements do not spend resources.'})+rules(project,action.costs,p('costs'),scope,'costs',{chapter})+(action.kind==='combatAction'?'':rules(project,action.effects,p('effects'),scope,'effects',{chapter,label:'Progression effects',help:'Apply when the action completes. For a dice check, these apply on either outcome.'}));
  return html+actionResolutionFields(project,action,prefix,scope,chapter);
 }
 export function actionResolutionFields(project,action,prefix='',scope='definition',chapter) {
@@ -86,7 +85,7 @@ export function actionResolutionFields(project,action,prefix='',scope='definitio
   html+=button('Add dice','add-rule',extras(scope,p('check.pool'),'dice')+' class="dice-add"')+field('Modifier',check.modifier,p('check.modifier'),scope,'number')+select('Variable modifier',check.modifierVariable||'',[['','None'],...project.variables.filter(v=>v.type==='number').map(v=>[v.id,variableLabel(v)])],p('check.modifierVariable'),scope)+field('Target',check.target,p('check.target'),scope,'number');
   }
   html+='</div>';
-  if(action.kind!=='combatAction')html+=rules(project,action.successEffects,p('successEffects'),scope,'effects',{chapter,label:'On success effects'})+rules(project,action.failureEffects,p('failureEffects'),scope,'effects',{chapter,label:'On failure effects'});
+  html+=rules(project,action.successEffects,p('successEffects'),scope,'effects',{chapter,label:'On success effects'})+rules(project,action.failureEffects,p('failureEffects'),scope,'effects',{chapter,label:'On failure effects'});
  }
  return html;
 }

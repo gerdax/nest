@@ -259,32 +259,55 @@ test('Health cost payment is provisional until a valid result, and progression c
  assert.equal(h.host.variables.health,2);assert.equal(h.c.phase,'choice');h.c.dispose();
 });
 
-for(const actor of ['player','enemy'])for(const hit of [false,true])for(const enabled of [false,true])test(`combat ${actor} progression selects the resolved dice outcome, hit=${hit}, enabled=${enabled}`,async()=>{
+for(const actor of ['player','enemy'])for(const hit of [true,false])test(`${actor} combat applies progression plus only the matching outcome list, hit=${hit}`,async()=>{
  const h=harness({hit});
- const gates={onDiceFailure:hit?!enabled:enabled,onDiceSuccess:hit?enabled:!enabled};
- const effects=[{op:'add',key:'energy',value:1,...gates}];
+ const configure=action=>Object.assign(action,{effects:[{op:'add',key:'energy',value:1}],successEffects:[{op:'add',key:'energy',value:2}],failureEffects:[{op:'add',key:'energy',value:4}]});
  if(actor==='enemy'){
-  h.c.enemy.actions[0].effects=effects;await h.c.start();if(h.c.phase==='effects')await swipe(h);
+  configure(h.c.enemy.actions[0]);await h.c.start();if(h.c.phase==='effects')await swipe(h);
  }else{
-  await reachPlayer(h);h.host.compiled.library.find(d=>d.name==='Punch').effects=effects;
-  await select(h,'Punch');if(h.c.pending?.actor==='player'&&h.c.phase==='effects')await swipe(h);
+  await reachPlayer(h);configure(h.host.compiled.library.find(d=>d.name==='Punch'));await select(h,'Punch');
+  if(h.c.pending?.actor==='player'&&h.c.phase==='effects')await swipe(h);
  }
- assert.equal(h.host.variables.energy,enabled?4:3);h.c.dispose();
+ assert.equal(h.host.variables.energy,hit?6:8);h.c.dispose();
 });
 
-for(const actor of ['player','enemy'])for(const type of ['defend','wait'])test(`direct ${actor} ${type} ignores unchecked dice progression boxes`,async()=>{
- const h=harness(),effects=[{op:'add',key:'energy',value:1,onDiceSuccess:false,onDiceFailure:false}];
- if(actor==='enemy'){
-  Object.assign(h.c.enemy.actions[0],{type,resolution:'direct',damageReduction:1,effects});await h.c.start();await swipe(h);
- }else{
-  await reachPlayer(h);Object.assign(h.host.compiled.library.find(d=>d.name==='Punch'),{type,resolution:'direct',damageReduction:1,effects});
-  const completion=select(h,'Punch');await tick();h.deck.depart();await completion;
- }
+for(const actor of ['player','enemy'])for(const type of ['defend','wait'])test(`direct ${actor} ${type} ignores stored success and failure lists`,async()=>{
+ const h=harness();
+ const configure=action=>Object.assign(action,{type,resolution:'direct',damageReduction:1,effects:[{op:'add',key:'energy',value:1}],successEffects:[{op:'add',key:'energy',value:2}],failureEffects:[{op:'add',key:'energy',value:4}]});
+ if(actor==='enemy'){configure(h.c.enemy.actions[0]);await h.c.start();await swipe(h);}
+ else{await reachPlayer(h);configure(h.host.compiled.library.find(d=>d.name==='Punch'));const completion=select(h,'Punch');await tick();h.deck.depart();await completion;}
  assert.equal(h.host.variables.energy,4);h.c.dispose();
 });
 
-test('a blocked successful check uses success gates even with zero damage',async()=>{
+test('blocked successful combat applies On success effects without damage feedback',async()=>{
  const h=harness();await reachPlayer(h);h.c.encounter.enemyGuard=100;
- h.host.compiled.library.find(d=>d.name==='Punch').effects=[{op:'add',key:'energy',value:1,onDiceSuccess:true,onDiceFailure:false}];
- await select(h,'Punch');assert.equal(h.host.variables.energy,4);assert.equal(h.c.encounter.enemyHp,4);h.c.dispose();
+ h.host.compiled.library.find(d=>d.name==='Punch').successEffects=[{op:'add',key:'energy',value:1}];
+ await select(h,'Punch');assert.equal(h.c.encounter.enemyHp,4);assert.equal(h.host.variables.energy,4);h.c.dispose();
+});
+
+test('failure effects can remove their Weapon and cause Death before another turn',async()=>{
+ const h=harness({hit:false});await reachPlayer(h);
+ const shoot=h.host.compiled.library.find(d=>d.id==='pistol').combat.actions.find(d=>d.name==='Shoot');
+ shoot.failureEffects=[{op:'removeItem',key:'pistol'},{op:'add',key:'health',value:-100}];
+ await select(h);assert.equal(h.host.inventory.length,0);assert.equal(h.host.variables.health,0);assert.equal(h.host.combat,null);
+});
+
+test('Enemy success healing commits with lethal damage before checking player Death',async()=>{
+ const h=harness({health:1});h.c.enemy.actions[0].successEffects=[{op:'add',key:'health',value:2}];
+ await h.c.start();await swipe(h);assert.equal(h.host.variables.health,2);assert.equal(h.c.phase,'choice');h.c.dispose();
+});
+
+test('outcome effects cannot repeat when successor publication fails after completion',async()=>{
+ const h=harness();await reachPlayer(h);
+ h.host.compiled.library.find(d=>d.name==='Punch').successEffects=[{op:'add',key:'energy',value:1}];
+ await select(h,'Punch');let failed=false;
+ h.host.notify=()=>{if(!failed&&h.host.variables.energy===4){failed=true;throw new Error('Publication unavailable');}};
+ await swipe(h);assert.equal(h.c.phase,'error');await h.c.retry();await swipe(h);
+ assert.equal(h.host.variables.energy,4);h.c.dispose();
+});
+
+test('obsolete per-effect checkbox metadata no longer gates common progression effects',async()=>{
+ const h=harness({hit:false});await reachPlayer(h);
+ h.host.compiled.library.find(d=>d.name==='Punch').effects=[{op:'add',key:'energy',value:1,onDiceSuccess:false,onDiceFailure:false}];
+ await select(h,'Punch');assert.equal(h.host.variables.energy,4);h.c.dispose();
 });

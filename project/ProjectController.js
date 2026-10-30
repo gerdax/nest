@@ -5,7 +5,7 @@ import { createError, errorMessage, errorCode } from '../errors.js';
 import { retainsInventoryItems } from './nodeTypes.js';
 import { initialValues, conditionsMet, affordCosts, transact, addInventory, canTriggerItem, inventoryQuantity } from './state.js';
 import { cardBody, cardFace, actionCardFace } from './presentation.js';
-import { playerCardSummary, isStoryKind, collectionEffects, progressionEffects } from './cards.js';
+import { playerCardSummary, isStoryKind, collectionEffects } from './cards.js';
 import { selectPool } from '../chapter/random.js';
 import { isInventoryContext } from '../engine/inventoryContext.js';
 import { resolveCheck } from './checks.js';
@@ -290,7 +290,7 @@ export class ProjectController {
       const outcomes=source.resolution==='check'?[true,false]:[undefined];
       for(const outcome of outcomes) {
         const collected=transition==='collect'?addInventory(inventory,{...source,text:this.body(source)}):inventory;
-        const result=transact(values,collected,{triggerItem:transition?undefined:source.contextInventoryKey??source.contextItemId,costs:transition?[]:source.costs,effects:transition?(transition==='collect'?collectionEffects(source):[]):[...progressionEffects(source,outcome),...(outcome===undefined?[]:outcome?source.successEffects??[]:source.failureEffects??[])]},this.compiled.variables,this.compiled.library);
+        const result=transact(values,collected,{triggerItem:transition?undefined:source.contextInventoryKey??source.contextItemId,costs:transition?[]:source.costs,effects:transition?(transition==='collect'?collectionEffects(source):[]):[...(source.effects??[]),...(outcome===undefined?[]:outcome?source.successEffects??[]:source.failureEffects??[])]},this.compiled.variables,this.compiled.library);
         // A lethal accepted result always has its implicit Death route, even
         // when this action's ordinary output is unlinked.
         if(this.deathDestination(result.variables,location))continue;
@@ -465,7 +465,7 @@ export class ProjectController {
       this.notify();
     }catch(error){this.error(error);this.show({restore:true});}
   }
-  transaction(source,outcome,values=this.variables,inventory=this.inventory) {return transact(values,inventory,{triggerItem:source.contextInventoryKey??source.contextItemId,costs:source.costs,effects:[...progressionEffects(source,outcome),...(outcome===undefined?[]:outcome?source.successEffects??[]:source.failureEffects??[])]},this.compiled.variables,this.compiled.library);}
+  transaction(source,outcome,values=this.variables,inventory=this.inventory) {return transact(values,inventory,{triggerItem:source.contextInventoryKey??source.contextItemId,costs:source.costs,effects:[...(source.effects??[]),...(outcome===undefined?[]:outcome?source.successEffects??[]:source.failureEffects??[])]},this.compiled.variables,this.compiled.library);}
   available(source,values=this.variables,inventory=this.inventory) {return (!(source.contextInventoryKey??source.contextItemId)||canTriggerItem(inventory,source.contextInventoryKey??source.contextItemId))&&conditionsMet(source.conditions,values,inventory)&&affordCosts(values,inventory,source.costs,this.compiled.variables);}
   commit(detail) {
     if(this.combat){void this.combat.accept(detail);return;}

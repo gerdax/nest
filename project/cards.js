@@ -100,14 +100,6 @@ export function actionResourceCost(card,key) {
 }
 export const actionEnergyCost=card=>actionResourceCost(card,'energy');
 export const actionHealthCost=card=>actionResourceCost(card,'health');
-/** Missing flags preserve legacy either-outcome behaviour. Direct actions
- * ignore the saved dice options, including when both are unchecked. */
-export function progressionEffects(card,outcome) {
-  const effects=card?.effects??[];
-  if(card?.resolution!=='check'||typeof outcome!=='boolean')return effects;
-  const flag=outcome?'onDiceSuccess':'onDiceFailure';
-  return effects.filter(effect=>effect[flag]!==false);
-}
 export function cardSummaryParts(card, variables = [], library = [], itemTags = card.itemTags || [], { omitActionEnergyCost = false,omitActionResourceCosts=false } = {}) {
   const variable = key => variables.find(v => v.id === key);
   const name = key => variable(key)?.name || library.find(d => d.id === key || d.inventoryKey === key)?.name || (isTagKey(key) ? itemTagLabel({itemTags},key) : key);

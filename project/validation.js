@@ -138,7 +138,6 @@ export function validateProject(project, {allowDraft = false} = {}) {
         add(errorMessage('VALIDATION_INVALID_EFFECT', {label}));
         continue;
       }
-      if(['onDiceFailure','onDiceSuccess'].some(key=>e[key]!==undefined&&typeof e[key]!=='boolean'))add(`${label}: Effect dice outcome options must be booleans`);
       if (['addItem', 'removeItem'].includes(e.op)) {
         if (!itemDefinitionIds.has(e.key) && (isTagKey(e.key) || !validRef(e.key, itemDefinitionIds))) add(errorMessage('VALIDATION_INVENTORY_EFFECT_NEEDS_AN_ITEM', {label}));
       } else {
@@ -171,8 +170,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
       if(!['attack','defend','wait'].includes(d.type))add(`${label}: unsupported Combat Action type`);
       if(['defend','wait'].includes(d.type)&&d.resolution!=='direct')add(`${label}: Defend and Wait are direct Actions`);
       if(d.type==='defend'&&(!Number.isSafeInteger(d.damageReduction)||d.damageReduction<1))add(`${label}: Defend requires positive integer damage reduction`);
-      for(const key of ['successEffects','failureEffects'])if(!enemyAction&&list(d[key]).length)add(`${label}: outcome-specific combat effects are deferred; use Progression effects for either outcome`);
-      if(list(d.effects).some(effect=>effect?.key==='health'&&['add','set'].includes(effect.op)&&!Number.isSafeInteger(effect.value)))add(`${label}: Combat progression effects require integer Health values`);
+      if(['effects','successEffects','failureEffects'].flatMap(key=>list(d[key])).some(effect=>effect?.key==='health'&&['add','set'].includes(effect.op)&&!Number.isSafeInteger(effect.value)))add(`${label}: Combat effects require integer Health values`);
       if(!enemyAction&&list(d.costs).some(c=>c?.source!=='variable'||!['energy','health'].includes(c?.key)))add(`${label}: combat supports Energy and Health costs only`);
       if(!enemyAction&&list(d.costs).some(c=>c?.key==='health'&&!Number.isSafeInteger(c.amount)))add(`${label}: combat Health costs require integer amounts`);
       if(d.type==='attack'){if(!object(d.attack)||!['self','weapon','none'].includes(d.attack.source))add(`${label}: invalid attack source`);
@@ -210,7 +208,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
         if(typeof action.target!=='string'||!action.target.trim())add(`${label}: invalid Enemy Action target`);
         if(Object.hasOwn(action,'damage'))add(`${label}: legacy Enemy damage conflicts with the shared attack profile`);
         if(action.type==='attack'&&action.attack?.source==='weapon')add(`${label}: Enemy Actions cannot use a Weapon attack source`);
-        if(list(action.costs).length||['successEffects','failureEffects'].some(key=>list(action[key]).length))add(`${label}: Enemy costs/additional outcome effects are deferred in this milestone`);
+        if(list(action.costs).length)add(`${label}: Enemy costs are deferred while actions are performed in order`);
         if(list(action.conditions).length)add(`${label}: Enemy Action conditions are deferred while actions are performed in order`);
         if(Number.isSafeInteger(action.cooldown)&&action.cooldown>0)add(`${label}: Enemy Action cooldown is deferred while actions are performed in order`);
         if(!Array.isArray(action.costs)||!Array.isArray(action.effects))add(`${label}: Enemy Action costs/effects must be lists`);

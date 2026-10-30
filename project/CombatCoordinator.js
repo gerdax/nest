@@ -2,7 +2,6 @@ import {resolveCheck} from './checks.js';
 import {transact} from './state.js';
 import {definition,createEncounter,playerChoices,resolveCombatAttack,healthReactions,completePlayerTurn,completeEnemyTurn,applyActionProtection} from './combat-rules.js';
 import {combatCard,enemyActionCard,combatChoices} from './combat-presentation.js';
-import {progressionEffects} from './cards.js';
 
 /** One encounter; ProjectController remains the sole owner of player run state. */
 export class CombatCoordinator {
@@ -206,7 +205,8 @@ export class CombatCoordinator {
   if(!result)return this.active();
   if(this.progressionCommitted.has(result.id))return this.active();
   const operationId=`${result.id}:completion`;
-  const effects=progressionEffects(result.action,result.success);
+  const action=result.action;
+  const effects=[...(action.effects??[]),...(action.resolution==='check'?(result.success?action.successEffects??[]:action.failureEffects??[]):[])];
   const alive=health!==undefined?this.host.commitCombatDamage(operationId,health,effects)
    :enemyHp!==undefined?this.host.commitCombatEffects(operationId,effects,{onCommit:()=>{this.encounter={...this.encounter,enemyHp};}})
    :this.host.commitCombatEffects(operationId,effects);

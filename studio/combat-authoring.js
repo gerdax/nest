@@ -33,7 +33,7 @@ function combatActionFields(project,action,prefix='',{enemy=false,showType=true}
  if(!enemy)html+=field('Cooldown (following player turns)',action.cooldown??0,path('cooldown'),'definition','number')
   +rules(project,action.conditions,path('conditions'),'definition','conditions',{label:'Requirements',help:'All requirements must pass before this action can be selected. Requirements do not spend resources.'})
   +rules(project,action.costs,path('costs'),'definition','costs');
- html+=rules(project,action.effects,path('effects'),'definition','effects',{diceOutcomes:true,label:'Progression effects',help:'Apply when the action completes. For dice checks, use the outcome boxes below. Direct actions ignore these boxes.'});
+ html+=rules(project,action.effects,path('effects'),'definition','effects',{label:'Progression effects',help:'Apply when the action completes. For a dice check, these apply on either outcome.'});
  if(type==='attack')html+=actionResolutionFields(project,action,prefix);
  return html;
 }
