@@ -1,5 +1,5 @@
 import { isStatVariable } from '../project/checks.js';
-import {field,select,checkbox,button,imageField,rules,actionFields,esc} from './forms.js';
+import {field,select,checkbox,button,imageField,rules,actionFields,variableLabel,esc} from './forms.js';
 import {createEnemyAction,createEffectCard,createCombatAction} from '../project/combat-model.js';
 import {uid,pathTarget} from './commands.js';
 const refs=(project,kind)=>[['','Choose a Library definition'],...project.library.filter(d=>d.kind===kind&&d.visibility!=='local').map(d=>[d.id,d.name||d.id])];
@@ -21,8 +21,8 @@ function embeddedCard(card,path,definitionId,{kinds=['event','caption'],heading=
 function checkFields(project,check,prefix){
  const c=check||{pool:[{sides:6,count:3}],modifier:0,target:11};
  let heading='<h4>Dice check</h4>'+select('Check type',c.mode||'custom',[['custom','Custom check'],['stat','Stat check']],`${prefix}.mode`);
- if(c.mode==='stat')return heading+select('Stat',c.modifierVariable||'',[['','Choose stat'],...project.variables.filter(isStatVariable).map(v=>[v.id,v.name||v.id])],`${prefix}.modifierVariable`)+select('Difficulty',String(c.difficulty??1),Array.from({length:10},(_,i)=>[String(i+1),String(i+1)]),`${prefix}.difficulty`);
- return heading+(c.pool||[]).map((die,i)=>'<div class="row">'+select('Dice',String(die.sides),[4,6,8,10,12,20].map(s=>[String(s),`d${s}`]),`${prefix}.pool.${i}.sides`)+field('Count',die.count,`${prefix}.pool.${i}.count`,'definition','number')+button('Remove dice','remove-rule',`${attrs(`${prefix}.pool`)} data-index="${i}"` )+'</div>').join('')+button('Add dice','add-rule',`${attrs(`${prefix}.pool`)} data-rule-kind="dice"`)+field('Modifier',c.modifier,`${prefix}.modifier`,'definition','number')+select('Variable modifier',c.modifierVariable||'',[['','None'],...project.variables.filter(v=>v.type==='number').map(v=>[v.id,v.name||v.id])],`${prefix}.modifierVariable`)+field('Target',c.target,`${prefix}.target`,'definition','number');
+ if(c.mode==='stat')return heading+select('Stat',c.modifierVariable||'',[['','Choose stat'],...project.variables.filter(isStatVariable).map(v=>[v.id,variableLabel(v)])],`${prefix}.modifierVariable`)+select('Difficulty',String(c.difficulty??1),Array.from({length:10},(_,i)=>[String(i+1),String(i+1)]),`${prefix}.difficulty`);
+ return heading+(c.pool||[]).map((die,i)=>'<div class="row">'+select('Dice',String(die.sides),[4,6,8,10,12,20].map(s=>[String(s),`d${s}`]),`${prefix}.pool.${i}.sides`)+field('Count',die.count,`${prefix}.pool.${i}.count`,'definition','number')+button('Remove dice','remove-rule',`${attrs(`${prefix}.pool`)} data-index="${i}"` )+'</div>').join('')+button('Add dice','add-rule',`${attrs(`${prefix}.pool`)} data-rule-kind="dice"`)+field('Modifier',c.modifier,`${prefix}.modifier`,'definition','number')+select('Variable modifier',c.modifierVariable||'',[['','None'],...project.variables.filter(v=>v.type==='number').map(v=>[v.id,variableLabel(v)])],`${prefix}.modifierVariable`)+field('Target',c.target,`${prefix}.target`,'definition','number');
 }
 export function combatActionTypeField(action,prefix='',scope='definition'){
  return select('Action type',action.type||'attack',[['attack','Attack'],['defend','Defend'],['wait','Wait']],prefix+'type',scope);
@@ -34,7 +34,7 @@ function combatActionFields(project,action,prefix='',{enemy=false,showType=true}
   if(enemy)html+=select('Resolution',action.resolution||'check',[['direct','Direct'],['check','Dice check']],path('resolution'))+(action.resolution!=='direct'?checkFields(project,action.check,path('check')):'');
   else html+=actionFields(project,action,prefix);
   const sources=enemy?[['self','Own damage'],['none','No attack']]:[['self','Own damage'],['weapon','Source Weapon'],['none','No attack']];
-  html+='<h4>Effect</h4>'+select('Attack properties',action.attack?.source||'none',sources,path('attack.source'))+(action.attack?.source==='self'?damageFields(action.attack.damage,path('attack.damage')):'')+(action.attack?.source!=='none'?field('Minimum damage bonus',action.attack?.minBonus??0,path('attack.minBonus'),'definition','number')+field('Maximum damage bonus',action.attack?.maxBonus??0,path('attack.maxBonus'),'definition','number'):'');
+  html+='<h4>Effect</h4>'+select('Attack properties',action.attack?.source||'none',sources,path('attack.source'))+(action.attack?.source==='self'?damageFields(action.attack.damage,path('attack.damage')):'')+(action.attack?.source==='weapon'?field('Minimum damage bonus',action.attack?.minBonus??0,path('attack.minBonus'),'definition','number')+field('Maximum damage bonus',action.attack?.maxBonus??0,path('attack.maxBonus'),'definition','number'):'');
  }else {
   if(!enemy)html+=rules(project,action.conditions,path('conditions'),'definition','conditions',{label:'Requirements'})+rules(project,action.costs,path('costs'),'definition','costs');
   html+='<h4>Effect</h4>';

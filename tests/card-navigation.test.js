@@ -71,3 +71,22 @@ test('automatic reveal expands and scrolls the card without moving keyboard focu
  assert.equal(revealCardEntry(inspector,{placementId:'one'},{focus:false}),true);
  assert.equal(entry.open,true);assert.ok(entry.scrollOptions);assert.equal(summary.focusOptions,undefined);
 });
+
+test('definition sources use stable embedded IDs instead of old array positions',()=>{
+ const project=createProject(),chapter=project.chapters[0],node=chapter.nodes[0];
+ const weapon={id:'weapon',kind:'item',subtype:'weapon',combat:{actions:[{id:'first'},{id:'second'}]}};project.library.push(weapon);
+ const target={kind:'definition',chapterId:chapter.id,nodeId:node.id,definitionId:'weapon',cardId:'second',definitionPath:'combat.actions.1'};
+ assert.equal(sourceCard(project,target).definitionPath,'combat.actions.1');
+ weapon.combat.actions.reverse();assert.equal(sourceCard(project,target).definitionPath,'combat.actions.0');
+ weapon.combat.actions=[];assert.equal(sourceCard(project,target),null);
+ target.cardId='weapon';assert.equal(sourceCard(project,target).definition,weapon);
+ project.library=project.library.filter(d=>d!==weapon);assert.equal(sourceCard(project,target),null);
+});
+test('definition reveal expands its embedded section and parents without selection clicks',()=>{
+ const inspector=element('DIV'),outer=element('DETAILS',{},inspector),entry=element('DETAILS',{},outer),summary=element('SUMMARY');
+ const preview=element('DIV',{previewPath:'actions.1'},entry);preview.closest=tag=>tag==='details'?entry:null;
+ entry.querySelector=()=>summary;inspector.querySelectorAll=selector=>selector==='[data-preview-path]'?[preview]:[];
+ assert.equal(revealCardEntry(inspector,{kind:'definition',definitionPath:'actions.1'}),true);
+ assert.equal(entry.open,true);assert.equal(outer.open,true);assert.deepEqual(summary.focusOptions,{preventScroll:true});
+ assert.equal(revealCardEntry(inspector,{kind:'definition',definitionPath:'actions.9'}),false);
+});

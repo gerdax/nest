@@ -8,7 +8,7 @@ export function mountAutoPanel(checkbox,{getTarget,onReveal,storage}={}) {
  checkbox.checked=enabled;
  const follow=target=>{
   if(destroyed||!enabled)return;
-  const key=target?JSON.stringify([target.chapterId,target.nodeId,target.sequenceId,target.slot,target.parentCardId,target.placementId]):null;
+  const key=target?JSON.stringify([target.chapterId,target.nodeId,target.sequenceId,target.slot,target.parentCardId,target.placementId,target.definitionId,target.cardId]):null;
   if(key===lastKey)return;
   lastKey=key;
   if(target)onReveal(target);

@@ -84,3 +84,37 @@ test('missing source and unstable playback never produce targets', () => {
     mutate(f); assert.equal(previewCardTarget(f), null);
   }
 });
+
+function combatFixture(){
+ const enemy={id:'rat',kind:'enemy',actions:[{id:'bite'}],hit:{id:'rat-hit'},death:[{id:'rat-death'}],reactions:[{card:{id:'hurt'}}]};
+ const weapon={id:'pistol',kind:'item',subtype:'weapon',combat:{actions:[{id:'shoot'},{id:'burst'}]}};
+ const common={id:'punch',kind:'combatAction'},feedback={id:'player-hit',kind:'effect'};
+ const node={id:'encounter',type:'combat',enemy:{definitionId:enemy.id}};
+ const combat={enemy,encounter:{actionIndex:0},phase:'intro',sequence:{index:0,steps:[{card:enemy,contentId:'visible'}]}};
+ const f={project:{library:[enemy,weapon,common,feedback],chapters:[{id:'chapter',nodes:[node]}]},chapterId:'chapter',controller:{state:{idle:true,activeNodeId:node.id},location:{node},combat},deck:{phase:'closed',content:{id:'visible'},index:0}};
+ return {f,combat,enemy,weapon,common,feedback};
+}
+const combatExpected=(definitionId,cardId,definitionPath='')=>({kind:'definition',chapterId:'chapter',nodeId:'encounter',definitionId,cardId,definitionPath});
+test('combat intro, Enemy Action, damage, reaction and death navigate to their exact authored source',()=>{
+ const {f,combat,enemy,feedback}=combatFixture();
+ assert.deepEqual(previewCardTarget(f),combatExpected('rat','rat'));
+ combat.phase='enemy-action';assert.deepEqual(previewCardTarget(f),combatExpected('rat','bite','actions.0'));
+ for(const [phase,card,definitionId,path] of [['effects',enemy.hit,'rat','hit'],['effects',enemy.reactions[0].card,'rat','reactions.0.card'],['enemy-death',enemy.death[0],'rat','death.0'],['effects',feedback,'player-hit','']]){
+  combat.phase=phase;combat.sequence={index:0,steps:[{card,contentId:'visible'}]};
+  assert.deepEqual(previewCardTarget(f),combatExpected(definitionId,card.id,path));
+ }
+});
+test('selected Common and Weapon Actions resolve their owning definitions',()=>{
+ const {f,combat,weapon,common}=combatFixture();combat.phase='choice';f.deck.phase='choices';f.deck.open=true;
+ combat.choices=()=>[{id:'punch@default',action:common},{id:'shoot@pistol',action:weapon.combat.actions[0],source:{...weapon,definitionId:weapon.id}},{id:'burst@pistol',action:weapon.combat.actions[1],source:weapon}];
+ f.deck.content.actions=combat.choices().map(c=>({id:c.id}));
+ for(const [index,target] of [[0,combatExpected('punch','punch')],[1,combatExpected('pistol','shoot','combat.actions.0')],[2,combatExpected('pistol','burst','combat.actions.1')]]){f.deck.index=index;assert.deepEqual(previewCardTarget(f),target);}
+});
+test('combat source targets follow stable IDs after reordering and reject removed or transitional cards',()=>{
+ const {f,combat,enemy}=combatFixture();combat.phase='enemy-action';enemy.actions.unshift({id:'new'});combat.enemy={...enemy,actions:[{id:'bite'}]};
+ assert.deepEqual(previewCardTarget(f),combatExpected('rat','bite','actions.1'));
+ enemy.actions=[];assert.equal(previewCardTarget(f),null);
+ combat.phase='intro';combat.sequence.steps[0].contentId='other';assert.equal(previewCardTarget(f),null);
+ combat.sequence.steps[0].contentId='visible';f.controller.state.checking=true;assert.equal(previewCardTarget(f),null);
+ f.controller.state.checking=false;f.project.library=[];assert.equal(previewCardTarget(f),null);
+});

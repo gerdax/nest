@@ -71,7 +71,7 @@ test('card summaries keep rules separate from numerical check presentation',()=>
  card.conditions=[{source:'variable',key:'agility',op:'gte',value:7},{source:'variable',key:'energy',op:'gte',value:1}];
  card.costs=[{source:'variable',key:'agility',amount:2}];card.effects=[{op:'set',key:'agility',value:8},{op:'add',key:'energy',value:1}];
  const summary=playerCardSummary(card,project.variables,project.library,{agility:1});
- assert.match(summary,/energy ≥ 1/);assert.match(summary,/Restore up to 1 energy/);assert.doesNotMatch(summary,/Set Agility|Cost:|Agility ≥|3d6|Difficulty/);
+ assert.match(summary,/Energy ≥ 1/);assert.match(summary,/Restore up to 1 Energy/);assert.doesNotMatch(summary,/Set Agility|Cost:|Agility ≥|3d6|Difficulty/);
  assert.equal(summary,playerCardSummary(card,project.variables,project.library,{agility:10}));
  assert.match(cardSummary(card,project.variables),/3d6/);assert.match(editorCheckSummary(card.check,project.variables),/Difficulty 5/);
  assert.equal(playerCheckSummary(card.check,{agility:3},project.variables),'Agility 3 · 3d6 + 3 ≥ 15');

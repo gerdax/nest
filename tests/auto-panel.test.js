@@ -65,3 +65,25 @@ test('automatic editor navigation selects the playing node without autoplay or f
  calls.length=0;context.goToPreviewCard({...card,placementId:'deleted'},{automatic:true});
  assert.deepEqual(calls,[],'stale playback sources leave the current editor selection intact');
 });
+
+test('automatic following distinguishes combat definitions and embedded Actions in the same beat',()=>{
+ const f=setup('true'),base={kind:'definition',chapterId:'chapter',nodeId:'combat',definitionId:'enemy',cardId:'intro'};
+ f.panel.follow(base);f.panel.follow({...base,cardId:'bite'});f.panel.follow({...base,definitionId:'common',cardId:'punch'});
+ assert.equal(f.calls.length,3);
+ f.panel.follow({...base,definitionId:'common',cardId:'punch'});assert.equal(f.calls.length,3);
+});
+
+test('combat navigation opens the owning Library tab and resolves the current nested path',()=>{
+ const {context,calls}=editorFixture();
+ const definition={id:'pistol',kind:'item'};
+ context.definitionId='old';context.libraryTab='common';context.isCommonDefinition=d=>d.kind==='combatAction';
+ context.sourceCard=()=>({definition,definitionPath:'combat.actions.0'});
+ const target={kind:'definition',chapterId:'chapter',nodeId:'combat',definitionId:'pistol',cardId:'shoot',definitionPath:'combat.actions.1'};
+ context.goToPreviewCard(target);
+ assert.equal(context.mode,'library');assert.equal(context.libraryTab,'content');assert.equal(context.definitionId,'pistol');
+ assert.equal(context.selected,'previous','Library navigation leaves Chapter selection intact');
+ assert.equal(calls[1][1].definitionPath,'combat.actions.0','reordered Actions use their current source path');
+ assert.equal(calls[1][2].focus,true);
+ calls.length=0;definition.id='punch';definition.kind='combatAction';context.goToPreviewCard({...target,definitionId:'punch'});
+ assert.equal(context.libraryTab,'common');assert.equal(context.definitionId,'punch');
+});

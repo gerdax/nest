@@ -1,4 +1,32 @@
-/** Resolve the visible card to its authored placement, without predicting playback. */
+import {sourceCard} from './card-navigation.js';
+
+function combatTarget(project,chapterId,node,controller,deck){
+ const combat=controller.combat;
+ if(!combat||combat.disposed)return null;
+ let definitionId,cardId;
+ if(combat.phase==='choice'){
+  const selected=deck.content?.actions?.[deck.index]?.id;
+  let choice;
+  try{choice=combat.choices().find(choice=>choice.id===selected);}catch{return null;}
+  if(!choice)return null;
+  definitionId=choice.source?(choice.source.definitionId??choice.source.id):(choice.action.definitionId??choice.action.id);
+  cardId=choice.action.id;
+ }else if(combat.phase==='enemy-action'){
+  definitionId=combat.enemy.definitionId??combat.enemy.id;
+  cardId=combat.enemy.actions?.[combat.encounter.actionIndex]?.id;
+ }else if(['intro','effects','enemy-death'].includes(combat.phase)){
+  const step=combat.sequence?.steps?.[combat.sequence.index];
+  if(!step||step.contentId!==deck.content?.id)return null;
+  const ownDefinition=project.library?.find(d=>d.id===step.card?.id);
+  definitionId=ownDefinition?.id??combat.enemy.definitionId??combat.enemy.id;
+  cardId=step.card?.id;
+ }else return null;
+ const target={kind:'definition',chapterId,nodeId:node.id,definitionId,cardId};
+ const source=sourceCard(project,target);
+ return source?{...target,definitionPath:source.definitionPath}:null;
+}
+
+/** Resolve the visible card to its authored source, without predicting playback. */
 export function previewCardTarget({ project, chapterId, controller, deck } = {}) {
   if (!controller || !deck || controller.destroyed || deck.destroyed) return null;
   const state = controller.state;
@@ -9,6 +37,7 @@ export function previewCardTarget({ project, chapterId, controller, deck } = {})
   const chapter = project?.chapters?.find(chapter => chapter.id === chapterId);
   const node = chapter?.nodes?.find(node => node.id === location?.node?.id);
   if (!node || state.activeNodeId !== node.id) return null;
+  if(node.type==='combat')return combatTarget(project,chapterId,node,controller,deck);
   let sequence;
   if (['legacySequence', 'legacyPool'].includes(node.type)) {
     sequence = node.type === 'legacySequence' ? node.sequence

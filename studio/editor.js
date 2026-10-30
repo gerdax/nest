@@ -97,6 +97,13 @@ function report(text){persistence.report(text);}
 function goToPreviewCard(target,{automatic=false}={}){
  const source=sourceCard(project,target);
  if(!source){if(!automatic)report('This card was removed from the current project. Restart preview to use the latest version.');return;}
+ if(target.kind==='definition'){
+  const changedPanel=mode!=='library'||definitionId!==source.definition.id;
+  definitionId=source.definition.id;mode='library';libraryTab=isCommonDefinition(source.definition)?'common':'content';
+  if(!automatic||changedPanel)render({preserveProjectSettings:automatic});
+  revealCardEntry($('#inspector'),{...target,definitionPath:source.definitionPath},{focus:!automatic});
+  return;
+ }
  const changedChapter=chapterId!==source.chapter.id;
  const changedPanel=changedChapter||selected!==source.node.id||mode!=='chapter'||graph.selectedIds.size!==1;
  graph.selectedIds=new Set([source.node.id]);

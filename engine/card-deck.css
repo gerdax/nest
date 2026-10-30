@@ -274,7 +274,7 @@
   z-index: 1;
   display: flex;
   align-items: center;
-  gap: .2em;
+  gap: .1em;
   color: var(--card-text, #d2dfb6);
   font: calc(var(--card-font-size, 21px) * 2.6)/1 NestVitals, monospace;
   transform: scale(.85);
@@ -283,8 +283,8 @@
 }
 
 .nest-card-value > span {font-size:2em;line-height:.7;translate:0 -4px;}
-.nest-card-value img {width:1.2em;height:1.2em;object-fit:contain;}
-.nest-card[data-card-kind="health"] .nest-card-value img {width:1em;height:1em;translate:3px -3px;}
+.nest-card-value img {width:1.14em;height:1.14em;object-fit:contain;}
+.nest-card[data-card-kind="health"] .nest-card-value img {width:.95em;height:.95em;translate:3px -3px;}
 
 /* Unavailable faces retain their stock; only artwork fades. */
 .nest-card[data-action-disabled="true"] {
@@ -323,7 +323,8 @@
 .nest-card[data-action-disabled="true"] .nest-unavailable-icon { display: block; }
 
 .nest-card[data-card-kind="health"] .nest-card-value { --unavailable-value-icon: url('../assets/img/ui/hud-health.png'); }
-.nest-card[data-card-kind="health"][data-action-disabled="true"] .nest-card-value::after { width:1em;height:1em;translate:3px -3px; }
+.nest-card[data-action-disabled="true"] .nest-card-value::after {width:1.14em;height:1.14em;}
+.nest-card[data-card-kind="health"][data-action-disabled="true"] .nest-card-value::after { width:.95em;height:.95em;translate:3px -3px; }
 
 /* Encounter-local readout; player resources retain their shared HUD. */
 .chapter-preview-stage { position:relative; }

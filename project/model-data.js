@@ -55,7 +55,7 @@ export function createProject() {
     startChapterId: 'chapter-1',
     library: [event, item, action],
     variables: [
-      {id: 'energy', type: 'number', initial: 3, min: 0, max: 10},
+      {id: 'energy', name: 'Energy', type: 'number', initial: 3, min: 0, max: 10},
       {id: 'health', name: 'Health', type: 'number', initial: 10, min: 0, max: 10},
       ...defaultStats()
     ],

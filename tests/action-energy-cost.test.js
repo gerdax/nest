@@ -53,9 +53,9 @@ test('resolved placement cost matches editor and player, and failure loss is add
   project.variables.find(variable=>variable.id==='energy').initial=6;
   project.chapters[0].startNode=node.id;
   const resolved=resolvePlacement(project,placement),face=cardFace(resolved,project.variables,project.library);
-  assert.match(cardSummary(resolved,project.variables,project.library),/Cost: 2 energy/,'source-rule inspector still explains the cost');
+  assert.match(cardSummary(resolved,project.variables,project.library),/Cost: 2 Energy/,'source-rule inspector still explains the cost');
   assert.equal(face.actionEnergyCost,2);
-  assert.match(face.summary,/Failure: Lose 2 energy/);
+  assert.match(face.summary,/Failure: Lose 2 Energy/);
   assert.doesNotMatch(face.summary,/Cost:/);
   const mount=new Element(); mount.dataset.previewPlacement=placement.id;
   renderCardPreviews({querySelectorAll:()=>[mount]},project,node,project.chapters[0].id);
@@ -65,7 +65,7 @@ test('resolved placement cost matches editor and player, and failure loss is add
   const live=deck.content.actions[0];
   assert.equal(live.actionEnergyCost,face.actionEnergyCost);
   assert.equal(live.text,face.text);
-  assert.match(live.summary || live.checkInfo.rules,/Failure: Lose 2 energy/);
+  assert.match(live.summary || live.checkInfo.rules,/Failure: Lose 2 Energy/);
   assert.equal(controller.transaction(resolved).variables.energy,4,'attempt cost only');
   assert.equal(controller.transaction(resolved,true).variables.energy,4,'success pays attempt cost');
   assert.equal(controller.transaction(resolved,false).variables.energy,2,'failure also loses energy');

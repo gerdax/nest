@@ -4,7 +4,7 @@ import { itemReferenceLinks } from './item-reference.js';
 import { esc, options } from '../editor/fields.js';
 
 export { esc };
-export const variableLabel = variable => `${variable.variableScope === 'chapter' ? 'Chapter' : 'Global'}: ${variable.name || variable.id}`;
+export const variableLabel = variable => `${variable.variableScope === 'chapter' ? 'Chapter' : 'Global'}: ${variable.name || (variable.id === 'energy' ? 'Energy' : variable.id)}`;
 export const field = (label,value,path,scope='definition',type='text') => `<label class="field">${esc(label)}${type==='textarea'?`<textarea data-scope="${esc(scope)}" data-path="${esc(path)}">${esc(value??'')}</textarea>`:`<input data-scope="${esc(scope)}" data-path="${esc(path)}" type="${type}" ${type==='number'?'step="any"':''} value="${esc(value??'')}">`}</label>`;
 export const select = (label,value,choices,path,scope='definition',{disabled=false,help=''}={}) => `<label class="field">${esc(label)}<select data-scope="${esc(scope)}" data-path="${esc(path)}"${disabled?' disabled':''}>${options(choices,value)}</select>${help?`<span class="small">${esc(help)}</span>`:''}</label>`;
 export const checkbox = (label,value,path,scope='definition',disabled=false) => `<label class="field check-field"><input type="checkbox" data-scope="${esc(scope)}" data-path="${esc(path)}" ${value?'checked':''} ${disabled?'disabled':''}>${esc(label)}</label>`;

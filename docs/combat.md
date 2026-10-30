@@ -183,3 +183,11 @@ Action type is above Description in Common, Weapon and Enemy editors. The
 **Effect** section contains type-specific mechanical fields; Effect Cards remain
 presentation. Statuses, initiative manipulation, extra turns and escape routing
 are outside this simple implementation.
+
+“Go to card” keeps ordinary placed cards in their Chapter inspector. During
+combat it opens the owning Library definition: Enemy introduction, Actions,
+health feedback/reactions and death presentation; the source Weapon and its
+selected embedded Action; or the selected Common Action/player feedback card.
+Nested sections expand automatically. Targets follow stable card IDs when
+Actions are reordered, and unavailable/removed sources disable the link.
+Navigation is disabled during gestures, transitions and dice resolution.
