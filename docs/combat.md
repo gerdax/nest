@@ -124,10 +124,10 @@ require shared Library definitions and do not silently promote local content.
 Poison/statuses, advanced blocking rules, ammunition, equipment, multiple enemies, fleeing,
 schemes/random attack selection, healing re-cross rules, finite-use weapon rules,
 shared cooldown groups, post-death retry UX and durable combat resume are deferred.
-Additional intrinsic/Action/embedded Enemy effects beyond the authored damage
-profile are not silently accepted: current validation reports them as unsupported
-for this milestone. Enemy Energy costs are similarly deferred. Ordinary story
-progression effects and Health/Energy collection retain their existing semantics.
+Weapon intrinsic effects beyond the authored damage profile, combat outcome-specific
+effects and Enemy Energy costs remain deferred. Common Action Progression effects
+are supported as described below. Ordinary story progression effects and
+Health/Energy collection retain their existing semantics.
 
 See the [M0–M7 checkpoint](combat-implementation-status.md) for verification evidence and limits.
 
@@ -159,9 +159,9 @@ or availability; no new Actions are injected into authored projects.
 - Defend is direct and spends the turn. Its damage reduction defaults to 1 and
   applies to the next opposing attack, then expires on hit or miss. Protection does
   not stack or carry between encounters. Fully blocked attacks show BLOCKED.
-- Wait is direct and spends the turn with no other effect.
+- Wait is direct and spends the turn without an additional type-specific property.
 
-Requirements, Energy costs and cooldowns remain available. Defend/Wait hide
+Requirements, Energy/Health costs and cooldowns remain available. Defend/Wait hide
 attack-only check/damage fields; prior attack settings are retained if the type
 is changed back, and the Attack resolution can be configured again. Protection
 is granted after accepted departure; dice/presentation retries reuse frozen
@@ -191,3 +191,36 @@ selected embedded Action; or the selected Common Action/player feedback card.
 Nested sections expand automatically. Targets follow stable card IDs when
 Actions are reordered, and unavailable/removed sources disable the link.
 Navigation is disabled during gestures, transitions and dice resolution.
+
+## Action properties and Progression effects
+
+Every Combat Action separates its type-specific **Action properties** (Attack
+damage, Defend damage reduction, or Wait passing the turn) from its common
+**Progression effects**. The latter reuse ordinary action operations on run
+variables and inventory. Combat retains integer Health values; Energy and other
+numeric variables keep their existing numeric rules. Enemy effects affect that same player/world state, not
+a separate Enemy inventory. Requirements, Energy/Health costs and cooldown controls
+retain their existing player-only availability; Enemy actions still run in order.
+
+Progression effects apply once on completion, according to each effect’s
+**On dice fail** / **On dice success** selections. Both default checked; neither
+checked skips that effect on a dice action. Misses use the fail selection and
+fully blocked successful hits use the success selection. Direct Attack, Defend
+and Wait ignore these boxes and apply their progression effects normally. For damaging actions they commit when the damage
+Feedback is advanced; otherwise they commit before the next turn. Intrinsic
+player health damage and progression operations share one transaction, in that
+order, before testing for death. Enemy HP and run changes publish together. This
+means authored healing can offset damage, weapon removal changes subsequent
+choices, and lethal progression redirects to the chapter Death beat. Killing-hit
+progression commits before publishing the Enemy death card and checking Victory.
+
+Retries preserve the resolved result and commit identity, so effects cannot
+repeat after a publication failure. A failed progression transaction applies
+neither its run mutations nor intrinsic damage. This does not add statuses such
+as poison or independent effects to Feedback presentations.
+
+Player Combat Actions may spend Energy or integer Health. Health payment is
+provisional during a check and is refunded if the attempt fails technically or
+is cancelled. Completion applies progression effects before the global death
+check, allowing authored healing to offset a Health cost. **Hide badge** is
+presentation-only and never changes affordability, payment or refund amounts.

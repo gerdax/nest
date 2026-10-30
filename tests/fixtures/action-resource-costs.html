@@ -1,0 +1,18 @@
+<!doctype html>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base href="../../">
+<title>Action resource cost badges</title>
+<link rel="stylesheet" href="engine/card-deck.css"><link rel="stylesheet" href="demo/inventory.css"><link rel="stylesheet" href="studio/preview.css"><link rel="stylesheet" href="studio/playfield.css">
+<style>body{margin:0;padding:16px;background:#172020;color:#dce5ce;font:14px system-ui}main{display:flex;gap:24px}#frame{width:359px;height:745px;flex:none}button{margin:4px;padding:8px}</style>
+<main><section id="frame" class="nest-playfield"><div id="preview"></div></section><aside><h1>Action resource costs</h1><button data-mode="health">Health cost</button><button data-mode="energy">Energy cost</button><button data-mode="both">Both resources</button><p>Only upfront costs appear in the top-right badges. Progression Health loss remains separate.</p></aside></main>
+<script type="module">
+import {ProjectPreview} from './studio/ProjectPreview.js';
+import {createProject} from './project/model.js';
+const project=createProject(),chapter=project.chapters[0],node=chapter.nodes.find(n=>n.type==='fork'),placement=node.choices[0];
+const action=project.library.find(d=>d.id===placement.definitionId);
+Object.assign(action,{name:'Explore',text:'Follow the corridor',image:'./assets/img/corridor_02.png',resolution:'direct',effects:[{op:'add',key:'health',value:-2}]});
+node.introEnabled=false;node.connections={[placement.id]:null};chapter.startNode=node.id;
+const preview=new ProjectPreview(document.querySelector('#preview'),{inventoryHost:document.querySelector('#frame')});
+function play(mode){action.costs=[...(mode!=='energy'?[{source:'variable',key:'health',amount:1}]:[]),...(mode!=='health'?[{source:'variable',key:'energy',amount:2}]:[])];preview.play(project,chapter.id,node.id);}
+for(const button of document.querySelectorAll('[data-mode]'))button.onclick=()=>play(button.dataset.mode);
+play('health');
+</script>

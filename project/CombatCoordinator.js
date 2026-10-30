@@ -2,6 +2,7 @@ import {resolveCheck} from './checks.js';
 import {transact} from './state.js';
 import {definition,createEncounter,playerChoices,resolveCombatAttack,healthReactions,completePlayerTurn,completeEnemyTurn,applyActionProtection} from './combat-rules.js';
 import {combatCard,enemyActionCard,combatChoices} from './combat-presentation.js';
+import {progressionEffects} from './cards.js';
 
 /** One encounter; ProjectController remains the sole owner of player run state. */
 export class CombatCoordinator {
@@ -10,6 +11,7 @@ export class CombatCoordinator {
   this.abort=new AbortController();this.encounter=createEncounter(this.enemy,`${host.generation}:${node.id}:${++host.serial}`);
   this.generation=host.generation;this.resume={kind:'enemy'};
   this.phase='starting';this.serial=0;this.accepted=new Set();this.committed=new Set();this.pending=null;this.disposed=false;
+  this.progressionCommitted=new Set();
  }
  get state(){return {id:this.encounter.id,phase:this.phase,enemyName:this.enemy.name,enemyHp:this.encounter.enemyHp,startingHp:this.encounter.startingHp,round:this.encounter.round};}
  get checking(){return /roll|result/.test(this.phase);}
@@ -176,9 +178,12 @@ export class CombatCoordinator {
    await this.deck.waitForDeparture(detail.contentId,{signal:this.abort.signal});if(!this.active())return;
    if(step.operation&&!this.committed.has(step.id)){
     if(step.operation==='playerDamage'){
-     const alive=this.host.commitCombatDamage(step.id,step.targetHp);
+     const alive=this.completeProgression({health:step.targetHp});
      this.committed.add(step.id);if(!alive||!this.active())return;
-    }else {this.encounter={...this.encounter,enemyHp:step.targetHp};this.committed.add(step.id);this.host.notify();}
+    }else {
+     const alive=this.completeProgression({enemyHp:step.targetHp});
+     this.committed.add(step.id);if(!alive)return;
+    }
    }
    sequence.index++;
    if(sequence.index<sequence.steps.length){
@@ -191,9 +196,22 @@ export class CombatCoordinator {
  }
  async finishAttack(){
   if(!this.active())return;
+  if(!this.completeProgression())return;
   const actor=this.pending?.actor;this.pending=null;this.sequence=null;
   if(actor==='enemy'){this.encounter=completeEnemyTurn(this.encounter,this.enemy);await this.showChoices();}
   else await this.enterEnemy();
+ }
+ completeProgression({health,enemyHp}={}){
+  const result=this.pending;
+  if(!result)return this.active();
+  if(this.progressionCommitted.has(result.id))return this.active();
+  const operationId=`${result.id}:completion`;
+  const effects=progressionEffects(result.action,result.success);
+  const alive=health!==undefined?this.host.commitCombatDamage(operationId,health,effects)
+   :enemyHp!==undefined?this.host.commitCombatEffects(operationId,effects,{onCommit:()=>{this.encounter={...this.encounter,enemyHp};}})
+   :this.host.commitCombatEffects(operationId,effects);
+  this.progressionCommitted.add(result.id);
+  return alive&&this.active();
  }
  fail(error){
   if(!this.active())return;

@@ -64,8 +64,10 @@ No deterministic test is presented as evidence of those device/browser checks.
 Poison/statuses, Defend/Block, ammo/equipment, multi-enemy combat, fleeing,
 attack schemes/randomness, healing re-cross rules, finite-use Weapons, shared
 cooldowns, post-death retry and durable combat resume remain deferred as agreed.
-Additional non-damage combat effects and Enemy costs are rejected with explicit
-validation diagnostics rather than being silently ignored.
+Later authoring work added common Combat Action Progression effects. Type-specific
+properties remain separate; poison/statuses, Weapon intrinsic and combat
+outcome-specific effects, and Enemy costs still receive explicit validation
+diagnostics. See [current action semantics](combat.md#action-properties-and-progression-effects).
 
 ## Try it
 

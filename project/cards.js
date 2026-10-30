@@ -92,13 +92,23 @@ export function resolvePlacement(project, placement, index) {
   }
   return resolved;
 }
-/** Only upfront variable costs belong in the Action energy marker. */
+/** Upfront resource costs belong in Action badges; consequences do not. */
 export const isActionEnergyCost = cost => cost.source !== 'inventory' && cost.key === 'energy';
-export function actionEnergyCost(card) {
+export function actionResourceCost(card,key) {
   if (!['action','combatAction'].includes(canonicalCardKind(card?.kind ?? card?.cardKind))) return 0;
-  return (card.costs || []).filter(isActionEnergyCost).reduce((total, cost) => total + cost.amount, 0);
+  return (card.costs || []).filter(cost=>cost.source!=='inventory'&&cost.key===key&&cost.hideBadge!==true).reduce((total, cost) => total + cost.amount, 0);
 }
-export function cardSummaryParts(card, variables = [], library = [], itemTags = card.itemTags || [], { omitActionEnergyCost = false } = {}) {
+export const actionEnergyCost=card=>actionResourceCost(card,'energy');
+export const actionHealthCost=card=>actionResourceCost(card,'health');
+/** Missing flags preserve legacy either-outcome behaviour. Direct actions
+ * ignore the saved dice options, including when both are unchecked. */
+export function progressionEffects(card,outcome) {
+  const effects=card?.effects??[];
+  if(card?.resolution!=='check'||typeof outcome!=='boolean')return effects;
+  const flag=outcome?'onDiceSuccess':'onDiceFailure';
+  return effects.filter(effect=>effect[flag]!==false);
+}
+export function cardSummaryParts(card, variables = [], library = [], itemTags = card.itemTags || [], { omitActionEnergyCost = false,omitActionResourceCosts=false } = {}) {
   const variable = key => variables.find(v => v.id === key);
   const name = key => variable(key)?.name || library.find(d => d.id === key || d.inventoryKey === key)?.name || (isTagKey(key) ? itemTagLabel({itemTags},key) : key);
   const effects = list => (list || []).map(e => {
@@ -115,7 +125,7 @@ export function cardSummaryParts(card, variables = [], library = [], itemTags = 
   if (card.kind === 'item' && card.tagId) parts.push(itemTagLabel({itemTags},card.tagId));
   if(card.contextItemId) parts.push(`Triggered by: ${name(card.contextItemId)}`);
   if (requirements.length) parts.push(`Requires: ${requirements.join(', ')}`);
-  const costs = (card.costs || []).filter(cost => !omitActionEnergyCost || canonicalCardKind(card.kind ?? card.cardKind) !== 'action' || !isActionEnergyCost(cost));
+  const costs = (card.costs || []).filter(cost => !['action','combatAction'].includes(canonicalCardKind(card.kind ?? card.cardKind))||!(omitActionEnergyCost&&isActionEnergyCost(cost)||omitActionResourceCosts&&cost.source!=='inventory'&&['health','energy'].includes(cost.key)));
   if (costs.length) parts.push(`Cost: ${costs.map(c=>c.source==='inventory'?name(c.key):`${c.amount} ${name(c.key)}`).join(', ')}`);
   if (card.resolution === 'check') { const c = card.check; if(c?.mode === 'stat') { try { parts.push(`Check: ${editorCheckSummary(c, variables)}`); } catch { parts.push('Check: Invalid stat check'); } } else if(c) parts.push(`Check: ${(c.pool || []).map(d=>`${d.count}d${d.sides}`).join(' + ')}${c.modifier ? ` ${c.modifier >= 0 ? '+' : ''}${c.modifier}` : ''}${c.modifierVariable ? ` + ${name(c.modifierVariable)}` : ''} ≥ ${c.target}`); }
   if(!isConsumableKind(card.kind)&&card.effects?.length) parts.push(`Effects: ${effects(card.effects)}`);
@@ -137,7 +147,7 @@ export function playerCardSummary(card, variables = [], library = [], values = {
   const filtered = {...card};
   for (const key of ['conditions','explicitConditions','costs','effects','onCollect','successEffects','failureEffects']) if (card[key]) filtered[key] = visible(card[key]);
   if (card.check?.mode === 'stat') filtered.resolution = 'direct';
-  const parts = cardSummaryParts(filtered, variables, library, card.itemTags || [], {omitActionEnergyCost:true});
+  const parts = cardSummaryParts(filtered, variables, library, card.itemTags || [], {omitActionResourceCosts:true});
   return parts.join(' · ');
 }
 

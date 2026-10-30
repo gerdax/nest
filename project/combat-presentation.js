@@ -1,3 +1,4 @@
+import {actionEnergyCost,actionHealthCost} from './cards.js';
 import {checkOdds} from './combat-rules.js';
 const art=card=>({image:card.image??'',imageScale:card.imageScale??100,imageOffsetX:card.imageOffsetX??0,imageOffsetY:card.imageOffsetY??0,flipImage:!!card.flipImage});
 export function combatCard(card,id,{value,disabledReason=''}={}) {
@@ -15,6 +16,6 @@ export function combatChoices(choices,id,values={}) {
  return {id,interaction:'choice',decisionOnly:true,allowClose:false,autoBrowse:false,actions:choices.map(choice=>{
   const {action,source}=choice;
   const c=action.resolution==='direct'?null:checkOdds(action.check,values);
-  return {id:choice.id,label:action.name,heading:action.name,cardKind:'action',...art(action),text:action.text??'',actionEnergyCost:(action.costs??[]).filter(c=>c.key==='energy'&&c.source!=='inventory').reduce((sum,c)=>sum+c.amount,0),summary:'',disabled:choice.disabled,disabledReason:choice.disabledReason,...(c?{checkTarget:c.target,checkInfo:{stat:'ATTACK',chance:String(c.probability*100),label:`${c.pool.map(d=>`${d.count}d${d.sides}`).join(' + ')} ≥ ${c.target}`,formula:`Check ≥ ${c.target}`}}:{}),...(source?{contextItemId:source.definitionId??source.id,contextInventoryKey:source.inventoryKey??source.id,inventoryLabel:`USING · ${source.name}`,entrance:choice.disabled?undefined:'bottom'}:{})};
+  return {id:choice.id,label:action.name,heading:action.name,cardKind:'action',...art(action),text:action.text??'',actionEnergyCost:actionEnergyCost(action),actionHealthCost:actionHealthCost(action),summary:'',disabled:choice.disabled,disabledReason:choice.disabledReason,...(c?{checkTarget:c.target,checkInfo:{stat:'ATTACK',chance:String(c.probability*100),label:`${c.pool.map(d=>`${d.count}d${d.sides}`).join(' + ')} ≥ ${c.target}`,formula:`Check ≥ ${c.target}`}}:{}),...(source?{contextItemId:source.definitionId??source.id,contextInventoryKey:source.inventoryKey??source.id,inventoryLabel:`USING · ${source.name}`,entrance:choice.disabled?undefined:'bottom'}:{})};
  })};
 }

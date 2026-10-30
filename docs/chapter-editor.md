@@ -132,3 +132,20 @@ Shift+Space closes the interaction preview and stops its playback. Plain Space c
 ### Combat Library additions
 
 Weapon is an Item subtype providing Library Combat Actions. Combat Action and Effect Card are separate types; Enemy is a self-contained composite with embedded attacks and presentation cards. Combat beats select an Enemy without overrides and connect Victory to a following beat. Each chapter also has one mandatory portless Death beat, initially an empty local Caption. See [combat authoring](combat.md) for controls and supported first-milestone mechanics.
+
+
+Costs use an Energy/Health resource selector in both Library and chapter card
+panels. New costs default to Energy and show their badge. Each cost has **Hide
+badge** below Amount, alongside Remove; checking it hides only that entry's
+contribution to the top-right resource badge. Requirements and payment are
+unchanged. Existing item/other-variable costs remain intact as disabled legacy
+selections until explicitly retargeted or removed.
+
+
+Each Action Progression effect has **On dice fail** and **On dice success**
+checkboxes beside Remove. Both default checked, including saved effects with no
+explicit flags. For dice checks, only the matching checked effects run; unchecking
+both skips that effect on both outcomes. Direct actions ignore the saved boxes
+and apply the effect normally. Changing resolution preserves the selections.
+The same rules apply to common, Weapon-owned and Enemy Combat Actions. Existing
+separate On success/On failure effect lists remain supported.

@@ -155,6 +155,11 @@ aside {overflow-anchor:none;}
 .item-reference-links {flex:1 1 180px;min-width:0;margin:6px 0 10px;}
 .rule-entry-actions > .item-reference-links {margin:0;}
 .rule-entry-actions > [data-command="remove-rule"] {margin-left:auto;}
+.cost-entry-actions {align-items:center;}
+.cost-entry-actions > .check-field {margin:0 0 0 8px;}
+.progression-entry-actions {align-items:center;}
+.progression-outcome-controls {display:flex;align-items:center;gap:8px 16px;margin-left:8px;}
+.progression-outcome-controls > .check-field {margin:0;white-space:nowrap;}
 .item-reference {display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:6px 12px;margin:6px 0;}
 .item-reference-location {flex:1 1 160px;min-width:0;margin:0;overflow-wrap:anywhere;}
 .item-reference-matches > summary {font-size:12px;}

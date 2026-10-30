@@ -45,10 +45,10 @@ test('editor item candidates require explicit chapter ownership without filterin
  assert.deepEqual(inventoryItemOptions(project,chapter,'missing').at(-1),['missing','missing (unavailable)']);
 });
 
-test('chapter item effects, requirements, costs and triggers use chapter candidates',()=>{
+test('chapter item effects, requirements and triggers use chapter candidates',()=>{
  const {project,chapter,node}=fixture();
  const html=nodeInspector(project,chapter,node);
- for(const path of ['conditions.0.key','costs.0.key','contextItemId'])assertChapterOptions(html,path);
+ for(const path of ['conditions.0.key','contextItemId'])assertChapterOptions(html,path);
  for(const path of ['effects.0.key','successEffects.0.key','failureEffects.0.key'])assertEffectOptions(html,path);
 });
 
@@ -57,7 +57,7 @@ test('placement custom rules, appearance conditions, collection and progression 
  action.visibility='shared';
  placement.overrides={conditions:action.conditions,costs:action.costs,effects:action.effects};
  let html=nodeInspector(project,chapter,node);
- for(const path of ['overrides.conditions.0.key','overrides.costs.0.key'])assertChapterOptions(html,path);
+ for(const path of ['overrides.conditions.0.key'])assertChapterOptions(html,path);
  assertEffectOptions(html,'overrides.effects.0.key');
  const item={...createDefinition('item','collectable'),visibility:'local',chapterId:chapter.id,onCollect:[{op:'addItem',key:'own-item'}]};
  const story={...createDefinition('event','story'),visibility:'local',chapterId:chapter.id,effects:[{op:'removeItem',key:'own-item'}]};
@@ -74,7 +74,7 @@ test('library rules offer shared items only and keep saved local references visi
  const {project,action}=fixture();
  action.visibility='shared';
  const html=definitionInspector(project,action);
- for(const path of ['conditions.0.key','costs.0.key','effects.0.key','successEffects.0.key','failureEffects.0.key']) {
+ for(const path of ['conditions.0.key','effects.0.key','successEffects.0.key','failureEffects.0.key']) {
   const options=selectOptions(html,path);
   assert.match(options,/Item: shared-item/);
   assert.match(options,new RegExp(`<option value="own-item" selected${path.includes('Effects')||path.startsWith('effects')?' disabled':''}>local: own-item \\(unavailable\\)<\\/option>`));
@@ -87,7 +87,7 @@ test('invalid selected chapter references stay selected without leaking into oth
  action.costs[0].key='other-item';placement.contextItemId='missing-item';
  const before=structuredClone(project);
  const html=nodeInspector(project,chapter,node);
- assert.match(selectOptions(html,'costs.0.key'),/<option value="other-item" selected>local: other-item \(unavailable\)<\/option>/);
+ assert.match(selectOptions(html,'costs.0.key'),/<option value="existing-cost" selected disabled>Existing cost: other-item \(item\)<\/option>/);
  assert.match(selectOptions(html,'contextItemId'),/<option value="missing-item" selected>missing-item \(unavailable\)<\/option>/);
  assert.doesNotMatch(selectOptions(html,'conditions.0.key'),/other-item|missing-item/);
  assert.deepEqual(project,before);

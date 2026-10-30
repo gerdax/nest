@@ -1,6 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {CombatCoordinator} from '../project/CombatCoordinator.js';
+import {ProjectController} from '../project/ProjectController.js';
 import {createRatCombatProject} from '../project/combat-fixture.js';
 import {compileChapter} from '../project/model.js';
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
@@ -8,7 +9,7 @@ function harness({health=10,hit=true,victory=true}={}){
  const project=createRatCombatProject(),compiled=compileChapter(project),enemy=compiled.library.find(d=>d.id==='rat');enemy.introEnabled=false;
  const deck=new EventTarget();Object.assign(deck,{phase:'closed',mount:{inert:false},state:{busy:false},content:{id:'initial'},replaceContent(c,o={}){this.content=c;this.phase=o.presentation==='open'?'choices':'closed';},async transitionContent(c,o){this.replaceContent(c,o);return true;},waitForDeparture(){return new Promise(resolve=>{this.depart=resolve;});}});
  let commits=0,won=0;const errors=[];
- const host={deck,compiled,generation:1,serial:0,variables:{health,energy:3},inventory:[compiled.library.find(d=>d.id==='pistol')],rng:()=>0,notify(){},error(e){errors.push(e);},async rollCheck(){return {dice:[1,2,3].map(()=>({sides:6,value:hit?4:1}))};},async onCheckResult(){},combatVictoryReason:()=>victory?'':'Route unavailable',completeCombatVictory(){won++;},commitCombatDamage(id,value){commits++;this.variables.health=value;if(value===0){this.combat.dispose();this.combat=null;return false;}return true;}};
+ const host={deck,compiled,generation:1,serial:0,variables:{health,energy:3},inventory:[compiled.library.find(d=>d.id==='pistol')],rng:()=>0,notify(){},error(e){errors.push(e);},async rollCheck(){return {dice:[1,2,3].map(()=>({sides:6,value:hit?4:1}))};},async onCheckResult(){},combatVictoryReason:()=>victory?'':'Route unavailable',completeCombatVictory(){won++;},commitCombatDamage(id,value,effects=[]){commits++;return ProjectController.prototype.commitCombatDamage.call(this,id,value,effects);},commitCombatEffects(...args){return ProjectController.prototype.commitCombatEffects.call(this,...args);},deathDestination(){return this.variables.health<=0?{}:null;},handoffDeath(){this.combat.dispose();this.combat=null;}};
  const c=host.combat=new CombatCoordinator(host,enemy,compiled.nodes.find(n=>n.type==='combat'));
  return {host,deck,c,errors,get commits(){return commits;},get won(){return won;}};
 }
@@ -172,4 +173,118 @@ test('combat previews, Actions, feedback, choices and retry retain the project c
  await swipe(h);assert.equal(h.c.phase,'effects');assert.deepEqual(h.deck.content.cardBack,back);
  await swipe(h);assert.equal(h.c.phase,'choice');assert.deepEqual(h.deck.content.cardBack,back);
  h.c.fail(new Error('Test retry'));assert.deepEqual(h.deck.content.cardBack,back);h.c.dispose();
+});
+
+test('weapon progression effects commit with damage, can remove their weapon, and cannot repeat',async()=>{
+ const h=harness();await reachPlayer(h);
+ const action=h.host.compiled.library.find(d=>d.id==='pistol').combat.actions.find(d=>d.name==='Shoot');
+ action.effects=[{op:'add',key:'energy',value:1},{op:'removeItem',key:'pistol'}];
+ await select(h);const contentId=h.deck.content.id;
+ assert.equal(h.host.variables.energy,3);assert.equal(h.c.encounter.enemyHp,4);assert.equal(h.host.inventory.length,1);
+ await swipe(h);
+ assert.equal(h.host.variables.energy,4);assert.equal(h.c.encounter.enemyHp,3);assert.equal(h.host.inventory.length,0);
+ await h.c.accept({contentId,action:{id:'continue'}});assert.equal(h.host.variables.energy,4);h.c.dispose();
+});
+
+test('common progression effects run on both player and enemy misses',async()=>{
+ const h=harness({hit:false});h.c.enemy.actions[0].effects=[{op:'add',key:'energy',value:1}];
+ await reachPlayer(h);assert.equal(h.host.variables.energy,4);
+ h.host.compiled.library.find(d=>d.name==='Punch').effects=[{op:'add',key:'energy',value:1}];
+ await select(h,'Punch');assert.equal(h.c.phase,'choice');assert.equal(h.host.variables.energy,6);h.c.dispose();
+});
+
+for(const type of ['defend','wait'])test(`${type} completes its progression effects before the next enemy turn`,async()=>{
+ const h=harness();await reachPlayer(h);
+ const action=h.host.compiled.library.find(d=>d.name==='Punch');
+ Object.assign(action,{type,resolution:'direct',damageReduction:1,effects:[{op:'add',key:'energy',value:1}]});
+ const completion=select(h,'Punch');await tick();assert.equal(h.host.variables.energy,3);h.deck.depart();await completion;
+ assert.equal(h.host.variables.energy,4);
+ if(type==='defend')assert.equal(h.c.phase,'choice','fully blocked enemy attack completes without damage feedback');
+ h.c.dispose();
+});
+
+test('enemy progression healing and intrinsic damage commit before the global death check',async()=>{
+ const h=harness({health:1});h.c.enemy.actions[0].effects=[{op:'add',key:'health',value:2}];
+ await h.c.start();assert.equal(h.host.variables.health,1);await swipe(h);
+ assert.equal(h.host.variables.health,2);assert.equal(h.host.combat,h.c);assert.equal(h.c.phase,'choice');h.c.dispose();
+});
+
+test('player death from progression preempts enemy victory after both sides commit',async()=>{
+ const h=harness();await reachPlayer(h);h.c.encounter.enemyHp=1;
+ h.host.compiled.library.find(d=>d.name==='Punch').effects=[{op:'add',key:'health',value:-100}];
+ await select(h,'Punch');await swipe(h);
+ assert.equal(h.c.encounter.enemyHp,0);assert.equal(h.host.variables.health,0);assert.equal(h.host.combat,null);assert.equal(h.won,0);
+});
+
+test('invalid progression is atomic with enemy damage and preserves the resolved attempt for retry',async()=>{
+ const h=harness();await reachPlayer(h);
+ h.host.compiled.library.find(d=>d.name==='Punch').effects=[{op:'add',key:'energy',value:1},{op:'add',key:'missing',value:1}];
+ await select(h,'Punch');const resolved=h.c.pending;await swipe(h);
+ assert.equal(h.c.phase,'error');assert.equal(h.c.pending,resolved);assert.equal(h.c.encounter.enemyHp,4);assert.equal(h.host.variables.energy,3);
+ assert.equal(h.host.combatOperations.size,1,'only the earlier enemy hit is committed');h.c.dispose();
+});
+
+test('a publication failure after progression commit cannot apply it again on retry',async()=>{
+ const h=harness();await reachPlayer(h);
+ h.host.compiled.library.find(d=>d.name==='Punch').effects=[{op:'add',key:'energy',value:1}];
+ await select(h,'Punch');const resolved=h.c.pending;
+ let failed=false;h.host.notify=()=>{if(!failed&&h.host.variables.energy===4){failed=true;assert.equal(h.c.encounter.enemyHp,3);throw new Error('Publication failed');}};
+ await swipe(h);assert.equal(h.c.phase,'error');assert.equal(h.host.variables.energy,4);assert.equal(h.c.encounter.enemyHp,3);
+ await h.c.retry();await swipe(h);
+ assert.equal(h.host.variables.energy,4);assert(h.c.progressionCommitted.has(resolved.id));h.c.dispose();
+});
+
+test('fractional Health progression cannot partially commit damage or other run changes',async()=>{
+ const h=harness();await reachPlayer(h);
+ h.host.compiled.library.find(d=>d.name==='Punch').effects=[{op:'add',key:'energy',value:1},{op:'add',key:'health',value:-.5}];
+ const before={...h.host.variables};await select(h,'Punch');await swipe(h);
+ assert.equal(h.c.phase,'error');assert.match(h.errors.at(-1).message,/integer Health values/);
+ assert.deepEqual(h.host.variables,before);assert.equal(h.c.encounter.enemyHp,4);h.c.dispose();
+});
+
+for(const hit of [true,false])test(`Health cost reaches Death only on action completion, hit=${hit}`,async()=>{
+ const h=harness({health:5,hit});await reachPlayer(h);
+ const punch=h.host.compiled.library.find(d=>d.name==='Punch');punch.costs=[{source:'variable',key:'health',amount:h.host.variables.health,hideBadge:true}];
+ await select(h,'Punch');
+ if(hit){assert.equal(h.host.variables.health,0);assert.equal(h.c.phase,'effects');await swipe(h);}
+ assert.equal(h.host.variables.health,0);assert.equal(h.host.combat,null);assert.equal(h.won,0);
+});
+
+test('Health cost payment is provisional until a valid result, and progression can restore Health',async()=>{
+ const h=harness({health:5,hit:false});await reachPlayer(h);
+ const punch=h.host.compiled.library.find(d=>d.name==='Punch');punch.costs=[{source:'variable',key:'health',amount:5}];
+ const roll=h.host.rollCheck;h.host.rollCheck=async()=>{throw new Error('Roll unavailable');};
+ await select(h,'Punch');assert.equal(h.c.phase,'error');assert.equal(h.host.variables.health,5);assert.equal(h.host.combat,h.c);
+ h.host.rollCheck=roll;punch.effects=[{op:'add',key:'health',value:2}];await h.c.retry();await select(h,'Punch');
+ assert.equal(h.host.variables.health,2);assert.equal(h.c.phase,'choice');h.c.dispose();
+});
+
+for(const actor of ['player','enemy'])for(const hit of [false,true])for(const enabled of [false,true])test(`combat ${actor} progression selects the resolved dice outcome, hit=${hit}, enabled=${enabled}`,async()=>{
+ const h=harness({hit});
+ const gates={onDiceFailure:hit?!enabled:enabled,onDiceSuccess:hit?enabled:!enabled};
+ const effects=[{op:'add',key:'energy',value:1,...gates}];
+ if(actor==='enemy'){
+  h.c.enemy.actions[0].effects=effects;await h.c.start();if(h.c.phase==='effects')await swipe(h);
+ }else{
+  await reachPlayer(h);h.host.compiled.library.find(d=>d.name==='Punch').effects=effects;
+  await select(h,'Punch');if(h.c.pending?.actor==='player'&&h.c.phase==='effects')await swipe(h);
+ }
+ assert.equal(h.host.variables.energy,enabled?4:3);h.c.dispose();
+});
+
+for(const actor of ['player','enemy'])for(const type of ['defend','wait'])test(`direct ${actor} ${type} ignores unchecked dice progression boxes`,async()=>{
+ const h=harness(),effects=[{op:'add',key:'energy',value:1,onDiceSuccess:false,onDiceFailure:false}];
+ if(actor==='enemy'){
+  Object.assign(h.c.enemy.actions[0],{type,resolution:'direct',damageReduction:1,effects});await h.c.start();await swipe(h);
+ }else{
+  await reachPlayer(h);Object.assign(h.host.compiled.library.find(d=>d.name==='Punch'),{type,resolution:'direct',damageReduction:1,effects});
+  const completion=select(h,'Punch');await tick();h.deck.depart();await completion;
+ }
+ assert.equal(h.host.variables.energy,4);h.c.dispose();
+});
+
+test('a blocked successful check uses success gates even with zero damage',async()=>{
+ const h=harness();await reachPlayer(h);h.c.encounter.enemyGuard=100;
+ h.host.compiled.library.find(d=>d.name==='Punch').effects=[{op:'add',key:'energy',value:1,onDiceSuccess:true,onDiceFailure:false}];
+ await select(h,'Punch');assert.equal(h.host.variables.energy,4);assert.equal(h.c.encounter.enemyHp,4);h.c.dispose();
 });

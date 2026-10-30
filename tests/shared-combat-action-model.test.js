@@ -35,11 +35,11 @@ test('Enemy Defend and Wait share player rules and default their missing resolut
 
 test('Enemy validation rejects unsupported availability and inventory mechanics',()=>{
  const cases=[
-  [a=>a.costs=[{source:'variable',key:'energy',amount:1}],/Enemy costs\/additional effects/],
+  [a=>a.costs=[{source:'variable',key:'energy',amount:1}],/Enemy costs\/additional outcome effects/],
   [a=>a.conditions=[{source:'variable',key:'health',op:'gte',value:1}],/Enemy Action conditions/],
   [a=>a.cooldown=1,/Enemy Action cooldown/],
   [a=>a.attack.source='weapon',/cannot use a Weapon attack source/],
-  [a=>a.successEffects=[{op:'add',key:'health',value:-1}],/Enemy costs\/additional effects/]
+  [a=>a.successEffects=[{op:'add',key:'health',value:-1}],/Enemy costs\/additional outcome effects/]
  ];
  for(const [mutate,expected] of cases){const {project,action}=fixture();mutate(action);assert.match(messages(project),expected);}
  const {project,action}=fixture();action.attack={source:'none'};assert.deepEqual(validateProject(project),[]);

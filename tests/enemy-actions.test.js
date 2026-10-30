@@ -24,7 +24,13 @@ test('legacy attacks migrate to typed Enemy Actions, preserving identity, conten
 test('new Enemy Actions expose the Attack type and perform their authored repeating order',()=>{
  const p=createProject(),enemy=createEnemy('enemy');enemy.actions.push(createEnemyAction('second'));p.library.push(enemy);
  assert.equal(enemy.actions[0].type,'attack');assert.equal(enemy.attacks,undefined);
- const html=definitionInspector(p,enemy);assert(html.includes('<h3>Actions</h3>'));assert(html.includes('Performed in order, then repeated.'));assert(html.includes('Action type'));assert(html.includes('data-path="actions.0.type"'));assert(html.includes('>Attack</option>'));assert(!html.includes('Add attack'));
+ const html=definitionInspector(p,enemy);assert(html.includes('<h3>Combat Actions</h3>'));assert(html.includes('Performed in order, then repeated.'));assert(html.includes('Action type'));assert(html.includes('data-path="actions.0.type"'));assert(html.includes('>Attack</option>'));assert(!html.includes('Add attack'));
+ assert(html.includes('>+ Combat Action</button>'));
+ assert(html.includes('class="entry check-settings"><h3>Check settings</h3>'));
+ assert(!html.includes('<h4>Dice check</h4>'));
+ const ordered=['actions.0.name','actions.0.type','actions.0.text','actions.0.attack.source','actions.0.effects','actions.0.resolution','actions.0.check.pool.0.sides'];
+ for(let i=1;i<ordered.length;i++)assert(html.indexOf(`data-path="${ordered[i]}"`)>html.indexOf(`data-path="${ordered[i-1]}"`));
+ assert(html.indexOf('data-preview-path="actions.0"')>html.indexOf('data-path="actions.0.check.target"'));
  let encounter=createEncounter(enemy,'encounter');assert.equal(encounter.actionIndex,0);
  encounter=completeEnemyTurn(encounter,enemy);assert.equal(encounter.actionIndex,1);
  encounter=completeEnemyTurn(encounter,enemy);assert.equal(encounter.actionIndex,0);

@@ -28,7 +28,7 @@ export function playerChoices(compiled, run, encounter) {
     if(!source && !['defend','wait'].includes(action.type)&&action.attack?.source==='weapon') throw new Error('Default Action requires a weapon');
     const profile=attackProfile(action,source), key=cooldownKey(action,source);
     const reason=!conditionsMet(action.conditions,run.variables,run.inventory)?'Requirements not met'
-      : !affordCosts(run.variables,run.inventory,action.costs,compiled.variables)?'Not enough Energy'
+      : !affordCosts(run.variables,run.inventory,action.costs,compiled.variables)?'Not enough resources'
       : (encounter.cooldowns[key]??0)>0?`Cooldown: ${encounter.cooldowns[key]} turn`:'';
     result.push({id:key,action:structuredClone(action),source:source?structuredClone(source):null,profile,disabled:!!reason,disabledReason:reason});
   };

@@ -96,21 +96,22 @@ test('cost key switches preserve source and amount without adding operators or v
  const cost=newRule(project,'costs');cost.amount=2;
  for(const key of ['coins','flag','energy']){
   cost.key=key;normalizeRule(project,cost,'key');
-  assert.deepEqual(cost,{source:'variable',key,amount:2});
+  assert.deepEqual(cost,{source:'variable',key,amount:2,hideBadge:false});
  }
  const action=project.library.find(d=>d.kind==='action');action.costs=[cost];
  assert.deepEqual(validateProject(project),[]);
  assert.equal(transact({energy:3,flag:false,coins:5},[],{costs:[cost]},project.variables).variables.energy,1);
 });
 
-test('resource cost picker offers numeric variables and item costs offer item definitions',()=>{
+test('cost picker offers canonical resources and preserves existing item costs as disabled choices',()=>{
  const project=createProject();project.variables.push({id:'flag',type:'flag',initial:false});
  const cost=newRule(project,'costs');
  const resourceForm=rules(project,[cost],'costs','definition','costs');
  assert.match(resourceForm,/value="energy"/);assert.doesNotMatch(resourceForm,/value="flag"/);
  const itemId=project.library.find(d=>d.kind==='item').id;
  const itemForm=rules(project,[{source:'inventory',key:itemId,amount:1}],'costs','definition','costs');
- assert.ok(itemForm.includes(`value="${itemId}"`));assert.doesNotMatch(itemForm,/value="energy"/);
+ assert.match(itemForm,/<option value="existing-cost" selected disabled>Existing cost: /);
+ assert.match(itemForm,/value="energy"/);assert.doesNotMatch(itemForm,new RegExp(`value="${itemId}"`));
 });
 
 test('condition and effect key switches reset typed values and preserve valid operators',()=>{

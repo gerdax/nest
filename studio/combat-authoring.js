@@ -1,5 +1,4 @@
-import { isStatVariable } from '../project/checks.js';
-import {field,select,checkbox,button,imageField,artworkEditor,rules,actionFields,variableLabel,esc} from './forms.js';
+import {field,select,checkbox,button,imageField,artworkEditor,rules,actionResolutionFields,esc} from './forms.js';
 import {createEnemyAction,createEffectCard,createCombatAction} from '../project/combat-model.js';
 import {uid,pathTarget} from './commands.js';
 const refs=(project,kind)=>[['','Choose a Library definition'],...project.library.filter(d=>d.kind===kind&&d.visibility!=='local').map(d=>[d.id,d.name||d.id])];
@@ -17,12 +16,6 @@ function embeddedCard(card,path,definitionId,{kinds=['event','caption'],heading=
  if(!card)return '<p class="small">Missing required card.</p>';
  return (collapsible?`<details class="entry combat-embedded" open><summary>${esc(heading)}${fixedLabel?'':` · ${esc(card.name||'Untitled')}`}</summary>`:'')+(editableName?field('Name',card.name,`${path}.name`):'')+ (kinds.length>1?select('Card type',card.kind,kinds.map(k=>[k,k==='event'?'Vignette':k==='effect'?'Feedback':'Caption']),`${path}.kind`):'')+field('Description',card.text,`${path}.text`,'definition','textarea')+embeddedImage(card,path,definitionId)+(collapsible?'</details>':'');
 }
-function checkFields(project,check,prefix){
- const c=check||{pool:[{sides:6,count:3}],modifier:0,target:11};
- let heading='<h4>Dice check</h4>'+select('Check type',c.mode||'custom',[['custom','Custom check'],['stat','Stat check']],`${prefix}.mode`);
- if(c.mode==='stat')return heading+select('Stat',c.modifierVariable||'',[['','Choose stat'],...project.variables.filter(isStatVariable).map(v=>[v.id,variableLabel(v)])],`${prefix}.modifierVariable`)+select('Difficulty',String(c.difficulty??1),Array.from({length:10},(_,i)=>[String(i+1),String(i+1)]),`${prefix}.difficulty`);
- return heading+(c.pool||[]).map((die,i)=>'<div class="row dice-row">'+select('Dice',String(die.sides),[4,6,8,10,12,20].map(s=>[String(s),`d${s}`]),`${prefix}.pool.${i}.sides`)+field('Count',die.count,`${prefix}.pool.${i}.count`,'definition','number')+button('×','remove-rule',`${attrs(`${prefix}.pool`)} data-index="${i}" class="dice-remove" aria-label="Remove dice" title="Remove dice"` )+'</div>').join('')+button('Add dice','add-rule',`${attrs(`${prefix}.pool`)} data-rule-kind="dice" class="dice-add"`)+field('Modifier',c.modifier,`${prefix}.modifier`,'definition','number')+select('Variable modifier',c.modifierVariable||'',[['','None'],...project.variables.filter(v=>v.type==='number').map(v=>[v.id,variableLabel(v)])],`${prefix}.modifierVariable`)+field('Target',c.target,`${prefix}.target`,'definition','number');
-}
 export function combatActionTypeField(action,prefix='',scope='definition'){
  return select('Action type',action.type||'attack',[['attack','Attack'],['defend','Defend'],['wait','Wait']],prefix+'type',scope);
 }
@@ -30,24 +23,26 @@ function combatActionFields(project,action,prefix='',{enemy=false,showType=true}
  const path=key=>prefix+key,type=action.type||'attack';
  let html=showType?combatActionTypeField(action,prefix):'';
  if(type==='attack'){
-  if(enemy)html+=select('Resolution',action.resolution||'check',[['direct','Direct'],['check','Dice check']],path('resolution'))+(action.resolution!=='direct'?checkFields(project,action.check,path('check')):'');
-  else html+=actionFields(project,action,prefix);
   const sources=enemy?[['self','Own damage'],['none','No attack']]:[['self','Own damage'],['weapon','Source Weapon'],['none','No attack']];
-  html+='<h4>Effect</h4>'+select('Attack properties',action.attack?.source||'none',sources,path('attack.source'))+(action.attack?.source==='self'?damageFields(action.attack.damage,path('attack.damage')):'')+(action.attack?.source==='weapon'?field('Minimum damage bonus',action.attack?.minBonus??0,path('attack.minBonus'),'definition','number')+field('Maximum damage bonus',action.attack?.maxBonus??0,path('attack.maxBonus'),'definition','number'):'');
+  html+='<h4>Action properties</h4>'+select('Attack properties',action.attack?.source||'none',sources,path('attack.source'))+(action.attack?.source==='self'?damageFields(action.attack.damage,path('attack.damage')):'')+(action.attack?.source==='weapon'?field('Minimum damage bonus',action.attack?.minBonus??0,path('attack.minBonus'),'definition','number')+field('Maximum damage bonus',action.attack?.maxBonus??0,path('attack.maxBonus'),'definition','number'):'');
  }else {
-  if(!enemy)html+=rules(project,action.conditions,path('conditions'),'definition','conditions',{label:'Requirements'})+rules(project,action.costs,path('costs'),'definition','costs');
-  html+='<h4>Effect</h4>';
+  html+='<h4>Action properties</h4>';
   if(type==='defend')html+=field('Damage reduction',action.damageReduction??1,path('damageReduction'),'definition','number')+'<p class="small">Direct Action. Reduces damage from the next opposing attack, then expires even if it misses. Protection does not stack. Spends the turn.</p>';
-  else html+='<p class="small">Direct Action. Passes the turn without another effect.</p>';
+  else html+='<p class="small">Direct Action. Passes the turn.</p>';
  }
- return html+(enemy?'':field('Cooldown (following player turns)',action.cooldown??0,path('cooldown'),'definition','number'));
+ if(!enemy)html+=field('Cooldown (following player turns)',action.cooldown??0,path('cooldown'),'definition','number')
+  +rules(project,action.conditions,path('conditions'),'definition','conditions',{label:'Requirements',help:'All requirements must pass before this action can be selected. Requirements do not spend resources.'})
+  +rules(project,action.costs,path('costs'),'definition','costs');
+ html+=rules(project,action.effects,path('effects'),'definition','effects',{diceOutcomes:true,label:'Progression effects',help:'Apply when the action completes. For dice checks, use the outcome boxes below. Direct actions ignore these boxes.'});
+ if(type==='attack')html+=actionResolutionFields(project,action,prefix);
+ return html;
 }
 
 function weaponActions(project,weapon){
  return '<h3>Combat Actions</h3><p class="small">Owned by this Weapon and available while the player carries it.</p>'+(weapon.combat?.actions||[]).map((action,i)=>{
  const path=`combat.actions.${i}`;
  if(action.kind!=='combatAction')return '<p class="small">Missing Combat Action. Restore its source definition to migrate it.</p>';
- return `<details class="entry combat-embedded" open><summary>${esc(action.name||'Combat Action')}</summary>`+field('Name',action.name,`${path}.name`)+combatActionTypeField(action,`${path}.`)+field('Description',action.text,`${path}.text`,'definition','textarea')+embeddedImage(action,path,weapon.id)+combatActionFields(project,action,`${path}.`,{showType:false})+controls('combat.actions',i,weapon.combat.actions.length)+'</details>';
+ return `<details class="entry combat-embedded" open><summary>${esc(action.name||'Combat Action')}</summary>`+field('Name',action.name,`${path}.name`)+combatActionTypeField(action,`${path}.`)+field('Description',action.text,`${path}.text`,'definition','textarea')+combatActionFields(project,action,`${path}.`,{showType:false})+embeddedImage(action,path,weapon.id)+controls('combat.actions',i,weapon.combat.actions.length)+'</details>';
  }).join('')+add('+ Combat Action','combat.actions','weapon-action');
 }
 export function combatDefinitionFields(project,d){
@@ -56,10 +51,10 @@ export function combatDefinitionFields(project,d){
  if(d.kind==='effect')return '<p class="small">Combat supplies the resolved signed health change. Preview sample: −2. This card applies no collection effects.</p>';
  if(d.kind!=='enemy')return '';
  let html='';
- html+='<h3>Actions</h3><p class="small">Performed in order, then repeated.</p>'+(d.actions||[]).map((action,i)=>{
+ html+='<h3>Combat Actions</h3><p class="small">Performed in order, then repeated.</p>'+(d.actions||[]).map((action,i)=>{
  const path=`actions.${i}`;
- return `<details class="entry" open><summary>${i+1} · ${esc(action.name)}</summary>`+field('Name',action.name,`${path}.name`)+combatActionTypeField(action,`${path}.`)+field('Description',action.text,`${path}.text`,'definition','textarea')+embeddedImage(action,path,d.id)+combatActionFields(project,action,`${path}.`,{enemy:true,showType:false})+controls('actions',i,d.actions.length,1,'definition','enemy-action-controls')+'</details>';
- }).join('')+add('Add Action','actions','enemy-action');
+ return `<details class="entry" open><summary>${i+1} · ${esc(action.name)}</summary>`+field('Name',action.name,`${path}.name`)+combatActionTypeField(action,`${path}.`)+field('Description',action.text,`${path}.text`,'definition','textarea')+combatActionFields(project,action,`${path}.`,{enemy:true,showType:false})+embeddedImage(action,path,d.id)+controls('actions',i,d.actions.length,1,'definition','enemy-action-controls')+'</details>';
+ }).join('')+add('+ Combat Action','actions','enemy-action');
 
  html+='<h3>Effects Feedback</h3>'+embeddedCard(d.hit,'hit',d.id,{kinds:['effect'],heading:'Health damage',fixedLabel:true,editableName:false});
  html+='<h3>Health reactions</h3><p class="small">At or below this percentage of starting health. If multiple thresholds are crossed, only the strongest reaction is shown.</p>'+(d.reactions||[]).map((r,i)=>`<details class="entry" open><summary>${Number((r.threshold.numerator/r.threshold.denominator*100).toFixed(6))}% · ${esc(r.card?.name||'Reaction')}</summary>${field('Remaining health threshold (%)',Number((r.threshold.numerator/r.threshold.denominator*100).toFixed(6)),`reactions.${i}.threshold.percent`,'definition','number')}<div class="row">${field('Threshold numerator',r.threshold.numerator,`reactions.${i}.threshold.numerator`,'definition','number')}${field('Threshold denominator',r.threshold.denominator,`reactions.${i}.threshold.denominator`,'definition','number')}</div>${embeddedCard(r.card,`reactions.${i}.card`,d.id,{kinds:['caption','event'],collapsible:false})}${controls('reactions',i,d.reactions.length)}</details>`).join('')+add('Add health reaction','reactions','reaction');

@@ -17,10 +17,10 @@ export function artworkEditor(card,scope='definition',prefix='') {
 }
 export const imageField=(label,value,path,scope='definition',{clearable=false}={})=>field(label,value,path,scope)+`${clearable?'<div class="image-field-actions">':''}<button type="button" data-image-picker data-scope="${esc(scope)}" data-path="${esc(path)}">Choose image file</button>${clearable?button('Reload','reload-image',`data-scope="${esc(scope)}" data-path="${esc(path)}" aria-label="Reload card image" title="Reload artwork from disk" ${value?'':'disabled'}`)+button('Clear','clear-image',`data-scope="${esc(scope)}" data-path="${esc(path)}" aria-label="Clear card image" ${value?'':'disabled'}`):''}${clearable?'</div>':''}`;
 const extras=(scope,path,kind)=>`data-scope="${esc(scope)}" data-path="${esc(path)}" data-rule-kind="${kind}"`;
-export function rules(project,list=[],path,scope,kind,{label,help,chapter,footer='',countSuffix=''}={}) {
+export function rules(project,list=[],path,scope,kind,{label,help,chapter,footer='',countSuffix='',diceOutcomes=false}={}) {
  const vars=project.variables.map(v=>[v.id,variableLabel(v)]);
  let html=`<details class="state-panel"><summary>${esc(label || kind[0].toUpperCase()+kind.slice(1))} · ${list.length}${esc(countSuffix)}</summary>`;
- if(!help&&kind==='costs')help='Spend resources or consume items when the action is committed. Dice checks pay before rolling, regardless of the outcome.';
+ if(!help&&kind==='costs')help='Spend Energy or Health when the action is committed. Dice checks pay before rolling, regardless of the outcome.';
  if(help)html+=`<p class="small">${esc(help)}</p>`;
  html+=list.map((rule,i)=>{
   const p=`${esc(path)}.${i}`;
@@ -40,8 +40,15 @@ export function rules(project,list=[],path,scope,kind,{label,help,chapter,footer
     fields+=flag?select('Value',String(rule.value),[['true','True'],['false','False']],`${p}.value`,scope):field('Value',rule.value,`${p}.value`,scope,'number');
    }
   } else if(kind==='costs') {
-   const resources=project.variables.filter(variable=>variable.type==='number').map(variable=>[variable.id,variableLabel(variable)]);
-   fields=select('Spend',rule.source,[['variable','Resource'],['inventory','Item']],`${p}.source`,scope)+select('Resource or item',rule.key,rule.source==='inventory'?items:resources,`${p}.key`,scope)+(rule.source==='inventory'?'<p class="small">Consumes this item.</p>':field('Amount',rule.amount,`${p}.amount`,scope,'number'));
+   const resources=[['energy','Energy'],['health','Health']].filter(([id])=>project.variables.some(variable=>variable.id===id&&variable.type==='number'));
+   let current=rule.key;
+   if(rule.source!=='variable'||!resources.some(([id])=>id===rule.key)) {
+    const target=rule.source==='inventory'?project.library.find(item=>item.id===rule.key):project.variables.find(variable=>variable.id===rule.key);
+    // A distinct form value lets an inventory item named "energy" be retargeted explicitly.
+    current='existing-cost';
+    resources.unshift([current,`Existing cost: ${target?.name||rule.key||'No resource'}${rule.source==='inventory'?' (item)':''}`,true]);
+   }
+   fields=select('Resource',current,resources,`${p}.key`,scope)+field('Amount',rule.amount,`${p}.amount`,scope,'number');
   } else {
    const inventory=['addItem','removeItem'].includes(rule.op);
    fields=select('Operation',rule.op,[['addItem','Add item'],['add','Add to variable'],['removeItem','Remove item'],['set','Set variable']],`${p}.op`,scope)+select('Target',rule.key,inventory?items:vars,`${p}.key`,scope);
@@ -50,14 +57,20 @@ export function rules(project,list=[],path,scope,kind,{label,help,chapter,footer
    const flag=project.variables.find(v=>v.id===rule.key)?.type==='flag';
    fields+=inventory?'':flag?select('Value',String(rule.value),[['true','True'],['false','False']],`${p}.value`,scope):field('Value',rule.value,`${p}.value`,scope,'number');
   }
-  return `<div class="entry">${fields}${itemEffect?`<div class="item-effect-reference">${referenceLinks}</div>`:''}<div class="rule-entry-actions">${itemEffect?'':referenceLinks}${button('Remove','remove-rule',extras(scope,path,kind)+` data-index="${i}"`)}</div></div>`;
+  const outcomes=kind==='effects'&&diceOutcomes;
+  const controls=outcomes?`<div class="progression-outcome-controls">${checkbox('On dice fail',rule.onDiceFailure!==false,`${p}.onDiceFailure`,scope)}${checkbox('On dice success',rule.onDiceSuccess!==false,`${p}.onDiceSuccess`,scope)}</div>`:kind==='costs'?checkbox('Hide badge',rule.hideBadge===true,`${p}.hideBadge`,scope):itemEffect?'':referenceLinks;
+  return `<div class="entry">${fields}${itemEffect?`<div class="item-effect-reference">${referenceLinks}</div>`:''}${kind==='costs'&&referenceLinks?`<div class="item-effect-reference">${referenceLinks}</div>`:''}<div class="rule-entry-actions${kind==='costs'?' cost-entry-actions':outcomes?' progression-entry-actions':''}">${controls}${button('Remove','remove-rule',extras(scope,path,kind)+` data-index="${i}"`)}</div></div>`;
  }).join('');
  return html+button(`Add ${kind==='conditions'?'condition':kind==='costs'?'cost':'effect'}`,'add-rule',extras(scope,path,kind))+footer+'</details>';
 }
 export function actionFields(project,action,prefix='',scope='definition',chapter) {
  const p=key=>prefix+key;
- let html=rules(project,action.conditions,p('conditions'),scope,'conditions',{chapter,label:'Requirements',help:'All requirements must pass before this action can be selected. Requirements do not spend resources.'})+rules(project,action.costs,p('costs'),scope,'costs',{chapter})+(action.kind==='combatAction'?'':rules(project,action.effects,p('effects'),scope,'effects',{chapter,label:'Progression effects',help:'Apply when the action completes. For a dice check, these apply on either outcome.'}));
- html+=select('Resolution',action.resolution||'direct',[['direct','Direct'],['check','Dice check']],p('resolution'),scope);
+ let html=rules(project,action.conditions,p('conditions'),scope,'conditions',{chapter,label:'Requirements',help:'All requirements must pass before this action can be selected. Requirements do not spend resources.'})+rules(project,action.costs,p('costs'),scope,'costs',{chapter})+(action.kind==='combatAction'?'':rules(project,action.effects,p('effects'),scope,'effects',{chapter,diceOutcomes:true,label:'Progression effects',help:'Apply when the action completes. For dice checks, use the outcome boxes below. Direct actions ignore these boxes.'}));
+ return html+actionResolutionFields(project,action,prefix,scope,chapter);
+}
+export function actionResolutionFields(project,action,prefix='',scope='definition',chapter) {
+ const p=key=>prefix+key;
+ let html=select('Resolution',action.resolution||'direct',[['direct','Direct'],['check','Dice check']],p('resolution'),scope);
  if(action.resolution==='check') {
   const check=action.check||{pool:[{sides:20,count:1}],modifier:0,target:10};
   html+='<div class="entry check-settings"><h3>Check settings</h3>';
