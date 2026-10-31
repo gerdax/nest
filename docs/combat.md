@@ -29,6 +29,9 @@ combat definitions; it does not offer chapter placement.
 base damage and full embedded Combat Action definitions. Edit Shoot/Burst
 inside Pistol; each owns its name, artwork, check, Energy cost, damage profile
 selection/modifiers and cooldown. Carrying a Weapon adds its owned Actions.
+Weapon Actions slide in on the first player-choice display only. On later turns
+they appear at the front in inventory/Action order; cooling-down Actions stay
+visible but move to the end until ready again.
 Action identities and cooldowns are scoped by source Weapon; editing one
 Weapon's Action does not modify another Weapon. Player weaponless Actions
 retain the same Combat Action structure, owned by Common instead.
@@ -40,8 +43,10 @@ wrong-kind, local or ambiguous sources remain explicit diagnostics. Names,
 artwork, rules and stable Action identities survive migration. The original
 input files remain unchanged.
 
-**Enemy** contains its optional main-card introduction, ordered Actions,
+**Enemy** contains the main-card introduction content, ordered Actions,
 **Effects Feedback → Health damage**, percentage reactions and one required death card.
+**Show introduction** is set independently on each Combat beat. It displays the
+Enemy’s main card before combat; existing projects retain their previous setting.
 Player and Enemy Feedback presentations use Name only as an editor label. Description
 is the player-facing message, using the same large heading style in preview and combat.
 Health damage uses a fixed section label; its internal Name is not editable. Existing name-only damage
@@ -120,9 +125,9 @@ Burst cooldown is per Action/source Weapon, starts on resolved hit/miss, and
 clears after another completed player Action. Effect-card swipes are not turns.
 Cooldowns reset between encounters. Pistol has unlimited uses; USING never
 implicitly consumes it. Enemy Actions follow their authored repeating order. Attack, Defend and Wait
-are supported, with the type-specific properties described below.
+are supported, alongside Prepare, with the type-specific properties described below.
 Legacy `attacks` lists migrate to `actions` of type `attack`, retaining identity,
-presentation, order and rules. Types beyond Attack, Defend and Wait remain deferred.
+presentation, order and rules.
 
 ## Format and compatibility
 
@@ -167,22 +172,41 @@ manually expanded stay open during subsequent edits of the same card.
 
 ## Shared Combat Action types
 
-Common default Actions, Weapon-owned Actions and Enemy Actions share one
-Combat Action structure and offer **Attack**, **Defend** and
-**Wait**. Existing Actions migrate to Attack without changing their check, damage
+Common default Actions and Weapon-owned Actions offer **Attack**, **Defend** and
+**Prepare**. Existing player **Wait** Actions remain editable. Enemy Actions offer
+**Attack**, **Defend**, **Prepare** and **Wait**. Enemy Prepare secretly chooses
+protection or stronger damage, as described below. All share one
+Combat Action structure. Existing Actions migrate to Attack without changing their check, damage
 or availability; no new Actions are injected into authored projects.
+Fresh projects start with Punch, Defend and Prepare in Common, including the
+non-saving Rat example. Loading an existing project preserves its selected
+defaults, including legacy Wait Actions; use Common to add or change Actions.
 
 - Attack retains own/source damage, Direct/Check resolution and existing rules.
 - Defend is direct and spends the turn. Its damage reduction defaults to 1 and
   applies to the next opposing attack, then expires on hit or miss. Protection does
   not stack or carry between encounters. Successful attacks show SUCCESS even when protection absorbs all damage.
+- Player Prepare is direct and spends the turn. Its positive safe integer preparation
+  bonus defaults to 2. It adds to both damage endpoints of the player's next
+  Attack, including a Common Attack or an Attack from any Weapon. The bonus belongs
+  to the player, does not stack, persists through Defend and Wait, and is consumed
+  on hit or miss. Repeating Prepare replaces the stored bonus with the latest
+  Action's bonus. Preparation resets each encounter.
+  It grants no protection or Energy regeneration. The bonus is applied before
+  the Enemy's damage reduction and does not create damage for an Attack with
+  No attack properties. Such an Attack still consumes preparation. The player
+  sees `PREPARED · +N DAMAGE` above the cards until the bonus is consumed.
 - Wait is direct and spends the turn without an additional type-specific property.
 
-Requirements, Energy/Health costs and cooldowns remain available. Defend/Wait hide
+Requirements, Energy/Health costs and cooldowns remain available. Defend/Prepare/Wait hide
 attack-only check/damage fields; prior attack settings are retained if the type
 is changed back, and the Attack resolution can be configured again. Protection
 is granted after accepted departure; dice/presentation retries reuse frozen
 results and do not apply protection, turns or costs twice.
+Player Prepare follows the same accepted-departure boundary, advances cooldowns once
+like any player Action, and ignores stored On success/On failure effects as a
+Direct Action. A technical failure before an Attack result preserves preparation;
+a valid result consumes it, and presentation retries reuse that frozen result.
 
 Enemy Actions use the same type, resolution, check, own-damage profile and
 Defend reduction fields. Existing Enemy root damage ranges migrate into
@@ -212,7 +236,7 @@ Navigation is disabled during gestures, transitions and dice resolution.
 ## Action properties and Progression effects
 
 Every Combat Action separates its type-specific **Action properties** (Attack
-damage, Defend damage reduction, or Wait passing the turn) from its common
+damage, Defend damage reduction, Prepare bonus, or Wait passing the turn) from its common
 **Progression effects**. The latter reuse ordinary action operations on run
 variables and inventory. Combat retains integer Health values; Energy and other
 numeric variables keep their existing numeric rules. Enemy effects affect that same player/world state, not
@@ -286,3 +310,35 @@ Combat check odds show the tested variable name above the percentage when a
 variable/stat is selected. Checks without a variable retain ATTACK. The caption
 uses the same Very low / Low / Medium / High / Very high bands as regular Actions;
 the dice formula remains in authoring diagnostics.
+
+## Player Prepare verification — 31 October 2026
+
+At the player Prepare release, the integrated deterministic suite passed 2,652 tests with no failures or skips.
+Prepare coverage includes accepted/canceled departure, provisional-cost refunds,
+cooldown progression, nonstacking replacement, cross-Weapon/Direct damage,
+protection and lethal clamping, miss consumption, technical-failure preservation,
+frozen-result retries, overflow diagnostics, authoring roundtrips, legacy defaults,
+Enemy rejection and Prepared indicator lifecycle. Static staging verified local
+HTML/module/CSS references. Independent source review found no blocking issues.
+
+In-app browser verification used the production Rat example: Pistol collection,
+five player choices, direct Prepare, visible preparation while Enemy damage was
+pending, Health commitment, and consumption after a missed Shoot. The new-project
+editor showed Punch/Defend/Prepare in Common and the editable preparation bonus.
+The indicator was visually inspected above the card without overlapping resources.
+These checks used the desktop in-app browser; physical touch devices, other
+browsers, narrow layouts and screen-reader announcements were not newly verified.
+
+
+### Hidden Enemy preparation
+
+Set an Enemy Action’s **Action type** to **Prepare** to keep its benefit hidden.
+It spends the Enemy turn without a dice check and secretly chooses, with equal
+probability, either **Damage reduction** against your next Attack or
+**Preparation bonus** damage on its next successful Attack. The chosen benefit
+is revealed in a card before the affected damage feedback. A missed player
+Attack still consumes a prepared block; the Enemy’s damage bonus survives misses.
+Player Defend or Prepare does not consume an Enemy block. Another Enemy Prepare
+replaces the previous hidden benefit; benefits do not stack and reset each encounter.
+Existing Attack, Defend and Wait cards retain their behavior. To use this for a
+Rat, change its preparation Action to Prepare in the Enemy’s Library definition.

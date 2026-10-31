@@ -1,4 +1,4 @@
-import { ensureCombatDefaults } from './combat-model.js';
+import { ensureCombatDefaults, createCombatAction } from './combat-model.js';
 import { createError } from '../errors.js';
 import { createDefinition } from './cards.js';
 import { defaultStats } from './checks.js';
@@ -43,7 +43,7 @@ export function createProject() {
     image: './assets/img/city.png'};
   const item = {...createDefinition('item', 'flashlight'), name: 'Flashlight', image: './assets/img/flashlight.png'};
   const action = {...createDefinition('action', 'explore'), name: 'Explore', text: 'Follow the corridor', image: './assets/img/corridor_02.png'};
-  return ensureCombatDefaults({
+  const project = ensureCombatDefaults({
     version: 3,
     kind: 'nest-project',
     id: 'project-1',
@@ -80,6 +80,15 @@ export function createProject() {
       ]
     }]
   });
+  // New projects get the basic choices. Loading authored projects remains
+  // additive only for required legacy defaults, never inserts new play choices.
+  const support=[
+    {...createCombatAction('defend'),name:'Defend',type:'defend',resolution:'direct',damageReduction:1,text:'Brace yourself. Reduce damage from the next enemy attack by 1.'},
+    {...createCombatAction('prepare'),name:'Prepare',type:'prepare',resolution:'direct',preparationBonus:2,text:'Leave yourself exposed. Your next attack deals +2 damage, with any weapon. The bonus is spent even if you miss.'},
+  ];
+  project.library.push(...support);
+  project.combat.defaultActions.push(...support.map(action=>({definitionId:action.id})));
+  return project;
 }
 
 export function definitionUsers(project, id) {

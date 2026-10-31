@@ -8,7 +8,8 @@ Three tools share native JavaScript modules and the existing Nest artwork: the p
 
 `main` is the canonical development branch and includes the production combat
 implementation. The normal player and studio support authored Combat/Death
-beats, Weapon-owned Actions, Common Actions, Enemies, Attack/Defend/Wait,
+beats, Weapon-owned Actions, Common Actions, Enemies, player Attack/Defend/Prepare,
+Enemy Attack/Defend/Wait (and preserved legacy player Wait),
 Health/Energy costs and common/success/failure progression effects. Open
 [player.html?example=rat](player.html?example=rat) for the non-saving production
 example. The isolated `demos/` remain preserved references.
@@ -33,6 +34,12 @@ The server listens on all IPv4 interfaces by default for phone testing. Connect 
 - `/dice.html` opens the independent 3D dice tray.
 
 The player includes an expandable Motion tuning panel with its Copy settings action inside. Tuning applies to the chapter being played and stays available across Play, Restart, and JSON imports. There is no fixture selector; author scenarios in the studio and play their project or chapter JSON. Check probabilities are calculated from the resolved rules and shown as rounded whole percentages in the compact player panel, with the resolved formula in context. The global HUD displays Health and Energy.
+
+With `python3 serve.py`, the studio saves each project to its active JSON file in **saved-projects/** (initially **nest-project.json**). **Project settings → Autosave** is enabled by default; when off, use **Save project** or ⌘S / Ctrl+S. Changing that setting is saved immediately. **Save as…** writes a named copy and switches autosave to it, without changing the previous project file. **Open project** lists saved projects and keeps saving to the selected file. External JSON imports ask for a filename and become named copies in this folder; the external original is not modified. **Save copy** keeps a portable JSON copy. The active filename is always visible in the header. Each tab pins its file in the `?project=...` URL, so separate tabs stay independent through refresh; bare editor links resume the last successfully opened file in that browser. Switching checks unsaved changes and waits for pending writes. Existing filenames require explicit replacement confirmation and retain backups. The player and its editor link follow the selected file. Local servers using this folder share those files across ports.
+
+On the first visit, the editor offers to migrate the existing browser project. Migration verifies the saved file and preserves the exact browser source as a separate migration backup; the browser project remains untouched. If a file and an unacknowledged browser project differ, choose which one to use. A separate browser metadata marker remembers that choice without changing the browser project. Every replacement preserves the previous file with a unique backup name. Writes use a temporary file, an atomic replacement and a revision check; competing edits cause a conflict instead of overwriting newer work. Save errors keep the open draft marked unsaved. An unreadable existing file blocks saving until recovered, rather than replacing it with a starter project.
+
+The `saved-projects/` folder is excluded from Git, static serving and website staging. Keep an additional external copy for protection against disk loss. Static hosting without the local save API retains browser storage and JSON download/open behavior. `--project-dir /tmp/nest-test-project` selects an isolated save directory for testing.
 
 Run verification with `npm test` or `node --test tests/*.test.js`.
 

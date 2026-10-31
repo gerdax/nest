@@ -15,10 +15,11 @@ export function enemyActionCard(action,id) {
 
 const checkFormula=check=>`${check.pool.map(d=>`${d.count}d${d.sides}`).join(' + ')}${check.modifier>0?` + ${check.modifier}`:check.modifier<0?` − ${Math.abs(check.modifier)}`:''} ≥ ${check.target}`;
 
-export function combatChoices(choices,id,values={},definitions=[]) {
- return {id,interaction:'choice',decisionOnly:true,allowClose:false,autoBrowse:false,actions:choices.map(choice=>{
+export function combatChoices(choices,id,values={},definitions=[],{animateItemActions=true}={}) {
+ const ordered=[...choices.filter(choice=>!(choice.cooldownRemaining>0)&&choice.source),...choices.filter(choice=>!(choice.cooldownRemaining>0)&&!choice.source),...choices.filter(choice=>choice.cooldownRemaining>0)];
+ return {id,interaction:'choice',decisionOnly:true,allowClose:false,autoBrowse:false,actions:ordered.map(choice=>{
   const {action,source}=choice;
   const c=action.resolution==='direct'?null:checkOdds(action.check,values);
-  return {id:choice.id,label:action.name,heading:action.name,cardKind:'action',typeLabel:(action.type??'attack').toUpperCase(),...art(action),text:action.text??'',actionEnergyCost:actionEnergyCost(action),actionHealthCost:actionHealthCost(action),summary:'',disabled:choice.disabled,disabledReason:choice.disabledReason,...(c?{checkTarget:c.target,checkInfo:{stat:action.check?.modifierVariable?(definitions.find(v=>v.id===action.check.modifierVariable)?.name||action.check.modifierVariable):'ATTACK',chance:String(c.probability*100),label:checkChanceLabel(c.probability),formula:checkFormula(c)}}:{}),...(source?{contextItemId:source.definitionId??source.id,contextInventoryKey:source.inventoryKey??source.id,inventoryLabel:`USING · ${source.name}`,entrance:choice.disabled?undefined:'bottom'}:{})};
+  return {id:choice.id,label:action.name,heading:action.name,cardKind:'action',typeLabel:(action.type??'attack').toUpperCase(),...art(action),text:action.text??'',actionEnergyCost:actionEnergyCost(action),actionHealthCost:actionHealthCost(action),summary:'',disabled:choice.disabled,disabledReason:choice.disabledReason,...(c?{checkTarget:c.target,checkInfo:{stat:action.check?.modifierVariable?`${definitions.find(v=>v.id===action.check.modifierVariable)?.name||action.check.modifierVariable}: ${c.modifier}`:'ATTACK',chance:String(c.probability*100),label:checkChanceLabel(c.probability),formula:checkFormula(c)}}:{}),...(source?{contextItemId:source.definitionId??source.id,contextInventoryKey:source.inventoryKey??source.id,inventoryLabel:`USING · ${source.name}`,entrance:animateItemActions&&!choice.disabled?'bottom':undefined}:{})};
  })};
 }

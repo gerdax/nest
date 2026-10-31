@@ -1,6 +1,6 @@
 import {resolveCheck} from './checks.js';
 import {transact} from './state.js';
-import {definition,createEncounter,playerChoices,resolveCombatAttack,healthReactions,completePlayerTurn,completeEnemyTurn,applyActionProtection} from './combat-rules.js';
+import {definition,createEncounter,playerChoices,resolveCombatAttack,healthReactions,completePlayerTurn,completeEnemyTurn,applyActionProtection,settleEnemyPreparation} from './combat-rules.js';
 import {combatCard,enemyActionCard,combatChoices} from './combat-presentation.js';
 
 /** One encounter; ProjectController remains the sole owner of player run state. */
@@ -10,9 +10,9 @@ export class CombatCoordinator {
   this.abort=new AbortController();this.encounter=createEncounter(this.enemy,`${host.generation}:${node.id}:${++host.serial}`);
   this.generation=host.generation;this.resume={kind:'enemy'};
   this.phase='starting';this.serial=0;this.accepted=new Set();this.committed=new Set();this.pending=null;this.disposed=false;
-  this.progressionCommitted=new Set();
+  this.progressionCommitted=new Set();this.choicesPresented=false;
  }
- get state(){return {id:this.encounter.id,phase:this.phase,enemyName:this.enemy.name,enemyHp:this.encounter.enemyHp,startingHp:this.encounter.startingHp,round:this.encounter.round};}
+ get state(){return {id:this.encounter.id,phase:this.phase,enemyName:this.enemy.name,enemyHp:this.encounter.enemyHp,startingHp:this.encounter.startingHp,round:this.encounter.round,guard:this.encounter.guard,preparationBonus:this.encounter.preparationBonus};}
  get checking(){return /roll|result/.test(this.phase);}
  get idle(){return ['intro','choice','effects','enemy-death','enemy-action'].includes(this.phase)&&!this.advancing;}
  active(){return !this.disposed&&!this.abort.signal.aborted&&!this.host.destroyed&&this.host.generation===this.generation&&this.host.combat===this;}
@@ -32,7 +32,7 @@ export class CombatCoordinator {
  }
  async start(){
   try{
-   if(this.enemy.introEnabled){
+   if(this.node.introEnabled===true){
     this.resume={kind:'sequence'};this.sequence={kind:'intro',steps:[{card:{...this.enemy,kind:'event'}}],index:0};
     if(!this.setPhase('entering'))return;await this.replace(this.sequenceContent(),{transition:'flip'});
     if(this.active())this.setPhase('intro');
@@ -41,7 +41,7 @@ export class CombatCoordinator {
  }
  actionCard(){return {...enemyActionCard(this.enemy.actions[this.encounter.actionIndex],this.token()),cardBack:this.host.compiled.cardBack};}
  choices(){return playerChoices(this.host.compiled,this.snapshot(),this.encounter);}
- choiceContent(){return {...combatChoices(this.choices(),this.token(),this.host.variables,this.host.compiled.variables),cardBack:this.host.compiled.cardBack};}
+ choiceContent(){return {...combatChoices(this.choices(),this.token(),this.host.variables,this.host.compiled.variables,{animateItemActions:!this.choicesPresented&&this.encounter.round===1}),cardBack:this.host.compiled.cardBack};}
  async enterEnemy({reveal=false}={}){
   if(!this.active())return;
   this.resume={kind:'enemy'};this.sequence=null;if(!this.setPhase('enemy-enter'))return;
@@ -51,7 +51,7 @@ export class CombatCoordinator {
  }
  async performEnemyAction(action){
   switch(action?.type){
-   case 'attack':case 'defend':case 'wait':return this.attack('enemy',action);
+   case 'attack':case 'defend':case 'prepare':case 'wait':return this.attack('enemy',action);
    default:throw new Error(`Unsupported Enemy Action type: ${action?.type??'(missing)'}`);
   }
  }
@@ -64,7 +64,7 @@ export class CombatCoordinator {
    const entered=await this.deck.transitionContent(content,{transition:'front-turn',surface:'front',presentation:'open',signal:this.abort.signal});
    if(!entered&&this.active())throw new Error('Combat choice transition unavailable');
   }
-  if(this.active())this.setPhase('choice');
+  if(this.active()){this.choicesPresented=true;this.setPhase('choice');}
  }
  async attack(actor,action,source=null,{contentId}={}){
   if(!this.active())return;
@@ -84,10 +84,11 @@ export class CombatCoordinator {
    const check=action.resolution==='direct'?null:resolveCheck(action.check,before.variables);
    const result=!check?{dice:[]}:await this.host.rollCheck(check.pool,{signal:this.abort.signal,surface:actor==='enemy'?'front':'check',color:actor==='enemy'?'black':'light',throwSide:actor==='enemy'?'top':'bottom'});
    if(!this.active())return;
-   const resolved=resolveCombatAttack({id:this.token(),actor,action,source,targetHp:actor==='enemy'?this.host.variables.health:this.encounter.enemyHp,values:before.variables,dice:Array.isArray(result)?result:result.dice,random:this.host.rng,damageReduction:actor==='enemy'?this.encounter.guard??0:this.encounter.enemyGuard??0});
+   const resolved=resolveCombatAttack({id:this.token(),actor,action,source,targetHp:actor==='enemy'?this.host.variables.health:this.encounter.enemyHp,values:before.variables,dice:Array.isArray(result)?result:result.dice,random:this.host.rng,damageReduction:actor==='enemy'?this.encounter.guard??0:this.encounter.enemyGuard??0,preparationBonus:actor==='player'?this.encounter.preparationBonus??0:0,enemyPreparation:this.encounter.enemyPreparation??null});
    this.pending=resolved;this.resume={kind:'resolution'};if(this.payment)this.payment.final=true;
    if(actor==='player')this.encounter=completePlayerTurn(this.encounter,action,source);
    else this.encounter=applyActionProtection(this.encounter,'enemy',action);
+   this.encounter=settleEnemyPreparation(this.encounter,resolved);
    if(!this.setPhase(`${actor}-result`))return;
    if(action.resolution!=='direct')await this.host.onCheckResult({target:resolved.target,total:resolved.total,success:resolved.success,label:resolved.success?'SUCCESS':'MISS',signal:this.abort.signal});
    if(!this.active())return;
@@ -101,6 +102,11 @@ export class CombatCoordinator {
   const result=this.pending;if(!result||!this.active())return;
   if(!result.success){await this.finishAttack();return;}
   const steps=[];
+  if(result.preparationReveal){
+   const {kind,value}=result.preparationReveal;
+   const text=kind==='block'?`${this.enemy.name} prepared a block. Damage reduction: ${value}.`:`${this.enemy.name}'s preparation adds ${value} damage.`;
+   steps.push({card:{id:`${result.id}:preparation`,kind:'caption',text}});
+  }
   if(result.damage>0){
    const template=result.actor==='enemy'?definition(this.host.compiled.library,this.host.compiled.combat.playerHit):this.enemy.hit;
    if(!template)throw new Error('Missing damage Feedback');

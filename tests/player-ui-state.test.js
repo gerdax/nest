@@ -73,3 +73,34 @@ test('resource presentation is typed, arbitrary variables stay out, and no-run i
   assert.equal(view.context.info,null);assert.equal(view.context.item,null);assert.equal(view.canInspect,false);
   assert.deepEqual(view.inventory.items,[]);
 });
+
+test('prepared is a pure combat projection through opponent actions, checking and Defend',()=>{
+  const input=fixture();input.run.combat={preparationBonus:2,guard:0};
+  const before=structuredClone(input);
+  assert.deepEqual(playerUIState(input).preparation,{text:'PREPARED · +2 DAMAGE',visible:true});
+  assert.deepEqual(input,before);
+  input.run.idle=false;input.run.checking=true;input.interaction.busy=true;
+  input.card={phase:'committing',action:{id:'opponent'}};
+  input.feedback={status:{text:'Opponent attacks',visible:true},result:{total:12,target:10}};
+  assert.equal(playerUIState(input).preparation.visible,true);
+  input.run.combat.guard=3;input.card={phase:'choices',action:{id:'defend'}};
+  assert.equal(playerUIState(input).preparation.text,'PREPARED · +2 DAMAGE');
+  input.run.combat.preparationBonus=4;
+  assert.equal(playerUIState(input).preparation.text,'PREPARED · +4 DAMAGE');
+});
+
+test('prepared clears on consumption, encounter end, completion, terminal state and missing run',()=>{
+  const input=fixture();
+  for(const bonus of [undefined,null,0,-1,NaN,Infinity,'2']) {
+    input.run.combat={preparationBonus:bonus,guard:2};
+    assert.deepEqual(playerUIState(input).preparation,{text:'',visible:false});
+  }
+  input.run.combat={preparationBonus:2};input.run.completed=true;
+  assert.equal(playerUIState(input).preparation.visible,false);
+  input.run.completed=false;input.run.terminalReason='death';
+  assert.equal(playerUIState(input).preparation.visible,false);
+  delete input.run.terminalReason;input.run.combat=null;
+  assert.deepEqual(playerUIState(input).preparation,{text:'',visible:false});
+  input.run=null;
+  assert.deepEqual(playerUIState(input).preparation,{text:'',visible:false});
+});

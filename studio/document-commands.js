@@ -117,13 +117,21 @@ function changeField(project, selection, field, localDrafts) {
   if (inputType === 'number' && raw === '') { delete parent[key]; return; }
   if (['imageScale','imageOffsetX','imageOffsetY'].includes(key)) value = clampArtwork(key, value);
   if(key==='key'&&['addItem','removeItem'].includes(parent.op)&&value&&!eligibleInventoryItems(project,ruleChapter).some(item=>item.id===value))throw createError('STUDIO_ITEM_EFFECTS_MUST_REFERENCE_AN_ELIGIBLE_ITEM_FROM_THE_OWNING_CHAPTER_OR_SHARED_LIBRARY');
-  parent[key] = value;
-  if(scope==='definition'&&key==='type'&&parent.kind==='combatAction'){
-    if(!['attack','defend','wait'].includes(value))throw new Error('Unsupported Combat Action type');
-    if(['defend','wait'].includes(value))parent.resolution='direct';
+  if(['definition','local-definition'].includes(scope)&&key==='type'&&parent.kind==='combatAction'){
+    if(!['attack','defend','prepare','wait'].includes(value))throw new Error('Unsupported Combat Action type');
+    const switching=parent[key]!==value;
+    parent[key]=value;
+    if(['defend','prepare','wait'].includes(value))parent.resolution='direct';
     if(value==='defend')parent.damageReduction??=1;
+    if(value==='prepare'){
+      if(root.kind==='enemy'&&switching){
+        if(!Number.isSafeInteger(parent.preparationBonus)||parent.preparationBonus<1)parent.preparationBonus=2;
+        if(!Number.isSafeInteger(parent.damageReduction)||parent.damageReduction<1)parent.damageReduction=1;
+      }else if(root.kind!=='enemy')parent.preparationBonus??=2;
+    }
     return;
   }
+  parent[key] = value;
   if(scope==='definition'&&path==='subtype'&&root.kind==='item'){if(value==='weapon')root.combat??=createWeapon(root.id).combat;else delete root.subtype;return;}
   if(scope==='definition'&&(path==='attack.source'||/^(?:combat\.)?actions\.\d+\.attack\.source$/.test(path))){parent.minBonus??=0;parent.maxBonus??=0;if(value==='self')parent.damage??={min:1,max:1};return;}
   if (['modifierVariable','contextItemId','tagId'].includes(key) && !value) delete parent[key];

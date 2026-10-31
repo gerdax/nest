@@ -45,13 +45,17 @@ import { mountPlayShortcuts } from './play-shortcuts.js';
 import { cardLabel } from './card-label.js';
 import { confirmLibraryRemoval } from './library-removal-confirmation.js';
 import { mountSaveConflictPanel } from './save-conflict-panel.js';
+import { openProjectSession } from './project-session.js';
+import {createProjectFileActions,projectFileName,projectFileUrl} from './project-file-actions.js';
+import {showProjectFileDialog,askUnsavedProjectChoice} from './project-file-dialog.js';
 
-const $=s=>document.querySelector(s),loaded=loadProject();
+const $=s=>document.querySelector(s),projectSession=await openProjectSession(),loaded=projectSession.loaded;
 const previewOverrides = new PreviewOverrides();
 const nodeErrors = new NodeErrors();
 let copiedArtwork = null;
 let nodeClipboard = null;
 let cardClipboard = null;
+let fileDialogOpen=false;
 const artworkClipboardKey = 'nest.artwork.clipboard';
 let project=loaded.project||createProject(),chapterId=project.activeChapterId,selected=project.chapters.find(c=>c.id===chapterId)?.startNode,definitionId=project.library.find(d=>d.visibility!=='local')?.id,mode='chapter';
 let libraryTab='content';
@@ -88,12 +92,31 @@ const graph=new GraphView($('#canvas'),{
 });
 const projectSettingsWindow=mountProjectSettingsWindow($('#project-settings-overlay'),{trigger:$('#project-settings-toggle'),preview:$('#preview-window'),onOpen:()=>graph.cancel()});
 let conflictPanel;
-const persistence=createPersistence({loaded,eventTarget:window,onStatus:text=>{
+const persistence=createPersistence({loaded,backend:projectSession.backend,eventTarget:window,onStatus:text=>{
  $('#save-status').textContent=text;
  window.removeEventListener('beforeunload',guardUnsaved);
  if(persistence.hasUnsaved)window.addEventListener('beforeunload',guardUnsaved);
 },onConflict:conflict=>conflictPanel?.update(conflict)});
-const saveProject=project=>persistence.saveQueued(project);
+const saveProject=project=>persistence.saveAutomatic(project);
+function saveManually(){
+ const active=document.activeElement;
+ if(active?.matches('input,textarea,select')&&active.closest('#inspector,#settings,#project-settings-content')){
+  // Commit the displayed value explicitly: blur alone does not commit values
+  // supplied by every input method (including browser automation/autofill).
+  changeField({target:active});active.blur();
+ }
+ return persistence.saveQueued(project);
+}
+$('#save-project').onclick=saveManually;
+if(projectSession.fileMode){
+ $('#save-project').hidden=true;
+ window.history.replaceState(window.history.state,'',projectFileUrl(projectSession.backend.filename,location.href));
+}
+function saveShortcut(event){
+ if(!(event.ctrlKey||event.metaKey)||event.altKey||event.key.toLowerCase()!=='s')return;
+ event.preventDefault();if(!fileDialogOpen)saveManually();
+}
+document.addEventListener('keydown',saveShortcut);
 function report(text){persistence.report(text);}
 function goToDefinition(id){
  const destination=definitionDestination(project,id);
@@ -139,7 +162,7 @@ function edit(type,data={}, {preserveProjectSettings=false,refresh=true}={}){
  if('definitionId' in patch)definitionId=patch.definitionId;
  if('mode' in patch)mode=patch.mode;
  if(patch.selectedIds){graph.selected=selected;graph.selectedIds=new Set(patch.selectedIds);graph.lastCanvasClick=null;}
- const saved=saveProject(project);
+ const saved=type==='import'?persistence.saveQueued(project):saveProject(project);
  if(refresh)render({preserveProjectSettings});
  else {
   $('#undo').disabled=!history.canUndo;$('#redo').disabled=!history.canRedo;
@@ -173,9 +196,9 @@ function renderProjectSettings(){
  const restore=root.contains(active),path=active?.dataset.path,scope=active?.dataset.scope;
  const start=restore&&['text','search'].includes(active.type)?active.selectionStart:null;
  const end=start===null?null:active.selectionEnd,scroll=root.scrollTop;
- const sections=['data-project-combat','data-project-variables','data-project-item-tags','data-project-card-styles','data-project-card-backs'];
+ const sections=['data-project-variables','data-project-item-tags','data-project-card-styles','data-project-card-backs'];
  const expanded=sections.filter(key=>root.querySelector(`[${key}]`)?.open);
- root.innerHTML=projectSettingsInspector(project);
+ root.innerHTML=projectSettingsInspector(project,{fileMode:projectSession.fileMode,filePath:projectSession.backend?.path});
  for(const key of expanded)root.querySelector(`[${key}]`).open=true;
  root.scrollTop=scroll;
  if(restore&&path){
@@ -246,6 +269,7 @@ function render({preserveProjectSettings=false}={}){
  if(selected!==undefined&&!chapter()?.nodes.some(n=>n.id===selected))selected=chapter()?.startNode;
  if(mode==='library'&&definition()?.visibility!=='local'&&isCommonDefinition(definition())!==(libraryTab==='common'))definitionId=project.library.find(d=>d.visibility!=='local'&&isCommonDefinition(d)===(libraryTab==='common'))?.id;
  $('#project-name').textContent=project.name;
+ if(projectSession.fileMode)document.title=`${project.name} · ${projectSession.backend.filename} · Nest`;
  $('#chapter-selector').innerHTML=sortedChapters(project).map(c=>`<option value="${esc(c.id)}" ${c.id===chapterId?'selected':''}>${esc(c.name)}</option>`).join('');
  $('#undo').disabled=!history.canUndo;$('#redo').disabled=!history.canRedo;
 
@@ -260,7 +284,7 @@ function scopeRoot(scope,element){
 function changeField(event){const el=event.target,path=el.dataset.path,scope=el.dataset.scope;if(!path)return;
  if(scope==='preview-overrides'){
   edit('beat-overrides',{path,value:el.value,inputType:el.type});
-  report('Beat overrides saved. Restart playback to apply.');return;
+  report('Beat overrides updated. Restart playback to apply.');return;
  }
  const colorField=el.matches('[data-card-style-color]');let color;
  if(colorField){
@@ -326,7 +350,7 @@ function command(event){const b=event.target.closest('[data-command]');if(!b||b.
  if(b.dataset.scope==='preview-overrides'){
   if(b.disabled)return;
   edit('beat-overrides',{command:cmd,index:b.dataset.index});
-  report('Beat overrides saved. Restart playback to apply.');return;
+  report('Beat overrides updated. Restart playback to apply.');return;
  }
  if(cmd==='reload-image'){
   if(b.disabled)return;
@@ -538,10 +562,10 @@ conflictBackupDownload.onclick=()=>{
  if(backup.ok&&backup.text!==null)downloadText(backup.text,'nest-previous-save.nest.json','application/json');
  else report(backup.error||'No previous save backup is available.');
 };
-function refreshConflictBackup(){conflictBackupDownload.hidden=!readConflictingSave().text;}
+function refreshConflictBackup(){conflictBackupDownload.hidden=projectSession.fileMode||!readConflictingSave().text;}
 $('#save-status').after(conflictBackupDownload);refreshConflictBackup();
 conflictPanel=mountSaveConflictPanel(document.querySelector('header'),{
- onExportDraft:()=>$('#export-project').click(),
+ onExportDraft:()=>downloadProjectCopy(),
  onExportSaved:conflict=>downloadText(conflict.primary,'nest-competing-save.nest.json','application/json'),
  onReload:()=>{
   if(!confirm('Reload the saved version? Your open draft will be discarded. Export this draft first if you want to keep it.'))return;
@@ -549,7 +573,7 @@ conflictPanel=mountSaveConflictPanel(document.querySelector('header'),{
  },
  onKeepDraft:async conflict=>{
   const result=await persistence.saveQueued(project,{expectedPrimary:conflict.primary,preservePrimary:true});
-  if(result.ok){refreshConflictBackup();report('This draft is saved. Use Download previous save for the preserved competing version.');}
+  if(result.ok){refreshConflictBackup();report(projectSession.fileMode?'This draft is saved. The previous file is preserved in saved-projects.':'This draft is saved. Use Download previous save for the preserved competing version.');}
  }
 });
 function guardUnsaved(event){if(!deliberateReload&&persistence.hasUnsaved){event.preventDefault();event.returnValue='';}}
@@ -560,8 +584,50 @@ if(loaded.recovery){
  recoveryDownload.onclick=()=>{const recovered=readRecoveredSave();if(!recovered.ok){report(errorMessage('STUDIO_RECOVERY_DOWNLOAD_FAILED', {message: recovered.error}));return;}downloadText(recovered.text,'nest-recovered-save.txt');report('Recovered save downloaded as exact original text. Recovery backup retained.');};
  $('#save-status').after(recoveryDownload);
 }
-$('#export-project').textContent='Export project';
-$('#export-project').onclick=()=>{try{download(exportProjectDraft(project),`${project.name.replace(/[^a-z0-9]+/gi,'-')}.nest.json`);report('Project exported. Unfinished work is included; playback requires validation errors to be fixed.');}catch(error){report(errorMessage('STUDIO_PROJECT_EXPORT_FAILED', {message: error.message}));}};
+$('#export-project').textContent='Save project';
+function downloadProjectCopy(){try{download(exportProjectDraft(project),`${project.name.replace(/[^a-z0-9]+/gi,'-')}.nest.json`);report('Project JSON downloaded. Unfinished work is included; playback requires validation errors to be fixed.');}catch(error){report(errorMessage('STUDIO_PROJECT_EXPORT_FAILED', {message: error.message}));}}
+$('#export-project').onclick=projectSession.fileMode?saveManually:downloadProjectCopy;
+if(projectSession.fileMode){
+ $('#export-project').title=`Save to ${projectSession.backend.path} (⌘S / Ctrl+S)`;
+ const copy=document.createElement('button');copy.type='button';copy.textContent='Save copy';copy.onclick=downloadProjectCopy;
+ $('#export-project').after(copy);
+ const filename=document.createElement('span');filename.id='active-project-file';filename.className='active-project-file';filename.textContent=projectSession.backend.filename;filename.title=projectSession.backend.path;
+ $('#project-name').parentElement.after(filename);
+ const saveAs=document.createElement('button');saveAs.id='save-project-as';saveAs.type='button';saveAs.textContent='Save as…';
+ $('#export-project').after(saveAs);
+ const open=document.createElement('button');open.id='open-project-file';open.type='button';open.textContent='Open project';
+ $('#import').closest('label').hidden=true;$('#import').closest('label').after(open);
+ const actions=createProjectFileActions({backend:projectSession.backend,getProject:()=>project,persistence,
+  confirmOverwrite:name=>confirm(`Replace ${name}? Its previous version will be preserved as a backup.`),
+  chooseUnsaved:()=>askUnsavedProjectChoice(),
+  navigate:name=>{deliberateReload=true;location.assign(projectFileUrl(name,location.href));},
+ });
+ const commitForFileDialog=()=>{
+  const active=document.activeElement;
+  if(active?.matches('input,textarea,select')&&active.closest('#inspector,#settings,#project-settings-content')){changeField({target:active});active.blur();}
+  projectSettingsWindow.close();previewWindow.hide();preview.stop();graph.cancel();
+ };
+ const launch=async(mode)=>{
+  if(fileDialogOpen)return;
+  commitForFileDialog();fileDialogOpen=true;
+  try {
+   await showProjectFileDialog({mode,backend:projectSession.backend,currentFilename:projectSession.backend.filename,
+    onSubmit:mode==='save-as'?name=>actions.saveAs(name):name=>actions.open(name),
+    onImport:async file=>{
+     try {
+      const {project:incoming}=parseStudioImport(await file.text(),{kind:'project'});
+      let suggestedName;try{suggestedName=projectFileName(file.name);}catch{suggestedName='imported-project.json';}
+      const ok=await showProjectFileDialog({mode:'save-as',backend:projectSession.backend,currentFilename:projectSession.backend.filename,suggestedName,
+       onSubmit:name=>actions.saveAs(name,{project:incoming})});
+      return ok?{ok:true}:{ok:false,cancelled:true};
+     } catch(error){return {ok:false,error:error.message};}
+    },
+   });
+  } finally {fileDialogOpen=false;}
+ };
+ saveAs.onclick=()=>launch('save-as');open.onclick=()=>launch('open');
+ for(const link of document.querySelectorAll('a[href="player.html"]'))link.href=projectFileUrl(projectSession.backend.filename,link.href);
+}
 $('#export-chapter').onclick=()=>{try{download(exportStudioChapter(project,chapterId),`${chapter().name.replace(/[^a-z0-9]+/gi,'-')}.chapter.json`);report('Chapter exported.');}catch(error){report(errorMessage('STUDIO_CHAPTER_EXPORT_FAILED', {message: error.message}));}};
 function bindImport(input,kind){
  input.onchange=async e=>{
@@ -571,8 +637,8 @@ function bindImport(input,kind){
    preview.stop();localDrafts.reset();if(kind==='project')nodeClipboard=null;
    const result=edit('import',{raw,incoming});
    const saved=result.ok&&(await result.saved).ok;
-   if(saved&&kind==='project'&&persistence.adopt().ok){recoveryDownload?.remove();report('Project imported and saved in this browser. Recovery backups retained.');}
-   else if(saved&&kind==='chapter')report('Chapter imported and saved in this browser.');
+   if(saved&&kind==='project'&&persistence.adopt().ok){recoveryDownload?.remove();report(`Project opened. ${persistence.savedMessage} Previous saves are preserved.`);}
+   else if(saved&&kind==='chapter')report(`Chapter imported. ${persistence.savedMessage}`);
    graph.fit();
   }catch(error){report(errorMessage('STUDIO_IMPORT_REJECTED', {message: error.message}));}
   e.target.value='';
@@ -600,5 +666,5 @@ const stopPlayShortcuts=mountPlayShortcuts(document,{
  },
  enabled:()=>!!node()&&graph.selectedIds.size<=1,
 });
-window.addEventListener('pagehide',event=>{if(event.persisted)return;graph.cancel();stopHistoryShortcuts();stopNodeClipboardShortcuts();stopViewShortcuts();stopPlayShortcuts();autoplay.destroy();autoPanel.destroy();previewWindow.destroy();projectSettingsWindow.destroy();preview.destroy();});
-render();graph.fit();if(loaded.error||loaded.recovery)report('');else if(loaded.migrated)report('Legacy save loaded; original browser save preserved.');else report(loaded.project?'Saved in this browser.':'Not saved yet.');
+window.addEventListener('pagehide',event=>{if(event.persisted)return;graph.cancel();document.removeEventListener('keydown',saveShortcut);stopHistoryShortcuts();stopNodeClipboardShortcuts();stopViewShortcuts();stopPlayShortcuts();autoplay.destroy();autoPanel.destroy();previewWindow.destroy();projectSettingsWindow.destroy();preview.destroy();});
+render();graph.fit();if(loaded.error||loaded.recovery)report('');else if(loaded.migrated)report('Legacy save loaded; original browser save preserved.');else report(loaded.project?persistence.savedMessage:'Not saved yet.');

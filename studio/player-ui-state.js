@@ -20,7 +20,10 @@ export function playerUIState({ run = null, card = {}, interaction = {}, feedbac
     ? selectTriggerItem(run.collectedItems, action?.contextInventoryKey ?? action?.contextItemId) ?? null : null;
   const variables = definitions.variables ?? [];
   const values = run?.variables ?? {};
+  const preparationBonus = run?.combat?.preparationBonus;
+  const prepared = !run?.completed && !run?.terminalReason && Number.isFinite(preparationBonus) && preparationBonus > 0;
   return {
+    preparation: {text:prepared ? `PREPARED · +${preparationBonus} DAMAGE` : '', visible:prepared},
     resources: ['health', 'energy'].map(id => {
       const definition = variables.find(variable => variable.id === id);
       return {id, label:id === 'health' ? 'Health' : 'Energy', visible:definition?.type === 'number', value:values[id], max:definition?.max};

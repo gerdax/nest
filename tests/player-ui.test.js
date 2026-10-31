@@ -43,6 +43,48 @@ test('one owner hosts the drawer, context, HUD and backdrop without owning the h
   assert.equal(ui.input,null);assert.equal(ui.getInput,null);
 });
 
+test('prepared has one accessible status node and follows combat independently of revision or action context',()=>{
+  const {ui,input,root}=fixture();
+  const lane=root.querySelector('.chapter-preview-card-layout');
+  assert.equal(ui.preparation.parentNode,lane);
+  assert.equal(lane.children.filter(child=>child===ui.preparation).length,1);
+  assert.equal(ui.preparation.hidden,true);
+  assert.equal(ui.preparation.getAttribute('role'),'status');
+  assert.equal(ui.preparation.getAttribute('aria-live'),'polite');
+  assert.equal(ui.preparation.getAttribute('aria-atomic'),'true');
+  input.run.combat={preparationBonus:2,guard:0};ui.update(input);
+  assert.equal(ui.preparation.hidden,false);
+  assert.equal(ui.preparation.textContent,'PREPARED · +2 DAMAGE');
+  assert.equal(ui.healthValue.textContent,6);
+  input.run.idle=false;input.run.checking=true;input.interaction.busy=true;
+  input.card={phase:'committing',action:{id:'opponent'}};ui.update(input);
+  assert.equal(ui.preparation.hidden,false);
+  assert.equal(ui.actionContext.visible,false);
+  input.run.combat.guard=2;input.card={phase:'choices',action:{id:'defend'}};ui.update(input);
+  assert.equal(ui.preparation.hidden,false);
+  input.run.combat.preparationBonus=0;ui.update(input);
+  assert.equal(ui.preparation.hidden,true);assert.equal(ui.preparation.textContent,'');
+  input.run.combat.preparationBonus=2;ui.update(input);
+  input.run.combat=null;ui.update(input);
+  assert.equal(ui.preparation.hidden,true);assert.equal(ui.preparation.textContent,'');
+  input.run=null;ui.update(input);
+  assert.equal(ui.preparation.hidden,true);
+  ui.destroy();assert.equal(ui.preparation.parentNode,null);
+});
+
+test('Stop reset clears prepared and restart cannot inherit its old display; destroy prevents late updates',()=>{
+  const {ui,input}=fixture();input.run.combat={preparationBonus:2};ui.update(input);
+  assert.equal(ui.preparation.hidden,false);
+  ui.reset();assert.equal(ui.preparation.hidden,true);assert.equal(ui.preparation.textContent,'');
+  input.run.combat=null;input.revision++;ui.update(input);
+  assert.equal(ui.preparation.hidden,true);
+  input.run.combat={preparationBonus:3};ui.update(input);
+  assert.equal(ui.preparation.textContent,'PREPARED · +3 DAMAGE');
+  ui.destroy();input.run.combat.preparationBonus=4;ui.update(input);
+  assert.equal(ui.preparation.parentNode,null);
+  assert.equal(ui.preparation.textContent,'PREPARED · +3 DAMAGE');
+});
+
 test('context-only updates preserve pending dialogs, deposits and inventory DOM until a new run revision',()=>{
   const {ui,input}=fixture();ui.update(input);
   let cancellations=0,refreshes=0;

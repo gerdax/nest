@@ -6,10 +6,17 @@ import { createProject, parseProject } from '../project/model.js';
 import { loadProject } from '../project/storage.js';
 import { mountMotionTuning } from '../player/motion-tuning.js';
 import { mountPerformanceTuning } from '../player/performance-tuning.js';
+import { openProjectSession } from './project-session.js';
+import {projectFileUrl} from './project-file-actions.js';
 
 const message=document.querySelector('#message'),title=document.querySelector('#chapter-name'),selector=document.querySelector('#chapter-selector');
 const example=new URLSearchParams(location.search).get('example')==='rat';
-const stored=example?{}:loadProject();let project=example?createRatCombatProject():stored.project??createProject();
+const session=example?null:await openProjectSession({readonly:true});
+const stored=session?.loaded??{};let project=example?createRatCombatProject():stored.project??createProject();
+if(session?.fileMode){
+ window.history.replaceState(window.history.state,'',projectFileUrl(session.backend.filename,location.href));
+ for(const link of document.querySelectorAll('a[href="./editor.html"]'))link.href=projectFileUrl(session.backend.filename,link.href);
+}
 const preview=new ProjectPreview(document.querySelector('#preview'),{inventoryDock:true,inventoryHost:document.querySelector('.player-screen'),onChange:()=>{
   selector.value=preview.chapterId;
   title.textContent=project.chapters.find(chapter=>chapter.id===preview.chapterId)?.name||'Chapter';

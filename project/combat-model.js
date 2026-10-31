@@ -6,7 +6,7 @@ export const createEnemyAction=id=>({...createCombatAction(id),name:'Attack',att
 // Retain the old factory entry point for existing integrations.
 export const createEnemyAttack=createEnemyAction;
 export const createWeapon=id=>({...base(id,'item','Weapon'),subtype:'weapon',onCollect:[],permability:0,combat:{damage:{min:1,max:2},effects:[],actions:[]}});
-export const createEnemy=id=>({...base(id,'enemy','Enemy'),health:4,introEnabled:false,actions:[createEnemyAction(`${id}-action`)],hit:{...createEffectCard(`${id}-hit`),name:'Health damage',headingFromDescription:true},reactions:[],death:[{...base(`${id}-death`,'caption','Death'),effects:[]}]});
+export const createEnemy=id=>({...base(id,'enemy','Enemy'),health:4,actions:[createEnemyAction(`${id}-action`)],hit:{...createEffectCard(`${id}-hit`),name:'Health damage',headingFromDescription:true},reactions:[],death:[{...base(`${id}-death`,'caption','Death'),effects:[]}]});
 const object=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
 const allocate=(base,used)=>{let id=base,n=2;while(used.has(id))id=`${base}-${n++}`;used.add(id);return id;};
 /** Existing player Actions retain their attack behaviour on upgrade. */
@@ -95,7 +95,17 @@ export function ensureCombatDefaults(project){
   }
  }
  if(!Object.hasOwn(project,'showDeathBeat'))project.showDeathBeat=true;
- for(const chapter of Array.isArray(project.chapters)?project.chapters:[])ensureChapterDeath(project,chapter);migrateEnemyActions(project);migrateWeaponActions(project);migrateCombatActionTypes(project);project.version=3;return project;
+ for(const chapter of Array.isArray(project.chapters)?project.chapters:[]){
+  ensureChapterDeath(project,chapter);
+  for(const node of Array.isArray(chapter?.nodes)?chapter.nodes:[]){
+   if(node?.type!=='combat'||Object.hasOwn(node,'introEnabled'))continue;
+   const enemy=project.library.find(d=>d?.kind==='enemy'&&d.id===node.enemy?.definitionId);
+   // Legacy Enemy introductions become a per-beat choice once. Keep the old
+   // property for compatibility, and never replace an explicit authored value.
+   node.introEnabled=typeof enemy?.introEnabled==='boolean'?enemy.introEnabled:false;
+  }
+ }
+ migrateEnemyActions(project);migrateWeaponActions(project);migrateCombatActionTypes(project);project.version=3;return project;
 }
 export const createCombatDefaults=ensureCombatDefaults;
 export function createProjectChapter(project,id='chapter-1',name='First chapter'){const chapter={id,name,startNode:'',variables:[],nodes:[]};ensureChapterDeath(project,chapter);return chapter;}

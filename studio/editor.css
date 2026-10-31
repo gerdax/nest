@@ -124,13 +124,14 @@ aside {overflow-anchor:none;}
 
 #project-settings-toggle {max-width:220px;overflow-wrap:anywhere;}
 #project-name {max-width:220px;overflow-wrap:anywhere;}
+.active-project-file {max-width:240px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:#9cb7ae;}
 .project-settings-overlay {position:fixed;inset:0;z-index:2000;display:grid;place-items:center;padding:24px;background:#000a;}
 .project-settings-overlay[hidden] {display:none;}
 .project-settings-dialog {display:flex;flex-direction:column;width:min(660px,100%);max-height:calc(var(--editor-viewport-height) - 48px);min-height:0;background:#1a2326;border:1px solid #526165;border-radius:10px;box-shadow:0 16px 64px #000b;outline:none;}
 .project-settings-heading {display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 20px;border-bottom:1px solid #394a4c;flex-shrink:0;}
 .project-settings-heading h2 {margin:0;font-size:18px;}
 #project-settings-content {padding:20px;overflow:auto;min-height:0;}
-#project-settings-content > label.field:has(> input[data-path="allowCycles"]) {margin-top:20px;}
+#project-settings-content > label.field:has(> input[data-path="showDeathBeat"]) {margin-top:20px;}
 #project-settings-content > label.field:has(> input[data-path="allowCycles"]) + .small {margin-bottom:24px;}
 .project-settings-open {overflow:hidden;}
 @media(max-width:384px){.project-settings-overlay{padding:12px;}.project-settings-dialog{max-height:calc(var(--editor-viewport-height) - 24px);}#project-settings-content{padding:14px;}}
@@ -142,6 +143,7 @@ aside {overflow-anchor:none;}
 @media(min-width:609px) {main:has(#canvas:not([hidden])) {grid-template-columns:minmax(0,1fr) 500px;}}
 
 #inspector label.field:has(> input[data-scope="node"][data-path="name"]) {margin-bottom:20px;}
+#inspector button[data-command="go-to-definition"] + label.field:has(> input[data-scope="node"][data-path="introEnabled"]) {margin-top:16px;}
 
 #settings .chapter-settings[open] > summary {margin-bottom:22px;}
 #project-settings-content [data-project-card-backs][open] > summary {margin-bottom:18px;}

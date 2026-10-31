@@ -25,6 +25,14 @@ export class PlayerUI {
     this.healthValue = root.querySelector('[data-health-value]');
     this.energyValue = root.querySelector('[data-energy-value]');
     this.status = root.querySelector('[data-status]');
+    this.preparation = (root.ownerDocument ?? document).createElement('div');
+    this.preparation.className = 'player-prepared';
+    this.preparation.setAttribute('data-prepared', '');
+    this.preparation.setAttribute('role', 'status');
+    this.preparation.setAttribute('aria-live', 'polite');
+    this.preparation.setAttribute('aria-atomic', 'true');
+    this.preparation.hidden = true;
+    root.querySelector('.chapter-preview-card-layout').appendChild(this.preparation);
     if (inventoryDock) {inventoryRoot.classList.add('nest-inventory-dock'); this.releaseDock = acquireDock((root.ownerDocument ?? document).body);}
     const container = inventoryHost ?? (inventoryDock ? null : root);
     this.surface = new InventorySurface({container});
@@ -109,6 +117,8 @@ export class PlayerUI {
     }
     this.status.textContent = view.status.text;
     this.status.hidden = !view.status.visible;
+    if (this.preparation.textContent !== view.preparation.text) this.preparation.textContent = view.preparation.text;
+    this.preparation.hidden = !view.preparation.visible;
     this.actionContext.update(view.context);
     this.syncBackdrop();
   }
@@ -167,6 +177,8 @@ export class PlayerUI {
     this.setInventoryContext(false, {immediate:true});
     this.inventory.update([]);
     this.resources.hidden = true;
+    this.preparation.textContent = '';
+    this.preparation.hidden = true;
     this.status.textContent = '';
     this.status.hidden = true;
     this.revision = null;
@@ -184,6 +196,7 @@ export class PlayerUI {
     this.contextResize.disconnect();
     this.backdrop.destroy();
     this.surface.destroy();
+    this.preparation.remove();
     this.releaseDock?.();
     this.releaseDock = null;
     this.input = null;

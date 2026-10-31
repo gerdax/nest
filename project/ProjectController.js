@@ -365,7 +365,7 @@ export class ProjectController {
       if(!enemy)throw new Error('Missing Enemy definition');
       const id=`combat-preview:${location.node.id}`;
       const action={...enemyActionCard(enemy.actions[0],`${id}:action`),cardBack:this.compiled.cardBack};
-      if(!enemy.introEnabled)return {...action,id};
+      if(location.node.introEnabled!==true)return {...action,id};
       const content={...combatCard({...enemy,kind:'event'},id),cardBack:this.compiled.cardBack};
       content.nextTransition='reveal';
       content.nextDeckPreview={content:action,presentation:'closed'};

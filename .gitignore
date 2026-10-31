@@ -9,3 +9,6 @@ __pycache__/
 /pre_prototype/
 /prototype/
 /preview*.jpg
+
+# Private local project and recovery backups.
+/saved-projects/

@@ -6,7 +6,7 @@ import {createRatCombatProject} from '../project/combat-fixture.js';
 import {compileChapter} from '../project/model.js';
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 function harness({health=10,hit=true,victory=true}={}){
- const project=createRatCombatProject(),compiled=compileChapter(project),enemy=compiled.library.find(d=>d.id==='rat');enemy.introEnabled=false;
+ const project=createRatCombatProject(),compiled=compileChapter(project),enemy=compiled.library.find(d=>d.id==='rat');compiled.nodes.find(n=>n.type==='combat').introEnabled=false;
  const deck=new EventTarget();Object.assign(deck,{phase:'closed',mount:{inert:false},state:{busy:false},content:{id:'initial'},replaceContent(c,o={}){this.content=c;this.phase=o.presentation==='open'?'choices':'closed';},async transitionContent(c,o){this.replaceContent(c,o);return true;},waitForDeparture(){return new Promise(resolve=>{this.depart=resolve;});}});
  let commits=0,won=0;const errors=[];
  const host={deck,compiled,generation:1,serial:0,variables:{health,energy:3},inventory:[compiled.library.find(d=>d.id==='pistol')],rng:()=>0,notify(){},error(e){errors.push(e);},async rollCheck(){return {dice:[1,2,3].map(()=>({sides:6,value:hit?4:1}))};},async onCheckResult(){},combatVictoryReason:()=>victory?'':'Route unavailable',completeCombatVictory(){won++;},commitCombatDamage(id,value,effects=[]){commits++;return ProjectController.prototype.commitCombatDamage.call(this,id,value,effects);},commitCombatEffects(...args){return ProjectController.prototype.commitCombatEffects.call(this,...args);},deathDestination(){return this.variables.health<=0?{}:null;},handoffDeath(){this.combat.dispose();this.combat=null;}};
@@ -64,16 +64,65 @@ test('active player dice AbortError restores choices; disposal AbortError stays 
 test('Energy-modified check freezes displayed pre-payment values while charging the cost',async()=>{const h=harness();await reachPlayer(h);const punch=h.host.compiled.library.find(d=>d.name==='Punch');punch.costs=[{source:'variable',key:'energy',amount:2}];punch.check={pool:[{sides:6,count:3}],modifier:0,target:11,modifierVariable:'energy'};h.host.rollCheck=async()=>({dice:[{sides:6,value:3},{sides:6,value:3},{sides:6,value:3}]});await select(h,'Punch');assert.equal(h.host.variables.energy,1);assert.equal(h.c.pending.total,12);assert.equal(h.c.pending.success,true);h.c.dispose();});
 
 test('enabled introduction uses the main Enemy presentation and ignores legacy intro cards',async()=>{
- const h=harness();Object.assign(h.c.enemy,{introEnabled:true,text:'Main Enemy text',image:'main.png',imageScale:125,imageOffsetX:8,flipImage:true,intro:[{kind:'event',text:'Old intro',image:'old.png'}]});
+ const h=harness();h.c.node.introEnabled=true;Object.assign(h.c.enemy,{introEnabled:false,text:'Main Enemy text',image:'main.png',imageScale:125,imageOffsetX:8,flipImage:true,intro:[{kind:'event',text:'Old intro',image:'old.png'}]});
  await h.c.start();assert.equal(h.c.phase,'intro');
  for(const [key,value] of Object.entries({text:'Main Enemy text',image:'main.png',imageScale:125,imageOffsetX:8,flipImage:true,cardKind:'event'}))assert.equal(h.deck.content[key],value);
  await swipe(h);assert.equal(h.c.phase,'effects');h.c.dispose();
 });
 
 function addSupport(h,type){
+ const existing=h.host.compiled.library.find(d=>d.kind==='combatAction'&&d.type===type);
+ if(existing)return existing;
  const action={...structuredClone(h.host.compiled.library.find(d=>d.name==='Punch')),id:type,definitionId:type,name:type==='defend'?'Defend':'Wait',type,resolution:'direct',...(type==='defend'?{damageReduction:1}:{})};
  h.host.compiled.library.push(action);h.host.compiled.combat.defaultActions.push({definitionId:action.id});return action;
 }
+
+test('Prepare waits for accepted departure, never rolls, and exposes bonus while Enemy damage is pending',async()=>{
+ const h=harness();await reachPlayer(h);const round=h.c.encounter.round;let playerRolls=0;
+ h.host.rollCheck=async(pool,options)=>{if(options.surface==='check')playerRolls++;return {dice:[4,4,4]};};
+ const p=select(h,'Prepare');await tick();
+ assert.equal(h.c.encounter.preparationBonus,0);assert.equal(h.c.encounter.round,round);
+ h.deck.depart();await p;
+ assert.equal(h.c.phase,'effects');assert.equal(h.c.pending.actor,'enemy');
+ assert.equal(h.c.pending.damage,1);assert.equal(h.c.state.preparationBonus,2);assert.equal(h.c.state.guard,0);
+ assert.equal(h.c.encounter.round,round+1);assert.equal(playerRolls,0);
+ await swipe(h);await select(h,'Punch');
+ assert.equal(h.c.pending.damage,3);assert.equal(h.c.encounter.enemyHp,4,'damage still waits for feedback departure');
+ assert.equal(h.c.state.preparationBonus,0);assert.equal(playerRolls,1);h.c.dispose();
+});
+
+test('canceled Prepare does not grant a bonus or spend a cooldown turn, and refunds its cost',async()=>{
+ const h=harness();await reachPlayer(h);
+ const action=h.host.compiled.library.find(d=>d.name==='Prepare');action.costs=[{source:'variable',key:'energy',amount:1}];
+ const round=h.c.encounter.round;h.c.encounter.cooldowns.test=2;
+ const p=select(h,'Prepare');await tick();assert.equal(h.host.variables.energy,2);
+ h.c.dispose();h.deck.depart();await p;
+ assert.equal(h.host.variables.energy,3);assert.equal(h.c.encounter.preparationBonus,0);
+ assert.equal(h.c.encounter.round,round);assert.equal(h.c.encounter.cooldowns.test,2);
+});
+
+test('a prepared miss consumes the bonus; a technical roll failure preserves it and refunds payment',async()=>{
+ const h=harness();await reachPlayer(h);h.c.encounter.preparationBonus=2;
+ const punch=h.host.compiled.library.find(d=>d.name==='Punch');punch.costs=[{source:'variable',key:'energy',amount:1}];
+ h.host.rollCheck=async()=>{throw new Error('Dice unavailable');};
+ const round=h.c.encounter.round;await select(h,'Punch');
+ assert.equal(h.c.phase,'error');assert.equal(h.c.encounter.preparationBonus,2);
+ assert.equal(h.c.encounter.round,round);assert.equal(h.host.variables.energy,3);
+ await h.c.retry();h.host.rollCheck=async()=>({dice:[1,1,1]});await select(h,'Punch');
+ assert.equal(h.c.phase,'choice');assert.equal(h.c.encounter.preparationBonus,0);
+ assert.equal(h.c.encounter.round,round+1);assert.equal(h.c.encounter.enemyHp,4);assert.equal(h.host.variables.energy,2);h.c.dispose();
+});
+
+test('prepared result retries without reroll, double payment or reusing its consumed bonus',async()=>{
+ const h=harness();await reachPlayer(h);h.c.encounter.preparationBonus=2;
+ const shoot=h.host.compiled.library.find(d=>d.id==='pistol').combat.actions.find(d=>d.name==='Shoot');shoot.costs=[{source:'variable',key:'energy',amount:1}];
+ let rolls=0;h.host.rollCheck=async()=>{rolls++;return {dice:[4,4,4]};};
+ h.host.onCheckResult=async()=>{throw new Error('Result unavailable');};await select(h);
+ const pending=h.c.pending,round=h.c.encounter.round;
+ assert.equal(pending.damage,3);assert.equal(h.c.encounter.preparationBonus,0);assert.equal(h.host.variables.energy,2);
+ await h.c.retry();assert.equal(h.c.pending,pending);assert.equal(h.c.encounter.round,round);assert.equal(rolls,1);
+ await swipe(h);assert.equal(h.c.encounter.enemyHp,1);assert.equal(h.host.variables.energy,2);assert.equal(h.c.encounter.preparationBonus,0);h.c.dispose();
+});
 async function useDirect(h,name){const promise=select(h,name);await tick();h.deck.depart();await promise;await tick();}
 test('Defend blocks one damage on the next attack and Wait then passes an unprotected turn',async()=>{
  const h=harness();addSupport(h,'defend');addSupport(h,'wait');await reachPlayer(h);
@@ -127,7 +176,7 @@ test('canceling an Enemy Defend departure grants no protection and does not adva
 
 test('incoming combat preview uses the actual intro face without a disabled placeholder',async()=>{
  const {ProjectController}=await import('../project/ProjectController.js');
- const h=harness();h.c.enemy.introEnabled=true;
+ const h=harness();h.c.node.introEnabled=true;
  Object.assign(h.c.enemy,{image:'rat-art.png',imageScale:115,imageOffsetX:7,imageOffsetY:-3,flipImage:true,text:'A rat blocks your path.'});
  const enemy=h.host.compiled.library.find(d=>d.id==='rat');Object.assign(enemy,h.c.enemy);
  const preview=ProjectController.prototype.content.call({compiled:h.host.compiled},{node:h.c.node});
@@ -140,11 +189,11 @@ test('incoming combat preview uses the actual intro face without a disabled plac
 
 test('combat without introduction previews its first Enemy Action',async()=>{
  const {ProjectController}=await import('../project/ProjectController.js');
- const h=harness();const enemy=h.host.compiled.library.find(d=>d.id==='rat');enemy.introEnabled=false;
+ const h=harness();const enemy=h.host.compiled.library.find(d=>d.id==='rat');enemy.introEnabled=true;h.c.node.introEnabled=false;
  const preview=ProjectController.prototype.content.call({compiled:h.host.compiled},{node:h.c.node});
  assert.equal(preview.heading,enemy.actions[0].text);
  assert.equal(preview.image,enemy.actions[0].image);
- assert.equal(preview.cardKind,'action');h.c.dispose();
+ assert.equal(preview.cardKind,'action');await h.c.start();assert.equal(h.c.phase,'effects');h.c.dispose();
 });
 
 test('automatic Enemy check stays locked without unavailable styling',async()=>{
@@ -165,11 +214,11 @@ test('combat previews, Actions, feedback, choices and retry retain the project c
  const {ProjectController}=await import('../project/ProjectController.js');
  const h=harness();const back={background:'project-back.png',icons:{default:'project-icon.png'}};
  h.host.compiled.cardBack=back;
- const enemy=h.host.compiled.library.find(d=>d.id==='rat');enemy.introEnabled=true;
+ const enemy=h.host.compiled.library.find(d=>d.id==='rat');h.c.node.introEnabled=true;
  const preview=ProjectController.prototype.content.call({compiled:h.host.compiled},{node:h.c.node});
  assert.deepEqual(preview.cardBack,back);assert.deepEqual(preview.nextDeckPreview.content.cardBack,back);
  assert.deepEqual(h.c.actionCard().cardBack,back);assert.deepEqual(h.c.choiceContent().cardBack,back);
- h.c.enemy.introEnabled=true;await h.c.start();assert.deepEqual(h.deck.content.cardBack,back);
+ h.c.node.introEnabled=true;await h.c.start();assert.deepEqual(h.deck.content.cardBack,back);
  await swipe(h);assert.equal(h.c.phase,'effects');assert.deepEqual(h.deck.content.cardBack,back);
  await swipe(h);assert.equal(h.c.phase,'choice');assert.deepEqual(h.deck.content.cardBack,back);
  h.c.fail(new Error('Test retry'));assert.deepEqual(h.deck.content.cardBack,back);h.c.dispose();
@@ -369,4 +418,100 @@ for(const boundary of ['player-roll','payment'])for(const lifecycle of ['restart
  if(lifecycle==='restart')assert.notEqual(controller.combat,oldCombat);
  else assert.equal(controller.destroyed,true);
  controller.destroy();
+});
+
+
+test('Weapon Actions enter only on the first choice display, including retries and new encounters',async()=>{
+ const h=harness();addSupport(h,'wait');
+ const incoming=h.c.choiceContent().actions.filter(action=>action.contextItemId);
+ assert(incoming.length>0);assert(incoming.every(action=>action.entrance==='bottom'));
+ // Merely generating content must not consume the first entrance.
+ assert(h.c.choiceContent().actions.filter(action=>action.contextItemId).every(action=>action.entrance==='bottom'));
+ await reachPlayer(h);
+ assert(h.deck.content.actions.filter(action=>action.contextItemId).every(action=>action.entrance==='bottom'));
+ h.c.fail(new Error('Retry choice presentation'));await h.c.retry();
+ assert.equal(h.c.encounter.round,1);
+ assert(h.deck.content.actions.filter(action=>action.contextItemId).every(action=>action.entrance===undefined));
+ await useDirect(h,'Wait');await swipe(h);
+ assert.equal(h.c.phase,'choice');assert.equal(h.c.encounter.round,2);
+ assert(h.deck.content.actions.filter(action=>action.contextItemId).every(action=>action.entrance===undefined));
+ h.c.dispose();
+ const fresh=harness();await reachPlayer(fresh);
+ assert(fresh.deck.content.actions.filter(action=>action.contextItemId).every(action=>action.entrance==='bottom'));
+ fresh.c.dispose();
+});
+
+test('cooling Weapon Actions move last and return to their stable front position when ready',async()=>{
+ const h=harness();addSupport(h,'wait');await reachPlayer(h);
+ const labels=()=>h.deck.content.actions.map(action=>action.label);
+ assert.deepEqual(labels().slice(0,2),['Shoot','Burst']);
+ await select(h,'Burst');await swipe(h);await swipe(h);
+ assert.equal(h.c.phase,'choice');assert.equal(labels().at(-1),'Burst');
+ const cooling=h.deck.content.actions.at(-1);
+ assert.equal(cooling.disabled,true);assert.match(cooling.disabledReason,/Cooldown/);
+ assert(h.deck.content.actions.every(action=>action.entrance===undefined));
+ await useDirect(h,'Wait');await swipe(h);
+ assert.equal(h.c.phase,'choice');assert.deepEqual(labels().slice(0,2),['Shoot','Burst']);
+ assert.equal(h.deck.content.actions[1].disabled,false);
+ h.c.dispose();
+});
+
+
+function hiddenPreparationHarness(draw){
+ const h=harness();
+ const attack={...h.c.enemy.actions[0],attack:{source:'self',damage:{min:1,max:1}}};
+ h.c.enemy.actions=[{...structuredClone(attack),id:'rat-prepare',name:'Rat prepares',text:'The rat prepares its next move.',type:'prepare',resolution:'direct',preparationBonus:2,damageReduction:1},attack];
+ let samples=0;h.host.rng=()=>{samples++;return draw;};
+ return {...h,get samples(){return samples;}};
+}
+
+test('Enemy preparation waits for accepted departure, stays hidden and is not resampled on retry',async()=>{
+ const h=hiddenPreparationHarness(.1);await h.c.start();
+ assert.equal(h.c.phase,'enemy-action');assert.equal(h.samples,0);
+ assert.equal(h.c.encounter.enemyPreparation,null);
+ const pending=h.c.accept({contentId:h.deck.content.id,action:{id:'continue'}});await tick();
+ assert.equal(h.samples,0);h.deck.depart();await pending;
+ assert.equal(h.c.phase,'choice');assert.equal(h.samples,1);
+ assert.deepEqual(h.c.encounter.enemyPreparation,{kind:'block',value:1});
+ assert.equal(Object.hasOwn(h.c.state,'enemyPreparation'),false);
+ assert(!JSON.stringify(h.deck.content).includes('prepared a block'));
+ h.c.fail(new Error('Choice presentation interrupted'));await h.c.retry();
+ assert.equal(h.samples,1);assert.deepEqual(h.c.encounter.enemyPreparation,{kind:'block',value:1});
+ h.c.dispose();
+ const canceled=hiddenPreparationHarness(.9);await canceled.c.start();
+ const attempt=canceled.c.accept({contentId:canceled.deck.content.id,action:{id:'continue'}});await tick();
+ canceled.c.dispose();canceled.deck.depart();await attempt;
+ assert.equal(canceled.samples,0);assert.equal(canceled.c.encounter.enemyPreparation,null);
+});
+
+test('hidden block reveals before reduced damage and feedback departure still owns the damage commit',async()=>{
+ const h=hiddenPreparationHarness(.1);await h.c.start();await swipe(h);
+ const punch=h.host.compiled.library.find(d=>d.name==='Punch');punch.attack.damage={min:3,max:3};
+ await select(h,'Punch');
+ assert.equal(h.c.pending.damage,2);assert.equal(h.c.pending.blockedDamage,1);
+ assert.match(h.deck.content.text,/Rat prepared a block/);
+ assert.equal(h.c.encounter.enemyPreparation,null);assert.equal(h.c.encounter.enemyHp,4);
+ await swipe(h);assert.equal(h.deck.content.cardKind,'health');assert.equal(h.c.encounter.enemyHp,4);
+ await swipe(h);assert.equal(h.c.encounter.enemyHp,2);
+ assert.equal(h.samples,1);h.c.dispose();
+});
+
+test('hidden damage preparation survives a miss, reveals on a hit and retry never rerolls or adds twice',async()=>{
+ const h=hiddenPreparationHarness(.9);addSupport(h,'wait');await h.c.start();await swipe(h);
+ assert.deepEqual(h.c.encounter.enemyPreparation,{kind:'attack',value:2});
+ let enemyHits=false,rolls=0;h.host.rollCheck=async()=>{rolls++;return {dice:enemyHits?[4,4,4]:[1,1,1]};};
+ await useDirect(h,'Wait');assert.equal(h.c.phase,'choice');
+ assert.deepEqual(h.c.encounter.enemyPreparation,{kind:'attack',value:2});
+ // Return to the same Attack without selecting another preparation.
+ h.c.encounter.actionIndex=1;enemyHits=true;
+ h.host.onCheckResult=async()=>{throw new Error('Result interrupted');};
+ await useDirect(h,'Wait');assert.equal(h.c.phase,'error');
+ const saved=h.c.pending;assert.equal(saved.damage,3);
+ assert.equal(h.c.encounter.enemyPreparation,null);assert.equal(h.host.variables.health,10);
+ const rolled=rolls;await h.c.retry();
+ assert.equal(h.c.pending,saved);assert.equal(rolls,rolled);assert.equal(h.samples,1);
+ assert.match(h.deck.content.text,/Rat's preparation adds 2 damage/);
+ await swipe(h);assert.equal(h.host.variables.health,10);
+ await swipe(h);assert.equal(h.host.variables.health,7);assert.equal(h.c.phase,'choice');
+ h.c.dispose();
 });

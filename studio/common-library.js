@@ -7,6 +7,7 @@ export const isCommonDefinition=definition=>['combatAction','effect'].includes(d
 export function combatActionSummary(project,action){
  const type=action.type||'attack';let effect;
  if(type==='defend')effect=`Reduces next incoming attack damage by ${action.damageReduction??1}`;
+ else if(type==='prepare')effect=`Adds +${action.preparationBonus??2} damage to your next Attack (does not stack)`;
  else if(type==='wait')effect='Passes the turn';
  else if(action.attack?.source==='weapon'){
   const bonuses=[action.attack.minBonus?`${action.attack.minBonus>0?'+':''}${action.attack.minBonus} minimum`:null,action.attack.maxBonus?`${action.attack.maxBonus>0?'+':''}${action.attack.maxBonus} maximum`:null].filter(Boolean);
@@ -33,7 +34,7 @@ const row=(project,{id,definition},role)=>{
  const indicators=definition?cardRuleIndicators(project,{definitionId:definition.id}):[];
  const markerLabel=indicators.map(([letter,label])=>`${letter}: ${label}`).join('; ');
  const markers=indicators.length?`<span class="common-card-rules" role="img" aria-label="${esc(markerLabel)}" title="${esc(markerLabel)}">${indicators.map(([letter])=>letter==='T'?'<span data-rule-marker="T">T</span>':esc(letter)).join(' · ')}</span>`:'';
- const type=({attack:'Attack',defend:'Defend',wait:'Wait'})[definition?.type]||'Attack';
+ const type=({attack:'Attack',defend:'Defend',prepare:'Prepare',wait:'Wait'})[definition?.type]||'Attack';
  const summary=action?`<span class="common-action-summary">${combatActionSummary(project,definition).map(line=>`<span>${esc(line)}</span>`).join('')}</span>`:'';
  return `<div class="common-card">${definition?`<div class="common-preview" aria-hidden="true"><div class="inspector-card-preview" data-card-preview data-preview-definition="${esc(definition.id)}"></div></div>`:'<p class="small">Missing definition. Import or restore its source.</p>'}<button type="button" class="common-entry" data-definition="${esc(id||'')}"><strong>${esc(role||definition?.name||'Missing definition')}</strong><span class="common-card-meta"><span>${esc(action?type:definition?.name||'Missing definition')}</span>${markers}</span>${summary}</button></div>`;
 };

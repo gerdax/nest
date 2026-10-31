@@ -28,7 +28,7 @@ test('Enemy Defend and Wait share player rules and default their missing resolut
   const {project,action}=fixture();action.type=type;delete action.resolution;
   if(type==='defend')action.damageReduction=2;
   migrateEnemyActions(project);assert.equal(action.resolution,'direct');assert.deepEqual(validateProject(project),[]);
-  action.resolution='check';assert.match(messages(project),/Defend and Wait are direct/);
+  action.resolution='check';assert.match(messages(project),/Defend, Prepare and Wait are direct/);
  }
  const {project,action}=fixture();action.type='defend';action.resolution='direct';action.damageReduction=0;assert.match(messages(project),/positive integer damage reduction/);
 });

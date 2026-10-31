@@ -7,11 +7,11 @@ export const sourceKey = item => item ? item.inventoryKey ?? item.definitionId ?
 export const cooldownKey = (action, item) => `${action.definitionId ?? action.id}@${sourceKey(item)}`;
 export function createEncounter(enemy, id) {
   if (!enemy || !Number.isSafeInteger(enemy.health) || enemy.health < 1 || !enemy.actions?.length) throw new Error('Enemy needs positive health and an Action');
-  if(enemy.actions.some(action=>!['attack','defend','wait'].includes(action?.type)))throw new Error('Unsupported Enemy Action type');
-  return {id,enemyHp:enemy.health,startingHp:enemy.health,actionIndex:0,round:1,cooldowns:{},guard:0,enemyGuard:0};
+  if(enemy.actions.some(action=>!['attack','defend','wait','prepare'].includes(action?.type)))throw new Error('Unsupported Enemy Action type');
+  return {id,enemyHp:enemy.health,startingHp:enemy.health,actionIndex:0,round:1,cooldowns:{},guard:0,enemyGuard:0,preparationBonus:0,enemyPreparation:null};
 }
 export function attackProfile(action, source) {
-  if(['defend','wait'].includes(action.type))return null;
+  if(['defend','wait','prepare'].includes(action.type))return null;
   const profile = action.attack ?? {source:'self',damage:action.damage};
   if (profile.source === 'none') return null;
   if (profile.source === 'weapon' && (!source || source.subtype !== 'weapon')) throw new Error('Attack requires its source weapon');
@@ -59,12 +59,13 @@ export function playerChoices(compiled, run, encounter) {
   const add=(value,source=null)=>{
     const action=source?value:definition(compiled.library,value);
     if (!action || action.kind !== 'combatAction') throw new Error('Missing Combat Action');
-    if(!source && !['defend','wait'].includes(action.type)&&action.attack?.source==='weapon') throw new Error('Default Action requires a weapon');
-    const profile=attackProfile(action,source), key=cooldownKey(action,source);
+    if(!source && !['defend','wait','prepare'].includes(action.type)&&action.attack?.source==='weapon') throw new Error('Default Action requires a weapon');
+    const profile=attackProfile(action,source), key=cooldownKey(action,source), cooldownRemaining=encounter.cooldowns[key]??0;
     const reason=requirementReason(compiled,run,action.conditions)
+      || (profile&&!Number.isSafeInteger(profile.max+(encounter.preparationBonus??0))?'Prepared damage exceeds supported range':'')
       || (!affordCosts(run.variables,run.inventory,action.costs,compiled.variables)?resourceShortage(compiled,run,action.costs)
-      : (encounter.cooldowns[key]??0)>0?`Cooldown: ${encounter.cooldowns[key]} turn`:'');
-    result.push({id:key,action:structuredClone(action),source:source?structuredClone(source):null,profile,disabled:!!reason,disabledReason:reason});
+      : cooldownRemaining>0?`Cooldown: ${cooldownRemaining} turn`:'');
+    result.push({id:key,action:structuredClone(action),source:source?structuredClone(source):null,profile,cooldownRemaining,disabled:!!reason,disabledReason:reason});
   };
   for(const ref of compiled.combat?.defaultActions??[])add(ref);
   for(const item of run.inventory??[])if(item.subtype==='weapon')for(const action of item.combat?.actions??[])add(action,item);
@@ -92,20 +93,40 @@ export function diceTotal(dice,pool) {
     return sum+value;
   },0);
 }
-export function resolveCombatAttack({actor,action,source=null,targetHp,values={},dice,random=Math.random,id,damageReduction=0}) {
+function validateEnemyPreparation(preparation) {
+  if(preparation!==null&&(typeof preparation!=='object'||!['block','attack'].includes(preparation.kind)||!Number.isSafeInteger(preparation.value)||preparation.value<1))throw new Error('Invalid enemy preparation');
+}
+export function resolveCombatAttack({actor,action,source=null,targetHp,values={},dice,random=Math.random,id,damageReduction=0,preparationBonus=0,enemyPreparation=null}) {
   if(!['player','enemy'].includes(actor)||!Number.isSafeInteger(targetHp)||targetHp<1)throw new Error('Invalid combat target');
   if(!Number.isSafeInteger(damageReduction)||damageReduction<0)throw new Error('Invalid damage reduction');
+  if(!Number.isSafeInteger(preparationBonus)||preparationBonus<0)throw new Error('Invalid preparation bonus');
+  validateEnemyPreparation(enemyPreparation);
+  if(action.type==='prepare'&&(action.resolution!=='direct'||!Number.isSafeInteger(action.preparationBonus)||action.preparationBonus<1||(actor==='enemy'&&(!Number.isSafeInteger(action.damageReduction)||action.damageReduction<1))))throw new Error('Invalid Prepare Action');
   const check=action.resolution==='direct'?null:resolveCheck(action.check,values);
   const raw=check?diceTotal(dice,check.pool):0,total=raw+(check?.modifier??0);
   const success=!check||total>=check.target;
   const profile=attackProfile(action,source);
+  // The existing preparationBonus remains exclusively the player's bonus.
+  const prepared=actor==='player'&&profile?preparationBonus:0;
+  const enemyPrepared=actor==='enemy'&&(action.type??'attack')==='attack'&&profile&&enemyPreparation?.kind==='attack'?enemyPreparation.value:0;
+  if(profile&&!Number.isSafeInteger(profile.max+prepared+enemyPrepared))throw new Error('Prepared damage exceeds supported range');
+  let selectedPreparation=null,preparationReveal=null;
+  if(actor==='enemy'&&action.type==='prepare'){
+    const draw=random();
+    if(!Number.isFinite(draw)||draw<0||draw>=1)throw new Error('Invalid preparation random sample');
+    selectedPreparation=draw<.5?{kind:'block',value:action.damageReduction}:{kind:'attack',value:action.preparationBonus};
+  }
+  if(success&&enemyPrepared)preparationReveal={...enemyPreparation};
+  const protection=actor==='player'&&enemyPreparation?.kind==='block'?Math.max(damageReduction,enemyPreparation.value):damageReduction;
   let rolledDamage=0;
   if(success&&profile){
     if(profile.min===profile.max)rolledDamage=profile.min;
     else {const draw=random();if(!Number.isFinite(draw)||draw<0||draw>=1)throw new Error('Invalid damage random sample');rolledDamage=profile.min+Math.floor(draw*(profile.max-profile.min+1));}
+    rolledDamage+=prepared+enemyPrepared;
   }
-  const blockedDamage=Math.min(rolledDamage,damageReduction),damage=Math.min(targetHp,rolledDamage-blockedDamage);
-  return Object.freeze({id,actor,action:structuredClone(action),source:source?structuredClone(source):null,dice:structuredClone(dice??[]),total,target:check?.target??0,success,rolledDamage,blockedDamage,damage,targetHp:targetHp-damage});
+  if(rolledDamage>0&&actor==='player'&&(action.type??'attack')==='attack'&&enemyPreparation?.kind==='block')preparationReveal={...enemyPreparation};
+  const blockedDamage=Math.min(rolledDamage,protection),damage=Math.min(targetHp,rolledDamage-blockedDamage);
+  return Object.freeze({id,actor,action:structuredClone(action),source:source?structuredClone(source):null,dice:structuredClone(dice??[]),total,target:check?.target??0,success,preparationBonus:prepared,enemyPreparation:selectedPreparation,preparationReveal,rolledDamage,blockedDamage,damage,targetHp:targetHp-damage});
 }
 export function healthReactions(enemy,before,after) {
   if(after<=0||after>=before)return [];
@@ -123,10 +144,26 @@ export function applyActionProtection(encounter,actor,action){
 }
 export function completePlayerTurn(encounter, action, source) {
   const next={...applyActionProtection(encounter,'player',action),cooldowns:{...encounter.cooldowns},round:encounter.round+1};
+  if(action.type==='prepare')next.preparationBonus=action.preparationBonus;
+  else if((action.type??'attack')==='attack')next.preparationBonus=0;
   for(const key of Object.keys(next.cooldowns))next.cooldowns[key]=Math.max(0,next.cooldowns[key]-1);
   if((action.cooldown??0)>0)next.cooldowns[cooldownKey(action,source)]=action.cooldown;
   return next;
 }
 export function completeEnemyTurn(encounter,enemy) {
   return {...encounter,actionIndex:(encounter.actionIndex+1)%enemy.actions.length};
+}
+
+/** Settle hidden preparation after ordinary turn and protection bookkeeping. */
+export function settleEnemyPreparation(encounter,result) {
+  const previous=encounter.enemyPreparation??null;
+  validateEnemyPreparation(previous);
+  let preparation=previous;
+  if(result.actor==='enemy'&&result.action.type==='prepare'){
+    validateEnemyPreparation(result.enemyPreparation);
+    if(!result.enemyPreparation)throw new Error('Missing enemy preparation');
+    preparation=result.enemyPreparation;
+  }else if(previous?.kind==='block'&&result.actor==='player'&&(result.action.type??'attack')==='attack')preparation=null;
+  else if(previous?.kind==='attack'&&result.actor==='enemy'&&result.preparationReveal?.kind==='attack')preparation=null;
+  return {...encounter,enemyPreparation:preparation?{...preparation}:null};
 }

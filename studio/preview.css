@@ -32,6 +32,10 @@
 @font-face {font-family:NestVitals;src:url('../assets/fonts/trotont.ttf') format('truetype');font-display:swap;}
 .player-resources {width:100%;display:flex;justify-content:space-between;align-items:center;color:#b6c99b;}
 .player-resources[hidden] {display:none;}
+/* A separate lane immediately above the card keeps preparation outside the
+   resource numbers and the selected-action context, without moving either. */
+.player-prepared {position:absolute;left:0;right:0;bottom:100%;margin-bottom:calc(12px * var(--playfield-scale,1));color:var(--card-title-color,#a9bb86);font:calc(11px * var(--playfield-scale,1))/1.2 var(--card-font,NestLetter,monospace);letter-spacing:.08em;text-align:center;pointer-events:none;}
+.player-prepared[hidden] {display:none!important;}
 .player-resource {display:flex;align-items:center;gap:6.149625px;font:76.25535px/1 NestVitals,monospace;font-variant-numeric:tabular-nums;}
 .player-resource[hidden] {display:none;}
 .player-resource img {width:33.207975px;height:36.89775px;object-fit:contain;}

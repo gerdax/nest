@@ -20,6 +20,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
   if (!object(project)) return [{message: errorMessage('VALIDATION_PROJECT_MUST_BE_AN_OBJECT')}];
   if (project.version !== 3 || project.kind !== 'nest-project') add('Project needs version 3 and kind nest-project');
   if (project.ignoreAllOverrides !== undefined && typeof project.ignoreAllOverrides !== 'boolean') add(errorMessage('VALIDATION_INVALID_IGNORE_ALL_OVERRIDES_SETTING'));
+  if (project.autosave !== undefined && typeof project.autosave !== 'boolean') add('Autosave must be a boolean');
   if (project.allowCycles !== undefined && typeof project.allowCycles !== 'boolean') add(errorMessage('VALIDATION_INVALID_ALLOW_BEAT_CYCLES_SETTING'));
   if (project.ownedItemsVisibility !== undefined && !['disabled','hidden'].includes(project.ownedItemsVisibility)) add(errorMessage('VALIDATION_INVALID_OWNEDITEMSVISIBILITY_SETTING'));
   if (project.unavailableActions !== undefined && !['disabled','hidden','triggers-only','disabled-triggers'].includes(project.unavailableActions)) add(errorMessage('VALIDATION_INVALID_UNAVAILABLEACTIONS_SETTING'));
@@ -171,8 +172,10 @@ export function validateProject(project, {allowDraft = false} = {}) {
   function inspectCombat(d,label,enemyAction=false,source){
     if(d.kind==='effect'&&(d.onCollect!==undefined||list(d.effects).length||list(d.successEffects).length||list(d.failureEffects).length))add(`${label}: Feedback presentations are presentation only and cannot apply independent effects`);
     if(d.kind==='combatAction'){
-      if(!['attack','defend','wait'].includes(d.type))add(`${label}: unsupported Combat Action type`);
-      if(['defend','wait'].includes(d.type)&&d.resolution!=='direct')add(`${label}: Defend and Wait are direct Actions`);
+      if(!['attack','defend','prepare','wait'].includes(d.type))add(`${label}: unsupported Combat Action type`);
+      if(['defend','prepare','wait'].includes(d.type)&&d.resolution!=='direct')add(`${label}: Defend, Prepare and Wait are direct Actions`);
+      if(d.type==='prepare'&&(!Number.isSafeInteger(d.preparationBonus)||d.preparationBonus<1))add(`${label}: Prepare requires a positive safe integer preparation bonus`);
+      if(enemyAction&&d.type==='prepare'&&(!Number.isSafeInteger(d.damageReduction)||d.damageReduction<1))add(`${label}: Enemy Prepare requires positive safe integer damage reduction`);
       if(d.type==='defend'&&(!Number.isSafeInteger(d.damageReduction)||d.damageReduction<1))add(`${label}: Defend requires positive integer damage reduction`);
       if(['effects','successEffects','failureEffects'].flatMap(key=>list(d[key])).some(effect=>effect?.key==='health'&&['add','set'].includes(effect.op)&&!Number.isSafeInteger(effect.value)))add(`${label}: Combat effects require integer Health values`);
       if(!enemyAction&&list(d.costs).some(c=>c?.source!=='variable'||!['energy','health'].includes(c?.key)))add(`${label}: combat supports Energy and Health costs only`);
@@ -197,7 +200,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
       }}
     }
     if(d.kind==='enemy'){
-      if(!Number.isSafeInteger(d.health)||d.health<1||typeof d.introEnabled!=='boolean')add(`${label}: invalid Enemy health/introduction`);
+      if(!Number.isSafeInteger(d.health)||d.health<1||Object.hasOwn(d,'introEnabled')&&typeof d.introEnabled!=='boolean')add(`${label}: invalid Enemy health/introduction`);
       for(const key of ['actions','reactions','death'])if(!Array.isArray(d[key]))add(`${label}: Enemy ${key} must be a list`);
       if(!list(d.actions).length||!list(d.death).length)add(`${label}: Enemy requires action and death content`);
       if(Object.hasOwn(d,'attacks'))add(`${label}: legacy attacks conflict with Enemy actions`);
@@ -219,6 +222,20 @@ export function validateProject(project, {allowDraft = false} = {}) {
         if(list(action.conditions).length)add(`${label}: Enemy Action conditions are deferred while actions are performed in order`);
         if(Number.isSafeInteger(action.cooldown)&&action.cooldown>0)add(`${label}: Enemy Action cooldown is deferred while actions are performed in order`);
         if(!Array.isArray(action.costs)||!Array.isArray(action.effects))add(`${label}: Enemy Action costs/effects must be lists`);
+      }
+      const actions=list(d.actions);
+      for(let i=0;i<actions.length;i++){
+        const preparation=actions[i];
+        if(preparation?.type!=='prepare'||!Number.isSafeInteger(preparation.preparationBonus)||preparation.preparationBonus<1)continue;
+        // A missed Attack retains the bonus, so inspect every Attack before
+        // another Prepare replaces it, including across the sequence boundary.
+        for(let offset=1;offset<actions.length;offset++){
+          const action=actions[(i+offset)%actions.length];
+          if(action?.type==='prepare')break;
+          if(action?.type!=='attack'||action.attack?.source!=='self')continue;
+          const profile=attackDamageRange(action);
+          if(profile.valid&&!Number.isSafeInteger(profile.max+preparation.preparationBonus))add(`${label}: Enemy preparation bonus exceeds supported damage range for ${action.name||action.id} (Prepare: ${preparation.name||preparation.id})`);
+        }
       }
       for(const r of list(d.reactions)){
         identity(r);const t=r?.threshold;
@@ -347,9 +364,9 @@ export function validateProject(project, {allowDraft = false} = {}) {
       if (node.retainInventoryItems !== undefined && typeof node.retainInventoryItems !== 'boolean') add(errorMessage('VALIDATION_INVALID_INVENTORY_ITEM_PERSISTENCE_TOGGLE', {label}), cid, nid);
       if (node.unavailableActions !== undefined && (!['fork','linear'].includes(node.type) || !['project','disabled','hidden','triggers-only','disabled-triggers'].includes(node.unavailableActions))) add(errorMessage('VALIDATION_NODE_UNAVAILABLE_ACTIONS_INVALID', {label}), cid, nid);
       if (node.introOnce !== undefined && typeof node.introOnce !== 'boolean') add(errorMessage('VALIDATION_INVALID_SHOW_ONCE_TOGGLE', {label}), cid, nid);
-      if (node.introEnabled !== undefined && typeof node.introEnabled !== 'boolean') add(errorMessage('VALIDATION_INVALID_INTRODUCTION_TOGGLE', {label}), cid, nid);
+      if (Object.hasOwn(node,'introEnabled') && typeof node.introEnabled !== 'boolean') add(errorMessage('VALIDATION_INVALID_INTRODUCTION_TOGGLE', {label}), cid, nid);
       if(node.type==='death' && (!Array.isArray(node.cards)||!node.cards.length||node.intro!==undefined||!object(node.connections)||Object.keys(node.connections).length))add('Death requires cards and no introduction or connections',cid,nid);
-      if(node.type==='combat'){if(!isUnassignedCombat(node))typedRef(node.enemy,'enemy',label);if(['intro','introEnabled','cards','attacks','actions','health','hit','reactions','death','combat'].some(key=>Object.hasOwn(node,key)))add('Combat does not support encounter overrides',cid,nid);if(object(node.connections)&&Object.keys(node.connections).some(k=>k!=='victory'))add('Combat has only a Victory output',cid,nid);}
+      if(node.type==='combat'){if(!isUnassignedCombat(node))typedRef(node.enemy,'enemy',label);if(['intro','cards','attacks','actions','health','hit','reactions','death','combat'].some(key=>Object.hasOwn(node,key)))add('Combat does not support encounter overrides',cid,nid);if(object(node.connections)&&Object.keys(node.connections).some(k=>k!=='victory'))add('Combat has only a Victory output',cid,nid);}
       const ps = placements(node), pids = new Set();
       for (const p of ps) {
         if (!object(p) || !named(p.id) || typeof p.definitionId !== 'string') {

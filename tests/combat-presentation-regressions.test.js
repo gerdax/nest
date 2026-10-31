@@ -62,14 +62,73 @@ test('Weapon card faces use WEAPON while ordinary Items retain their standard la
  assert.equal(cardFace({kind:'item',name:'Key'}).typeLabel,undefined);
 });
 
-test('combat odds show the tested stat name and the regular action chance description',()=>{
+test('combat odds show the tested stat name and value and the regular action chance description',()=>{
  const action={name:'Attack',resolution:'check',check:{mode:'stat',modifierVariable:'agility',difficulty:1}};
  const choice=combatChoices([{id:'attack',action}],'choices',{agility:3},[{id:'agility',name:'Agility'}]).actions[0];
- assert.equal(choice.checkInfo.stat,'Agility');
+ assert.equal(choice.checkInfo.stat,'Agility: 3');
  assert.equal(choice.checkInfo.label,'Very high');
  assert.equal(Math.round(Number(choice.checkInfo.chance)),84);
  assert.equal(choice.checkInfo.formula,'3d6 + 3 ≥ 11');
  const custom={...action,check:{pool:[{count:3,sides:6}],target:11,modifier:0}};
  const info=combatChoices([{id:'custom',action:custom}],'choices').actions[0].checkInfo;
  assert.equal(info.stat,'ATTACK');assert.equal(info.label,'Medium');
+});
+
+test('combat choices preserve cooldown metadata when requirements or costs explain the disabled state',()=>{
+ const action=(id,extra={})=>({id,name:id,kind:'combatAction',type:'wait',resolution:'direct',...extra});
+ const costly=action('costly',{costs:[{source:'variable',key:'energy',amount:2}]});
+ const locked=action('locked',{conditions:[{source:'variable',key:'door',op:'eq',value:true}]});
+ const ready=action('ready');
+ const weapon={id:'sword',definitionId:'sword',inventoryKey:'sword-1',name:'Sword',subtype:'weapon',combat:{actions:[locked,ready]}};
+ const compiled={library:[costly,ready],variables:[{id:'energy',name:'Energy',type:'number',min:0},{id:'door',name:'Door unlocked'}],combat:{defaultActions:[{definitionId:'costly'},{definitionId:'ready'}]}};
+ const run={variables:{energy:0,door:false},inventory:[weapon]};
+ const encounter={cooldowns:{'costly@default':2,'locked@sword-1':3}};
+ const before=structuredClone({compiled,run,encounter});
+ const choices=playerChoices(compiled,run,encounter);
+ assert.deepEqual(choices.map(({id,cooldownRemaining,disabledReason})=>({id,cooldownRemaining,disabledReason})),[
+  {id:'costly@default',cooldownRemaining:2,disabledReason:'Not enough Energy'},
+  {id:'ready@default',cooldownRemaining:0,disabledReason:''},
+  {id:'locked@sword-1',cooldownRemaining:3,disabledReason:'Requires Door unlocked'},
+  {id:'ready@sword-1',cooldownRemaining:0,disabledReason:''},
+ ]);
+ assert.deepEqual(combatChoices(choices,'choices').actions.map(choice=>choice.id),['ready@sword-1','ready@default','costly@default','locked@sword-1']);
+ assert.deepEqual({compiled,run,encounter},before);
+});
+
+test('combat choices stably group source actions, defaults, and all cooling actions without mutating choices',()=>{
+ const source={id:'blade',definitionId:'blade',inventoryKey:'blade-1',name:'Blade'};
+ const choice=(id,{source=null,cooldownRemaining=0,disabled=false,disabledReason=''}={})=>({id,action:{name:id,resolution:'direct'},source,cooldownRemaining,disabled,disabledReason});
+ const choices=[
+  choice('default-cooling',{cooldownRemaining:1,disabled:true,disabledReason:'Cooldown: 1 turn'}),
+  choice('default-ready'),
+  choice('default-locked',{disabled:true,disabledReason:'No required item'}),
+  choice('source-cooling',{source,cooldownRemaining:2,disabled:true,disabledReason:'Not enough Energy'}),
+  choice('source-ready',{source}),
+  choice('source-locked',{source,disabled:true,disabledReason:'No required item'}),
+  choice('other-source-ready',{source:{...source,inventoryKey:'blade-2'}}),
+  choice('default-cooling-late',{cooldownRemaining:3,disabled:true,disabledReason:'Requires Door unlocked'}),
+ ];
+ const before=structuredClone(choices);
+ const actions=combatChoices(choices,'choices').actions;
+ assert.deepEqual(actions.map(action=>action.id),['source-ready','source-locked','other-source-ready','default-ready','default-locked','default-cooling','source-cooling','default-cooling-late']);
+ assert.equal(actions.find(action=>action.id==='source-cooling').disabledReason,'Not enough Energy');
+ assert.equal(actions.find(action=>action.id==='source-locked').disabled,true);
+ assert.equal(actions.find(action=>action.id==='source-ready').contextInventoryKey,'blade-1');
+ assert.equal(actions.find(action=>action.id==='source-ready').contextItemId,'blade');
+ assert.equal(actions.find(action=>action.id==='source-ready').inventoryLabel,'USING · Blade');
+ assert.deepEqual(choices,before);
+});
+
+test('source action entrances default to enabled and can be suppressed on later presentations',()=>{
+ const source={id:'sword',name:'Sword'};
+ const choices=[
+  {id:'ready',action:{name:'Ready',resolution:'direct'},source,disabled:false},
+  {id:'disabled',action:{name:'Disabled',resolution:'direct'},source,disabled:true,disabledReason:'No required item'},
+  {id:'default',action:{name:'Default',resolution:'direct'},disabled:false},
+ ];
+ const first=combatChoices(choices,'first').actions;
+ const later=combatChoices(choices,'later',{},[],{animateItemActions:false}).actions;
+ assert.deepEqual(first.map(action=>action.entrance),['bottom',undefined,undefined]);
+ assert.deepEqual(later.map(action=>action.entrance),[undefined,undefined,undefined]);
+ assert.deepEqual(later,first.map(action=>({...action,...(action.contextItemId?{entrance:undefined}:{})})));
 });

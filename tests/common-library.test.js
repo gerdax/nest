@@ -12,7 +12,7 @@ import {transactDocument} from '../studio/document-session.js';
 const selection=p=>({chapterId:p.chapters[0].id,selected:p.chapters[0].startNode});
 test('Library Common has direct default Action and fixed player feedback entries',()=>{
  const p=createRatCombatProject(),groups=commonLibraryGroups(p),html=commonLibrary(p);
- assert.equal(groups.actions.length,1);assert.equal(groups.actions[0].definition.name,'Punch');assert.equal(groups.hit.definition.kind,'effect');assert.equal(groups.unassigned.length,0);
+ assert.deepEqual(groups.actions.map(row=>row.definition.name),['Punch','Defend','Prepare']);assert.equal(groups.hit.definition.kind,'effect');assert.equal(groups.unassigned.length,0);
  assert(html.includes('Combat Actions'));assert(html.includes('Damage received'));assert(html.includes('data-command="add-common-action"'));
  assert(html.includes('data-preview-definition="punch"'));assert(html.includes(`data-preview-definition="${groups.hit.id}"`));
  assert(!projectSettingsInspector(p).includes('combat.defaultActions'));assert(!projectSettingsInspector(p).includes('combat.playerHit'));
@@ -28,7 +28,8 @@ test('adding a Common Action and assigning defaults is undoable without losing i
  const project=history.document;
  applyDocumentCommand(project,s,'remove-common-action',{id});assert(commonLibraryGroups(project).unassigned.some(d=>d.id===id));
  applyDocumentCommand(project,s,'use-common-action',{id});applyDocumentCommand(project,s,'use-common-action',{id});assert.equal(project.combat.defaultActions.filter(ref=>ref.definitionId===id).length,1);
- applyDocumentCommand(project,s,'move-common-action',{id,direction:-1});assert.equal(project.combat.defaultActions[0].definitionId,id);
+ const previousIndex=project.combat.defaultActions.findIndex(ref=>ref.definitionId===id);
+ applyDocumentCommand(project,s,'move-common-action',{id,direction:-1});assert.equal(project.combat.defaultActions[previousIndex-1].definitionId,id);
  const action=project.library.find(d=>d.id===id);action.attack.source='weapon';applyDocumentCommand(project,s,'remove-common-action',{id});
  assert.throws(()=>applyDocumentCommand(project,s,'use-common-action',{id}),/without a Weapon/);
 });

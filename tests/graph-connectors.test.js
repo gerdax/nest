@@ -729,7 +729,7 @@ test('editor full rendering preserves explicit empty selection but repairs delet
  const source=readFileSync(new URL('../studio/editor.js',import.meta.url),'utf8');
  const start=source.indexOf('function render({');
  const body=source.slice(start,source.indexOf('function scopeRoot',start));
- const render=new Function('selected','project','chapter','graph','$','chapterId','sortedChapters','history','mode','validateProject','esc','renderGraph','renderLibrary','renderInspector',body+';render();return selected;');
+ const render=new Function('selected','project','chapter','graph','$','chapterId','sortedChapters','history','mode','validateProject','esc','renderGraph','renderLibrary','renderInspector','const projectSession={fileMode:false};'+body+';render();return selected;');
  const chapter={id:'chapter',startNode:'a',nodes:[{id:'a'},{id:'b'}]},project={chapters:[chapter],activeChapterId:chapter.id};
  for(const [selection,expected] of [[undefined,undefined],['missing','a'],['b','b']]) {
   const element={classList:{toggle(){}}};
