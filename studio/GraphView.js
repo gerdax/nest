@@ -13,11 +13,12 @@ import { cardRuleIndicators } from './card-rule-indicators.js';
 
 /** Canvas interaction owns selection/pan, and emits completed document edits. */
 export class GraphView {
- constructor(root,{onSelect,onConnect,onMove,onDuplicate=()=>{},onDuplicateMany=()=>{},onSelectMany=()=>{},onMoveMany=()=>{},onOpenCard=()=>{},onTransferCard=()=>{},onRemoveCard=()=>{},onDelete=()=>{},onDeleteMany=()=>{},onCreateConnected=()=>{},onCancelCreate=()=>{}}) {
+ constructor(root,{onSelect,onConnect,onMove,onDuplicate=()=>{},onDuplicateMany=()=>{},onSelectMany=()=>{},onMoveMany=()=>{},onOpenCard=()=>{},onOpenDefinition=()=>{},onTransferCard=()=>{},onRemoveCard=()=>{},onDelete=()=>{},onDeleteMany=()=>{},onCreateConnected=()=>{},onCancelCreate=()=>{}}) {
   this.onDuplicate=onDuplicate;this.onDuplicateMany=onDuplicateMany;this.overrideNodeIds=new Set();this.nodeErrors=new Map();
   this.selectedIds=new Set();this.onSelectMany=onSelectMany;this.onMoveMany=onMoveMany;
   this.onCreateConnected=onCreateConnected;this.onCancelCreate=onCancelCreate;this.creation=null;
   this.root=root;this.onSelect=onSelect;this.onConnect=onConnect;this.onMove=onMove;this.onOpenCard=onOpenCard;this.lastPortClick=null;
+  this.onOpenDefinition=onOpenDefinition;
   this.cardDrag=new CardDrag(this,onTransferCard,onRemoveCard);
   this.view={x:50,y:50,z:1};this.pending=null;this.drag=null;
   root.innerHTML='<div id="world"><svg id="edges"></svg><div id="nodes"></div></div>';
@@ -40,6 +41,14 @@ export class GraphView {
   root.addEventListener('click',e=>{
    if(this.suppressSelectionClick){this.suppressSelectionClick=false;e.preventDefault();return;}
    if(this.cardDrag.consumeClick()){e.preventDefault();return;}
+   const definitionLink=e.target.closest('.graph-definition-link');
+   if(definitionLink){
+    e.preventDefault();this.lastPortClick=null;
+    const node=this.nodesById.get(definitionLink.closest('.node')?.dataset.id);
+    const enemy=node?.type==='combat'&&this.project.library.find(d=>d.id===node.enemy?.definitionId&&d.kind==='enemy'&&d.visibility!=='local');
+    if(enemy)this.onOpenDefinition(enemy.id,node.id);
+    return;
+   }
    const port=e.target.closest('.port');
    if(port&&e.detail===0){
     const source=this.nodesById.get(port.closest('.node')?.dataset.id);
@@ -148,7 +157,8 @@ export class GraphView {
  }
  cardRows(node){
   const descriptor=nodeTypeDescriptor(node.type),outputs=outputsForNode(this.project,node,this.libraryIndex),used=new Set();
-  let html=node.type==='combat'?`<div class="node-body">Enemy · ${esc(this.definitionsById.get(node.enemy?.definitionId)?.name||'Choose Enemy')}</div>`:'';
+  const enemy=node.type==='combat'&&this.definitionsById.get(node.enemy?.definitionId);
+  let html=node.type==='combat'?`<div class="node-body">${enemy?.kind==='enemy'&&enemy.visibility!=='local'?`<button type="button" class="graph-definition-link" title="Open Enemy in Library">Enemy · ${esc(enemy.name||'Untitled Enemy')} ↗</button>`:'Enemy · Choose Enemy'}</div>`:'';
   for(const slot of Object.keys(descriptor?.slots||{})){
    const placements=slot==='intro'?(node.intro&&node.introEnabled!==false?[node.intro]:[]):node[slot]||[];
    for(const placement of placements){
@@ -215,6 +225,7 @@ export class GraphView {
   if(e.button!==0||this.drag)return;
   this.cancelCreation();
   this.suppressSelectionClick=false;
+  if(e.target.closest('.graph-definition-link')){this.cardDrag.suppressClick=false;return;}
   const el=e.target.closest('.node'),port=e.target.closest('.port'),edge=e.target.closest('.edge-hit');
   const previous=this.lastCanvasClick,time=e.timeStamp??performance.now(),pointerType=e.pointerType??'mouse';
   this.lastCanvasClick=null;

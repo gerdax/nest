@@ -43,7 +43,12 @@ export function previewCardTarget({ project, chapterId, controller, deck } = {})
     sequence = node.type === 'legacySequence' ? node.sequence
       : node.sequences?.find(sequence => sequence.id === location.sequence?.id);
     if (!sequence || sequence.id !== location.sequence?.id) return null;
-  } else if (location.sequence) return null;
+  } else if (location.sequence) {
+    // A choice-free Fork plays its native intro through a transient linear
+    // sequence. Navigation still belongs to the authored Fork introduction.
+    if (!location.emptyFork || node.type !== 'fork' || node.choices?.length !== 0
+      || location.index !== 0 || location.sequence.cards?.[0]?.id !== node.intro?.id) return null;
+  }
   const type = sequence?.type ?? node.type;
   const card = sequence?.cards?.[location.index] ?? node.cards?.[location.index];
   let placement, slot, parentCardId;

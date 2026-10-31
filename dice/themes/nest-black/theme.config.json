@@ -7,8 +7,8 @@
     "type": "standard",
     "diffuseTexture": "numbers.png",
     "diffuseLevel": 1,
-    "specularIntensity": 0.15,
-    "specularPower": 10
+    "specularIntensity": 0.1,
+    "specularPower": 20
   },
   "diceAvailable": [
     "d4",

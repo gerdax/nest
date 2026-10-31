@@ -63,7 +63,11 @@ export class PlayerUI {
         setStyle(playfield,'--playfield-scale',String(layout.scale));
         setStyle(root,'--playfield-composition-lift',`${layout.lift}px`);
       }
-      const width=layoutBounds(mount).width;
+      const cardBounds=layoutBounds(mount);
+      const cardTop=cardBounds.top-bounds.top;
+      const stageTop=layoutBounds(root.querySelector('.chapter-preview-stage')).top-bounds.top;
+      if(Number.isFinite(cardTop)&&cardTop>0&&Number.isFinite(stageTop))setStyle(root,'--playfield-hud-top-y',`${cardTop/4-stageTop}px`);
+      const width=cardBounds.width;
       if(Number.isFinite(width)&&width>0){
         this.actionContext.root.style.width=`${width}px`;
         this.resources.style.width=`${width}px`;

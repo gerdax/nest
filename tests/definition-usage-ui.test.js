@@ -73,7 +73,8 @@ function host() {
     render:() => calls.push(['render']),
   };
   context.definition=()=>context.project.library.find(d=>d.id===context.definitionId);
-  runInNewContext(source.slice(start, end), context);
+  const navigationStart=source.indexOf('function goToDefinition(id){'),navigationEnd=source.indexOf('function goToPreviewCard',navigationStart);
+  runInNewContext(source.slice(navigationStart,navigationEnd)+'\n'+source.slice(start, end), context);
   return {context, calls, click:dataset => context.command({target:{closest:() => ({dataset})}})};
 }
 

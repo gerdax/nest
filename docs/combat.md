@@ -64,6 +64,19 @@ the current chapter. Victory retains player health/Energy/inventory and does not
 grant rewards automatically. Unlinked Victory dims/disables departure of the
 final enemy-death card with **Route unavailable**; killing damage still commits.
 
+A Combat beat with no assigned Enemy is a valid empty beat. Playback skips it
+through its Victory connection, without an encounter or dice roll. A nonempty
+reference to a missing or invalid Enemy still reports an error. Empty beats
+require a continuation when reached; an unlinked output is not an implicit end.
+
+Click **Enemy · Name ↗** inside a Combat graph node to open that Enemy in the
+Library. Missing or invalid Enemy references show **Choose Enemy** without a
+link; select the beat to repair its reference.
+With **Match selected beat type** enabled, shared Enemies remain available for
+a selected Combat beat. Single-click opens the definition for inspection.
+Double-click assigns it to the selected beat, replacing any previously assigned
+Enemy in one undoable edit. The Enemy selector remains available in the beat inspector.
+
 Each chapter contains exactly one **Death** beat, with an X icon, no ports and
 an empty chapter-local Caption by default. It cannot be cut, deleted, duplicated
 or made the chapter start. Cross-chapter paste replaces only its cards, retaining
@@ -92,6 +105,10 @@ starts at the normal project's 10 HP, not the old mockup UI's temporary 2 HP.
 Rat has 4 HP and acts first. Enemy dice are black/from above; player dice are
 light/from below. Rat reactions occur at ≤ two-thirds/one-third remaining
 starting health; show only the stronger crossed reaction and skip both on death.
+
+New Enemy dice checks and **Add dice** default to **d6, Count 3**. Existing
+authored pools remain unchanged. Enemy dice use the supplied atlas at
+`dice/themes/nest-black/numbers.png`, selected by the `nest-black` theme.
 
 Damage is sampled once, then committed exactly once after the damage Effect
 Card's accepted departure. Inspecting/canceling applies nothing. A valid result
@@ -158,7 +175,7 @@ or availability; no new Actions are injected into authored projects.
 - Attack retains own/source damage, Direct/Check resolution and existing rules.
 - Defend is direct and spends the turn. Its damage reduction defaults to 1 and
   applies to the next opposing attack, then expires on hit or miss. Protection does
-  not stack or carry between encounters. Fully blocked attacks show BLOCKED.
+  not stack or carry between encounters. Successful attacks show SUCCESS even when protection absorbs all damage.
 - Wait is direct and spends the turn without an additional type-specific property.
 
 Requirements, Energy/Health costs and cooldowns remain available. Defend/Wait hide
@@ -248,3 +265,24 @@ Observers may stop/restart playback during phase/payment notifications. An old
 encounter must not spend resources, refund a replacement run or publish later
 presentation after such a lifecycle change. See the
 [integrity fix report](audit-fixes-2026-10-30.md) for regression and browser evidence.
+
+Player combat cards show their Action type (ATTACK, DEFEND or WAIT) in the top
+label; enemy Action cards omit that label. Unaffordable combat choices name the
+missing resource in their status, for example NOT ENOUGH ENERGY.
+
+Combat requirement statuses name the missing resource without numeric thresholds
+(NOT ENOUGH ENERGY / NOT ENOUGH HEALTH), or show NO REQUIRED ITEM for a missing
+required item. Health and Energy equality requirements act as minimums during
+combat: a requirement of 3 permits 3 or more. Other equality and maximum rules
+keep their authored meaning and show the failed rule; flag requirements name the
+condition. Requirements do not spend resources; costs still do.
+
+Weapon cards use the WEAPON corner label in authoring, inventory previews and
+playback. Source Weapon actions show their calculated damage range beside the
+minimum/maximum bonus fields, including both endpoint calculations. Invalid
+ranges mark the bonus fields and validation reports the contributing values.
+
+Combat check odds show the tested variable name above the percentage when a
+variable/stat is selected. Checks without a variable retain ATTACK. The caption
+uses the same Very low / Low / Medium / High / Very high bands as regular Actions;
+the dice formula remains in authoring diagnostics.

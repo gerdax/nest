@@ -41,7 +41,7 @@ export function compileChapter(project, chapterId = project.activeChapterId, {ad
       : variable.initial,
   }));
   for (const node of result.nodes) {
-    if (project.ignoreAllOverrides === true) delete node.unavailableActions;
+    if (project.ignoreAllOverrides === true) { delete node.unavailableActions;delete node.entryEffects; }
     if (['container','linear'].includes(node.type)) node.retainInventoryItems = retainsInventoryItems(node);
     for (const key of ['cards', 'choices', 'items']) if (node[key]) node[key] = node[key].map(p => resolvePlacement(project, p, index));
     if (node.intro) node.intro = resolvePlacement(project, node.intro, index);

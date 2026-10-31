@@ -13,9 +13,9 @@ test('clamps lethal damage and validates physical dice',()=>{assert.equal(resolv
 test('fraction crossings choose only strongest and skip lethal',()=>{assert.equal(healthReactions(enemy,4,2)[0].id,'weak');assert.equal(healthReactions(enemy,4,1)[0].id,'hurt');assert.deepEqual(healthReactions(enemy,2,0),[]);assert.deepEqual(healthReactions(enemy,2,2),[]);});
 test('two weapons share Actions without sharing cooldown',()=>{const second={...weapon,id:'rifle',combat:{...weapon.combat,damage:{min:2,max:3}}};let state=createEncounter(enemy,'enc');const compiled={library:[shoot,burst],variables:[],combat:{defaultActions:[]}},run={variables:{},inventory:[weapon,second]};state=completePlayerTurn(state,burst,weapon);let choices=playerChoices(compiled,run,state);assert.equal(choices.find(c=>c.id==='burst@pistol').disabled,true);assert.equal(choices.find(c=>c.id==='burst@rifle').disabled,false);assert.equal(choices.find(c=>c.id==='shoot@pistol').disabled,false);state=completePlayerTurn(state,shoot,weapon);assert.equal(state.cooldowns['burst@pistol'],0);assert.deepEqual(createEncounter(enemy,'new').cooldowns,{});});
 
-test('unaffordable hidden Health costs remain disabled with a resource-neutral reason',()=>{
+test('unaffordable hidden Health costs identify the missing resource',()=>{
  const action={...shoot,type:'attack',kind:'combatAction',costs:[{source:'variable',key:'health',amount:2,hideBadge:true}],attack:{source:'self',damage:{min:1,max:1},minBonus:0,maxBonus:0}};
  const compiled={library:[action],variables:[{id:'health',type:'number',initial:1,min:0,max:10}],combat:{defaultActions:[{definitionId:action.id}]}};
  const choice=playerChoices(compiled,{variables:{health:1},inventory:[]},createEncounter(enemy,'enc'))[0];
- assert.equal(choice.disabled,true);assert.equal(choice.disabledReason,'Not enough resources');
+ assert.equal(choice.disabled,true);assert.equal(choice.disabledReason,'Not enough health');
 });

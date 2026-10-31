@@ -47,6 +47,9 @@ function summary(check, values, definitions, diagnostic) {
 export const editorCheckSummary = (check, definitions = []) => summary(check, definitions, definitions, true);
 export const playerCheckSummary = (check, values = {}, definitions = []) => summary(check, values, definitions, false);
 
+export const checkChanceLabel = probability => probability >= .8 ? 'Very high' : probability >= .6 ? 'High'
+  : probability >= .4 ? 'Medium' : probability >= .2 ? 'Low' : 'Very low';
+
 /** Contextual check UI uses the same resolved state as the actual roll. */
 export function playerCheckPresentation(check, values = {}, definitions = []) {
   if (check?.mode !== 'stat') return null;
@@ -54,7 +57,6 @@ export function playerCheckPresentation(check, values = {}, definitions = []) {
   const name = definitions.find(v => v.id === check.modifierVariable)?.name || check.modifierVariable;
   return { chance: `${(resolved.probability * 100).toFixed(1)}%`,
     stat: `${name}: ${resolved.modifier}`,
-    label: resolved.probability >= .8 ? 'Very high' : resolved.probability >= .6 ? 'High'
-      : resolved.probability >= .4 ? 'Medium' : resolved.probability >= .2 ? 'Low' : 'Very low',
+    label: checkChanceLabel(resolved.probability),
     formula: playerCheckSummary(check, values, definitions) };
 }

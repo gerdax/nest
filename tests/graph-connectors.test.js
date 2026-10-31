@@ -788,3 +788,26 @@ test('Cmd+Backspace deletes a single beat or selected group and retains deletion
  s.root.handlers.keydown({key:'Backspace',metaKey:true,target:s.root,preventDefault(){assert.fail('gesture active');}});
  assert.deepEqual(s.deleted,[]);
 });
+
+test('Combat Enemy link opens its current Library source without starting a graph gesture',()=>{
+ const s=setup(),opened=[];
+ const enemy={id:'enemy-source',kind:'enemy',name:'Rat <guard>'};
+ s.graph.project.library=[enemy];Object.assign(s.chapter.nodes[0],{type:'combat',enemy:{definitionId:enemy.id},connections:{victory:'b'}});
+ s.graph.onOpenDefinition=id=>opened.push(id);s.graph.render(s.graph.project,s.chapter,'a');
+ assert.match(s.root.parts['#nodes'].rendered,/class="graph-definition-link"/);
+ assert.match(s.root.parts['#nodes'].rendered,/Enemy · Rat &lt;guard&gt; ↗/);
+ const link=new Element('graph-definition-link',{},s.root.node('a'));
+ s.graph.down({target:link,button:0,pointerId:1,clientX:300,clientY:200,preventDefault(){}});
+ assert.equal(s.graph.drag,null);assert.deepEqual(s.selections,[]);assert.deepEqual(s.moves,[]);
+ for(const detail of [1,0])s.root.handlers.click({target:link,detail,preventDefault(){}});
+ assert.deepEqual(opened,[enemy.id,enemy.id],'pointer and native keyboard clicks share navigation');
+ s.graph.project.library=[];
+ s.root.handlers.click({target:link,detail:0,preventDefault(){}});
+ assert.equal(opened.length,2,'a stale link cannot open a removed definition');
+});
+for(const definition of [null,{id:'bad',kind:'caption',name:'Wrong kind'},{id:'bad',kind:'enemy',name:'Local',visibility:'local'}])test(`Combat without a valid shared Enemy has no definition link: ${definition?.kind??'missing'}`,()=>{
+ const s=setup();s.graph.project.library=definition?[definition]:[];
+ Object.assign(s.chapter.nodes[0],{type:'combat',enemy:{definitionId:'bad'},connections:{victory:false}});s.graph.render(s.graph.project,s.chapter,'a');
+ assert.doesNotMatch(s.root.parts['#nodes'].rendered,/graph-definition-link/);
+ assert.match(s.root.parts['#nodes'].rendered,/Enemy · Choose Enemy/);
+});

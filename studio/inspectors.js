@@ -134,7 +134,7 @@ function introductionControls(node) {
  return '<div class="row introduction-controls">'+checkbox('Show introduction',enabled,'introEnabled','node')+checkbox('Show once',node.introOnce===true,'introOnce','node',!enabled)+'</div>';
 }
 
-export function nodeInspector(project,chapter,node,previewEffects=[]) {
+export function nodeInspector(project,chapter,node,previewEffects=node?.entryEffects??[]) {
  if(!node) {
   const count=chapter.nodes.length;
   return `<p class="small">${count} ${count===1?'beat':'beats'} on stage.</p>`;
@@ -179,7 +179,7 @@ export function nodeInspector(project,chapter,node,previewEffects=[]) {
   return hideLabel?connection.replace('<select ','<select aria-label="Next connection" '):connection;
  }).join('');
  const hasOverrides=previewEffects.length>0 || !!(availability && node.unavailableActions && node.unavailableActions!=='project');
- return html+'<div class="node-overrides">'+rules(project,previewEffects,'effects','preview-overrides','effects',{chapter,label:'Overrides',countSuffix:hasOverrides?' *':'',help:'Temporary test state for this beat during playback, including Autoplay. Set or add variable values, or add and remove inventory items. Applies once on every entry to this beat, including direct starts and revisits. Kept only in this editor session until reloaded; excluded from saves and exports.',footer:button('Clear overrides','clear-overrides','data-scope="preview-overrides" '+(previewEffects.length?'':'disabled'))+availability})+'</div>';
+ return html+'<div class="node-overrides">'+rules(project,previewEffects,'effects','preview-overrides','effects',{chapter,label:'Overrides',countSuffix:hasOverrides?' *':'',help:'Saved gameplay effects applied once on every entry to this beat, including direct starts and revisits. Set or add variable values, or add and remove inventory items. Included in project saves and exports, and used in preview and the game.',footer:button('Clear overrides','clear-overrides','data-scope="preview-overrides" '+(previewEffects.length?'':'disabled'))+availability})+'</div>';
 }
 function chapterOptions(project, selected, allowNone=false) {
  const choices=sortedChapters(project).map(chapter=>[chapter.id,chapter.name]);

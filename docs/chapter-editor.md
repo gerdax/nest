@@ -131,7 +131,7 @@ Shift+Space closes the interaction preview and stops its playback. Plain Space c
 
 ### Combat Library additions
 
-Weapon is an Item subtype providing Library Combat Actions. Combat Action and Effect Card are separate types; Enemy is a self-contained composite with embedded attacks and presentation cards. Combat beats select an Enemy without overrides and connect Victory to a following beat. Each chapter also has one mandatory portless Death beat, initially an empty local Caption. See [combat authoring](combat.md) for controls and supported first-milestone mechanics.
+Weapon is an Item subtype providing Library Combat Actions. Combat Action and Effect Card are separate types; Enemy is a self-contained composite with embedded attacks and presentation cards. Combat beats select an Enemy and connect Victory to a following beat; beat-entry overrides can set player variables or inventory without changing the Enemy definition. Each chapter also has one mandatory portless Death beat, initially an empty local Caption. See [combat authoring](combat.md) for controls and supported first-milestone mechanics.
 
 
 Costs use an Energy/Health resource selector in both Library and chapter card
@@ -146,3 +146,11 @@ separate **On success effects** and **On failure effects** lists on ordinary and
 Combat Actions for outcome-specific changes. These sections appear for dice checks
 after Check settings and before the card preview. Direct actions hide and ignore
 the lists without deleting their saved contents.
+
+Beat **Overrides** are saved gameplay data (`entryEffects`), available on all
+editable beat types except Death. Set/add variable values and add/remove items
+apply once each time the beat is entered, including direct starts and revisits.
+They survive refresh, project/chapter export and import, and copying beats.
+Edits and Clear support Undo/Redo. Both preview and standalone playback apply
+them; **Ignore all overrides** disables them without deleting authored data.
+Restart playback from the updated project to use edits made during a run.

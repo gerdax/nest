@@ -2,7 +2,7 @@ import {CombatCoordinator} from './CombatCoordinator.js';
 import {combatCard,enemyActionCard} from './combat-presentation.js';
 import {definition as combatDefinition} from './combat-rules.js';
 import { createError, errorMessage, errorCode } from '../errors.js';
-import { retainsInventoryItems } from './nodeTypes.js';
+import { retainsInventoryItems, isUnassignedCombat } from './nodeTypes.js';
 import { initialValues, conditionsMet, affordCosts, transact, addInventory, canTriggerItem, inventoryQuantity } from './state.js';
 import { cardBody, cardFace, actionCardFace } from './presentation.js';
 import { playerCardSummary, isStoryKind, collectionEffects } from './cards.js';
@@ -17,8 +17,9 @@ export class ProjectController {
     this.deck=deck; this.compiled=compiled; this.nodes=new Map(compiled.nodes.map(n=>[n.id,n]));
     Object.assign(this,{onChange,rng,rollCheck,onCheckResult,onError,onStart,onSuccess});
     this.initialState = initialState ? structuredClone(initialState) : null;
-    // Host-supplied test effects stay outside the compiled document.
-    this.nodeEntryEffects = structuredClone(nodeEntryEffects);
+    // Authored entry effects also work without an editor/preview host. Explicit
+    // host entries replace the matching node list rather than applying it twice.
+    this.nodeEntryEffects = structuredClone({...Object.fromEntries(compiled.nodes.filter(n=>n.entryEffects?.length).map(n=>[n.id,n.entryEffects])),...nodeEntryEffects});
     this.arrivalStates = new WeakMap();
     this.generation=0; this.serial=0; this.destroyed=false;
     this.listeners={reveal:e=>this.reveal(e.detail),commit:e=>this.commit(e.detail),collect:e=>this.resolveItem(e.detail,'collect'),discard:e=>this.resolveItem(e.detail,'discard'),transitioncomplete:e=>this.transitionComplete(e.detail)};
@@ -208,6 +209,12 @@ export class ProjectController {
         else {
           const location={node,index:0,queue:[]};
           if(node.type==='legacySequence')location.sequence=node.sequence;
+          // A choice-free native Fork keeps its authored intro as a transient
+          // narrative sequence; no placement or document data is synthesized.
+          if(node.type==='fork'&&Array.isArray(node.choices)&&node.choices.length===0) {
+            location.emptyFork=true;
+            location.sequence={type:'linear',cards:this.introEnabled(location)&&!this.introShown(location)&&conditionsMet(node.intro?.conditions,values,inventory)?[node.intro]:[]};
+          }
           if(node.type==='legacyPool') {
             location.queue=selectPool(node.pool,node.count,this.rng);
             const sequenceId=location.queue.shift();
@@ -224,6 +231,8 @@ export class ProjectController {
   }
   seekStep(location,values,inventory,excluded) {
     const type=this.type(location);
+    if(isUnassignedCombat(location.node))return this.nextStep(location,'victory');
+    if(location.emptyFork&&location.node.introOnce===true&&(this.introShown(location)||excluded?.introKey===this.key(location)))return this.nextStep(location);
     // Ownership acquired during this carousel visit only disables collection.
     // Apply hiding against a fresh inventory snapshot on each container entry.
     if(type==='container'&&!location.ownedItemsAtEntry)location={...location,ownedItemsAtEntry:[...inventory]};
@@ -265,6 +274,7 @@ export class ProjectController {
     if(death)return this.locate(death.node.id,values,inventory,new Set(),excluded,preview);
     const type=this.type(location);
     if(type==='linear') {
+      if(location.emptyFork&&location.node.introOnce===true)excluded={...excluded,introKey:this.key(location)};
       return this.seek({...location,index:location.index+1},values,inventory,new Set(),excluded,preview);
     }
     if(location.sequence && type==='forked') {
@@ -388,7 +398,7 @@ export class ProjectController {
     }
     if(container||linearItem)for(const action of actions)action.disabled ||= action.collectDisabled&&action.discardDisabled;
     if(!actions.length)actions=[{id:'unavailable',label:'No available choices',disabled:true,disabledReason:'No available choices'}];
-    const payload={autoBrowse:fork||container,id:`${this.generation}:${++this.serial}`,cardBack:this.compiled.cardBack,title:card?.name ?? card?.title ?? '',heading:cardFace(card,this.compiled.variables,this.compiled.library,values).heading,text:this.body(card),cardKind:card?.kind==='consumable'?card.subtype:card?.kind ?? 'event',value:card?.value,summary:card&&!isStoryKind(card.kind??card.cardKind)&&fork?playerCardSummary(card,this.compiled.variables,this.compiled.library,values):'',image:card?.image ?? '',imageScale:card?.imageScale??100,imageOffsetX:card?.imageOffsetX??0,imageOffsetY:card?.imageOffsetY??0,flipImage:!!card?.flipImage,actions,directAdvance:!fork&&!container&&!linearFace,decisionOnly:linearFace||fork&&(location.sequence?!!location.sequence.decisionOnly:this.presentation(location,values,inventory)==='open'),interaction:container||linearItem?'container':'choice',discardAll:container,allowClose:false};
+    const payload={autoBrowse:fork||container,id:`${this.generation}:${++this.serial}`,cardBack:this.compiled.cardBack,title:card?.name ?? card?.title ?? '',heading:cardFace(card,this.compiled.variables,this.compiled.library,values).heading,text:this.body(card),cardKind:card?.kind==='consumable'?card.subtype:card?.kind ?? 'event',...(card?.kind==='item'&&card.subtype==='weapon'?{typeLabel:'WEAPON'}:{}),value:card?.value,summary:card&&!isStoryKind(card.kind??card.cardKind)&&fork?playerCardSummary(card,this.compiled.variables,this.compiled.library,values):'',image:card?.image ?? '',imageScale:card?.imageScale??100,imageOffsetX:card?.imageOffsetX??0,imageOffsetY:card?.imageOffsetY??0,flipImage:!!card?.flipImage,actions,directAdvance:!fork&&!container&&!linearFace,decisionOnly:linearFace||fork&&(location.sequence?!!location.sequence.decisionOnly:this.presentation(location,values,inventory)==='open'),interaction:container||linearItem?'container':'choice',discardAll:container,allowClose:false};
     if(fork)payload.choiceFollowerRatio=.82;
     payload.flipItemsOnReveal=container&&this.presentation(location,values,inventory)==='closed'||fork&&this.introductionUnlocksNext(location,values,inventory);
     if(payload.directAdvance){
@@ -445,7 +455,7 @@ export class ProjectController {
     this.deck.replaceContent(content,{presentation:presentation ?? this.presentation(),transition,animate,preserveInventoryContext});this.reportBlocked(content);this.notify();
   }
   reveal(detail) {
-    if(this.destroyed||this.completed||this.halted||this.deathHandoff||this.checking||this.pendingItem||this.pendingIntro||this.pendingExchange||!['container','fork'].includes(this.location.node.type)||!this.introEnabled()||detail.contentId!==this.deck.content.id||this.introShown())return;
+    if(this.destroyed||this.completed||this.halted||this.deathHandoff||this.checking||this.pendingItem||this.pendingIntro||this.pendingExchange||this.location.emptyFork||!['container','fork'].includes(this.location.node.type)||!this.introEnabled()||detail.contentId!==this.deck.content.id||this.introShown())return;
     const intro=this.card();
     if(!conditionsMet(intro?.conditions,this.variables,this.inventory))return;
     try {
@@ -482,6 +492,7 @@ export class ProjectController {
       const sourceNodeId=this.location.node.id;
       const transition=this.linearTransition(this.location,destination,source);
       this.variables=result.variables;this.inventory=result.inventory;
+      if(this.location.emptyFork&&this.location.node.introOnce===true)this.revealedIntros.add(this.key());
       this.adopt(destination,false);if(!this.succeeded(sourceNodeId))return;this.show({transition});
     }catch(error){this.error(error);this.show({restore:true});}
   }

@@ -20,7 +20,7 @@ export const nodeTypes = Object.freeze({
  fork: Object.freeze({
   label:'Fork', iconPath:'M3 12H7L11 6.5H21M7 12L11 17.5H21', slots:Object.freeze({intro:storyKinds, choices:branchKinds}),
   defaultKinds:Object.freeze({intro:'event',choices:'action'}),
-  outputs:(node,resolve) => objects(node.choices).flatMap(p => {
+  outputs:(node,resolve) => Array.isArray(node.choices)&&node.choices.length===0 ? ['next'] : objects(node.choices).flatMap(p => {
    let card;try { card=resolve?.(p); } catch {}
    return card?.resolution==='check' ? [`${p.id}:success`,`${p.id}:failure`] : [p.id];
   }),
@@ -55,4 +55,11 @@ export function nodeSlotCardKinds(type,slot) {
 /** Items left by swaps persist by default only in containers. */
 export function retainsInventoryItems(node) {
  return node?.retainInventoryItems ?? node?.type==='container';
+}
+
+/** An unassigned Enemy is an empty beat; malformed or unresolved references are not. */
+export function isUnassignedCombat(node) {
+ const ref=node?.enemy;
+ return node?.type==='combat' && (ref == null || typeof ref==='object'&&!Array.isArray(ref)
+  && (ref.definitionId===undefined || ref.definitionId===''));
 }

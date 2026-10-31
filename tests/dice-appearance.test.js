@@ -62,6 +62,7 @@ test('frame maps local themes and keeps default random-edge configuration', asyn
   }
   const config = JSON.parse(await readFile(new URL('../dice/themes/nest-black/theme.config.json', import.meta.url)));
   assert.equal(config.systemName, 'nest-black');
+  assert.equal(config.material.diffuseTexture, 'numbers.png');
   assert.deepEqual(config.diceAvailable, ['d4', 'd6', 'd8', 'd10', 'd12', 'd20', 'd100']);
   const png = await readFile(new URL(`../dice/themes/nest-black/${config.material.diffuseTexture}`, import.meta.url));
   assert.deepEqual([...png.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);

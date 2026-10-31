@@ -71,7 +71,7 @@ export function actionResolutionFields(project,action,prefix='',scope='definitio
  const p=key=>prefix+key;
  let html=select('Resolution',action.resolution||'direct',[['direct','Direct'],['check','Dice check']],p('resolution'),scope);
  if(action.resolution==='check') {
-  const check=action.check||{pool:[{sides:20,count:1}],modifier:0,target:10};
+  const check=action.check||(action.kind==='combatAction'?{pool:[{sides:6,count:3}],modifier:0,target:11}:{pool:[{sides:20,count:1}],modifier:0,target:10});
   html+='<div class="entry check-settings"><h3>Check settings</h3>';
   html+=select('Check type',check.mode||'custom',[['stat','Stat check'],['custom','Custom check']],p('check.mode'),scope);
   if(check.mode==='stat') {

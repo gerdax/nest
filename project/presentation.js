@@ -10,7 +10,7 @@ export function cardFace(card, variables=[], library=[], values) {
   cardKind,
   ...(cardKind==='action'?{actionEnergyCost:actionEnergyCost(card),actionHealthCost:actionHealthCost(card)}:{}),
   ...(isConsumableKind(cardKind)?{value:authoredKind==='effect'?(card.value??-2):card.value}:{}),
-  ...(authoredKind==='effect'?{typeLabel:'EFFECT'}:{}),
+  ...(authoredKind==='effect'?{typeLabel:'EFFECT'}:authoredKind==='combatAction'?{typeLabel:(card.type??'attack').toUpperCase()}:authoredKind==='item'&&card.subtype==='weapon'?{typeLabel:'WEAPON'}:{}),
   ...(card?.inventoryLabel?{inventoryLabel:card.inventoryLabel}:{}),
   heading:authoredKind==='effect'?cardBody(card):(cardKind==='action'||(cardKind==='item'||isConsumableKind(cardKind))&&card?.showName===true)?(card?.name ?? card?.label ?? 'Continue'):'',
   text:authoredKind==='effect'?'':cardBody(card),

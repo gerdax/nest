@@ -19,21 +19,21 @@
   --action-context-inset:calc(24px * var(--playfield-scale));
   --action-context-content-gap:calc(14px * var(--playfield-scale));
   --action-context-chance-size:calc(105.6px * var(--playfield-scale));
-  --action-context-label-size:calc(20px * var(--playfield-scale));
+  --action-context-label-size:calc(18px * var(--playfield-scale));
   --action-context-mini-height:calc(110px * var(--playfield-scale));
   --action-context-odds-lift:calc(15px * var(--playfield-scale));
-  --action-context-result-size:calc(46.5px * var(--playfield-scale));
+  --action-context-result-size:calc(61.525px * var(--playfield-scale));
   --playfield-gap:calc(14.9px * var(--playfield-scale));
   position:relative;container-type:size;container-name:playfield;background:#000;color:#dce5ce;
   font:calc(15px * var(--playfield-scale))/1.5 system-ui,sans-serif;
 }
 .nest-playfield #preview {
-  box-sizing:border-box;height:100%;margin:0;border:0;
+  position:relative;box-sizing:border-box;height:100%;margin:0;border:0;
   padding:var(--playfield-safe-top) 0 calc(var(--playfield-footer-height) + var(--playfield-safe-bottom));
 }
 .nest-playfield .project-preview {position:static;height:100%;min-height:0;padding:0;}
 .nest-playfield #preview .chapter-preview-stage {
-  box-sizing:border-box;display:grid;
+  position:relative;box-sizing:border-box;display:grid;
   grid-template-rows:var(--playfield-hud-height) minmax(0,1fr) var(--action-context-height);
   align-items:stretch;justify-items:stretch;
   height:100%;min-height:0;
@@ -41,15 +41,16 @@
   gap:var(--playfield-gap);overflow:visible;
 }
 .nest-playfield #preview .player-resources {
-  justify-self:center;align-self:center;width:min(100%,276px);max-width:100%;height:100%;
+  position:absolute;left:50%;top:calc(var(--playfield-hud-top-y,calc(40px * var(--playfield-scale))) - 10px * var(--playfield-scale));
+  translate:-50% 0;width:min(100%,276px);max-width:100%;height:auto;
 }
 /* Editor's legacy [hidden] rule must not collapse this reserved lane. */
 .nest-playfield #preview .player-resources[hidden] {display:flex!important;visibility:hidden;}
-.nest-playfield #preview .player-resource {font-size:var(--playfield-hud-height);gap:calc(5px * var(--playfield-scale));}
-.nest-playfield #preview .player-resource img {width:calc(27px * var(--playfield-scale));height:calc(30px * var(--playfield-scale));}
-.nest-playfield #preview .player-resource[data-health] img {width:calc(29px * var(--playfield-scale));height:calc(26px * var(--playfield-scale));}
+.nest-playfield #preview .player-resource {font-size:calc(76.25535px * var(--playfield-scale));gap:calc(6.149625px * var(--playfield-scale));}
+.nest-playfield #preview .player-resource img {width:calc(33.207975px * var(--playfield-scale));height:calc(36.89775px * var(--playfield-scale));}
+.nest-playfield #preview .player-resource[data-health] img {width:calc(35.667825px * var(--playfield-scale));height:calc(31.97805px * var(--playfield-scale));}
 .nest-playfield .chapter-preview-card-area {
-  container-type:size;min-width:0;min-height:0;align-self:stretch;justify-self:stretch;
+  grid-row:2;container-type:size;min-width:0;min-height:0;align-self:stretch;justify-self:stretch;
   display:grid;place-items:end center;
 }
 .nest-playfield #preview .chapter-preview-card-layout {
@@ -60,7 +61,7 @@
 .nest-playfield #preview .action-context-panel {
   position:relative;top:calc(8px * var(--playfield-scale) - var(--playfield-composition-lift,0px));
 }
-.nest-playfield #preview .action-context-panel {translate:0 calc(35px * var(--playfield-scale));}
+.nest-playfield #preview .action-context-panel {grid-row:3;translate:0 calc(20px * var(--playfield-scale));}
 .nest-playfield .action-context-caption {font-size:calc(var(--card-small-size,10px) * var(--playfield-scale));}
 .nest-playfield .action-context-view[data-mode="check-item"] {padding-inline:calc(10.944px * var(--playfield-scale));}
 .nest-playfield .action-check-details[data-presentation="odds"] .action-check-chance {translate:0 calc(3px * var(--playfield-scale));}

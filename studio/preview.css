@@ -3,7 +3,7 @@
 .chapter-preview-stage { display:grid;grid-template-rows:auto minmax(0,1fr) var(--action-context-height,190px);place-items:center;min-height:440px;padding:24px 38px 30px;gap:clamp(42px,12vw,50px);overflow:visible; }
 .chapter-preview-card-area {width:100%;min-width:0;display:grid;place-items:center;}
 .chapter-preview-card-area,.action-context-panel {translate:0 var(--action-content-offset-y,15px);}
-.action-context-panel {translate:0 calc(var(--action-content-offset-y,15px) + 20px);}
+.action-context-panel {translate:0 calc(var(--action-content-offset-y,15px) + 5px);}
 .nest-check-slot {position:absolute;inset:0;z-index:5;container-type:size;}
 .nest-check-slot[hidden],.check-surface[hidden] {display:none!important;}
 .nest-check-active .nest-back-icon,.nest-check-prepared .nest-back-icon {display:none!important;}
@@ -32,10 +32,10 @@
 @font-face {font-family:NestVitals;src:url('../assets/fonts/trotont.ttf') format('truetype');font-display:swap;}
 .player-resources {width:100%;display:flex;justify-content:space-between;align-items:center;color:#b6c99b;}
 .player-resources[hidden] {display:none;}
-.player-resource {display:flex;align-items:center;gap:5px;font:62px/1 NestVitals,monospace;font-variant-numeric:tabular-nums;}
+.player-resource {display:flex;align-items:center;gap:6.149625px;font:76.25535px/1 NestVitals,monospace;font-variant-numeric:tabular-nums;}
 .player-resource[hidden] {display:none;}
-.player-resource img {width:27px;height:30px;object-fit:contain;}
-.player-resource[data-health] img {width:29px;height:26px;}
+.player-resource img {width:33.207975px;height:36.89775px;object-fit:contain;}
+.player-resource[data-health] img {width:35.667825px;height:31.97805px;}
 
 .preview-footer{position:absolute;inset:auto 0 0;z-index:3100;box-sizing:border-box;display:flex;align-items:flex-end;justify-content:space-between;gap:12px;min-height:44px;padding:8px 12px max(8px,env(safe-area-inset-bottom));color:#89947c;pointer-events:auto;background:#000}
 .preview-footer [data-state]{min-width:0;max-width:75%;font-size:12px}
@@ -66,7 +66,7 @@
 .action-check-chance {line-height:1;}
 .action-check-details[data-presentation="odds"] .action-check-chance {translate:0 3px;}
 .action-check-chance strong {display:block;font:var(--action-context-chance-size,105.6px)/.7 NestVitals,monospace;font-variant-numeric:tabular-nums;color:inherit;}
-.action-check-label {margin:var(--action-context-content-gap,14px) 0 0;font:var(--action-context-label-size,20px)/1.2 NestLetter,monospace;letter-spacing:.2em;text-transform:uppercase;color:inherit;}
+.action-check-label {margin:var(--action-context-content-gap,14px) 0 0;font:var(--action-context-label-size,18px)/1.2 NestLetter,monospace;letter-spacing:.2em;text-transform:uppercase;color:inherit;}
 @media(prefers-reduced-motion:reduce){.action-context-panel{transition:none;}}
 
 /* Keep authored line and paragraph breaks in inventory descriptions too. */
@@ -99,7 +99,7 @@
 .action-context-view[data-mode="result"] .action-context-content {order:-1;}
 .action-context-view[data-mode="result"] .action-context-caption {margin:var(--action-context-content-gap,14px) 0 0;}
 .action-check-details[data-presentation="result"] {translate:none;padding-top:16px;}
-.action-check-details[data-presentation="result"] strong {font:var(--action-context-result-size,clamp(30px,17cqw,76px))/1 NestVitals,monospace;color:var(--card-text,#b8cb98);}
+.action-check-details[data-presentation="result"] strong {font:var(--action-context-result-size,clamp(39.675px,22.4825cqw,100.51px))/1 NestVitals,monospace;color:var(--card-text,#b8cb98);}
 .action-check-details[data-outcome="failure"] strong {color:#71825a;}
 
 .action-context-item-column {display:flex;flex-direction:column;align-items:center;gap:var(--action-context-content-gap,14px);min-width:0;}

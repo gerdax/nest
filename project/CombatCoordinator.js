@@ -41,7 +41,7 @@ export class CombatCoordinator {
  }
  actionCard(){return {...enemyActionCard(this.enemy.actions[this.encounter.actionIndex],this.token()),cardBack:this.host.compiled.cardBack};}
  choices(){return playerChoices(this.host.compiled,this.snapshot(),this.encounter);}
- choiceContent(){return {...combatChoices(this.choices(),this.token(),this.host.variables),cardBack:this.host.compiled.cardBack};}
+ choiceContent(){return {...combatChoices(this.choices(),this.token(),this.host.variables,this.host.compiled.variables),cardBack:this.host.compiled.cardBack};}
  async enterEnemy({reveal=false}={}){
   if(!this.active())return;
   this.resume={kind:'enemy'};this.sequence=null;if(!this.setPhase('enemy-enter'))return;
@@ -89,7 +89,7 @@ export class CombatCoordinator {
    if(actor==='player')this.encounter=completePlayerTurn(this.encounter,action,source);
    else this.encounter=applyActionProtection(this.encounter,'enemy',action);
    if(!this.setPhase(`${actor}-result`))return;
-   if(action.resolution!=='direct')await this.host.onCheckResult({target:resolved.target,total:resolved.total,success:resolved.success,label:resolved.success?(resolved.blockedDamage>0&&resolved.damage===0?'BLOCKED':'SUCCESS'):'MISS',signal:this.abort.signal});
+   if(action.resolution!=='direct')await this.host.onCheckResult({target:resolved.target,total:resolved.total,success:resolved.success,label:resolved.success?'SUCCESS':'MISS',signal:this.abort.signal});
    if(!this.active())return;
    await this.presentResolution({replace:action.resolution==='direct'});
   }catch(error){

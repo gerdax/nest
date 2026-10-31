@@ -1,11 +1,11 @@
-import { attackProfile } from './combat-rules.js';
+import { attackProfile, attackDamageRange } from './combat-rules.js';
 import { ensureCombatDefaults, migrateWeaponActions, migrateEnemyActions, migrateCombatActionTypes } from './combat-model.js';
 import { errorMessage } from '../errors.js';
 import { isTagKey, tagKey, tagIdFromKey, validItemTagName } from './item-tags.js';
 import { isStatVariable, validStatValue, compatibleStatVariable } from './checks.js';
 import { validateCardBack } from '../engine/cardBacks.js';
 import { cardKinds, resolvePlacement, canonicalCardKind, allowedCardKinds, placementOverrideKeys, isConsumableKind, consumableResource } from './cards.js';
-import { nodeTypeDescriptor } from './nodeTypes.js';
+import { nodeTypeDescriptor, isUnassignedCombat } from './nodeTypes.js';
 import { isCardColor } from './card-styles.js';
 import { object, named, list, placements, legacyArtwork, chapterVariables } from './model-data.js';
 import { hasDirectedCycle, outputsForNode } from './graph.js';
@@ -180,7 +180,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
       if(d.type==='attack'){if(!object(d.attack)||!['self','weapon','none'].includes(d.attack.source))add(`${label}: invalid attack source`);
       else {if(d.attack.source==='self')damage(d.attack.damage,label);if(d.attack.source!=='none'&&(!Number.isSafeInteger(d.attack.minBonus)||!Number.isSafeInteger(d.attack.maxBonus)))add(`${label}: invalid damage bonuses`);}}
       if(d.type==='attack' && object(d.attack) && ['self','none','weapon'].includes(d.attack.source) && (d.attack.source!=='weapon'||source)) {
-        try { attackProfile(d,source); } catch { add(`${label}: invalid effective attack damage range`); }
+        try { attackProfile(d,source); } catch { const range=attackDamageRange(d,source);add(`${label}: invalid effective attack damage range ${range.min}–${range.max}. ${range.equation}. ${range.reason}`); }
       }
       if(!Number.isSafeInteger(d.cooldown)||d.cooldown<0)add(`${label}: invalid cooldown`);
     }
@@ -309,7 +309,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
       add(errorMessage('VALIDATION_INVALID_CHAPTER_STRUCTURE'), cid);
       continue;
     }
-    if(chapter.nodes.some(n=>n?.type==='combat')) {
+    if(chapter.nodes.some(n=>n?.type==='combat'&&!isUnassignedCombat(n))) {
       const health=vars.get('health');
       if(!health||health.type!=='number'||!Number.isSafeInteger(health.initial)||(health.min!==undefined&&health.min>0)||(health.max!==undefined&&(!Number.isSafeInteger(health.max)||health.max<1)))add('Combat requires integer player Health with bounds allowing zero',cid);
     }
@@ -335,10 +335,12 @@ export function validateProject(project, {allowDraft = false} = {}) {
       const nid = node.id, label = `Beat ${nid}`;
       if (typeof node.name !== 'string' || !Number.isFinite(node.x) || !Number.isFinite(node.y) || !nodeTypeDescriptor(node.type)) add(errorMessage('VALIDATION_INVALID_BEAT_STRUCTURE', {label}),
         cid, nid);
+      const entryIssueStart=errors.length;
+      inspectEffects(node.entryEffects,`${label} / Overrides`);
+      for(const issue of errors.slice(entryIssueStart))Object.assign(issue,{chapterId:cid,nodeId:nid});
+      if(node.type==='death'&&Array.isArray(node.entryEffects)&&node.entryEffects.length)add(`${label}: Death does not support entry overrides`,cid,nid);
       if (node.type === 'linear' && !Array.isArray(node.cards) || node.type === 'fork' && !Array.isArray(node.choices)
         || node.type === 'container' && (!Array.isArray(node.items) || !object(node.intro))) add(errorMessage('VALIDATION_MISSING_PLACEMENTS', {label}),
-        cid, nid);
-      if (!allowDraft && (node.type === 'linear' && !node.cards?.length || node.type === 'fork' && !node.choices?.length)) add(errorMessage('VALIDATION_NEEDS_AT_LEAST_ONE_PLACEMENT', {label}),
         cid, nid);
       if (node.type === 'fork' && (node.intro !== undefined && !object(node.intro) || node.introEnabled === true
         && !object(node.intro))) add(errorMessage('VALIDATION_MISSING_INTRODUCTION', {label}), cid, nid);
@@ -347,7 +349,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
       if (node.introOnce !== undefined && typeof node.introOnce !== 'boolean') add(errorMessage('VALIDATION_INVALID_SHOW_ONCE_TOGGLE', {label}), cid, nid);
       if (node.introEnabled !== undefined && typeof node.introEnabled !== 'boolean') add(errorMessage('VALIDATION_INVALID_INTRODUCTION_TOGGLE', {label}), cid, nid);
       if(node.type==='death' && (!Array.isArray(node.cards)||!node.cards.length||node.intro!==undefined||!object(node.connections)||Object.keys(node.connections).length))add('Death requires cards and no introduction or connections',cid,nid);
-      if(node.type==='combat'){typedRef(node.enemy,'enemy',label);if(['intro','introEnabled','cards','attacks','actions','health','hit','reactions','death','combat'].some(key=>Object.hasOwn(node,key)))add('Combat does not support encounter overrides',cid,nid);if(object(node.connections)&&Object.keys(node.connections).some(k=>k!=='victory'))add('Combat has only a Victory output',cid,nid);}
+      if(node.type==='combat'){if(!isUnassignedCombat(node))typedRef(node.enemy,'enemy',label);if(['intro','introEnabled','cards','attacks','actions','health','hit','reactions','death','combat'].some(key=>Object.hasOwn(node,key)))add('Combat does not support encounter overrides',cid,nid);if(object(node.connections)&&Object.keys(node.connections).some(k=>k!=='victory'))add('Combat has only a Victory output',cid,nid);}
       const ps = placements(node), pids = new Set();
       for (const p of ps) {
         if (!object(p) || !named(p.id) || typeof p.definitionId !== 'string') {

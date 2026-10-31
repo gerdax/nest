@@ -118,3 +118,11 @@ test('combat source targets follow stable IDs after reordering and reject remove
  combat.sequence.steps[0].contentId='visible';f.controller.state.checking=true;assert.equal(previewCardTarget(f),null);
  f.controller.state.checking=false;f.project.library=[];assert.equal(previewCardTarget(f),null);
 });
+
+test('choice-free Fork intro keeps its native navigation target while using a transient sequence',()=>{
+ const intro=placement('intro'),node={id:'node',type:'fork',intro,choices:[]};
+ const f=fixture(node,{sequence:{type:'linear',cards:[intro]}});f.controller.location.emptyFork=true;
+ assert.deepEqual(previewCardTarget(f),expected('intro'));
+ f.controller.location.emptyFork=false;assert.equal(previewCardTarget(f),null);
+ f.controller.location.emptyFork=true;f.controller.location.sequence.cards=[placement('stale')];assert.equal(previewCardTarget(f),null);
+});

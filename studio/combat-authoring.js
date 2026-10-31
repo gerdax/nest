@@ -1,3 +1,4 @@
+import {attackDamageRange} from '../project/combat-rules.js';
 import {field,select,checkbox,button,imageField,artworkEditor,rules,actionResolutionFields,esc} from './forms.js';
 import {createEnemyAction,createEffectCard,createCombatAction} from '../project/combat-model.js';
 import {uid,pathTarget} from './commands.js';
@@ -19,19 +20,25 @@ function embeddedCard(card,path,definitionId,{kinds=['event','caption'],heading=
 export function combatActionTypeField(action,prefix='',scope='definition'){
  return select('Action type',action.type||'attack',[['attack','Attack'],['defend','Defend'],['wait','Wait']],prefix+'type',scope);
 }
-function combatActionFields(project,action,prefix='',{enemy=false,showType=true}={}){
+function weaponDamageBonusFields(action,weapon,prefix) {
+ const range=attackDamageRange(action,weapon),id=`damage-range-${weapon?.id??'action'}-${prefix}`;
+ const bonusField=(label,key)=>field(label,action.attack?.[key]??0,`${prefix}attack.${key}`,'definition','number')
+  .replace('type="number"',`type="number" aria-describedby="${esc(id)}"${range.valid?'':' aria-invalid="true"'}`);
+ return `<div class="weapon-damage-bonuses">${bonusField('Minimum damage bonus','minBonus')}${bonusField('Maximum damage bonus','maxBonus')}<p id="${esc(id)}" class="small calculated-damage${range.valid?'':' calculated-damage-invalid'}" role="status">Calculated damage: <strong>${esc(range.min)}–${esc(range.max)}</strong>${range.valid?'':' · Invalid'}<br>${esc(range.equation)}${range.reason?`<br>${esc(range.reason)}`:''}</p></div>`;
+}
+function combatActionFields(project,action,prefix='',{enemy=false,showType=true,weapon}={}){
  const path=key=>prefix+key,type=action.type||'attack';
  let html=showType?combatActionTypeField(action,prefix):'';
  if(type==='attack'){
   const sources=enemy?[['self','Own damage'],['none','No attack']]:[['self','Own damage'],['weapon','Source Weapon'],['none','No attack']];
-  html+='<h4>Action properties</h4>'+select('Attack properties',action.attack?.source||'none',sources,path('attack.source'))+(action.attack?.source==='self'?damageFields(action.attack.damage,path('attack.damage')):'')+(action.attack?.source==='weapon'?field('Minimum damage bonus',action.attack?.minBonus??0,path('attack.minBonus'),'definition','number')+field('Maximum damage bonus',action.attack?.maxBonus??0,path('attack.maxBonus'),'definition','number'):'');
+  html+='<h4>Action properties</h4>'+select('Attack properties',action.attack?.source||'none',sources,path('attack.source'))+(action.attack?.source==='self'?damageFields(action.attack.damage,path('attack.damage')):'')+(action.attack?.source==='weapon'?weaponDamageBonusFields(action,weapon,prefix):'');
  }else {
   html+='<h4>Action properties</h4>';
   if(type==='defend')html+=field('Damage reduction',action.damageReduction??1,path('damageReduction'),'definition','number')+'<p class="small">Direct Action. Reduces damage from the next opposing attack, then expires even if it misses. Protection does not stack. Spends the turn.</p>';
   else html+='<p class="small">Direct Action. Passes the turn.</p>';
  }
  if(!enemy)html+=field('Cooldown (following player turns)',action.cooldown??0,path('cooldown'),'definition','number')
-  +rules(project,action.conditions,path('conditions'),'definition','conditions',{label:'Requirements',help:'All requirements must pass before this action can be selected. Requirements do not spend resources.'})
+  +rules(project,action.conditions,path('conditions'),'definition','conditions',{label:'Requirements',help:'All requirements must pass before this action can be selected. Health and Energy equality requirements act as minimums. Requirements do not spend resources.'})
   +rules(project,action.costs,path('costs'),'definition','costs');
  html+=rules(project,action.effects,path('effects'),'definition','effects',{label:'Progression effects',help:'Apply when the action completes. For a dice check, these apply on either outcome.'});
  if(type==='attack')html+=actionResolutionFields(project,action,prefix);
@@ -42,7 +49,7 @@ function weaponActions(project,weapon){
  return '<h3>Combat Actions</h3><p class="small">Owned by this Weapon and available while the player carries it.</p>'+(weapon.combat?.actions||[]).map((action,i)=>{
  const path=`combat.actions.${i}`;
  if(action.kind!=='combatAction')return '<p class="small">Missing Combat Action. Restore its source definition to migrate it.</p>';
- return `<details class="entry combat-embedded" open><summary>${esc(action.name||'Combat Action')}</summary>`+field('Name',action.name,`${path}.name`)+combatActionTypeField(action,`${path}.`)+field('Description',action.text,`${path}.text`,'definition','textarea')+combatActionFields(project,action,`${path}.`,{showType:false})+embeddedImage(action,path,weapon.id)+controls('combat.actions',i,weapon.combat.actions.length)+'</details>';
+ return `<details class="entry combat-embedded" open><summary>${esc(action.name||'Combat Action')}</summary>`+field('Name',action.name,`${path}.name`)+combatActionTypeField(action,`${path}.`)+field('Description',action.text,`${path}.text`,'definition','textarea')+combatActionFields(project,action,`${path}.`,{showType:false,weapon})+embeddedImage(action,path,weapon.id)+controls('combat.actions',i,weapon.combat.actions.length)+'</details>';
  }).join('')+add('+ Combat Action','combat.actions','weapon-action');
 }
 export function combatDefinitionFields(project,d){

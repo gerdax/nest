@@ -18,7 +18,7 @@ function add(f,op,key,value) {
   overrides.update(project,chapter,node,{path:`effects.${i}.${leaf}`,value:String(v),inputType:typeof v==='number'?'number':'select-one'});
 }
 
-test('editor graph markers cover session effects and availability overrides, including ignored configuration',()=>{
+test('editor graph markers cover entry effects and availability overrides, including ignored configuration',()=>{
  const f=fixture(),{project,chapter,node,overrides}=f;
  add(f,'set','testFlag',true);
  const fork=chapter.nodes.find(n=>n.type==='fork');fork.unavailableActions='hidden';
@@ -37,18 +37,19 @@ test('editor graph markers cover session effects and availability overrides, inc
  fork.unavailableActions='project';delete linear.unavailableActions;
  run();assert.deepEqual(rendered,new Set());
 });
-test('preview overrides seed fresh state in order without changing project data or defaults',()=>{
+test('authored overrides seed fresh state without changing defaults',()=>{
  const f=fixture(),{project,chapter,node,overrides}=f,before=structuredClone(project);
  const number=project.variables.find(v=>v.type==='number');
  add(f,'set',number.id,5);add(f,'add',number.id,2);add(f,'set','testFlag',true);
+ const authored=structuredClone(project);
  const state=overrides.initialState(project,chapter,node);
  assert.equal(state.variables[number.id],Math.min(number.max??Infinity,7));
  assert.equal(state.variables.testFlag,true);
- assert.deepEqual(project,before);
+ assert.deepEqual(project,authored);
  assert.deepEqual(overrides.initialState(project,chapter,node),state);
  state.variables.testFlag=false;
  assert.equal(overrides.initialState(project,chapter,node).variables.testFlag,true);
- assert.equal(new PreviewOverrides().initialState(project,chapter,node),null);
+ assert.equal(new PreviewOverrides().initialState(project,chapter,node).variables.testFlag,true);
  assert.equal(overrides.initialState(project,chapter,chapter.nodes[1]),null);
 });
 test('temporary items preserve compiled identity, deduplicate, and support removal',()=>{
@@ -84,19 +85,17 @@ test('Overrides uses the existing collapsed state-panel and chapter-aware effect
  assert.match(html,/data-scope="preview-overrides" data-path="effects.0.value"/);
  assert.match(html,/Chapter: Test flag/);
  assert.match(html,/Add item/);assert.match(html,/Remove item/);
- assert.match(html,/excluded from saves and exports/);
+ assert.match(html,/Included in project saves and exports/);
  assert.match(html,/once on every entry to this beat, including direct starts and revisits/);
  assert.match(html,/data-command="clear-overrides"[^>]*>Clear overrides<\/button>[\s\S]*<\/details><\/div>$/);
 });
 
 test('node entry snapshots include every configured chapter beat and detach from session edits',()=>{
  const f=fixture(),{project,chapter,node,overrides}=f,before=structuredClone(project);
- const other=chapter.nodes[1],otherChapter={...chapter,id:'other-chapter'},otherProject={...project,id:'other-project'};
+ const other=chapter.nodes[1];
  add(f,'set','testFlag',true);
  add({...f,node:other},'add','energy',2);
- add({...f,chapter:otherChapter},'set','testFlag',false);
- add({...f,project:otherProject},'set','testFlag',false);
- add({...f,node:{id:'deleted-beat'}},'add','energy',8);
+ assert.throws(()=>add({...f,node:{id:'deleted-beat'}},'add','energy',8),/Select a non-Death beat/);
  const snapshot=overrides.nodeEntryEffects(project,chapter);
  assert.deepEqual(snapshot,{[node.id]:[{op:'set',key:'testFlag',value:true}],[other.id]:[{op:'add',key:'energy',value:2}]});
  snapshot[node.id][0].value=false;snapshot[other.id].push({op:'set',key:'energy',value:0});
@@ -104,7 +103,7 @@ test('node entry snapshots include every configured chapter beat and detach from
  assert.equal(overrides.nodeEntryEffects(project,chapter)[other.id].length,1);
  overrides.update(project,chapter,other,{path:'effects.0.value',value:'3',inputType:'number'});
  assert.equal(snapshot[other.id][0].value,2);
- assert.deepEqual(project,before);
+ assert.equal(other.entryEffects[0].value,3);
 });
 
 test('ignored node entry snapshots are empty without clearing configuration or validating stale items',()=>{
@@ -118,18 +117,16 @@ test('ignored node entry snapshots are empty without clearing configuration or v
  assert.deepEqual(overrides.effects(project,chapter,node),snapshot[node.id]);
 });
 
-test('session overrides follow scoped renames and history renames',async()=>{
- const {renameVariable,variableRenamesBetween}=await import('../studio/variable-ids.js');
+test('authored overrides follow scoped renames and history snapshots',async()=>{
+ const {renameVariable}=await import('../studio/variable-ids.js');
  const f=fixture(),{project,chapter,node,overrides}=f;
  add(f,'set','testFlag',true);
  const before=structuredClone(project);
  const rename=renameVariable(project,chapter.variables.find(v=>v.id==='testFlag'),'Renamed flag',chapter);
- overrides.remap(project.id,rename);
  assert.equal(overrides.initialState(project,chapter,node).variables.renamed_flag,true);
- for(const undo of variableRenamesBetween(project,before))overrides.remap(project.id,undo);
- assert.equal(overrides.initialState(before,before.chapters[0],node).variables.testFlag,true);
+ assert.equal(overrides.initialState(before,before.chapters[0],before.chapters[0].nodes.find(n=>n.id===node.id)).variables.testFlag,true);
 });
-test('unplaced local inventory and its dependencies are compiled for preview only',async()=>{
+test('unplaced local inventory and its dependencies are compiled for gameplay',async()=>{
  const {createDefinition}=await import('../project/cards.js');
  const f=fixture(),{project,chapter,node,overrides}=f;
  const dependency={...createDefinition('item','local_dependency'),visibility:'local',chapterId:chapter.id};
@@ -137,13 +134,14 @@ test('unplaced local inventory and its dependencies are compiled for preview onl
  project.library.push(item,dependency);
  const before=structuredClone(project);
  add(f,'addItem',item.id);
+ const authored=structuredClone(project);
  const state=overrides.initialState(project,chapter,node);
  assert.equal(state.inventory[0].definitionId,item.id);
  const compiled=compileChapter(project,chapter.id,{additionalDefinitionIds:state.inventory.map(item=>item.definitionId)});
  assert.ok(compiled.library.some(d=>d.id===item.id));
  assert.ok(compiled.library.some(d=>d.id===dependency.id));
- assert.ok(!compileChapter(project,chapter.id).library.some(d=>d.id===item.id));
- assert.deepEqual(project,before);
+ assert.ok(compileChapter(project,chapter.id).library.some(d=>d.id===item.id));
+ assert.deepEqual(project,authored);
 });
 
 test('Ignore all overrides skips test values/items and beat availability without erasing configuration',async()=>{

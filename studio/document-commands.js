@@ -1,6 +1,7 @@
+import {PreviewOverrides} from './preview-overrides.js';
 import {deleteCommonCard} from './common-card-removal.js';
 import { applyCombatArrayCommand } from './combat-authoring.js';
-import { createWeapon } from '../project/combat-model.js';
+import { createWeapon, createEnemyAction } from '../project/combat-model.js';
 import { createError } from '../errors.js';
 import { eligibleInventoryItems } from './item-options.js';
 import { placedLocalDefinitions, removeUnplacedLocalDefinitions } from './local-definition-removal.js';
@@ -133,14 +134,16 @@ function changeField(project, selection, field, localDrafts) {
     const stockCheck = check && !check.mode && !check.modifierVariable && !check.difficulty &&
       check.modifier === 0 && check.target === 10 && check.pool?.length === 1 &&
       check.pool[0].sides === 20 && check.pool[0].count === 1;
-    if (!check || stockCheck) parent.check = {mode:'stat',modifierVariable:variables.find(isStatVariable)?.id,difficulty:1};
+    if (!check || stockCheck) parent.check = root.kind==='enemy'
+      ? createEnemyAction('defaults').check
+      : {mode:'stat',modifierVariable:variables.find(isStatVariable)?.id,difficulty:1};
   }
   if (key === 'mode' && value === 'stat') {
     parent.difficulty ??= 1;
     if (!variables.some(v => v.id === parent.modifierVariable && isStatVariable(v))) parent.modifierVariable = variables.find(isStatVariable)?.id;
   }
   if (key === 'mode' && value === 'custom') {
-    parent.pool ||= [{sides:20,count:1}]; parent.modifier ??= 0; parent.target ??= 10;
+    parent.pool ||= root.kind==='enemy'?createEnemyAction('defaults').check.pool:[{sides:20,count:1}]; parent.modifier ??= 0; parent.target ??= root.kind==='enemy'?11:10;
   }
   if (key === 'type' && ['flag','number'].includes(value)) { parent.initial = value === 'flag' ? false : 0; delete parent.min; delete parent.max; }
   if (['source','op','key'].includes(key)) normalizeRule(project, parent, key, ruleChapter);
@@ -160,9 +163,12 @@ function inspectorCommand(project, selection, data, localDrafts) {
       break;
     }
     case 'add-rule': {
-      const {parent, key} = pathTarget(documentScope(project, selection, descriptor), data.path);
+      const root = documentScope(project, selection, descriptor);
+      const {parent, key} = pathTarget(root, data.path);
       parent[key] ||= [];
-      parent[key].push(newRule(project, data.ruleKind, ruleChapterFor(project, selection, data.scope)));
+      parent[key].push(data.ruleKind==='dice'&&root.kind==='enemy'
+        ? createEnemyAction('defaults').check.pool[0]
+        : newRule(project, data.ruleKind, ruleChapterFor(project, selection, data.scope)));
       break;
     }
     case 'remove-rule': {
@@ -222,6 +228,7 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
   const chapter = chapterFor(project, selection), node = nodeFor(project, selection);
   switch (type) {
     case 'item-tag': return applyTagCommand(project,data);
+    case 'beat-overrides': new PreviewOverrides().update(project,chapter,node,data);break;
     case 'field': return changeField(project, selection, data, localDrafts);
     case 'inspector': return inspectorCommand(project, selection, data, localDrafts);
     case 'connect': if(chapter.nodes.find(n=>n.id===data.target)?.type==='death')throw new Error('Death cannot have incoming connections');setConnection(chapter.nodes.find(n => n.id === data.id), data.exit, data.target); break;
@@ -248,7 +255,7 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
     }
     case 'add-library-card': {
       const added = appendLibraryCard(project, chapter, node, data.definitionId);
-      return added ? {value:added.id} : {};
+      return added ? {value:added.id??added.definitionId} : {};
     }
     case 'select-chapter': {
       const target = project.chapters.find(c => c.id === data.id);

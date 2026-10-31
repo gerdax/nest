@@ -20,8 +20,9 @@ const requiresFlag=value=>[{source:'variable',key:'flag',op:'eq',value}];
 const lockpick={id:'lockpick',definitionId:'lockpick',kind:'item',name:'Lockpick',permability:2,onCollect:[]};
 function run(nodes,effects={},options={},extra={}){
  const deck=new Deck(),errors=[];
+ nodes=nodes.map(node=>({...node,...(Object.hasOwn(effects,node.id)?{entryEffects:structuredClone(effects[node.id])}:{})}));
  const compiled={startNode:nodes[0].id,nodes,variables:[{id:'count',type:'number',initial:0},{id:'flag',type:'flag',initial:false}],library:[lockpick],...extra};
- const controller=new ProjectController(deck,compiled,{onError:error=>errors.push(error),nodeEntryEffects:effects,...options});
+ const controller=new ProjectController(deck,compiled,{onError:error=>errors.push(error),...options});
  return {deck,controller,errors};
 }
 
@@ -136,4 +137,10 @@ test('restart during a staged arrival discards its effects and ignores the late 
  s.deck.emit('transitioncomplete',{transition:'commit',contentId:oldContent});
  assert.equal(s.controller.state.activeNodeId,'items');assert.equal(s.controller.state.variables.count,0);
  assert.deepEqual(s.controller.state.collectedItems,[]);assert.deepEqual(s.errors,[]);s.controller.destroy();
+});
+
+test('explicit host entry lists replace saved effects rather than applying twice',()=>{
+ const s=run([linear('start',null)],{start:[add(3)]},{nodeEntryEffects:{start:[add(2)]}});
+ assert.equal(s.controller.state.variables.count,2);s.controller.show();
+ assert.equal(s.controller.state.variables.count,2);s.controller.destroy();
 });

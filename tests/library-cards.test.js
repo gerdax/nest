@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {createProject, validateProject} from '../project/model.js';
 import {createDefinition} from '../project/cards.js';
 import {createNode, synchronizeConnections} from '../studio/commands.js';
-import {libraryCardSlot, appendLibraryCard, mountLibraryCardActions} from '../studio/library-cards.js';
+import {libraryCardSlot, libraryCardCompatible, appendLibraryCard, mountLibraryCardActions} from '../studio/library-cards.js';
 import {applyDocumentCommand} from '../studio/document-commands.js';
 import {transactDocument} from '../studio/document-session.js';
 import {LocalCardDrafts} from '../studio/local-card-drafts.js';
@@ -81,4 +81,26 @@ test('single clicks open cards and a double click adds exactly once; nested card
  const foreign={target:{closest:()=>({dataset:{definition:'foreign'}})}};
  listeners.click(foreign);listeners.dblclick(foreign);assert.equal(calls.length,3);
  destroy();assert.deepEqual(listeners,{});
+});
+
+test('Combat compatibility includes only shared Enemies',()=>{
+ const node={type:'combat'};
+ for(const kind of ['enemy','event','caption','action','item','consumable','combatAction','effect']){
+  assert.equal(libraryCardCompatible(node,{kind}),kind==='enemy');assert.equal(libraryCardSlot(node,{kind}),kind==='enemy'?'enemy':null);
+ }
+ assert.equal(libraryCardCompatible(node,{kind:'enemy',visibility:'local'}),false);
+});
+for(const occupied of [false,true])test(`Library Enemy assignment replaces the scalar reference in one undoable edit, occupied=${occupied}`,()=>{
+ const project=createProject(),chapter=project.chapters[0],node=createNode(project,'combat',undefined,chapter.id);
+ chapter.nodes.push(node);
+ const first=createDefinition('enemy','first-enemy'),second=createDefinition('enemy','second-enemy');project.library.push(first,second);node.enemy={definitionId:occupied?first.id:''};
+ const before=structuredClone(project),history=new DocumentHistory(project),drafts=new LocalCardDrafts();
+ const selection={chapterId:chapter.id,selected:node.id,mode:'library',definitionId:second.id};
+ const result=transactDocument(history,drafts,draft=>applyDocumentCommand(draft,selection,'add-library-card',{definitionId:second.id},drafts));
+ assert.equal(result.failure,undefined);assert.equal(result.result.value,second.id);
+ const after=history.document,target=after.chapters[0].nodes.find(n=>n.id===node.id);
+ assert.deepEqual(target.enemy,{definitionId:second.id});assert.equal(target.cards,undefined);assert.deepEqual(target.connections,node.connections);assert.equal(after.library.length,before.library.length);
+ assert.deepEqual(validateProject(after,{allowDraft:true}),[]);
+ assert.equal(history.undo(),true);assert.deepEqual(history.document,before);assert.equal(history.canUndo,false);assert.equal(history.redo(),true);assert.deepEqual(history.document,after);
+ const repeated=transactDocument(history,drafts,draft=>applyDocumentCommand(draft,selection,'add-library-card',{definitionId:second.id},drafts));assert.equal(repeated.failure,undefined);assert.deepEqual(history.document,after);
 });

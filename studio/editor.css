@@ -276,3 +276,8 @@ details > summary {cursor:pointer;}
 
 .common-action-summary {display:flex;flex-direction:column;gap:4px;line-height:1.35;overflow-wrap:anywhere;}
 .common-entry .common-action-summary span {font-size:11px;}
+
+.weapon-damage-bonuses {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+.weapon-damage-bonuses .calculated-damage {grid-column:1 / -1;margin:0 0 12px;}
+.calculated-damage-invalid {color:#efad94;}
+.weapon-damage-bonuses input[aria-invalid="true"] {border-color:#efad94;}

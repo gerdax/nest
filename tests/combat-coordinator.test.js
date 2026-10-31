@@ -80,7 +80,7 @@ test('Defend blocks one damage on the next attack and Wait then passes an unprot
  const health=h.host.variables.health,commits=h.commits,round=h.c.encounter.round;let rolls=0;const labels=[];
  h.host.rollCheck=async(pool,options)=>{rolls++;assert.equal(options.surface,'front');return {dice:[4,4,4]};};h.host.onCheckResult=async result=>labels.push(result.label);
  const pending=select(h,'Defend');await tick();assert.equal(h.c.encounter.guard,0);assert.equal(h.c.encounter.round,round);
- h.deck.depart();await pending;await tick();assert.equal(h.c.phase,'choice');assert.equal(h.host.variables.health,health);assert.equal(h.commits,commits);assert.equal(h.c.encounter.guard,0);assert.equal(rolls,1);assert(labels.includes('BLOCKED'));
+ h.deck.depart();await pending;await tick();assert.equal(h.c.phase,'choice');assert.equal(h.host.variables.health,health);assert.equal(h.commits,commits);assert.equal(h.c.encounter.guard,0);assert.equal(rolls,1);assert(labels.includes('SUCCESS'));assert(!labels.includes('BLOCKED'));
  await useDirect(h,'Wait');assert.equal(h.c.phase,'effects');assert.equal(h.host.variables.health,health);assert.equal(h.c.pending.damage,1);await swipe(h);assert.equal(h.host.variables.health,health-1);h.c.dispose();
 });
 test('Defend expires on a missed enemy attack and does not carry into the following turn',async()=>{

@@ -32,7 +32,7 @@ export class InventoryCardPreview {
     if (this.card.parentNode !== this.mount) this.mount.append(this.card);
     this.card.replaceChildren();
     this.card.setAttribute('aria-label', item.name || item.label || 'Item');
-    decorateCard(null, this.card, item.image || '', item.name || item.label || 'Item', item.text || '', item.flipImage, { ...item, cardKind: 'item', summary: [item.summary, inventoryTriggerSummary(item)].filter(Boolean).join(' · ') });
+    decorateCard(null, this.card, item.image || '', item.name || item.label || 'Item', item.text || '', item.flipImage, { ...item, cardKind: 'item', ...(item.subtype==='weapon'?{typeLabel:'WEAPON'}:{}), summary: [item.summary, inventoryTriggerSummary(item)].filter(Boolean).join(' · ') });
     this.card.style.top = `${distance}px`;
     this.card.style.bottom = 'auto';
     this.card.style.height = '100%';

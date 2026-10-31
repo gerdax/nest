@@ -1,7 +1,7 @@
 import { definitionGraph } from '../project/dependencies.js';
 
 const markerLabels = [['T', 'Inventory trigger'], ['R', 'Requirements'], ['C', 'Costs'], ['E', 'Effects']];
-const ruleMarkers = {conditions:'R', costs:'C', effects:'E', onCollect:'E', successEffects:'E', failureEffects:'E'};
+const ruleMarkers = {conditions:'R', costs:'C', effects:'E', entryEffects:'E', onCollect:'E', successEffects:'E', failureEffects:'E'};
 const key = value => JSON.stringify(value);
 const startsWith = (path, prefix) => prefix.every((part, index) => path[index] === part);
 

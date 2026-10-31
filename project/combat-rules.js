@@ -15,10 +15,44 @@ export function attackProfile(action, source) {
   const profile = action.attack ?? {source:'self',damage:action.damage};
   if (profile.source === 'none') return null;
   if (profile.source === 'weapon' && (!source || source.subtype !== 'weapon')) throw new Error('Attack requires its source weapon');
-  const base = profile.source === 'weapon' ? source.combat?.damage : profile.damage;
-  const min = base?.min + (profile.minBonus ?? 0), max = base?.max + (profile.maxBonus ?? 0);
-  if (!Number.isSafeInteger(min) || !Number.isSafeInteger(max) || min < 0 || max < min) throw new Error('Invalid attack damage range');
+  const {min,max,valid} = attackDamageRange(action,source);
+  if (!valid) throw new Error('Invalid attack damage range');
   return {min,max};
+}
+/** Shared computed range for runtime validation and the authoring inspector. */
+export function attackDamageRange(action,source) {
+  const profile=action.attack??{source:'self',damage:action.damage};
+  const base=profile.source==='weapon'?source?.combat?.damage:profile.damage;
+  const minBonus=profile.minBonus??0,maxBonus=profile.maxBonus??0;
+  const min=base?.min+minBonus,max=base?.max+maxBonus;
+  const valid=Number.isSafeInteger(min)&&Number.isSafeInteger(max)&&min>=0&&max>=min;
+  const equation=`Minimum damage ${base?.min} + minimum damage bonus ${minBonus} = ${min}; Maximum damage ${base?.max} + maximum damage bonus ${maxBonus} = ${max}`;
+  const reason=!Number.isSafeInteger(min)||!Number.isSafeInteger(max)?'Damage endpoints must be safe integers.':min<0?'Minimum damage must be zero or greater.':max<min?'Minimum damage must not exceed maximum damage.':'';
+  return {min,max,valid,equation,reason};
+}
+function resourceShortage(compiled,run,costs=[]) {
+  for(let i=0;i<costs.length;i++) {
+    if(affordCosts(run.variables,run.inventory,costs.slice(0,i+1),compiled.variables))continue;
+    const cost=costs[i];
+    const resource=cost.source==='inventory'?definition(compiled.library,cost.key):compiled.variables?.find(v=>v.id===cost.key);
+    return cost.source==='inventory'?'No required item':`Not enough ${resource?.name||cost.key}`;
+  }
+  return '';
+}
+function requirementReason(compiled,run,conditions=[]) {
+  for(const authored of conditions) {
+    const resource=authored.source==='variable'&&['health','energy'].includes(authored.key);
+    // Combat resource equality requirements represent the minimum needed.
+    const condition=resource&&authored.op==='eq'?{...authored,op:'gte'}:authored;
+    if(conditionsMet([condition],run.variables,run.inventory))continue;
+    if(condition.source==='inventory')return ['has','gte'].includes(condition.op)||condition.op==='eq'&&condition.value>0?'No required item':'Requires no item';
+    const label=compiled.variables?.find(v=>v.id===condition.key)?.name||condition.key;
+    if(['gte','gt','eq'].includes(condition.op)&&typeof condition.value==='number'&&typeof run.variables[condition.key]==='number'&&run.variables[condition.key]<condition.value)return `Not enough ${label}`;
+    if(typeof condition.value==='boolean')return `Requires ${condition.value?'':'not '}${label}`;
+    const operator={eq:'=',neq:'≠',gte:'≥',lte:'≤'}[condition.op]??condition.op;
+    return `Requires ${label} ${operator} ${condition.value}`;
+  }
+  return '';
 }
 export function playerChoices(compiled, run, encounter) {
   const result=[];
@@ -27,9 +61,9 @@ export function playerChoices(compiled, run, encounter) {
     if (!action || action.kind !== 'combatAction') throw new Error('Missing Combat Action');
     if(!source && !['defend','wait'].includes(action.type)&&action.attack?.source==='weapon') throw new Error('Default Action requires a weapon');
     const profile=attackProfile(action,source), key=cooldownKey(action,source);
-    const reason=!conditionsMet(action.conditions,run.variables,run.inventory)?'Requirements not met'
-      : !affordCosts(run.variables,run.inventory,action.costs,compiled.variables)?'Not enough resources'
-      : (encounter.cooldowns[key]??0)>0?`Cooldown: ${encounter.cooldowns[key]} turn`:'';
+    const reason=requirementReason(compiled,run,action.conditions)
+      || (!affordCosts(run.variables,run.inventory,action.costs,compiled.variables)?resourceShortage(compiled,run,action.costs)
+      : (encounter.cooldowns[key]??0)>0?`Cooldown: ${encounter.cooldowns[key]} turn`:'');
     result.push({id:key,action:structuredClone(action),source:source?structuredClone(source):null,profile,disabled:!!reason,disabledReason:reason});
   };
   for(const ref of compiled.combat?.defaultActions??[])add(ref);

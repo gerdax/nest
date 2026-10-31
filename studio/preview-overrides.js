@@ -2,14 +2,11 @@ import { createError } from '../errors.js';
 import { compileChapter } from '../project/model.js';
 import { initialValues, inventoryQuantity, transact } from '../project/state.js';
 import { newRule, normalizeRule } from './commands.js';
-import { remapVariableReferences } from './variable-ids.js';
 import { eligibleInventoryItems } from './item-options.js';
 
-/** Editor-session settings only: never attach these effects to the project. */
+/** Authored beat-entry effects, saved as part of each node. */
 export class PreviewOverrides {
- constructor() { this.entries = new Map(); }
- key(project, chapter, node) { return JSON.stringify([project.id, chapter.id, node.id]); }
- effects(project, chapter, node) { return node ? structuredClone(this.entries.get(this.key(project,chapter,node)) || []) : []; }
+ effects(project, chapter, node) { return node ? structuredClone(node.entryEffects || []) : []; }
  nodeEntryEffects(project, chapter) {
   if(project.ignoreAllOverrides===true)return {};
   const items=eligibleInventoryItems(project,chapter);
@@ -20,15 +17,8 @@ export class PreviewOverrides {
    return effects.length?[[node.id,effects]]:[];
   }));
  }
- clear() { this.entries.clear(); }
- remap(projectId, rename) {
-  for(const [key,effects] of this.entries) {
-   const [owner,chapterId]=JSON.parse(key);
-   if(owner===projectId&&(!rename.chapterId||rename.chapterId===chapterId))
-    remapVariableReferences(effects,rename.oldId,rename.newId);
-  }
- }
  update(project, chapter, node, {command, path, index, value, inputType}) {
+  if(!project.chapters.includes(chapter)||!chapter.nodes.includes(node)||node.type==='death')throw new Error('Select a non-Death beat to edit overrides.');
   const effects=this.effects(project,chapter,node);
   if(command==='clear-overrides')effects.length=0;
   else if(command==='add-rule') {
@@ -41,7 +31,7 @@ export class PreviewOverrides {
    rule[leaf]=inputType==='number'?Number(value):leaf==='value'&&['true','false'].includes(value)?value==='true':value;
    if(['op','key'].includes(leaf))normalizeRule(project,rule,leaf,chapter);
   }
-  this.entries.set(this.key(project,chapter,node),effects);
+  if(effects.length)node.entryEffects=effects;else delete node.entryEffects;
  }
  initialState(project, chapter, node) {
   if(project.ignoreAllOverrides===true)return null;

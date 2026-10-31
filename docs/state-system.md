@@ -29,6 +29,15 @@ An Action can use a **Stat check** (`3d6 + Agility/Intelligence/Composure ≥ 10
 
 New Random routes filter their weighted destinations using conditions. Narrative cards whose placement conditions fail are skipped; ineligible container items are omitted. Empty eligible containers continue. **Project settings → Allow beat cycles** enables revisits across all chapters and is checked by default. A runtime traversal guard blocks automatic routing-only loops with an **Automatic routing cycle** error; internal card cycles in legacy sequences are rejected by validation.
 
+Structurally empty Linear beats continue through Next. A Fork with no choices
+also exposes Next: it plays an enabled introduction, then continues; without an
+enabled introduction it skips directly. Show once introductions retain their
+normal run lifetime. An unassigned Combat beat skips through Victory, and an
+empty Random uses its existing Fallback. Working empty-container behavior is
+unchanged. Blank authored cards, unavailable nonempty choices and mandatory
+Death presentation are not treated as empty beats. Unlinked continuations and
+automatic routing cycles still block rather than inventing a destination.
+
 ## Items and Action triggers
 
 The item inspector separates collection rules from the owned item's lifetime. Shared Items in the chapter panel default to their Library rules. Enable **Use custom rules** to replace **On collect effects** and **Permability** for that placement only; disable it to return to the source values. Custom collection effects may use the current chapter's variables. Appearance conditions remain separate placement rules. Local Items edit these rules directly, without a custom-rules toggle:
@@ -65,3 +74,11 @@ V1 chapters load through migration with prefixed variable IDs and stable invento
 Item quantities are currently disabled: each collected card grants one owned item, repeated collection does not stack, and item effects/costs add or remove that ownership. Existing quantity fields are discarded on load/export; former inventory quantity comparisons become Owned/Missing requirements. Numeric resource amounts remain configurable.
 
 Full project JSON preserves chapter start and next links. Standalone chapter packages omit external chapter targets; self-links remain valid and are remapped on import. Deleting a chapter clears incoming next links and assigns a new start if the deleted chapter was the configured start.
+
+Beat-entry overrides (`node.entryEffects`) are persistent gameplay effects, not
+editor-only test state. They run before card availability and automatic routing
+on each entry, commit only with an accepted arrival, and never reapply on render
+or speculative route checks. They support chapter/global variables and concrete
+item additions/removals. Removing an absent item is harmless. Death does not
+support entry overrides. Saved overrides are included in exports and dependency
+tracking; Ignore all overrides removes them only from the compiled run.

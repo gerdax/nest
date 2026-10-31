@@ -39,7 +39,7 @@ import { applyDocumentCommand, documentScope } from './document-commands.js';
 import { transactDocument } from './document-session.js';
 import { mountProjectSettingsWindow } from './project-settings-window.js';
 import { mountHistoryShortcuts } from './history-shortcuts.js';
-import { libraryCardSlot, mountLibraryCardActions } from './library-cards.js';
+import { libraryCardSlot, libraryCardCompatible, mountLibraryCardActions } from './library-cards.js';
 import { mountViewShortcuts } from './view-shortcuts.js';
 import { mountPlayShortcuts } from './play-shortcuts.js';
 import { cardLabel } from './card-label.js';
@@ -66,6 +66,7 @@ const autoplay=mountAutoplay($('#autoplay'),{getSelected:()=>graph.selectedIds.s
 const autoPanel=mountAutoPanel($('#auto-panel'),{getTarget:()=>preview.cardTarget(),onReveal:target=>goToPreviewCard(target,{automatic:true})});
 const nodeCreateMenu=mountNodeCreateMenu({onChoose:(type,request)=>edit('create-connected-node',{...request,type}),onDismiss:()=>graph.cancelCreation(),returnFocus:$('#canvas')});
 const graph=new GraphView($('#canvas'),{
+ onOpenDefinition:(id,nodeId)=>{selected=nodeId;graph.selectedIds=new Set([nodeId]);goToDefinition(id);},
  onSelect:id=>{graph.selectedIds=new Set([id]);selected=id;renderInspector({collapseCards:true});renderGraph();autoplay.select(id);},
  onOpenCard:(id,target,exit)=>{
   graph.selectedIds=new Set([id]);selected=id;mode='chapter';renderInspector({collapseCards:true});renderGraph();
@@ -94,6 +95,17 @@ const persistence=createPersistence({loaded,eventTarget:window,onStatus:text=>{
 },onConflict:conflict=>conflictPanel?.update(conflict)});
 const saveProject=project=>persistence.saveQueued(project);
 function report(text){persistence.report(text);}
+function goToDefinition(id){
+ const destination=definitionDestination(project,id);
+ if(!destination){report('This definition is no longer available.');return;}
+ if(destination.kind==='placement'){
+  goToPreviewCard(destination.target);graph.fit();
+ }else{
+  definitionId=destination.definition.id;
+  if(destination.chapter){chapterId=destination.chapter.id;selected=destination.chapter.startNode||destination.chapter.nodes[0]?.id;}
+  mode='library';libraryTab=isCommonDefinition(definition())?'common':'content';render();
+ }
+}
 function goToPreviewCard(target,{automatic=false}={}){
  const source=sourceCard(project,target);
  if(!source){if(!automatic)report('This card was removed from the current project. Restart preview to use the latest version.');return;}
@@ -118,7 +130,6 @@ function edit(type,data={}, {preserveProjectSettings=false,refresh=true}={}){
  const outcome=transactDocument(history,localDrafts,draft=>applyDocumentCommand(draft,selection(),type,data,localDrafts));
  project=outcome.project;
  if(outcome.result?.variableRename){
-  previewOverrides.remap(project.id,outcome.result.variableRename);
   remapVariableClipboard(cardClipboard,outcome.result.variableRename);
   remapVariableClipboard(nodeClipboard?.data,outcome.result.variableRename);
  }
@@ -222,10 +233,10 @@ function renderLibrary(){
  const dependencies=definitionGraph(project);
  const match=$('#library-match-beat').checked;
  $('#library-list').innerHTML=project.library.filter(d=>d.visibility!=='local'&&!isCommonDefinition(d)&&`${cardLabel(d)} ${cardKinds[d.kind]?.label||d.kind} ${d.kind} ${(project.itemTags||[]).find(tag=>tag.id===d.tagId)?.name||''}`.toLowerCase().includes(query)).map(d=>{
-  const compatible=!!libraryCardSlot(node(),d);
+  const compatible=libraryCardCompatible(node(),d);
   const indicators=cardRuleIndicators(project,{definitionId:d.id},libraryIndex);
   const indicatorLabel=indicators.map(([letter,label])=>`${letter}: ${label}`).join('; ');
-  const hint=compatible?`Double-click to add to ${node().name}`:node()?'Cannot add this card type to the selected beat. Click to inspect.':'Select a beat to add this card. Click to inspect.';
+  const hint=compatible?(node().type==='combat'?`Click to inspect. Double-click to replace the Enemy for ${node().name}.`:`Double-click to add to ${node().name}`):node()?'Cannot add this card type to the selected beat. Click to inspect.':'Select a beat to add this card. Click to inspect.';
   return `<button type="button" data-definition="${esc(d.id)}" class="library-entry card-panel ${d.id===definitionId?'selected':''} ${match&&!compatible?'library-entry-incompatible':''}" data-card-type="${esc(d.kind)}" title="${esc(hint)}" style="--card-editor-tint:${esc(cardEditorTint(d.kind))}"><strong>${esc(cardLabel(d))}</strong><span class="library-card-meta"><span>${esc(cardKinds[d.kind]?.label||d.kind)} · ${dependencies.users(d.id).length} uses</span>${indicators.length?`<span class="library-card-rules" role="img" aria-label="${esc(indicatorLabel)}" title="${esc(indicatorLabel)}">${esc(indicators.map(([letter])=>letter).join(' · '))}</span>`:''}</span>${d.kind==='item'&&d.tagId?`<span class="library-item-tag">[${esc((project.itemTags||[]).find(tag=>tag.id===d.tagId)?.name||d.tagId)}]</span>`:''}</button>`;
  }).join('');
 }
@@ -248,8 +259,8 @@ function scopeRoot(scope,element){
 }
 function changeField(event){const el=event.target,path=el.dataset.path,scope=el.dataset.scope;if(!path)return;
  if(scope==='preview-overrides'){
-  previewOverrides.update(project,chapter(),node(),{path,value:el.value,inputType:el.type});
-  renderGraph();renderInspector();report('Test overrides updated. Restart playback to apply.');return;
+  edit('beat-overrides',{path,value:el.value,inputType:el.type});
+  report('Beat overrides saved. Restart playback to apply.');return;
  }
  const colorField=el.matches('[data-card-style-color]');let color;
  if(colorField){
@@ -314,8 +325,8 @@ function command(event){const b=event.target.closest('[data-command]');if(!b||b.
  if(['add-common-action','use-common-action','remove-common-action','move-common-action','use-common-effect','delete-common-card'].includes(cmd)){libraryTab='common';const result=edit(cmd,{id:b.dataset.actionId,direction:b.dataset.direction});if(cmd==='delete-common-card'&&result.ok)report('Common card deleted. Undo restores it.');return;}
  if(b.dataset.scope==='preview-overrides'){
   if(b.disabled)return;
-  previewOverrides.update(project,chapter(),node(),{command:cmd,index:b.dataset.index});
-  renderGraph();renderInspector();report('Test overrides updated. Restart playback to apply.');return;
+  edit('beat-overrides',{command:cmd,index:b.dataset.index});
+  report('Beat overrides saved. Restart playback to apply.');return;
  }
  if(cmd==='reload-image'){
   if(b.disabled)return;
@@ -378,15 +389,7 @@ function command(event){const b=event.target.closest('[data-command]');if(!b||b.
   return;
  }
  if(cmd==='go-to-definition'){
-  const destination=definitionDestination(project,b.dataset.definition);
-  if(!destination){report('This definition is no longer available.');return;}
-  if(destination.kind==='placement'){
-   goToPreviewCard(destination.target);graph.fit();
-  }else{
-   definitionId=destination.definition.id;
-   if(destination.chapter){chapterId=destination.chapter.id;selected=destination.chapter.startNode||destination.chapter.nodes[0]?.id;}
-   mode='library';libraryTab=isCommonDefinition(definition())?'common':'content';render();
-  }
+  goToDefinition(b.dataset.definition);
   return;
  }
  if(cmd==='edit-shared'){definitionId=b.dataset.definition;mode='library';libraryTab=isCommonDefinition(definition())?'common':'content';render();return;}
@@ -504,7 +507,6 @@ function travel(method){
  graph.cancel();localDrafts.reset();const result=travelHistory(history,method,{save:saveProject});
  if(result.changed){
   for(const rename of variableRenamesBetween(project,result.project)){
-   previewOverrides.remap(project.id,rename);
    remapVariableClipboard(cardClipboard,rename);remapVariableClipboard(nodeClipboard?.data,rename);
   }
   project=result.project;
@@ -566,7 +568,7 @@ function bindImport(input,kind){
   const file=e.target.files[0];if(!file)return;
   try{
    const {raw,project:incoming}=parseStudioImport(await file.text(),{kind});
-   preview.stop();localDrafts.reset();previewOverrides.clear();if(kind==='project')nodeClipboard=null;
+   preview.stop();localDrafts.reset();if(kind==='project')nodeClipboard=null;
    const result=edit('import',{raw,incoming});
    const saved=result.ok&&(await result.saved).ok;
    if(saved&&kind==='project'&&persistence.adopt().ok){recoveryDownload?.remove();report('Project imported and saved in this browser. Recovery backups retained.');}

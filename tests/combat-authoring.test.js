@@ -94,3 +94,20 @@ test('Enemy reaction headings use percentage and name, and death heading uses on
  assert(html.includes('<summary>75% · Wounded</summary>'));assert(html.includes('<summary>Death</summary>'));
  assert(!html.includes('<summary>Enemy death ·'));assert(!html.includes('Exact threshold'));
 });
+
+test('Weapon bonuses show calculated damage and identify invalid endpoint values',()=>{
+ const project=createProject(),weapon=createWeapon('weapon'),action={...createCombatAction('attack'),attack:{source:'weapon',minBonus:2,maxBonus:0}};
+ weapon.combat.actions=[action];project.library.push(weapon);
+ let html=definitionInspector(project,weapon);
+ assert.match(html,/Calculated damage: <strong>3–2<\/strong> · Invalid/);
+ assert.match(html,/Minimum damage 1 \+ minimum damage bonus 2 = 3/);
+ assert.match(html,/Maximum damage 2 \+ maximum damage bonus 0 = 2/);
+ assert.equal((html.match(/aria-invalid="true"/g)||[]).length,2);
+ assert.match(html,/Minimum damage must not exceed maximum damage/);
+ const issue=validateProject(project).find(i=>i.message.includes('effective attack damage range'));
+ assert.match(issue.message,/3–2/);assert.match(issue.message,/minimum damage bonus 2/);assert.match(issue.message,/maximum damage bonus 0/);
+ action.attack.maxBonus=2;html=definitionInspector(project,weapon);
+ assert.match(html,/Calculated damage: <strong>3–4<\/strong>/);
+ assert.doesNotMatch(html,/aria-invalid="true"/);
+ assert.deepEqual(validateProject(project),[]);
+});

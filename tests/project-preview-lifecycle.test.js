@@ -40,7 +40,7 @@ function environment() {
 }
 
 function configureOverrides(overrides, project, chapter, node, effects) {
-  overrides.entries.set(overrides.key(project, chapter, node), structuredClone(effects));
+  node.entryEffects = structuredClone(effects);
 }
 
 function acceptPreviewCard(preview) {
@@ -108,7 +108,7 @@ test('preview entry overrides apply once on direct start and arriving at a fork 
  } finally {preview.destroy();}
 });
 
-test('preview play snapshots session overrides and restart refreshes unplaced item definitions',()=>{
+test('preview play snapshots authored overrides and restart refreshes unplaced item definitions',()=>{
  environment();
  const project=createProject(),chapter=project.chapters[0],overrides=new PreviewOverrides();
  const fork=chapter.nodes.find(node=>node.id==='route');fork.introEnabled=false;
@@ -125,15 +125,19 @@ test('preview play snapshots session overrides and restart refreshes unplaced it
   assert.equal(preview.state.variables.energy,4,'active playback keeps its detached session snapshot');
   assert.deepEqual(preview.state.collectedItems,[]);
   preview.restart();
+  acceptPreviewCard(preview);
+  assert.equal(preview.state.variables.energy,4,'restart preserves the active project snapshot');
+  assert.deepEqual(preview.state.collectedItems,[]);
+  preview.play(project,chapter.id,'arrival');
   assert.ok(preview.compiled.library.some(card=>card.id===item.id));
   assert.ok(preview.compiled.library.some(card=>card.id===dependency.id));
   acceptPreviewCard(preview);
   assert.equal(preview.state.collectedItems[0].definitionId,item.id);
-  assert.ok(!compileChapter(project,chapter.id).library.some(card=>card.id===item.id));
+  assert.ok(compileChapter(project,chapter.id).library.some(card=>card.id===item.id));
  } finally {preview.destroy();}
 });
 
-test('next chapter and its restart compile and apply its session-only unplaced item override',()=>{
+test('next chapter and its restart compile and apply its saved unplaced item override',()=>{
  environment();
  const project=createProject(),first=project.chapters[0],second=structuredClone(first),overrides=new PreviewOverrides();
  second.id='second';second.name='Second';first.nextChapterId=second.id;project.chapters.push(second);restoreFixtureDefaults(project);
