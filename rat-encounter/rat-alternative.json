@@ -1,0 +1,527 @@
+{
+  "version": 3,
+  "kind": "nest-project",
+  "id": "alternative-rat-combat-example",
+  "name": "Rat encounter — opposed preparation",
+  "allowCycles": true,
+  "ownedItemsVisibility": "disabled",
+  "unavailableActions": "disabled",
+  "activeChapterId": "chapter-1",
+  "startChapterId": "chapter-1",
+  "library": [
+    {
+      "id": "arrival",
+      "kind": "event",
+      "name": "Arrival",
+      "showName": false,
+      "text": "Your expedition begins at the edge of the city.",
+      "image": "./assets/img/city.png",
+      "effects": [],
+      "heading": ""
+    },
+    {
+      "id": "flashlight",
+      "kind": "item",
+      "name": "Flashlight",
+      "showName": true,
+      "text": "",
+      "image": "./assets/img/flashlight.png",
+      "onCollect": [],
+      "permability": 0
+    },
+    {
+      "id": "explore",
+      "kind": "action",
+      "name": "Explore",
+      "showName": false,
+      "text": "Follow the corridor",
+      "image": "./assets/img/corridor_02.png",
+      "conditions": [],
+      "costs": [],
+      "effects": [],
+      "resolution": "direct",
+      "check": {
+        "pool": [
+          {
+            "sides": 20,
+            "count": 1
+          }
+        ],
+        "modifier": 0,
+        "target": 10
+      },
+      "successEffects": [],
+      "failureEffects": []
+    },
+    {
+      "id": "player-hit",
+      "kind": "effect",
+      "name": "Player health damage",
+      "showName": true,
+      "text": "You take damage!",
+      "image": "./assets/img/player_hit.png",
+      "headingFromDescription": true,
+      "imageScale": 80,
+      "imageOffsetY": 3
+    },
+    {
+      "id": "chapter-1-death-caption",
+      "kind": "caption",
+      "name": "Caption",
+      "showName": false,
+      "text": "So.. this is how it feels. And suddenly you feel nothing. You die.",
+      "image": "",
+      "effects": [],
+      "visibility": "local",
+      "chapterId": "chapter-1"
+    },
+    {
+      "id": "rat",
+      "kind": "enemy",
+      "name": "Rat",
+      "showName": true,
+      "text": "A rat jumps out of the corner!",
+      "image": "./assets/img/rat.png",
+      "health": 8,
+      "actions": [
+        {
+          "id": "bite",
+          "kind": "combatAction",
+          "name": "Bite",
+          "showName": true,
+          "text": "The rat attacks!",
+          "image": "./assets/img/Gemini_Generated_Image_mwbnlrmwbnlrmwbn.jpeg",
+          "type": "attack",
+          "conditions": [],
+          "costs": [],
+          "effects": [],
+          "resolution": "check",
+          "check": {
+            "pool": [
+              {
+                "sides": 6,
+                "count": 3
+              }
+            ],
+            "modifier": 0,
+            "target": 10
+          },
+          "successEffects": [],
+          "failureEffects": [],
+          "target": "opponent",
+          "attack": {
+            "source": "self",
+            "damage": {
+              "min": 2,
+              "max": 2
+            },
+            "minBonus": 0,
+            "maxBonus": 0
+          },
+          "cooldown": 0,
+          "flipImage": true,
+          "imageScale": 116,
+          "imageOffsetX": -9,
+          "imageOffsetY": 22
+        },
+        {
+          "id": "rat-prepare",
+          "kind": "combatAction",
+          "name": "Prepare",
+          "showName": true,
+          "text": "The rat prepares…",
+          "image": "./assets/img/Gemini_Generated_Image_mj65lrmj65lrmj6522.png",
+          "type": "prepare",
+          "conditions": [],
+          "costs": [],
+          "effects": [],
+          "resolution": "direct",
+          "check": {
+            "pool": [
+              {
+                "sides": 6,
+                "count": 3
+              }
+            ],
+            "modifier": 0,
+            "target": 11
+          },
+          "successEffects": [],
+          "failureEffects": [],
+          "target": "opponent",
+          "attack": {
+            "source": "self",
+            "damage": {
+              "min": 1,
+              "max": 2
+            },
+            "minBonus": 0,
+            "maxBonus": 0
+          },
+          "cooldown": 0,
+          "damageReduction": 4,
+          "preparationBonus": 2,
+          "imageOffsetX": 3,
+          "imageScale": 95,
+          "imageOffsetY": 6,
+          "flipImage": true
+        }
+      ],
+      "hit": {
+        "id": "rat-hit",
+        "kind": "effect",
+        "name": "Health damage",
+        "showName": true,
+        "text": "Rat takes damage!",
+        "image": "./assets/img/rat_hit.png",
+        "headingFromDescription": true,
+        "imageScale": 85,
+        "imageOffsetX": 5,
+        "imageOffsetY": 3
+      },
+      "reactions": [],
+      "death": [
+        {
+          "id": "rat-dead",
+          "kind": "caption",
+          "name": "Caption",
+          "image": "",
+          "text": "The rat falls down dead in a puddle of its own blood."
+        }
+      ],
+      "mechanics": "opposed-preparation",
+      "preparationCards": {
+        "block": {
+          "id": "rat-preparation-block",
+          "kind": "caption",
+          "name": "Block reveal",
+          "showName": true,
+          "text": "Rat attempts block.",
+          "image": "",
+          "effects": []
+        },
+        "charge": {
+          "id": "rat-preparation-charge",
+          "kind": "event",
+          "name": "Charge reveal",
+          "showName": true,
+          "text": "Rat rushes!",
+          "image": "./assets/img/Gemini_Generated_Image_mwbnlrmwbnlrmwbn.png",
+          "effects": [],
+          "flipImage": true,
+          "imageOffsetX": 16
+        },
+        "blocked": {
+          "id": "rat-preparation-blocked",
+          "kind": "caption",
+          "name": "Blocked attack",
+          "showName": true,
+          "text": "Rat blocks your attack.",
+          "image": "",
+          "effects": []
+        },
+        "hold": {
+          "id": "rat-preparation-hold",
+          "kind": "caption",
+          "name": "Holds ground",
+          "showName": true,
+          "text": "The rat holds ground.",
+          "image": "",
+          "effects": []
+        }
+      }
+    },
+    {
+      "id": "rat-after",
+      "kind": "caption",
+      "name": "After the encounter",
+      "showName": false,
+      "text": "You survived. The corridor stretches ahead.",
+      "image": "",
+      "effects": []
+    },
+    {
+      "id": "alternative-attack",
+      "kind": "combatAction",
+      "name": "Punch",
+      "showName": true,
+      "text": "",
+      "image": "./assets/img/Gemini_Generated_Image_qdryclqdryclqdry.jpeg",
+      "type": "attack",
+      "conditions": [],
+      "costs": [],
+      "effects": [],
+      "resolution": "check",
+      "check": {
+        "pool": [
+          {
+            "sides": 6,
+            "count": 3
+          }
+        ],
+        "modifier": 0,
+        "target": 10
+      },
+      "successEffects": [],
+      "failureEffects": [],
+      "target": "opponent",
+      "attack": {
+        "source": "self",
+        "damage": {
+          "min": 2,
+          "max": 2
+        },
+        "minBonus": 0,
+        "maxBonus": 0
+      },
+      "cooldown": 0,
+      "imageScale": 91,
+      "imageOffsetX": 0,
+      "imageOffsetY": 3
+    },
+    {
+      "id": "alternative-defend",
+      "kind": "combatAction",
+      "name": "Defend",
+      "showName": true,
+      "text": "",
+      "image": "./assets/img/Gemini_Generated_Image_mpms5ampms5ampms.jpeg",
+      "type": "defend",
+      "conditions": [],
+      "costs": [
+        {
+          "source": "variable",
+          "key": "energy",
+          "amount": 1
+        }
+      ],
+      "effects": [],
+      "resolution": "direct",
+      "check": {
+        "pool": [
+          {
+            "sides": 6,
+            "count": 3
+          }
+        ],
+        "modifier": 0,
+        "target": 11
+      },
+      "successEffects": [],
+      "failureEffects": [],
+      "target": "opponent",
+      "attack": {
+        "source": "self",
+        "damage": {
+          "min": 1,
+          "max": 1
+        },
+        "minBonus": 0,
+        "maxBonus": 0
+      },
+      "cooldown": 0,
+      "damageReduction": 4,
+      "imageOffsetY": 7
+    },
+    {
+      "id": "alternative-preparation",
+      "kind": "combatAction",
+      "name": "Preparation",
+      "showName": true,
+      "text": "",
+      "image": "./assets/img/watermarked_img_7073244178038931334.png",
+      "type": "prepare",
+      "conditions": [],
+      "costs": [],
+      "effects": [],
+      "resolution": "direct",
+      "check": {
+        "pool": [
+          {
+            "sides": 6,
+            "count": 3
+          }
+        ],
+        "modifier": 0,
+        "target": 11
+      },
+      "successEffects": [],
+      "failureEffects": [],
+      "target": "opponent",
+      "attack": {
+        "source": "self",
+        "damage": {
+          "min": 1,
+          "max": 1
+        },
+        "minBonus": 0,
+        "maxBonus": 0
+      },
+      "cooldown": 0,
+      "preparationBonus": 2,
+      "flipImage": true,
+      "imageOffsetY": -10,
+      "imageScale": 111,
+      "imageOffsetX": -3
+    },
+    {
+      "id": "action-0805f093-26fa-41bf-bfe3-abb248845aae",
+      "kind": "action",
+      "name": "Action",
+      "showName": false,
+      "text": "",
+      "image": "",
+      "conditions": [],
+      "costs": [],
+      "effects": [],
+      "resolution": "check",
+      "check": {
+        "mode": "stat",
+        "modifierVariable": "agility",
+        "difficulty": 9
+      },
+      "successEffects": [],
+      "failureEffects": [],
+      "visibility": "local",
+      "chapterId": "chapter-1"
+    }
+  ],
+  "variables": [
+    {
+      "id": "energy",
+      "name": "Energy",
+      "type": "number",
+      "initial": 3,
+      "min": 0,
+      "max": 10
+    },
+    {
+      "id": "health",
+      "name": "Health",
+      "type": "number",
+      "initial": 10,
+      "min": 0,
+      "max": 10
+    },
+    {
+      "id": "agility",
+      "name": "Agility",
+      "type": "number",
+      "initial": 3,
+      "min": 1,
+      "max": 10,
+      "stat": true,
+      "showInHud": false
+    },
+    {
+      "id": "intelligence",
+      "name": "Intelligence",
+      "type": "number",
+      "initial": 3,
+      "min": 1,
+      "max": 10,
+      "stat": true,
+      "showInHud": false
+    },
+    {
+      "id": "composure",
+      "name": "Composure",
+      "type": "number",
+      "initial": 3,
+      "min": 1,
+      "max": 10,
+      "stat": true,
+      "showInHud": false
+    }
+  ],
+  "chapters": [
+    {
+      "id": "chapter-1",
+      "name": "Rat encounter — opposed preparation",
+      "nextChapterId": null,
+      "variables": [],
+      "startNode": "rat-fight",
+      "nodes": [
+        {
+          "id": "rat-fight",
+          "name": "Rat encounter",
+          "type": "combat",
+          "introEnabled": true,
+          "x": 380,
+          "y": 80,
+          "enemy": {
+            "definitionId": "rat"
+          },
+          "connections": {
+            "victory": "after-rat"
+          }
+        },
+        {
+          "id": "after-rat",
+          "name": "Continue",
+          "type": "linear",
+          "x": 680,
+          "y": 80,
+          "cards": [
+            {
+              "id": "after-card",
+              "definitionId": "rat-after"
+            }
+          ],
+          "connections": {
+            "next": null
+          }
+        },
+        {
+          "id": "chapter-1-death",
+          "name": "Death",
+          "type": "death",
+          "x": 80,
+          "y": 340,
+          "cards": [
+            {
+              "id": "chapter-1-death-card",
+              "definitionId": "chapter-1-death-caption"
+            }
+          ],
+          "connections": {}
+        },
+        {
+          "id": "node-ead068ba-487b-4f9c-bcc9-8c1b080204cd",
+          "name": "Linear",
+          "type": "linear",
+          "x": 399.1259765625,
+          "y": 488.4033203125,
+          "connections": {
+            "next": "rat-fight"
+          },
+          "retainInventoryItems": false,
+          "cards": [
+            {
+              "id": "placement-af0a9b74-7f38-480d-9b4f-b94dfbc42667",
+              "definitionId": "action-0805f093-26fa-41bf-bfe3-abb248845aae"
+            }
+          ]
+        }
+      ],
+      "deathNode": "chapter-1-death"
+    }
+  ],
+  "combat": {
+    "defaultActions": [
+      {
+        "definitionId": "alternative-attack"
+      },
+      {
+        "definitionId": "alternative-defend"
+      },
+      {
+        "definitionId": "alternative-preparation"
+      }
+    ],
+    "playerHit": {
+      "definitionId": "player-hit"
+    }
+  },
+  "showDeathBeat": true
+}
