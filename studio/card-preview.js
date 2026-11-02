@@ -1,3 +1,5 @@
+import {isDodgeFeedback} from './common-library.js';
+import {defendRevealCard} from '../project/combat-model.js';
 import { chapterVariables } from '../project/model.js';
 import { decorateCard } from '../engine/renderer.js';
 import { resolvePlacement } from '../project/cards.js';
@@ -23,7 +25,8 @@ export function renderCardPreviews(root,project,node,chapterId) {
   const chapter=project.chapters?.find(chapter=>placement?(chapterId?chapter.id===chapterId:chapter.nodes.includes(node)):owner.visibility==='local'&&chapter.id===owner.chapterId);
   const variables=chapterVariables(project,chapter).map(variable=>({...variable,initial:chapter?.initialValues?.[variable.id]??variable.initial}));
   const values=Object.fromEntries(variables.map(variable=>[variable.id,variable.initial]));
-  const typed={...card,itemTags:project.itemTags||[]};
+  const reveal=/^(?:combat\.actions\.\d+\.)?blockReveal$/.test(mount.dataset.previewPath??'');
+  const typed={...(reveal||isDodgeFeedback(project,card)?defendRevealCard(card):card),...(card.kind==='effect'&&project.combat?.playerHit?.definitionId===card.id?{showValue:true}:{}),itemTags:project.itemTags||[]};
   const eligible=card.kind==='combatAction'&&(card.type??'attack')==='attack'&&!enemyAction;
   let controls=preparedControls.get(mount);
   // Thumbnail lists stay compact; the switch belongs above the full card.

@@ -12,7 +12,7 @@ export function cardFace(card, variables=[], library=[], values,descriptionConte
   cardKind,
   prepared:authoredKind==='combatAction'&&descriptionContext.preparationBonus>0&&(card.type??'attack')==='attack',
   ...(cardKind==='action'?{actionEnergyCost:actionEnergyCost(card),actionHealthCost:actionHealthCost(card)}:{}),
-  ...(isConsumableKind(cardKind)?{value:authoredKind==='effect'?(card.value??-2):card.value}:{}),
+  ...(isConsumableKind(cardKind)?{value:authoredKind==='effect'?(card.value??-2):card.value,...(authoredKind==='effect'?{showValue:card.showValue!==false}:{})}:{}),
   ...(authoredKind==='effect'?{typeLabel:'EFFECT'}:authoredKind==='combatAction'?{typeLabel:descriptionContext.preparationBonus>0&&(card.type??'attack')==='attack'?'PREPARED':(card.type??'attack').toUpperCase()}:authoredKind==='item'&&card.subtype==='weapon'?{typeLabel:'WEAPON'}:{}),
   ...(card?.inventoryLabel?{inventoryLabel:card.inventoryLabel}:{}),
   heading:authoredKind==='effect'?description:(cardKind==='action'||(cardKind==='item'||isConsumableKind(cardKind))&&card?.showName===true)?(card?.name ?? card?.label ?? 'Continue'):'',

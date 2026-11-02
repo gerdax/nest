@@ -11,6 +11,7 @@ export function restoreFixtureDefaults(project) {
   // Replacing the Library discards its default definitions as well as fixtures.
   if(project.combat?.defaultActions?.some(reference=>!definitions.has(reference.definitionId)))delete project.combat.defaultActions;
   if(project.combat?.playerHit&&!definitions.has(project.combat.playerHit.definitionId))delete project.combat.playerHit;
+  if(project.combat?.playerDodge&&!definitions.has(project.combat.playerDodge.definitionId))delete project.combat.playerDodge;
   for(const chapter of project.chapters) {
     const selected=chapter.nodes.find(node=>node.id===chapter.deathNode&&node.type==='death');
     if(!selected){delete chapter.deathNode;continue;}

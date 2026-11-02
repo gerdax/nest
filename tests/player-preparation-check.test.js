@@ -87,5 +87,5 @@ test('Defend remains direct and guarantees the block regardless of player stats'
  const shown=h.deck.content.actions.find(action=>action.id===choice.id);assert.equal(shown.checkInfo,undefined);
  h.host.variables.agility=10;h.host.variables.composure=10;
  const promise=h.c.accept({contentId:h.deck.content.id,action:{id:choice.id}});await tick();assert.equal(h.rolls.length,0);assert.equal(h.host.variables.energy,2);
- h.deck.depart();await promise;assert.deepEqual(h.rolls.map(roll=>roll.color),['black']);assert.equal(h.host.variables.health,10);assert.equal(h.c.pending.damage,0);assert.equal(h.c.phase,'effects');assert.equal(h.deck.content.text,'You blocked the attack');await swipe(h);assert.equal(h.c.phase,'choice');h.c.dispose();
+ h.deck.depart();await promise;assert.deepEqual(h.rolls.map(roll=>roll.color),['black']);assert.equal(h.host.variables.health,10);assert.equal(h.c.pending.damage,0);assert.equal(h.c.phase,'effects');assert.equal(h.deck.content.heading,'You dodge!');await swipe(h);assert.equal(h.c.phase,'choice');h.c.dispose();
 });

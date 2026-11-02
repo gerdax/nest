@@ -70,13 +70,13 @@ test('C: lethal player damage cancels charge and completes victory after death c
 });
 test('D: paid player defense guarantees a full block without a defense roll',async()=>{
  const h=harness({declaration:'charge'});await prepared(h);const choice=h.c.choices().find(choice=>choice.action.type==='defend');const promise=h.c.accept({contentId:h.deck.content.id,action:{id:choice.id}});await tick();assert.equal(h.host.variables.energy,2);assert.equal(h.rolls.length,0);h.deck.depart();await promise;
- assert.deepEqual(h.rolls.map(r=>r.color),['black']);assert.equal(h.feedback.at(-1).label,'SUCCESS');assert.equal(h.c.pending.damage,0);assert.equal(h.deck.content.text,'You blocked the attack');assert.equal(h.host.variables.health,10);assert.equal(h.host.variables.energy,2);assert.equal(h.c.phase,'effects');await swipe(h);assert.equal(h.c.phase,'choice');assert.equal(h.c.pending,null);h.c.dispose();
+ assert.deepEqual(h.rolls.map(r=>r.color),['black']);assert.equal(h.feedback.at(-1).label,'SUCCESS');assert.equal(h.c.pending.damage,0);assert.equal(h.deck.content.heading,'You dodge!');assert.equal(h.host.variables.health,10);assert.equal(h.host.variables.energy,2);assert.equal(h.c.phase,'effects');await swipe(h);assert.equal(h.c.phase,'choice');assert.equal(h.c.pending,null);h.c.dispose();
 });
 test('D: hit or missed charge consumes the paid defense without a player roll',async()=>{
  for(const dice of [[[1,1,1]],[[4,4,4]]]){
   const h=harness({declaration:'charge',dice});await prepared(h);await select(h,'Defend');
   assert.equal(h.rolls.length,1);assert.equal(h.host.variables.energy,2);
-  if(h.feedback.at(-1).label==='SUCCESS'){assert.equal(h.c.phase,'effects');assert.equal(h.deck.content.text,'You blocked the attack');await swipe(h);}
+  if(h.feedback.at(-1).label==='SUCCESS'){assert.equal(h.c.phase,'effects');assert.equal(h.deck.content.heading,'You dodge!');await swipe(h);}
   assert.equal(h.c.phase,'choice');assert.equal(h.c.pending,null);assert.equal(h.c.sequence,null);
   assert.equal(h.host.variables.health,10);assert.equal(h.c.playerDefense,null);
   h.c.dispose();
@@ -93,7 +93,7 @@ test('preparation survives incoming charge and makes the following attack deal f
 test('charge roll failure retries without charging guaranteed defense again',async()=>{
  const h=harness({declaration:'charge',dice:[new Error('Dice unavailable'),[4,4,4]]});
  await prepared(h);await select(h,'Defend');assert.equal(h.c.phase,'error');assert.equal(h.host.variables.energy,2);assert.equal(h.rolls.length,1);
- await h.c.retry();assert.equal(h.c.phase,'effects');assert.equal(h.deck.content.text,'You blocked the attack');assert.equal(h.rolls.length,2);assert.equal(h.host.variables.energy,2);
+ await h.c.retry();assert.equal(h.c.phase,'effects');assert.equal(h.deck.content.heading,'You dodge!');assert.equal(h.rolls.length,2);assert.equal(h.host.variables.energy,2);
  await swipe(h);assert.equal(h.c.phase,'choice');assert.equal(h.c.pending,null);assert.equal(h.host.variables.health,10);assert.equal(h.c.encounter.round,2);h.c.dispose();
 });
 test('failed defensive reveal preserves the player roll and pays the attack cost once',async()=>{
@@ -181,18 +181,36 @@ test('guaranteed defense also blocks the next ordinary Bite without a player rol
  assert.equal(h.host.variables.health,8);assert.equal(h.c.phase,'choice');
  await select(h,'Defend');assert.equal(h.host.variables.energy,2);
  assert.deepEqual(h.rolls.map(r=>r.color),['black','black']);assert.equal(h.host.variables.health,8);
- assert.equal(h.c.phase,'effects');assert.equal(h.deck.content.text,'You blocked the attack');await swipe(h);assert.equal(h.c.phase,'choice');assert.equal(h.c.playerDefense,null);h.c.dispose();
+ assert.equal(h.c.phase,'effects');assert.equal(h.deck.content.heading,'You dodge!');await swipe(h);assert.equal(h.c.phase,'choice');assert.equal(h.c.playerDefense,null);h.c.dispose();
 });
 
 test('player block reveal uses the active Defend artwork and survives presentation retry without rerolling or repaying',async()=>{
  const h=harness({declaration:'charge'});await prepared(h);
  const defend=h.host.compiled.library.find(d=>d.id==='alternative-defend');
- defend.blockReveal={id:'custom-player-block',kind:'event',name:'Block reveal',text:'My shield stops the blow',image:'shield.png',imageScale:127,imageOffsetX:5,imageOffsetY:-6,flipImage:true,effects:[]};
+ const feedback=h.host.compiled.library.find(d=>d.id===(defend.reveal?.definitionId||h.host.compiled.combat.playerDodge.definitionId));
+ Object.assign(feedback,{text:'My shield stops the blow',image:'shield.png',imageScale:127,imageOffsetX:5,imageOffsetY:-6,flipImage:true});
  const native=h.deck.transitionContent.bind(h.deck);let fail=true;
- h.deck.transitionContent=async(content,options)=>{if(fail&&content.text==='My shield stops the blow'){fail=false;return false;}return native(content,options);};
+ h.deck.transitionContent=async(content,options)=>{if(fail&&content.heading==='My shield stops the blow'){fail=false;return false;}return native(content,options);};
  await select(h,'Defend');assert.equal(h.c.phase,'error');assert.equal(h.host.variables.energy,2);assert.equal(h.rolls.length,1);
- await h.c.retry();assert.equal(h.c.phase,'effects');assert.equal(h.c.sequence.steps[0].definitionId,defend.id);
- for(const key of ['text','image','imageScale','imageOffsetX','imageOffsetY','flipImage'])assert.equal(h.deck.content[key],defend.blockReveal[key]);
+ await h.c.retry();assert.equal(h.c.phase,'effects');assert.equal(h.c.sequence.steps[0].definitionId,feedback.id);
+ assert.equal(h.deck.content.heading,feedback.text);assert.equal(h.deck.content.typeLabel,'EFFECT');assert.equal(h.deck.content.showValue,false);
+ for(const key of ['image','imageScale','imageOffsetX','imageOffsetY','flipImage'])assert.equal(h.deck.content[key],feedback[key]);
  assert.equal(h.host.variables.health,10);assert.equal(h.host.variables.energy,2);assert.equal(h.rolls.length,1);
  await swipe(h);assert.equal(h.c.phase,'choice');assert.equal(h.c.pending,null);assert.equal(h.host.variables.health,10);assert.equal(h.host.variables.energy,2);h.c.dispose();
+});
+
+test('failed post-block handoff retries its animation and frozen next declaration without replaying the attack',async()=>{
+ const h=harness();await prepared(h);h.samples.push(.75,0);
+ const native=h.deck.transitionContent.bind(h.deck),turns=[];let fail=true;
+ h.deck.transitionContent=async(content,options)=>{
+  if(options.transition==='front-turn'&&options.presentation!=='open'){
+   turns.push(content.heading);if(fail){fail=false;return false;}
+  }
+  return native(content,options);
+ };
+ await select(h,'Attack');assert.equal(h.c.phase,'error');assert.match(h.errors[0].message,/Enemy card transition unavailable/);
+ assert.equal(h.rolls.length,2);assert.equal(h.c.encounter.enemyHp,8);assert.equal(h.c.encounter.round,2);
+ const draws=h.draws;await h.c.retry();
+ assert.deepEqual(turns,['The rat prepares…','The rat prepares…']);assert.equal(h.draws,draws);assert.equal(h.rolls.length,2);
+ assert.equal(h.c.phase,'enemy-action');assert.equal(h.c.encounter.round,2);h.c.dispose();
 });

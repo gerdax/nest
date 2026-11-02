@@ -12,8 +12,8 @@ import {transactDocument} from '../studio/document-session.js';
 const selection=p=>({chapterId:p.chapters[0].id,selected:p.chapters[0].startNode});
 test('Library Common has direct default Action and fixed player feedback entries',()=>{
  const p=createRatCombatProject(),groups=commonLibraryGroups(p),html=commonLibrary(p);
- assert.deepEqual(groups.actions.map(row=>row.definition.name),['Punch','Defend','Prepare']);assert.equal(groups.hit.definition.kind,'effect');assert.equal(groups.unassigned.length,0);
- assert(html.includes('Combat Actions'));assert(html.includes('Damage received'));assert(html.includes('data-command="add-common-action"'));
+ assert.deepEqual(groups.actions.map(row=>row.definition.name),['Punch','Defend','Prepare']);assert.equal(groups.hit.definition.kind,'effect');assert.equal(groups.dodge.definition.kind,'effect');assert.equal(groups.unassigned.length,0);
+ assert(html.includes('Combat Actions'));assert(html.includes('Damage'));assert(html.includes('Dodge'));assert(html.includes(`data-preview-definition="${groups.dodge.id}"`));assert(html.includes('data-command="add-common-action"'));
  assert(html.includes('data-preview-definition="punch"'));assert(html.includes(`data-preview-definition="${groups.hit.id}"`));
  assert(!projectSettingsInspector(p).includes('combat.defaultActions'));assert(!projectSettingsInspector(p).includes('combat.playerHit'));
  const doc=readFileSync(new URL('../editor.html',import.meta.url),'utf8');assert(doc.includes('role="tablist" aria-label="Library"'));assert(doc.includes('>Content</button>'));assert(doc.includes('>Common</button>'));
@@ -84,4 +84,18 @@ test('incomplete Common Actions remain selectable and summary values are escaped
  assert.deepEqual(combatActionSummary(p,action),['Damage: Not configured · Check: Not configured']);
  p.variables.find(v=>v.id==='energy').name='<b>Fuel</b>';action.costs=[{source:'variable',key:'energy',amount:1}];
  assert(commonLibrary(p).includes('Cost: 1 &lt;b&gt;Fuel&lt;/b&gt;'));
+});
+
+test('Dodge feedback has independent Library presentation, generic help, and required deletion protection',()=>{
+ const p=createProject(),dodge=p.library.find(d=>d.id===p.combat.playerDodge.definitionId);
+ const html=definitionInspector(p,dodge),controls=commonRoleControls(p,dodge);
+ assert(!html.includes('resolved signed health change'));assert(!html.includes('Preview sample'));
+ assert(controls.includes('Dodge feedback'));assert(!controls.includes('Use for damage'));
+ assert.throws(()=>applyDocumentCommand(p,selection(p),'delete-common-card',{id:dodge.id}),/required/);
+ const action=p.library.find(d=>d.type==='defend'),custom={...dodge,id:'custom-dodge',name:'Shield parry'};
+ p.library.push(custom);action.reveal={definitionId:custom.id};
+ const groups=commonLibraryGroups(p);assert(groups.feedback.some(entry=>entry.id===custom.id));
+ assert(!groups.unassigned.some(entry=>entry.id===custom.id));
+ const library=commonLibrary(p);assert(library.indexOf('Shield parry')>library.indexOf('Effects Feedback'));
+ assert(!definitionInspector(p,custom).includes('Preview sample'));
 });

@@ -1,5 +1,5 @@
 import {createProject} from './model-data.js';
-import {createCombatAction,createWeapon,createEnemy,createEnemyAction,ensureEnemyPreparationCards,ensurePlayerBlockReveal} from './combat-model.js';
+import {createCombatAction,createWeapon,createEnemy,createEnemyAction,ensureEnemyPreparationCards,ensurePlayerBlockReveal,ensureCombatDefaults} from './combat-model.js';
 /** Explicit sample only. Never installed into the user's current project automatically. */
 export function createRatCombatProject(){
  const project=createProject();project.id='rat-combat-example';project.name='Rat encounter';
@@ -38,5 +38,5 @@ export function createAlternativeRatCombatProject(){
  enemy.actions=[bite,prepare];
  ensureEnemyPreparationCards(enemy);
  chapter.nodes=chapter.nodes.filter(node=>node.id!=='take-pistol');chapter.startNode='rat-fight';
- return project;
+ return ensureCombatDefaults(project);
 }

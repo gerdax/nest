@@ -14,7 +14,7 @@ function walk(value, visit, path = []) {
 /** Typed definition slots use a single object reference shape across settings,
  * Weapon links, Combat beats, placements and clipboard/import remapping. */
 export function definitionReferenceKind(path) {
-  return path.includes('defaultActions') || path.includes('actions') ? 'combatAction'
+  return path.includes('playerDodge') || path.includes('reveal') ? 'effect' : path.includes('defaultActions') || path.includes('actions') ? 'combatAction'
     : path.includes('playerHit') ? 'effect' : path.includes('enemy') ? 'enemy' : 'placement';
 }
 export function enumerateDefinitionReferences(value) {

@@ -1,4 +1,4 @@
-import { combatDefinitionFields,combatProjectFields,combatNodeFields,combatActionTypeField } from './combat-authoring.js';
+import { combatDefinitionFields,combatProjectFields,combatNodeFields,combatActionTypeField,defendRevealFields } from './combat-authoring.js';
 import { cardRuleIndicators } from './card-rule-indicators.js';
 import { itemTagsEditor } from './item-tags.js';
 import { cardLabel, cardFallbackLabel } from './card-label.js';
@@ -42,6 +42,7 @@ export function cardFields(project,definition,scope='definition',showPreview=tru
  if(scope==='definition'&&(definition.kind==='enemy'||definition.kind==='item'&&definition.subtype==='weapon'))html+=(showPreview?`<div class="inspector-card-preview" data-card-preview data-preview-definition="${esc(definition.id)}"></div>`:'')+artworkControls(definition,scope);
  if(scope==='definition')html+=combatDefinitionFields(project,definition);
  if(showPreview&&definition.kind!=='enemy'&&!(definition.kind==='item'&&definition.subtype==='weapon'))html+=`<div class="inspector-card-preview" data-card-preview data-preview-definition="${esc(definition.id)}"></div>`+artworkControls(definition,scope);
+ if(scope==='definition'&&definition.kind==='combatAction')html+=defendRevealFields(project,definition);
  return html;
 }
 function cardRuleFields(project,definition,scope,chapter) {

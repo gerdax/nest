@@ -180,7 +180,8 @@ export function validateProject(project, {allowDraft = false} = {}) {
     if(d.kind==='combatAction'){
       if(!enemyAction&&d.type==='defend'){
         const card=d.blockReveal,cardLabel=`${label} / Block reveal`;
-        embedded(card,['event','caption'],cardLabel);
+        if(Object.hasOwn(d,'blockReveal'))embedded(card,['effect','event','caption'],cardLabel);
+        if(Object.hasOwn(d,'reveal')){if(!object(d.reveal)||typeof d.reveal.definitionId!=='string')add(`${label}: invalid Reveal reference`);else if(d.reveal.definitionId){typedRef(d.reveal,'effect',`${label} / Reveal`);if(d.reveal.definitionId===project.combat?.playerHit?.definitionId)add(`${label}: Reveal cannot use Damage received`);}}
         if(object(card)){
           if(definitions.has(card.id)||(ownerIdCounts.get(source??d)?.get(card.id)||0)>1)add(`${cardLabel}: duplicate embedded identity ${card.id}`);
           for(const key of ['effects','onCollect','successEffects','failureEffects'])if(card[key]!==undefined&&(!Array.isArray(card[key])||card[key].length))add(`${cardLabel}: block reveal is presentation only and cannot apply independent effects`);
@@ -335,7 +336,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
   }
   if(typeof project.showDeathBeat!=='boolean')add('Show death beat must be a boolean');
   if(!object(project.combat))add('Project requires combat settings');
-  else {if(!Array.isArray(project.combat.defaultActions))add('Default combat Actions must be a list');else {if(new Set(project.combat.defaultActions.map(r=>r?.definitionId)).size!==project.combat.defaultActions.length)add('Duplicate Default combat Action');for(const ref of project.combat.defaultActions){typedRef(ref,'combatAction','Default combat Action');if(definitions.get(ref?.definitionId)?.type==='attack'&&definitions.get(ref?.definitionId)?.attack?.source==='weapon')add('Default combat Action requires a source Weapon');}}typedRef(project.combat.playerHit,'effect','Player Hit');}
+  else {if(!Array.isArray(project.combat.defaultActions))add('Default combat Actions must be a list');else {if(new Set(project.combat.defaultActions.map(r=>r?.definitionId)).size!==project.combat.defaultActions.length)add('Duplicate Default combat Action');for(const ref of project.combat.defaultActions){typedRef(ref,'combatAction','Default combat Action');if(definitions.get(ref?.definitionId)?.type==='attack'&&definitions.get(ref?.definitionId)?.attack?.source==='weapon')add('Default combat Action requires a source Weapon');}}typedRef(project.combat.playerHit,'effect','Player Hit');typedRef(project.combat.playerDodge,'effect','Player Dodge');if(project.combat.playerDodge?.definitionId===project.combat.playerHit?.definitionId)add('Dodge and Damage received require separate Feedback definitions');}
   if (!allowDraft && !chapterIds.has(project.activeChapterId)) add(errorMessage('VALIDATION_ACTIVE_CHAPTER_MUST_EXIST'));
   for (const chapter of chapters) {
     if (!object(chapter)) continue;

@@ -240,3 +240,41 @@ test('checkbox above a full attack preview redraws the card prepared without mod
   assert.equal(card.text,'New[IF:PREPARED] +[PREPBONUS][ENDIF]');
  }finally{document.createElement=originalCreate;}
 });
+
+test('Defend Reveal previews use Effect feedback without a value, preserving legacy card data and health feedback values',()=>{
+ const project=createProject();
+ for(const kind of ['caption','event','effect']){
+  const reveal={id:`reveal-${kind}`,kind,name:'Authored reveal',text:'You dodged!',image:'dodge.png',imageScale:135,imageOffsetX:7,flipImage:true,effects:[]};
+  const action={id:`defend-${kind}`,kind:'combatAction',type:'defend',blockReveal:reveal};
+  const weapon={id:`shield-${kind}`,kind:'item',subtype:'weapon',combat:{actions:[action]}};
+  project.library.push(action,weapon);
+  for(const [owner,path] of [[action,'blockReveal'],[weapon,'combat.actions.0.blockReveal']]){
+   const original=structuredClone(reveal),mount=new Element();
+   Object.assign(mount.dataset,{previewDefinition:owner.id,previewPath:path});
+   renderCardPreviews({querySelectorAll:()=>[mount]},project,null);
+   const front=mount.children[0];
+   assert.equal(front.attrs['data-card-kind'],'health');
+   assert.equal(front.children.find(c=>c.className==='nest-card-type').textContent,'EFFECT');
+   assert.equal(front.children[0].children[0].textContent,'You dodged!');
+   assert.equal(front.children.find(c=>c.className==='nest-card-value'),undefined);
+   assert.equal(front.children[1].style.backgroundImage,'url("dodge.png")');
+   assert.deepEqual(reveal,original);
+  }
+ }
+ const front=new Element(),face=cardFace({kind:'effect',text:'You take damage!',value:-2});
+ decorateCard(null,front,face.image,face.heading,face.text,false,face);
+ assert.equal(front.children.find(c=>c.className==='nest-card-value').children[0].textContent,'-2');
+});
+
+test('shared and custom Dodge Feedback previews omit numbers while damage feedback keeps its sample',()=>{
+ const project=createProject(),dodge=project.library.find(d=>d.id===project.combat.playerDodge.definitionId);
+ const custom={...dodge,id:'custom-dodge-preview',name:'Parry'};
+ const hit=project.library.find(d=>d.id===project.combat.playerHit.definitionId);hit.showValue=false;
+ project.library.push(custom);project.library.find(d=>d.type==='defend').reveal={definitionId:custom.id};
+ for(const [id,showValue] of [[dodge.id,false],[custom.id,false],[project.combat.playerHit.definitionId,true]]){
+  const mount=new Element();mount.dataset.previewDefinition=id;renderCardPreviews({querySelectorAll:()=>[mount]},project,null);
+  const front=mount.children[0];assert.equal(front.children.find(c=>c.className==='nest-card-type').textContent,'EFFECT');
+  assert.equal(!!front.children.find(c=>c.className==='nest-card-value'),showValue);
+ }
+ assert.equal(hit.showValue,false);
+});

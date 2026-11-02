@@ -22,20 +22,36 @@ export function ensureEnemyPreparationCards(enemy,used=new Set()){
  }
  return enemy;
 }
+// Legacy reveals keep their authored data; every Defend reveal uses Effect styling.
+export const defendRevealCard=card=>({...card,kind:'effect',showValue:false});
 /** Presentation-only feedback owned by a player Defend Action. */
 export function ensurePlayerBlockReveal(action,used=new Set()){
- if(action?.kind!=='combatAction'||action.type!=='defend'||Object.hasOwn(action,'blockReveal'))return action;
+ if(action?.kind!=='combatAction'||action.type!=='defend'||Object.hasOwn(action,'blockReveal')||Object.hasOwn(action,'reveal'))return action;
  const collect=value=>{if(Array.isArray(value))value.forEach(collect);else if(object(value)){if(typeof value.id==='string')used.add(value.id);Object.values(value).forEach(collect);}};collect(action);
- action.blockReveal={...base(allocate(`${action.id}-block-reveal`,used),'caption','Block reveal'),text:'You blocked the attack',effects:[]};
+ action.blockReveal={...createEffectCard(allocate(`${action.id}-block-reveal`,used)),name:'Reveal',text:'You blocked the attack',effects:[]};
  return action;
 }
 export function migratePlayerBlockReveals(project){
  if(!object(project)||!Array.isArray(project.library))return project;
  const used=new Set();
  const collect=value=>{if(Array.isArray(value))value.forEach(collect);else if(object(value)){if(typeof value.id==='string')used.add(value.id);Object.values(value).forEach(collect);}};collect(project);
- for(const definition of project.library){
-  ensurePlayerBlockReveal(definition,used);
-  if(definition?.kind==='item'&&definition.subtype==='weapon')for(const action of Array.isArray(definition.combat?.actions)?definition.combat.actions:[])ensurePlayerBlockReveal(action,used);
+ const actions=project.library.flatMap(d=>d?.kind==='combatAction'?[d]:d?.kind==='item'&&d.subtype==='weapon'&&Array.isArray(d.combat?.actions)?d.combat.actions:[]).filter(a=>a?.kind==='combatAction'&&a.type==='defend');
+ for(const action of actions)ensurePlayerBlockReveal(action,used);
+ if(!object(project.combat))return project;
+ const valid=card=>object(card)&&['effect','event','caption'].includes(card.kind)&&['id','name','text','image'].every(k=>typeof card[k]==='string')&&['effects','onCollect','successEffects','failureEffects'].every(k=>card[k]===undefined||Array.isArray(card[k])&&!card[k].length);
+ const defaults=new Set((project.combat.defaultActions??[]).map(ref=>ref?.definitionId));
+ const seed=actions.find(a=>defaults.has(a.id)&&valid(a.blockReveal));
+ const promoteSeed=!Object.hasOwn(project.combat,'playerDodge');
+ const promote=(card,id,name)=>{const feedback={...defendRevealCard(structuredClone(card)),id:allocate(id,used),name,headingFromDescription:true};delete feedback.visibility;delete feedback.chapterId;delete feedback.showValue;delete feedback.onCollect;delete feedback.successEffects;delete feedback.failureEffects;project.library.push(feedback);return {definitionId:feedback.id};};
+ if(!Object.hasOwn(project.combat,'playerDodge')){
+  project.combat.playerDodge=seed?promote(seed.blockReveal,'player-dodge','Dodge'):(()=>{const card={...createEffectCard('player-dodge'),text:'You dodge!'};return promote(card,'player-dodge','Dodge');})();
+ }
+ for(const action of actions){
+  if(Object.hasOwn(action,'reveal')||!valid(action.blockReveal))continue;
+  const card=action.blockReveal;
+  // Generated legacy defaults use the shared card; authored variants retain their own source.
+  const generated=!card.image&&card.text==='You blocked the attack'&&['Reveal','Block reveal'].includes(card.name);
+  action.reveal=(promoteSeed&&action===seed)||generated?{...project.combat.playerDodge}:promote(card,`${card.id}-feedback`,card.name||'Dodge');
  }
  return project;
 }

@@ -1,3 +1,4 @@
+import {isDodgeFeedback} from './common-library.js';
 import {attackDamageRange} from '../project/combat-rules.js';
 import {field,select,checkbox,button,imageField,artworkEditor,rules,actionResolutionFields,esc} from './forms.js';
 import {createEnemyAction,createEffectCard,createCombatAction} from '../project/combat-model.js';
@@ -16,6 +17,13 @@ function embeddedImage(card,path,definitionId){
 function embeddedCard(card,path,definitionId,{kinds=['event','caption'],heading='Card',fixedLabel=false,editableName=true,collapsible=true}={}){
  if(!card)return '<p class="small">Missing required card.</p>';
  return (collapsible?`<details class="entry combat-embedded" open><summary>${esc(heading)}${fixedLabel?'':` · ${esc(card.name||'Untitled')}`}</summary>`:'')+(editableName?field('Name',card.name,`${path}.name`):'')+ (kinds.length>1?select('Card type',card.kind,kinds.map(k=>[k,k==='event'?'Vignette':k==='effect'?'Feedback':'Caption']),`${path}.kind`):'')+field('Description',card.text,`${path}.text`,'definition','textarea')+embeddedImage(card,path,definitionId)+(collapsible?'</details>':'');
+}
+export function defendRevealFields(project,action,prefix=''){
+ if(action.kind!=='combatAction'||action.type!=='defend')return '';
+ const selected=action.reveal?.definitionId||'',id=selected||project.combat?.playerDodge?.definitionId;
+ const definition=project.library.find(d=>d.id===id&&d.kind==='effect');
+ const options=[['','Default Dodge'],...project.library.filter(d=>d.kind==='effect'&&d.visibility!=='local'&&d.id!==project.combat?.playerHit?.definitionId).map(d=>[d.id,d.name||d.id])];
+ return '<details class="entry combat-embedded"><summary>Reveal</summary>'+select('Feedback effect',selected,options,`${prefix}reveal.definitionId`)+button('Go to definition','go-to-definition',`data-definition="${esc(definition?.id||'')}" ${definition?'':'disabled'}`)+'</details>';
 }
 export function combatActionTypeField(action,prefix='',scope='definition',{enemy=false}={}){
  const types=[['attack','Attack'],['defend','Defend'],['prepare','Prepare'],...(enemy||action.type==='wait'?[['wait','Wait']]:[])];
@@ -39,7 +47,6 @@ function combatActionFields(project,action,prefix='',{enemy=false,showType=true,
   else if(type==='prepare')html+=field('Preparation bonus',action.preparationBonus??2,path('preparationBonus'),'definition','number')+(enemy?field('Damage reduction',action.damageReduction??1,path('damageReduction'),'definition','number')+'<p class="small">Secretly prepares either a block against your next Attack or bonus damage on its next successful Attack. Equal chance; replaces previous preparation. Spends the turn.</p>':'<p class="small">Applies only to your next action. An Attack gains this damage bonus, or breaks defence and deals base damage only. Any other action or a missed Attack consumes preparation. A successful new Prepare replaces it; a failed Prepare clears it. Direct resolution needs no roll. Resets each encounter. Spends the turn.</p>');
   else html+='<p class="small">Direct Action. Passes the turn.</p>';
  }
- if(!enemy&&type==='defend')html+=embeddedCard(action.blockReveal,path('blockReveal'),weapon?.id??action.id,{heading:'Block reveal',fixedLabel:true});
  if(!enemy)html+=field('Cooldown (following player turns)',action.cooldown??0,path('cooldown'),'definition','number')
   +rules(project,action.conditions,path('conditions'),'definition','conditions',{label:'Requirements',help:'All requirements must pass before this action can be selected. Health and Energy equality requirements act as minimums. Requirements do not spend resources.'})
   +rules(project,action.costs,path('costs'),'definition','costs');
@@ -52,12 +59,13 @@ function weaponActions(project,weapon){
  return '<h3>Combat Actions</h3><p class="small">Owned by this Weapon and available while the player carries it.</p>'+(weapon.combat?.actions||[]).map((action,i)=>{
  const path=`combat.actions.${i}`;
  if(action.kind!=='combatAction')return '<p class="small">Missing Combat Action. Restore its source definition to migrate it.</p>';
- return `<details class="entry combat-embedded" open><summary>${esc(action.name||'Combat Action')}</summary>`+field('Name',action.name,`${path}.name`)+combatActionTypeField(action,`${path}.`)+field('Description',action.text,`${path}.text`,'definition','textarea')+combatActionFields(project,action,`${path}.`,{showType:false,weapon})+embeddedImage(action,path,weapon.id)+controls('combat.actions',i,weapon.combat.actions.length)+'</details>';
+ return `<details class="entry combat-embedded" open><summary>${esc(action.name||'Combat Action')}</summary>`+field('Name',action.name,`${path}.name`)+combatActionTypeField(action,`${path}.`)+field('Description',action.text,`${path}.text`,'definition','textarea')+combatActionFields(project,action,`${path}.`,{showType:false,weapon})+embeddedImage(action,path,weapon.id)+defendRevealFields(project,action,`${path}.`)+controls('combat.actions',i,weapon.combat.actions.length)+'</details>';
  }).join('')+add('+ Combat Action','combat.actions','weapon-action');
 }
 export function combatDefinitionFields(project,d){
  if(d.kind==='combatAction')return combatActionFields(project,d,'',{showType:false});
  if(d.kind==='item')return (d.subtype==='weapon'?`<h3>Weapon damage</h3>${damageFields(d.combat?.damage,'combat.damage')}<p class="small">This milestone resolves damage from the Weapon profile. Additional intrinsic effects and statuses are deferred.</p>${weaponActions(project,d)}`:'');
+ if(d.kind==='effect'&&isDodgeFeedback(project,d))return '';
  if(d.kind==='effect')return '<p class="small">Combat supplies the resolved signed health change. Preview sample: −2. This card applies no collection effects.</p>';
  if(d.kind!=='enemy')return '';
  let html='';

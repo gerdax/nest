@@ -53,7 +53,7 @@ for(const spec of [
  {name:'failed enemy block',branch:0,choice:0,dice:[[4,4,4],[1,1,1]],surfaces:['check','front'],damage:2},
  {name:'Defend versus block',branch:0,choice:1,dice:[],surfaces:[],damage:0,text:/holds its ground/},
  {name:'Preparation versus block',branch:0,choice:2,dice:[],surfaces:[],damage:0,preparationBonus:2,text:/holds its ground/},
- {name:'guaranteed player defense reveals block then swipes to choices',branch:.75,choice:1,dice:[[4,4,4]],surfaces:['front'],damage:0,text:/You blocked the attack/,blockReveal:true},
+ {name:'guaranteed player defense reveals block then swipes to choices',branch:.75,choice:1,dice:[[4,4,4]],surfaces:['front'],damage:0,text:/You dodge!/,blockReveal:true},
  {name:'missed charge skips defense and returns directly to choices',branch:.75,choice:1,dice:[[1,1,1]],surfaces:['front'],phase:'choice'},
  {name:'Preparation versus charge',branch:.75,choice:2,dice:[[4,4,4]],surfaces:['front'],damage:4,preparationBonus:2},
  {name:'failed checked Preparation versus charge',checkedPrepare:true,branch:.75,choice:2,dice:[[1,1,1],[4,4,4]],surfaces:['check','front'],damage:4,preparationBonus:0},
@@ -76,7 +76,8 @@ for(const spec of [
   assert.equal(deck.phase,'closed');assert.equal(controller.combat.pending.damage,spec.damage);
   if(spec.preparationBonus!==undefined)assert.equal(controller.combat.encounter.preparationBonus,spec.preparationBonus);
   if(spec.actor){assert.equal(controller.combat.pending.actor,spec.actor);assert.equal(controller.combat.encounter.enemyHp,8);}
-  if(spec.text)assert.match(deck.content.text,spec.text);
+  if(spec.text)assert.match(spec.blockReveal?deck.content.heading:deck.content.text,spec.text);
+  if(spec.blockReveal){assert.equal(deck.content.typeLabel,'EFFECT');assert.equal(deck.content.showValue,false);}
   if(spec.blockReveal){assert.equal(controller.variables.health,10);assert.equal(controller.variables.energy,2);key(deck,'ArrowUp');await settleCombat();assert.equal(controller.combat.phase,'choice');assert.equal(deck.phase,'choices');assert.equal(controller.combat.pending,null);assert.deepEqual(surfaces,['front']);}
   assert.deepEqual(errors,spec.retry?['Dice unavailable']:[]);
  }finally{controller.destroy();deck.destroy();settle();}
@@ -472,4 +473,30 @@ for (const reduced of [false,true]) test(`terminal linear swipe loads no card an
  key(deck,'ArrowUp');assert.equal(deck.mount.children.length,0);
  controller.restart();settle();assert.equal(controller.state.completed,false);assert.equal(deck.phase,'closed');assert.ok(deck.mount.children.length);
  dispose(deck,controller);
+});
+
+for(const nextPrepare of [true,false])test(`successful rat block animates its actual front into the next ${nextPrepare?'Prepare':'Bite'}`,async()=>{
+ const deck=new CardDeck(new Element(),{content:{id:'initial',actions:[{id:'wait',label:'Wait'}]}});
+ const compiled=compileChapter(createAlternativeRatCombatProject());compiled.nodes.find(n=>n.type==='combat').introEnabled=false;
+ const samples=[.75,0,...(nextPrepare?[.75,0]:[0])],errors=[];
+ let feedbacks=0,releaseBlock;
+ const controller=new ProjectController(deck,compiled,{rng:()=>samples.shift()??0,
+  rollCheck:async(pool,options)=>{if(options.surface==='check')await deck.waitForCheckSurface({signal:options.signal});return {dice:[4,4,4]};},
+  onCheckResult:async()=>{if(++feedbacks===2)await new Promise(resolve=>releaseBlock=resolve);},onError:e=>errors.push(e.message)});
+ try{
+  await settleCombat();key(deck,'ArrowUp');await settleCombat();key(deck,'ArrowUp');await settleCombat();
+  assert.equal(controller.combat.phase,'enemy-defense-roll');assert(releaseBlock);
+  const blockFace=deck.scene,blockLayer=deck.sceneLayer;
+  releaseBlock();await new Promise(resolve=>setImmediate(resolve));
+  const active=deck.contentTransition;
+  assert(active,'block SUCCESS must begin an animated handoff');assert.equal(active.transition,'front-turn');assert.equal(active.source.face,blockFace);
+  assert.equal(blockLayer.parentNode,deck.mount);assert.equal(active.staged.scene.style.visibility,'hidden');
+  assert.equal(deck.busy,true);assert.equal(deck.start(),false);assert.equal(controller.combat.phase,'enemy-enter');
+  assert.equal(controller.combat.encounter.enemyHp,8);assert.equal(controller.variables.health,10);
+  for(let i=0;!active.adopted&&i<200;i++)step();
+  assert.equal(active.adopted,true);assert.equal(blockLayer.parentNode,null);assert.equal(deck.scene,active.staged.scene);
+  assert.equal(deck.scene.style.visibility,'visible');assert.equal(deck.busy,true);
+  await settleCombat();assert.equal(deck.contentTransition,null);assert.deepEqual(errors,[]);
+  assert.equal(controller.combat.phase,nextPrepare?'enemy-action':'effects');assert.equal(controller.combat.encounter.enemyHp,8);
+ }finally{controller.destroy();deck.destroy();settle();}
 });

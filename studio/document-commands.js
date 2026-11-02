@@ -328,6 +328,8 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
     case 'remove-common-action': project.combat.defaultActions=project.combat.defaultActions.filter(ref=>ref.definitionId!==data.id);break;
     case 'use-common-effect': {
       if(!project.library.some(d=>d.id===data.id&&d.kind==='effect'&&d.visibility!=='local'))throw new Error('Select Feedback');
+      if(project.combat.playerDodge?.definitionId===data.id)throw new Error('Dodge feedback cannot also be Damage received');
+      delete project.library.find(d=>d.id===data.id).showValue;
       project.combat.playerHit={definitionId:data.id};break;
     }
     case 'add-definition': {

@@ -1,3 +1,4 @@
+import {defendRevealCard} from './combat-model.js';
 import {resolveCheck} from './checks.js';
 import {transact} from './state.js';
 import {definition,createEncounter,playerChoices,resolveCombatAttack,diceTotal,healthReactions,completePlayerTurn,completeEnemyTurn,applyActionProtection,settleEnemyPreparation} from './combat-rules.js';
@@ -62,11 +63,15 @@ export class CombatCoordinator {
  descriptionContext(){return {variables:this.host.compiled.variables,values:this.host.variables};}
  choices(){return playerChoices(this.host.compiled,this.snapshot(),this.encounter);}
  choiceContent(){return {...combatChoices(this.choices(),this.token(),this.host.variables,this.host.compiled.variables,{animateItemActions:!this.choicesPresented&&this.encounter.round===1,preparationBonus:this.encounter.preparationBonus??0}),cardBack:this.host.compiled.cardBack};}
- async enterEnemy({reveal=false}={}){
+ async enterEnemy({reveal=false,frontTurn=false}={}){
   if(!this.active())return;
-  this.resume={kind:'enemy'};this.sequence=null;if(!this.setPhase('enemy-enter'))return;
+  this.resume={kind:'enemy',reveal,frontTurn};this.sequence=null;if(!this.setPhase('enemy-enter'))return;
   const content=this.introSuccessor??this.actionCard();this.introSuccessor=null;
-  if(!await this.replace(content,{transition:reveal?'reveal':'flip'}))return;
+  if(frontTurn){
+   const entered=await this.deck.transitionContent(content,{transition:'front-turn',surface:'front',signal:this.abort.signal});
+   if(!entered&&this.active())throw new Error('Enemy card transition unavailable');
+   if(!entered)return;
+  }else if(!await this.replace(content,{transition:reveal?'reveal':'flip'}))return;
   if(this.active()){const action=this.declaration?.action??this.enemy.actions[this.encounter.actionIndex];if(action.resolution==='direct')this.setPhase('enemy-action');else await this.performEnemyAction(action);}
  }
  async performEnemyAction(action){
@@ -148,7 +153,12 @@ export class CombatCoordinator {
   if(result.action.type!=='attack'||!result.success||!result.rolledDamage||!defense)return result;
   const defender=result.actor==='player'?'enemy':'player';
   // Player Defend pays for a guaranteed block; only the rat rolls defense.
-  if(defender==='player')return Object.freeze({...result,defense:{actor:defender,success:true,definitionId:this.playerDefenseDefinitionId,card:structuredClone(this.playerDefense.blockReveal??{kind:'caption',text:'You blocked the attack'})},blockedDamage:result.rolledDamage,damage:0,targetHp:result.targetHp+result.damage});
+  if(defender==='player'){
+   const ref=this.playerDefense.reveal?.definitionId?this.playerDefense.reveal:this.host.compiled.combat?.playerDodge;
+   const feedback=definition(this.host.compiled.library,ref);
+   if(!feedback||feedback.kind!=='effect')throw new Error('Missing Dodge feedback');
+   return Object.freeze({...result,defense:{actor:defender,success:true,definitionId:feedback.id,card:defendRevealCard(structuredClone(feedback))},blockedDamage:result.rolledDamage,damage:0,targetHp:result.targetHp+result.damage});
+  }
   const breaksDefense=result.actor==='player'&&result.preparationBonus>0;
   if(breaksDefense){
    const damage=Math.min(result.targetHp+result.damage,result.baseDamage);
@@ -176,7 +186,7 @@ export class CombatCoordinator {
     this.sequence={kind:'effects',steps:[{card:result.defense.card,definitionId:result.defense.definitionId}],index:0};
     this.resume={kind:'sequence'};
     await this.presentSequence({replace,surface:'front'});
-   }else await this.finishAttack();
+   }else await this.finishAttack({frontTurn:true});
    return;
   }
   const steps=[];
@@ -188,7 +198,7 @@ export class CombatCoordinator {
   if(result.damage>0){
    const template=result.actor==='enemy'?definition(this.host.compiled.library,this.host.compiled.combat.playerHit):this.enemy.hit;
    if(!template)throw new Error('Missing damage Feedback');
-   steps.push({card:template,value:-result.damage,operation:result.actor==='enemy'?'playerDamage':'enemyDamage',targetHp:result.targetHp,id:`${result.id}:damage`});
+   steps.push({card:{...template,showValue:true},value:-result.damage,operation:result.actor==='enemy'?'playerDamage':'enemyDamage',targetHp:result.targetHp,id:`${result.id}:damage`});
   }
   if(this.opposed&&!steps.length){
    if(result.actor==='player'&&result.action.type!=='attack'&&this.encounter.enemyPreparation?.kind==='block')steps.push({card:this.enemy.preparationCards.hold});
@@ -288,7 +298,7 @@ export class CombatCoordinator {
    await this.completeSequence();
   }catch(error){this.advancing=false;this.fail(error);}
  }
- async finishAttack(){
+ async finishAttack({frontTurn=false}={}){
   if(!this.active())return;
   if(!this.completeProgression())return;
   const actor=this.pending?.actor,action=this.pending?.action;this.pending=null;this.sequence=null;
@@ -308,7 +318,7 @@ export class CombatCoordinator {
     }
     this.encounter={...this.encounter,enemyPreparation:null,guard:0};this.playerDefense=null;this.declaration=null;
    }
-   await this.enterEnemy();return;
+   await this.enterEnemy({frontTurn});return;
   }
   if(actor==='enemy'){this.encounter=completeEnemyTurn(this.encounter,this.enemy);await this.showChoices();}
   else await this.enterEnemy();
@@ -348,6 +358,7 @@ export class CombatCoordinator {
     case 'sequence':await this.presentSequence({replace:true});break;
     case 'resolution':await this.presentResolution({replace:true});break;
     case 'victory':this.host.completeCombatVictory();break;
+    case 'enemy':await this.enterEnemy(this.resume);break;
     default:await this.enterEnemy();
    }
   }catch(error){this.fail(error);}

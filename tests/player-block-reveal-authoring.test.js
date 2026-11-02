@@ -19,7 +19,7 @@ test('legacy standalone and Weapon Defend cards gain stable collision-free prese
  assert.deepEqual(project,original);
  for(const id of [action.id,weapon.id]){
   const definition=parsed.library.find(d=>d.id===id),card=(definition.kind==='item'?definition.combat.actions[0]:definition).blockReveal;
-  assert.equal(card.kind,'caption');assert.equal(card.name,'Block reveal');assert.equal(card.text,'You blocked the attack');assert.deepEqual(card.effects,[]);
+  assert.equal(card.kind,'effect');assert.equal(card.name,'Reveal');assert.equal(card.text,'You blocked the attack');assert.deepEqual(card.effects,[]);
  }
  assert.equal(parsed.library.find(d=>d.id===action.id).blockReveal.id,'custom-defend-block-reveal-2');
  assert.deepEqual(parseProject(JSON.stringify(parsed)),parsed);assert.deepEqual(validateProject(parsed),[]);
@@ -42,21 +42,25 @@ test('explicit invalid block cards are retained and diagnosed, while Enemy Defen
  const {project}=fixture(),enemy=project.library.find(d=>d.kind==='enemy');Object.assign(enemy.actions[0],{type:'defend',resolution:'direct',damageReduction:1});
  ensureCombatDefaults(project);assert.equal(enemy.actions[0].blockReveal,undefined);assert.deepEqual(validateProject(project),[]);
 });
-test('Defend type switches immediately create the embedded editor and preserve existing authored cards',()=>{
- const {project,action,weapon}=fixture();delete action.type;weapon.combat.actions[0].type='attack';
- const chapter=project.chapters[0];
- for(const [owner,path,cardPath] of [[action,'type','blockReveal'],[weapon,'combat.actions.0.type','combat.actions.0.blockReveal']]){
-  const selection={chapterId:chapter.id,definitionId:owner.id};
-  applyDocumentCommand(project,selection,'field',{scope:'definition',path,value:'defend'});
-  const card=owner===action?action.blockReveal:weapon.combat.actions[0].blockReveal;
-  assert.equal(card.text,'You blocked the attack');
+test('Defend Reveal selects a common Feedback effect below artwork without an embedded editor',()=>{
+ const {project,action,weapon}=fixture();ensureCombatDefaults(project);
+ const dodge=project.library.find(d=>d.id===project.combat.playerDodge.definitionId);
+ for(const [owner,defend,prefix] of [[action,action,''],[weapon,weapon.combat.actions[0],'combat.actions.0.']]){
+  const original=structuredClone(defend.blockReveal);
   let html=definitionInspector(project,owner);
-  for(const field of ['name','kind','text'])assert(html.includes(`data-path="${cardPath}.${field}"`));
-  assert(html.includes(`data-preview-definition="${owner.id}" data-preview-path="${cardPath}"`));
-  for(const [key,value] of [['kind','event'],['text',''],['image','custom.png'],['imageScale','140']])applyDocumentCommand(project,selection,'field',{scope:'definition',path:`${cardPath}.${key}`,value,inputType:key==='imageScale'?'range':'text'});
-  html=definitionInspector(project,owner);assert(html.includes(`data-path="${cardPath}.image"`));assert.equal(card.imageScale,140);assert.equal(card.text,'');
-  applyDocumentCommand(project,selection,'field',{scope:'definition',path,value:'attack'});
-  applyDocumentCommand(project,selection,'field',{scope:'definition',path,value:'defend'});assert.equal(card,owner===action?action.blockReveal:weapon.combat.actions[0].blockReveal);
+  const revealIndex=html.indexOf('<summary>Reveal</summary>');
+  assert(revealIndex>html.indexOf(`data-path="${prefix}image"`));
+  assert(revealIndex>html.indexOf('<summary>Image scale and position</summary>'));
+  assert(html.includes(`data-path="${prefix}reveal.definitionId"`));
+  assert(html.includes('Default Dodge'));
+  assert(html.includes(`data-definition="${defend.reveal?.definitionId||dodge.id}"`));
+  assert(!html.includes(`data-path="${prefix}blockReveal.text"`));
+  assert(!html.includes(`data-path="${prefix}blockReveal.image"`));
+  const custom={...dodge,id:'custom-'+owner.id,name:'Parry'};project.library.push(custom);defend.reveal={definitionId:custom.id};
+  html=definitionInspector(project,owner);
+  assert(html.includes(`data-definition="${custom.id}"`));
+  assert(html.includes(`<option value="${custom.id}" selected`));
+  assert.deepEqual(defend.blockReveal,original);
  }
 });
 test('preview navigation resolves player child card identity under its correct owner',()=>{
