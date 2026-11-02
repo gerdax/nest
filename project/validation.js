@@ -1,5 +1,5 @@
 import { attackProfile, attackDamageRange } from './combat-rules.js';
-import { ensureCombatDefaults, migrateWeaponActions, migrateEnemyActions, migrateCombatActionTypes } from './combat-model.js';
+import { ensureCombatDefaults, migrateWeaponActions, migrateEnemyActions, migrateCombatActionTypes, migratePlayerBlockReveals } from './combat-model.js';
 import { errorMessage } from '../errors.js';
 import { isTagKey, tagKey, tagIdFromKey, validItemTagName } from './item-tags.js';
 import { isStatVariable, validStatValue, compatibleStatVariable } from './checks.js';
@@ -14,7 +14,7 @@ import { createLibraryIndex } from './library-index.js';
 
 export function validateProject(project, {allowDraft = false} = {}) {
   if(project?.version===2)project=ensureCombatDefaults(JSON.parse(JSON.stringify(project)));
-  else if(project?.version===3)project=migrateCombatActionTypes(migrateEnemyActions(migrateWeaponActions(structuredClone(project))));
+  else if(project?.version===3)project=migratePlayerBlockReveals(migrateCombatActionTypes(migrateEnemyActions(migrateWeaponActions(structuredClone(project)))));
   const errors = [];
   const add = (message, chapterId, nodeId) => errors.push({message, ...(chapterId ? {chapterId}: {}), ...(nodeId ? {nodeId}: {})});
   if (!object(project)) return [{message: errorMessage('VALIDATION_PROJECT_MUST_BE_AN_OBJECT')}];
@@ -169,9 +169,23 @@ export function validateProject(project, {allowDraft = false} = {}) {
     if(list(card.effects).length)add(`${label}: additional embedded Enemy card effects are deferred`);
     inspectCard(card,label);
   }
+  const ownerIdCounts=new Map();
+  for(const owner of library.filter(object)){
+    const counts=new Map();
+    const collect=value=>{if(Array.isArray(value))value.forEach(collect);else if(object(value)){if(named(value.id))counts.set(value.id,(counts.get(value.id)||0)+1);Object.values(value).forEach(collect);}};
+    collect(owner);ownerIdCounts.set(owner,counts);
+  }
   function inspectCombat(d,label,enemyAction=false,source){
     if(d.kind==='effect'&&(d.onCollect!==undefined||list(d.effects).length||list(d.successEffects).length||list(d.failureEffects).length))add(`${label}: Feedback presentations are presentation only and cannot apply independent effects`);
     if(d.kind==='combatAction'){
+      if(!enemyAction&&d.type==='defend'){
+        const card=d.blockReveal,cardLabel=`${label} / Block reveal`;
+        embedded(card,['event','caption'],cardLabel);
+        if(object(card)){
+          if(definitions.has(card.id)||(ownerIdCounts.get(source??d)?.get(card.id)||0)>1)add(`${cardLabel}: duplicate embedded identity ${card.id}`);
+          for(const key of ['effects','onCollect','successEffects','failureEffects'])if(card[key]!==undefined&&(!Array.isArray(card[key])||card[key].length))add(`${cardLabel}: block reveal is presentation only and cannot apply independent effects`);
+        }
+      }
       if(!['attack','defend','prepare','wait'].includes(d.type))add(`${label}: unsupported Combat Action type`);
       if((['defend','wait'].includes(d.type)||enemyAction&&d.type==='prepare')&&d.resolution!=='direct')add(`${label}: Defend, Enemy Prepare and Wait are direct Actions`);
       if(d.type==='prepare'&&!enemyAction&&!['direct','check'].includes(d.resolution))add(`${label}: Player Prepare requires direct or check resolution`);

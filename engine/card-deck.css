@@ -94,6 +94,7 @@
   left: 0;
   right: 0;
   padding: var(--card-padding, 26px);
+  padding-right: max(0px, calc(var(--card-padding, 26px) - 8px));
   z-index: 1;
   color: var(--card-text, #d2dfb6);
 }

@@ -23,3 +23,11 @@ test('health and energy descriptions use the same image assets as HUD and card c
  assert.match(icons[2].style.maskImage,/assets\/img\/ui\/damage.svg/);
  assert.ok(icons.every(icon=>icon.style.backgroundColor==='currentColor'));
 });
+
+test('combat round symbols use the circular arrow vector and inherit description colour',()=>{
+ const root=element();renderDescriptionIcons(root,'Lasts 2 ⟳');
+ assert.equal(root.children[0].textContent,'Lasts 2 ');
+ const icon=root.children[1];assert.equal(icon.attrs['aria-label'],'Combat round');
+ assert.equal(icon.attrs.role,'img');assert.match(icon.style.maskImage,/assets\/img\/ui\/round.svg/);
+ assert.equal(icon.style.backgroundColor,'currentColor');
+});

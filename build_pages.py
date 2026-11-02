@@ -35,6 +35,7 @@ RUNTIME_FILES = (
     "engine/inventoryContext.js",
     "engine/MovementHistory.js",
     "engine/renderer.js",
+    "engine/description-icons.js",
     "engine/cssScale.js",
     "engine/cardSizing.js",
     "engine/card-deck.css",

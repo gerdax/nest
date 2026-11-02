@@ -1,0 +1,945 @@
+{
+  "sourceSha256": "8b2b56fec0e56b2b367cedb30ad606f01c440c2a4a9d029439ec3e3644b38900",
+  "totalEncounters": 340000,
+  "method": {
+    "source": "published snapshot",
+    "publishedUrl": "https://gerdax.github.io/nest/rat-encounter-player-checks/player.html",
+    "physicalDice": false,
+    "animations": false,
+    "startingHealth": 10,
+    "healthCap": 10,
+    "energyCap": 10,
+    "winnerMetricsConditional": true,
+    "meanDecisionsIncludesLosses": true,
+    "rng": "LCG1664525/1013904223, seed ((trial+1)*2654435761)>>>0; shared seeds do not imply identical trajectories"
+  },
+  "scenarios": [
+    {
+      "id": "r8_e3_a3_c3",
+      "ratHealth": 8,
+      "startingEnergy": 3,
+      "agility": 3,
+      "composure": 3,
+      "n": 10000,
+      "full": true,
+      "policies": {
+        "attack": {
+          "n": 10000,
+          "wins": 7297,
+          "winRate": 0.7297,
+          "confidence95": [
+            0.720908367771022,
+            0.738315216896692
+          ],
+          "meanDecisions": 6.62,
+          "meanRolls": 11.5629,
+          "meanPrepares": 0,
+          "meanDefends": 0,
+          "fightsUsingPrepare": 0,
+          "fightsUsingDefend": 0,
+          "winnerHp": 4.7614087981362205,
+          "winnerEnergy": 3,
+          "winnerDecisionMedian": 6,
+          "winnerDecisionP90": 9,
+          "exactWinRate": 0.7321317574027996,
+          "samplingDeviationSigma": 0.5491171523988428
+        },
+        "alternate": {
+          "n": 10000,
+          "wins": 5628,
+          "winRate": 0.5628,
+          "confidence95": [
+            0.5530553275893193,
+            0.5724964404434731
+          ],
+          "meanDecisions": 7.2244,
+          "meanRolls": 12.124,
+          "meanPrepares": 4.5722,
+          "meanDefends": 0,
+          "fightsUsingPrepare": 1,
+          "fightsUsingDefend": 0,
+          "winnerHp": 4.8439943141435675,
+          "winnerEnergy": 3,
+          "winnerDecisionMedian": 6,
+          "winnerDecisionP90": 10,
+          "exactWinRate": 0.5687964897786856,
+          "samplingDeviationSigma": 1.210814184958842
+        },
+        "prepareOnTell": {
+          "n": 10000,
+          "wins": 6996,
+          "winRate": 0.6996,
+          "confidence95": [
+            0.6905394835715761,
+            0.7085072186472994
+          ],
+          "meanDecisions": 6.6456,
+          "meanRolls": 10.9975,
+          "meanPrepares": 2.0386,
+          "meanDefends": 0,
+          "fightsUsingPrepare": 0.9424,
+          "fightsUsingDefend": 0,
+          "winnerHp": 4.912807318467696,
+          "winnerEnergy": 3,
+          "winnerDecisionMedian": 6,
+          "winnerDecisionP90": 9,
+          "exactWinRate": 0.7040497233196156,
+          "samplingDeviationSigma": 0.9748144684738492
+        },
+        "defendOnTell": {
+          "n": 10000,
+          "wins": 7159,
+          "winRate": 0.7159,
+          "confidence95": [
+            0.7069791002734293,
+            0.724655083138671
+          ],
+          "meanDecisions": 8.5659,
+          "meanRolls": 12.3818,
+          "meanPrepares": 0,
+          "meanDefends": 2.5698,
+          "fightsUsingPrepare": 0,
+          "fightsUsingDefend": 0.9763,
+          "winnerHp": 4.805978488615729,
+          "winnerEnergy": 0.4314848442519905,
+          "winnerDecisionMedian": 9,
+          "winnerDecisionP90": 12,
+          "exactWinRate": 0.7218122641486505,
+          "samplingDeviationSigma": 1.319388550367654
+        },
+        "bankDefense": {
+          "n": 10000,
+          "wins": 6136,
+          "winRate": 0.6136,
+          "confidence95": [
+            0.6040143975190615,
+            0.6230983548459901
+          ],
+          "meanDecisions": 9.5231,
+          "meanRolls": 15.0767,
+          "meanPrepares": 0,
+          "meanDefends": 2.9741,
+          "fightsUsingPrepare": 0,
+          "fightsUsingDefend": 1,
+          "winnerHp": 4.53780964797914,
+          "winnerEnergy": 0.011408083441981747,
+          "winnerDecisionMedian": 10,
+          "winnerDecisionP90": 13,
+          "exactWinRate": 0.6150255168356183,
+          "samplingDeviationSigma": 0.29296100119370366
+        },
+        "cautious": {
+          "n": 10000,
+          "wins": 7209,
+          "winRate": 0.7209,
+          "confidence95": [
+            0.7120247375601549,
+            0.7296056057271678
+          ],
+          "meanDecisions": 8.3653,
+          "meanRolls": 12.121,
+          "meanPrepares": 0.5798,
+          "meanDefends": 2.2788,
+          "fightsUsingPrepare": 0.3567,
+          "fightsUsingDefend": 0.9424,
+          "winnerHp": 4.923567762519073,
+          "winnerEnergy": 0.792481620196976,
+          "winnerDecisionMedian": 8,
+          "winnerDecisionP90": 12,
+          "exactWinRate": 0.7250480785427855,
+          "samplingDeviationSigma": 0.9290416590033084
+        },
+        "random": {
+          "n": 10000,
+          "wins": 3881,
+          "winRate": 0.3881,
+          "confidence95": [
+            0.37859328453719815,
+            0.39769265745532595
+          ],
+          "meanDecisions": 9.8568,
+          "meanRolls": 15.1366,
+          "meanPrepares": 3.7486,
+          "meanDefends": 2.3525,
+          "fightsUsingPrepare": 0.9712,
+          "fightsUsingDefend": 0.9377,
+          "winnerHp": 4.343725843854677,
+          "winnerEnergy": 0.6593661427467148,
+          "winnerDecisionMedian": 10,
+          "winnerDecisionP90": 15,
+          "exactWinRate": 0.38730331753814695,
+          "samplingDeviationSigma": 0.16354485413776473
+        },
+        "optimal": {
+          "n": 10000,
+          "wins": 7514,
+          "winRate": 0.7514,
+          "confidence95": [
+            0.7428333885257097,
+            0.7597735300004691
+          ],
+          "meanDecisions": 7.0025,
+          "meanRolls": 11.6853,
+          "meanPrepares": 0.1827,
+          "meanDefends": 0.4696,
+          "fightsUsingPrepare": 0.1302,
+          "fightsUsingDefend": 0.3053,
+          "winnerHp": 4.686185786531808,
+          "winnerEnergy": 2.6668884748469526,
+          "winnerDecisionMedian": 7,
+          "winnerDecisionP90": 10,
+          "exactWinRate": 0.7464487706262289,
+          "samplingDeviationSigma": 1.1380993684219725
+        },
+        "optimalWithoutPrepare": {
+          "n": 10000,
+          "wins": 7496,
+          "winRate": 0.7496,
+          "confidence95": [
+            0.7410136694765487,
+            0.7579946314945504
+          ],
+          "meanDecisions": 7.0491,
+          "meanRolls": 11.7799,
+          "meanPrepares": 0,
+          "meanDefends": 0.5172,
+          "fightsUsingPrepare": 0,
+          "fightsUsingDefend": 0.3236,
+          "winnerHp": 4.68649946638207,
+          "winnerEnergy": 2.654615795090715,
+          "winnerDecisionMedian": 7,
+          "winnerDecisionP90": 10,
+          "exactWinRate": 0.7445013452187004,
+          "samplingDeviationSigma": 1.1690378040499472
+        },
+        "optimalWithoutDefend": {
+          "n": 10000,
+          "wins": 7318,
+          "winRate": 0.7318,
+          "confidence95": [
+            0.72302895985699,
+            0.7403930119583174
+          ],
+          "meanDecisions": 6.6174,
+          "meanRolls": 11.4606,
+          "meanPrepares": 0.3151,
+          "meanDefends": 0,
+          "fightsUsingPrepare": 0.2273,
+          "fightsUsingDefend": 0,
+          "winnerHp": 4.761956818802951,
+          "winnerEnergy": 3,
+          "winnerDecisionMedian": 6,
+          "winnerDecisionP90": 9,
+          "exactWinRate": 0.7353277079635352,
+          "samplingDeviationSigma": 0.7996462792499166
+        }
+      }
+    },
+    {
+      "id": "r6_e3_a3_c3",
+      "ratHealth": 6,
+      "startingEnergy": 3,
+      "agility": 3,
+      "composure": 3,
+      "n": 10000,
+      "full": true,
+      "policies": {
+        "attack": {
+          "n": 10000,
+          "wins": 8865,
+          "winRate": 0.8865,
+          "confidence95": [
+            0.880133822328978,
+            0.8925693360257084
+          ],
+          "meanDecisions": 5.2701,
+          "meanRolls": 9.1143,
+          "meanPrepares": 0,
+          "meanDefends": 0,
+          "fightsUsingPrepare": 0,
+          "fightsUsingDefend": 0,
+          "winnerHp": 5.588945290468133,
+          "winnerEnergy": 3,
+          "winnerDecisionMedian": 5,
+          "winnerDecisionP90": 8,
+          "exactWinRate": 0.8876827179431726,
+          "samplingDeviationSigma": 0.3745665668807535
+        },
+        "alternate": {
+          "n": 10000,
+          "wins": 7853,
+          "winRate": 0.7853,
+          "confidence95": [
+            0.7771432051703547,
+            0.7932376773098316
+          ],
+          "meanDecisions": 5.7244,
+          "meanRolls": 9.6172,
+          "meanPrepares": 2.6648,
+          "meanDefends": 0,
+          "fightsUsingPrepare": 1,
+          "fightsUsingDefend": 0,
+          "winnerHp": 5.603208964726856,
+          "winnerEnergy": 3,
+          "winnerDecisionMedian": 5,
+          "winnerDecisionP90": 8,
+          "exactWinRate": 0.7879844423913483,
+          "samplingDeviationSigma": 0.6567671188105216
+        },
+        "prepareOnTell": {
+          "n": 10000,
+          "wins": 8551,
+          "winRate": 0.8551,
+          "confidence95": [
+            0.8480644145298399,
+            0.8618628598084501
+          ],
+          "meanDecisions": 5.3206,
+          "meanRolls": 8.7784,
+          "meanPrepares": 1.4596,
+          "meanDefends": 0,
+          "fightsUsingPrepare": 0.8504,
+          "fightsUsingDefend": 0,
+          "winnerHp": 5.710443223014852,
+          "winnerEnergy": 3,
+          "winnerDecisionMedian": 5,
+          "winnerDecisionP90": 8,
+          "exactWinRate": 0.8574516368262108,
+          "samplingDeviationSigma": 0.6726425218507928
+        },
+        "defendOnTell": {
+          "n": 10000,
+          "wins": 8664,
+          "winRate": 0.8664,
+          "confidence95": [
+            0.8595907417043952,
+            0.8729278539518973
+          ],
+          "meanDecisions": 6.9995,
+          "meanRolls": 9.8598,
+          "meanPrepares": 0,
+          "meanDefends": 2.2788,
+          "fightsUsingPrepare": 0,
+          "fightsUsingDefend": 0.9424,
+          "winnerHp": 5.600877192982456,
+          "winnerEnergy": 0.7572714681440443,
+          "winnerDecisionMedian": 7,
+          "winnerDecisionP90": 10,
+          "exactWinRate": 0.8707504280170812,
+          "samplingDeviationSigma": 1.2967927745395111
+        },
+        "bankDefense": {
+          "n": 10000,
+          "wins": 7781,
+          "winRate": 0.7781,
+          "confidence95": [
+            0.7698497947374809,
+            0.7861366175223854
+          ],
+          "meanDecisions": 8.3344,
+          "meanRolls": 12.897,
+          "meanPrepares": 0,
+          "meanDefends": 2.929,
+          "fightsUsingPrepare": 0,
+          "fightsUsingDefend": 0.9987,
+          "winnerHp": 5.19419097802339,
+          "winnerEnergy": 0.07042796555712634,
+          "winnerDecisionMedian": 8,
+          "winnerDecisionP90": 11,
+          "exactWinRate": 0.7858320735583744,
+          "samplingDeviationSigma": 1.884750580808119
+        },
+        "cautious": {
+          "n": 10000,
+          "wins": 8712,
+          "winRate": 0.8712,
+          "confidence95": [
+            0.8644915902399803,
+            0.8776233188965257
+          ],
+          "meanDecisions": 6.6401,
+          "meanRolls": 9.6219,
+          "meanPrepares": 0.2728,
+          "meanDefends": 1.7691,
+          "fightsUsingPrepare": 0.1805,
+          "fightsUsingDefend": 0.8504,
+          "winnerHp": 5.755509641873278,
+          "winnerEnergy": 1.2972910927456383,
+          "winnerDecisionMedian": 6,
+          "winnerDecisionP90": 10,
+          "exactWinRate": 0.8761019074720058,
+          "samplingDeviationSigma": 1.4878374506281007
+        },
+        "random": {
+          "n": 10000,
+          "wins": 5698,
+          "winRate": 0.5698,
+          "confidence95": [
+            0.5600709841323698,
+            0.5794754077257339
+          ],
+          "meanDecisions": 8.7229,
+          "meanRolls": 13.2301,
+          "meanPrepares": 3.2628,
+          "meanDefends": 2.1843,
+          "fightsUsingPrepare": 0.9475,
+          "fightsUsingDefend": 0.9097,
+          "winnerHp": 4.962091962091962,
+          "winnerEnergy": 0.9222534222534222,
+          "winnerDecisionMedian": 8,
+          "winnerDecisionP90": 13,
+          "exactWinRate": 0.5701837599741455,
+          "samplingDeviationSigma": 0.07751947879959224
+        },
+        "optimal": {
+          "n": 10000,
+          "wins": 8935,
+          "winRate": 0.8935,
+          "confidence95": [
+            0.8873020243592968,
+            0.8993957578207008
+          ],
+          "meanDecisions": 5.3753,
+          "meanRolls": 9.1527,
+          "meanPrepares": 0.0319,
+          "meanDefends": 0.1251,
+          "fightsUsingPrepare": 0.0258,
+          "fightsUsingDefend": 0.0794,
+          "winnerHp": 5.561275881365417,
+          "winnerEnergy": 2.9242305540011193,
+          "winnerDecisionMedian": 5,
+          "winnerDecisionP90": 8,
+          "exactWinRate": 0.8928404350039817,
+          "samplingDeviationSigma": 0.21323338578579304
+        },
+        "optimalWithoutPrepare": {
+          "n": 10000,
+          "wins": 8933,
+          "winRate": 0.8933,
+          "confidence95": [
+            0.8870971084875521,
+            0.8992008272974366
+          ],
+          "meanDecisions": 5.38,
+          "meanRolls": 9.1699,
+          "meanPrepares": 0,
+          "meanDefends": 0.1259,
+          "fightsUsingPrepare": 0,
+          "fightsUsingDefend": 0.0792,
+          "winnerHp": 5.561401544833762,
+          "winnerEnergy": 2.9244374790104106,
+          "winnerDecisionMedian": 5,
+          "winnerDecisionP90": 8,
+          "exactWinRate": 0.8923975963092181,
+          "samplingDeviationSigma": 0.2912129477784021
+        },
+        "optimalWithoutDefend": {
+          "n": 10000,
+          "wins": 8889,
+          "winRate": 0.8889,
+          "confidence95": [
+            0.882590613489736,
+            0.8949107016050571
+          ],
+          "meanDecisions": 5.2663,
+          "meanRolls": 9.0793,
+          "meanPrepares": 0.0876,
+          "meanDefends": 0,
+          "fightsUsingPrepare": 0.0683,
+          "fightsUsingDefend": 0,
+          "winnerHp": 5.583530205872426,
+          "winnerEnergy": 3,
+          "winnerDecisionMedian": 5,
+          "winnerDecisionP90": 8,
+          "exactWinRate": 0.8887672629080742,
+          "samplingDeviationSigma": 0.042216474449236124
+        }
+      }
+    },
+    {
+      "id": "r8_e10_a3_c3",
+      "ratHealth": 8,
+      "startingEnergy": 10,
+      "agility": 3,
+      "composure": 3,
+      "n": 10000,
+      "policies": {
+        "attack": {
+          "n": 10000,
+          "wins": 7297,
+          "winRate": 0.7297,
+          "confidence95": [
+            0.720908367771022,
+            0.738315216896692
+          ],
+          "meanDecisions": 6.62,
+          "meanRolls": 11.5629,
+          "meanPrepares": 0,
+          "meanDefends": 0,
+          "fightsUsingPrepare": 0,
+          "fightsUsingDefend": 0,
+          "winnerHp": 4.7614087981362205,
+          "winnerEnergy": 10,
+          "winnerDecisionMedian": 6,
+          "winnerDecisionP90": 9,
+          "exactWinRate": 0.7321317574027996,
+          "samplingDeviationSigma": 0.5491171523988428
+        },
+        "prepareOnTell": {
+          "n": 10000,
+          "wins": 6996,
+          "winRate": 0.6996,
+          "confidence95": [
+            0.6905394835715761,
+            0.7085072186472994
+          ],
+          "meanDecisions": 6.6456,
+          "meanRolls": 10.9975,
+          "meanPrepares": 2.0386,
+          "meanDefends": 0,
+          "fightsUsingPrepare": 0.9424,
+          "fightsUsingDefend": 0,
+          "winnerHp": 4.912807318467696,
+          "winnerEnergy": 10,
+          "winnerDecisionMedian": 6,
+          "winnerDecisionP90": 9,
+          "exactWinRate": 0.7040497233196156,
+          "samplingDeviationSigma": 0.9748144684738492
+        },
+        "defendOnTell": {
+          "n": 10000,
+          "wins": 6950,
+          "winRate": 0.695,
+          "confidence95": [
+            0.6859025540534343,
+            0.7039476810802368
+          ],
+          "meanDecisions": 9.521,
+          "meanRolls": 12.7304,
+          "meanPrepares": 0,
+          "meanDefends": 3.915,
+          "fightsUsingPrepare": 0,
+          "fightsUsingDefend": 0.9763,
+          "winnerHp": 4.764892086330935,
+          "winnerEnergy": 6.138561151079137,
+          "winnerDecisionMedian": 9,
+          "winnerDecisionP90": 14,
+          "exactWinRate": 0.7029006487394167,
+          "samplingDeviationSigma": 1.7288803163494262
+        },
+        "optimal": {
+          "n": 10000,
+          "wins": 7511,
+          "winRate": 0.7511,
+          "confidence95": [
+            0.7425300884105037,
+            0.7594770605231618
+          ],
+          "meanDecisions": 7.1296,
+          "meanRolls": 11.7554,
+          "meanPrepares": 0.1167,
+          "meanDefends": 0.6407,
+          "fightsUsingPrepare": 0.093,
+          "fightsUsingDefend": 0.322,
+          "winnerHp": 4.67953667953668,
+          "winnerEnergy": 9.564372254027427,
+          "winnerDecisionMedian": 7,
+          "winnerDecisionP90": 10,
+          "exactWinRate": 0.7480388839939195,
+          "samplingDeviationSigma": 0.705100365440538
+        }
+      }
+    },
+    {
+      "id": "r6_e10_a3_c3",
+      "ratHealth": 6,
+      "startingEnergy": 10,
+      "agility": 3,
+      "composure": 3,
+      "n": 10000,
+      "policies": {
+        "attack": {
+          "n": 10000,
+          "wins": 8865,
+          "winRate": 0.8865,
+          "confidence95": [
+            0.880133822328978,
+            0.8925693360257084
+          ],
+          "meanDecisions": 5.2701,
+          "meanRolls": 9.1143,
+          "meanPrepares": 0,
+          "meanDefends": 0,
+          "fightsUsingPrepare": 0,
+          "fightsUsingDefend": 0,
+          "winnerHp": 5.588945290468133,
+          "winnerEnergy": 10,
+          "winnerDecisionMedian": 5,
+          "winnerDecisionP90": 8,
+          "exactWinRate": 0.8876827179431726,
+          "samplingDeviationSigma": 0.3745665668807535
+        },
+        "prepareOnTell": {
+          "n": 10000,
+          "wins": 8551,
+          "winRate": 0.8551,
+          "confidence95": [
+            0.8480644145298399,
+            0.8618628598084501
+          ],
+          "meanDecisions": 5.3206,
+          "meanRolls": 8.7784,
+          "meanPrepares": 1.4596,
+          "meanDefends": 0,
+          "fightsUsingPrepare": 0.8504,
+          "fightsUsingDefend": 0,
+          "winnerHp": 5.710443223014852,
+          "winnerEnergy": 10,
+          "winnerDecisionMedian": 5,
+          "winnerDecisionP90": 8,
+          "exactWinRate": 0.8574516368262108,
+          "samplingDeviationSigma": 0.6726425218507928
+        },
+        "defendOnTell": {
+          "n": 10000,
+          "wins": 8530,
+          "winRate": 0.853,
+          "confidence95": [
+            0.8459239764541203,
+            0.8598049107365765
+          ],
+          "meanDecisions": 7.5608,
+          "meanRolls": 10.0776,
+          "meanPrepares": 0,
+          "meanDefends": 3.0746,
+          "fightsUsingPrepare": 0,
+          "fightsUsingDefend": 0.9424,
+          "winnerHp": 5.55263774912075,
+          "winnerEnergy": 7.045720984759671,
+          "winnerDecisionMedian": 7,
+          "winnerDecisionP90": 11,
+          "exactWinRate": 0.8578126630986822,
+          "samplingDeviationSigma": 1.3780303230823108
+        },
+        "optimal": {
+          "n": 10000,
+          "wins": 8938,
+          "winRate": 0.8938,
+          "confidence95": [
+            0.8876094106727879,
+            0.8996881410997233
+          ],
+          "meanDecisions": 5.389,
+          "meanRolls": 9.1617,
+          "meanPrepares": 0.0263,
+          "meanDefends": 0.1411,
+          "fightsUsingPrepare": 0.0218,
+          "fightsUsingDefend": 0.0794,
+          "winnerHp": 5.558514208995301,
+          "winnerEnergy": 9.913291564108302,
+          "winnerDecisionMedian": 5,
+          "winnerDecisionP90": 8,
+          "exactWinRate": 0.8931698445009827,
+          "samplingDeviationSigma": 0.2040016942360511
+        }
+      }
+    },
+    {
+      "id": "r8_e3_a4_c3",
+      "ratHealth": 8,
+      "startingEnergy": 3,
+      "agility": 4,
+      "composure": 3,
+      "n": 5000,
+      "sensitivity": true,
+      "policies": {
+        "attack": {
+          "n": 5000,
+          "wins": 4240,
+          "winRate": 0.848,
+          "confidence95": [
+            0.8377815122270383,
+            0.8576841475972056
+          ],
+          "meanDecisions": 5.9268,
+          "meanRolls": 10.4204,
+          "meanPrepares": 0,
+          "meanDefends": 0,
+          "fightsUsingPrepare": 0,
+          "fightsUsingDefend": 0,
+          "winnerHp": 5.087264150943396,
+          "winnerEnergy": 3,
+          "winnerDecisionMedian": 6,
+          "winnerDecisionP90": 8,
+          "exactWinRate": 0.8511898118760475,
+          "samplingDeviationSigma": 0.633753734578806
+        },
+        "prepareOnTell": {
+          "n": 5000,
+          "wins": 4080,
+          "winRate": 0.816,
+          "confidence95": [
+            0.8050182664989265,
+            0.8264965280541225
+          ],
+          "meanDecisions": 5.9976,
+          "meanRolls": 9.896,
+          "meanPrepares": 1.7954,
+          "meanDefends": 0,
+          "fightsUsingPrepare": 0.925,
+          "fightsUsingDefend": 0,
+          "winnerHp": 5.176470588235294,
+          "winnerEnergy": 3,
+          "winnerDecisionMedian": 6,
+          "winnerDecisionP90": 8,
+          "exactWinRate": 0.8178034184511488,
+          "samplingDeviationSigma": 0.3303596048293272
+        },
+        "optimal": {
+          "n": 5000,
+          "wins": 4302,
+          "winRate": 0.8604,
+          "confidence95": [
+            0.8505165396972569,
+            0.8697300804195751
+          ],
+          "meanDecisions": 6.1684,
+          "meanRolls": 10.4958,
+          "meanPrepares": 0.0748,
+          "meanDefends": 0.3004,
+          "fightsUsingPrepare": 0.0578,
+          "fightsUsingDefend": 0.203,
+          "winnerHp": 5.040446304044631,
+          "winnerEnergy": 2.789632728963273,
+          "winnerDecisionMedian": 6,
+          "winnerDecisionP90": 9,
+          "exactWinRate": 0.8622291401957444,
+          "samplingDeviationSigma": 0.375268372000152
+        }
+      }
+    },
+    {
+      "id": "r8_e3_a3_c4",
+      "ratHealth": 8,
+      "startingEnergy": 3,
+      "agility": 3,
+      "composure": 4,
+      "n": 5000,
+      "sensitivity": true,
+      "policies": {
+        "attack": {
+          "n": 5000,
+          "wins": 3660,
+          "winRate": 0.732,
+          "confidence95": [
+            0.7195482582997769,
+            0.7440955149163856
+          ],
+          "meanDecisions": 6.6446,
+          "meanRolls": 11.6024,
+          "meanPrepares": 0,
+          "meanDefends": 0,
+          "fightsUsingPrepare": 0,
+          "fightsUsingDefend": 0,
+          "winnerHp": 4.745355191256831,
+          "winnerEnergy": 3,
+          "winnerDecisionMedian": 6,
+          "winnerDecisionP90": 9,
+          "exactWinRate": 0.7321317574027996,
+          "samplingDeviationSigma": 0.021038016464306055
+        },
+        "prepareOnTell": {
+          "n": 5000,
+          "wins": 3659,
+          "winRate": 0.7318,
+          "confidence95": [
+            0.719345513290849,
+            0.7438985670173687
+          ],
+          "meanDecisions": 6.5032,
+          "meanRolls": 10.7526,
+          "meanPrepares": 1.9412,
+          "meanDefends": 0,
+          "fightsUsingPrepare": 0.9436,
+          "fightsUsingDefend": 0,
+          "winnerHp": 4.972943427165892,
+          "winnerEnergy": 3,
+          "winnerDecisionMedian": 6,
+          "winnerDecisionP90": 9,
+          "exactWinRate": 0.7277324887995692,
+          "samplingDeviationSigma": 0.6461449686647879
+        },
+        "optimal": {
+          "n": 5000,
+          "wins": 3754,
+          "winRate": 0.7508,
+          "confidence95": [
+            0.7386208402639295,
+            0.7625940662990601
+          ],
+          "meanDecisions": 6.7786,
+          "meanRolls": 11.4682,
+          "meanPrepares": 0.4252,
+          "meanDefends": 0.227,
+          "fightsUsingPrepare": 0.2836,
+          "fightsUsingDefend": 0.1584,
+          "winnerHp": 4.7096430474160895,
+          "winnerEnergy": 2.83697389451252,
+          "winnerDecisionMedian": 6,
+          "winnerDecisionP90": 10,
+          "exactWinRate": 0.751115754127875,
+          "samplingDeviationSigma": 0.05163948470385997
+        }
+      }
+    },
+    {
+      "id": "r8_e3_a5_c3",
+      "ratHealth": 8,
+      "startingEnergy": 3,
+      "agility": 5,
+      "composure": 3,
+      "n": 5000,
+      "sensitivity": true,
+      "policies": {
+        "attack": {
+          "n": 5000,
+          "wins": 4603,
+          "winRate": 0.9206,
+          "confidence95": [
+            0.9127789599448746,
+            0.9277752254633926
+          ],
+          "meanDecisions": 5.3798,
+          "meanRolls": 9.5102,
+          "meanPrepares": 0,
+          "meanDefends": 0,
+          "fightsUsingPrepare": 0,
+          "fightsUsingDefend": 0,
+          "winnerHp": 5.350858135998262,
+          "winnerEnergy": 3,
+          "winnerDecisionMedian": 5,
+          "winnerDecisionP90": 7,
+          "exactWinRate": 0.9237317921450805,
+          "samplingDeviationSigma": 0.8343210796057059
+        },
+        "prepareOnTell": {
+          "n": 5000,
+          "wins": 4440,
+          "winRate": 0.888,
+          "confidence95": [
+            0.8789588890022286,
+            0.8964453524110088
+          ],
+          "meanDecisions": 5.4906,
+          "meanRolls": 9.0526,
+          "meanPrepares": 1.6126,
+          "meanDefends": 0,
+          "fightsUsingPrepare": 0.9064,
+          "fightsUsingDefend": 0,
+          "winnerHp": 5.404954954954955,
+          "winnerEnergy": 3,
+          "winnerDecisionMedian": 5,
+          "winnerDecisionP90": 8,
+          "exactWinRate": 0.8908767824729351,
+          "samplingDeviationSigma": 0.6524160319161022
+        },
+        "optimal": {
+          "n": 5000,
+          "wins": 4647,
+          "winRate": 0.9294,
+          "confidence95": [
+            0.921965142647096,
+            0.9361755307107499
+          ],
+          "meanDecisions": 5.4956,
+          "meanRolls": 9.5332,
+          "meanPrepares": 0.0266,
+          "meanDefends": 0.1474,
+          "fightsUsingPrepare": 0.0218,
+          "fightsUsingDefend": 0.1012,
+          "winnerHp": 5.318269851517107,
+          "winnerEnergy": 2.8926188939100497,
+          "winnerDecisionMedian": 5,
+          "winnerDecisionP90": 7,
+          "exactWinRate": 0.931253060228898,
+          "samplingDeviationSigma": 0.5178619419633506
+        }
+      }
+    },
+    {
+      "id": "r8_e3_a3_c5",
+      "ratHealth": 8,
+      "startingEnergy": 3,
+      "agility": 3,
+      "composure": 5,
+      "n": 5000,
+      "sensitivity": true,
+      "policies": {
+        "attack": {
+          "n": 5000,
+          "wins": 3660,
+          "winRate": 0.732,
+          "confidence95": [
+            0.7195482582997769,
+            0.7440955149163856
+          ],
+          "meanDecisions": 6.6446,
+          "meanRolls": 11.6024,
+          "meanPrepares": 0,
+          "meanDefends": 0,
+          "fightsUsingPrepare": 0,
+          "fightsUsingDefend": 0,
+          "winnerHp": 4.745355191256831,
+          "winnerEnergy": 3,
+          "winnerDecisionMedian": 6,
+          "winnerDecisionP90": 9,
+          "exactWinRate": 0.7321317574027996,
+          "samplingDeviationSigma": 0.021038016464306055
+        },
+        "prepareOnTell": {
+          "n": 5000,
+          "wins": 3741,
+          "winRate": 0.7482,
+          "confidence95": [
+            0.7359813913481752,
+            0.7600375074115298
+          ],
+          "meanDecisions": 6.3828,
+          "meanRolls": 10.5536,
+          "meanPrepares": 1.8576,
+          "meanDefends": 0,
+          "fightsUsingPrepare": 0.9436,
+          "fightsUsingDefend": 0,
+          "winnerHp": 5.043571237636995,
+          "winnerEnergy": 3,
+          "winnerDecisionMedian": 6,
+          "winnerDecisionP90": 9,
+          "exactWinRate": 0.7456445828825168,
+          "samplingDeviationSigma": 0.4149161816154912
+        },
+        "optimal": {
+          "n": 5000,
+          "wins": 3812,
+          "winRate": 0.7624,
+          "confidence95": [
+            0.7504039721289872,
+            0.7739931230948103
+          ],
+          "meanDecisions": 6.714,
+          "meanRolls": 10.8136,
+          "meanPrepares": 1.4146,
+          "meanDefends": 0.4652,
+          "fightsUsingPrepare": 0.836,
+          "fightsUsingDefend": 0.3176,
+          "winnerHp": 4.955928646379853,
+          "winnerEnergy": 2.5742392444910807,
+          "winnerDecisionMedian": 6,
+          "winnerDecisionP90": 10,
+          "exactWinRate": 0.7621137806285463,
+          "samplingDeviationSigma": 0.04753237079452045
+        }
+      }
+    }
+  ],
+  "maxSamplingDeviationSigma": 1.884750580808119
+}

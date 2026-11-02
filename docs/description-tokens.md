@@ -14,6 +14,7 @@ Tokens expand only in Description text. Names, labels and other fields remain li
 | `[ICON:damage]` | Custom four-point damage icon |
 | `[ICON:energy]` | Game Energy icon (same asset as HUD/card corners) |
 | `[ICON:health]` | Game Health icon (same asset as HUD/card corners) |
+| `[ICON:round]` | Combat round icon (clockwise circular arrow; inherits text colour) |
 
 Resources, declared stats and icons work on any Description. Damage requires an Attack or Weapon context; a weapon action uses its owning weapon. Enemy attack descriptions use that action's damage, without exposing hidden preparation. Other action descriptions may use Energy cost. Menus offer only tokens available for that field.
 

@@ -15,6 +15,8 @@ export function sourceCard(project,target) {
    for(const [i,card] of (definition.death||[]).entries())candidates.push({card,definitionPath:`death.${i}`});
   }
   if(definition.kind==='item'&&definition.subtype==='weapon')for(const [i,card] of (definition.combat?.actions||[]).entries())candidates.push({card,definitionPath:`combat.actions.${i}`});
+  if(definition.kind==='combatAction'&&definition.type==='defend')candidates.push({card:definition.blockReveal,definitionPath:'blockReveal'});
+  if(definition.kind==='item'&&definition.subtype==='weapon')for(const [i,action] of (definition.combat?.actions||[]).entries())if(action.type==='defend')candidates.push({card:action.blockReveal,definitionPath:`combat.actions.${i}.blockReveal`});
   const match=candidates.find(entry=>entry.card?.id===target.cardId);
   return match?{chapter,node,definition,...match}:null;
  }

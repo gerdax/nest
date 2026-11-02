@@ -18,7 +18,9 @@ function combatTarget(project,chapterId,node,controller,deck){
   const step=combat.sequence?.steps?.[combat.sequence.index];
   if(!step||step.contentId!==deck.content?.id)return null;
   const ownDefinition=project.library?.find(d=>d.id===step.card?.id);
-  definitionId=ownDefinition?.id??combat.enemy.definitionId??combat.enemy.id;
+  const blockOwner=project.library?.find(d=>d.kind==='combatAction'&&d.blockReveal?.id===step.card?.id
+   ||d.kind==='item'&&d.combat?.actions?.some(action=>action.blockReveal?.id===step.card?.id));
+  definitionId=step.definitionId??ownDefinition?.id??blockOwner?.id??combat.enemy.definitionId??combat.enemy.id;
   cardId=step.card?.id;
  }else return null;
  const target={kind:'definition',chapterId,nodeId:node.id,definitionId,cardId};

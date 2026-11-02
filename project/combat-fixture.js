@@ -1,5 +1,5 @@
 import {createProject} from './model-data.js';
-import {createCombatAction,createWeapon,createEnemy,createEnemyAction,ensureEnemyPreparationCards} from './combat-model.js';
+import {createCombatAction,createWeapon,createEnemy,createEnemyAction,ensureEnemyPreparationCards,ensurePlayerBlockReveal} from './combat-model.js';
 /** Explicit sample only. Never installed into the user's current project automatically. */
 export function createRatCombatProject(){
  const project=createProject();project.id='rat-combat-example';project.name='Rat encounter';
@@ -27,6 +27,7 @@ export function createAlternativeRatCombatProject(){
  const chapter=project.chapters[0];chapter.name=project.name;
  const attack={...createCombatAction('alternative-attack'),name:'Attack',check:{mode:'stat',modifierVariable:'agility',difficulty:3},attack:{source:'self',damage:{min:2,max:2},minBonus:0,maxBonus:0}};
  const defend={...createCombatAction('alternative-defend'),name:'Defend',type:'defend',resolution:'direct',damageReduction:4,costs:[{source:'variable',key:'energy',amount:1}]};
+ ensurePlayerBlockReveal(defend);
  const preparation={...createCombatAction('alternative-preparation'),name:'Preparation',type:'prepare',resolution:'direct',costs:[],text:'If your next action is an Attack, it deals +2 damage or breaks defence. Against defence, deals base damage only. Spends the turn. No dice roll or Energy cost.',preparationBonus:2};
  project.library=project.library.filter(definition=>definition.kind!=='combatAction'&&!(definition.kind==='item'&&definition.subtype==='weapon'));
  project.library.push(attack,defend,preparation);

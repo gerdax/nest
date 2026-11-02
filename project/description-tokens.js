@@ -2,7 +2,7 @@ import {actionEnergyCost} from './cards.js';
 import {isStatVariable} from './checks.js';
 import {attackDamageRange} from './combat-rules.js';
 
-const icons = Object.freeze({damage:'⚔', energy:'ϟ', health:'♥'});
+const icons = Object.freeze({damage:'⚔', energy:'ϟ', health:'♥', round:'⟳'});
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 const ownNumber = (values, key) => values && Object.hasOwn(values, key) && finite(values[key]) ? values[key] : undefined;
 const enemyAction = ({card, enemy}) => enemy === true && ['attack','prepare','defend','wait'].includes(card?.type);

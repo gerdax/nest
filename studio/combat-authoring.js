@@ -39,6 +39,7 @@ function combatActionFields(project,action,prefix='',{enemy=false,showType=true,
   else if(type==='prepare')html+=field('Preparation bonus',action.preparationBonus??2,path('preparationBonus'),'definition','number')+(enemy?field('Damage reduction',action.damageReduction??1,path('damageReduction'),'definition','number')+'<p class="small">Secretly prepares either a block against your next Attack or bonus damage on its next successful Attack. Equal chance; replaces previous preparation. Spends the turn.</p>':'<p class="small">Applies only to your next action. An Attack gains this damage bonus, or breaks defence and deals base damage only. Any other action or a missed Attack consumes preparation. A successful new Prepare replaces it; a failed Prepare clears it. Direct resolution needs no roll. Resets each encounter. Spends the turn.</p>');
   else html+='<p class="small">Direct Action. Passes the turn.</p>';
  }
+ if(!enemy&&type==='defend')html+=embeddedCard(action.blockReveal,path('blockReveal'),weapon?.id??action.id,{heading:'Block reveal',fixedLabel:true});
  if(!enemy)html+=field('Cooldown (following player turns)',action.cooldown??0,path('cooldown'),'definition','number')
   +rules(project,action.conditions,path('conditions'),'definition','conditions',{label:'Requirements',help:'All requirements must pass before this action can be selected. Health and Energy equality requirements act as minimums. Requirements do not spend resources.'})
   +rules(project,action.costs,path('costs'),'definition','costs');

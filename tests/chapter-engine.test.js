@@ -53,7 +53,7 @@ for(const spec of [
  {name:'failed enemy block',branch:0,choice:0,dice:[[4,4,4],[1,1,1]],surfaces:['check','front'],damage:2},
  {name:'Defend versus block',branch:0,choice:1,dice:[],surfaces:[],damage:0,text:/holds its ground/},
  {name:'Preparation versus block',branch:0,choice:2,dice:[],surfaces:[],damage:0,preparationBonus:2,text:/holds its ground/},
- {name:'successful player defense returns directly to choices',branch:.75,choice:1,dice:[[4,4,4],[4,4,4]],surfaces:['front','front'],phase:'choice'},
+ {name:'guaranteed player defense reveals block then swipes to choices',branch:.75,choice:1,dice:[[4,4,4]],surfaces:['front'],damage:0,text:/You blocked the attack/,blockReveal:true},
  {name:'missed charge skips defense and returns directly to choices',branch:.75,choice:1,dice:[[1,1,1]],surfaces:['front'],phase:'choice'},
  {name:'Preparation versus charge',branch:.75,choice:2,dice:[[4,4,4]],surfaces:['front'],damage:4,preparationBonus:2},
  {name:'failed checked Preparation versus charge',checkedPrepare:true,branch:.75,choice:2,dice:[[1,1,1],[4,4,4]],surfaces:['check','front'],damage:4,preparationBonus:0},
@@ -76,7 +76,9 @@ for(const spec of [
   assert.equal(deck.phase,'closed');assert.equal(controller.combat.pending.damage,spec.damage);
   if(spec.preparationBonus!==undefined)assert.equal(controller.combat.encounter.preparationBonus,spec.preparationBonus);
   if(spec.actor){assert.equal(controller.combat.pending.actor,spec.actor);assert.equal(controller.combat.encounter.enemyHp,8);}
-  if(spec.text)assert.match(deck.content.text,spec.text);assert.deepEqual(errors,spec.retry?['Dice unavailable']:[]);
+  if(spec.text)assert.match(deck.content.text,spec.text);
+  if(spec.blockReveal){assert.equal(controller.variables.health,10);assert.equal(controller.variables.energy,2);key(deck,'ArrowUp');await settleCombat();assert.equal(controller.combat.phase,'choice');assert.equal(deck.phase,'choices');assert.equal(controller.combat.pending,null);assert.deepEqual(surfaces,['front']);}
+  assert.deepEqual(errors,spec.retry?['Dice unavailable']:[]);
  }finally{controller.destroy();deck.destroy();settle();}
 });
 

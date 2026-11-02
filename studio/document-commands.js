@@ -1,7 +1,7 @@
 import {PreviewOverrides} from './preview-overrides.js';
 import {deleteCommonCard} from './common-card-removal.js';
 import { applyCombatArrayCommand } from './combat-authoring.js';
-import { createWeapon, createEnemyAction } from '../project/combat-model.js';
+import { createWeapon, createEnemyAction, migratePlayerBlockReveals } from '../project/combat-model.js';
 import { createError } from '../errors.js';
 import { eligibleInventoryItems } from './item-options.js';
 import { placedLocalDefinitions, removeUnplacedLocalDefinitions } from './local-definition-removal.js';
@@ -135,7 +135,7 @@ function changeField(project, selection, field, localDrafts) {
       parent.resolution='check';
       if(!parent.check||parent.check.mode==='stat'||stockCombatCheck(parent.check))parent.check=combatStatCheck(parent);
     }
-    if(value==='defend')parent.damageReduction??=1;
+    if(value==='defend'){parent.damageReduction??=1;if(root.kind!=='enemy')migratePlayerBlockReveals(project);}
     if(value==='prepare'){
       if(root.kind==='enemy'&&switching){
         if(!Number.isSafeInteger(parent.preparationBonus)||parent.preparationBonus<1)parent.preparationBonus=2;

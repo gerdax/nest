@@ -100,3 +100,22 @@
 .nest-playfield .item-dialog button {
   margin:0;font:inherit;background:#24351e;color:#e3edda;border:1px solid #687c58;border-radius:calc(8px * var(--playfield-scale));padding:calc(9px * var(--playfield-scale)) calc(14px * var(--playfield-scale));cursor:pointer;
 }
+
+/* Game surfaces behave like a game, without browser text selection or callouts. */
+.nest-playfield,
+.nest-playfield *,
+body.standalone-player,
+body.standalone-player * {
+  -webkit-user-select:none;
+  user-select:none;
+  -webkit-touch-callout:none;
+}
+.nest-playfield :is(img,a),
+body.standalone-player :is(img,a) {-webkit-user-drag:none;}
+/* Actual text-entry controls remain usable, including player debug controls. */
+.nest-playfield :is(input,textarea,[contenteditable="true"]),
+body.standalone-player :is(input,textarea,[contenteditable="true"]) {
+  -webkit-user-select:text;
+  user-select:text;
+  -webkit-touch-callout:default;
+}

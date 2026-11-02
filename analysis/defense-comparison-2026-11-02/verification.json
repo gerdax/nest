@@ -1,0 +1,18 @@
+{
+  "gitRevision": "c6de2a653903dc63b794b511a7921a0270e2617c",
+  "engineSha256": {
+    "project/CombatCoordinator.js": "6b36fe6b865b7a9d63d13ba086287b710709b4e125a43404a2362669c3fa2082",
+    "project/combat-rules.js": "599738dcec2f3c7ca3d1e431df60bdb94df894fe7d61a33d3f995fe0eadfaee4",
+    "project/checks.js": "903491cd2483a25c0c10dea7db92edd478ed8577480bee573ac85944cec73ce7",
+    "project/ProjectController.js": "39774a8caa5e3a58a442d06e054ba36b182004b58ef5349db926137ed8cc9f2b",
+    "project/model.js": "123e8b453f79639aa14e10a76eaed7c88179fcbde29caf1d6a5383080a1cbe57",
+    "project/state.js": "bf051615fdf8100955c8a4df7cd4e0c64a7cc30ed23b3221e2f3b870ba5c6b5d"
+  },
+  "engineTests": {
+    "passed": 37,
+    "failed": 0,
+    "command": "node --test tests/alternative-combat-coordinator.test.js tests/alternative-combat-fixture.test.js tests/combat-production-rules.test.js"
+  },
+  "runtime": "Node v24.21.0 bundled with Codex; node was not on shell PATH",
+  "review": "independent static review of counterfactual, payment, guard lifecycle, policy information, and randomness"
+}

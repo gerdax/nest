@@ -75,9 +75,9 @@ test('icons are plain Unicode and authored markup, expressions and unknown token
 
 test('palette offers resolvable tokens only and never arbitrary or unavailable state', () => {
   const base = listDescriptionTokens();
-  assert.deepEqual(base.map(entry => entry.token),['[ICON:damage]','[ICON:energy]','[ICON:health]']);
+  assert.deepEqual(base.map(entry => entry.token),['[ICON:damage]','[ICON:energy]','[ICON:health]','[ICON:round]']);
   const tokens = listDescriptionTokens({card:punch,variables,values:{health:10,agility:4,secret:91},preparationBonus:0});
-  assert.deepEqual(tokens.map(entry => entry.token),['[HP]','[BASEDMG]','[DMG]','[PREPBONUS]','[ENERGYCOST]','[STAT:agility]','[ICON:damage]','[ICON:energy]','[ICON:health]','[IF:PREPARED][ENDIF]']);
+  assert.deepEqual(tokens.map(entry => entry.token),['[HP]','[BASEDMG]','[DMG]','[PREPBONUS]','[ENERGYCOST]','[STAT:agility]','[ICON:damage]','[ICON:energy]','[ICON:health]','[ICON:round]','[IF:PREPARED][ENDIF]']);
   assert.ok(tokens.every(entry => typeof entry.label === 'string' && resolveDescription(entry.token,{card:punch,variables,values:{health:10,agility:4},preparationBonus:0}).warnings.length === 0));
 });
 
@@ -100,4 +100,9 @@ test('broken or unavailable conditions remain visible and warn instead of hiding
   assert.equal(result.text,text);assert.match(result.warnings.join(' '),/requires a player Attack/);
  }
  assert.match(resolveDescription('[IF:PREPARED][TYPO][ENDIF]',{card:punch,preparationBonus:0}).warnings[0],/Unknown description token/);
+});
+
+test('combat round icon resolves in any description and is offered in the token menu',()=>{
+ assert.deepEqual(resolveDescription('Lasts 2 [ICON:round]'),{text:'Lasts 2 ⟳',warnings:[]});
+ assert(listDescriptionTokens().some(entry=>entry.token==='[ICON:round]'&&entry.label==='Round icon'));
 });

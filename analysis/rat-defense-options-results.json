@@ -1,0 +1,384 @@
+{
+  "scope": "Counterfactual player defense; rat unchanged except guaranteedBlockBoth. Fair IID dice. Player HP10, rat HP6.",
+  "objective": "Maximize probability of winning this encounter; remaining Health/Energy has no terminal reward.",
+  "options": {
+    "current": {
+      "cost": 1,
+      "enemyBlockChance": 0.625,
+      "optimalByStartingEnergy": {
+        "0": 0.8998351273581737,
+        "1": 0.9018410345637222,
+        "2": 0.902738124718196,
+        "3": 0.9030474904685944,
+        "5": 0.9031880204551175,
+        "10": 0.9032056211727993
+      },
+      "frequentDefenseWin": {
+        "3": 0.870750428017095,
+        "10": 0.8578126630986878
+      },
+      "situations": [
+        {
+          "state": [
+            10,
+            6,
+            3,
+            0,
+            0,
+            "prepare"
+          ],
+          "continuationWinByAction": {
+            "attack": 0.9041797476001348,
+            "prepare": 0.9022530768193802,
+            "defend": 0.8993244967343559
+          }
+        },
+        {
+          "state": [
+            4,
+            4,
+            3,
+            0,
+            0,
+            "prepare"
+          ],
+          "continuationWinByAction": {
+            "attack": 0.46430215370092803,
+            "prepare": 0.515992888607996,
+            "defend": 0.5444807382921422
+          }
+        },
+        {
+          "state": [
+            2,
+            2,
+            3,
+            0,
+            0,
+            "prepare"
+          ],
+          "continuationWinByAction": {
+            "attack": 0.6734006734006734,
+            "prepare": 0.39562289562289565,
+            "defend": 0.5534511784511784
+          }
+        }
+      ]
+    },
+    "guaranteedBlock": {
+      "cost": 1,
+      "enemyBlockChance": 0.625,
+      "optimalByStartingEnergy": {
+        "0": 0.8998351273581803,
+        "1": 0.9209555233118429,
+        "2": 0.9368165993068058,
+        "3": 0.9482072567811236,
+        "5": 0.9616514484750356,
+        "10": 0.972094761413446
+      },
+      "frequentDefenseWin": {
+        "3": 0.9422812792665559,
+        "10": 0.9609553176480218
+      },
+      "situations": [
+        {
+          "state": [
+            10,
+            6,
+            3,
+            0,
+            0,
+            "prepare"
+          ],
+          "continuationWinByAction": {
+            "attack": 0.943498738584436,
+            "prepare": 0.9385921869333739,
+            "defend": 0.9518815468545794
+          }
+        },
+        {
+          "state": [
+            4,
+            4,
+            3,
+            0,
+            0,
+            "prepare"
+          ],
+          "continuationWinByAction": {
+            "attack": 0.540425680831543,
+            "prepare": 0.5735441528749858,
+            "defend": 0.7326827263252401
+          }
+        },
+        {
+          "state": [
+            2,
+            2,
+            3,
+            0,
+            0,
+            "prepare"
+          ],
+          "continuationWinByAction": {
+            "attack": 0.6734006734006734,
+            "prepare": 0.39562289562289565,
+            "defend": 0.6481481481481481
+          }
+        }
+      ]
+    },
+    "guaranteedBlockCost2": {
+      "cost": 2,
+      "enemyBlockChance": 0.625,
+      "optimalByStartingEnergy": {
+        "0": 0.8998351273581803,
+        "1": 0.8998351273581803,
+        "2": 0.9209555233118429,
+        "3": 0.9209555233118429,
+        "5": 0.9368165993068058,
+        "10": 0.9616514484750356
+      },
+      "frequentDefenseWin": {
+        "3": 0.9120898909803463,
+        "10": 0.9550146815749074
+      },
+      "situations": [
+        {
+          "state": [
+            10,
+            6,
+            3,
+            0,
+            0,
+            "prepare"
+          ],
+          "continuationWinByAction": {
+            "attack": 0.9199996531980144,
+            "prepare": 0.9157722400456946,
+            "defend": 0.9227838927275532
+          }
+        },
+        {
+          "state": [
+            4,
+            4,
+            3,
+            0,
+            0,
+            "prepare"
+          ],
+          "continuationWinByAction": {
+            "attack": 0.5009957599932319,
+            "prepare": 0.545044582198274,
+            "defend": 0.6183708220649252
+          }
+        },
+        {
+          "state": [
+            2,
+            2,
+            3,
+            0,
+            0,
+            "prepare"
+          ],
+          "continuationWinByAction": {
+            "attack": 0.6734006734006734,
+            "prepare": 0.39562289562289565,
+            "defend": 0.6481481481481481
+          }
+        }
+      ]
+    },
+    "guaranteedReduction2": {
+      "cost": 1,
+      "enemyBlockChance": 0.625,
+      "optimalByStartingEnergy": {
+        "0": 0.8998351273581737,
+        "1": 0.9057186645081208,
+        "2": 0.9077188036623491,
+        "3": 0.9084469499887426,
+        "5": 0.908866261748718,
+        "10": 0.9089467147688428
+      },
+      "frequentDefenseWin": {
+        "3": 0.8765175873429445,
+        "10": 0.8559938709018036
+      },
+      "situations": [
+        {
+          "state": [
+            10,
+            6,
+            3,
+            0,
+            0,
+            "prepare"
+          ],
+          "continuationWinByAction": {
+            "attack": 0.9091242817603027,
+            "prepare": 0.9056180112820549,
+            "defend": 0.9073590767762603
+          }
+        },
+        {
+          "state": [
+            4,
+            4,
+            3,
+            0,
+            0,
+            "prepare"
+          ],
+          "continuationWinByAction": {
+            "attack": 0.47182498926707817,
+            "prepare": 0.5341448563727806,
+            "defend": 0.5389814178960485
+          }
+        },
+        {
+          "state": [
+            2,
+            2,
+            3,
+            0,
+            0,
+            "prepare"
+          ],
+          "continuationWinByAction": {
+            "attack": 0.6734006734006734,
+            "prepare": 0.39562289562289565,
+            "defend": 0.39562289562289565
+          }
+        }
+      ]
+    },
+    "rolledBlockFailReduction2": {
+      "cost": 1,
+      "enemyBlockChance": 0.625,
+      "optimalByStartingEnergy": {
+        "0": 0.8998351273581737,
+        "1": 0.9128576897364273,
+        "2": 0.9230441731345426,
+        "3": 0.9307219174671147,
+        "5": 0.9404992415827582,
+        "10": 0.9482181793931321
+      },
+      "frequentDefenseWin": {
+        "3": 0.9207566751039999,
+        "10": 0.9303732127398782
+      },
+      "situations": [
+        {
+          "state": [
+            10,
+            6,
+            3,
+            0,
+            0,
+            "prepare"
+          ],
+          "continuationWinByAction": {
+            "attack": 0.9274694190744045,
+            "prepare": 0.9227062598006611,
+            "defend": 0.9339340117938002
+          }
+        },
+        {
+          "state": [
+            4,
+            4,
+            3,
+            0,
+            0,
+            "prepare"
+          ],
+          "continuationWinByAction": {
+            "attack": 0.5096023918842176,
+            "prepare": 0.5546087009783769,
+            "defend": 0.6556059681549093
+          }
+        },
+        {
+          "state": [
+            2,
+            2,
+            3,
+            0,
+            0,
+            "prepare"
+          ],
+          "continuationWinByAction": {
+            "attack": 0.6734006734006734,
+            "prepare": 0.39562289562289565,
+            "defend": 0.5534511784511784
+          }
+        }
+      ]
+    },
+    "guaranteedBlockBoth": {
+      "cost": 1,
+      "enemyBlockChance": 1.0,
+      "optimalByStartingEnergy": {
+        "0": 0.8824197573131262,
+        "1": 0.9084310976458088,
+        "2": 0.9280067168778241,
+        "3": 0.9420760854017187,
+        "5": 0.9585383997742924,
+        "10": 0.9709021717415618
+      },
+      "frequentDefenseWin": {
+        "3": 0.9337939961877522,
+        "10": 0.9608219944621585
+      },
+      "situations": [
+        {
+          "state": [
+            10,
+            6,
+            3,
+            0,
+            0,
+            "prepare"
+          ],
+          "continuationWinByAction": {
+            "attack": 0.9331924017364147,
+            "prepare": 0.9335777423228702,
+            "defend": 0.9449180026550659
+          }
+        },
+        {
+          "state": [
+            4,
+            4,
+            3,
+            0,
+            0,
+            "prepare"
+          ],
+          "continuationWinByAction": {
+            "attack": 0.5076911209937345,
+            "prepare": 0.5685471728807966,
+            "defend": 0.7144717172604464
+          }
+        },
+        {
+          "state": [
+            2,
+            2,
+            3,
+            0,
+            0,
+            "prepare"
+          ],
+          "continuationWinByAction": {
+            "attack": 0.6014595650610524,
+            "prepare": 0.3826574879325688,
+            "defend": 0.6311298921637175
+          }
+        }
+      ]
+    }
+  }
+}

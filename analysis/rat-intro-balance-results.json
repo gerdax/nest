@@ -1,0 +1,761 @@
+{
+  "source": "saved-projects/rat-alternative.json",
+  "sourceSha256": "707a3705cd3466cd10cbd0eded4b36bc832ca01aa21d72df4fd9ebcd9c7607a1",
+  "n": 10000,
+  "method": "Production CombatCoordinator, seeded LCG dice; no animation, physical dice or human play testing. Metrics prefixed winner are conditional on winning. Policies are state-aware and receive exact enemy HP; no hidden branch is exposed. No optimal-policy claim. Scenarios mutate compiled copies only.",
+  "scenarios": [
+    {
+      "id": "saved",
+      "names": [
+        "attack",
+        "prepareOnTell",
+        "prepareWhenUnprepared",
+        "defendOnTell",
+        "cautious",
+        "random"
+      ],
+      "health": 10,
+      "enemyHealth": 4,
+      "policies": {
+        "attack": {
+          "wins": 8905,
+          "winRate": 0.8905,
+          "confidence95": [
+            0.8842289772261754,
+            0.8964711090286887
+          ],
+          "meanDecisions": 5.0184,
+          "winnerHealth": 5.924536777091522,
+          "winnerEnergy": 3,
+          "winnerDecisionsMedian": 5,
+          "winnerDecisionsP90": 8,
+          "actions": {
+            "attack": 5.0184,
+            "prepare": 0,
+            "defend": 0
+          },
+          "lowHealthWinShareOfAllTrials": 0.1224,
+          "winnerShareAt2HpOrLess": 0.13745087029758563
+        },
+        "prepareOnTell": {
+          "wins": 9133,
+          "winRate": 0.9133,
+          "confidence95": [
+            0.9076247224180328,
+            0.9186578528678452
+          ],
+          "meanDecisions": 4.3897,
+          "winnerHealth": 6.425489981386182,
+          "winnerEnergy": 3,
+          "winnerDecisionsMedian": 4,
+          "winnerDecisionsP90": 7,
+          "actions": {
+            "attack": 3.3898,
+            "prepare": 0.9999,
+            "defend": 0
+          },
+          "lowHealthWinShareOfAllTrials": 0.0895,
+          "winnerShareAt2HpOrLess": 0.09799627723639548
+        },
+        "prepareWhenUnprepared": {
+          "wins": 8610,
+          "winRate": 0.861,
+          "confidence95": [
+            0.8540807043315316,
+            0.8676420386595208
+          ],
+          "meanDecisions": 4.7652,
+          "winnerHealth": 6.291289198606272,
+          "winnerEnergy": 3,
+          "winnerDecisionsMedian": 4,
+          "winnerDecisionsP90": 8,
+          "actions": {
+            "attack": 2.343,
+            "prepare": 2.4222,
+            "defend": 0
+          },
+          "lowHealthWinShareOfAllTrials": 0.1066,
+          "winnerShareAt2HpOrLess": 0.12380952380952381
+        },
+        "defendOnTell": {
+          "wins": 9434,
+          "winRate": 0.9434,
+          "confidence95": [
+            0.938698295155284,
+            0.9477611625794327
+          ],
+          "meanDecisions": 6.8576,
+          "winnerHealth": 6.396650413398347,
+          "winnerEnergy": 0.8264786940852237,
+          "winnerDecisionsMedian": 7,
+          "winnerDecisionsP90": 10,
+          "actions": {
+            "attack": 4.6632,
+            "prepare": 0,
+            "defend": 2.1944
+          },
+          "lowHealthWinShareOfAllTrials": 0.0814,
+          "winnerShareAt2HpOrLess": 0.08628365486538053
+        },
+        "cautious": {
+          "wins": 9344,
+          "winRate": 0.9344,
+          "confidence95": [
+            0.9293786508252645,
+            0.939087719134052
+          ],
+          "meanDecisions": 6.1162,
+          "winnerHealth": 6.346532534246576,
+          "winnerEnergy": 1.6518621575342465,
+          "winnerDecisionsMedian": 6,
+          "winnerDecisionsP90": 9,
+          "actions": {
+            "attack": 4.599,
+            "prepare": 0.1446,
+            "defend": 1.3726
+          },
+          "lowHealthWinShareOfAllTrials": 0.0918,
+          "winnerShareAt2HpOrLess": 0.09824486301369864
+        },
+        "random": {
+          "wins": 7187,
+          "winRate": 0.7187,
+          "confidence95": [
+            0.709804491353004,
+            0.7274275415892207
+          ],
+          "meanDecisions": 8.3711,
+          "winnerHealth": 5.648810352024489,
+          "winnerEnergy": 1.0595519688326145,
+          "winnerDecisionsMedian": 7,
+          "winnerDecisionsP90": 12,
+          "actions": {
+            "attack": 3.1732,
+            "prepare": 3.1329,
+            "defend": 2.065
+          },
+          "lowHealthWinShareOfAllTrials": 0.1275,
+          "winnerShareAt2HpOrLess": 0.1774036454709893
+        }
+      }
+    },
+    {
+      "id": "rat_hp_3",
+      "enemyHealth": 3,
+      "health": 10,
+      "policies": {
+        "attack": {
+          "wins": 9528,
+          "winRate": 0.9528,
+          "confidence95": [
+            0.9484667796421542,
+            0.9567854586579803
+          ],
+          "meanDecisions": 4.0329,
+          "winnerHealth": 6.60936188077246,
+          "winnerEnergy": 3,
+          "winnerDecisionsMedian": 4,
+          "winnerDecisionsP90": 6,
+          "actions": {
+            "attack": 4.0329,
+            "prepare": 0,
+            "defend": 0
+          },
+          "lowHealthWinShareOfAllTrials": 0.0744,
+          "winnerShareAt2HpOrLess": 0.07808564231738034
+        },
+        "prepareOnTell": {
+          "wins": 9541,
+          "winRate": 0.9541,
+          "confidence95": [
+            0.9498210444614407,
+            0.9580301954062517
+          ],
+          "meanDecisions": 3.6121,
+          "winnerHealth": 6.987527512839325,
+          "winnerEnergy": 3,
+          "winnerDecisionsMedian": 3,
+          "winnerDecisionsP90": 6,
+          "actions": {
+            "attack": 2.8296,
+            "prepare": 0.7825,
+            "defend": 0
+          },
+          "lowHealthWinShareOfAllTrials": 0.0623,
+          "winnerShareAt2HpOrLess": 0.06529713866471021
+        },
+        "cautious": {
+          "wins": 9681,
+          "winRate": 0.9681,
+          "confidence95": [
+            0.9644718331963945,
+            0.9713686543219203
+          ],
+          "meanDecisions": 4.8048,
+          "winnerHealth": 7.022001859312055,
+          "winnerEnergy": 2.0147712013221772,
+          "winnerDecisionsMedian": 4,
+          "winnerDecisionsP90": 8,
+          "actions": {
+            "attack": 3.7551,
+            "prepare": 0.056,
+            "defend": 0.9937
+          },
+          "lowHealthWinShareOfAllTrials": 0.0522,
+          "winnerShareAt2HpOrLess": 0.05392004958165479
+        }
+      }
+    },
+    {
+      "id": "rat_hp_5",
+      "enemyHealth": 5,
+      "health": 10,
+      "policies": {
+        "attack": {
+          "wins": 7985,
+          "winRate": 0.7985,
+          "confidence95": [
+            0.7905240821039319,
+            0.8062466624468414
+          ],
+          "meanDecisions": 6.0059,
+          "winnerHealth": 5.248841577958673,
+          "winnerEnergy": 3,
+          "winnerDecisionsMedian": 6,
+          "winnerDecisionsP90": 9,
+          "actions": {
+            "attack": 6.0059,
+            "prepare": 0,
+            "defend": 0
+          },
+          "lowHealthWinShareOfAllTrials": 0.165,
+          "winnerShareAt2HpOrLess": 0.20663744520976832
+        },
+        "prepareOnTell": {
+          "wins": 8480,
+          "winRate": 0.848,
+          "confidence95": [
+            0.8408296363640182,
+            0.8549030909514561
+          ],
+          "meanDecisions": 5.3348,
+          "winnerHealth": 5.735849056603773,
+          "winnerEnergy": 3,
+          "winnerDecisionsMedian": 5,
+          "winnerDecisionsP90": 8,
+          "actions": {
+            "attack": 4.0667,
+            "prepare": 1.2681,
+            "defend": 0
+          },
+          "lowHealthWinShareOfAllTrials": 0.128,
+          "winnerShareAt2HpOrLess": 0.1509433962264151
+        },
+        "cautious": {
+          "wins": 8840,
+          "winRate": 0.884,
+          "confidence95": [
+            0.8775756036341422,
+            0.8901294747829331
+          ],
+          "meanDecisions": 7.554,
+          "winnerHealth": 5.7649321266968325,
+          "winnerEnergy": 1.1233031674208145,
+          "winnerDecisionsMedian": 7,
+          "winnerDecisionsP90": 11,
+          "actions": {
+            "attack": 5.3541,
+            "prepare": 0.3038,
+            "defend": 1.8961
+          },
+          "lowHealthWinShareOfAllTrials": 0.1216,
+          "winnerShareAt2HpOrLess": 0.13755656108597286
+        }
+      }
+    },
+    {
+      "id": "rat_hp_6",
+      "enemyHealth": 6,
+      "health": 10,
+      "policies": {
+        "attack": {
+          "wins": 6930,
+          "winRate": 0.693,
+          "confidence95": [
+            0.6838868296896067,
+            0.7019649414939754
+          ],
+          "meanDecisions": 6.7993,
+          "winnerHealth": 4.78008658008658,
+          "winnerEnergy": 3,
+          "winnerDecisionsMedian": 6,
+          "winnerDecisionsP90": 10,
+          "actions": {
+            "attack": 6.7993,
+            "prepare": 0,
+            "defend": 0
+          },
+          "lowHealthWinShareOfAllTrials": 0.1894,
+          "winnerShareAt2HpOrLess": 0.2733044733044733
+        },
+        "prepareOnTell": {
+          "wins": 7745,
+          "winRate": 0.7745,
+          "confidence95": [
+            0.7662044240583517,
+            0.7825847530913543
+          ],
+          "meanDecisions": 6.0449,
+          "winnerHealth": 5.269464170432538,
+          "winnerEnergy": 3,
+          "winnerDecisionsMedian": 5,
+          "winnerDecisionsP90": 9,
+          "actions": {
+            "attack": 4.5131,
+            "prepare": 1.5318,
+            "defend": 0
+          },
+          "lowHealthWinShareOfAllTrials": 0.1621,
+          "winnerShareAt2HpOrLess": 0.2092963202065849
+        },
+        "cautious": {
+          "wins": 8169,
+          "winRate": 0.8169,
+          "confidence95": [
+            0.809198514797244,
+            0.8243580980943475
+          ],
+          "meanDecisions": 8.63,
+          "winnerHealth": 5.276778063410454,
+          "winnerEnergy": 0.8291100501897417,
+          "winnerDecisionsMedian": 8,
+          "winnerDecisionsP90": 12,
+          "actions": {
+            "attack": 5.9612,
+            "prepare": 0.4744,
+            "defend": 2.1944
+          },
+          "lowHealthWinShareOfAllTrials": 0.1572,
+          "winnerShareAt2HpOrLess": 0.19243481454278372
+        }
+      }
+    },
+    {
+      "id": "rat_hp_8",
+      "enemyHealth": 8,
+      "health": 10,
+      "policies": {
+        "attack": {
+          "wins": 4616,
+          "winRate": 0.4616,
+          "confidence95": [
+            0.45184555535272114,
+            0.4713839368055713
+          ],
+          "meanDecisions": 7.9958,
+          "winnerHealth": 4.134315424610052,
+          "winnerEnergy": 3,
+          "winnerDecisionsMedian": 8,
+          "winnerDecisionsP90": 12,
+          "actions": {
+            "attack": 7.9958,
+            "prepare": 0,
+            "defend": 0
+          },
+          "lowHealthWinShareOfAllTrials": 0.1741,
+          "winnerShareAt2HpOrLess": 0.37716637781629114
+        },
+        "prepareOnTell": {
+          "wins": 5976,
+          "winRate": 0.5976,
+          "confidence95": [
+            0.5879528110492516,
+            0.6071722297150883
+          ],
+          "meanDecisions": 7.264,
+          "winnerHealth": 4.551204819277109,
+          "winnerEnergy": 3,
+          "winnerDecisionsMedian": 7,
+          "winnerDecisionsP90": 11,
+          "actions": {
+            "attack": 5.1725,
+            "prepare": 2.0915,
+            "defend": 0
+          },
+          "lowHealthWinShareOfAllTrials": 0.1855,
+          "winnerShareAt2HpOrLess": 0.31040829986613117
+        },
+        "cautious": {
+          "wins": 6413,
+          "winRate": 0.6413,
+          "confidence95": [
+            0.6318468566774547,
+            0.6506446213963284
+          ],
+          "meanDecisions": 10.3784,
+          "winnerHealth": 4.553874941525027,
+          "winnerEnergy": 0.3876500857632933,
+          "winnerDecisionsMedian": 10,
+          "winnerDecisionsP90": 14,
+          "actions": {
+            "attack": 6.8674,
+            "prepare": 0.8993,
+            "defend": 2.6117
+          },
+          "lowHealthWinShareOfAllTrials": 0.1968,
+          "winnerShareAt2HpOrLess": 0.3068766567908935
+        }
+      }
+    },
+    {
+      "id": "player_hp_6",
+      "health": 6,
+      "enemyHealth": 4,
+      "policies": {
+        "attack": {
+          "wins": 5695,
+          "winRate": 0.5695,
+          "confidence95": [
+            0.5597702726671115,
+            0.5791763495984789
+          ],
+          "meanDecisions": 4.051,
+          "winnerHealth": 3.439157155399473,
+          "winnerEnergy": 3,
+          "winnerDecisionsMedian": 4,
+          "winnerDecisionsP90": 7,
+          "actions": {
+            "attack": 4.051,
+            "prepare": 0,
+            "defend": 0
+          },
+          "lowHealthWinShareOfAllTrials": 0.2682,
+          "winnerShareAt2HpOrLess": 0.47093942054433713
+        },
+        "prepareOnTell": {
+          "wins": 6554,
+          "winRate": 0.6554,
+          "confidence95": [
+            0.6460272636405794,
+            0.6646533852813307
+          ],
+          "meanDecisions": 3.6513,
+          "winnerHealth": 3.6530363137015565,
+          "winnerEnergy": 3,
+          "winnerDecisionsMedian": 3,
+          "winnerDecisionsP90": 6,
+          "actions": {
+            "attack": 2.7101,
+            "prepare": 0.9412,
+            "defend": 0
+          },
+          "lowHealthWinShareOfAllTrials": 0.2778,
+          "winnerShareAt2HpOrLess": 0.423863289594141
+        },
+        "cautious": {
+          "wins": 6626,
+          "winRate": 0.6626,
+          "confidence95": [
+            0.6532718051759178,
+            0.6718033139663125
+          ],
+          "meanDecisions": 5.3851,
+          "winnerHealth": 3.5861756715967403,
+          "winnerEnergy": 1.6817084213703593,
+          "winnerDecisionsMedian": 5,
+          "winnerDecisionsP90": 8,
+          "actions": {
+            "attack": 3.9068,
+            "prepare": 0.1269,
+            "defend": 1.3514
+          },
+          "lowHealthWinShareOfAllTrials": 0.2658,
+          "winnerShareAt2HpOrLess": 0.40114699667974646
+        }
+      }
+    },
+    {
+      "id": "player_hp_8",
+      "health": 8,
+      "enemyHealth": 4,
+      "policies": {
+        "attack": {
+          "wins": 7681,
+          "winRate": 0.7681,
+          "confidence95": [
+            0.759725902452112,
+            0.7762681900573095
+          ],
+          "meanDecisions": 4.6828,
+          "winnerHealth": 4.5499283947402684,
+          "winnerEnergy": 3,
+          "winnerDecisionsMedian": 4,
+          "winnerDecisionsP90": 7,
+          "actions": {
+            "attack": 4.6828,
+            "prepare": 0,
+            "defend": 0
+          },
+          "lowHealthWinShareOfAllTrials": 0.1986,
+          "winnerShareAt2HpOrLess": 0.25856008332248404
+        },
+        "prepareOnTell": {
+          "wins": 8238,
+          "winRate": 0.8238,
+          "confidence95": [
+            0.8162086466837957,
+            0.8311426668356026
+          ],
+          "meanDecisions": 4.1336,
+          "winnerHealth": 4.906287933964554,
+          "winnerEnergy": 3,
+          "winnerDecisionsMedian": 4,
+          "winnerDecisionsP90": 6,
+          "actions": {
+            "attack": 3.1526,
+            "prepare": 0.981,
+            "defend": 0
+          },
+          "lowHealthWinShareOfAllTrials": 0.1684,
+          "winnerShareAt2HpOrLess": 0.20441854819130856
+        },
+        "cautious": {
+          "wins": 8426,
+          "winRate": 0.8426,
+          "confidence95": [
+            0.8353307166970593,
+            0.8496061579531752
+          ],
+          "meanDecisions": 5.8926,
+          "winnerHealth": 4.82008070258723,
+          "winnerEnergy": 1.6686446712556373,
+          "winnerDecisionsMedian": 5,
+          "winnerDecisionsP90": 9,
+          "actions": {
+            "attack": 4.3852,
+            "prepare": 0.1382,
+            "defend": 1.3692
+          },
+          "lowHealthWinShareOfAllTrials": 0.18,
+          "winnerShareAt2HpOrLess": 0.2136244956088298
+        }
+      }
+    },
+    {
+      "id": "zero_energy",
+      "energy": 0,
+      "health": 10,
+      "enemyHealth": 4,
+      "policies": {
+        "attack": {
+          "wins": 8905,
+          "winRate": 0.8905,
+          "confidence95": [
+            0.8842289772261754,
+            0.8964711090286887
+          ],
+          "meanDecisions": 5.0184,
+          "winnerHealth": 5.924536777091522,
+          "winnerEnergy": 0,
+          "winnerDecisionsMedian": 5,
+          "winnerDecisionsP90": 8,
+          "actions": {
+            "attack": 5.0184,
+            "prepare": 0,
+            "defend": 0
+          },
+          "lowHealthWinShareOfAllTrials": 0.1224,
+          "winnerShareAt2HpOrLess": 0.13745087029758563
+        },
+        "prepareOnTell": {
+          "wins": 9133,
+          "winRate": 0.9133,
+          "confidence95": [
+            0.9076247224180328,
+            0.9186578528678452
+          ],
+          "meanDecisions": 4.3897,
+          "winnerHealth": 6.425489981386182,
+          "winnerEnergy": 0,
+          "winnerDecisionsMedian": 4,
+          "winnerDecisionsP90": 7,
+          "actions": {
+            "attack": 3.3898,
+            "prepare": 0.9999,
+            "defend": 0
+          },
+          "lowHealthWinShareOfAllTrials": 0.0895,
+          "winnerShareAt2HpOrLess": 0.09799627723639548
+        },
+        "cautious": {
+          "wins": 9133,
+          "winRate": 0.9133,
+          "confidence95": [
+            0.9076247224180328,
+            0.9186578528678452
+          ],
+          "meanDecisions": 4.3897,
+          "winnerHealth": 6.425489981386182,
+          "winnerEnergy": 0,
+          "winnerDecisionsMedian": 4,
+          "winnerDecisionsP90": 7,
+          "actions": {
+            "attack": 3.3898,
+            "prepare": 0.9999,
+            "defend": 0
+          },
+          "lowHealthWinShareOfAllTrials": 0.0895,
+          "winnerShareAt2HpOrLess": 0.09799627723639548
+        }
+      }
+    },
+    {
+      "id": "punch_fixed_2",
+      "damage": {
+        "min": 2,
+        "max": 2
+      },
+      "health": 10,
+      "enemyHealth": 4,
+      "policies": {
+        "attack": {
+          "wins": 9708,
+          "winRate": 0.9708,
+          "confidence95": [
+            0.9673149027494662,
+            0.9739235111014687
+          ],
+          "meanDecisions": 3.6341,
+          "winnerHealth": 6.858055212196127,
+          "winnerEnergy": 3,
+          "winnerDecisionsMedian": 3,
+          "winnerDecisionsP90": 6,
+          "actions": {
+            "attack": 3.6341,
+            "prepare": 0,
+            "defend": 0
+          },
+          "lowHealthWinShareOfAllTrials": 0.0552,
+          "winnerShareAt2HpOrLess": 0.05686032138442521
+        },
+        "prepareOnTell": {
+          "wins": 9658,
+          "winRate": 0.9658,
+          "confidence95": [
+            0.9620551676583639,
+            0.9691870863173487
+          ],
+          "meanDecisions": 3.3975,
+          "winnerHealth": 7.1192793539035,
+          "winnerEnergy": 3,
+          "winnerDecisionsMedian": 3,
+          "winnerDecisionsP90": 6,
+          "actions": {
+            "attack": 2.615,
+            "prepare": 0.7825,
+            "defend": 0
+          },
+          "lowHealthWinShareOfAllTrials": 0.0547,
+          "winnerShareAt2HpOrLess": 0.05663698488299855
+        },
+        "cautious": {
+          "wins": 9829,
+          "winRate": 0.9829,
+          "confidence95": [
+            0.9801672653118966,
+            0.9852618554370763
+          ],
+          "meanDecisions": 4.4259,
+          "winnerHealth": 7.298402685929393,
+          "winnerEnergy": 2.0148540034591513,
+          "winnerDecisionsMedian": 4,
+          "winnerDecisionsP90": 7,
+          "actions": {
+            "attack": 3.3762,
+            "prepare": 0.056,
+            "defend": 0.9937
+          },
+          "lowHealthWinShareOfAllTrials": 0.0388,
+          "winnerShareAt2HpOrLess": 0.03947502289144369
+        }
+      }
+    },
+    {
+      "id": "damage_2_to_3",
+      "damage": {
+        "min": 2,
+        "max": 3
+      },
+      "health": 10,
+      "enemyHealth": 4,
+      "policies": {
+        "attack": {
+          "wins": 9724,
+          "winRate": 0.9724,
+          "confidence95": [
+            0.9690031411032343,
+            0.975434043907772
+          ],
+          "meanDecisions": 3.616,
+          "winnerHealth": 6.920403126285479,
+          "winnerEnergy": 3,
+          "winnerDecisionsMedian": 3,
+          "winnerDecisionsP90": 6,
+          "actions": {
+            "attack": 3.616,
+            "prepare": 0,
+            "defend": 0
+          },
+          "lowHealthWinShareOfAllTrials": 0.0497,
+          "winnerShareAt2HpOrLess": 0.051110654051830524
+        },
+        "prepareOnTell": {
+          "wins": 9676,
+          "winRate": 0.9676,
+          "confidence95": [
+            0.9639460830695227,
+            0.9708947884612701
+          ],
+          "meanDecisions": 3.3798,
+          "winnerHealth": 7.146548160396859,
+          "winnerEnergy": 3,
+          "winnerDecisionsMedian": 3,
+          "winnerDecisionsP90": 6,
+          "actions": {
+            "attack": 2.5973,
+            "prepare": 0.7825,
+            "defend": 0
+          },
+          "lowHealthWinShareOfAllTrials": 0.0518,
+          "winnerShareAt2HpOrLess": 0.05353451839603142
+        },
+        "cautious": {
+          "wins": 9834,
+          "winRate": 0.9834,
+          "confidence95": [
+            0.9807037414036713,
+            0.9857249953328241
+          ],
+          "meanDecisions": 4.4127,
+          "winnerHealth": 7.332723205206427,
+          "winnerEnergy": 2.014948139109213,
+          "winnerDecisionsMedian": 4,
+          "winnerDecisionsP90": 7,
+          "actions": {
+            "attack": 3.363,
+            "prepare": 0.056,
+            "defend": 0.9937
+          },
+          "lowHealthWinShareOfAllTrials": 0.0351,
+          "winnerShareAt2HpOrLess": 0.035692495424039045
+        }
+      }
+    }
+  ],
+  "productionSourceSha256": {
+    "project/CombatCoordinator.js": "123fcde8a6921fd5701ba806ceeea739521dc87ad81baebaacff03a8ff055d6b",
+    "project/combat-rules.js": "599738dcec2f3c7ca3d1e431df60bdb94df894fe7d61a33d3f995fe0eadfaee4",
+    "analysis/rat-balance.mjs": "07f37e32bfa6a981eeeffa1a1507e0d677ed604f865460e14d41f37fcd0f39ec"
+  },
+  "totalEncounters": 330000
+}

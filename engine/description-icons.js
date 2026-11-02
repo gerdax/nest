@@ -3,14 +3,15 @@
 const icons = {
  '⚔':{id:'damage',label:'Damage',url:new URL('../assets/img/ui/damage.svg',import.meta.url).href},
  'ϟ':{id:'energy',label:'Energy',url:new URL('../assets/img/ui/hud-energy.png',import.meta.url).href},
- '♥':{id:'health',label:'Health',url:new URL('../assets/img/ui/hud-health.png',import.meta.url).href}
+ '♥':{id:'health',label:'Health',url:new URL('../assets/img/ui/hud-health.png',import.meta.url).href},
+ '⟳':{id:'round',label:'Combat round',url:new URL('../assets/img/ui/round.svg',import.meta.url).href}
 };
 export function renderDescriptionIcons(element,text) {
  const value=String(text??'');
  element.textContent=value;
- if(!/[⚔ϟ♥]/.test(value))return;
+ if(!/[⚔ϟ♥⟳]/.test(value))return;
  const doc=element.ownerDocument??document,nodes=[];
- for(const part of value.split(/([⚔ϟ♥])/)){
+ for(const part of value.split(/([⚔ϟ♥⟳])/)){
   if(!part)continue;
   const spec=Object.hasOwn(icons,part)?icons[part]:null;
   if(spec){

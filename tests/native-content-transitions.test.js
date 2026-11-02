@@ -237,3 +237,18 @@ test('a direct card uncovers its pre-staged choice fronts throughout departure w
  assert.equal(deck.cards[0],front,'adopt the same uncovered card, without rebuilding a placeholder');
  settle();assert.equal(deck.phase,'choices');deck.destroy();
 });
+
+test('incoming rat Prepare keeps its staged choices hidden until the rat card is swiped',()=>{
+ const deck=create(),choices=content('next-choices',{decisionOnly:true,actions:[{id:'hit',label:'Punch',image:'punch.png'}]});
+ // A resolved player check leaves this retained open-successor preference.
+ deck.phase='committing';deck.busy=true;deck.pendingPresentation='open';deck.commitMotion=null;
+ deck.replaceContent(content('rat-prepares',{directAdvance:true,nextDeckPreview:{content:choices,presentation:'open'}}),{transition:'flip'});
+ const front=deck.forwardDeck.cards[0];
+ assert.equal(deck.phase,'committing');assert.equal(deck.operation,'commit');
+ for(let i=0;i<200&&deck.busy;i++){
+  assert.equal(front.style.visibility,'hidden','next choice must not look like a duplicated previous Punch beneath the incoming rat');step();
+ }
+ settle();assert.equal(deck.phase,'closed');assert.equal(front.style.visibility,'hidden');
+ deck.start();deck.move({axis:'y',x:0,y:-120});step();assert.equal(front.style.visibility,'visible');
+ deck.cancel();settle();deck.destroy();
+});

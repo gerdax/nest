@@ -126,3 +126,23 @@ test('choice-free Fork intro keeps its native navigation target while using a tr
  f.controller.location.emptyFork=false;assert.equal(previewCardTarget(f),null);
  f.controller.location.emptyFork=true;f.controller.location.sequence.cards=[placement('stale')];assert.equal(previewCardTarget(f),null);
 });
+
+test('player block reveals navigate to the Defend section on Common and Weapon cards',()=>{
+ const {f,combat,weapon,common}=combatFixture();
+ common.type='defend';weapon.combat.actions[1].type='defend';
+ common.blockReveal={id:'common-block',kind:'caption'};
+ weapon.combat.actions[1].blockReveal={id:'weapon-block',kind:'event'};
+ combat.phase='effects';
+ for(const [card,owner,path] of [[common.blockReveal,common.id,'blockReveal'],[weapon.combat.actions[1].blockReveal,weapon.id,'combat.actions.1.blockReveal']]){
+  combat.sequence={index:0,steps:[{card,contentId:'visible'}]};
+  assert.deepEqual(previewCardTarget(f),combatExpected(owner,card.id,path));
+ }
+});
+
+test('copied block reveals with the same child ID keep the active Defend owner',()=>{
+ const {f,combat,common,weapon}=combatFixture();
+ common.type='defend';common.blockReveal={id:'shared-block',kind:'caption'};
+ weapon.combat.actions[0].type='defend';weapon.combat.actions[0].blockReveal={id:'shared-block',kind:'caption'};
+ combat.phase='effects';combat.sequence={index:0,steps:[{card:weapon.combat.actions[0].blockReveal,definitionId:weapon.id,contentId:'visible'}]};
+ assert.deepEqual(previewCardTarget(f),combatExpected(weapon.id,'shared-block','combat.actions.0.blockReveal'));
+});

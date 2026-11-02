@@ -124,7 +124,10 @@ export class CombatCoordinator {
    if(actor==='player')this.encounter=completePlayerTurn(this.encounter,action,source,{success:resolved.success});
    else this.encounter=applyActionProtection(this.encounter,'enemy',action);
    this.encounter=settleEnemyPreparation(this.encounter,resolved);
-   if(this.opposed&&actor==='player'&&action.type==='defend')this.playerDefense=structuredClone(action);
+   if(this.opposed&&actor==='player'&&action.type==='defend'){
+    this.playerDefense=structuredClone(action);
+    this.playerDefenseDefinitionId=source?(source.definitionId??source.id):(action.definitionId??action.id);
+   }
    if(this.opposed&&actor==='enemy'&&action.type==='attack')this.playerDefense=null;
    if(!this.setPhase(`${actor}-result`))return;
    if(action.resolution!=='direct'&&!this.opposed)await this.host.onCheckResult({target:resolved.target,total:resolved.total,success:resolved.success,label:resolved.success?'SUCCESS':action.type==='prepare'?'FAIL':'MISS',signal:this.abort.signal});
@@ -144,6 +147,8 @@ export class CombatCoordinator {
   const defense=result.actor==='player'?this.encounter.enemyPreparation?.kind==='block':!!this.playerDefense;
   if(result.action.type!=='attack'||!result.success||!result.rolledDamage||!defense)return result;
   const defender=result.actor==='player'?'enemy':'player';
+  // Player Defend pays for a guaranteed block; only the rat rolls defense.
+  if(defender==='player')return Object.freeze({...result,defense:{actor:defender,success:true,definitionId:this.playerDefenseDefinitionId,card:structuredClone(this.playerDefense.blockReveal??{kind:'caption',text:'You blocked the attack'})},blockedDamage:result.rolledDamage,damage:0,targetHp:result.targetHp+result.damage});
   const breaksDefense=result.actor==='player'&&result.preparationBonus>0;
   if(breaksDefense){
    const damage=Math.min(result.targetHp+result.damage,result.baseDamage);
@@ -166,7 +171,14 @@ export class CombatCoordinator {
  async presentResolution({replace=false}={}){
   const result=this.pending;if(!result||!this.active())return;
   if(!result.success){await this.finishAttack();return;}
-  if(this.opposed&&result.defense?.success){await this.finishAttack();return;}
+  if(this.opposed&&result.defense?.success){
+   if(result.defense.actor==='player'){
+    this.sequence={kind:'effects',steps:[{card:result.defense.card,definitionId:result.defense.definitionId}],index:0};
+    this.resume={kind:'sequence'};
+    await this.presentSequence({replace,surface:'front'});
+   }else await this.finishAttack();
+   return;
+  }
   const steps=[];
   if(result.preparationReveal&&!result.defenseBroken){
    const {kind,value}=result.preparationReveal;

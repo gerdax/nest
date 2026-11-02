@@ -1,0 +1,961 @@
+{
+  "sourceSha256": "ea2cbd88cdd6fc8205f9b538d6bac29f5ef233c05d27e361266789babc8d9839",
+  "n": 10000,
+  "method": {
+    "engine": "production CombatCoordinator with instance-only counterfactual defense override",
+    "physicalDice": false,
+    "animations": false,
+    "playerDefense": "guaranteed full block in energyOnly; same action and energy cost; rat defense unchanged",
+    "policies": "public state only; unavailable attacks/defends fall back to free Prepare",
+    "rng": "LCG; shared starting seeds, different roll counts can diverge trajectories",
+    "winnerMetricsConditional": true,
+    "optimality": "fixed policies, no claim of optimal play",
+    "randomPolicy": "Uniform over legal actions, including free Punch at zero Energy; corrected rows rerun with the same trial seeds."
+  },
+  "scenarios": [
+    {
+      "energy": 3,
+      "ratHp": 4,
+      "playerHp": 10,
+      "variants": {
+        "current_paidPunch": {
+          "attack": {
+            "n": 10000,
+            "wins": 2470,
+            "winRate": 0.247,
+            "confidence95": [
+              0.23864539179786018,
+              0.2555489185158897
+            ],
+            "meanDecisions": 7.9087,
+            "meanRolls": 8.4868,
+            "meanDefends": 0,
+            "winnerHp": 7.381376518218623,
+            "winnerEnergy": 0.3157894736842105,
+            "energyExhaustionRate": 0.753,
+            "meanGuaranteedBlocks": 0
+          },
+          "prepareEveryOther": {
+            "n": 10000,
+            "wins": 7495,
+            "winRate": 0.7495,
+            "confidence95": [
+              0.7409125797067324,
+              0.7578957980668621
+            ],
+            "meanDecisions": 5.1629,
+            "meanRolls": 5.3048,
+            "meanDefends": 0,
+            "winnerHp": 6.609472981987992,
+            "winnerEnergy": 1.1015343562374917,
+            "energyExhaustionRate": 0.1782,
+            "meanGuaranteedBlocks": 0
+          },
+          "prepareOnTell": {
+            "n": 10000,
+            "wins": 6212,
+            "winRate": 0.6212,
+            "confidence95": [
+              0.6116474407838034,
+              0.630659474591586
+            ],
+            "meanDecisions": 5.6224,
+            "meanRolls": 6.0211,
+            "meanDefends": 0,
+            "winnerHp": 6.890534449452672,
+            "winnerEnergy": 0.8697681905988409,
+            "energyExhaustionRate": 0.3521,
+            "meanGuaranteedBlocks": 0
+          },
+          "defendOnTell": {
+            "n": 10000,
+            "wins": 931,
+            "winRate": 0.0931,
+            "confidence95": [
+              0.08755998336942661,
+              0.09895252598497978
+            ],
+            "meanDecisions": 9.8576,
+            "meanRolls": 8.5633,
+            "meanDefends": 1.267,
+            "winnerHp": 7.17937701396348,
+            "winnerEnergy": 0.26852846401718583,
+            "energyExhaustionRate": 0.9069,
+            "meanGuaranteedBlocks": 0
+          },
+          "defendWhenHurt": {
+            "n": 10000,
+            "wins": 7495,
+            "winRate": 0.7495,
+            "confidence95": [
+              0.7409125797067324,
+              0.7578957980668621
+            ],
+            "meanDecisions": 5.1629,
+            "meanRolls": 5.3048,
+            "meanDefends": 0,
+            "winnerHp": 6.609472981987992,
+            "winnerEnergy": 1.1015343562374917,
+            "energyExhaustionRate": 0.1782,
+            "meanGuaranteedBlocks": 0
+          },
+          "bankDefense": {
+            "n": 10000,
+            "wins": 5727,
+            "winRate": 0.5727,
+            "confidence95": [
+              0.5629780489975145,
+              0.5823661155882183
+            ],
+            "meanDecisions": 6.891,
+            "meanRolls": 6.5563,
+            "meanDefends": 0.8752,
+            "winnerHp": 6.606600314300681,
+            "winnerEnergy": 0.5185961236249346,
+            "energyExhaustionRate": 0.3702,
+            "meanGuaranteedBlocks": 0
+          },
+          "random": {
+            "n": 10000,
+            "wins": 1960,
+            "winRate": 0.196,
+            "confidence95": [
+              0.18833677510979366,
+              0.20389670447668842
+            ],
+            "meanDecisions": 9.3015,
+            "meanRolls": 8.1294,
+            "meanDefends": 1.3909,
+            "winnerHp": 6.797959183673469,
+            "winnerEnergy": 0.8331632653061225,
+            "energyExhaustionRate": 0.7623,
+            "meanGuaranteedBlocks": 0
+          }
+        },
+        "energyOnly_paidPunch": {
+          "attack": {
+            "n": 10000,
+            "wins": 2470,
+            "winRate": 0.247,
+            "confidence95": [
+              0.23864539179786018,
+              0.2555489185158897
+            ],
+            "meanDecisions": 7.9087,
+            "meanRolls": 8.4868,
+            "meanDefends": 0,
+            "winnerHp": 7.381376518218623,
+            "winnerEnergy": 0.3157894736842105,
+            "energyExhaustionRate": 0.753,
+            "meanGuaranteedBlocks": 0
+          },
+          "prepareEveryOther": {
+            "n": 10000,
+            "wins": 7495,
+            "winRate": 0.7495,
+            "confidence95": [
+              0.7409125797067324,
+              0.7578957980668621
+            ],
+            "meanDecisions": 5.1629,
+            "meanRolls": 5.3048,
+            "meanDefends": 0,
+            "winnerHp": 6.609472981987992,
+            "winnerEnergy": 1.1015343562374917,
+            "energyExhaustionRate": 0.1782,
+            "meanGuaranteedBlocks": 0
+          },
+          "prepareOnTell": {
+            "n": 10000,
+            "wins": 6212,
+            "winRate": 0.6212,
+            "confidence95": [
+              0.6116474407838034,
+              0.630659474591586
+            ],
+            "meanDecisions": 5.6224,
+            "meanRolls": 6.0211,
+            "meanDefends": 0,
+            "winnerHp": 6.890534449452672,
+            "winnerEnergy": 0.8697681905988409,
+            "energyExhaustionRate": 0.3521,
+            "meanGuaranteedBlocks": 0
+          },
+          "defendOnTell": {
+            "n": 10000,
+            "wins": 922,
+            "winRate": 0.0922,
+            "confidence95": [
+              0.08668508854385261,
+              0.09802811203301377
+            ],
+            "meanDecisions": 10.4525,
+            "meanRolls": 8.5201,
+            "meanDefends": 1.2686,
+            "winnerHp": 7.4728850325379605,
+            "winnerEnergy": 0.27114967462039047,
+            "energyExhaustionRate": 0.9078,
+            "meanGuaranteedBlocks": 0.3973
+          },
+          "defendWhenHurt": {
+            "n": 10000,
+            "wins": 7495,
+            "winRate": 0.7495,
+            "confidence95": [
+              0.7409125797067324,
+              0.7578957980668621
+            ],
+            "meanDecisions": 5.1629,
+            "meanRolls": 5.3048,
+            "meanDefends": 0,
+            "winnerHp": 6.609472981987992,
+            "winnerEnergy": 1.1015343562374917,
+            "energyExhaustionRate": 0.1782,
+            "meanGuaranteedBlocks": 0
+          },
+          "bankDefense": {
+            "n": 10000,
+            "wins": 5832,
+            "winRate": 0.5832,
+            "confidence95": [
+              0.5735064812571793,
+              0.5928296190665205
+            ],
+            "meanDecisions": 7.0608,
+            "meanRolls": 6.2455,
+            "meanDefends": 0.8752,
+            "winnerHp": 6.925240054869684,
+            "winnerEnergy": 0.5102880658436214,
+            "energyExhaustionRate": 0.3827,
+            "meanGuaranteedBlocks": 0.4107
+          },
+          "random": {
+            "n": 10000,
+            "wins": 1958,
+            "winRate": 0.1958,
+            "confidence95": [
+              0.18813985336221115,
+              0.20369377982926204
+            ],
+            "meanDecisions": 9.9021,
+            "meanRolls": 7.945,
+            "meanDefends": 1.3979,
+            "winnerHp": 6.931562819203268,
+            "winnerEnergy": 0.8243105209397344,
+            "energyExhaustionRate": 0.7781,
+            "meanGuaranteedBlocks": 0.5335
+          }
+        },
+        "current_freePunch": {
+          "attack": {
+            "n": 10000,
+            "wins": 8905,
+            "winRate": 0.8905,
+            "confidence95": [
+              0.8842289772261754,
+              0.8964711090286887
+            ],
+            "meanDecisions": 5.0184,
+            "meanRolls": 8.6646,
+            "meanDefends": 0,
+            "winnerHp": 5.924536777091522,
+            "winnerEnergy": 3,
+            "energyExhaustionRate": 0,
+            "meanGuaranteedBlocks": 0
+          },
+          "prepareEveryOther": {
+            "n": 10000,
+            "wins": 8610,
+            "winRate": 0.861,
+            "confidence95": [
+              0.8540807043315316,
+              0.8676420386595208
+            ],
+            "meanDecisions": 4.7652,
+            "meanRolls": 5.2128,
+            "meanDefends": 0,
+            "winnerHp": 6.291289198606272,
+            "winnerEnergy": 3,
+            "energyExhaustionRate": 0,
+            "meanGuaranteedBlocks": 0
+          },
+          "prepareOnTell": {
+            "n": 10000,
+            "wins": 8851,
+            "winRate": 0.8851,
+            "confidence95": [
+              0.8787011035516528,
+              0.8912031300379715
+            ],
+            "meanDecisions": 4.5759,
+            "meanRolls": 5.8209,
+            "meanDefends": 0,
+            "winnerHp": 6.210823635747373,
+            "winnerEnergy": 3,
+            "energyExhaustionRate": 0,
+            "meanGuaranteedBlocks": 0
+          },
+          "defendOnTell": {
+            "n": 10000,
+            "wins": 8747,
+            "winRate": 0.8747,
+            "confidence95": [
+              0.868067009108882,
+              0.8810452119402798
+            ],
+            "meanDecisions": 6.6861,
+            "meanRolls": 9.4109,
+            "meanDefends": 2.1886,
+            "winnerHp": 5.823253686978393,
+            "winnerEnergy": 0.8584657596890363,
+            "energyExhaustionRate": 0,
+            "meanGuaranteedBlocks": 0
+          },
+          "defendWhenHurt": {
+            "n": 10000,
+            "wins": 8388,
+            "winRate": 0.8388,
+            "confidence95": [
+              0.8314628857415742,
+              0.8458769074034911
+            ],
+            "meanDecisions": 4.9688,
+            "meanRolls": 5.356,
+            "meanDefends": 0.2038,
+            "winnerHp": 6.341917024320458,
+            "winnerEnergy": 2.8991416309012874,
+            "energyExhaustionRate": 0,
+            "meanGuaranteedBlocks": 0
+          },
+          "bankDefense": {
+            "n": 10000,
+            "wins": 8226,
+            "winRate": 0.8226,
+            "confidence95": [
+              0.8149891959184581,
+              0.829963039230887
+            ],
+            "meanDecisions": 6.0772,
+            "meanRolls": 6.4377,
+            "meanDefends": 0.9787,
+            "winnerHp": 5.910041332360807,
+            "winnerEnergy": 2.025893508388038,
+            "energyExhaustionRate": 0,
+            "meanGuaranteedBlocks": 0
+          },
+          "random": {
+            "n": 10000,
+            "wins": 6522,
+            "winRate": 0.6522,
+            "confidence95": [
+              0.6428082287135353,
+              0.6614748778882327
+            ],
+            "meanDecisions": 7.8984,
+            "meanRolls": 8.8568,
+            "meanDefends": 2.0015,
+            "winnerHp": 5.448328733517326,
+            "winnerEnergy": 1.1783195338853112,
+            "energyExhaustionRate": 0,
+            "meanGuaranteedBlocks": 0
+          }
+        },
+        "energyOnly_freePunch": {
+          "attack": {
+            "n": 10000,
+            "wins": 8905,
+            "winRate": 0.8905,
+            "confidence95": [
+              0.8842289772261754,
+              0.8964711090286887
+            ],
+            "meanDecisions": 5.0184,
+            "meanRolls": 8.6646,
+            "meanDefends": 0,
+            "winnerHp": 5.924536777091522,
+            "winnerEnergy": 3,
+            "energyExhaustionRate": 0,
+            "meanGuaranteedBlocks": 0
+          },
+          "prepareEveryOther": {
+            "n": 10000,
+            "wins": 8610,
+            "winRate": 0.861,
+            "confidence95": [
+              0.8540807043315316,
+              0.8676420386595208
+            ],
+            "meanDecisions": 4.7652,
+            "meanRolls": 5.2128,
+            "meanDefends": 0,
+            "winnerHp": 6.291289198606272,
+            "winnerEnergy": 3,
+            "energyExhaustionRate": 0,
+            "meanGuaranteedBlocks": 0
+          },
+          "prepareOnTell": {
+            "n": 10000,
+            "wins": 8851,
+            "winRate": 0.8851,
+            "confidence95": [
+              0.8787011035516528,
+              0.8912031300379715
+            ],
+            "meanDecisions": 4.5759,
+            "meanRolls": 5.8209,
+            "meanDefends": 0,
+            "winnerHp": 6.210823635747373,
+            "winnerEnergy": 3,
+            "energyExhaustionRate": 0,
+            "meanGuaranteedBlocks": 0
+          },
+          "defendOnTell": {
+            "n": 10000,
+            "wins": 9434,
+            "winRate": 0.9434,
+            "confidence95": [
+              0.938698295155284,
+              0.9477611625794327
+            ],
+            "meanDecisions": 6.8576,
+            "meanRolls": 8.9635,
+            "meanDefends": 2.1944,
+            "winnerHp": 6.396650413398347,
+            "winnerEnergy": 0.8264786940852237,
+            "energyExhaustionRate": 0,
+            "meanGuaranteedBlocks": 0.6986
+          },
+          "defendWhenHurt": {
+            "n": 10000,
+            "wins": 8534,
+            "winRate": 0.8534,
+            "confidence95": [
+              0.8463316412007081,
+              0.8601969387800065
+            ],
+            "meanDecisions": 5.0351,
+            "meanRolls": 5.3534,
+            "meanDefends": 0.2038,
+            "winnerHp": 6.282399812514647,
+            "winnerEnergy": 2.883759081321772,
+            "energyExhaustionRate": 0,
+            "meanGuaranteedBlocks": 0.0614
+          },
+          "bankDefense": {
+            "n": 10000,
+            "wins": 8545,
+            "winRate": 0.8545,
+            "confidence95": [
+              0.8474528106824739,
+              0.8612749244707896
+            ],
+            "meanDecisions": 6.1784,
+            "meanRolls": 6.0727,
+            "meanDefends": 0.9787,
+            "winnerHp": 6.164072557050907,
+            "winnerEnergy": 2.0249268578115855,
+            "energyExhaustionRate": 0,
+            "meanGuaranteedBlocks": 0.4601
+          },
+          "random": {
+            "n": 10000,
+            "wins": 7224,
+            "winRate": 0.7224,
+            "confidence95": [
+              0.713538692233463,
+              0.7310904990164264
+            ],
+            "meanDecisions": 8.3287,
+            "meanRolls": 8.5125,
+            "meanDefends": 2.043,
+            "winnerHp": 5.652823920265781,
+            "winnerEnergy": 1.080564784053156,
+            "energyExhaustionRate": 0,
+            "meanGuaranteedBlocks": 0.7669
+          }
+        }
+      }
+    },
+    {
+      "energy": 10,
+      "ratHp": 4,
+      "playerHp": 10,
+      "variants": {
+        "current_paidPunch": {
+          "attack": {
+            "n": 10000,
+            "wins": 8792,
+            "winRate": 0.8792,
+            "confidence95": [
+              0.872666412842944,
+              0.8854423520939179
+            ],
+            "meanDecisions": 5.0476,
+            "meanRolls": 8.6582,
+            "meanDefends": 0,
+            "winnerHp": 5.955868971792539,
+            "winnerEnergy": 5.217015468607825,
+            "energyExhaustionRate": 0.0139,
+            "meanGuaranteedBlocks": 0
+          },
+          "prepareEveryOther": {
+            "n": 10000,
+            "wins": 8610,
+            "winRate": 0.861,
+            "confidence95": [
+              0.8540807043315316,
+              0.8676420386595208
+            ],
+            "meanDecisions": 4.7655,
+            "meanRolls": 5.2129,
+            "meanDefends": 0,
+            "winnerHp": 6.291289198606272,
+            "winnerEnergy": 7.7716608594657375,
+            "energyExhaustionRate": 0.0001,
+            "meanGuaranteedBlocks": 0
+          },
+          "prepareOnTell": {
+            "n": 10000,
+            "wins": 8851,
+            "winRate": 0.8851,
+            "confidence95": [
+              0.8787011035516528,
+              0.8912031300379715
+            ],
+            "meanDecisions": 4.5758,
+            "meanRolls": 5.8208,
+            "meanDefends": 0,
+            "winnerHp": 6.210823635747373,
+            "winnerEnergy": 7.080103943057281,
+            "energyExhaustionRate": 0.0001,
+            "meanGuaranteedBlocks": 0
+          },
+          "defendOnTell": {
+            "n": 10000,
+            "wins": 7469,
+            "winRate": 0.7469,
+            "confidence95": [
+              0.7382844562469495,
+              0.7553259183915293
+            ],
+            "meanDecisions": 7.5697,
+            "meanRolls": 9.5979,
+            "meanDefends": 2.7752,
+            "winnerHp": 5.946980854197349,
+            "winnerEnergy": 3.8741464720846164,
+            "energyExhaustionRate": 0.1475,
+            "meanGuaranteedBlocks": 0
+          },
+          "defendWhenHurt": {
+            "n": 10000,
+            "wins": 8094,
+            "winRate": 0.8094,
+            "confidence95": [
+              0.8015833718258429,
+              0.816979001252915
+            ],
+            "meanDecisions": 5.2296,
+            "meanRolls": 5.5508,
+            "meanDefends": 0.479,
+            "winnerHp": 6.451692611811218,
+            "winnerEnergy": 7.706572769953052,
+            "energyExhaustionRate": 0.0013,
+            "meanGuaranteedBlocks": 0
+          },
+          "bankDefense": {
+            "n": 10000,
+            "wins": 4569,
+            "winRate": 0.4569,
+            "confidence95": [
+              0.44715488878647985,
+              0.46667821308910346
+            ],
+            "meanDecisions": 12.3032,
+            "meanRolls": 12.0225,
+            "meanDefends": 5.9941,
+            "winnerHp": 5.263733858612388,
+            "winnerEnergy": 2.4528343182315604,
+            "energyExhaustionRate": 0.1052,
+            "meanGuaranteedBlocks": 0
+          },
+          "random": {
+            "n": 10000,
+            "wins": 5609,
+            "winRate": 0.5609,
+            "confidence95": [
+              0.551151417650007,
+              0.570601809630201
+            ],
+            "meanDecisions": 8.7423,
+            "meanRolls": 9.5324,
+            "meanDefends": 2.7576,
+            "winnerHp": 5.620966304154038,
+            "winnerEnergy": 5.247281155286148,
+            "energyExhaustionRate": 0.0966,
+            "meanGuaranteedBlocks": 0
+          }
+        },
+        "energyOnly_paidPunch": {
+          "attack": {
+            "n": 10000,
+            "wins": 8792,
+            "winRate": 0.8792,
+            "confidence95": [
+              0.872666412842944,
+              0.8854423520939179
+            ],
+            "meanDecisions": 5.0476,
+            "meanRolls": 8.6582,
+            "meanDefends": 0,
+            "winnerHp": 5.955868971792539,
+            "winnerEnergy": 5.217015468607825,
+            "energyExhaustionRate": 0.0139,
+            "meanGuaranteedBlocks": 0
+          },
+          "prepareEveryOther": {
+            "n": 10000,
+            "wins": 8610,
+            "winRate": 0.861,
+            "confidence95": [
+              0.8540807043315316,
+              0.8676420386595208
+            ],
+            "meanDecisions": 4.7655,
+            "meanRolls": 5.2129,
+            "meanDefends": 0,
+            "winnerHp": 6.291289198606272,
+            "winnerEnergy": 7.7716608594657375,
+            "energyExhaustionRate": 0.0001,
+            "meanGuaranteedBlocks": 0
+          },
+          "prepareOnTell": {
+            "n": 10000,
+            "wins": 8851,
+            "winRate": 0.8851,
+            "confidence95": [
+              0.8787011035516528,
+              0.8912031300379715
+            ],
+            "meanDecisions": 4.5758,
+            "meanRolls": 5.8208,
+            "meanDefends": 0,
+            "winnerHp": 6.210823635747373,
+            "winnerEnergy": 7.080103943057281,
+            "energyExhaustionRate": 0.0001,
+            "meanGuaranteedBlocks": 0
+          },
+          "defendOnTell": {
+            "n": 10000,
+            "wins": 7942,
+            "winRate": 0.7942,
+            "confidence95": [
+              0.7861637536631011,
+              0.802010293394981
+            ],
+            "meanDecisions": 8.0698,
+            "meanRolls": 9.1158,
+            "meanDefends": 2.7944,
+            "winnerHp": 6.713925963233442,
+            "winnerEnergy": 3.773608662805339,
+            "energyExhaustionRate": 0.18,
+            "meanGuaranteedBlocks": 0.8848
+          },
+          "defendWhenHurt": {
+            "n": 10000,
+            "wins": 8316,
+            "winRate": 0.8316,
+            "confidence95": [
+              0.824138230641405,
+              0.8388070922833403
+            ],
+            "meanDecisions": 5.4667,
+            "meanRolls": 5.5832,
+            "meanDefends": 0.5439,
+            "winnerHp": 6.35016835016835,
+            "winnerEnergy": 7.5953583453583455,
+            "energyExhaustionRate": 0.0026,
+            "meanGuaranteedBlocks": 0.169
+          },
+          "bankDefense": {
+            "n": 10000,
+            "wins": 6460,
+            "winRate": 0.646,
+            "confidence95": [
+              0.6365726667697291,
+              0.6553152015867632
+            ],
+            "meanDecisions": 14.3147,
+            "meanRolls": 10.7571,
+            "meanDefends": 6.4418,
+            "winnerHp": 6.108978328173374,
+            "winnerEnergy": 1.9520123839009287,
+            "energyExhaustionRate": 0.2066,
+            "meanGuaranteedBlocks": 3.0132
+          },
+          "random": {
+            "n": 10000,
+            "wins": 6229,
+            "winRate": 0.6229,
+            "confidence95": [
+              0.6133551701655182,
+              0.6323504395674469
+            ],
+            "meanDecisions": 9.6707,
+            "meanRolls": 9.2294,
+            "meanDefends": 2.9508,
+            "winnerHp": 5.845240006421577,
+            "winnerEnergy": 4.932412907368759,
+            "energyExhaustionRate": 0.1481,
+            "meanGuaranteedBlocks": 1.0945
+          }
+        },
+        "current_freePunch": {
+          "attack": {
+            "n": 10000,
+            "wins": 8905,
+            "winRate": 0.8905,
+            "confidence95": [
+              0.8842289772261754,
+              0.8964711090286887
+            ],
+            "meanDecisions": 5.0184,
+            "meanRolls": 8.6646,
+            "meanDefends": 0,
+            "winnerHp": 5.924536777091522,
+            "winnerEnergy": 10,
+            "energyExhaustionRate": 0,
+            "meanGuaranteedBlocks": 0
+          },
+          "prepareEveryOther": {
+            "n": 10000,
+            "wins": 8610,
+            "winRate": 0.861,
+            "confidence95": [
+              0.8540807043315316,
+              0.8676420386595208
+            ],
+            "meanDecisions": 4.7652,
+            "meanRolls": 5.2128,
+            "meanDefends": 0,
+            "winnerHp": 6.291289198606272,
+            "winnerEnergy": 10,
+            "energyExhaustionRate": 0,
+            "meanGuaranteedBlocks": 0
+          },
+          "prepareOnTell": {
+            "n": 10000,
+            "wins": 8851,
+            "winRate": 0.8851,
+            "confidence95": [
+              0.8787011035516528,
+              0.8912031300379715
+            ],
+            "meanDecisions": 4.5759,
+            "meanRolls": 5.8209,
+            "meanDefends": 0,
+            "winnerHp": 6.210823635747373,
+            "winnerEnergy": 10,
+            "energyExhaustionRate": 0,
+            "meanGuaranteedBlocks": 0
+          },
+          "defendOnTell": {
+            "n": 10000,
+            "wins": 8638,
+            "winRate": 0.8638,
+            "confidence95": [
+              0.8569373195256481,
+              0.8703832729955289
+            ],
+            "meanDecisions": 7.2236,
+            "meanRolls": 9.6192,
+            "meanDefends": 2.9433,
+            "winnerHp": 5.769854132901134,
+            "winnerEnergy": 7.180713128038898,
+            "energyExhaustionRate": 0,
+            "meanGuaranteedBlocks": 0
+          },
+          "defendWhenHurt": {
+            "n": 10000,
+            "wins": 8057,
+            "winRate": 0.8057,
+            "confidence95": [
+              0.7978282551734526,
+              0.813336959597641
+            ],
+            "meanDecisions": 5.2441,
+            "meanRolls": 5.5643,
+            "meanDefends": 0.5026,
+            "winnerHp": 6.467667866451533,
+            "winnerEnergy": 9.848702991187787,
+            "energyExhaustionRate": 0,
+            "meanGuaranteedBlocks": 0
+          },
+          "bankDefense": {
+            "n": 10000,
+            "wins": 4873,
+            "winRate": 0.4873,
+            "confidence95": [
+              0.4775099187730632,
+              0.49709983514387196
+            ],
+            "meanDecisions": 12.569,
+            "meanRolls": 12.399,
+            "meanDefends": 6.3479,
+            "winnerHp": 5.042889390519187,
+            "winnerEnergy": 3.8075107736507285,
+            "energyExhaustionRate": 0,
+            "meanGuaranteedBlocks": 0
+          },
+          "random": {
+            "n": 10000,
+            "wins": 6060,
+            "winRate": 0.606,
+            "confidence95": [
+              0.5963838044985335,
+              0.6155347848561801
+            ],
+            "meanDecisions": 8.689,
+            "meanRolls": 9.6427,
+            "meanDefends": 2.8699,
+            "winnerHp": 5.463036303630363,
+            "winnerEnergy": 7.646534653465347,
+            "energyExhaustionRate": 0,
+            "meanGuaranteedBlocks": 0
+          }
+        },
+        "energyOnly_freePunch": {
+          "attack": {
+            "n": 10000,
+            "wins": 8905,
+            "winRate": 0.8905,
+            "confidence95": [
+              0.8842289772261754,
+              0.8964711090286887
+            ],
+            "meanDecisions": 5.0184,
+            "meanRolls": 8.6646,
+            "meanDefends": 0,
+            "winnerHp": 5.924536777091522,
+            "winnerEnergy": 10,
+            "energyExhaustionRate": 0,
+            "meanGuaranteedBlocks": 0
+          },
+          "prepareEveryOther": {
+            "n": 10000,
+            "wins": 8610,
+            "winRate": 0.861,
+            "confidence95": [
+              0.8540807043315316,
+              0.8676420386595208
+            ],
+            "meanDecisions": 4.7652,
+            "meanRolls": 5.2128,
+            "meanDefends": 0,
+            "winnerHp": 6.291289198606272,
+            "winnerEnergy": 10,
+            "energyExhaustionRate": 0,
+            "meanGuaranteedBlocks": 0
+          },
+          "prepareOnTell": {
+            "n": 10000,
+            "wins": 8851,
+            "winRate": 0.8851,
+            "confidence95": [
+              0.8787011035516528,
+              0.8912031300379715
+            ],
+            "meanDecisions": 4.5759,
+            "meanRolls": 5.8209,
+            "meanDefends": 0,
+            "winnerHp": 6.210823635747373,
+            "winnerEnergy": 10,
+            "energyExhaustionRate": 0,
+            "meanGuaranteedBlocks": 0
+          },
+          "defendOnTell": {
+            "n": 10000,
+            "wins": 9594,
+            "winRate": 0.9594,
+            "confidence95": [
+              0.9553520167477447,
+              0.9630951525876834
+            ],
+            "meanDecisions": 7.5298,
+            "meanRolls": 9.0686,
+            "meanDefends": 3.0132,
+            "winnerHp": 6.4863456326870965,
+            "winnerEnergy": 7.012507817385866,
+            "energyExhaustionRate": 0,
+            "meanGuaranteedBlocks": 0.9545
+          },
+          "defendWhenHurt": {
+            "n": 10000,
+            "wins": 8287,
+            "winRate": 0.8287,
+            "confidence95": [
+              0.8211894046403918,
+              0.8359581455567244
+            ],
+            "meanDecisions": 5.5142,
+            "meanRolls": 5.6044,
+            "meanDefends": 0.5926,
+            "winnerHp": 6.359599372511162,
+            "winnerEnergy": 9.755400024134186,
+            "energyExhaustionRate": 0,
+            "meanGuaranteedBlocks": 0.183
+          },
+          "bankDefense": {
+            "n": 10000,
+            "wins": 7691,
+            "winRate": 0.7691,
+            "confidence95": [
+              0.76073799361353,
+              0.7772553308709359
+            ],
+            "meanDecisions": 14.5479,
+            "meanRolls": 11.0624,
+            "meanDefends": 6.9391,
+            "winnerHp": 5.783643219347289,
+            "winnerEnergy": 3.2125861396437396,
+            "energyExhaustionRate": 0,
+            "meanGuaranteedBlocks": 3.2462
+          },
+          "random": {
+            "n": 10000,
+            "wins": 7101,
+            "winRate": 0.7101,
+            "confidence95": [
+              0.7011278316880303,
+              0.7189108062688121
+            ],
+            "meanDecisions": 9.5854,
+            "meanRolls": 9.3769,
+            "meanDefends": 3.1498,
+            "winnerHp": 5.6290663286861005,
+            "winnerEnergy": 7.168004506407549,
+            "energyExhaustionRate": 0,
+            "meanGuaranteedBlocks": 1.1608
+          }
+        }
+      }
+    }
+  ],
+  "verification": {
+    "gitRevision": "c6de2a653903dc63b794b511a7921a0270e2617c",
+    "engineSha256": {
+      "project/CombatCoordinator.js": "6b36fe6b865b7a9d63d13ba086287b710709b4e125a43404a2362669c3fa2082",
+      "project/combat-rules.js": "599738dcec2f3c7ca3d1e431df60bdb94df894fe7d61a33d3f995fe0eadfaee4",
+      "project/checks.js": "903491cd2483a25c0c10dea7db92edd478ed8577480bee573ac85944cec73ce7",
+      "project/ProjectController.js": "39774a8caa5e3a58a442d06e054ba36b182004b58ef5349db926137ed8cc9f2b",
+      "project/model.js": "123e8b453f79639aa14e10a76eaed7c88179fcbde29caf1d6a5383080a1cbe57",
+      "project/state.js": "bf051615fdf8100955c8a4df7cd4e0c64a7cc30ed23b3221e2f3b870ba5c6b5d"
+    },
+    "engineTests": {
+      "passed": 37,
+      "failed": 0,
+      "command": "node --test tests/alternative-combat-coordinator.test.js tests/alternative-combat-fixture.test.js tests/combat-production-rules.test.js"
+    },
+    "runtime": "Node v24.21.0 bundled with Codex; node was not on shell PATH",
+    "review": "independent static review of counterfactual, payment, guard lifecycle, policy information, and randomness"
+  }
+}

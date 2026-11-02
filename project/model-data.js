@@ -88,6 +88,7 @@ export function createProject() {
   ];
   project.library.push(...support);
   project.combat.defaultActions.push(...support.map(action=>({definitionId:action.id})));
+  ensureCombatDefaults(project);
   return project;
 }
 

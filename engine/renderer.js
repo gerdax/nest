@@ -607,7 +607,9 @@ export function renderDeck(deck, time = performance.now()) {
     applyBackAppearance(deck.sceneBack, appearance);
     for (const reverse of deck.cardBacks) applyBackAppearance(reverse, appearance);
   }
-  const forwardActive = !!deck.forwardDeck && (((deck.content.directAdvance || deck.content.flipItemsOnReveal) && !deck.busy && deck.p.x > 0) || (deck.phase === 'committing' && (deck.pendingPresentation === 'open' || !deck.pending && deck.content.directAdvance && deck.content.nextDeckPreview?.presentation === 'open'))
+  // Pre-staged choices belong under an outgoing card, never an incoming
+  // turning card whose retained pendingPresentation may still be 'open'.
+  const forwardActive = !!deck.forwardDeck && (((deck.content.directAdvance || deck.content.flipItemsOnReveal) && !deck.busy && deck.p.x > 0) || (deck.phase === 'committing' && !!deck.commitMotion && (deck.pendingPresentation === 'open' || !deck.pending && deck.content.directAdvance && deck.content.nextDeckPreview?.presentation === 'open'))
     || (deck.phase === 'choices' && deck.l.x > 0 && deck.forwardOwner === deck.content.actions[deck.index]?.id));
   if (deck.underlay) {
     const stagedPose = {

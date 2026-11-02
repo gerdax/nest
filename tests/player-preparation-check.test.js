@@ -81,11 +81,11 @@ test('Attack uses Agility independently, while rat attacks keep their fixed chec
  }
 });
 
-test('Defend remains direct and only rolls fixed 3d6 >= 10 after the incoming hit',async()=>{
+test('Defend remains direct and guarantees the block regardless of player stats',async()=>{
  const h=harness({declaration:'charge',dice:[[4,4,4],[3,3,3]]});await prepared(h);
  const choice=h.c.choices().find(choice=>choice.action.type==='defend');assert.equal(choice.action.resolution,'direct');
  const shown=h.deck.content.actions.find(action=>action.id===choice.id);assert.equal(shown.checkInfo,undefined);
  h.host.variables.agility=10;h.host.variables.composure=10;
  const promise=h.c.accept({contentId:h.deck.content.id,action:{id:choice.id}});await tick();assert.equal(h.rolls.length,0);assert.equal(h.host.variables.energy,2);
- h.deck.depart();await promise;assert.deepEqual(h.rolls.map(roll=>roll.color),['black','light']);assert.deepEqual(h.rolls[1].pool,[{sides:6,count:3}]);assert.equal(h.feedback.at(-1).target,10);assert.equal(h.feedback.at(-1).total,9);assert.equal(h.feedback.at(-1).label,'FAIL');assert.equal(h.c.pending.damage,4);h.c.dispose();
+ h.deck.depart();await promise;assert.deepEqual(h.rolls.map(roll=>roll.color),['black']);assert.equal(h.host.variables.health,10);assert.equal(h.c.pending.damage,0);assert.equal(h.c.phase,'effects');assert.equal(h.deck.content.text,'You blocked the attack');await swipe(h);assert.equal(h.c.phase,'choice');h.c.dispose();
 });

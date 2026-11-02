@@ -1,0 +1,9 @@
+{
+  "url": "https://gerdax.github.io/nest/rat-encounter-restored/player.html",
+  "commit": "6626c781b7fbadbd57dc8ecaff879c02309c153b",
+  "sha256": "2776155d927e59814a5a4821c14a6fd1c91f38728160e36357791392142ffa46",
+  "testsPassed": 2791,
+  "preparation": "direct",
+  "defense": "fixed 3d6 >= 10 after a hit",
+  "playerDefendEnergy": 1
+}

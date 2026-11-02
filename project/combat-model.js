@@ -22,6 +22,23 @@ export function ensureEnemyPreparationCards(enemy,used=new Set()){
  }
  return enemy;
 }
+/** Presentation-only feedback owned by a player Defend Action. */
+export function ensurePlayerBlockReveal(action,used=new Set()){
+ if(action?.kind!=='combatAction'||action.type!=='defend'||Object.hasOwn(action,'blockReveal'))return action;
+ const collect=value=>{if(Array.isArray(value))value.forEach(collect);else if(object(value)){if(typeof value.id==='string')used.add(value.id);Object.values(value).forEach(collect);}};collect(action);
+ action.blockReveal={...base(allocate(`${action.id}-block-reveal`,used),'caption','Block reveal'),text:'You blocked the attack',effects:[]};
+ return action;
+}
+export function migratePlayerBlockReveals(project){
+ if(!object(project)||!Array.isArray(project.library))return project;
+ const used=new Set();
+ const collect=value=>{if(Array.isArray(value))value.forEach(collect);else if(object(value)){if(typeof value.id==='string')used.add(value.id);Object.values(value).forEach(collect);}};collect(project);
+ for(const definition of project.library){
+  ensurePlayerBlockReveal(definition,used);
+  if(definition?.kind==='item'&&definition.subtype==='weapon')for(const action of Array.isArray(definition.combat?.actions)?definition.combat.actions:[])ensurePlayerBlockReveal(action,used);
+ }
+ return project;
+}
 /** Existing player Actions retain their attack behaviour on upgrade. */
 export function migrateCombatActionTypes(project){
  if(!object(project)||!Array.isArray(project.library))return project;
@@ -121,7 +138,7 @@ export function ensureCombatDefaults(project){
    node.introEnabled=typeof enemy?.introEnabled==='boolean'?enemy.introEnabled:false;
   }
  }
- migrateEnemyActions(project);migrateWeaponActions(project);migrateCombatActionTypes(project);project.version=3;return project;
+ migrateEnemyActions(project);migrateWeaponActions(project);migrateCombatActionTypes(project);migratePlayerBlockReveals(project);project.version=3;return project;
 }
 export const createCombatDefaults=ensureCombatDefaults;
 export function createProjectChapter(project,id='chapter-1',name='First chapter'){const chapter={id,name,startNode:'',variables:[],nodes:[]};ensureChapterDeath(project,chapter);return chapter;}
