@@ -55,7 +55,7 @@ for(const reduced of [false,true]) for(const success of [false,true]) for(const 
  assert.ok(deck.cards.every((_,index)=>cardPose(deck,index).visible===false));
  assert.equal(deck.pending,null);assert.equal(controller.state.variables.energy,3);
  deck.finishMotion();await flush();assert.equal(controller.state.checking,true);assert.equal(deck.pending,null);
- resolveRoll(success?[4,4,4]:[1,1,1]);await flush();assert.equal(feedback.success,success);assert.equal(feedback.total,success?15:6);assert.equal(controller.state.variables.composure,3);assert.equal(controller.state.variables.energy,3);
+ resolveRoll(success?[4,4,4]:[1,1,1]);await flush();assert.equal(feedback.success,success);assert.equal(feedback.total,success?15:6);assert.equal(feedback.raw,success?12:3);assert.equal(feedback.modifier,3);assert.equal(feedback.target-feedback.modifier,10);assert.equal(controller.state.variables.composure,3);assert.equal(controller.state.variables.energy,3);
  assert.equal(controller.state.activeNodeId,'fork');
  const surface=deck.checkSurface, slot=surface.slot, background=surface.back.style.backgroundImage;
  resolveFeedback();await flush();
@@ -97,13 +97,13 @@ test('explicit stat refresh updates the current Action check panel data without 
  {variables:[{id:'composure',type:'number',initial:3,min:1,max:10,stat:true}],library:[booster]});
  assert.equal(deck.content.actions[0].summary,'');
  assert.equal(deck.content.actions[0].checkInfo.chance,'37.5%');
- assert.equal(deck.content.actions[0].checkInfo.formula,'composure 3 · 3d6 + 3 ≥ 15');
+ assert.equal(deck.content.actions[0].checkInfo.formula,'Roll 12 or higher');
  const before=deck.cards[0];controller.inventory=[booster];
  controller.variables.composure=7;controller.inventory=[];deck.updateActions(controller.content().actions);settle();
  assert.equal(controller.state.variables.composure,7);
  assert.equal(deck.content.actions[0].summary,'');
  assert.equal(deck.content.actions[0].checkInfo.chance,'83.8%');
- assert.equal(deck.content.actions[0].checkInfo.formula,'composure 7 · 3d6 + 7 ≥ 15');
+ assert.equal(deck.content.actions[0].checkInfo.formula,'Roll 8 or higher');
  assert.equal(deck.cards[0],before);
  assert.equal(controller.inventory.length,0);dispose(deck,controller);
 });

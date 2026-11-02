@@ -74,7 +74,7 @@ test('card summaries keep rules separate from numerical check presentation',()=>
  assert.match(summary,/Energy ≥ 1/);assert.match(summary,/Restore up to 1 Energy/);assert.doesNotMatch(summary,/Set Agility|Cost:|Agility ≥|3d6|Difficulty/);
  assert.equal(summary,playerCardSummary(card,project.variables,project.library,{agility:10}));
  assert.match(cardSummary(card,project.variables),/3d6/);assert.match(editorCheckSummary(card.check,project.variables),/Difficulty 5/);
- assert.equal(playerCheckSummary(card.check,{agility:3},project.variables),'Agility 3 · 3d6 + 3 ≥ 15');
+ assert.equal(playerCheckSummary(card.check,{agility:3},project.variables),'Roll 12 or higher');
  assert.doesNotMatch(playerCheckSummary(card.check,{agility:3},project.variables),/Difficulty|Hard|Easy/);
  assert.equal(cardFace(card,project.variables,project.library,{agility:3}).text,card.text);
 });
@@ -99,7 +99,7 @@ test('contextual stat check percentages and formulas match live state, including
  const definitions=defaultStats();
  for(const [stat,chance,label] of [[1,'16.2%','Very low'],[3,'37.5%','Low'],[4,'50.0%','Medium'],[5,'62.5%','High'],[7,'83.8%','Very high']]) {
   assert.deepEqual(playerCheckPresentation(statCheck(),{agility:stat},definitions),
-   {chance,stat:`Agility: ${stat}`,label,formula:`Agility ${stat} · 3d6 + ${stat} ≥ 15`});
+   {chance,stat:`TARGET: ${15-stat}`,label,formula:`Roll ${15-stat} or higher`});
  }
  assert.equal(playerCheckPresentation(statCheck(10),{agility:1},definitions).chance,'0.0%');
  assert.equal(playerCheckPresentation(statCheck(1),{agility:10},definitions).chance,'100.0%');

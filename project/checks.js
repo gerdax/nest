@@ -45,7 +45,9 @@ function summary(check, values, definitions, diagnostic) {
   return diagnostic ? `${name} ${resolved.modifier} · Difficulty ${check.difficulty} · 3d6 + ${resolved.modifier} ≥ ${resolved.target} · ${chance}` : `${name} ${resolved.modifier} · 3d6 + ${resolved.modifier} ≥ ${resolved.target}`;
 }
 export const editorCheckSummary = (check, definitions = []) => summary(check, definitions, definitions, true);
-export const playerCheckSummary = (check, values = {}, definitions = []) => summary(check, values, definitions, false);
+export const diceCheckTarget = check => check.target - (check.modifier ?? 0);
+export const playerCheckSummary = (check, values = {}, definitions = []) => check.mode === 'stat'
+  ? `Roll ${diceCheckTarget(resolveCheck(check, values))} or higher` : '';
 
 export const checkChanceLabel = probability => probability >= .8 ? 'Very high' : probability >= .6 ? 'High'
   : probability >= .4 ? 'Medium' : probability >= .2 ? 'Low' : 'Very low';
@@ -54,9 +56,8 @@ export const checkChanceLabel = probability => probability >= .8 ? 'Very high' :
 export function playerCheckPresentation(check, values = {}, definitions = []) {
   if (check?.mode !== 'stat') return null;
   const resolved = resolveCheck(check, values);
-  const name = definitions.find(v => v.id === check.modifierVariable)?.name || check.modifierVariable;
   return { chance: `${(resolved.probability * 100).toFixed(1)}%`,
-    stat: `${name}: ${resolved.modifier}`,
+    stat: `TARGET: ${diceCheckTarget(resolved)}`,
     label: checkChanceLabel(resolved.probability),
     formula: playerCheckSummary(check, values, definitions) };
 }

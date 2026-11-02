@@ -210,7 +210,7 @@ export class ProjectPreview {
   async showResult(result) {
     if (this.destroyed || result.signal?.aborted) return;
     const generation = this.diceGeneration;
-    this.checkPresentation = { target: result.target, total: result.total, success: result.success, ...(result.label?{label:result.label}:{}) };
+    this.checkPresentation = { target: result.target - (result.modifier ?? 0), total: result.raw ?? result.total - (result.modifier ?? 0), success: result.success, ...(result.label?{label:result.label}:{}) };
     this.syncPlayerUI();
     const onAbort = () => { if (generation === this.diceGeneration) this.hideDice(); };
     result.signal?.addEventListener('abort', onAbort, { once: true });

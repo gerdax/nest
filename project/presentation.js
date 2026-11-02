@@ -1,5 +1,5 @@
 import {resolveDescription} from './description-tokens.js';
-import { resolveCheck, playerCheckPresentation } from './checks.js';
+import { resolveCheck, playerCheckPresentation, diceCheckTarget } from './checks.js';
 import { cardSummary, playerCardSummary, canonicalCardKind, isStoryKind, isConsumableKind, consumableResource, actionEnergyCost, actionHealthCost } from './cards.js';
 
 /** Shared front-face content for gameplay and authoring previews. */
@@ -32,6 +32,6 @@ export function actionCardFace(card, variables=[], library=[], values={},descrip
  const checkInfo=card.resolution==='check'?playerCheckPresentation(card.check,values,variables):null;
  const triggerSummary=card.contextItemId?cardSummary({kind:'action',contextItemId:card.contextItemId,itemTags:card.itemTags},variables,library):'';
  return {...face,
-  ...(card.resolution==='check'?{checkTarget:resolveCheck(card.check,values).target}:{}),
+  ...(card.resolution==='check'?{checkTarget:diceCheckTarget(resolveCheck(card.check,values))}:{}),
   ...(checkInfo?{checkInfo:{...checkInfo,rules:face.summary},summary:triggerSummary}:{})};
 }

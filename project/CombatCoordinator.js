@@ -135,7 +135,7 @@ export class CombatCoordinator {
    }
    if(this.opposed&&actor==='enemy'&&action.type==='attack')this.playerDefense=null;
    if(!this.setPhase(`${actor}-result`))return;
-   if(action.resolution!=='direct'&&!this.opposed)await this.host.onCheckResult({target:resolved.target,total:resolved.total,success:resolved.success,label:resolved.success?'SUCCESS':action.type==='prepare'?'FAIL':'MISS',signal:this.abort.signal});
+   if(action.resolution!=='direct'&&!this.opposed)await this.host.onCheckResult({target:resolved.target,total:resolved.total,raw:resolved.raw,modifier:resolved.modifier,success:resolved.success,label:resolved.success?'SUCCESS':action.type==='prepare'?'FAIL':'MISS',signal:this.abort.signal});
    if(!this.active())return;
    await this.presentResolution({replace:action.resolution==='direct'});
   }catch(error){
@@ -146,7 +146,7 @@ export class CombatCoordinator {
  }
  async resolveOpposedDefense(result,attempt){
   if(result.action.resolution!=='direct'&&!attempt.feedback){
-   await this.host.onCheckResult({target:result.target,total:result.total,success:result.success,label:result.success?'SUCCESS':result.action.type==='prepare'?'FAIL':'MISS',signal:this.abort.signal});
+   await this.host.onCheckResult({target:result.target,total:result.total,raw:result.raw,modifier:result.modifier,success:result.success,label:result.success?'SUCCESS':result.action.type==='prepare'?'FAIL':'MISS',signal:this.abort.signal});
    if(!this.active())return result;attempt.feedback=true;
   }
   const defense=result.actor==='player'?this.encounter.enemyPreparation?.kind==='block':!!this.playerDefense;
@@ -175,7 +175,7 @@ export class CombatCoordinator {
   const dice=Array.isArray(attempt.defenseRoll)?attempt.defenseRoll:attempt.defenseRoll.dice;
   let total;try{total=diceTotal(dice,check.pool)+check.modifier;}catch(error){delete attempt.defenseRoll;throw error;}
   const blocked=total>=check.target;
-  if(!attempt.defenseFeedback){await this.host.onCheckResult({target:check.target,total,success:blocked,label:blocked?'SUCCESS':'FAIL',signal:this.abort.signal});attempt.defenseFeedback=true;}
+  if(!attempt.defenseFeedback){await this.host.onCheckResult({target:check.target,total,raw:total-check.modifier,modifier:check.modifier,success:blocked,label:blocked?'SUCCESS':'FAIL',signal:this.abort.signal});attempt.defenseFeedback=true;}
   return Object.freeze({...result,defense:{actor:defender,total,success:blocked},...(blocked?{blockedDamage:result.rolledDamage,damage:0,targetHp:result.targetHp+result.damage}:{})});
  }
  async presentResolution({replace=false}={}){

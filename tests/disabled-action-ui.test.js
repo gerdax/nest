@@ -59,7 +59,7 @@ test('completed check feedback takes precedence over a disabled reason', () => {
   const { panel } = setup();
   panel.update({ disabledReason: 'REQUIRES: ENERGY', result: { target: 8, total: 10, success: true } });
   assert.equal(panel.root.attrs['data-mode'], 'result');
-  assert.equal(panel.caption.textContent, 'TARGET: 8  CHECK: 10');
+  assert.equal(panel.caption.textContent, 'ROLL: 10  TARGET: 8');
   assert.equal(panel.checkChance.textContent, 'SUCCESS');
   panel.destroy();
 });

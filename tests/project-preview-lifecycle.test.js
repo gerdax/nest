@@ -458,7 +458,7 @@ test('result holds 1100ms, fades dice for 200ms and leaves the result for handof
     assert.equal(jobs[1].delay,200);assert.equal(destroyed,0);
     jobs[1].callback();await result;
     assert.equal(destroyed,1);assert.equal(layerDestroyed,1);assert.equal(preview.overlay.hidden,false);
-    assert.equal(preview.actionContext.caption.textContent,'TARGET: 13  CHECK: 15');
+    assert.equal(preview.actionContext.caption.textContent,'ROLL: 15  TARGET: 13');
     assert.equal(preview.actionContext.checkChance.textContent,'SUCCESS');
   } finally {preview.destroy();globalThis.setTimeout=originalSet;globalThis.clearTimeout=originalClear;}
 });
@@ -592,7 +592,7 @@ test('check information follows selection and hides for story, commit, stop and 
  preview.deck.finishMotion();preview.syncActionContext();
  assert.equal(preview.actionContext.checkDetails.hidden,false);
  assert.equal(preview.actionContext.checkChance.textContent,'38%');
- assert.equal(preview.actionContext.caption.textContent,'Agility: 3');
+ assert.equal(preview.actionContext.caption.textContent,'TARGET: 12');
  preview.deck.start();
  preview.deck.move({axis:'y',x:0,y:-40,vx:0,vy:0});
  preview.syncActionContext();
@@ -602,7 +602,7 @@ test('check information follows selection and hides for story, commit, stop and 
  const phase=preview.deck.phase;preview.deck.phase='committing';
  preview.syncActionContext();
  assert.equal(preview.actionContext.visible,false,'commit starts the shared caption and odds fade');
- assert.equal(preview.actionContext.caption.textContent,'Agility: 3','last caption remains painted during fade');
+ assert.equal(preview.actionContext.caption.textContent,'TARGET: 12','last caption remains painted during fade');
  assert.equal(preview.actionContext.checkChance.textContent,'38%');
  preview.deck.phase=phase;preview.syncActionContext();
  assert.equal(preview.actionContext.checkRules.textContent,'Low');
@@ -642,7 +642,7 @@ test('active dice roll keeps target and outcome hidden until showResult', async 
     assert.equal(preview.actionContext.visible,false,'raw dice completion does not reveal partial result');
     preview.pauseResult = async () => {};
     await preview.showResult({target:14,total:15,success:true});
-    assert.equal(preview.actionContext.caption.textContent,'TARGET: 14  CHECK: 15');
+    assert.equal(preview.actionContext.caption.textContent,'ROLL: 15  TARGET: 14');
     assert.equal(preview.actionContext.checkChance.textContent,'SUCCESS');
     assert.equal(preview.actionContext.visible,true);
   } finally { preview.destroy(); DiceService.prototype.roll = original; }
@@ -709,3 +709,19 @@ test('node error callbacks persist through stop and clear on a successful retry 
  assert.ok(resolved.some(issue=>!issue.entryOnly&&issue.projectId===project.id&&issue.nodeId===state.activeNodeId));
  preview.destroy();
 });
+
+
+for (const [raw,modifier,target] of [[15,3,13],[10,3,13],[9,3,13],[12,-2,13],[13,0,13],[3,20,13],[18,-20,13]]) {
+ test(`result compares raw dice with offset target: roll=${raw}, modifier=${modifier}, target=${target}`,async()=>{
+  environment();
+  const preview=new ProjectPreview(new Element());
+  preview.pauseResult=async()=>{};
+  try {
+   const total=raw+modifier,success=total>=target;
+   await preview.showResult({raw,modifier,total,target,success});
+   assert.equal(preview.actionContext.caption.textContent,`ROLL: ${raw}  TARGET: ${target-modifier}`);
+   assert.equal(preview.actionContext.checkChance.textContent,success?'SUCCESS':'FAIL');
+   assert.equal(raw>=preview.checkPresentation.target,success);
+  } finally {preview.destroy();}
+ });
+}
