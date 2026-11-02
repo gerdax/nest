@@ -66,7 +66,7 @@ test('Preparation freezes Composure before payment and retry applies costs and e
  const native=h.host.onCheckResult;let fail=true;h.host.onCheckResult=async result=>{await native(result);if(fail){fail=false;throw new Error('Feedback unavailable');}};
  finish({dice:[4,3,3]});await promise;h.host.rollCheck=nativeRoll;
  assert.equal(h.c.phase,'error');assert.equal(h.feedback[0].total,13);assert.equal(h.feedback[0].success,true);assert.equal(h.c.encounter.round,1);
- await h.c.retry();assert.equal(h.rolls.length,1);assert.equal(h.host.variables.energy,2);assert.equal(h.c.encounter.preparationBonus,2);assert.equal(h.c.encounter.round,2);assert.equal(h.c.encounter.cooldowns[`${action.id}@default`],2);
+ h.samples.push(.75,0);await h.c.retry();assert.equal(h.rolls.length,1);assert.equal(h.host.variables.energy,3);assert.equal(h.c.phase,'enemy-action');assert.equal(h.c.encounter.preparationBonus,2);assert.equal(h.c.encounter.round,2);assert.equal(h.c.encounter.cooldowns[`${action.id}@default`],2);
  await swipe(h);assert.equal(h.host.variables.energy,3);assert.equal(h.host.variables.composure,1);assert.equal(h.c.encounter.round,2);h.c.dispose();
 });
 

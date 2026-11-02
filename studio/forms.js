@@ -71,25 +71,31 @@ export function actionFields(project,action,prefix='',scope='definition',chapter
  let html=rules(project,action.conditions,p('conditions'),scope,'conditions',{chapter,label:'Requirements',help:'All requirements must pass before this action can be selected. Requirements do not spend resources.'})+rules(project,action.costs,p('costs'),scope,'costs',{chapter})+(action.kind==='combatAction'?'':rules(project,action.effects,p('effects'),scope,'effects',{chapter,label:'Progression effects',help:'Apply when the action completes. For a dice check, these apply on either outcome.'}));
  return html+actionResolutionFields(project,action,prefix,scope,chapter);
 }
-export function actionResolutionFields(project,action,prefix='',scope='definition',chapter) {
+export function actionResolutionFields(project,action,prefix='',scope='definition',chapter,{showEffects=true}={}) {
  const p=key=>prefix+key;
  let html=select('Resolution',action.resolution||'direct',[['direct','Direct'],['check','Dice check']],p('resolution'),scope);
  if(action.resolution==='check') {
   const check=action.check||(action.kind==='combatAction'?{pool:[{sides:6,count:3}],modifier:0,target:11}:{pool:[{sides:20,count:1}],modifier:0,target:10});
-  html+='<div class="entry check-settings"><h3>Check settings</h3>';
-  html+=select('Check type',check.mode||'custom',[['stat','Stat check'],['custom','Custom check']],p('check.mode'),scope);
-  if(check.mode==='stat') {
-   const stats=project.variables.filter(isStatVariable).map(v=>[v.id,variableLabel(v)]);
-   if(check.modifierVariable&&!stats.some(([id])=>id===check.modifierVariable))stats.push([check.modifierVariable,check.modifierVariable]);
-   html+=select('Stat',check.modifierVariable||'',[['','Choose stat'],...stats],p('check.modifierVariable'),scope)+select('Difficulty',String(check.difficulty??1),Array.from({length:10},(_,i)=>[String(i+1),String(i+1)]),p('check.difficulty'),scope);
-   try { html+=`<p class="small check-diagnostic">${esc(editorCheckSummary(check,project.variables))}</p>`; }
-   catch { html+='<p class="small check-diagnostic">Choose a valid stat and difficulty. Stats use integer values from 1 to 10.</p>'; }
-  } else {
-  html+=(check.pool||[]).map((die,i)=>'<div class="row dice-row">'+select('Dice',String(die.sides),[4,6,8,10,12,20].map(n=>[String(n),`d${n}`]),p(`check.pool.${i}.sides`),scope)+field('Count',die.count,p(`check.pool.${i}.count`),scope,'number')+button('×','remove-rule',extras(scope,p('check.pool'),'dice')+` data-index="${i}" class="dice-remove" aria-label="Remove dice" title="Remove dice"`)+'</div>').join('');
-  html+=button('Add dice','add-rule',extras(scope,p('check.pool'),'dice')+' class="dice-add"')+field('Modifier',check.modifier,p('check.modifier'),scope,'number')+select('Variable modifier',check.modifierVariable||'',[['','None'],...project.variables.filter(v=>v.type==='number').map(v=>[v.id,variableLabel(v)])],p('check.modifierVariable'),scope)+field('Target',check.target,p('check.target'),scope,'number');
-  }
-  html+='</div>';
-  html+=rules(project,action.successEffects,p('successEffects'),scope,'effects',{chapter,label:'On success effects'})+rules(project,action.failureEffects,p('failureEffects'),scope,'effects',{chapter,label:'On failure effects'});
+  html+=checkSettingsFields(project,check,p('check.'),scope);
+  if(showEffects)html+=rules(project,action.successEffects,p('successEffects'),scope,'effects',{chapter,label:'On success effects'})+rules(project,action.failureEffects,p('failureEffects'),scope,'effects',{chapter,label:'On failure effects'});
  }
+ return html;
+}
+
+export function checkSettingsFields(project,check,prefix='',scope='definition') {
+ const p=key=>prefix+key;
+ let html='<div class="entry check-settings"><h3>Check settings</h3>';
+ html+=select('Check type',check.mode||'custom',[['stat','Stat check'],['custom','Custom check']],p('mode'),scope);
+ if(check.mode==='stat') {
+  const stats=project.variables.filter(isStatVariable).map(v=>[v.id,variableLabel(v)]);
+  if(check.modifierVariable&&!stats.some(([id])=>id===check.modifierVariable))stats.push([check.modifierVariable,check.modifierVariable]);
+  html+=select('Stat',check.modifierVariable||'',[['','Choose stat'],...stats],p('modifierVariable'),scope)+select('Difficulty',String(check.difficulty??1),Array.from({length:10},(_,i)=>[String(i+1),String(i+1)]),p('difficulty'),scope);
+  try { html+=`<p class="small check-diagnostic">${esc(editorCheckSummary(check,project.variables))}</p>`; }
+  catch { html+='<p class="small check-diagnostic">Choose a valid stat and difficulty. Stats use integer values from 1 to 10.</p>'; }
+ } else {
+  html+=(check.pool||[]).map((die,i)=>'<div class="row dice-row">'+select('Dice',String(die.sides),[4,6,8,10,12,20].map(n=>[String(n),`d${n}`]),p(`pool.${i}.sides`),scope)+field('Count',die.count,p(`pool.${i}.count`),scope,'number')+button('×','remove-rule',extras(scope,p('pool'),'dice')+` data-index="${i}" class="dice-remove" aria-label="Remove dice" title="Remove dice"`)+'</div>').join('');
+  html+=button('Add dice','add-rule',extras(scope,p('pool'),'dice')+' class="dice-add"')+field('Modifier',check.modifier,p('modifier'),scope,'number')+select('Variable modifier',check.modifierVariable||'',[['','None'],...project.variables.filter(v=>v.type==='number').map(v=>[v.id,variableLabel(v)])],p('modifierVariable'),scope)+field('Target',check.target,p('target'),scope,'number');
+ }
+ html+='</div>';
  return html;
 }

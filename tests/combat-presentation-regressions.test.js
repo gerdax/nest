@@ -7,11 +7,11 @@ import {createRatCombatProject} from '../project/combat-fixture.js';
 import {compileChapter} from '../project/model.js';
 
 for(const [name,check,values,formula] of [
- ['custom positive',{pool:[{count:2,sides:6},{count:1,sides:4}],modifier:2,modifierVariable:'energy',target:12},{energy:3},'Roll 7 or higher'],
- ['custom negative',{pool:[{count:3,sides:6}],modifier:-5,modifierVariable:'energy',target:11},{energy:3},'Roll 13 or higher'],
- ['custom zero',{pool:[{count:3,sides:6}],modifier:-3,modifierVariable:'energy',target:11},{energy:3},'Roll 11 or higher'],
- ['stat',{mode:'stat',modifierVariable:'agility',difficulty:4},{agility:7},'Roll 7 or higher'],
-])test(`combat choice formula reflects the resolved ${name} modifier`,()=>{
+ ['custom positive',{pool:[{count:2,sides:6},{count:1,sides:4}],modifier:2,modifierVariable:'energy',target:12},{energy:3},''],
+ ['custom negative',{pool:[{count:3,sides:6}],modifier:-5,modifierVariable:'energy',target:11},{energy:3},''],
+ ['custom zero',{pool:[{count:3,sides:6}],modifier:-3,modifierVariable:'energy',target:11},{energy:3},''],
+ ['stat',{mode:'stat',modifierVariable:'agility',difficulty:4},{agility:7},''],
+])test(`combat odds remain unchanged and omit target details for ${name} checks`,()=>{
  const compiled=compileChapter(createRatCombatProject());
  const action=compiled.library.find(d=>d.name==='Punch');action.check=check;
  const choices=playerChoices(compiled,{variables:{health:10,energy:3,...values},inventory:[]},{cooldowns:{}});
@@ -19,6 +19,7 @@ for(const [name,check,values,formula] of [
  const info=content.actions.find(a=>a.label==='Punch').checkInfo;
  assert.equal(info.label,checkChanceLabel(checkOdds(check,values).probability));assert.equal(info.formula,formula);
  assert.equal(info.chance,String(checkOdds(check,values).probability*100));
+ assert.doesNotMatch(info.stat,/TARGET|ROLL:/);assert.doesNotMatch(info.formula,/TARGET|Roll|≥/);
 });
 
 import {combatCard,enemyActionCard} from '../project/combat-presentation.js';
@@ -65,13 +66,13 @@ test('Weapon card faces use WEAPON while ordinary Items retain their standard la
 test('combat odds show the tested stat name and value and the regular action chance description',()=>{
  const action={name:'Attack',resolution:'check',check:{mode:'stat',modifierVariable:'agility',difficulty:1}};
  const choice=combatChoices([{id:'attack',action}],'choices',{agility:3},[{id:'agility',name:'Agility'}]).actions[0];
- assert.equal(choice.checkInfo.stat,'TARGET: 8');
+ assert.equal(choice.checkInfo.stat,'Agility: 3');
  assert.equal(choice.checkInfo.label,'Very high');
  assert.equal(Math.round(Number(choice.checkInfo.chance)),84);
- assert.equal(choice.checkInfo.formula,'Roll 8 or higher');
+ assert.equal(choice.checkInfo.formula,'');
  const custom={...action,check:{pool:[{count:3,sides:6}],target:11,modifier:0}};
  const info=combatChoices([{id:'custom',action:custom}],'choices').actions[0].checkInfo;
- assert.equal(info.stat,'TARGET: 11');assert.equal(info.label,'Medium');
+ assert.equal(info.stat,'ATTACK');assert.equal(info.label,'Medium');
 });
 
 test('combat choices preserve cooldown metadata when requirements or costs explain the disabled state',()=>{

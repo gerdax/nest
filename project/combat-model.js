@@ -16,9 +16,21 @@ export function ensureEnemyPreparationCards(enemy,used=new Set()){
  if(!object(enemy.preparationCards))return enemy; // Preserve invalid authored data for validation.
  const collect=value=>{if(Array.isArray(value))value.forEach(collect);else if(object(value)){if(typeof value.id==='string')used.add(value.id);Object.values(value).forEach(collect);}};collect(enemy);
  const name=String(enemy.name??'Enemy');
- const defaults=[['block','event','Block reveal',`${name} reveals its defense.`],['charge','event','Charge reveal',`${name} reveals its charge!`],['hold','caption','Holds ground',`The ${name.toLowerCase()} holds its ground`]];
+ const defaults=[['block','event','Dodge',`${name} reveals its defense.`],['charge','event','Rush',`${name} reveals its charge!`],['hold','caption','Skip',`The ${name.toLowerCase()} holds its ground`]];
  for(const [key,kind,name,text] of defaults)if(!Object.hasOwn(enemy.preparationCards,key)){
   enemy.preparationCards[key]={...base(allocate(`${enemy.id}-preparation-${key}`,used),kind,name),text,effects:[]};
+ }
+ // Seed independent prepared checks once; later Attack edits must not retarget Rush.
+ const attack=Array.isArray(enemy.actions)?enemy.actions.find(action=>action?.type==='attack'):null;
+ const defaultCheck=()=>({pool:[{sides:6,count:3}],modifier:0,target:10});
+ const dodge=enemy.preparationCards.block,rush=enemy.preparationCards.charge;
+ if(object(dodge)){
+  if(!Object.hasOwn(dodge,'resolution'))dodge.resolution='check';
+  if(!Object.hasOwn(dodge,'check'))dodge.check=defaultCheck();
+ }
+ if(object(rush)){
+  if(!Object.hasOwn(rush,'resolution'))rush.resolution=attack?.resolution??'check';
+  if(!Object.hasOwn(rush,'check'))rush.check=attack&&Object.hasOwn(attack,'check')?structuredClone(attack.check):defaultCheck();
  }
  return enemy;
 }
@@ -69,7 +81,6 @@ export function migrateEnemyActions(project){
  const collect=value=>{if(Array.isArray(value))value.forEach(collect);else if(object(value)){if(typeof value.id==='string')used.add(value.id);Object.values(value).forEach(collect);}};collect(project);
  for(const enemy of project.library){
   if(enemy?.kind!=='enemy')continue;
-  ensureEnemyPreparationCards(enemy,used);
   if(!Object.hasOwn(enemy,'actions')&&Array.isArray(enemy.attacks)){
    enemy.actions=enemy.attacks.map(action=>object(action)?{...action,...(!Object.hasOwn(action,'kind')?{kind:'combatAction'}:{})}:action);
    delete enemy.attacks;
@@ -84,6 +95,7 @@ export function migrateEnemyActions(project){
    const defaults={conditions:[],resolution:action.type==='attack'?'check':'direct',successEffects:[],failureEffects:[],cooldown:0,target:'opponent'};
    for(const [key,value] of Object.entries(defaults))if(!Object.hasOwn(action,key))action[key]=value;
   }
+  ensureEnemyPreparationCards(enemy,used);
  }
  return project;
 }

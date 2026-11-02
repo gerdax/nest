@@ -223,7 +223,10 @@ export function validateProject(project, {allowDraft = false} = {}) {
       const ids=new Set();const identity=card=>{if(object(card)){if(ids.has(card.id))add(`${label}: duplicate embedded identity ${card.id}`);ids.add(card.id);}};
       if(d.mechanics==='opposed-preparation'){
         if(!object(d.preparationCards))add(`${label}: preparation cards must be an object`);
-        else for(const key of ['block','charge','hold',...(Object.hasOwn(d.preparationCards,'blocked')?['blocked']:[])]){const card=d.preparationCards[key];identity(card);embedded(card,['event','caption'],`${label} / ${key}`);}
+        else for(const key of ['block','charge','hold',...(Object.hasOwn(d.preparationCards,'blocked')?['blocked']:[])]){
+          const card=d.preparationCards[key];identity(card);embedded(card,['event','caption'],`${label} / ${key}`);
+          if(['block','charge'].includes(key)&&!['direct','check'].includes(card?.resolution))add(`${label} / ${key==='block'?'Dodge':'Rush'}: invalid resolution`);
+        }
       }
       if(list(d.death).length>1)add(`${label}: Enemy death supports only one card`);
       if(list(d.intro).length>1)add(`${label}: Enemy introduction supports only one card`);
@@ -264,6 +267,20 @@ export function validateProject(project, {allowDraft = false} = {}) {
       }
     }
   }
+  function inspectCheck(c,label) {
+    if (c?.mode === 'stat') {
+      const variable = vars.get(c.modifierVariable);
+      if (!validStatValue(c.difficulty) || typeof c.modifierVariable !== 'string' || !c.modifierVariable
+        || !validRef(c.modifierVariable, vars) || variable && (!isStatVariable(variable) || !compatibleStatVariable(variable))) add(errorMessage('VALIDATION_INVALID_STAT_CHECK', {label}));
+    } else {
+      if (c?.mode !== undefined && c.mode !== 'custom') add(errorMessage('VALIDATION_UNKNOWN_CHECK_MODE', {label}));
+      if (!object(c) || !Array.isArray(c.pool) || !c.pool.length || c.pool.some(d => !object(d) || ![4,
+      6, 8, 10, 12, 20].includes(d.sides) || !Number.isSafeInteger(d.count) || d.count < 1 || d.count > 30)
+      || c.pool.reduce((a, d) => a+(d.count || 0), 0) > 30 || !Number.isFinite(c.modifier) || !Number.isFinite(c.target)
+      || c.modifierVariable !== undefined && (!validRef(c.modifierVariable, vars) || vars.has(c.modifierVariable)
+      && vars.get(c.modifierVariable).type !== 'number')) add(errorMessage('VALIDATION_INVALID_CHECK', {label}));
+    }
+  }
   function inspectCard(d, label, enemyAction=false, source) {
     inspectCombat(d,label,enemyAction,source);
     if (d.contextOverrideImage !== undefined && typeof d.contextOverrideImage !== 'boolean') add(errorMessage('VALIDATION_OVERRIDE_IMG_MUST_BE_A_BOOLEAN', {label}));
@@ -288,19 +305,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
     }
     if (d.resolution !== undefined && !['direct', 'check'].includes(d.resolution)) add(errorMessage('VALIDATION_UNKNOWN_RESOLUTION', {label}));
     if (d.resolution === 'check') {
-      const c = d.check;
-      if (c?.mode === 'stat') {
-        const variable = vars.get(c.modifierVariable);
-        if (!validStatValue(c.difficulty) || typeof c.modifierVariable !== 'string' || !c.modifierVariable
-          || !validRef(c.modifierVariable, vars) || variable && (!isStatVariable(variable) || !compatibleStatVariable(variable))) add(errorMessage('VALIDATION_INVALID_STAT_CHECK', {label}));
-      } else {
-        if (c?.mode !== undefined && c.mode !== 'custom') add(errorMessage('VALIDATION_UNKNOWN_CHECK_MODE', {label}));
-        if (!object(c) || !Array.isArray(c.pool) || !c.pool.length || c.pool.some(d => !object(d) || ![4,
-        6, 8, 10, 12, 20].includes(d.sides) || !Number.isSafeInteger(d.count) || d.count < 1 || d.count > 30)
-        || c.pool.reduce((a, d) => a+(d.count || 0), 0) > 30 || !Number.isFinite(c.modifier) || !Number.isFinite(c.target)
-        || c.modifierVariable !== undefined && (!validRef(c.modifierVariable, vars) || vars.has(c.modifierVariable)
-        && vars.get(c.modifierVariable).type !== 'number')) add(errorMessage('VALIDATION_INVALID_CHECK', {label}));
-      }
+      inspectCheck(d.check,label);
     }
   }
   for (const d of library) {

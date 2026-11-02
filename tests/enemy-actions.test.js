@@ -28,7 +28,8 @@ test('new Enemy Actions expose the Attack type and perform their authored repeat
  assert(html.includes('>+ Combat Action</button>'));
  assert(html.includes('class="entry check-settings"><h3>Check settings</h3>'));
  assert(!html.includes('<h4>Dice check</h4>'));
- const ordered=['actions.0.name','actions.0.type','actions.0.text','actions.0.attack.source','actions.0.effects','actions.0.resolution','actions.0.check.pool.0.sides'];
+ assert(!html.includes('data-path="actions.0.effects"'));
+ const ordered=['actions.0.name','actions.0.type','actions.0.text','actions.0.attack.source','actions.0.resolution','actions.0.check.pool.0.sides'];
  for(let i=1;i<ordered.length;i++)assert(html.indexOf(`data-path="${ordered[i]}"`)>html.indexOf(`data-path="${ordered[i-1]}"`));
  assert(html.indexOf('data-preview-path="actions.0"')>html.indexOf('data-path="actions.0.check.target"'));
  let encounter=createEncounter(enemy,'encounter');assert.equal(encounter.actionIndex,0);

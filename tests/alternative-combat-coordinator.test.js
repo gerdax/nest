@@ -49,7 +49,7 @@ test('charge uses its authored reveal without replacing Bite rules or artwork',a
 });
 test('holds ground uses its authored presentation card',async()=>{
  const h=harness(),card=h.c.enemy.preparationCards.hold;Object.assign(card,{kind:'event',text:'Edited hold',image:'hold.png'});
- await prepared(h);await select(h,'Preparation');assert.equal(h.deck.content.text,'Edited hold');assert.equal(h.deck.content.image,'hold.png');assert.equal(h.c.sequence.steps[0].card.id,card.id);assert.equal(h.rolls.length,0);h.c.dispose();
+ await prepared(h);await select(h,'Defend');assert.equal(h.deck.content.text,'Edited hold');assert.equal(h.deck.content.image,'hold.png');assert.equal(h.c.sequence.steps[0].card.id,card.id);assert.equal(h.rolls.length,0);h.c.dispose();
 });
 test('B: missed attack skips the defensive roll and still consumes the declared defense',async()=>{
  const h=harness({dice:[[1,1,1]]});await prepared(h);h.samples.push(.75,0);await select(h,'Attack');
@@ -82,10 +82,27 @@ test('D: hit or missed charge consumes the paid defense without a player roll',a
   h.c.dispose();
  }
 });
-test('E/F: Defense and Preparation hold ground directly',async()=>{
- for(const name of ['Defend','Preparation']){
-  const h=harness();await prepared(h);await select(h,name);assert.equal(h.rolls.length,0);assert.equal(h.deck.content.text,'The rat holds its ground');assert.equal(h.c.phase,'effects');assert.equal(h.host.variables.energy,name==='Defend'?2:3);assert.equal(h.c.encounter.preparationBonus,name==='Preparation'?2:0);assert.equal(h.c.encounter.enemyHp,8);h.c.dispose();
- }
+test('Defense retains the authored Skip response against a prepared Dodge',async()=>{
+ const h=harness();await prepared(h);await select(h,'Defend');
+ assert.equal(h.rolls.length,0);assert.equal(h.deck.content.text,'The rat holds its ground');assert.equal(h.c.phase,'effects');
+ assert.equal(h.host.variables.energy,2);assert.equal(h.c.encounter.preparationBonus,0);assert.equal(h.c.encounter.enemyHp,8);h.c.dispose();
+});
+for(const next of ['attack','prepare'])test(`Preparation against Dodge bypasses Skip and enters the next rat ${next}`,async()=>{
+ const h=harness();await prepared(h);
+ const shown=[],replace=h.deck.replaceContent.bind(h.deck),transition=h.deck.transitionContent.bind(h.deck);
+ h.deck.replaceContent=(content,...args)=>{shown.push(content);return replace(content,...args);};
+ h.deck.transitionContent=async(content,...args)=>{shown.push(content);return transition(content,...args);};
+ h.samples.push(...(next==='attack'?[0]:[.75,0]));
+ await select(h,'Preparation');
+ assert.equal(shown.some(card=>card.text===h.c.enemy.preparationCards.hold.text),false);
+ assert.equal(h.c.encounter.preparationBonus,2);assert.equal(h.c.encounter.round,2);
+ assert.equal(h.c.encounter.enemyHp,8);assert.equal(h.host.variables.energy,3);
+ if(next==='attack'){
+  assert.equal(h.rolls.length,1);assert.equal(h.c.pending.actor,'enemy');assert.equal(h.c.pending.action.type,'attack');
+  await swipe(h);assert.equal(h.c.phase,'choice');assert.equal(h.host.variables.health,8);
+  assert.equal(h.c.encounter.preparationBonus,2);
+ }else {assert.equal(h.rolls.length,0);assert.equal(h.c.phase,'enemy-action');assert.equal(h.c.pending,null);}
+ assert.deepEqual(h.errors,[]);h.c.dispose();
 });
 test('preparation survives incoming charge and makes the following attack deal four',async()=>{
  const h=harness({declaration:'charge'});await prepared(h);await select(h,'Preparation');assert.equal(h.rolls.length,1);assert.equal(h.c.pending.damage,4);assert.equal(h.c.encounter.preparationBonus,2);await swipe(h);assert.equal(h.host.variables.health,6);await select(h,'Attack');assert.equal(h.c.pending.damage,4);assert.equal(h.c.encounter.preparationBonus,0);assert.equal(h.c.encounter.enemyHp,8);await swipe(h);assert.equal(h.c.encounter.enemyHp,4);h.c.dispose();
@@ -131,7 +148,7 @@ test('direct Preparation has no check or energy cost and waits for departure',as
  assert.equal(h.deck.content.actions.find(action=>action.id===choice.id).checkInfo,undefined);
  const promise=h.c.accept({contentId:h.deck.content.id,action:{id:choice.id}});await tick();
  assert.equal(h.rolls.length,0);assert.equal(h.host.variables.energy,3);assert.equal(h.c.encounter.preparationBonus,0);
- h.deck.depart();await promise;
+ h.samples.push(.75,0);h.deck.depart();await promise;
  assert.equal(h.rolls.length,0);assert.equal(h.host.variables.energy,3);assert.equal(h.c.encounter.preparationBonus,2);h.c.dispose();
 });
 test('prepared miss consumes preparation before the next enemy action',async()=>{
@@ -213,4 +230,49 @@ test('failed post-block handoff retries its animation and frozen next declaratio
  const draws=h.draws;await h.c.retry();
  assert.deepEqual(turns,['The rat prepares…','The rat prepares…']);assert.equal(h.draws,draws);assert.equal(h.rolls.length,2);
  assert.equal(h.c.phase,'enemy-action');assert.equal(h.c.encounter.round,2);h.c.dispose();
+});
+
+for(const [die,success] of [[11,false],[12,true]])test(`authored Dodge check uses its own pool and modifier, success=${success}`,async()=>{
+ const h=harness({dice:[[4,4,4],[die]]});
+ h.c.enemy.preparationCards.block.check={pool:[{sides:20,count:1}],modifier:3,target:15};
+ await prepared(h);h.samples.push(.75,0);await select(h,'Attack');
+ assert.deepEqual(h.rolls[1].pool,[{sides:20,count:1}]);
+ const result=h.feedback.at(-1);
+ assert.equal(result.raw,die);assert.equal(result.total,die+3);assert.equal(result.modifier,3);
+ assert.equal(result.target,15);assert.equal(result.success,success);
+ assert.equal(result.label,success?'SUCCESS':'FAIL');
+ if(success){assert.equal(h.c.pending,null);assert.equal(h.c.encounter.enemyHp,8);}
+ else {assert.equal(h.c.pending.damage,2);await swipe(h);assert.equal(h.c.encounter.enemyHp,6);}
+ assert.deepEqual(h.errors,[]);h.c.dispose();
+});
+for(const [die,success] of [[15,false],[16,true]])test(`Rush uses an independent check and keeps its damage bonus, success=${success}`,async()=>{
+ const h=harness({declaration:'charge',dice:[[die]]});
+ const bite=h.c.enemy.actions.find(action=>action.type==='attack');
+ bite.check={pool:[{sides:4,count:1}],modifier:0,target:1};
+ Object.assign(h.c.enemy.preparationCards.charge,{resolution:'check',check:{pool:[{sides:20,count:1}],modifier:-2,target:14}});
+ await prepared(h);await select(h,'Preparation');
+ assert.deepEqual(h.rolls[0].pool,[{sides:20,count:1}]);
+ const result=h.feedback.at(-1);
+ assert.equal(result.raw,die);assert.equal(result.modifier,-2);assert.equal(result.target,14);assert.equal(result.success,success);
+ if(success){assert.equal(h.c.pending.damage,4);await swipe(h);assert.equal(h.host.variables.health,6);}
+ else {assert.equal(h.c.pending,null);assert.equal(h.host.variables.health,10);}
+ assert.deepEqual(h.errors,[]);h.c.dispose();
+});
+test('Rush can resolve directly without changing the normal attack check',async()=>{
+ const h=harness({declaration:'charge'});
+ const bite=structuredClone(h.c.enemy.actions.find(action=>action.type==='attack'));
+ h.c.enemy.preparationCards.charge.resolution='direct';
+ await prepared(h);await select(h,'Preparation');
+ assert.equal(h.rolls.length,0);assert.equal(h.c.pending.damage,4);
+ assert.deepEqual(h.c.enemy.actions.find(action=>action.type==='attack'),bite);
+ await swipe(h);assert.equal(h.host.variables.health,6);assert.deepEqual(h.errors,[]);h.c.dispose();
+});
+
+
+test('Direct enemy Dodge cancels the entire hit without a defensive dice roll',async()=>{
+ const h=harness({dice:[[4,4,4]]});h.c.enemy.preparationCards.block.resolution='direct';
+ await prepared(h);h.samples.push(.75,0);await select(h,'Attack');
+ assert.equal(h.rolls.length,1);assert.equal(h.feedback.length,1);
+ assert.equal(h.c.encounter.enemyHp,8);assert.equal(h.c.pending,null);
+ assert.equal(h.c.phase,'enemy-action');assert.deepEqual(h.errors,[]);h.c.dispose();
 });

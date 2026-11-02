@@ -52,7 +52,7 @@ for(const spec of [
  {name:'player miss skips defense and proceeds directly to next rat attack',branch:0,choice:0,dice:[[1,1,1]],surfaces:['check','front'],damage:2,actor:'enemy'},
  {name:'failed enemy block',branch:0,choice:0,dice:[[4,4,4],[1,1,1]],surfaces:['check','front'],damage:2},
  {name:'Defend versus block',branch:0,choice:1,dice:[],surfaces:[],damage:0,text:/holds its ground/},
- {name:'Preparation versus block',branch:0,choice:2,dice:[],surfaces:[],damage:0,preparationBonus:2,text:/holds its ground/},
+ {name:'Preparation versus block bypasses Skip and enters the next rat attack',branch:0,choice:2,dice:[[4,4,4]],surfaces:['front'],damage:2,actor:'enemy',preparationBonus:2},
  {name:'guaranteed player defense reveals block then swipes to choices',branch:.75,choice:1,dice:[[4,4,4]],surfaces:['front'],damage:0,text:/You dodge!/,blockReveal:true},
  {name:'missed charge skips defense and returns directly to choices',branch:.75,choice:1,dice:[[1,1,1]],surfaces:['front'],phase:'choice'},
  {name:'Preparation versus charge',branch:.75,choice:2,dice:[[4,4,4]],surfaces:['front'],damage:4,preparationBonus:2},

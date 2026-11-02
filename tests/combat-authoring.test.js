@@ -8,9 +8,11 @@ import {definitionUsage} from '../studio/definition-usage.js';
 const selection=p=>({chapterId:p.chapters[0].id,selected:p.chapters[0].startNode,definitionId:'enemy'});
 const field=(p,path,value,inputType='text',scope='definition')=>applyDocumentCommand(p,selection(p),'field',{scope,path,value,inputType},new LocalCardDrafts());
 const cmd=(p,path,factory,command='combat-add',extra={})=>applyDocumentCommand(p,selection(p),'inspector',{scope:'definition',path,factory,command,...extra},new LocalCardDrafts());
-for(const type of ['attack','defend','wait'])for(const context of ['common','weapon','enemy'])test(`${context} ${type} exposes one shared Progression effects editor and Action properties`,()=>{
+for(const type of ['attack','defend','wait'])for(const context of ['common','weapon','enemy'])test(`${context} ${type} exposes context-appropriate effects editors and Action properties`,()=>{
  const project=createProject(),action=createCombatAction('authored-action');
  action.type=type;
+ action.successEffects=[{op:'add',key:'energy',value:2}];
+ action.failureEffects=[{op:'add',key:'energy',value:-1}];
  action.conditions=[{source:'variable',key:'energy',op:'gte',value:1}];
  action.costs=[{source:'variable',key:'energy',amount:1}];
  action.effects=[{op:'set',key:'energy',value:7},{op:'addItem',key:'shared-item'},{op:'removeItem',key:'shared-item'}];
@@ -19,17 +21,19 @@ for(const type of ['attack','defend','wait'])for(const context of ['common','wea
  if(context==='weapon'){definition=createWeapon('weapon');definition.combat.actions=[action];prefix='combat.actions.0.';}
  if(context==='enemy'){definition=createEnemy('enemy');definition.actions=[action];prefix='actions.0.';}
  project.library.push(definition);
- const html=definitionInspector(project,definition);
+ const original=structuredClone(definition),html=definitionInspector(project,definition);
+ assert.deepEqual(definition,original);
+ if(context==='enemy')for(const label of ['Progression effects','On success effects','On failure effects'])assert(!html.includes(`<summary>${label}`));
  assert.equal((html.match(/<h4>Action properties<\/h4>/g)||[]).length,1);
  assert(!html.includes('<h4>Effect</h4>'));
- assert.equal((html.match(/<summary>Progression effects · 3<\/summary>/g)||[]).length,1);
- assert(html.includes('Apply when the action completes. For a dice check, these apply on either outcome.'));
- for(const suffix of ['0.op','0.key','0.value','1.op','1.key','2.op','2.key'])assert(html.includes(`data-path="${prefix}effects.${suffix}"`),suffix);
- assert.equal((html.match(new RegExp(`data-command="add-rule" data-scope="definition" data-path="${prefix.replaceAll('.','\\.')}effects" data-rule-kind="effects"`,'g'))||[]).length,1);
- assert(html.includes(`data-command="remove-rule" data-scope="definition" data-path="${prefix}effects" data-rule-kind="effects" data-index="2"`));
+ assert.equal((html.match(/<summary>Progression effects · 3<\/summary>/g)||[]).length,context==='enemy'?0:1);
+ assert.equal(html.includes('Apply when the action completes. For a dice check, these apply on either outcome.'),context!=='enemy');
+ for(const suffix of ['0.op','0.key','0.value','1.op','1.key','2.op','2.key'])assert.equal(html.includes(`data-path="${prefix}effects.${suffix}"`),context!=='enemy',suffix);
+ assert.equal((html.match(new RegExp(`data-command="add-rule" data-scope="definition" data-path="${prefix.replaceAll('.','\\.')}effects" data-rule-kind="effects"`,'g'))||[]).length,context==='enemy'?0:1);
+ assert.equal(html.includes(`data-command="remove-rule" data-scope="definition" data-path="${prefix}effects" data-rule-kind="effects" data-index="2"`),context!=='enemy');
  for(const path of ['conditions.0.key','costs.0.amount','cooldown'])assert.equal(html.includes(`data-path="${prefix}${path}"`),context!=='enemy',path);
- assert.equal(html.includes(`data-path="${prefix}successEffects"`),type==='attack');
- assert.equal(html.includes(`data-path="${prefix}failureEffects"`),type==='attack');
+ assert.equal(html.includes(`data-path="${prefix}successEffects"`),type==='attack'&&context!=='enemy');
+ assert.equal(html.includes(`data-path="${prefix}failureEffects"`),type==='attack'&&context!=='enemy');
  if(type==='attack')assert(html.includes(`data-path="${prefix}attack.source"`));
  if(type==='defend')assert(html.includes(`data-path="${prefix}damageReduction"`));
  if(type==='wait')assert(html.includes('Passes the turn.'));
@@ -38,7 +42,7 @@ for(const type of ['attack','defend','wait'])for(const context of ['common','wea
   '<h4>Action properties</h4>',
   ...(type==='attack'?[`data-path="${prefix}attack.source"`]:type==='defend'?[`data-path="${prefix}damageReduction"`]:[]),
   ...(context==='enemy'?[]:[`data-path="${prefix}cooldown"`,`data-path="${prefix}conditions.0.key"`,`data-path="${prefix}costs.0.amount"`]),
-  `data-path="${prefix}effects.0.op"`,
+  ...(context==='enemy'?[]:[`data-path="${prefix}effects.0.op"`]),
   ...(type==='attack'?[`data-path="${prefix}resolution"`,`data-path="${prefix}check.pool.0.sides"`]:[]),
   preview,`data-path="${prefix}image"`,`data-path="${prefix}imageScale"`
  ];
