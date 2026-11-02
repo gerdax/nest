@@ -93,6 +93,10 @@ def main() -> None:
         keep.add(path)
 
     for value in strings(snapshot):
+        # Authored image paths may include spaces or parentheses. Match the
+        # complete value before scanning prose/CSS-style references below.
+        if value.startswith(("./assets/img/", "assets/img/")) and Path(unquote(urlsplit(value).path)).suffix.lower() in {".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"}:
+            retain(value.removeprefix("./"))
         for match in IMAGE_RE.finditer(value):
             retain(match.group())
     for text in texts.values():
