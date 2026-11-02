@@ -1,5 +1,5 @@
 import { attackProfile, attackDamageRange } from './combat-rules.js';
-import { ensureCombatDefaults, migrateWeaponActions, migrateEnemyActions, migrateCombatActionTypes, migratePlayerBlockReveals } from './combat-model.js';
+import { ensureCombatDefaults, migrateWeaponActions, migrateEnemyActions, migrateCombatActionTypes, migratePlayerBlockReveals, migrateEnemyPreparedActions } from './combat-model.js';
 import { errorMessage } from '../errors.js';
 import { isTagKey, tagKey, tagIdFromKey, validItemTagName } from './item-tags.js';
 import { isStatVariable, validStatValue, compatibleStatVariable } from './checks.js';
@@ -14,7 +14,7 @@ import { createLibraryIndex } from './library-index.js';
 
 export function validateProject(project, {allowDraft = false} = {}) {
   if(project?.version===2)project=ensureCombatDefaults(JSON.parse(JSON.stringify(project)));
-  else if(project?.version===3)project=migratePlayerBlockReveals(migrateCombatActionTypes(migrateEnemyActions(migrateWeaponActions(structuredClone(project)))));
+  else if(project?.version===3)project=migrateEnemyPreparedActions(migratePlayerBlockReveals(migrateCombatActionTypes(migrateEnemyActions(migrateWeaponActions(structuredClone(project))))));
   const errors = [];
   const add = (message, chapterId, nodeId) => errors.push({message, ...(chapterId ? {chapterId}: {}), ...(nodeId ? {nodeId}: {})});
   if (!object(project)) return [{message: errorMessage('VALIDATION_PROJECT_MUST_BE_AN_OBJECT')}];
@@ -175,6 +175,34 @@ export function validateProject(project, {allowDraft = false} = {}) {
     const collect=value=>{if(Array.isArray(value))value.forEach(collect);else if(object(value)){if(named(value.id))counts.set(value.id,(counts.get(value.id)||0)+1);Object.values(value).forEach(collect);}};
     collect(owner);ownerIdCounts.set(owner,counts);
   }
+  function inspectPreparedActions(action,label,enemy){
+    if(action.type!=='prepare')add(`${label}: preparedActions requires an Enemy Prepare Action`);
+    if(!Array.isArray(action.preparedActions)||!action.preparedActions.length){if(!(allowDraft&&Array.isArray(action.preparedActions)))add(`${label}: preparedActions must be a nonempty list`);return;}
+    let total=0;
+    const supported=(ref,refLabel,draftSelection=false)=>{
+      if(draftSelection&&allowDraft&&object(ref)&&ref.actionId===''&&!Object.hasOwn(ref,'definitionId'))return null;
+      const prepared=list(enemy.preparedActions).find(candidate=>candidate?.id===ref?.actionId);
+      if(!object(ref)||!named(ref.actionId)||Object.hasOwn(ref,'definitionId')||prepared?.kind!=='combatAction'){add(`${refLabel}: expected owned prepared Action ${ref?.actionId??''}`);return null;}
+      return prepared;
+    };
+    for(const [i,entry] of action.preparedActions.entries()){
+      const entryLabel=`${label} / prepared Action ${i+1}`;
+      if(!object(entry)){add(`${entryLabel}: invalid prepared Action entry`);continue;}
+      if(!Number.isSafeInteger(entry.weight)||entry.weight<1)add(`${entryLabel}: weight must be a positive safe integer`);
+      else total+=entry.weight;
+      const prepared=supported(entry,entryLabel,true);
+      if(!['incoming-hit','after-player-action'].includes(entry.trigger))add(`${entryLabel}: invalid prepared Action trigger`);
+      if(prepared&&entry.trigger==='incoming-hit'&&(prepared.type!=='defend'||prepared.protection!=='all'||prepared.damageReduction!==1))add(`${entryLabel}: incoming-hit requires all-protection Defend`);
+      if(prepared&&entry.trigger==='after-player-action'&&!['attack','wait'].includes(prepared.type))add(`${entryLabel}: after-player-action requires Attack or Wait`);
+      if(Object.hasOwn(entry,'fallback')){
+        if(entry.trigger!=='incoming-hit')add(`${entryLabel}: fallback requires incoming-hit timing`);
+        const fallback=entry.fallback,definition=supported(fallback,`${entryLabel} / fallback`);
+        if(definition&&definition.type!=='wait')add(`${entryLabel}: fallback requires Wait`);
+        if(!object(fallback)||!Array.isArray(fallback.when)||fallback.when.some(type=>!['defend','wait','prepare'].includes(type))||new Set(fallback.when).size!==fallback.when.length)add(`${entryLabel}: fallback when must contain distinct player Action types`);
+      }
+    }
+    if(!Number.isSafeInteger(total)||total<1)add(`${label}: prepared Action weight sum must be a positive safe integer`);
+  }
   function inspectCombat(d,label,enemyAction=false,source){
     if(d.kind==='effect'&&(d.onCollect!==undefined||list(d.effects).length||list(d.successEffects).length||list(d.failureEffects).length))add(`${label}: Feedback presentations are presentation only and cannot apply independent effects`);
     if(d.kind==='combatAction'){
@@ -188,10 +216,13 @@ export function validateProject(project, {allowDraft = false} = {}) {
         }
       }
       if(!['attack','defend','prepare','wait'].includes(d.type))add(`${label}: unsupported Combat Action type`);
-      if((['defend','wait'].includes(d.type)||enemyAction&&d.type==='prepare')&&d.resolution!=='direct')add(`${label}: Defend, Enemy Prepare and Wait are direct Actions`);
+      if(((d.type==='defend'&&(!enemyAction||d.protection!=='all'))||d.type==='wait'||enemyAction&&d.type==='prepare')&&d.resolution!=='direct')add(`${label}: Defend, Enemy Prepare and Wait are direct Actions`);
       if(d.type==='prepare'&&!enemyAction&&!['direct','check'].includes(d.resolution))add(`${label}: Player Prepare requires direct or check resolution`);
-      if(d.type==='prepare'&&(!Number.isSafeInteger(d.preparationBonus)||d.preparationBonus<1))add(`${label}: Prepare requires a positive safe integer preparation bonus`);
-      if(enemyAction&&d.type==='prepare'&&(!Number.isSafeInteger(d.damageReduction)||d.damageReduction<1))add(`${label}: Enemy Prepare requires positive safe integer damage reduction`);
+      if(d.type==='prepare'&&!(enemyAction&&Object.hasOwn(d,'preparedActions'))&&(!Number.isSafeInteger(d.preparationBonus)||d.preparationBonus<1))add(`${label}: Prepare requires a positive safe integer preparation bonus`);
+      if(enemyAction&&d.type==='prepare'&&!Object.hasOwn(d,'preparedActions')&&(!Number.isSafeInteger(d.damageReduction)||d.damageReduction<1))add(`${label}: Enemy Prepare requires positive safe integer damage reduction`);
+      if(enemyAction&&d.presentationKind!==undefined&&!['caption','event'].includes(d.presentationKind))add(`${label}: invalid prepared Action presentation kind`);
+      if(enemyAction&&d.protection!==undefined&&(d.type!=='defend'||d.protection!=='all'||d.damageReduction!==1))add(`${label}: all protection requires Defend with damageReduction 1`);
+      if(enemyAction&&d.type==='defend'&&d.protection==='all'&&!['direct','check'].includes(d.resolution))add(`${label}: all-protection Defend requires direct or check resolution`);
       if(d.type==='defend'&&(!Number.isSafeInteger(d.damageReduction)||d.damageReduction<1))add(`${label}: Defend requires positive integer damage reduction`);
       if(['effects','successEffects','failureEffects'].flatMap(key=>list(d[key])).some(effect=>effect?.key==='health'&&['add','set'].includes(effect.op)&&!Number.isSafeInteger(effect.value)))add(`${label}: Combat effects require integer Health values`);
       if(!enemyAction&&list(d.costs).some(c=>c?.source!=='variable'||!['energy','health'].includes(c?.key)))add(`${label}: combat supports Energy and Health costs only`);
@@ -216,12 +247,20 @@ export function validateProject(project, {allowDraft = false} = {}) {
       }}
     }
     if(d.kind==='enemy'){
+      if(Object.hasOwn(d,'actionSelection')&&!['random','order'].includes(d.actionSelection))add(`${label}: Enemy actionSelection must be random or order`);
+      let actionWeightTotal=0;
+      for(const action of list(d.actions)){
+        const weight=object(action)&&Object.hasOwn(action,'weight')?action.weight:1;
+        if(!Number.isSafeInteger(weight)||weight<1)add(`${label}: Enemy Action weight must be a positive safe integer`);
+        else actionWeightTotal+=weight;
+      }
+      if(!Number.isSafeInteger(actionWeightTotal)||actionWeightTotal<1)add(`${label}: Enemy Action weight sum must be a positive safe integer`);
       if(!Number.isSafeInteger(d.health)||d.health<1||Object.hasOwn(d,'introEnabled')&&typeof d.introEnabled!=='boolean')add(`${label}: invalid Enemy health/introduction`);
       for(const key of ['actions','reactions','death'])if(!Array.isArray(d[key]))add(`${label}: Enemy ${key} must be a list`);
       if(!list(d.actions).length||!list(d.death).length)add(`${label}: Enemy requires action and death content`);
       if(Object.hasOwn(d,'attacks'))add(`${label}: legacy attacks conflict with Enemy actions`);
       const ids=new Set();const identity=card=>{if(object(card)){if(ids.has(card.id))add(`${label}: duplicate embedded identity ${card.id}`);ids.add(card.id);}};
-      if(d.mechanics==='opposed-preparation'){
+      if(d.mechanics==='opposed-preparation'&&(Object.hasOwn(d,'preparationCards')||!list(d.actions).some(a=>a?.type==='prepare'&&Object.hasOwn(a,'preparedActions')))){
         if(!object(d.preparationCards))add(`${label}: preparation cards must be an object`);
         else for(const key of ['block','charge','hold',...(Object.hasOwn(d.preparationCards,'blocked')?['blocked']:[])]){
           const card=d.preparationCards[key];identity(card);embedded(card,['event','caption'],`${label} / ${key}`);
@@ -238,6 +277,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
         if(!object(action)||!named(action.id)||typeof action.name!=='string'||typeof action.text!=='string'||typeof action.image!=='string'){add(`${label}: invalid embedded Enemy Action`);continue;}
         if(action.kind!=='combatAction'){add(`${label}: invalid embedded Enemy Action kind`);continue;}
         inspectCard(action,label,true);
+        if(Object.hasOwn(action,'preparedActions')){if(d.mechanics!=='opposed-preparation')add(`${label}: preparedActions requires opposed-preparation Enemy mechanics`);inspectPreparedActions(action,`${label} / ${action.name||action.id}`,d);}
         if(typeof action.target!=='string'||!action.target.trim())add(`${label}: invalid Enemy Action target`);
         if(Object.hasOwn(action,'damage'))add(`${label}: legacy Enemy damage conflicts with the shared attack profile`);
         if(action.type==='attack'&&action.attack?.source==='weapon')add(`${label}: Enemy Actions cannot use a Weapon attack source`);
@@ -246,10 +286,24 @@ export function validateProject(project, {allowDraft = false} = {}) {
         if(Number.isSafeInteger(action.cooldown)&&action.cooldown>0)add(`${label}: Enemy Action cooldown is deferred while actions are performed in order`);
         if(!Array.isArray(action.costs)||!Array.isArray(action.effects))add(`${label}: Enemy Action costs/effects must be lists`);
       }
+      if(Object.hasOwn(d,'preparedActions')&&!Array.isArray(d.preparedActions))add(`${label}: Enemy preparedActions must be a list`);
+      for(const action of list(d.preparedActions)){
+        identity(action);
+        const actionLabel=`${label} / prepared ${action?.name||action?.id||'Action'}`;
+        if(!object(action)||!named(action.id)||action.kind!=='combatAction'||typeof action.name!=='string'||typeof action.text!=='string'||typeof action.image!=='string'){add(`${actionLabel}: invalid embedded Enemy Action`);continue;}
+        inspectCard(action,actionLabel,true,d);
+        if(!Array.isArray(action.costs)||action.costs.length)add(`${actionLabel}: prepared Enemy Action costs must be empty`);
+        if(!Array.isArray(action.conditions)||action.conditions.length)add(`${actionLabel}: prepared Enemy Action conditions must be empty`);
+        if(action.cooldown!==0)add(`${actionLabel}: prepared Enemy Action cooldown must be 0`);
+        if(action.type==='prepare'||Object.hasOwn(action,'preparedActions'))add(`${actionLabel}: recursive prepared Actions are unsupported`);
+        if(action.type==='attack'&&action.attack?.source==='weapon')add(`${actionLabel}: prepared Enemy Actions cannot use a Weapon attack source`);
+        if(!Array.isArray(action.effects))add(`${actionLabel}: Enemy Action effects must be a list`);
+        if(typeof action.target!=='string'||!action.target.trim())add(`${actionLabel}: invalid Enemy Action target`);
+      }
       const actions=list(d.actions);
       for(let i=0;i<actions.length;i++){
         const preparation=actions[i];
-        if(preparation?.type!=='prepare'||!Number.isSafeInteger(preparation.preparationBonus)||preparation.preparationBonus<1)continue;
+        if(preparation?.type!=='prepare'||Object.hasOwn(preparation,'preparedActions')||!Number.isSafeInteger(preparation.preparationBonus)||preparation.preparationBonus<1)continue;
         // A missed Attack retains the bonus, so inspect every Attack before
         // another Prepare replaces it, including across the sequence boundary.
         for(let offset=1;offset<actions.length;offset++){

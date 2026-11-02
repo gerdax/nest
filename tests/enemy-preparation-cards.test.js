@@ -6,7 +6,7 @@ import {ensureEnemyPreparationCards} from '../project/combat-model.js';
 
 const rat=project=>project.library.find(definition=>definition.id==='rat');
 test('older alternative projects gain stable editable cards without changing their original data',()=>{
- const project=createAlternativeRatCombatProject();delete rat(project).preparationCards;
+ const project=createAlternativeRatCombatProject();delete rat(project).preparationCards;for(const action of rat(project).actions)delete action.preparedActions;
  rat(project).text='My custom rat';rat(project).actions[0].image='custom-bite.png';
  const original=structuredClone(project),parsed=parseProject(JSON.stringify(project));
  assert.deepEqual(project,original);assert.equal(rat(parsed).text,'My custom rat');assert.equal(rat(parsed).actions[0].image,'custom-bite.png');
@@ -30,7 +30,7 @@ test('partial migration retains authored cards and allocates missing card identi
  const again=structuredClone(enemy);ensureEnemyPreparationCards(enemy);assert.deepEqual(enemy,again);
 });
 test('legacy migration reserves project-wide IDs so feedback cannot navigate to an unrelated shared card',()=>{
- const project=createAlternativeRatCombatProject();delete rat(project).preparationCards;
+ const project=createAlternativeRatCombatProject();delete rat(project).preparationCards;for(const action of rat(project).actions)delete action.preparedActions;
  project.library.push({id:'rat-preparation-block',kind:'caption',name:'Unrelated caption',text:'Unrelated',image:'',effects:[]});
  const parsed=parseProject(JSON.stringify(project));assert.notEqual(rat(parsed).preparationCards.block.id,'rat-preparation-block');assert.deepEqual(validateProject(parsed),[]);
  assert.deepEqual(parseProject(JSON.stringify(parsed)),parsed);

@@ -13,7 +13,7 @@ function combatTarget(project,chapterId,node,controller,deck){
   cardId=choice.action.id;
  }else if(combat.phase==='enemy-action'){
   definitionId=combat.enemy.definitionId??combat.enemy.id;
-  cardId=combat.enemy.actions?.[combat.encounter.actionIndex]?.id;
+  cardId=combat.declaration?.action?.id??combat.enemy.actions?.[combat.encounter.actionIndex]?.id;
  }else if(['intro','effects','enemy-death'].includes(combat.phase)){
   const step=combat.sequence?.steps?.[combat.sequence.index];
   if(!step||step.contentId!==deck.content?.id)return null;

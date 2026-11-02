@@ -5,6 +5,25 @@ const entries = library => library instanceof Map ? [...library.values()] : Arra
 export const definition = (library, ref) => entries(library).find(d => d.id === (typeof ref === 'string' ? ref : ref?.definitionId));
 export const sourceKey = item => item ? item.inventoryKey ?? item.definitionId ?? item.id : 'default';
 export const cooldownKey = (action, item) => `${action.definitionId ?? action.id}@${sourceKey(item)}`;
+/** Preserve legacy selection defaults without rewriting authored enemy data. */
+export function enemyActionSelection(enemy){
+ const mode=Object.hasOwn(enemy,'actionSelection')?enemy.actionSelection:(enemy.mechanics==='opposed-preparation'?'random':'order');
+ if(!['random','order'].includes(mode))throw new Error('Invalid Enemy action selection');
+ return mode;
+}
+export function chooseEnemyActionIndex(enemy,random=Math.random,orderedIndex=0){
+ if(!Array.isArray(enemy.actions)||!enemy.actions.length)throw new Error('Enemy requires an Action');
+ if(enemyActionSelection(enemy)==='order'){
+  if(!Number.isSafeInteger(orderedIndex)||orderedIndex<0)throw new Error('Invalid Enemy action order');
+  return orderedIndex%enemy.actions.length;
+ }
+ const weights=enemy.actions.map(action=>Object.hasOwn(action,'weight')?action.weight:1),total=weights.reduce((sum,weight)=>sum+weight,0);
+ if(weights.some(weight=>!Number.isSafeInteger(weight)||weight<1)||!Number.isSafeInteger(total)||total<1)throw new Error('Enemy random weights must be positive safe integers with a safe total');
+ const draw=random();if(!Number.isFinite(draw)||draw<0||draw>=1)throw new Error('Invalid Enemy declaration sample');
+ let sample=draw*total;
+ for(let index=0;index<weights.length;index++){sample-=weights[index];if(sample<0)return index;}
+ return weights.length-1;
+}
 export function createEncounter(enemy, id) {
   if (!enemy || !Number.isSafeInteger(enemy.health) || enemy.health < 1 || !enemy.actions?.length) throw new Error('Enemy needs positive health and an Action');
   if(enemy.actions.some(action=>!['attack','defend','wait','prepare'].includes(action?.type)))throw new Error('Unsupported Enemy Action type');
@@ -101,7 +120,9 @@ export function resolveCombatAttack({actor,action,source=null,targetHp,values={}
   if(!Number.isSafeInteger(damageReduction)||damageReduction<0)throw new Error('Invalid damage reduction');
   if(!Number.isSafeInteger(preparationBonus)||preparationBonus<0)throw new Error('Invalid preparation bonus');
   validateEnemyPreparation(enemyPreparation);
-  if(action.type==='prepare'&&(!(actor==='player'?['direct','check']:['direct']).includes(action.resolution)||!Number.isSafeInteger(action.preparationBonus)||action.preparationBonus<1||(actor==='enemy'&&(!Number.isSafeInteger(action.damageReduction)||action.damageReduction<1))))throw new Error('Invalid Prepare Action');
+  const selectsActions=actor==='enemy'&&Array.isArray(action.preparedActions);
+  if(selectsActions&&action.resolution!=='direct')throw new Error('Enemy Prepare must be direct');
+  if(action.type==='prepare'&&!selectsActions&&(!(actor==='player'?['direct','check']:['direct']).includes(action.resolution)||!Number.isSafeInteger(action.preparationBonus)||action.preparationBonus<1||(actor==='enemy'&&(!Number.isSafeInteger(action.damageReduction)||action.damageReduction<1))))throw new Error('Invalid Prepare Action');
   const check=action.resolution==='direct'?null:resolveCheck(action.check,values);
   const raw=check?diceTotal(dice,check.pool):0,total=raw+(check?.modifier??0);
   const success=!check||total>=check.target;
@@ -111,7 +132,7 @@ export function resolveCombatAttack({actor,action,source=null,targetHp,values={}
   const enemyPrepared=actor==='enemy'&&(action.type??'attack')==='attack'&&profile&&enemyPreparation?.kind==='attack'?enemyPreparation.value:0;
   if(profile&&!Number.isSafeInteger(profile.max+prepared+enemyPrepared))throw new Error('Prepared damage exceeds supported range');
   let selectedPreparation=null,preparationReveal=null;
-  if(actor==='enemy'&&action.type==='prepare'){
+  if(actor==='enemy'&&action.type==='prepare'&&!selectsActions){
     const draw=random();
     if(!Number.isFinite(draw)||draw<0||draw>=1)throw new Error('Invalid preparation random sample');
     selectedPreparation=draw<.5?{kind:'block',value:action.damageReduction}:{kind:'attack',value:action.preparationBonus};
@@ -138,10 +159,17 @@ export function healthReactions(enemy,before,after) {
   }).sort((a,b)=>a.threshold.numerator/a.threshold.denominator-b.threshold.numerator/b.threshold.denominator).slice(0,1);
 }
 /** Same protection rule, applied relative to the acting side. */
-export function applyActionProtection(encounter,actor,action){
+export function applyActionProtection(encounter,actor,action,{success=true}={}){
  const own=actor==='player'?'guard':'enemyGuard',opponent=actor==='player'?'enemyGuard':'guard',next={...encounter};
- if(action.type==='defend')next[own]=action.damageReduction;
- if((action.type??'attack')==='attack')next[opponent]=0;
+ if(action.type==='defend'){
+  next[own]=actor==='enemy'?(success?action.damageReduction:0):action.damageReduction;
+  if(actor==='enemy'&&(action.protection==='all'||Object.hasOwn(next,'enemyGuardAll')))next.enemyGuardAll=success&&action.protection==='all';
+ }
+ if((action.type??'attack')==='attack'){
+  next[opponent]=0;
+  if(actor==='player'&&Object.hasOwn(next,'enemyGuardAll'))next.enemyGuardAll=false;
+ }
+
  return next;
 }
 export function completePlayerTurn(encounter, action, source, {success=true}={}) {

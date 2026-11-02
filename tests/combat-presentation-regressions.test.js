@@ -145,3 +145,18 @@ test('Attack descriptions contain only authored text, including when prepared',(
   }
  }
 });
+
+for(const presentationKind of ['event','caption'])test(`prepared ${presentationKind} Wait remains advanceable through the deck contract`,()=>{
+ const wait={kind:'combatAction',type:'wait',resolution:'direct',presentationKind,text:'Holds ground'};
+ const content=enemyActionCard(wait,'wait');
+ assert.equal(content.directAdvance,true);assert.equal(content.advanceDisabled,false);
+ assert.equal(content.actions[0].disabled,false);assert.equal(content.actions[0].id,'continue');
+ const attack=enemyActionCard({...wait,type:'attack'},'attack');assert.equal(attack.advanceDisabled,true);
+});
+
+test('owned prepared action previews preserve mechanics when rendering as a Caption',()=>{
+ const action={kind:'combatAction',type:'attack',resolution:'direct',presentationKind:'caption',text:'Deals [DMG]; costs [ENERGYCOST].',attack:{source:'self',damage:{min:3,max:3},minBonus:0,maxBonus:0},costs:[]};
+ const preview=combatCard(action,'preview',{enemy:true});
+ const runtime=enemyActionCard(action,'runtime');
+ assert.equal(preview.text,'Deals 3; costs 0.');assert.equal(preview.text,runtime.text);
+});

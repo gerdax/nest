@@ -376,6 +376,21 @@ function command(event){const b=event.target.closest('[data-command]');if(!b||b.
   edit('image',{scope:b.dataset.scope,placementId:b.closest('[data-placement]')?.dataset.placement,path:b.dataset.path,value:''});
   return;
  }
+ if(cmd==='combat-add'&&b.dataset.scope==='definition'&&b.dataset.path==='preparedActions'&&b.dataset.factory==='prepared-action'){
+  const result=edit('inspector',{...b.dataset});
+  if(result.ok){const actions=definition()?.preparedActions;if(actions?.length)revealCardEntry($('#inspector'),{kind:'definition',definitionPath:`preparedActions.${actions.length-1}`});}
+  return;
+ }
+ if(cmd==='combat-remove'&&b.dataset.scope==='definition'&&b.dataset.path==='preparedActions'){
+  const enemy=scopeRoot('definition',b),action=enemy?.preparedActions?.[Number(b.dataset.index)];
+  if(enemy?.kind!=='enemy'||!action)return;
+  const emptiesPrepare=enemy.actions.some(prepare=>prepare.preparedActions?.length&&prepare.preparedActions.every(ref=>ref.actionId===action.id));
+  if(!confirm(`Delete “${action.name||'Prepared action'}”? This also removes its selections and fallback references from this enemy’s Prepare actions.${emptiesPrepare?' A Prepare will have no choices left; add another before playing.':''} Undo restores the action and its references.`))return;
+  preview.stop();
+  const result=edit('inspector',{...b.dataset});
+  if(result.ok)report('Prepared action deleted and Prepare references removed. Undo restores both.');
+  return;
+ }
  if(cmd==='delete-definition'){
   if(b.disabled||!confirmLibraryRemoval(project,definitionId,{report}))return;
   preview.stop();

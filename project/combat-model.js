@@ -12,6 +12,7 @@ const allocate=(base,used)=>{let id=base,n=2;while(used.has(id))id=`${base}-${n+
 /** Presentation-only cards owned by an alternative Enemy, just like its hit/death cards. */
 export function ensureEnemyPreparationCards(enemy,used=new Set()){
  if(enemy?.kind!=='enemy'||enemy.mechanics!=='opposed-preparation')return enemy;
+ if(!Object.hasOwn(enemy,'preparationCards')&&Array.isArray(enemy.actions)&&enemy.actions.some(a=>a?.type==='prepare'&&Object.hasOwn(a,'preparedActions')))return enemy;
  if(!Object.hasOwn(enemy,'preparationCards'))enemy.preparationCards={};
  if(!object(enemy.preparationCards))return enemy; // Preserve invalid authored data for validation.
  const collect=value=>{if(Array.isArray(value))value.forEach(collect);else if(object(value)){if(typeof value.id==='string')used.add(value.id);Object.values(value).forEach(collect);}};collect(enemy);
@@ -123,6 +124,86 @@ export function migrateWeaponActions(project){
  project.library=project.library.filter(d=>!migrated.has(d?.id)||referenced.has(d.id));
  return project;
 }
+/** Promote legacy opposed preparation into independently owned Enemy Actions.
+ * Legacy presentation cards remain archived on the Enemy. Invalid authored data
+ * is left intact for validation rather than silently converted or repaired. */
+export function migrateEnemyPreparedActions(project){
+ if(!object(project)||!Array.isArray(project.library))return project;
+ const used=new Set();
+ const collect=value=>{if(Array.isArray(value))value.forEach(collect);else if(object(value)){if(typeof value.id==='string')used.add(value.id);Object.values(value).forEach(collect);}};collect(project);
+ // Earlier v3 drafts stored prepared Actions in the common Library. Copy each
+ // source once per Enemy. Valid player definitions remain untouched.
+ const definitions=new Map(),duplicates=new Set(),copiedBy=new Map();
+ for(const d of project.library.filter(object)){if(definitions.has(d.id))duplicates.add(d.id);definitions.set(d.id,d);}
+ for(const enemy of project.library){
+  if(enemy?.kind!=='enemy'||!Array.isArray(enemy.actions))continue;
+  const owned=new Map();
+  const convert=ref=>{
+   if(!object(ref)||typeof ref.definitionId!=='string'||Object.hasOwn(ref,'actionId'))return;
+   const source=definitions.get(ref.definitionId);
+   if(source?.kind!=='combatAction'||source.visibility==='local'||duplicates.has(source.id)||Object.hasOwn(enemy,'preparedActions')&&!Array.isArray(enemy.preparedActions))return;
+   if(!owned.has(source.id)){
+    const action=structuredClone(source);action.id=allocate(`${enemy.id}-prepared-${source.id}`,used);
+    delete action.visibility;delete action.chapterId;delete action.definitionId;
+    (enemy.preparedActions??=[]).push(action);owned.set(source.id,action.id);
+    if(!copiedBy.has(source.id))copiedBy.set(source.id,[]);copiedBy.get(source.id).push(enemy);
+   }
+   ref.actionId=owned.get(source.id);delete ref.definitionId;
+  };
+  for(const action of enemy.actions)if(action?.type==='prepare'&&Array.isArray(action.preparedActions))for(const ref of action.preparedActions){convert(ref);convert(ref?.fallback);}
+ }
+ // A checked full Dodge created by the early shared draft was never a V1
+ // player Action. Archive it only after all active references have moved.
+ const referenced=new Set();
+ const visit=value=>{if(Array.isArray(value))value.forEach(visit);else if(object(value)){if(typeof value.definitionId==='string')referenced.add(value.definitionId);Object.values(value).forEach(visit);}};visit(project);
+ const retired=new Set();
+ for(const [id,owners] of copiedBy){
+  const source=definitions.get(id);
+  if(source.type!=='defend'||source.protection!=='all'||source.resolution!=='check'||referenced.has(id)||owners.some(enemy=>Object.hasOwn(enemy,'legacyPreparedActionSources')&&!Array.isArray(enemy.legacyPreparedActionSources)))continue;
+  for(const enemy of owners)(enemy.legacyPreparedActionSources??=[]).push(structuredClone(source));
+  retired.add(id);
+ }
+ project.library=project.library.filter(source=>!retired.has(source?.id));
+ const empty=value=>value===undefined||Array.isArray(value)&&value.length===0;
+ const checkValid=c=>object(c)&&(c.mode==='stat'?typeof c.modifierVariable==='string'&&Number.isInteger(c.difficulty)&&c.difficulty>=1&&c.difficulty<=10:
+  (c.mode===undefined||c.mode==='custom')&&Array.isArray(c.pool)&&c.pool.length>0&&c.pool.every(d=>object(d)&&[4,6,8,10,12,20].includes(d.sides)&&Number.isSafeInteger(d.count)&&d.count>=1&&d.count<=30)&&c.pool.reduce((n,d)=>n+d.count,0)<=30&&Number.isFinite(c.modifier)&&Number.isFinite(c.target));
+ const cardValid=(card,checked)=>object(card)&&['event','caption'].includes(card.kind)&&['id','name','text','image'].every(k=>typeof card[k]==='string')&&['conditions','costs','effects','onCollect','successEffects','failureEffects'].every(k=>empty(card[k]))&&(card.cooldown===undefined||card.cooldown===0)&&(!checked||['direct','check'].includes(card.resolution)&& (card.resolution!=='check'||checkValid(card.check)));
+ const promote=(enemy,card,type,id,extra={})=>{
+  const action={...structuredClone(card),id:allocate(id,used),kind:'combatAction',type,presentationKind:card.kind,conditions:[],costs:[],effects:[],successEffects:[],failureEffects:[],cooldown:0,target:'opponent',resolution:'direct',...extra};
+  delete action.visibility;delete action.chapterId;delete action.onCollect;
+  (enemy.preparedActions??=[]).push(action);return action;
+ };
+ for(const enemy of [...project.library]){
+  if(enemy?.kind!=='enemy'||enemy.mechanics!=='opposed-preparation'||!Array.isArray(enemy.actions)||!object(enemy.preparationCards)||Object.hasOwn(enemy,'preparedActions')&&!Array.isArray(enemy.preparedActions))continue;
+  const {block,charge,hold}=enemy.preparationCards;
+  if(!cardValid(block,true)||!cardValid(charge,true)||!cardValid(hold,false))continue;
+  const attack=enemy.actions.find(a=>a?.type==='attack');
+  if(!object(attack?.attack)||attack.attack.source!=='self'||!object(attack.attack.damage)||!['min','max'].every(k=>Number.isSafeInteger(attack.attack.damage[k]))||attack.attack.damage.min<0||attack.attack.damage.max<attack.attack.damage.min||!['minBonus','maxBonus'].every(k=>Number.isSafeInteger(attack.attack[k])))continue;
+  if(['conditions','costs'].some(k=>!empty(attack[k]))||attack.cooldown!==0)continue;
+  for(const preparation of enemy.actions){
+   if(preparation?.type!=='prepare'||Object.hasOwn(preparation,'preparedActions'))continue;
+   if(!Number.isSafeInteger(preparation.preparationBonus)||preparation.preparationBonus<1||!Number.isSafeInteger(preparation.damageReduction)||preparation.damageReduction<1||preparation.resolution!=='direct'||['conditions','costs'].some(k=>!empty(preparation[k]))||preparation.cooldown!==0)continue;
+   const profile=structuredClone(attack.attack);
+   profile.minBonus+=preparation.preparationBonus;profile.maxBonus+=preparation.preparationBonus;
+   if(![profile.minBonus,profile.maxBonus,profile.damage.min+profile.minBonus,profile.damage.max+profile.maxBonus].every(Number.isSafeInteger)||profile.damage.min+profile.minBonus<0||profile.damage.max+profile.maxBonus<profile.damage.min+profile.minBonus)continue;
+   const prefix=`${preparation.id}-prepared`;
+   const skip=promote(enemy,hold,'wait',`${prefix}-skip`);
+   const dodge=promote(enemy,block,'defend',`${prefix}-dodge`,{protection:'all',damageReduction:1,resolution:block.resolution,check:structuredClone(block.check)});
+   const rush=promote(enemy,charge,'attack',`${prefix}-rush`,{attack:profile,resolution:charge.resolution,check:structuredClone(charge.check),effects:structuredClone(attack.effects??[]),successEffects:structuredClone(attack.successEffects??[]),failureEffects:structuredClone(attack.failureEffects??[])});
+   preparation.preparedActions=[{actionId:dodge.id,weight:1,trigger:'incoming-hit',fallback:{actionId:skip.id,when:['defend','wait']}},{actionId:rush.id,weight:1,trigger:'after-player-action'}];
+  }
+ }
+ // Owned attacks describe their complete damage range, including legacy bonuses.
+ for(const enemy of project.library)if(enemy?.kind==='enemy')for(const action of Array.isArray(enemy.preparedActions)?enemy.preparedActions:[]){
+  const profile=action?.type==='attack'&&action.attack;
+  if(profile?.source!=='self'||!object(profile.damage)||![profile.damage.min,profile.damage.max,profile.minBonus,profile.maxBonus].every(Number.isSafeInteger)||profile.damage.min<0||profile.damage.max<profile.damage.min)continue;
+  const min=profile.damage.min+profile.minBonus,max=profile.damage.max+profile.maxBonus;
+  if(!Number.isSafeInteger(min)||!Number.isSafeInteger(max)||min<0||max<min)continue;
+  profile.damage={...profile.damage,min,max};profile.minBonus=0;profile.maxBonus=0;
+ }
+
+ return project;
+}
 export function ensureChapterDeath(project,chapter){
  if(!object(chapter)||!Array.isArray(chapter.nodes)||!Array.isArray(project.library)||Object.hasOwn(chapter,'deathNode'))return chapter;
  const existing=chapter.nodes.filter(n=>n?.type==='death');if(existing.length){chapter.deathNode=existing[0].id;return chapter;}
@@ -166,7 +247,7 @@ export function ensureCombatDefaults(project){
    node.introEnabled=typeof enemy?.introEnabled==='boolean'?enemy.introEnabled:false;
   }
  }
- migrateEnemyActions(project);migrateWeaponActions(project);migrateCombatActionTypes(project);migratePlayerBlockReveals(project);project.version=3;return project;
+ migrateEnemyActions(project);migrateWeaponActions(project);migrateCombatActionTypes(project);migratePlayerBlockReveals(project);migrateEnemyPreparedActions(project);project.version=3;return project;
 }
 export const createCombatDefaults=ensureCombatDefaults;
 export function createProjectChapter(project,id='chapter-1',name='First chapter'){const chapter={id,name,startNode:'',variables:[],nodes:[]};ensureChapterDeath(project,chapter);return chapter;}

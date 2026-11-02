@@ -146,3 +146,12 @@ test('copied block reveals with the same child ID keep the active Defend owner',
  combat.phase='effects';combat.sequence={index:0,steps:[{card:weapon.combat.actions[0].blockReveal,definitionId:weapon.id,contentId:'visible'}]};
  assert.deepEqual(previewCardTarget(f),combatExpected(weapon.id,'shared-block','combat.actions.0.blockReveal'));
 });
+
+test('prepared Wait and fallback navigate inside their owning Enemy rather than Common',()=>{
+ const {f,combat,enemy}=combatFixture();
+ const skip={id:'skip',kind:'combatAction',type:'wait'};enemy.preparedActions=[skip];
+ combat.phase='enemy-action';combat.declaration={action:skip};
+ assert.deepEqual(previewCardTarget(f),combatExpected('rat','skip','preparedActions.0'));
+ combat.phase='effects';combat.sequence={index:0,steps:[{card:skip,contentId:'visible'}]};
+ assert.deepEqual(previewCardTarget(f),combatExpected('rat','skip','preparedActions.0'));
+});

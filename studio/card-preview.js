@@ -4,7 +4,7 @@ import { chapterVariables } from '../project/model.js';
 import { decorateCard } from '../engine/renderer.js';
 import { resolvePlacement } from '../project/cards.js';
 import { cardFace, actionCardFace } from '../project/presentation.js';
-import { enemyActionCard } from '../project/combat-presentation.js';
+import { enemyActionCard, combatCard } from '../project/combat-presentation.js';
 import { findPlacement } from './commands.js';
 import { applyCardStyles } from '../project/card-styles.js';
 
@@ -19,7 +19,7 @@ export function renderCardPreviews(root,project,node,chapterId) {
   try { card=placement?resolvePlacement(project,placement):project.library.find(d=>d.id===mount.dataset.previewDefinition); }
   catch { mount.replaceChildren(); continue; } // Incomplete drafts can reference missing definitions.
   const owner=card;
-  const enemyAction=card?.kind==='enemy'&&/^actions\.\d+$/.test(mount.dataset.previewPath??'');
+  const enemyAction=card?.kind==='enemy'&&/^(?:actions|preparedActions)\.\d+$/.test(mount.dataset.previewPath??'');
   if(mount.dataset.previewPath)card=mount.dataset.previewPath.split('.').reduce((value,key)=>value?.[key],card);
   if(!card)continue;
   const chapter=project.chapters?.find(chapter=>placement?(chapterId?chapter.id===chapterId:chapter.nodes.includes(node)):owner.visibility==='local'&&chapter.id===owner.chapterId);
@@ -42,7 +42,7 @@ export function renderCardPreviews(root,project,node,chapterId) {
   const draw=()=>{
    const context={source:owner?.subtype==='weapon'?owner:undefined,preparationBonus:eligible&&controls?.checkbox.checked?prepare?.preparationBonus??2:0};
    let face;
-   try {face=enemyAction?enemyActionCard(typed,'preview',{variables,values,enemy:true}):actionCardFace(typed,variables,project.library,values,context);}
+   try {face=enemyAction&&card.kind==='combatAction'&&card.presentationKind?combatCard(typed,'preview',{variables,values,enemy:owner?.kind==='enemy'}):enemyAction?enemyActionCard(typed,'preview',{variables,values,enemy:true}):actionCardFace(typed,variables,project.library,values,context);}
    catch {
     // Unfinished checks must still show their artwork and authored text.
     face=cardFace(typed,variables,project.library,values,context);

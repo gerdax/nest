@@ -515,3 +515,15 @@ test('hidden damage preparation survives a miss, reveals on a hit and retry neve
  await swipe(h);assert.equal(h.host.variables.health,7);assert.equal(h.c.phase,'choice');
  h.c.dispose();
 });
+
+test('classic enemies can opt into weighted Random and resample only on the next normal enemy turn',async()=>{
+ const h=harness(),enemy=h.c.enemy;enemy.actionSelection='random';
+ const action=(id,weight)=>({id,kind:'combatAction',name:id,text:id,type:'wait',resolution:'direct',effects:[],costs:[],conditions:[],cooldown:0,weight});
+ enemy.actions=[action('rare',1),action('common',9)];let draws=0;const samples=[.2,.01];h.host.rng=()=>{draws++;return samples.shift()??0;};
+ await h.c.start();assert.equal(h.deck.content.heading,'common');assert.equal(draws,1);
+ await swipe(h);assert.equal(h.c.phase,'choice');assert.equal(draws,1);assert.equal(h.c.declaration,null);
+ const noAttack={id:'wait',kind:'combatAction',name:'Wait',type:'wait',resolution:'direct',effects:[],conditions:[],costs:[],cooldown:0};
+ h.host.compiled.library.push(noAttack);h.host.compiled.combat.defaultActions=[{definitionId:noAttack.id}];
+ const choice=h.c.choices()[0],pending=h.c.accept({contentId:h.deck.content.id,action:{id:choice.id}});await tick();h.deck.depart?.();await pending;
+ assert.equal(h.deck.content.heading,'rare');assert.equal(draws,2);assert.equal(h.c.encounter.actionIndex,0);assert.deepEqual(h.errors,[]);h.c.dispose();
+});

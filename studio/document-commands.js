@@ -1,6 +1,6 @@
 import {PreviewOverrides} from './preview-overrides.js';
 import {deleteCommonCard} from './common-card-removal.js';
-import { applyCombatArrayCommand } from './combat-authoring.js';
+import { applyCombatArrayCommand, preparedActionChoices } from './combat-authoring.js';
 import { createWeapon, createEnemyAction, migratePlayerBlockReveals } from '../project/combat-model.js';
 import { createError } from '../errors.js';
 import { eligibleInventoryItems } from './item-options.js';
@@ -21,6 +21,18 @@ import {
   uid, createNode, makePlacement, promoteCard, duplicateNode, duplicatePlacement,
   findPlacement, pathTarget, customizeAction, customizeItem, customizeConsumable, customizeStory, newRule, normalizeRule, addHealthVariable,
 } from './commands.js';
+
+function reconcilePreparedReferences(enemy,action){
+ const trigger=action.type==='defend'?'incoming-hit':'after-player-action';
+ const usable=preparedActionChoices(enemy,trigger).includes(action),usableFallback=preparedActionChoices(enemy,'fallback').includes(action);
+ for(const prepare of enemy.actions||[])for(const ref of prepare.preparedActions||[]){
+  if(ref.actionId===action.id){
+   if(usable){ref.trigger=trigger;if(trigger!=='incoming-hit')delete ref.fallback;}
+   else {ref.actionId='';delete ref.fallback;}
+  }
+  if(ref.fallback?.actionId===action.id&&!usableFallback)delete ref.fallback;
+ }
+}
 
 // Recognize only unused factory templates; authored custom checks keep their rules.
 function stockCombatCheck(check) {
@@ -106,7 +118,40 @@ function changeField(project, selection, field, localDrafts) {
     return;
   }
   if(['definition','local-definition'].includes(scope)&&root.kind==='consumable'&&path==='subtype'&&!['health','energy'].includes(raw))throw new Error('Consumable subtype must be health or energy');
+  if(scope==='definition'&&root.kind==='enemy'&&/^actions\.\d+\.preparedActions\.\d+\.fallback\.when\.(\w+)$/.test(path)){
+    const parts=path.split('.'),ref=root.actions[Number(parts[1])].preparedActions[Number(parts[3])],type=parts.at(-1);
+    if(ref.trigger!=='incoming-hit'||!['defend','wait','prepare'].includes(type))throw new Error('Fallbacks require an incoming-hit action and player defend, wait or prepare');
+    if(!ref.fallback?.actionId)throw new Error('Choose a fallback Wait action first');
+    ref.fallback.when=checked?[...new Set([...(ref.fallback.when||[]),type])]:(ref.fallback.when||[]).filter(value=>value!==type);return;
+  }
+  if(scope==='definition'&&root.kind==='enemy'&&/^actions\.\d+\.preparedActions\.\d+\.fallback\.actionId$/.test(path)){
+    const parts=path.split('.'),ref=root.actions[Number(parts[1])].preparedActions[Number(parts[3])];
+    if(raw&&ref.trigger!=='incoming-hit')throw new Error('Fallbacks require an incoming-hit action');
+    if(raw&&!preparedActionChoices(root,'fallback').some(action=>action.id===raw))throw new Error('Fallback must be an owned Wait action');
+    if(!raw)delete ref.fallback;else ref.fallback={actionId:raw,when:ref.fallback?.when||['defend','wait']};return;
+  }
+  if(path==='actionSelection'){
+    if(scope!=='definition'||root.kind!=='enemy')throw new Error('Action selection is only available for Enemy definitions');
+    if(!['random','order'].includes(raw))throw new Error('Action selection must be random or order');
+  }
+  if(scope==='definition'&&root.kind==='enemy'&&/^actions\.\d+\.weight$/.test(path)&&(!Number.isSafeInteger(Number(raw))||Number(raw)<1))throw new Error('Random weight must be a positive integer');
   const {parent, key} = pathTarget(root, path);
+  if(scope==='definition'&&root.kind==='enemy'&&/^actions\.\d+\.preparedActions\.\d+\.actionId$/.test(path)){
+    const selected=preparedActionChoices(root,'all').find(action=>action.id===raw);
+    if(raw&&!selected)throw new Error('Choose a compatible prepared action owned by this Enemy');
+    parent.actionId=raw;
+    if(selected)parent.trigger=selected.type==='defend'?'incoming-hit':'after-player-action';
+    if(!selected||parent.trigger!=='incoming-hit')delete parent.fallback;
+    return;
+  }
+  if(scope==='definition'&&root.kind==='enemy'&&/^actions\.\d+\.preparedActions\.\d+\.trigger$/.test(path)){
+    if(!['incoming-hit','after-player-action'].includes(raw))throw new Error('Choose a supported Trigger');
+    parent.trigger=raw;
+    if(parent.actionId&&!preparedActionChoices(root,raw).some(action=>action.id===parent.actionId)){parent.actionId='';delete parent.fallback;}
+    if(raw!=='incoming-hit')delete parent.fallback;
+    return;
+  }
+  if(scope==='definition'&&root.kind==='enemy'&&/^actions\.\d+\.preparedActions\.\d+\.weight$/.test(path)&&(!Number.isSafeInteger(Number(raw))||Number(raw)<1))throw new Error('Selection weight must be a positive integer');
   if(['project','chapter'].includes(scope)&&/^variables\.\d+\.name$/.test(path)){
     return {variableRename:renameVariable(project,parent,raw,scope==='chapter'?chapter:undefined)};
   }
@@ -128,25 +173,40 @@ function changeField(project, selection, field, localDrafts) {
   if(key==='key'&&['addItem','removeItem'].includes(parent.op)&&value&&!eligibleInventoryItems(project,ruleChapter).some(item=>item.id===value))throw createError('STUDIO_ITEM_EFFECTS_MUST_REFERENCE_AN_ELIGIBLE_ITEM_FROM_THE_OWNING_CHAPTER_OR_SHARED_LIBRARY');
   if(['definition','local-definition'].includes(scope)&&key==='type'&&parent.kind==='combatAction'){
     if(!['attack','defend','prepare','wait'].includes(value))throw new Error('Unsupported Combat Action type');
+    if(root.kind==='enemy'&&/^preparedActions\.\d+\.type$/.test(path)&&value==='prepare')throw new Error('Owned prepared actions must attack, defend or wait');
     const switching=parent[key]!==value;
     parent[key]=value;
+    if(root.kind==='enemy'&&value!=='defend')delete parent.protection;
+    if(root.kind==='enemy'&&value!=='prepare')delete parent.preparedActions;
     if(['defend','wait','prepare'].includes(value))parent.resolution='direct';
+    if(root.kind==='enemy'&&/^preparedActions\.\d+\.type$/.test(path)&&value==='attack')parent.attack??={source:'self',damage:{min:1,max:1},minBonus:0,maxBonus:0};
     if(root.kind!=='enemy'&&value==='attack'&&switching){
       parent.resolution='check';
       if(!parent.check||parent.check.mode==='stat'||stockCombatCheck(parent.check))parent.check=combatStatCheck(parent);
     }
     if(value==='defend'){parent.damageReduction??=1;if(root.kind!=='enemy')migratePlayerBlockReveals(project);}
+    if(root.kind==='enemy'&&/^preparedActions\.\d+\.type$/.test(path)){
+      if(value==='defend'&&switching){parent.protection='all';parent.damageReduction=1;}
+      reconcilePreparedReferences(root,parent);
+    }
     if(value==='prepare'){
-      if(root.kind==='enemy'&&switching){
+      if(root.kind==='enemy'&&root.mechanics==='opposed-preparation'){parent.preparedActions??=[];}
+      else if(root.kind==='enemy'&&switching){
         if(!Number.isSafeInteger(parent.preparationBonus)||parent.preparationBonus<1)parent.preparationBonus=2;
         if(!Number.isSafeInteger(parent.damageReduction)||parent.damageReduction<1)parent.damageReduction=1;
       }else if(root.kind!=='enemy')parent.preparationBonus??=2;
     }
     return;
   }
+  if(scope==='definition'&&root.kind==='enemy'&&key==='protection'&&parent.kind==='combatAction'){
+    if(value==='numeric'){delete parent.protection;parent.resolution='direct';}
+    else if(value==='all'){parent.protection='all';parent.damageReduction=1;}
+    if(/^preparedActions\.\d+\.protection$/.test(path))reconcilePreparedReferences(root,parent);
+    return;
+  }
   parent[key] = value;
   if(scope==='definition'&&path==='subtype'&&root.kind==='item'){if(value==='weapon')root.combat??=createWeapon(root.id).combat;else delete root.subtype;return;}
-  if(scope==='definition'&&(path==='attack.source'||/^(?:combat\.)?actions\.\d+\.attack\.source$/.test(path))){parent.minBonus??=0;parent.maxBonus??=0;if(value==='self')parent.damage??={min:1,max:1};return;}
+  if(scope==='definition'&&(path==='attack.source'||/^(?:(?:combat\.)?actions|preparedActions)\.\d+\.attack\.source$/.test(path))){parent.minBonus??=0;parent.maxBonus??=0;if(value==='self')parent.damage??={min:1,max:1};return;}
   if (['modifierVariable','contextItemId','tagId'].includes(key) && !value) delete parent[key];
   if (key === 'contextItemId' && (!value||value.startsWith('tag:'))) delete parent.contextOverrideImage;
   if (key === 'resolution' && value === 'check') {
@@ -179,7 +239,18 @@ function inspectorCommand(project, selection, data, localDrafts) {
   const node = nodeFor(project, selection), placement = findPlacement(node || {}, data.placement);
   const descriptor = {scope:data.scope, placementId:data.placement};
   switch (data.command) {
-    case 'combat-add':case 'combat-remove':case 'combat-move':applyCombatArrayCommand(documentScope(project,selection,descriptor),data);break;
+    case 'combat-add':case 'combat-remove':case 'combat-move':{
+      const root=documentScope(project,selection,descriptor);
+      if(root.kind==='enemy'&&data.command==='combat-add'&&['prepared-action','prepared-dodge','prepared-attack','prepared-wait'].includes(data.factory)){
+        const {parent,key}=pathTarget(root,data.path);parent[key]??=[];
+        const action=createDefinition('combatAction',uid('combatAction'));
+        Object.assign(action,{name:data.factory==='prepared-action'?'Prepared Action':data.factory==='prepared-dodge'?'Dodge':data.factory==='prepared-attack'?'Prepared attack':'Wait',type:data.factory==='prepared-dodge'?'defend':data.factory==='prepared-wait'?'wait':'attack',conditions:[],costs:[],effects:[],successEffects:[],failureEffects:[],cooldown:0,resolution:'direct',presentationKind:'event'});
+        if(action.type==='defend')Object.assign(action,{protection:'all',damageReduction:1});
+        if(action.type==='attack')action.attack={source:'self',damage:{min:1,max:1},minBonus:0,maxBonus:0};
+        (root.preparedActions??=[]).push(action);if(data.path!=='preparedActions')parent[key].push({actionId:action.id,weight:1,trigger:action.type==='defend'?'incoming-hit':'after-player-action'});
+      }else applyCombatArrayCommand(root,data);
+      break;
+    }
     case 'reset-artwork': {
       const root = (data.artworkPath||'').split('.').filter(Boolean).reduce((value,key)=>value?.[key],documentScope(project, selection, descriptor));
       if(!root)break;

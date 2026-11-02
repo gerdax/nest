@@ -14,7 +14,7 @@ export function descriptionEditorContext(project,{scope,path,root,chapter,placem
  }
  const cardPath=(path||'text').replace(/(?:^|\.)text$/,'').replace(/^overrides(?:\.|$)/,'');
  card=cardPath?atPath(owner,cardPath):owner;
- if(owner?.kind==='enemy'&&/^actions\.\d+$/.test(cardPath)){enemy=true;card=card&&{...card,kind:'combatAction'};}
+ if(owner?.kind==='enemy'&&/^(?:actions|preparedActions)\.\d+$/.test(cardPath)){enemy=true;card=card&&{...card,kind:'combatAction'};}
  if(owner?.kind==='item'&&owner.subtype==='weapon'&&/^combat\.actions\.\d+$/.test(cardPath))source=owner;
  // Shared definitions have no chapter context; local definitions retain theirs.
  const variableChapter=scope==='definition'

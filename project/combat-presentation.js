@@ -4,10 +4,13 @@ import {actionEnergyCost,actionHealthCost} from './cards.js';
 import {checkOdds} from './combat-rules.js';
 const art=card=>({image:card.image??'',imageScale:card.imageScale??100,imageOffsetX:card.imageOffsetX??0,imageOffsetY:card.imageOffsetY??0,flipImage:!!card.flipImage});
 export function combatCard(card,id,{value,disabledReason='',...context}={}) {
-  const effect=card.kind==='effect',description=resolveDescription(card.text??'',{...context,card}).text;
+  const descriptionCard=card;
+  if(context.enemy===true&&card.kind==='combatAction'&&card.presentationKind)card={...card,kind:card.presentationKind};
+  const effect=card.kind==='effect',description=resolveDescription(card.text??'',{...context,card:descriptionCard}).text;
   return {id,interaction:'choice',directAdvance:true,allowClose:false,heading:effect?description:card.heading??'',text:effect?'':description,...art(card),cardKind:effect?'health':card.kind==='combatAction'?'action':card.kind??'caption',...(effect?{value:value??0,showValue:card.showValue!==false,typeLabel:'EFFECT'}:card.kind==='combatAction'?{typeLabel:(card.type??'attack').toUpperCase()}:{}),advanceDisabled:!!disabledReason,actions:[{id:'continue',label:'Continue',disabled:!!disabledReason,...(disabledReason?{disabledReason}:{})}]};
 }
 export function enemyActionCard(action,id,context={}) {
+ if(action.presentationKind)return {...combatCard(action,id,{...context,enemy:true}),advanceDisabled:!(action.type==='wait'&&action.resolution==='direct')};
  const direct=action.resolution==='direct';
  // Automatic Actions are locked by advanceDisabled and the coordinator phase;
  // they are executing, rather than unavailable due to unmet player rules.

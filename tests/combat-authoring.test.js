@@ -121,3 +121,23 @@ test('Weapon bonuses show calculated damage and identify invalid endpoint values
  assert.doesNotMatch(html,/aria-invalid="true"/);
  assert.deepEqual(validateProject(project),[]);
 });
+
+test('enemy row controls stay outside collapsibles and reorder only their own section',async()=>{
+ const {createAlternativeRatCombatProject}=await import('../project/combat-fixture.js');
+ const {compileChapter,parseProject}=await import('../project/model.js');
+ const project=createAlternativeRatCombatProject(),enemy=project.library.find(d=>d.kind==='enemy');
+ enemy.reactions=[{id:'reaction-one',threshold:{numerator:1,denominator:4},card:{id:'reaction-one-card',kind:'caption',name:'First',text:'First',image:'',effects:[]}},{id:'reaction-two',threshold:{numerator:1,denominator:2},card:{id:'reaction-two-card',kind:'caption',name:'Second',text:'Second',image:'',effects:[]}}];
+ const before=structuredClone(enemy),html=definitionInspector(project,enemy);
+ for(const [section,label] of [['actions','combat action'],['preparedActions','prepared action'],['reactions','health reaction']]){
+  assert(html.includes(`data-combat-section="${section}"`));
+  assert(html.includes(`aria-label="Move ${label} up"`));assert(html.includes(`aria-label="Remove ${label}"`));
+  assert(new RegExp(`</details><div class="card-order-controls">[\\s\\S]*?data-path="${section}"`).test(html));
+  const original=structuredClone(enemy[section]);
+  applyDocumentCommand(project,{chapterId:project.chapters[0].id,definitionId:enemy.id},'inspector',{scope:'definition',command:'combat-move',path:section,index:0,direction:1});
+  assert.equal(enemy[section][1].id,original[0].id);assert.equal(enemy[section][0].id,original[1].id);
+  for(const other of ['actions','preparedActions','reactions'].filter(key=>key!==section))assert.deepEqual(enemy[other],before[other]);
+  enemy[section]=original;
+ }
+ const order=enemy.actions.map(a=>a.id).reverse();enemy.actions.reverse();
+ const loaded=parseProject(JSON.stringify(project));assert.deepEqual(compileChapter(loaded).library.find(d=>d.id===enemy.id).actions.map(a=>a.id),order);
+});

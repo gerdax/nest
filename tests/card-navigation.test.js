@@ -90,3 +90,12 @@ test('definition reveal expands its embedded section and parents without selecti
  assert.equal(entry.open,true);assert.equal(outer.open,true);assert.deepEqual(summary.focusOptions,{preventScroll:true});
  assert.equal(revealCardEntry(inspector,{kind:'definition',definitionPath:'actions.9'}),false);
 });
+
+test('enemy-owned prepared action targets follow embedded identity after reordering',()=>{
+ const project=createProject(),chapter=project.chapters[0],node=chapter.nodes[0];
+ const enemy={id:'enemy',kind:'enemy',actions:[],preparedActions:[{id:'dodge'},{id:'skip'}]};project.library.push(enemy);
+ const target={kind:'definition',chapterId:chapter.id,nodeId:node.id,definitionId:enemy.id,cardId:'skip'};
+ assert.equal(sourceCard(project,target).definitionPath,'preparedActions.1');
+ enemy.preparedActions.reverse();assert.equal(sourceCard(project,target).definitionPath,'preparedActions.0');
+ enemy.preparedActions=[];assert.equal(sourceCard(project,target),null);
+});
