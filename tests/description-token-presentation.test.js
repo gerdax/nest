@@ -56,9 +56,9 @@ test('combat descriptions hide prepared-only copy when preparation is consumed a
 });
 
 
-test('prepared attack type labels stack PREPARED over the action type only while active',()=>{
+test('prepared attack type labels show only PREPARED while active',()=>{
  for(const bonus of [0,2,0]){
-  const expected=bonus?'PREPARED\nATTACK':'ATTACK';
+  const expected=bonus?'PREPARED':'ATTACK';
   assert.equal(combatChoices([{id:'attack',action:attack}],'choices',values,variables,{preparationBonus:bonus}).actions[0].typeLabel,expected);
   assert.equal(cardFace(attack,variables,[],values,{preparationBonus:bonus}).typeLabel,expected);
  }

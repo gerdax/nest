@@ -62,6 +62,9 @@
   z-index: 3;
   pointer-events: none;
 }
+.nest-card[data-prepared="true"] > .nest-card-texture {
+  background-image: url('../assets/img/ui/cardfront_special.png');
+}
 .nest-card::before {
   content: '';
   position: absolute;

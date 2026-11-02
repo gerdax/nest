@@ -96,7 +96,7 @@ export function stageActionDeck(deck, content, selectedIndex = null, previous = 
       const card = previous.cards[oldIndex], layer = previous.cardLayers[oldIndex];
       const oldAction = previous.content.actions[oldIndex];
       let title = previous.cardTitles[oldIndex], back = previous.cardBacks[oldIndex];
-      if (oldAction.label !== action.label || oldAction.heading !== action.heading || oldAction.inventoryLabel !== action.inventoryLabel || oldAction.summary !== action.summary || oldAction.text !== action.text || oldAction.cardKind !== action.cardKind || oldAction.typeLabel !== action.typeLabel || oldAction.value !== action.value || oldAction.actionEnergyCost !== action.actionEnergyCost || oldAction.actionHealthCost !== action.actionHealthCost || (oldAction.image ?? previous.content.image ?? '') !== (action.image ?? content.image ?? '') || flipped(oldAction) !== flipped(action) || ['imageScale','imageOffsetX','imageOffsetY'].some(key=>oldAction[key]!==action[key])) {
+      if (oldAction.label !== action.label || oldAction.heading !== action.heading || oldAction.inventoryLabel !== action.inventoryLabel || oldAction.summary !== action.summary || oldAction.text !== action.text || oldAction.cardKind !== action.cardKind || oldAction.typeLabel !== action.typeLabel || oldAction.prepared !== action.prepared || oldAction.value !== action.value || oldAction.actionEnergyCost !== action.actionEnergyCost || oldAction.actionHealthCost !== action.actionHealthCost || (oldAction.image ?? previous.content.image ?? '') !== (action.image ?? content.image ?? '') || flipped(oldAction) !== flipped(action) || ['imageScale','imageOffsetX','imageOffsetY'].some(key=>oldAction[key]!==action[key])) {
         card.replaceChildren();
         card.style.backgroundImage = '';
         title = deck.decorate(card, action.image ?? content.image ?? '', action.heading || '', action.cardKind ? action.text || '' : action.label, flipped(action), action);
@@ -179,6 +179,7 @@ export function decorateCard(deck, element, image, title, text, flipImage = fals
   const copy = document.createElement('div');
   copy.className = 'nest-copy';
   element.setAttribute('data-card-kind', presentation.cardKind || 'narrative');
+  element.setAttribute('data-prepared', String(presentation.prepared === true));
   const heading = document.createElement('span');
   heading.className = 'nest-card-title';
   const visibleTitle = ['event','narrative','caption'].includes(presentation.cardKind) ? '' : title;
