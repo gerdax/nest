@@ -1,5 +1,5 @@
 import {createProject} from './model-data.js';
-import {createCombatAction,createWeapon,createEnemy,createEnemyAction} from './combat-model.js';
+import {createCombatAction,createWeapon,createEnemy,createEnemyAction,ensureEnemyPreparationCards} from './combat-model.js';
 /** Explicit sample only. Never installed into the user's current project automatically. */
 export function createRatCombatProject(){
  const project=createProject();project.id='rat-combat-example';project.name='Rat encounter';
@@ -18,5 +18,24 @@ export function createRatCombatProject(){
  const death=chapter.nodes.find(n=>n.id===chapter.deathNode);const deathCard=project.library.find(d=>d.id===death.cards[0].definitionId);deathCard.text='So.. this is how it feels. And suddenly you feel nothing. You die.';
  project.library.push(pistol,enemy,{id:'rat-after',kind:'caption',name:'After the encounter',showName:false,text:'You survived. The corridor stretches ahead.',image:'',effects:[]});
  chapter.nodes=[{id:'take-pistol',name:'Take Pistol',type:'container',x:80,y:80,introEnabled:false,intro:{id:'pickup-intro',definitionId:'arrival'},retainInventoryItems:true,items:[{id:'pistol-found',definitionId:'pistol'}],connections:{next:'rat-fight'}},{id:'rat-fight',name:'Rat encounter',type:'combat',introEnabled:true,x:380,y:80,enemy:{definitionId:'rat'},connections:{victory:'after-rat'}},{id:'after-rat',name:'Continue',type:'linear',x:680,y:80,cards:[{id:'after-card',definitionId:'rat-after'}],connections:{next:null}},death];chapter.startNode='take-pistol';
+ return project;
+}
+
+/** Non-saving alternative example. The classic fixture remains independently usable. */
+export function createAlternativeRatCombatProject(){
+ const project=createRatCombatProject();project.id='alternative-rat-combat-example';project.name='Rat encounter — opposed preparation';
+ const chapter=project.chapters[0];chapter.name=project.name;
+ const attack={...createCombatAction('alternative-attack'),name:'Attack',check:{mode:'stat',modifierVariable:'agility',difficulty:3},attack:{source:'self',damage:{min:2,max:2},minBonus:0,maxBonus:0}};
+ const defend={...createCombatAction('alternative-defend'),name:'Defend',type:'defend',resolution:'direct',damageReduction:4,costs:[{source:'variable',key:'energy',amount:1}]};
+ const preparation={...createCombatAction('alternative-preparation'),name:'Preparation',type:'prepare',resolution:'direct',costs:[],text:'If your next action is an Attack, it deals +2 damage or breaks defence. Against defence, deals base damage only. Spends the turn. No dice roll or Energy cost.',preparationBonus:2};
+ project.library=project.library.filter(definition=>definition.kind!=='combatAction'&&!(definition.kind==='item'&&definition.subtype==='weapon'));
+ project.library.push(attack,defend,preparation);
+ project.combat.defaultActions=[attack,defend,preparation].map(action=>({definitionId:action.id}));
+ const enemy=project.library.find(definition=>definition.id==='rat');enemy.mechanics='opposed-preparation';enemy.health=8;enemy.reactions=[];
+ const bite={...enemy.actions[0],name:'Bite',text:'The rat bites!',check:{pool:[{sides:6,count:3}],modifier:0,target:10},attack:{source:'self',damage:{min:2,max:2},minBonus:0,maxBonus:0},cooldown:0};
+ const prepare={...createEnemyAction('rat-prepare'),name:'Prepare',text:'The rat prepares…',type:'prepare',resolution:'direct',damageReduction:4,preparationBonus:2,cooldown:0};
+ enemy.actions=[bite,prepare];
+ ensureEnemyPreparationCards(enemy);
+ chapter.nodes=chapter.nodes.filter(node=>node.id!=='take-pistol');chapter.startNode='rat-fight';
  return project;
 }

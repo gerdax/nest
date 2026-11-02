@@ -1,3 +1,4 @@
+import {resolveDescription} from '../project/description-tokens.js';
 import { InventoryCardPreview } from './InventoryCardPreview.js';
 import { InventoryView } from './InventoryView.js';
 import { InventorySurface } from './InventorySurface.js';
@@ -25,14 +26,6 @@ export class PlayerUI {
     this.healthValue = root.querySelector('[data-health-value]');
     this.energyValue = root.querySelector('[data-energy-value]');
     this.status = root.querySelector('[data-status]');
-    this.preparation = (root.ownerDocument ?? document).createElement('div');
-    this.preparation.className = 'player-prepared';
-    this.preparation.setAttribute('data-prepared', '');
-    this.preparation.setAttribute('role', 'status');
-    this.preparation.setAttribute('aria-live', 'polite');
-    this.preparation.setAttribute('aria-atomic', 'true');
-    this.preparation.hidden = true;
-    root.querySelector('.chapter-preview-card-layout').appendChild(this.preparation);
     if (inventoryDock) {inventoryRoot.classList.add('nest-inventory-dock'); this.releaseDock = acquireDock((root.ownerDocument ?? document).body);}
     const container = inventoryHost ?? (inventoryDock ? null : root);
     this.surface = new InventorySurface({container});
@@ -55,9 +48,9 @@ export class PlayerUI {
     if (!inventoryDock) root.querySelector('.project-preview').classList.add('project-preview--embedded');
     this.cardPreview = new InventoryCardPreview(mount);
     this.inventory = new InventoryView(inventoryRoot, {getBounds:() => this.surface.bounds(),
-      onHold:item => this.cardPreview.show(item), onMotion:event => this.trace(event)});
+      onHold:item => this.showInventoryCard(item), onMotion:event => this.trace(event)});
     this.actionContext = new ActionContextPanel(root.querySelector('[data-action-context]'), {
-      onHold:item => this.cardPreview.show(item), canHold:() => this.canInspect && !this.destroyed && playerUIState(this.getInput?.() ?? this.input).canInspect,
+      onHold:item => this.showInventoryCard(item), canHold:() => this.canInspect && !this.destroyed && playerUIState(this.getInput?.() ?? this.input).canInspect,
     });
     const playfield=root.closest?.('.nest-playfield')??root;
     const setStyle=(element,key,value)=>{
@@ -92,6 +85,12 @@ export class PlayerUI {
     applyCardStyles(this.surface.frame, styles);
   }
 
+  showInventoryCard(item) {
+    if(!item){this.cardPreview.show(item);return;}
+    const text=resolveDescription(item.text??'',{card:item,variables:this.input?.definitions?.variables??[],values:this.input?.run?.variables??{}}).text;
+    this.cardPreview.show({...item,text});
+  }
+
   update(input) {
     if (this.destroyed) return;
     this.input = input;
@@ -117,8 +116,6 @@ export class PlayerUI {
     }
     this.status.textContent = view.status.text;
     this.status.hidden = !view.status.visible;
-    if (this.preparation.textContent !== view.preparation.text) this.preparation.textContent = view.preparation.text;
-    this.preparation.hidden = !view.preparation.visible;
     this.actionContext.update(view.context);
     this.syncBackdrop();
   }
@@ -177,8 +174,6 @@ export class PlayerUI {
     this.setInventoryContext(false, {immediate:true});
     this.inventory.update([]);
     this.resources.hidden = true;
-    this.preparation.textContent = '';
-    this.preparation.hidden = true;
     this.status.textContent = '';
     this.status.hidden = true;
     this.revision = null;
@@ -196,7 +191,6 @@ export class PlayerUI {
     this.contextResize.disconnect();
     this.backdrop.destroy();
     this.surface.destroy();
-    this.preparation.remove();
     this.releaseDock?.();
     this.releaseDock = null;
     this.input = null;

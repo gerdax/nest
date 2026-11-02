@@ -219,3 +219,21 @@ test('front turn hands off without stopping and matches one native flip duration
 
 test('native departure promise resolves only after the outgoing face leaves, without a successor',async()=>{const deck=create();await assert.rejects(deck.waitForDeparture(deck.content.id),/No accepted departure/);deck.commitCover();let done=false;const waiting=deck.waitForDeparture(deck.content.id).then(()=>{done=true;});step(deck.commitMotion.duration/2);await Promise.resolve();assert.equal(done,false);settle();await waiting;assert.equal(done,true);assert.equal(deck.commitMotion,null);deck.destroy();});
 for(const operation of ['reset','destroy'])test(`native departure wait is canceled by ${operation}`,async()=>{const deck=create();deck.commitCover();const waiting=deck.waitForDeparture(deck.content.id);deck[operation]();await assert.rejects(waiting,{name:'AbortError'});if(operation!=='destroy')deck.destroy();});
+
+test('a direct card uncovers its pre-staged choice fronts throughout departure while the host awaits it',()=>{
+ const choices=content('choices',{decisionOnly:true,actions:[{id:'attack',label:'Attack',heading:'Attack',text:'Deal damage',image:'attack.png'},{id:'defend',label:'Defend',image:'defend.png'}]});
+ const deck=create();deck.replaceContent(content('rat-prepare',{directAdvance:true,nextDeckPreview:{content:choices,presentation:'open'}}),{transition:'reveal'});settle();
+ const front=deck.forwardDeck.cards[0];
+ assert.equal(front.children[1].style.backgroundImage,'url("attack.png")');
+ deck.start();deck.move({axis:'y',x:0,y:-120});step();
+ assert.equal(front.style.visibility,'visible');assert.equal(deck.underlay.style.visibility,'hidden');
+ deck.commitCover();
+ assert.equal(deck.pending,null,'host is still awaiting the departing rat card');
+ while(deck.commitMotion){
+  assert.equal(front.style.visibility,'visible');assert.equal(angle(front),0);assert.equal(deck.underlay.style.visibility,'hidden');
+  step();
+ }
+ deck.replaceContent(choices,{presentation:'open',transition:'flip'});
+ assert.equal(deck.cards[0],front,'adopt the same uncovered card, without rebuilding a placeholder');
+ settle();assert.equal(deck.phase,'choices');deck.destroy();
+});

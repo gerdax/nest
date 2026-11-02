@@ -7,7 +7,7 @@ export const isCommonDefinition=definition=>['combatAction','effect'].includes(d
 export function combatActionSummary(project,action){
  const type=action.type||'attack';let effect;
  if(type==='defend')effect=`Reduces next incoming attack damage by ${action.damageReduction??1}`;
- else if(type==='prepare')effect=`Adds +${action.preparationBonus??2} damage to your next Attack (does not stack)`;
+ else if(type==='prepare')effect=`Next action only: +${action.preparationBonus??2} damage if attacking, or breaks defence for base damage (does not stack)`;
  else if(type==='wait')effect='Passes the turn';
  else if(action.attack?.source==='weapon'){
   const bonuses=[action.attack.minBonus?`${action.attack.minBonus>0?'+':''}${action.attack.minBonus} minimum`:null,action.attack.maxBonus?`${action.attack.maxBonus>0?'+':''}${action.attack.maxBonus} maximum`:null].filter(Boolean);

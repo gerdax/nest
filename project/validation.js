@@ -173,7 +173,8 @@ export function validateProject(project, {allowDraft = false} = {}) {
     if(d.kind==='effect'&&(d.onCollect!==undefined||list(d.effects).length||list(d.successEffects).length||list(d.failureEffects).length))add(`${label}: Feedback presentations are presentation only and cannot apply independent effects`);
     if(d.kind==='combatAction'){
       if(!['attack','defend','prepare','wait'].includes(d.type))add(`${label}: unsupported Combat Action type`);
-      if(['defend','prepare','wait'].includes(d.type)&&d.resolution!=='direct')add(`${label}: Defend, Prepare and Wait are direct Actions`);
+      if((['defend','wait'].includes(d.type)||enemyAction&&d.type==='prepare')&&d.resolution!=='direct')add(`${label}: Defend, Enemy Prepare and Wait are direct Actions`);
+      if(d.type==='prepare'&&!enemyAction&&!['direct','check'].includes(d.resolution))add(`${label}: Player Prepare requires direct or check resolution`);
       if(d.type==='prepare'&&(!Number.isSafeInteger(d.preparationBonus)||d.preparationBonus<1))add(`${label}: Prepare requires a positive safe integer preparation bonus`);
       if(enemyAction&&d.type==='prepare'&&(!Number.isSafeInteger(d.damageReduction)||d.damageReduction<1))add(`${label}: Enemy Prepare requires positive safe integer damage reduction`);
       if(d.type==='defend'&&(!Number.isSafeInteger(d.damageReduction)||d.damageReduction<1))add(`${label}: Defend requires positive integer damage reduction`);
@@ -205,6 +206,10 @@ export function validateProject(project, {allowDraft = false} = {}) {
       if(!list(d.actions).length||!list(d.death).length)add(`${label}: Enemy requires action and death content`);
       if(Object.hasOwn(d,'attacks'))add(`${label}: legacy attacks conflict with Enemy actions`);
       const ids=new Set();const identity=card=>{if(object(card)){if(ids.has(card.id))add(`${label}: duplicate embedded identity ${card.id}`);ids.add(card.id);}};
+      if(d.mechanics==='opposed-preparation'){
+        if(!object(d.preparationCards))add(`${label}: preparation cards must be an object`);
+        else for(const key of ['block','charge','hold',...(Object.hasOwn(d.preparationCards,'blocked')?['blocked']:[])]){const card=d.preparationCards[key];identity(card);embedded(card,['event','caption'],`${label} / ${key}`);}
+      }
       if(list(d.death).length>1)add(`${label}: Enemy death supports only one card`);
       if(list(d.intro).length>1)add(`${label}: Enemy introduction supports only one card`);
       for(const card of list(d.intro)){identity(card);embedded(card,['event','caption'],label);}

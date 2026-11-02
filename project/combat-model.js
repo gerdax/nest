@@ -9,6 +9,19 @@ export const createWeapon=id=>({...base(id,'item','Weapon'),subtype:'weapon',onC
 export const createEnemy=id=>({...base(id,'enemy','Enemy'),health:4,actions:[createEnemyAction(`${id}-action`)],hit:{...createEffectCard(`${id}-hit`),name:'Health damage',headingFromDescription:true},reactions:[],death:[{...base(`${id}-death`,'caption','Death'),effects:[]}]});
 const object=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
 const allocate=(base,used)=>{let id=base,n=2;while(used.has(id))id=`${base}-${n++}`;used.add(id);return id;};
+/** Presentation-only cards owned by an alternative Enemy, just like its hit/death cards. */
+export function ensureEnemyPreparationCards(enemy,used=new Set()){
+ if(enemy?.kind!=='enemy'||enemy.mechanics!=='opposed-preparation')return enemy;
+ if(!Object.hasOwn(enemy,'preparationCards'))enemy.preparationCards={};
+ if(!object(enemy.preparationCards))return enemy; // Preserve invalid authored data for validation.
+ const collect=value=>{if(Array.isArray(value))value.forEach(collect);else if(object(value)){if(typeof value.id==='string')used.add(value.id);Object.values(value).forEach(collect);}};collect(enemy);
+ const name=String(enemy.name??'Enemy');
+ const defaults=[['block','event','Block reveal',`${name} reveals its defense.`],['charge','event','Charge reveal',`${name} reveals its charge!`],['hold','caption','Holds ground',`The ${name.toLowerCase()} holds its ground`]];
+ for(const [key,kind,name,text] of defaults)if(!Object.hasOwn(enemy.preparationCards,key)){
+  enemy.preparationCards[key]={...base(allocate(`${enemy.id}-preparation-${key}`,used),kind,name),text,effects:[]};
+ }
+ return enemy;
+}
 /** Existing player Actions retain their attack behaviour on upgrade. */
 export function migrateCombatActionTypes(project){
  if(!object(project)||!Array.isArray(project.library))return project;
@@ -19,8 +32,11 @@ export function migrateCombatActionTypes(project){
 /** Upgrade legacy Enemy Actions without repairing explicitly authored invalid data. */
 export function migrateEnemyActions(project){
  if(!object(project)||!Array.isArray(project.library))return project;
+ const used=new Set();
+ const collect=value=>{if(Array.isArray(value))value.forEach(collect);else if(object(value)){if(typeof value.id==='string')used.add(value.id);Object.values(value).forEach(collect);}};collect(project);
  for(const enemy of project.library){
   if(enemy?.kind!=='enemy')continue;
+  ensureEnemyPreparationCards(enemy,used);
   if(!Object.hasOwn(enemy,'actions')&&Array.isArray(enemy.attacks)){
    enemy.actions=enemy.attacks.map(action=>object(action)?{...action,...(!Object.hasOwn(action,'kind')?{kind:'combatAction'}:{})}:action);
    delete enemy.attacks;

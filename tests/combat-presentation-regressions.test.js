@@ -132,3 +132,15 @@ test('source action entrances default to enabled and can be suppressed on later 
  assert.deepEqual(later.map(action=>action.entrance),[undefined,undefined,undefined]);
  assert.deepEqual(later,first.map(action=>({...action,...(action.contextItemId?{entrance:undefined}:{})})));
 });
+
+
+test('Attack descriptions contain only authored text, including when prepared',()=>{
+ for(const text of [undefined,'','My editable description.']){
+  const action={id:'attack',name:'Attack',type:'attack',resolution:'direct',text};
+  const choices=[{id:'attack',action,profile:{min:1,max:2}}];
+  for(const preparationBonus of [0,2]){
+   const shown=combatChoices(choices,'choices',{},[],{preparationBonus}).actions[0];
+   assert.equal(shown.text,text??'');
+  }
+ }
+});

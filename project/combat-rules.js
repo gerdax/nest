@@ -101,7 +101,7 @@ export function resolveCombatAttack({actor,action,source=null,targetHp,values={}
   if(!Number.isSafeInteger(damageReduction)||damageReduction<0)throw new Error('Invalid damage reduction');
   if(!Number.isSafeInteger(preparationBonus)||preparationBonus<0)throw new Error('Invalid preparation bonus');
   validateEnemyPreparation(enemyPreparation);
-  if(action.type==='prepare'&&(action.resolution!=='direct'||!Number.isSafeInteger(action.preparationBonus)||action.preparationBonus<1||(actor==='enemy'&&(!Number.isSafeInteger(action.damageReduction)||action.damageReduction<1))))throw new Error('Invalid Prepare Action');
+  if(action.type==='prepare'&&(!(actor==='player'?['direct','check']:['direct']).includes(action.resolution)||!Number.isSafeInteger(action.preparationBonus)||action.preparationBonus<1||(actor==='enemy'&&(!Number.isSafeInteger(action.damageReduction)||action.damageReduction<1))))throw new Error('Invalid Prepare Action');
   const check=action.resolution==='direct'?null:resolveCheck(action.check,values);
   const raw=check?diceTotal(dice,check.pool):0,total=raw+(check?.modifier??0);
   const success=!check||total>=check.target;
@@ -118,15 +118,17 @@ export function resolveCombatAttack({actor,action,source=null,targetHp,values={}
   }
   if(success&&enemyPrepared)preparationReveal={...enemyPreparation};
   const protection=actor==='player'&&enemyPreparation?.kind==='block'?Math.max(damageReduction,enemyPreparation.value):damageReduction;
-  let rolledDamage=0;
+  let rolledDamage=0,baseDamage=0;
   if(success&&profile){
     if(profile.min===profile.max)rolledDamage=profile.min;
     else {const draw=random();if(!Number.isFinite(draw)||draw<0||draw>=1)throw new Error('Invalid damage random sample');rolledDamage=profile.min+Math.floor(draw*(profile.max-profile.min+1));}
+    baseDamage=rolledDamage;
     rolledDamage+=prepared+enemyPrepared;
   }
   if(rolledDamage>0&&actor==='player'&&(action.type??'attack')==='attack'&&enemyPreparation?.kind==='block')preparationReveal={...enemyPreparation};
-  const blockedDamage=Math.min(rolledDamage,protection),damage=Math.min(targetHp,rolledDamage-blockedDamage);
-  return Object.freeze({id,actor,action:structuredClone(action),source:source?structuredClone(source):null,dice:structuredClone(dice??[]),total,target:check?.target??0,success,preparationBonus:prepared,enemyPreparation:selectedPreparation,preparationReveal,rolledDamage,blockedDamage,damage,targetHp:targetHp-damage});
+  const defenseBroken=prepared>0&&protection>0&&success;
+  const blockedDamage=defenseBroken?prepared:Math.min(rolledDamage,protection),damage=Math.min(targetHp,rolledDamage-blockedDamage);
+  return Object.freeze({id,actor,action:structuredClone(action),source:source?structuredClone(source):null,dice:structuredClone(dice??[]),total,target:check?.target??0,success,preparationBonus:prepared,enemyPreparation:selectedPreparation,preparationReveal,baseDamage,defenseBroken,rolledDamage,blockedDamage,damage,targetHp:targetHp-damage});
 }
 export function healthReactions(enemy,before,after) {
   if(after<=0||after>=before)return [];
@@ -142,10 +144,9 @@ export function applyActionProtection(encounter,actor,action){
  if((action.type??'attack')==='attack')next[opponent]=0;
  return next;
 }
-export function completePlayerTurn(encounter, action, source) {
+export function completePlayerTurn(encounter, action, source, {success=true}={}) {
   const next={...applyActionProtection(encounter,'player',action),cooldowns:{...encounter.cooldowns},round:encounter.round+1};
-  if(action.type==='prepare')next.preparationBonus=action.preparationBonus;
-  else if((action.type??'attack')==='attack')next.preparationBonus=0;
+  next.preparationBonus=action.type==='prepare'&&success?action.preparationBonus:0;
   for(const key of Object.keys(next.cooldowns))next.cooldowns[key]=Math.max(0,next.cooldowns[key]-1);
   if((action.cooldown??0)>0)next.cooldowns[cooldownKey(action,source)]=action.cooldown;
   return next;

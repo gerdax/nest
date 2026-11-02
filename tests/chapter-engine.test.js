@@ -5,6 +5,9 @@ import { stageNextContent, stageActionDeck } from '../engine/renderer.js';
 import { ChapterController } from '../chapter/ChapterController.js';
 import { createLegacyStarterChapter as createStarterChapter } from '../chapter/model.js';
 import { ScenarioController, CHEST_ITEM_IDS } from '../demo/ScenarioController.js';
+import { ProjectController } from '../project/ProjectController.js';
+import { compileChapter } from '../project/model.js';
+import { createAlternativeRatCombatProject } from '../project/combat-fixture.js';
 // Browser-shaped tree: collection must physically detach its layer, while the
 // remaining articles retain their identity and their original parent layers.
 class Element extends EventTarget {
@@ -42,6 +45,40 @@ function fixture(options = {}) {
 }
 function dispose(deck, controller) { controller.destroy(); deck.destroy(); settle(); document.hidden = false; }
 function revealCommit(deck) { if (deck.content.directAdvance) { key(deck, 'ArrowUp'); return; } key(deck, 'ArrowUp'); assert.equal(deck.phase, 'choices'); key(deck, 'ArrowUp'); }
+
+async function settleCombat(){for(let i=0;i<25;i++){settle();await new Promise(resolve=>setImmediate(resolve));}}
+for(const spec of [
+ {name:'successful enemy block advances without a feedback card',branch:0,choice:0,dice:[[4,4,4],[4,4,4]],surfaces:['check','front'],phase:'enemy-action',nextPrepare:true},
+ {name:'player miss skips defense and proceeds directly to next rat attack',branch:0,choice:0,dice:[[1,1,1]],surfaces:['check','front'],damage:2,actor:'enemy'},
+ {name:'failed enemy block',branch:0,choice:0,dice:[[4,4,4],[1,1,1]],surfaces:['check','front'],damage:2},
+ {name:'Defend versus block',branch:0,choice:1,dice:[],surfaces:[],damage:0,text:/holds its ground/},
+ {name:'Preparation versus block',branch:0,choice:2,dice:[],surfaces:[],damage:0,preparationBonus:2,text:/holds its ground/},
+ {name:'successful player defense returns directly to choices',branch:.75,choice:1,dice:[[4,4,4],[4,4,4]],surfaces:['front','front'],phase:'choice'},
+ {name:'missed charge skips defense and returns directly to choices',branch:.75,choice:1,dice:[[1,1,1]],surfaces:['front'],phase:'choice'},
+ {name:'Preparation versus charge',branch:.75,choice:2,dice:[[4,4,4]],surfaces:['front'],damage:4,preparationBonus:2},
+ {name:'failed checked Preparation versus charge',checkedPrepare:true,branch:.75,choice:2,dice:[[1,1,1],[4,4,4]],surfaces:['check','front'],damage:4,preparationBonus:0},
+ {name:'defense retry advances without a feedback card',branch:0,choice:0,dice:[[4,4,4],new Error('Dice unavailable'),[4,4,4]],surfaces:['check','front','front'],phase:'enemy-action',nextPrepare:true,retry:true},
+])test(`native alternative combat: ${spec.name}`,async()=>{
+ const deck=new CardDeck(new Element(),{content:{id:'initial',actions:[{id:'wait',label:'Wait'}]}}),samples=[.75,spec.branch,...(spec.nextPrepare?[.75,0]:[])],errors=[],surfaces=[],outcomes=[...spec.dice];
+ const compiled=compileChapter(createAlternativeRatCombatProject());if(spec.checkedPrepare)Object.assign(compiled.library.find(d=>d.name==='Preparation'),{resolution:'check',check:{mode:'stat',modifierVariable:'composure',difficulty:3}});compiled.nodes.find(node=>node.type==='combat').introEnabled=false;
+ const controller=new ProjectController(deck,compiled,{rng:()=>samples.shift()??0,rollCheck:async(pool,options)=>{
+  surfaces.push(options.surface);if(options.surface==='check')await deck.waitForCheckSurface({signal:options.signal});
+  const next=outcomes.shift()??[4,4,4];if(next instanceof Error)throw next;return {dice:next};
+ },onError:error=>errors.push(error.message)});
+ try{
+  await settleCombat();assert.equal(controller.combat.phase,'enemy-action');key(deck,'ArrowUp');await settleCombat();assert.equal(controller.combat.phase,'choice');
+  for(let i=0;i<spec.choice;i++)key(deck,'ArrowRight');key(deck,'ArrowUp');await settleCombat();
+  if(spec.retry){assert.equal(controller.combat.phase,'error');key(deck,'ArrowUp');await settleCombat();}
+  assert.equal(controller.combat.phase,spec.phase??'effects');assert.deepEqual(surfaces,spec.surfaces);
+  assert.deepEqual(errors,spec.retry?['Dice unavailable']:[]);
+  if(spec.phase==='enemy-action'){assert.equal(deck.phase,'closed');assert.equal(controller.combat.pending,null);assert.equal(controller.combat.encounter.enemyHp,8);assert.equal(deck.content.heading,'The rat prepares…');return;}
+  if(spec.phase==='choice'){assert.equal(deck.phase,'choices');assert.equal(controller.combat.pending,null);assert.equal(controller.variables.health,10);assert.equal(controller.variables.energy,2);return;}
+  assert.equal(deck.phase,'closed');assert.equal(controller.combat.pending.damage,spec.damage);
+  if(spec.preparationBonus!==undefined)assert.equal(controller.combat.encounter.preparationBonus,spec.preparationBonus);
+  if(spec.actor){assert.equal(controller.combat.pending.actor,spec.actor);assert.equal(controller.combat.encounter.enemyHp,8);}
+  if(spec.text)assert.match(deck.content.text,spec.text);assert.deepEqual(errors,spec.retry?['Dice unavailable']:[]);
+ }finally{controller.destroy();deck.destroy();settle();}
+});
 
 test('real engine keyboard reaches every linear card and container before random encounter', () => {
   const { deck, controller } = fixture();

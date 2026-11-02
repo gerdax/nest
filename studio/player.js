@@ -1,4 +1,4 @@
-import {createRatCombatProject} from '../project/combat-fixture.js';
+import {createRatCombatProject,createAlternativeRatCombatProject} from '../project/combat-fixture.js';
 import { errorMessage } from '../errors.js';
 import { sortedChapters, startChapter } from '../project/chapter-navigation.js';
 import { ProjectPreview } from './ProjectPreview.js';
@@ -10,9 +10,10 @@ import { openProjectSession } from './project-session.js';
 import {projectFileUrl} from './project-file-actions.js';
 
 const message=document.querySelector('#message'),title=document.querySelector('#chapter-name'),selector=document.querySelector('#chapter-selector');
-const example=new URLSearchParams(location.search).get('example')==='rat';
-const session=example?null:await openProjectSession({readonly:true});
-const stored=session?.loaded??{};let project=example?createRatCombatProject():stored.project??createProject();
+const exampleName=new URLSearchParams(location.search).get('example');
+const exampleFactory=exampleName==='rat'?createAlternativeRatCombatProject:exampleName==='rat-classic'?createRatCombatProject:null;
+const session=exampleFactory?null:await openProjectSession({readonly:true});
+const stored=session?.loaded??{};let project=exampleFactory?exampleFactory():stored.project??createProject();
 if(session?.fileMode){
  window.history.replaceState(window.history.state,'',projectFileUrl(session.backend.filename,location.href));
  for(const link of document.querySelectorAll('a[href="./editor.html"]'))link.href=projectFileUrl(session.backend.filename,link.href);

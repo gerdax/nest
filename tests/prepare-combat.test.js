@@ -23,9 +23,9 @@ test('Prepare spends a normal cooldown turn without protection or stacking, and 
  assert.equal(createEncounter(enemy,'b').preparationBonus,0);
 });
 
-test('preparation survives support and Enemy turns, then is consumed by any player Attack',()=>{
+test('preparation survives Enemy turns and expires on the next player action',()=>{
  const state=completePlayerTurn(createEncounter(enemy,'a'),prepare);
- for(const action of [defend,wait])assert.equal(completePlayerTurn(state,action).preparationBonus,2);
+ for(const action of [defend,wait])assert.equal(completePlayerTurn(state,action).preparationBonus,0);
  assert.equal(completeEnemyTurn(state,enemy).preparationBonus,2);
  assert.equal(completePlayerTurn(state,punch).preparationBonus,0);
  const noDamage={...punch,attack:{source:'none'}};
@@ -33,25 +33,26 @@ test('preparation survives support and Enemy turns, then is consumed by any play
  assert.equal(result(noDamage,{preparationBonus:2}).damage,0,'no-damage Attacks do not manufacture damage');
 });
 
-test('Prepare is direct and harmless even with stored attack settings; Enemy Prepare needs both values',()=>{
+test('Prepare accepts player checks and legacy direct resolution; Enemy Prepare remains direct',()=>{
  const resolved=result(prepare,{dice:[],preparationBonus:2,random:()=>assert.fail('no damage sampling')});
  assert.equal(resolved.success,true);assert.equal(resolved.damage,0);
- assert.throws(()=>result({...prepare,resolution:'check'}),/Invalid Prepare/);
+ assert.equal(result({...prepare,resolution:'check'}).success,true);
+ assert.throws(()=>result({...prepare,resolution:'check',damageReduction:2},{actor:'enemy'}),/Invalid Prepare/);
  assert.throws(()=>result(prepare,{actor:'enemy',dice:[]}),/Invalid Prepare/);
  assert.equal(createEncounter({...enemy,actions:[prepare]},'a').enemyPreparation,null);
 });
 
-test('bonus adds to unarmed, source Weapon and Direct damage before protection and lethal cap',()=>{
+test('bonus adds to undefended unarmed, source Weapon and Direct damage before lethal cap',()=>{
  assert.equal(result(punch,{preparationBonus:2}).damage,3);
  const weapon=createWeapon('pistol'),shot={...punch,attack:{source:'weapon',minBonus:0,maxBonus:1}};
  for(const [sample,want] of [[0,3],[.5,4],[.99,5]]) {
   const resolved=result(shot,{source:weapon,preparationBonus:2,random:()=>sample});
   assert.equal(resolved.rolledDamage,want);assert.equal(resolved.preparationBonus,2);
  }
- const blocked=result(punch,{preparationBonus:2,damageReduction:2});
- assert.equal(blocked.blockedDamage,2);assert.equal(blocked.damage,1);
- const full=result(punch,{preparationBonus:2,damageReduction:3});
- assert.equal(full.success,true);assert.equal(full.damage,0);
+ for(const damageReduction of [1,2,3,Number.MAX_SAFE_INTEGER]){
+  const blocked=result(punch,{preparationBonus:2,damageReduction});
+  assert.equal(blocked.success,true);assert.equal(blocked.defenseBroken,true);assert.equal(blocked.baseDamage,1);assert.equal(blocked.damage,1);
+ }
  assert.equal(result({...punch,resolution:'direct'},{preparationBonus:2,dice:[],targetHp:1}).damage,1);
  assert.equal(result(punch,{actor:'enemy',preparationBonus:2}).damage,1,'player preparation never empowers the Enemy');
 });
@@ -64,4 +65,17 @@ test('misses deal no prepared damage and invalid/overflowing bonuses cannot ente
  const compiled={library:[huge,prepare],variables:[],combat:{defaultActions:[{definitionId:huge.id},{definitionId:prepare.id}]}};
  const choices=playerChoices(compiled,{variables:{},inventory:[]},{...createEncounter(enemy,'a'),preparationBonus:2});
  assert.equal(choices[0].disabled,true);assert.match(choices[0].disabledReason,/supported range/);assert.equal(choices[1].disabled,false);
+});
+
+test('prepared attacks trade the bonus for full base damage against any positive defense',()=>{
+ const ranged={...punch,attack:{source:'self',damage:{min:2,max:6}}};
+ for(const damageReduction of [1,4,100,Number.MAX_SAFE_INTEGER])for(const [sample,base] of [[0,2],[.5,4],[.999,6]]){
+  let draws=0;
+  const resolved=result(ranged,{preparationBonus:2,damageReduction,random:()=>{draws++;return sample;}});
+  assert.equal(draws,1);assert.equal(resolved.damage,base);assert.equal(resolved.baseDamage,base);assert.equal(resolved.defenseBroken,true);
+ }
+ const hidden=result(ranged,{preparationBonus:2,enemyPreparation:{kind:'block',value:100},random:()=>.5});
+ assert.equal(hidden.damage,4);assert.deepEqual(hidden.preparationReveal,{kind:'block',value:100});
+ assert.equal(result(ranged,{preparationBonus:2,damageReduction:100,targetHp:1,random:()=>.5}).damage,1);
+ assert.equal(result(ranged,{preparationBonus:0,damageReduction:100,random:()=>.5}).damage,0);
 });

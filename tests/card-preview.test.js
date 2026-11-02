@@ -212,3 +212,31 @@ for(const cardKind of ['action','health','energy'])test(`${cardKind} fronts reta
  assert.ok(front.children.some(child=>child.className==='nest-card-type'));
  assert.ok(front.children.some(child=>child.className===(cardKind==='action'?'nest-action-energy-cost':'nest-card-value')));
 });
+
+test('nested local weapon previews use their owner chapter values and weapon damage',()=>{
+ const project=createProject(),chapter=project.chapters[0];
+ chapter.initialValues={energy:8};
+ const weapon={id:'local-token-weapon',kind:'item',subtype:'weapon',visibility:'local',chapterId:chapter.id,combat:{damage:{min:2,max:3},actions:[{kind:'combatAction',type:'attack',resolution:'direct',text:'[ENERGY]: [DMG]',attack:{source:'weapon'}}]}};
+ project.library.push(weapon);
+ const mount=new Element();Object.assign(mount.dataset,{previewDefinition:weapon.id,previewPath:'combat.actions.0'});
+ renderCardPreviews({querySelectorAll:()=>[mount]},project,null,chapter.id);
+ assert.equal(mount.children[0].children[0].children[1].textContent,'8: 2–3');
+});
+
+
+test('checkbox above a full attack preview redraws the card prepared without modifying authored text',()=>{
+ const project=createProject(),card={id:'prepared-card',kind:'combatAction',type:'attack',name:'Attack',resolution:'direct',text:'Base[IF:PREPARED] +[PREPBONUS] or breaks defence[ENDIF]',attack:{source:'self',damage:{min:1,max:2}}};
+ project.library.push(card,{id:'prep',kind:'combatAction',type:'prepare',preparationBonus:3});project.combat.defaultActions=[{definitionId:'prep'}];
+ const mount=new Element();mount.dataset.previewDefinition=card.id;mount.before=label=>mount.toggle=label;
+ const originalCreate=document.createElement;
+ document.createElement=()=>{const e=new Element();e.addEventListener=(type,fn)=>e[type]=fn;return e;};
+ try{
+  const root={querySelectorAll:()=>[mount]};renderCardPreviews(root,project,null);
+  const checkbox=mount.toggle.children[0];
+  const body=()=>mount.children[0].children[0].children[1].textContent;
+  assert.equal(body(),'Base');checkbox.checked=true;checkbox.change();assert.equal(body(),'Base +3 or breaks defence');
+  card.text='New[IF:PREPARED] +[PREPBONUS][ENDIF]';renderCardPreviews(root,project,null);
+  assert.equal(body(),'New +3');checkbox.checked=false;checkbox.change();assert.equal(body(),'New');
+  assert.equal(card.text,'New[IF:PREPARED] +[PREPBONUS][ENDIF]');
+ }finally{document.createElement=originalCreate;}
+});

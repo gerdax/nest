@@ -299,7 +299,7 @@ export class ProjectController {
     try {
       const outcomes=source.resolution==='check'?[true,false]:[undefined];
       for(const outcome of outcomes) {
-        const collected=transition==='collect'?addInventory(inventory,{...source,text:this.body(source)}):inventory;
+        const collected=transition==='collect'?addInventory(inventory,{...source,text:source.text}):inventory;
         const result=transact(values,collected,{triggerItem:transition?undefined:source.contextInventoryKey??source.contextItemId,costs:transition?[]:source.costs,effects:transition?(transition==='collect'?collectionEffects(source):[]):[...(source.effects??[]),...(outcome===undefined?[]:outcome?source.successEffects??[]:source.failureEffects??[])]},this.compiled.variables,this.compiled.library);
         // A lethal accepted result always has its implicit Death route, even
         // when this action's ordinary output is unlinked.
@@ -329,7 +329,7 @@ export class ProjectController {
     if(!this.completed&&!this.halted)this.location=destination;
     if(notify){if(this.location?.node.type==='combat'&&!this.halted&&!this.completed)this.show();else this.notify();}
   }
-  body(card) {return cardBody(card);}
+  body(card,values=this.variables) {return cardBody(card,{variables:this.compiled.variables,values});}
   action(card,values=this.variables) {
     const {context,...content}=card;
     const typed={...card,kind:card.kind ?? (this.type()==='container'?'item':'action')};
@@ -364,9 +364,9 @@ export class ProjectController {
       const enemy=combatDefinition(this.compiled.library,location.node.enemy);
       if(!enemy)throw new Error('Missing Enemy definition');
       const id=`combat-preview:${location.node.id}`;
-      const action={...enemyActionCard(enemy.actions[0],`${id}:action`),cardBack:this.compiled.cardBack};
+      const action={...enemyActionCard(enemy.actions[0],`${id}:action`,{variables:this.compiled.variables,values,enemy:true}),cardBack:this.compiled.cardBack};
       if(location.node.introEnabled!==true)return {...action,id};
-      const content={...combatCard({...enemy,kind:'event'},id),cardBack:this.compiled.cardBack};
+      const content={...combatCard({...enemy,kind:'event'},id,{variables:this.compiled.variables,values}),cardBack:this.compiled.cardBack};
       content.nextTransition='reveal';
       content.nextDeckPreview={content:action,presentation:'closed'};
       return content;
@@ -398,7 +398,7 @@ export class ProjectController {
     }
     if(container||linearItem)for(const action of actions)action.disabled ||= action.collectDisabled&&action.discardDisabled;
     if(!actions.length)actions=[{id:'unavailable',label:'No available choices',disabled:true,disabledReason:'No available choices'}];
-    const payload={autoBrowse:fork||container,id:`${this.generation}:${++this.serial}`,cardBack:this.compiled.cardBack,title:card?.name ?? card?.title ?? '',heading:cardFace(card,this.compiled.variables,this.compiled.library,values).heading,text:this.body(card),cardKind:card?.kind==='consumable'?card.subtype:card?.kind ?? 'event',...(card?.kind==='item'&&card.subtype==='weapon'?{typeLabel:'WEAPON'}:{}),value:card?.value,summary:card&&!isStoryKind(card.kind??card.cardKind)&&fork?playerCardSummary(card,this.compiled.variables,this.compiled.library,values):'',image:card?.image ?? '',imageScale:card?.imageScale??100,imageOffsetX:card?.imageOffsetX??0,imageOffsetY:card?.imageOffsetY??0,flipImage:!!card?.flipImage,actions,directAdvance:!fork&&!container&&!linearFace,decisionOnly:linearFace||fork&&(location.sequence?!!location.sequence.decisionOnly:this.presentation(location,values,inventory)==='open'),interaction:container||linearItem?'container':'choice',discardAll:container,allowClose:false};
+    const payload={autoBrowse:fork||container,id:`${this.generation}:${++this.serial}`,cardBack:this.compiled.cardBack,title:card?.name ?? card?.title ?? '',heading:cardFace(card,this.compiled.variables,this.compiled.library,values).heading,text:this.body(card,values),cardKind:card?.kind==='consumable'?card.subtype:card?.kind ?? 'event',...(card?.kind==='item'&&card.subtype==='weapon'?{typeLabel:'WEAPON'}:{}),value:card?.value,summary:card&&!isStoryKind(card.kind??card.cardKind)&&fork?playerCardSummary(card,this.compiled.variables,this.compiled.library,values):'',image:card?.image ?? '',imageScale:card?.imageScale??100,imageOffsetX:card?.imageOffsetX??0,imageOffsetY:card?.imageOffsetY??0,flipImage:!!card?.flipImage,actions,directAdvance:!fork&&!container&&!linearFace,decisionOnly:linearFace||fork&&(location.sequence?!!location.sequence.decisionOnly:this.presentation(location,values,inventory)==='open'),interaction:container||linearItem?'container':'choice',discardAll:container,allowClose:false};
     if(fork)payload.choiceFollowerRatio=.82;
     payload.flipItemsOnReveal=container&&this.presentation(location,values,inventory)==='closed'||fork&&this.introductionUnlocksNext(location,values,inventory);
     if(payload.directAdvance){
@@ -562,7 +562,7 @@ export class ProjectController {
     try {
       const inventory = this.collectionInventory(item, decision.replacementId);
       if (!decision.returnToStack && this.departureBlocked(item, this.location, this.variables, inventory, 'collect')) return false;
-      const collected = addInventory(inventory, {...item, text:this.body(item)});
+      const collected = addInventory(inventory, {...item, text:item.text});
       transact(this.variables, collected, {effects:collectionEffects(item)}, this.compiled.variables, this.compiled.library);
       return true;
     } catch (error) { this.error(error); return false; }
@@ -592,7 +592,7 @@ export class ProjectController {
     };
     try {
       const {context,...itemContent}=item;
-      const inventory=addInventory(this.collectionInventory(item,decision.replacementId),{...itemContent,text:this.body(item)});
+      const inventory=addInventory(this.collectionInventory(item,decision.replacementId),{...itemContent,text:item.text});
       const result=transact(this.variables,inventory,{effects:collectionEffects(item)},this.compiled.variables,this.compiled.library);
       // Reuse this runtime placement, preserving the displaced definition. Spawn
       // conditions have served their purpose; the returned owned item stays visible.
@@ -635,7 +635,7 @@ export class ProjectController {
     if(this.departureBlocked(item,this.location,this.variables,baseInventory,transition)){this.show({restore:true});return;}
     try {
       const {context,...itemContent}=item;
-      const inventory=transition==='collect'?addInventory(baseInventory,{...itemContent,text:this.body(item)}):this.inventory;
+      const inventory=transition==='collect'?addInventory(baseInventory,{...itemContent,text:item.text}):this.inventory;
       const result=transact(this.variables,inventory,{effects:transition==='collect'?collectionEffects(item):[]},this.compiled.variables,this.compiled.library);
       this.pendingItem={item,key:this.key(),linearItem,all,transition,contentId:detail.contentId,result,removedIds:transition==='discard'?this.discardedReturns(this.location,item):[]};
       if(detail.final||linearItem||all) {

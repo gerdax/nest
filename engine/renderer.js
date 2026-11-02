@@ -1,3 +1,4 @@
+import {renderDescriptionIcons} from './description-icons.js';
 import { layoutBounds } from './cssScale.js';
 import { handoffRadius, projectedBounds } from './geometry.js?v=no-ending-card-1';
 import { carouselPose, clamp, departureDistance, revealScale, flipLift } from './motion.js?v=no-ending-card-1';
@@ -181,10 +182,11 @@ export function decorateCard(deck, element, image, title, text, flipImage = fals
   const heading = document.createElement('span');
   heading.className = 'nest-card-title';
   const visibleTitle = ['event','narrative','caption'].includes(presentation.cardKind) ? '' : title;
-  heading.textContent = visibleTitle || '';
+  if(presentation.cardKind==='health'&&presentation.typeLabel==='EFFECT'||presentation.descriptionHeading)renderDescriptionIcons(heading,visibleTitle||'');
+  else heading.textContent = visibleTitle || '';
   heading.hidden = !visibleTitle;
   const body = document.createElement('p');
-  body.textContent = text || '';
+  renderDescriptionIcons(body,text||'');
   copy.append(heading);
   const actionCard = presentation.cardKind === 'action';
   const authoredOnly = ['action','item','health','energy'].includes(presentation.cardKind);
@@ -605,7 +607,7 @@ export function renderDeck(deck, time = performance.now()) {
     applyBackAppearance(deck.sceneBack, appearance);
     for (const reverse of deck.cardBacks) applyBackAppearance(reverse, appearance);
   }
-  const forwardActive = !!deck.forwardDeck && (((deck.content.directAdvance || deck.content.flipItemsOnReveal) && !deck.busy && deck.p.x > 0) || (deck.phase === 'committing' && deck.pendingPresentation === 'open')
+  const forwardActive = !!deck.forwardDeck && (((deck.content.directAdvance || deck.content.flipItemsOnReveal) && !deck.busy && deck.p.x > 0) || (deck.phase === 'committing' && (deck.pendingPresentation === 'open' || !deck.pending && deck.content.directAdvance && deck.content.nextDeckPreview?.presentation === 'open'))
     || (deck.phase === 'choices' && deck.l.x > 0 && deck.forwardOwner === deck.content.actions[deck.index]?.id));
   if (deck.underlay) {
     const stagedPose = {
@@ -622,7 +624,7 @@ export function renderDeck(deck, time = performance.now()) {
     applyPose(deck, deck.underlayBack, deck.underlayLayer, backPose(stagedPose), 0);
   }
   const forwardTurns = deck.pending?.decisionOnly && deck.pendingTransition === 'flip'
-    || !deck.busy && (deck.content.flipItemsOnReveal || deck.content.directAdvance && deck.content.nextTransition === 'flip') && deck.forwardDeck?.content.decisionOnly;
+    || !deck.pending && (deck.content.flipItemsOnReveal || deck.content.directAdvance && deck.content.nextTransition === 'flip') && deck.forwardDeck?.content.decisionOnly;
   renderStagedActions(deck, deck.forwardDeck, 20, forwardActive, 0, -36*(deck.settings.layoutScale??1) - (deck.nextTakeDepth || 0), nextScale, forwardTurns ? deck.nextFlip.x * 180 : 0, true, deck.nextTakeDepth || 0, context.bounds);
   renderStagedActions(deck, deck.returnDeck, 500,
     (deck.phase === 'closing' && deck.returning)

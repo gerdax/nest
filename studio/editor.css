@@ -283,3 +283,8 @@ details > summary {cursor:pointer;}
 .weapon-damage-bonuses .calculated-damage {grid-column:1 / -1;margin:0 0 12px;}
 .calculated-damage-invalid {color:#efad94;}
 .weapon-damage-bonuses input[aria-invalid="true"] {border-color:#efad94;}
+
+/* The prepared switch controls the full card directly below it. */
+.card-preview-prepared-toggle:not([hidden]) {display:flex;align-items:center;gap:7px;margin:16px 0 0;cursor:pointer;}
+.card-preview-prepared-toggle > input {width:auto;flex:none;margin:0;padding:0;}
+.card-preview-prepared-toggle + .inspector-card-preview {margin-top:10px;}

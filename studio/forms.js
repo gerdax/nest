@@ -5,7 +5,11 @@ import { esc, options } from '../editor/fields.js';
 
 export { esc };
 export const variableLabel = variable => `${variable.variableScope === 'chapter' ? 'Chapter' : 'Global'}: ${variable.name || (variable.id === 'energy' ? 'Energy' : variable.id)}`;
-export const field = (label,value,path,scope='definition',type='text') => `<label class="field">${esc(label)}${type==='textarea'?`<textarea data-scope="${esc(scope)}" data-path="${esc(path)}">${esc(value??'')}</textarea>`:`<input data-scope="${esc(scope)}" data-path="${esc(path)}" type="${type}" ${type==='number'?'step="any"':''} value="${esc(value??'')}">`}</label>`;
+export const field = (label,value,path,scope='definition',type='text') => {
+ const description=label==='Description'&&type==='textarea';
+ const control=`<label class="field">${esc(label)}${type==='textarea'?`<textarea data-scope="${esc(scope)}" data-path="${esc(path)}"${description?' data-description-text':''}>${esc(value??'')}</textarea>`:`<input data-scope="${esc(scope)}" data-path="${esc(path)}" type="${type}" ${type==='number'?'step="any"':''} value="${esc(value??'')}">`}</label>`;
+ return description?`<div data-description-editor>${control}<div class="row"><select aria-label="Insert token" data-description-token></select><button type="button" data-description-insert>Insert token</button></div><p class="small" data-description-preview aria-live="polite"></p><p class="small" data-description-prepared-preview aria-live="polite" hidden></p><p class="small" data-description-warnings role="status"></p></div>`:control;
+};
 export const select = (label,value,choices,path,scope='definition',{disabled=false,help=''}={}) => `<label class="field">${esc(label)}<select data-scope="${esc(scope)}" data-path="${esc(path)}"${disabled?' disabled':''}>${options(choices,value)}</select>${help?`<span class="small">${esc(help)}</span>`:''}</label>`;
 export const checkbox = (label,value,path,scope='definition',disabled=false) => `<label class="field check-field"><input type="checkbox" data-scope="${esc(scope)}" data-path="${esc(path)}" ${value?'checked':''} ${disabled?'disabled':''}>${esc(label)}</label>`;
 export const button = (label,cmd,attrs='') => `<button type="button" data-command="${cmd}" ${attrs}>${esc(label)}</button>`;

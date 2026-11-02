@@ -1,6 +1,6 @@
 import {resolveCheck} from './checks.js';
 import {transact} from './state.js';
-import {definition,createEncounter,playerChoices,resolveCombatAttack,healthReactions,completePlayerTurn,completeEnemyTurn,applyActionProtection,settleEnemyPreparation} from './combat-rules.js';
+import {definition,createEncounter,playerChoices,resolveCombatAttack,diceTotal,healthReactions,completePlayerTurn,completeEnemyTurn,applyActionProtection,settleEnemyPreparation} from './combat-rules.js';
 import {combatCard,enemyActionCard,combatChoices} from './combat-presentation.js';
 
 /** One encounter; ProjectController remains the sole owner of player run state. */
@@ -11,6 +11,7 @@ export class CombatCoordinator {
   this.generation=host.generation;this.resume={kind:'enemy'};
   this.phase='starting';this.serial=0;this.accepted=new Set();this.committed=new Set();this.pending=null;this.disposed=false;
   this.progressionCommitted=new Set();this.choicesPresented=false;
+  this.opposed=this.enemy.mechanics==='opposed-preparation';this.declaration=null;this.playerDefense=null;
  }
  get state(){return {id:this.encounter.id,phase:this.phase,enemyName:this.enemy.name,enemyHp:this.encounter.enemyHp,startingHp:this.encounter.startingHp,round:this.encounter.round,guard:this.encounter.guard,preparationBonus:this.encounter.preparationBonus};}
  get checking(){return /roll|result/.test(this.phase);}
@@ -39,15 +40,34 @@ export class CombatCoordinator {
    }else await this.enterEnemy();
   }catch(error){this.fail(error);}
  }
- actionCard(){return {...enemyActionCard(this.enemy.actions[this.encounter.actionIndex],this.token()),cardBack:this.host.compiled.cardBack};}
+ sampleEnemyDeclaration(){
+  const draw=()=>{const value=this.host.rng();if(!Number.isFinite(value)||value<0||value>=1)throw new Error('Invalid Enemy declaration sample');return value;};
+  const index=Math.floor(draw()*this.enemy.actions.length),action=this.enemy.actions[index];
+  const preparation=action.type==='prepare'?{kind:draw()<.5?'block':'attack',value:action.preparationBonus}:null;
+  return {index,action:structuredClone(action),preparation};
+ }
+ declareEnemy(){
+  if(!this.opposed||this.declaration)return;
+  this.declaration=this.nextDeclaration??this.sampleEnemyDeclaration();this.nextDeclaration=null;
+  this.encounter={...this.encounter,actionIndex:this.declaration.index};
+ }
+ enemyCard(action){
+  const card={...(action.presentationCard?{...combatCard(action.presentationCard,this.token(),this.descriptionContext()),advanceDisabled:true}:enemyActionCard(action,this.token(),this.descriptionContext())),cardBack:this.host.compiled.cardBack};
+  // Build the actual choice faces while Prepare is still on screen, rather
+  // than exposing the engine's empty successor until departure completes.
+  if(this.opposed&&action.type==='prepare'&&action.resolution==='direct')card.nextDeckPreview={content:this.choiceContent(),presentation:'open'};
+  return card;
+ }
+ actionCard(){this.declareEnemy();return this.enemyCard(this.declaration?.action??this.enemy.actions[this.encounter.actionIndex]);}
+ descriptionContext(){return {variables:this.host.compiled.variables,values:this.host.variables};}
  choices(){return playerChoices(this.host.compiled,this.snapshot(),this.encounter);}
- choiceContent(){return {...combatChoices(this.choices(),this.token(),this.host.variables,this.host.compiled.variables,{animateItemActions:!this.choicesPresented&&this.encounter.round===1}),cardBack:this.host.compiled.cardBack};}
+ choiceContent(){return {...combatChoices(this.choices(),this.token(),this.host.variables,this.host.compiled.variables,{animateItemActions:!this.choicesPresented&&this.encounter.round===1,preparationBonus:this.encounter.preparationBonus??0}),cardBack:this.host.compiled.cardBack};}
  async enterEnemy({reveal=false}={}){
   if(!this.active())return;
   this.resume={kind:'enemy'};this.sequence=null;if(!this.setPhase('enemy-enter'))return;
   const content=this.introSuccessor??this.actionCard();this.introSuccessor=null;
   if(!await this.replace(content,{transition:reveal?'reveal':'flip'}))return;
-  if(this.active()){const action=this.enemy.actions[this.encounter.actionIndex];if(action.resolution==='direct')this.setPhase('enemy-action');else await this.performEnemyAction(action);}
+  if(this.active()){const action=this.declaration?.action??this.enemy.actions[this.encounter.actionIndex];if(action.resolution==='direct')this.setPhase('enemy-action');else await this.performEnemyAction(action);}
  }
  async performEnemyAction(action){
   switch(action?.type){
@@ -57,7 +77,9 @@ export class CombatCoordinator {
  }
  async showChoices(){
   if(!this.active())return;
-  this.resume={kind:'choices'};this.sequence=null;if(!this.setPhase('player-enter'))return;const content=this.choiceContent();
+  this.resume={kind:'choices'};this.sequence=null;
+  if(this.opposed&&!this.declaration)this.nextDeclaration??=this.sampleEnemyDeclaration();
+  if(!this.setPhase('player-enter'))return;const content=this.choiceContent();
   if(!content.actions.some(a=>!a.disabled))throw new Error('No available combat Actions. Configure a usable default Action.');
   if(this.deck.phase==='committing')await this.replace(content,{presentation:'open',transition:'flip'});
   else {
@@ -66,15 +88,17 @@ export class CombatCoordinator {
   }
   if(this.active()){this.choicesPresented=true;this.setPhase('choice');}
  }
- async attack(actor,action,source=null,{contentId}={}){
+ async attack(actor,action,source=null,{contentId,attempt}={}){
   if(!this.active())return;
   this.resume={kind:actor==='player'?'choices':'enemy'};
   if(!this.setPhase(`${actor}-roll`))return;
-  const before=this.snapshot();this.payment=null;
+  const before=attempt?.before??this.snapshot();if(!attempt)this.payment=null;
+  if(this.opposed){attempt??={actor,action,source,before};this.resume={kind:'opposed-attempt',attempt};}
   try{
-   if(actor==='player'){
+   if(actor==='player'&&!attempt?.paid){
     const paid=transact(before.variables,before.inventory,{costs:action.costs??[]},this.host.compiled.variables,this.host.compiled.library);
     this.payment={before,paid,final:false};this.host.variables=paid.variables;this.host.inventory=paid.inventory;this.host.notify();
+    if(attempt)attempt.paid=true;
     if(!this.active())return;
    }
    // Direct choices have no physical check face. Finish their accepted departure
@@ -82,27 +106,69 @@ export class CombatCoordinator {
    if(action.resolution==='direct'&&contentId)await this.deck.waitForDeparture(contentId,{signal:this.abort.signal});
    if(!this.active())return;
    const check=action.resolution==='direct'?null:resolveCheck(action.check,before.variables);
-   const result=!check?{dice:[]}:await this.host.rollCheck(check.pool,{signal:this.abort.signal,surface:actor==='enemy'?'front':'check',color:actor==='enemy'?'black':'light',throwSide:actor==='enemy'?'top':'bottom'});
+   const result=attempt?.roll??(!check?{dice:[]}:await this.host.rollCheck(check.pool,{signal:this.abort.signal,surface:actor==='enemy'?'front':'check',color:actor==='enemy'?'black':'light',throwSide:actor==='enemy'?'top':'bottom'}));
    if(!this.active())return;
-   const resolved=resolveCombatAttack({id:this.token(),actor,action,source,targetHp:actor==='enemy'?this.host.variables.health:this.encounter.enemyHp,values:before.variables,dice:Array.isArray(result)?result:result.dice,random:this.host.rng,damageReduction:actor==='enemy'?this.encounter.guard??0:this.encounter.enemyGuard??0,preparationBonus:actor==='player'?this.encounter.preparationBonus??0:0,enemyPreparation:this.encounter.enemyPreparation??null});
+   // Feed the frozen declaration through the shared Prepare resolver, without a
+   // second random choice after the player has seen the preparation card.
+   const random=this.opposed&&actor==='enemy'&&action.type==='prepare'
+    ?()=>this.declaration.preparation.kind==='block'?0:.75:this.host.rng;
+   let resolved=attempt?.resolved??resolveCombatAttack({
+    id:this.token(),actor,action,source,targetHp:actor==='enemy'?this.host.variables.health:this.encounter.enemyHp,
+    values:before.variables,dice:Array.isArray(result)?result:result.dice,random,
+    damageReduction:this.opposed?0:actor==='enemy'?this.encounter.guard??0:this.encounter.enemyGuard??0,
+    preparationBonus:actor==='player'?this.encounter.preparationBonus??0:0,
+    enemyPreparation:this.opposed?null:this.encounter.enemyPreparation??null
+   });
+   if(attempt){attempt.roll=result;attempt.resolved=resolved;if(this.payment)this.payment.final=true;resolved=await this.resolveOpposedDefense(resolved,attempt);if(!this.active())return;}
    this.pending=resolved;this.resume={kind:'resolution'};if(this.payment)this.payment.final=true;
-   if(actor==='player')this.encounter=completePlayerTurn(this.encounter,action,source);
+   if(actor==='player')this.encounter=completePlayerTurn(this.encounter,action,source,{success:resolved.success});
    else this.encounter=applyActionProtection(this.encounter,'enemy',action);
    this.encounter=settleEnemyPreparation(this.encounter,resolved);
+   if(this.opposed&&actor==='player'&&action.type==='defend')this.playerDefense=structuredClone(action);
+   if(this.opposed&&actor==='enemy'&&action.type==='attack')this.playerDefense=null;
    if(!this.setPhase(`${actor}-result`))return;
-   if(action.resolution!=='direct')await this.host.onCheckResult({target:resolved.target,total:resolved.total,success:resolved.success,label:resolved.success?'SUCCESS':'MISS',signal:this.abort.signal});
+   if(action.resolution!=='direct'&&!this.opposed)await this.host.onCheckResult({target:resolved.target,total:resolved.total,success:resolved.success,label:resolved.success?'SUCCESS':action.type==='prepare'?'FAIL':'MISS',signal:this.abort.signal});
    if(!this.active())return;
    await this.presentResolution({replace:action.resolution==='direct'});
   }catch(error){
    this.refundPayment();
+   if(attempt&&!attempt.resolved){attempt.paid=false;this.resume={kind:actor==='player'?'choices':'enemy'};}
    this.fail(error);
   }
+ }
+ async resolveOpposedDefense(result,attempt){
+  if(result.action.resolution!=='direct'&&!attempt.feedback){
+   await this.host.onCheckResult({target:result.target,total:result.total,success:result.success,label:result.success?'SUCCESS':result.action.type==='prepare'?'FAIL':'MISS',signal:this.abort.signal});
+   if(!this.active())return result;attempt.feedback=true;
+  }
+  const defense=result.actor==='player'?this.encounter.enemyPreparation?.kind==='block':!!this.playerDefense;
+  if(result.action.type!=='attack'||!result.success||!result.rolledDamage||!defense)return result;
+  const defender=result.actor==='player'?'enemy':'player';
+  const breaksDefense=result.actor==='player'&&result.preparationBonus>0;
+  if(breaksDefense){
+   const damage=Math.min(result.targetHp+result.damage,result.baseDamage);
+   return Object.freeze({...result,defenseBroken:true,defense:{actor:defender,success:false,broken:true},blockedDamage:result.preparationBonus,damage,targetHp:result.targetHp+result.damage-damage});
+  }
+  // Reveal on the same stack after the attack succeeds, before the defensive roll.
+  // The cached attacker result survives a failed reveal or defensive dice service.
+  if(!attempt.defenseCard)attempt.defenseCard={...combatCard(defender==='enemy'?this.enemy.preparationCards.block:{kind:'caption',text:'You defend against the attack.'},this.token(),this.descriptionContext()),cardBack:this.host.compiled.cardBack,advanceDisabled:true};
+  if(!await this.replace(attempt.defenseCard,{transition:'flip'}))return result;
+  if(!this.setPhase(`${defender}-defense-roll`))return result;
+  const check=resolveCheck({pool:[{sides:6,count:3}],modifier:0,target:10},attempt.before.variables);
+  if(!attempt.defenseRoll)attempt.defenseRoll=await this.host.rollCheck(check.pool,{signal:this.abort.signal,surface:'front',color:defender==='enemy'?'black':'light',throwSide:defender==='enemy'?'top':'bottom'});
+  if(!this.active())return result;
+  const dice=Array.isArray(attempt.defenseRoll)?attempt.defenseRoll:attempt.defenseRoll.dice;
+  let total;try{total=diceTotal(dice,check.pool)+check.modifier;}catch(error){delete attempt.defenseRoll;throw error;}
+  const blocked=total>=check.target;
+  if(!attempt.defenseFeedback){await this.host.onCheckResult({target:check.target,total,success:blocked,label:blocked?'SUCCESS':'FAIL',signal:this.abort.signal});attempt.defenseFeedback=true;}
+  return Object.freeze({...result,defense:{actor:defender,total,success:blocked},...(blocked?{blockedDamage:result.rolledDamage,damage:0,targetHp:result.targetHp+result.damage}:{})});
  }
  async presentResolution({replace=false}={}){
   const result=this.pending;if(!result||!this.active())return;
   if(!result.success){await this.finishAttack();return;}
+  if(this.opposed&&result.defense?.success){await this.finishAttack();return;}
   const steps=[];
-  if(result.preparationReveal){
+  if(result.preparationReveal&&!result.defenseBroken){
    const {kind,value}=result.preparationReveal;
    const text=kind==='block'?`${this.enemy.name} prepared a block. Damage reduction: ${value}.`:`${this.enemy.name}'s preparation adds ${value} damage.`;
    steps.push({card:{id:`${result.id}:preparation`,kind:'caption',text}});
@@ -112,6 +178,13 @@ export class CombatCoordinator {
    if(!template)throw new Error('Missing damage Feedback');
    steps.push({card:template,value:-result.damage,operation:result.actor==='enemy'?'playerDamage':'enemyDamage',targetHp:result.targetHp,id:`${result.id}:damage`});
   }
+  if(this.opposed&&!steps.length){
+   if(result.actor==='player'&&result.action.type!=='attack'&&this.encounter.enemyPreparation?.kind==='block')steps.push({card:this.enemy.preparationCards.hold});
+   else if(result.action.type==='attack'){
+    const text=result.actor==='player'?'Your attack deals no damage.':`${this.enemy.name}'s attack deals no damage.`;
+    steps.push({card:{id:`${result.id}:outcome`,kind:'caption',text}});
+   }
+  }
   let terminal=false;
   if(result.actor==='player'){
    if(result.targetHp===0){terminal=true;steps.push(...this.enemy.death.map(card=>({card})));}
@@ -120,7 +193,7 @@ export class CombatCoordinator {
   if(!steps.length){await this.finishAttack();return;}
   this.sequence={kind:terminal?'enemy-death':'effects',steps,index:0};
   this.resume={kind:'sequence'};
-  await this.presentSequence({replace,surface:result.actor==='player'?'check':'front'});
+  await this.presentSequence({replace,surface:result.actor==='player'&&!result.defense?'check':'front'});
  }
  async presentSequence({replace=false,surface='front'}={}){
   if(!this.active()||!this.sequence)return;
@@ -162,7 +235,7 @@ export class CombatCoordinator {
   const sequence=this.sequence,step=sequence.steps[index],last=index===sequence.steps.length-1;
   const reason=last&&sequence.kind==='enemy-death'?this.host.combatVictoryReason():'';
   step.contentId??=this.token();
-  const content={...combatCard(step.card,step.contentId,{value:step.value,disabledReason:reason}),cardBack:this.host.compiled.cardBack};
+  const content={...combatCard(step.card,step.contentId,{...this.descriptionContext(),value:step.value,disabledReason:reason}),cardBack:this.host.compiled.cardBack};
   if(!last){content.nextTransition='reveal';content.nextDeckPreview={content:this.sequenceContent(index+1),presentation:'closed'};}
   else if(sequence.kind==='intro'){this.introSuccessor??=this.actionCard();content.nextTransition='reveal';content.nextDeckPreview={content:this.introSuccessor,presentation:'closed'};}
   else content.nextTransition='flip';
@@ -172,7 +245,7 @@ export class CombatCoordinator {
   if(!this.active()||this.advancing||detail.contentId!==this.deck.content.id||this.accepted.has(detail.contentId))return;
   if(this.phase==='error'){await this.retry();return;}
   if(this.phase==='enemy-action'){
-   const action=this.enemy.actions[this.encounter.actionIndex];this.accepted.add(detail.contentId);
+   const action=this.declaration?.action??this.enemy.actions[this.encounter.actionIndex];this.accepted.add(detail.contentId);
    await this.attack('enemy',action,null,{contentId:detail.contentId});return;
   }
   if(this.phase==='choice'){
@@ -206,9 +279,32 @@ export class CombatCoordinator {
  async finishAttack(){
   if(!this.active())return;
   if(!this.completeProgression())return;
-  const actor=this.pending?.actor;this.pending=null;this.sequence=null;
+  const actor=this.pending?.actor,action=this.pending?.action;this.pending=null;this.sequence=null;
+  if(this.opposed){
+   if(actor==='enemy'){
+    if(action.type!=='prepare')this.declaration=null;
+    await this.showChoices();return;
+   }
+   if(this.declaration?.action.type==='prepare'){
+    if(this.encounter.enemyPreparation?.kind==='attack'){
+     const preparation=this.declaration.action,base=this.enemy.actions.find(a=>a.type==='attack');
+     if(!base)throw new Error('Prepared charge requires an Enemy Attack');
+     const bonus=preparation.preparationBonus,profile=base.attack;
+     const charge={...structuredClone(base),presentationCard:this.enemy.preparationCards.charge,attack:{...profile,minBonus:(profile.minBonus??0)+bonus,maxBonus:(profile.maxBonus??0)+bonus}};
+     this.encounter={...this.encounter,enemyPreparation:null};this.declaration={action:charge,preparation:null};
+     this.resume={kind:'charge',action:charge};await this.enterCharge(charge);return;
+    }
+    this.encounter={...this.encounter,enemyPreparation:null,guard:0};this.playerDefense=null;this.declaration=null;
+   }
+   await this.enterEnemy();return;
+  }
   if(actor==='enemy'){this.encounter=completeEnemyTurn(this.encounter,this.enemy);await this.showChoices();}
   else await this.enterEnemy();
+ }
+ async enterCharge(action){
+  if(!this.setPhase('enemy-enter'))return;
+  if(!await this.replace(this.enemyCard(action),{transition:'flip'}))return;
+  await this.attack('enemy',action);
  }
  completeProgression({health,enemyHp}={}){
   const result=this.pending;
@@ -234,6 +330,8 @@ export class CombatCoordinator {
   if(!this.active())return;
   try{
    switch(this.resume?.kind){
+    case 'opposed-attempt':{const attempt=this.resume.attempt;await this.attack(attempt.actor,attempt.action,attempt.source,{attempt});break;}
+    case 'charge':await this.enterCharge(this.resume.action);break;
     case 'choices':await this.showChoices();break;
     case 'sequence':await this.presentSequence({replace:true});break;
     case 'resolution':await this.presentResolution({replace:true});break;

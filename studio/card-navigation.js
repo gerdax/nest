@@ -9,6 +9,7 @@ export function sourceCard(project,target) {
   const candidates=[{card:definition,definitionPath:''}];
   if(definition.kind==='enemy'){
    candidates.push({card:definition.hit,definitionPath:'hit'});
+   if(definition.mechanics==='opposed-preparation')for(const key of ['block','charge','blocked','hold'])candidates.push({card:definition.preparationCards?.[key],definitionPath:`preparationCards.${key}`});
    for(const [i,card] of (definition.actions||[]).entries())candidates.push({card,definitionPath:`actions.${i}`});
    for(const [i,reaction] of (definition.reactions||[]).entries())candidates.push({card:reaction.card,definitionPath:`reactions.${i}.card`});
    for(const [i,card] of (definition.death||[]).entries())candidates.push({card,definitionPath:`death.${i}`});

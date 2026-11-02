@@ -22,6 +22,15 @@ import {
   findPlacement, pathTarget, customizeAction, customizeItem, customizeConsumable, customizeStory, newRule, normalizeRule, addHealthVariable,
 } from './commands.js';
 
+// Recognize only unused factory templates; authored custom checks keep their rules.
+function stockCombatCheck(check) {
+ return check && !check.mode && !check.modifierVariable && !check.difficulty && check.modifier===0 && check.pool?.length===1 &&
+  (check.target===11&&check.pool[0].sides===6&&check.pool[0].count===3 || check.target===10&&check.pool[0].sides===20&&check.pool[0].count===1);
+}
+const playerCombatStat = action => action?.kind==='combatAction' && ['attack','prepare'].includes(action.type)
+ ? action.type==='prepare'?'composure':'agility' : undefined;
+const combatStatCheck = action => ({mode:'stat',modifierVariable:playerCombatStat(action),difficulty:3});
+
 function chapterFor(project, selection) {
   return project.chapters.find(chapter => chapter.id === selection.chapterId) || project.chapters[0];
 }
@@ -121,7 +130,11 @@ function changeField(project, selection, field, localDrafts) {
     if(!['attack','defend','prepare','wait'].includes(value))throw new Error('Unsupported Combat Action type');
     const switching=parent[key]!==value;
     parent[key]=value;
-    if(['defend','prepare','wait'].includes(value))parent.resolution='direct';
+    if(['defend','wait','prepare'].includes(value))parent.resolution='direct';
+    if(root.kind!=='enemy'&&value==='attack'&&switching){
+      parent.resolution='check';
+      if(!parent.check||parent.check.mode==='stat'||stockCombatCheck(parent.check))parent.check=combatStatCheck(parent);
+    }
     if(value==='defend')parent.damageReduction??=1;
     if(value==='prepare'){
       if(root.kind==='enemy'&&switching){
@@ -142,13 +155,16 @@ function changeField(project, selection, field, localDrafts) {
     const stockCheck = check && !check.mode && !check.modifierVariable && !check.difficulty &&
       check.modifier === 0 && check.target === 10 && check.pool?.length === 1 &&
       check.pool[0].sides === 20 && check.pool[0].count === 1;
-    if (!check || stockCheck) parent.check = root.kind==='enemy'
+    if (!check || stockCheck || root.kind!=='enemy'&&playerCombatStat(parent)&&stockCombatCheck(check)) parent.check = root.kind==='enemy'
       ? createEnemyAction('defaults').check
-      : {mode:'stat',modifierVariable:variables.find(isStatVariable)?.id,difficulty:1};
+      : playerCombatStat(parent)?combatStatCheck(parent):{mode:'stat',modifierVariable:variables.find(isStatVariable)?.id,difficulty:1};
   }
   if (key === 'mode' && value === 'stat') {
-    parent.difficulty ??= 1;
-    if (!variables.some(v => v.id === parent.modifierVariable && isStatVariable(v))) parent.modifierVariable = variables.find(isStatVariable)?.id;
+    const actionPath=path.slice(0,-'.check.mode'.length);
+    const action=path==='check.mode'?root:actionPath.split('.').reduce((value,key)=>value?.[key],root);
+    const stat=root.kind!=='enemy'?playerCombatStat(action):undefined;
+    parent.difficulty ??= stat?3:1;
+    if (!variables.some(v => v.id === parent.modifierVariable && isStatVariable(v))) parent.modifierVariable = stat||variables.find(isStatVariable)?.id;
   }
   if (key === 'mode' && value === 'custom') {
     parent.pool ||= root.kind==='enemy'?createEnemyAction('defaults').check.pool:[{sides:20,count:1}]; parent.modifier ??= 0; parent.target ??= root.kind==='enemy'?11:10;

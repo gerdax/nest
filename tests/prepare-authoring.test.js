@@ -24,19 +24,21 @@ for(const context of ['common','weapon'])test(`${context} Prepare edits and roun
  const saved=structuredClone(action);
  edit(project,definition,prefix+'type','prepare');
  assert.equal(action.preparationBonus,2);assert.equal(action.resolution,'direct');
+ edit(project,definition,prefix+'resolution','check');
+ edit(project,definition,prefix+'check.mode','stat');
  edit(project,definition,prefix+'preparationBonus','5','number');
  const html=definitionInspector(project,definition),options=typeOptions(html,prefix+'type');
  assert.match(options,/value="prepare" selected/);assert.doesNotMatch(options,/value="wait"/);
- for(const key of ['attack.source','check.target','resolution','successEffects','failureEffects'])assert(!html.includes(`data-path="${prefix}${key}"`),key);
- for(const key of ['preparationBonus','cooldown','conditions.0.key','costs.0.amount','effects.0.value'])assert(html.includes(`data-path="${prefix}${key}"`),key);
- for(const key of ['attack','check','successEffects','failureEffects','conditions','costs','effects','cooldown'])assert.deepEqual(action[key],saved[key],key);
+ for(const key of ['attack.source','check.target'])assert(!html.includes(`data-path="${prefix}${key}"`),key);
+ for(const key of ['preparationBonus','resolution','check.modifierVariable','check.difficulty','successEffects','failureEffects','cooldown','conditions.0.key','costs.0.amount','effects.0.value'])assert(html.includes(`data-path="${prefix}${key}"`),key);
+ for(const key of ['attack','successEffects','failureEffects','conditions','costs','effects','cooldown'])assert.deepEqual(action[key],saved[key],key);
  assert.deepEqual(validateProject(project),[]);
  const loaded=parseProject(JSON.stringify(project));
  const restored=loaded.library.find(d=>d.id===definition.id);
  const loadedAction=context==='weapon'?restored.combat.actions[0]:restored;
  assert.deepEqual(loadedAction,action);
  edit(loaded,restored,prefix+'type','attack');
- assert.deepEqual(loadedAction.attack,saved.attack);assert.deepEqual(loadedAction.check,saved.check);
+ assert.deepEqual(loadedAction.attack,saved.attack);assert.deepEqual(loadedAction.check,{mode:'stat',modifierVariable:'agility',difficulty:3});
  edit(loaded,restored,prefix+'type','prepare');assert.equal(loadedAction.preparationBonus,5);
  assert.deepEqual(validateProject(loaded),[]);
 });
@@ -47,13 +49,13 @@ test('Common Prepare summary and assignment use its bonus despite retained Weapo
  edit(project,action,'preparationBonus','4','number');
  applyDocumentCommand(project,{},'use-common-action',{id:action.id});
  assert(project.combat.defaultActions.some(ref=>ref.definitionId===action.id));
- assert.match(combatActionSummary(project,action).join(' '),/\+4 damage to your next Attack/);
+ assert.match(combatActionSummary(project,action).join(' '),/Next action only: \+4 damage if attacking, or breaks defence for base damage/);
  assert.match(commonLibrary(project),/>Prepare<\/span>/);
  assert.match(combatReferenceList(project,project.combat.defaultActions,'combat.defaultActions','Actions'),/value="common-prepare" selected/);
  assert.deepEqual(validateProject(project),[]);
 });
 
-test('Prepare validates its direct resolution and positive safe integer bonus',()=>{
+test('Prepare validates checked or legacy direct resolution and positive safe integer bonus',()=>{
  const project=createProject(),action=createCombatAction('prepare-validation');project.library.push(action);
  edit(project,action,'type','prepare');
  for(const bonus of [undefined,0,-1,1.5,Number.MAX_SAFE_INTEGER+1,'2',NaN,Infinity]){
@@ -61,7 +63,8 @@ test('Prepare validates its direct resolution and positive safe integer bonus',(
   assert(validateProject(project).some(issue=>issue.message.includes('positive safe integer preparation bonus')),String(bonus));
  }
  for(const bonus of [1,2,Number.MAX_SAFE_INTEGER]){action.preparationBonus=bonus;assert.deepEqual(validateProject(project),[]);}
- action.resolution='check';assert(validateProject(project).some(issue=>issue.message.includes('direct Actions')));
+ action.resolution='direct';assert.deepEqual(validateProject(project),[]);
+ action.resolution='check';action.check={mode:'stat',modifierVariable:'composure',difficulty:0};assert(validateProject(project).some(issue=>issue.message.includes('stat check')));
 });
 
 test('Enemy selector offers Prepare and commands initialize its direct hidden preparation',()=>{

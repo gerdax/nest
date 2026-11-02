@@ -111,6 +111,7 @@
 }
 .nest-card-title[hidden] { display: none; }
 .nest-card-type {
+  white-space: pre-line;
   position: absolute;
   top: var(--card-padding, 26px);
   left: var(--card-padding, 26px);

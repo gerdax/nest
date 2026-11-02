@@ -1,0 +1,25 @@
+# Alternative rat encounter
+
+Open [the alternative rat example](../player.html?example=rat) with `python3 serve.py`. It creates a fresh, non-saving project and starts directly at the encounter. [The classic example](../player.html?example=rat-classic) retains its Weapon pickup and original combat behavior. Neither example replaces the saved project. Original prototypes and artwork remain preserved.
+
+This example follows the 31 October email brief. Its Enemy opts into the alternative rules through `mechanics: 'opposed-preparation'`; ordinary combat continues to use the existing rules. The runtime coordinator selects the rat's declaration before the player decides. The rat either bites or prepares; preparation conceals whether it intends to defend or charge, displaying “The rat prepares…”. The declaration remains fixed for that decision.
+
+The player has three Common Actions, with no Weapons or pickup:
+
+| Action | Resolution | Result | Cost |
+| --- | --- | --- | --- |
+| Attack | Agility, difficulty 3 (currently 3d6 + 3 ≥ 13) | 2 damage before defense | None |
+| Defend | Direct | Full block on a successful defense | 1 Energy, paid when the card is played |
+| Preparation | Direct | Next action only: Attack gains 2 damage, or breaks defence for base damage only | None |
+
+The rat's Bite also checks 3d6 ≥ 10 and deals 2 damage. Its Prepare action supplies 4 damage reduction and a preparation bonus of 2 for the coordinator's declared defense or charge. A charge deals 4 damage. The attacker rolls first; the defender rolls only when the attack hits. A prepared player Attack breaks a rat block without a defensive roll, loses its preparation damage bonus and deals its rolled base damage. It still needs to hit. Ordinary player Attacks and player Defend keep their existing defense checks. A successful defense blocks the complete attack, including a charge. Successful defense on either side is communicated by `SUCCESS` under the dice check and advances without a separate blocking feedback card. A failed defense displays `FAIL`; missed attacks and charges retain `MISS`. Defend and Prepare cards are direct actions; the opposed defense check belongs to attack resolution.
+
+In the chapter editor, open **Library → Rat → Preparation cards** to edit **Block reveal**, **Charge reveal**, and **Holds ground**. Each has its own name, description, card type, and preview. Use Vignette for artwork and its size, position, and mirroring controls; Caption displays text only. These cards change presentation; the existing Attack/Prepare properties still control damage and the hidden declaration. Earlier alternative projects receive defaults when opened, preserving authored fields; saving or exporting includes the new cards. Feedback cards support the preview's Go to card link.
+
+Damage is committed when the corresponding effect card is swiped away. Missed attacks from either side, including rat charges, are communicated by the existing `MISS` check result and proceed directly to the next combat stage without a separate feedback card. Killing the rat cancels its pending charge. If the player defends or prepares against rat defense, the feedback is “The rat holds its ground”. The fixture omits health-threshold reactions to keep the turn rhythm clear.
+
+All Actions in this example have zero cooldown. This does not change cooldown behavior for other projects. The alternative uses the shared coordinator and combat rules through the Enemy's explicit opt-in.
+
+The rat's 8 Health and selection weights are provisional balance: Bite and Prepare each have a 50% chance; hidden defense and charge each have a 50% chance within Prepare. The next declaration is queued before each player choice and stays fixed across retries. A queued preparation becomes active only after its own preparation card is played.
+
+Player preparation is free of Energy costs and dice rolls, but spends a turn. It applies only to the next player action: an Attack gains the authored bonus against an undefended target, or ignores defence and deals base damage only. Preparation is consumed on a miss, Defend, or Wait. A successful new Prepare replaces it rather than stacking; an optional checked Prepare that fails clears the old bonus. Incoming enemy actions do not consume it. The shared combat resolver applies the same breakthrough rule to numeric defence. Neither this update nor local project edits publish the mobile version.

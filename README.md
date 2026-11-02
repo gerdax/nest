@@ -11,8 +11,10 @@ implementation. The normal player and studio support authored Combat/Death
 beats, Weapon-owned Actions, Common Actions, Enemies, player Attack/Defend/Prepare,
 Enemy Attack/Defend/Wait (and preserved legacy player Wait),
 Health/Energy costs and common/success/failure progression effects. Open
-[player.html?example=rat](player.html?example=rat) for the non-saving production
-example. The isolated `demos/` remain preserved references.
+[player.html?example=rat](player.html?example=rat) for the non-saving
+[alternative rat encounter](docs/alternative-combat.md), or
+[the classic rat encounter](player.html?example=rat-classic) for the original
+Weapon pickup example. The isolated `demos/` remain preserved references.
 
 Use [combat authoring](docs/combat.md) for current behavior. The dated combat
 specification and technical plan record earlier milestone scope. See the
@@ -179,4 +181,4 @@ Undo/redo retains at most 80 snapshots and 32 MiB of archived UTF-8 data across 
 
 ## Combat and chapter Death
 
-See [combat authoring and runtime](docs/combat.md) for Weapon-provided Combat Actions, self-contained Enemies, Effect Cards, mandatory Death beats and compatibility. Open the non-saving [Rat example](player.html?example=rat) to exercise the production player without replacing the stored project. The [technical plan](docs/combat-technical-plan.md) and [product decisions](docs/combat-implementation-spec.md) record the implementation scope.
+See [combat authoring and runtime](docs/combat.md) for Weapon-provided Combat Actions, self-contained Enemies, Effect Cards, mandatory Death beats and compatibility. Open the non-saving [alternative Rat example](player.html?example=rat), described in [alternative combat](docs/alternative-combat.md), without replacing the stored project. The original [classic Rat example](player.html?example=rat-classic) remains available. The [technical plan](docs/combat-technical-plan.md) and [product decisions](docs/combat-implementation-spec.md) record the earlier implementation scope.

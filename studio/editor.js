@@ -32,6 +32,7 @@ import { mountAutoplay } from './autoplay.js';
 import { mountAutoPanel } from './auto-panel.js';
 import { sourceCard, revealCardEntry } from './card-navigation.js';
 import { renderCardPreviews } from './card-preview.js';
+import { mountDescriptionEditors, descriptionEditorContext } from './description-tokens.js';
 import { bindImagePicker } from './image-picker.js';
 import { reloadArtwork } from '../engine/artworkReload.js';
 import { findPlacement } from './commands.js';
@@ -224,6 +225,10 @@ function renderInspector({collapseCards=false,preserveProjectSettings=false}={})
  $('#inspector').innerHTML=mode==='library'?definitionInspector(project,definition()):multiple?`<p class="small">${graph.selectedIds.size} beats selected.</p>`:nodeInspector(project,chapter(),node(),previewOverrides.effects(project,chapter(),node()));
  if(mode==='library'&&isCommonDefinition(definition())){const panel=$('#inspector').querySelector('.card-definition-panel');if(panel){panel.insertAdjacentHTML('afterbegin',commonRoleControls(project,definition()));const oldRemoval=panel.querySelector('[data-command="delete-definition"]');if(oldRemoval){oldRemoval.previousElementSibling?.remove();oldRemoval.remove();}const deletion=panel.querySelector('.common-delete');if(deletion)panel.append(deletion);}}
  renderCardPreviews($('#inspector'),project,node(),chapterId);
+ mountDescriptionEditors($('#inspector'),textarea=>descriptionEditorContext(project,{
+  scope:textarea.dataset.scope,path:textarea.dataset.path,root:scopeRoot(textarea.dataset.scope,textarea),chapter:chapter(),
+  placement:node()&&findPlacement(node(),textarea.closest('[data-placement]')?.dataset.placement)
+ }));
  refreshCardClipboardButtons();
  applyCardStyles(preview.mount,project.cardStyles);
  if(settingsOpen)$('#settings').querySelector('details').open=true;
@@ -294,8 +299,14 @@ function changeField(event){const el=event.target,path=el.dataset.path,scope=el.
  // Keep blur-driven changes from replacing the next focus or click target.
  const preserveProjectSettings=!!el.closest('#project-settings-content')&&!/^variables\.\d+\.type$/.test(path);
  const initialValue=scope==='initial-toggle'||scope==='initial-value';
+ const description=el.matches('[data-description-text]');
  edit('field',{scope,path,value:el.value,checked:el.checked,inputType:el.type,
-  placementId:el.closest('[data-placement]')?.dataset.placement,colorField,color},{preserveProjectSettings,refresh:!initialValue});
+  placementId:el.closest('[data-placement]')?.dataset.placement,colorField,color},{preserveProjectSettings,refresh:!initialValue&&!description});
+ if(description){
+  // Blurring into the token menu must not replace its controls or lose the caret.
+  renderCardPreviews($('#inspector'),project,node(),chapterId);
+  renderCardPreviews($('#library-common'),project,node(),chapterId);
+ }
  if(scope==='initial-toggle'){
   // Keep the clicked checkbox and sidebar mounted; only its value field changes.
   const entry=el.closest('.entry'),variable=project.variables.find(v=>v.id===path);
