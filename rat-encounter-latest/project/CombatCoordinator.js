@@ -135,7 +135,7 @@ export class CombatCoordinator {
    }
    if(this.opposed&&actor==='enemy'&&action.type==='attack')this.playerDefense=null;
    if(!this.setPhase(`${actor}-result`))return;
-   if(action.resolution!=='direct'&&!this.opposed)await this.host.onCheckResult({target:resolved.target,total:resolved.total,success:resolved.success,label:resolved.success?'SUCCESS':action.type==='prepare'?'FAIL':'MISS',signal:this.abort.signal});
+   if(action.resolution!=='direct'&&!this.opposed)await this.host.onCheckResult({target:resolved.target,total:resolved.total,raw:resolved.raw,modifier:resolved.modifier,success:resolved.success,label:resolved.success?'SUCCESS':action.type==='prepare'?'FAIL':'MISS',signal:this.abort.signal});
    if(!this.active())return;
    await this.presentResolution({replace:action.resolution==='direct'});
   }catch(error){
@@ -146,7 +146,7 @@ export class CombatCoordinator {
  }
  async resolveOpposedDefense(result,attempt){
   if(result.action.resolution!=='direct'&&!attempt.feedback){
-   await this.host.onCheckResult({target:result.target,total:result.total,success:result.success,label:result.success?'SUCCESS':result.action.type==='prepare'?'FAIL':'MISS',signal:this.abort.signal});
+   await this.host.onCheckResult({target:result.target,total:result.total,raw:result.raw,modifier:result.modifier,success:result.success,label:result.success?'SUCCESS':result.action.type==='prepare'?'FAIL':'MISS',signal:this.abort.signal});
    if(!this.active())return result;attempt.feedback=true;
   }
   const defense=result.actor==='player'?this.encounter.enemyPreparation?.kind==='block':!!this.playerDefense;
@@ -168,14 +168,15 @@ export class CombatCoordinator {
   // The cached attacker result survives a failed reveal or defensive dice service.
   if(!attempt.defenseCard)attempt.defenseCard={...combatCard(defender==='enemy'?this.enemy.preparationCards.block:{kind:'caption',text:'You defend against the attack.'},this.token(),this.descriptionContext()),cardBack:this.host.compiled.cardBack,advanceDisabled:true};
   if(!await this.replace(attempt.defenseCard,{transition:'flip'}))return result;
+  if(this.enemy.preparationCards.block.resolution==='direct')return Object.freeze({...result,defense:{actor:defender,success:true},blockedDamage:result.rolledDamage,damage:0,targetHp:result.targetHp+result.damage});
   if(!this.setPhase(`${defender}-defense-roll`))return result;
-  const check=resolveCheck({pool:[{sides:6,count:3}],modifier:0,target:10},attempt.before.variables);
+  const check=attempt.defenseCheck??=resolveCheck(this.enemy.preparationCards.block.check,attempt.before.variables);
   if(!attempt.defenseRoll)attempt.defenseRoll=await this.host.rollCheck(check.pool,{signal:this.abort.signal,surface:'front',color:defender==='enemy'?'black':'light',throwSide:defender==='enemy'?'top':'bottom'});
   if(!this.active())return result;
   const dice=Array.isArray(attempt.defenseRoll)?attempt.defenseRoll:attempt.defenseRoll.dice;
   let total;try{total=diceTotal(dice,check.pool)+check.modifier;}catch(error){delete attempt.defenseRoll;throw error;}
   const blocked=total>=check.target;
-  if(!attempt.defenseFeedback){await this.host.onCheckResult({target:check.target,total,success:blocked,label:blocked?'SUCCESS':'FAIL',signal:this.abort.signal});attempt.defenseFeedback=true;}
+  if(!attempt.defenseFeedback){await this.host.onCheckResult({target:check.target,total,raw:total-check.modifier,modifier:check.modifier,success:blocked,label:blocked?'SUCCESS':'FAIL',signal:this.abort.signal});attempt.defenseFeedback=true;}
   return Object.freeze({...result,defense:{actor:defender,total,success:blocked},...(blocked?{blockedDamage:result.rolledDamage,damage:0,targetHp:result.targetHp+result.damage}:{})});
  }
  async presentResolution({replace=false}={}){
@@ -201,7 +202,7 @@ export class CombatCoordinator {
    steps.push({card:{...template,showValue:true},value:-result.damage,operation:result.actor==='enemy'?'playerDamage':'enemyDamage',targetHp:result.targetHp,id:`${result.id}:damage`});
   }
   if(this.opposed&&!steps.length){
-   if(result.actor==='player'&&result.action.type!=='attack'&&this.encounter.enemyPreparation?.kind==='block')steps.push({card:this.enemy.preparationCards.hold});
+   if(result.actor==='player'&&!['attack','prepare'].includes(result.action.type)&&this.encounter.enemyPreparation?.kind==='block')steps.push({card:this.enemy.preparationCards.hold});
    else if(result.action.type==='attack'){
     const text=result.actor==='player'?'Your attack deals no damage.':`${this.enemy.name}'s attack deals no damage.`;
     steps.push({card:{id:`${result.id}:outcome`,kind:'caption',text}});
@@ -312,7 +313,7 @@ export class CombatCoordinator {
      const preparation=this.declaration.action,base=this.enemy.actions.find(a=>a.type==='attack');
      if(!base)throw new Error('Prepared charge requires an Enemy Attack');
      const bonus=preparation.preparationBonus,profile=base.attack;
-     const charge={...structuredClone(base),presentationCard:this.enemy.preparationCards.charge,attack:{...profile,minBonus:(profile.minBonus??0)+bonus,maxBonus:(profile.maxBonus??0)+bonus}};
+     const charge={...structuredClone(base),resolution:this.enemy.preparationCards.charge.resolution,check:structuredClone(this.enemy.preparationCards.charge.check),presentationCard:this.enemy.preparationCards.charge,attack:{...profile,minBonus:(profile.minBonus??0)+bonus,maxBonus:(profile.maxBonus??0)+bonus}};
      this.encounter={...this.encounter,enemyPreparation:null};this.declaration={action:charge,preparation:null};
      this.resume={kind:'charge',action:charge};await this.enterCharge(charge);return;
     }

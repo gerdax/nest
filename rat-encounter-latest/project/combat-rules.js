@@ -128,7 +128,7 @@ export function resolveCombatAttack({actor,action,source=null,targetHp,values={}
   if(rolledDamage>0&&actor==='player'&&(action.type??'attack')==='attack'&&enemyPreparation?.kind==='block')preparationReveal={...enemyPreparation};
   const defenseBroken=prepared>0&&protection>0&&success;
   const blockedDamage=defenseBroken?prepared:Math.min(rolledDamage,protection),damage=Math.min(targetHp,rolledDamage-blockedDamage);
-  return Object.freeze({id,actor,action:structuredClone(action),source:source?structuredClone(source):null,dice:structuredClone(dice??[]),total,target:check?.target??0,success,preparationBonus:prepared,enemyPreparation:selectedPreparation,preparationReveal,baseDamage,defenseBroken,rolledDamage,blockedDamage,damage,targetHp:targetHp-damage});
+  return Object.freeze({id,actor,action:structuredClone(action),source:source?structuredClone(source):null,dice:structuredClone(dice??[]),raw,modifier:check?.modifier??0,total,target:check?.target??0,success,preparationBonus:prepared,enemyPreparation:selectedPreparation,preparationReveal,baseDamage,defenseBroken,rolledDamage,blockedDamage,damage,targetHp:targetHp-damage});
 }
 export function healthReactions(enemy,before,after) {
   if(after<=0||after>=before)return [];

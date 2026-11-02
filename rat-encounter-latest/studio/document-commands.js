@@ -152,7 +152,7 @@ function changeField(project, selection, field, localDrafts) {
   if (key === 'resolution' && value === 'check') {
     const check = parent.check;
     // Old Direct actions carry an unused stock custom-check template.
-    const stockCheck = check && !check.mode && !check.modifierVariable && !check.difficulty &&
+    const stockCheck = !(root.kind==='enemy'&&/^preparationCards\.(block|charge)\.resolution$/.test(path)) && check && !check.mode && !check.modifierVariable && !check.difficulty &&
       check.modifier === 0 && check.target === 10 && check.pool?.length === 1 &&
       check.pool[0].sides === 20 && check.pool[0].count === 1;
     if (!check || stockCheck || root.kind!=='enemy'&&playerCombatStat(parent)&&stockCombatCheck(check)) parent.check = root.kind==='enemy'

@@ -65,7 +65,7 @@ export class ActionContextPanel {
     this.caption.removeAttribute('aria-label');
     if (disabledReason && Array.isArray(disabledReasonParts) && disabledReasonParts.some(part => ['health','energy'].includes(part.resource))) {
       this.renderRequirements(disabledReason, disabledReasonParts);
-    } else this.caption.textContent = result ? `TARGET: ${result.target}  CHECK: ${result.total}` : disabledReason || (info ? info.stat ?? '' : 'USING');
+    } else this.caption.textContent = result ? `ROLL: ${result.total}  TARGET: ${result.target}` : disabledReason || (info ? info.stat ?? '' : 'USING');
     this.checkDetails.hidden = !info && !result;
     this.checkChance.textContent = result ? result.label ?? (result.success ? 'SUCCESS' : 'FAIL') : info ? `${Math.round(parseFloat(info.chance))}%` : '';
     this.checkDetails.setAttribute('data-presentation', result ? 'result' : 'odds');

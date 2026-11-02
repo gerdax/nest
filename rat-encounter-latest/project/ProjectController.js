@@ -517,7 +517,7 @@ export class ProjectController {
       const modifier=check.modifier;
       if(!Number.isFinite(modifier))throw createError('RUNTIME_INVALID_CHECK_MODIFIER');
       const total=raw+modifier,success=total>=check.target;
-      await this.onCheckResult({total,target:check.target,success,dice:dice??[],signal:abort.signal});
+      await this.onCheckResult({total,raw,modifier,target:check.target,success,dice:dice??[],signal:abort.signal});
       if(abort.signal.aborted||generation!==this.generation||this.destroyed)return;
       if(JSON.stringify({variables:this.variables,inventory:this.inventory})!==this.checkPayment.expected)throw createError('RUNTIME_CHECK_REQUIREMENTS_CHANGED');
       if(this.departureBlocked(source,this.location,before.variables,before.inventory))throw createError('RUNTIME_UNLINKED_OUTPUT');

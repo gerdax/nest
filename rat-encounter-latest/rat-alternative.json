@@ -85,51 +85,11 @@
       "health": 4,
       "actions": [
         {
-          "id": "bite",
-          "kind": "combatAction",
-          "name": "Bite",
-          "showName": true,
-          "text": "Rat attacks!",
-          "image": "./assets/img/Gemini_Generated_Image_mwbnlrmwbnlrmwbn.jpeg",
-          "type": "attack",
-          "conditions": [],
-          "costs": [],
-          "effects": [],
-          "resolution": "check",
-          "check": {
-            "pool": [
-              {
-                "sides": 6,
-                "count": 3
-              }
-            ],
-            "modifier": 0,
-            "target": 10
-          },
-          "successEffects": [],
-          "failureEffects": [],
-          "target": "opponent",
-          "attack": {
-            "source": "self",
-            "damage": {
-              "min": 2,
-              "max": 2
-            },
-            "minBonus": 0,
-            "maxBonus": 0
-          },
-          "cooldown": 0,
-          "flipImage": true,
-          "imageScale": 116,
-          "imageOffsetX": -9,
-          "imageOffsetY": 18
-        },
-        {
           "id": "rat-prepare",
           "kind": "combatAction",
-          "name": "Waits",
+          "name": "Prepare",
           "showName": true,
-          "text": "Rat waits…",
+          "text": "Rat prepares..",
           "image": "./assets/img/Gemini_Generated_Image_mj65lrmj65lrmj65.png",
           "type": "prepare",
           "conditions": [],
@@ -165,6 +125,46 @@
           "imageScale": 111,
           "imageOffsetY": 10,
           "flipImage": true
+        },
+        {
+          "id": "bite",
+          "kind": "combatAction",
+          "name": "Attack",
+          "showName": true,
+          "text": "Rat attacks!",
+          "image": "./assets/img/Gemini_Generated_Image_mwbnlrmwbnlrmwbn.jpeg",
+          "type": "attack",
+          "conditions": [],
+          "costs": [],
+          "effects": [],
+          "resolution": "check",
+          "check": {
+            "pool": [
+              {
+                "sides": 6,
+                "count": 3
+              }
+            ],
+            "modifier": 0,
+            "target": 10
+          },
+          "successEffects": [],
+          "failureEffects": [],
+          "target": "opponent",
+          "attack": {
+            "source": "self",
+            "damage": {
+              "min": 2,
+              "max": 2
+            },
+            "minBonus": 0,
+            "maxBonus": 0
+          },
+          "cooldown": 0,
+          "flipImage": true,
+          "imageScale": 116,
+          "imageOffsetX": -9,
+          "imageOffsetY": 18
         }
       ],
       "hit": {
@@ -190,7 +190,7 @@
             "id": "caption-061d5679-cf46-4a04-90c5-1e663957273c",
             "kind": "caption",
             "name": "Reaction",
-            "text": "Rat seems severly wounded.",
+            "text": "Rat seems severly wounded, bleeding.",
             "image": "",
             "effects": []
           }
@@ -225,11 +225,25 @@
         "block": {
           "id": "rat-preparation-block",
           "kind": "caption",
-          "name": "Block reveal",
+          "name": "Dodge",
           "showName": true,
-          "text": "Rat attempts block.",
-          "image": "",
-          "effects": []
+          "text": "Rat attempts dodge.",
+          "image": "./assets/img/Gemini_Generated_Image_7tqxbm7tqxbm7tqx.jpeg",
+          "effects": [],
+          "flipImage": true,
+          "imageScale": 96,
+          "imageOffsetY": 7,
+          "check": {
+            "pool": [
+              {
+                "sides": 6,
+                "count": 3
+              }
+            ],
+            "modifier": 0,
+            "target": 10
+          },
+          "resolution": "check"
         },
         "charge": {
           "id": "rat-preparation-charge",
@@ -240,7 +254,18 @@
           "image": "./assets/img/Gemini_Generated_Image_mwbnlrmwbnlrmwbn.png",
           "effects": [],
           "flipImage": true,
-          "imageOffsetX": 16
+          "imageOffsetX": 16,
+          "resolution": "check",
+          "check": {
+            "pool": [
+              {
+                "sides": 6,
+                "count": 3
+              }
+            ],
+            "modifier": 0,
+            "target": 10
+          }
         },
         "blocked": {
           "id": "rat-preparation-blocked",
@@ -256,7 +281,7 @@
           "kind": "event",
           "name": "Waits",
           "showName": true,
-          "text": "Rat waits…",
+          "text": "Rat steps back.",
           "image": "./assets/img/Gemini_Generated_Image_mj65lrmj65lrmj65.png",
           "effects": [],
           "imageScale": 111,
@@ -375,7 +400,7 @@
     {
       "id": "alternative-preparation",
       "kind": "combatAction",
-      "name": "Prepare",
+      "name": "Prepare..",
       "showName": true,
       "text": "Your next [ICON:round]'s successful attack gains +2[ICON:damage] or breaks defence.",
       "image": "./assets/img/watermarked_img_7073244178038931334.png",
