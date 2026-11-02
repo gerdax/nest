@@ -6,6 +6,7 @@ import {CardDeck} from '../engine/CardDeck.js';
 import * as renderer from '../engine/renderer.js';
 import {projectedBounds} from '../engine/geometry.js';
 import {readFileSync} from 'node:fs';
+import {combatChoices} from '../project/combat-presentation.js';
 class Element extends EventTarget{
  constructor(){super();this.attrs=new Map();this.style={};this.children=[];this.parentNode=null;this.classList={add(){},remove(){}};this.captures=new Set();}
  setAttribute(k,v){this.attrs.set(k,v)} getAttribute(k){return this.attrs.get(k)??null} removeAttribute(k){this.attrs.delete(k)}
@@ -443,6 +444,29 @@ test('decision stack arriving through a flip also receives its presentation brow
  const d=deck(2);ready(d);
  d.addEventListener('commit',()=>d.replaceContent({...fixture(3),decisionOnly:true,autoBrowse:true},{presentation:'open'}));
  d.commit();settle(d);settle(d);assert.equal(d.content.actions.length,3);assert.equal(d.phase,'choices');assert.equal(d.b.x,0);assert.equal(d.index,0);d.destroy();
+});
+
+for(const animateItemActions of [true,false])test(`combat carousel expands on arrival with weapon entrance=${animateItemActions}`,()=>{
+ const action=name=>({name,resolution:'direct'});
+ const content=combatChoices([
+  {id:'punch',action:action('Punch')},
+  {id:'wait',action:action('Wait')},
+  {id:'slash',action:action('Slash'),source:{id:'sword',name:'Sword'}},
+ ],'combat',{},[],{animateItemActions});
+ const d=deck(1);ready(d);let selections=0,peak=0;
+ d.addEventListener('selection',()=>selections++);
+ d.addEventListener('commit',()=>d.replaceContent(content,{presentation:'open'}));
+ d.commit();
+ const start=performance.now();
+ for(let i=0;i<600;i++){
+  cancelAnimationFrame(d.frame);d.tick(start+i*16);
+  peak=Math.max(peak,d.presentationHint?.travel.x||0);
+ }
+ assert.ok(peak>=.92,'combat choices must visibly expand');
+ assert.equal(d.phase,'choices');assert.equal(d.fan.x,1);
+ assert.equal(d.index,0);assert.equal(d.b.x,0);assert.equal(selections,animateItemActions?1:0,'only the weapon entrance selects a card');
+ assert.equal(d.presentationHint,null);assert.equal(d.entrances.size,0);
+ d.destroy();
 });
 
 test('stack hint overlaps unfolding and returns promptly without selection, and manual input takes over',()=>{
