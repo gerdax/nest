@@ -4,7 +4,7 @@ let dialogSerial = 0;
 const modalStack = [];
 const errorMessage = error => error?.message || String(error);
 
-function modal(doc, title, marker) {
+export function createProjectDialog(doc, title, marker) {
   const previousFocus = doc.activeElement;
   const element = (tag, text) => {
     const node = doc.createElement(tag);
@@ -85,7 +85,7 @@ export function showProjectFileDialog({mode, backend, currentFilename = 'nest-pr
   onSubmit, onImport, document = globalThis.document}) {
   if (!['save-as', 'open'].includes(mode)) throw Error('Unknown project file dialog mode.');
   const saveAs = mode === 'save-as';
-  const ui = modal(document, saveAs ? 'Save project as' : 'Open project', 'data-project-file-dialog');
+  const ui = createProjectDialog(document, saveAs ? 'Save project as' : 'Open project', 'data-project-file-dialog');
   const {element, dialog} = ui;
   const form = element('form');
   form.style.display = 'grid'; form.style.gap = '12px';
@@ -167,7 +167,7 @@ export function showProjectFileDialog({mode, backend, currentFilename = 'nest-pr
 }
 
 export function askUnsavedProjectChoice({document = globalThis.document} = {}) {
-  const ui = modal(document, 'Unsaved changes', 'data-unsaved-project-dialog');
+  const ui = createProjectDialog(document, 'Unsaved changes', 'data-unsaved-project-dialog');
   ui.dialog.append(ui.element('p', 'Save your changes before switching projects?'));
   for (const [label, value] of [['Save changes', 'save'], ['Discard changes', 'discard'], ['Cancel', 'cancel']]) {
     const button = ui.element('button', label); button.type = 'button';

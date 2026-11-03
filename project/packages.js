@@ -43,6 +43,15 @@ export function importChapter(project, pkgOrV1) {
   normalizeSingleItems(imported);
   ensureCombatDefaults(imported);
   normalizeLocalOwnership(imported);
+  return mergePackageContent(next, imported, pkgOrV1);
+}
+
+/** Merge portable Library content without applying defaults or touching destination settings. */
+export function mergeLibraryContent(project, content) {
+  return mergePackageContent(cloneProject(project), {...cloneProject(content), chapters: []}, {}, {libraryOnly: true});
+}
+
+function mergePackageContent(next, imported, pkgOrV1, {libraryOnly = false} = {}) {
   const concreteIds = new Set(imported.library.filter(d => d.kind === 'item').map(d => d.id));
   const concreteKeys = new Set(imported.library.filter(d => d.kind === 'item').flatMap(d => [d.id,d.inventoryKey].filter(Boolean)));
   const destinationKeys = next.library.filter(d => d.kind === 'item').flatMap(d => [d.id,d.inventoryKey].filter(Boolean));
@@ -75,6 +84,7 @@ export function importChapter(project, pkgOrV1) {
   for (const definition of imported.library) definition.kind = canonicalCardKind(definition.kind);
   const defMap = new Map(), varMap = new Map(), chapterIds = new Set(next.chapters.map(c => c.id)), defs = new Set(next.library.map(d => d.id)),
     vars = new Set([...next.variables, ...next.chapters.flatMap(c => list(c.variables))].map(v => v.id));
+  if (libraryOnly) walk(next.library, value => { if (named(value.id)) defs.add(value.id); });
   const chapterMap = new Map(imported.chapters.map(chapter => [chapter.id, unique(chapter.id, chapterIds)]));
   const inventoryUsed = new Set([...destinationKeys, ...list(next.itemTags).map(tag => tagKey(tag.id))]);
   const allocateDefinition = d => {
@@ -87,7 +97,9 @@ export function importChapter(project, pkgOrV1) {
   const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   for (const v of imported.variables) {
     const existing = next.variables.find(x => x.id === v.id);
-    varMap.set(v.id, existing && same(existing, v) ? v.id: unique(v.id, vars));
+    const copied = libraryOnly && vars.has(v.id) && (!existing || !same(existing, v)) ? next.variables.find(x =>
+      x.id.startsWith(`${v.id}-`) && /^(?:[2-9]|[1-9]\d+)$/.test(x.id.slice(v.id.length + 1)) && same({...x, id: v.id}, v)) : undefined;
+    varMap.set(v.id, existing && same(existing, v) ? v.id : copied?.id ?? unique(v.id, vars));
   }
   // Local identities remain local, but allocate around every target identity so imported
   // definitions can be remapped once even when used by multiple imported chapters.
@@ -98,15 +110,27 @@ export function importChapter(project, pkgOrV1) {
   const ruleVarMap = new Map([...varMap, ...localVarMap]);
   const variablesUnchanged = [...ruleVarMap].every(([a, b]) => a === b);
   const reused = new Set();
+  const withRemappedVariables = definition => {
+    const candidate = cloneProject(definition);
+    walk(candidate, value => {
+      if (value.key && value.source !== 'inventory' && !['addItem', 'removeItem'].includes(value.op)) value.key = ruleVarMap.get(value.key) || value.key;
+      if (value.modifierVariable) value.modifierVariable = ruleVarMap.get(value.modifierVariable) || value.modifierVariable;
+      if (typeof value.text === 'string') value.text = value.text.replace(/\[STAT:([^\[\]\r\n]*)\]/g,
+        (token, key) => ruleVarMap.has(key) ? `[STAT:${ruleVarMap.get(key)}]` : token);
+    });
+    return candidate;
+  };
+  const libraryMatches = libraryOnly ? matchLibraryDefinitions(imported.library.map(withRemappedVariables), next.library) : null;
   for (const d of imported.library) {
-    const existing = next.library.find(x => x.id === d.id);
-    if (d.visibility !== 'local' && existing && same(existing, d) && variablesUnchanged) {
-      defMap.set(d.id, d.id);
+    const existing = libraryOnly ? libraryMatches.definitions.get(d.id)
+      : next.library.find(x => x.id === d.id && same(x, d))?.id;
+    if (d.visibility !== 'local' && existing && (libraryOnly || variablesUnchanged)) {
+      defMap.set(d.id, existing);
       reused.add(d.id);
     } else defMap.set(d.id, allocateDefinition(d));
   }
   let reduced = true;
-  while (reduced) {
+  while (reduced && !libraryOnly) {
     reduced = false;
     for (const d of imported.library.filter(d => reused.has(d.id))) {
       let conflict = false;
@@ -125,13 +149,20 @@ export function importChapter(project, pkgOrV1) {
     }
   }
   const importedItems = imported.library.filter(d => d.kind === 'item'), itemMap = new Map(importedItems.map(d => [d.id, defMap.get(d.id)]));
-  const aliases = new Map();
+  const aliases = new Map(libraryMatches?.aliases);
   for (const d of importedItems.filter(d => d.inventoryKey)) {
     if (aliases.has(d.inventoryKey)) continue;
     const group = importedItems.filter(item => (item.inventoryKey ?? item.id) === d.inventoryKey);
     // Shared aliases deliberately describe one inventory identity in legacy data.
     const owner = group.find(item => reused.has(item.id)) || group.find(item => item.id === d.inventoryKey);
-    aliases.set(d.inventoryKey, owner ? (reused.has(owner.id) ? d.inventoryKey: defMap.get(owner.id)): unique(d.inventoryKey, inventoryUsed));
+    let identity;
+    if (!owner) identity = unique(d.inventoryKey, inventoryUsed);
+    else if (!reused.has(owner.id)) identity = defMap.get(owner.id);
+    else if (libraryOnly) {
+      const target = next.library.find(item => item.id === defMap.get(owner.id));
+      identity = target.inventoryKey ?? target.id;
+    } else identity = d.inventoryKey;
+    aliases.set(d.inventoryKey, identity);
   }
   const remap = value => {remapDefinitionReferences(value,defMap);return walk(value, v => {
     if (v.contextItemId && !tagContextRefs.has(v) && defMap.has(v.contextItemId)) v.contextItemId = defMap.get(v.contextItemId);
@@ -140,12 +171,28 @@ export function importChapter(project, pkgOrV1) {
       else v.key = ruleVarMap.get(v.key) || v.key;
     }
     if (v.modifierVariable) v.modifierVariable = ruleVarMap.get(v.modifierVariable) || v.modifierVariable;
+    if (libraryOnly && typeof v.text === 'string') v.text = v.text.replace(/\[STAT:([^\[\]\r\n]*)\]/g, (token, key) => ruleVarMap.has(key) ? `[STAT:${ruleVarMap.get(key)}]` : token);
   });
   };
+  const ownedIds = new Set(defs);
+  if (libraryOnly) walk(next.library, value => { if (named(value.id)) ownedIds.add(value.id); });
   for (const d of imported.library) {
     const old = d.id;
     if (reused.has(old)) continue;
     remap(d);
+    if (libraryOnly) {
+      // Embedded cards belong to their Weapon/Enemy. Remap only that owner's
+      // actionId references, never source-relative attack.source = 'weapon'.
+      const ownedMap = new Map();
+      walk(d, value => {
+        if (value !== d && named(value.id)) {
+          const id = unique(value.id, ownedIds);
+          ownedMap.set(value.id, id);
+          value.id = id;
+        }
+      });
+      walk(d, value => { if (ownedMap.has(value.actionId)) value.actionId = ownedMap.get(value.actionId); });
+    }
     d.id = defMap.get(old);
     if (d.visibility === 'local') d.chapterId = chapterMap.get(d.chapterId) || d.chapterId;
     if (d.inventoryKey) d.inventoryKey = aliases.get(d.inventoryKey) || d.inventoryKey;
@@ -167,7 +214,83 @@ export function importChapter(project, pkgOrV1) {
     next.chapters.push(c);
     next.activeChapterId = c.id;
   }
-  return normalizeStats(normalizeSingleItems(discardPlacementContext(normalizeLocalOwnership(next))));
+  return libraryOnly ? next : normalizeStats(normalizeSingleItems(discardPlacementContext(normalizeLocalOwnership(next))));
+}
+
+/** Match existing portable graphs without allocating IDs. Trial mappings roll
+ * back on failure; prebinding each pair lets cyclic graphs terminate. Owned
+ * identities are scoped to their Enemy/Weapon and inventory aliases have their
+ * own mapping, so equality follows behavior rather than generated ID spelling. */
+function matchLibraryDefinitions(sourceLibrary, targetLibrary) {
+  const sources = new Map(sourceLibrary.map(d => [d.id, d]));
+  const targets = new Map(targetLibrary.map(d => [d.id, d]));
+  let definitions = new Map(), aliases = new Map();
+  const snapshot = () => [new Map(definitions), new Map(aliases)];
+  const restore = saved => { [definitions, aliases] = saved; };
+  const bindAlias = (source, target) => {
+    if (aliases.has(source)) return aliases.get(source) === target;
+    // Distinct source inventories must remain independent even when their
+    // Item presentations happen to be identical.
+    if ([...aliases].some(([key, value]) => key !== source && value === target)) return false;
+    aliases.set(source, target);
+    return true;
+  };
+  function inventory(source, target) {
+    if (typeof target !== 'string') return false;
+    if (sources.get(source)?.kind === 'item') return bind(source, target);
+    const group = sourceLibrary.filter(d => d.kind === 'item' && (d.inventoryKey ?? d.id) === source);
+    if (!group.length) return source === target; // Tag references were remapped before matching.
+    if (!bindAlias(source, target)) return false;
+    const candidates = targetLibrary.filter(d => d.kind === 'item' && (d.inventoryKey ?? d.id) === target);
+    return group.every(item => candidates.some(candidate => bind(item.id, candidate.id)));
+  }
+  function bind(sourceId, targetId) {
+    if (definitions.has(sourceId)) return definitions.get(sourceId) === targetId;
+    const source = sources.get(sourceId), target = targets.get(targetId);
+    if (!source || !target || target.visibility === 'local' || source.kind !== target.kind) return false;
+    const saved = snapshot();
+    definitions.set(sourceId, targetId);
+    const owned = new Map();
+    function collect(a, b, root = false) {
+      if (Array.isArray(a)) return Array.isArray(b) && a.length === b.length && a.every((entry, index) => collect(entry, b[index]));
+      if (!object(a)) return true;
+      if (!object(b)) return false;
+      if (!root && named(a.id)) {
+        if (!named(b.id) || owned.has(a.id) && owned.get(a.id) !== b.id) return false;
+        owned.set(a.id, b.id);
+      }
+      return Object.entries(a).every(([key, entry]) => collect(entry, b[key]));
+    }
+    function equal(a, b, root = false) {
+      if (Array.isArray(a)) return Array.isArray(b) && a.length === b.length && a.every((entry, index) => equal(entry, b[index]));
+      if (!object(a)) return a === b;
+      if (!object(b)) return false;
+      const skip = key => root && (key === 'id' || key === 'visibility' || source.kind === 'item' && key === 'inventoryKey');
+      const keys = Object.keys(a).filter(key => !skip(key));
+      if (keys.length !== Object.keys(b).filter(key => !skip(key)).length) return false;
+      return keys.every(key => {
+        if (!Object.hasOwn(b, key)) return false;
+        if (key === 'id' && named(a.id)) return owned.get(a.id) === b.id;
+        if (key === 'actionId' && owned.has(a.actionId)) return owned.get(a.actionId) === b.actionId;
+        if (key === 'definitionId') return bind(a.definitionId, b.definitionId);
+        if (key === 'contextItemId' && sources.get(a.contextItemId)?.kind === 'item') return bind(a.contextItemId, b.contextItemId);
+        if (key === 'key' && (a.source === 'inventory' || ['addItem', 'removeItem'].includes(a.op))) return inventory(a.key, b.key);
+        return equal(a[key], b[key]);
+      });
+    }
+    const matches = collect(source, target, true)
+      && (source.kind !== 'item' || bindAlias(source.inventoryKey ?? source.id, target.inventoryKey ?? target.id))
+      && equal(source, target, true);
+    if (!matches) restore(saved);
+    return matches;
+  }
+  for (const source of sourceLibrary) {
+    if (definitions.has(source.id)) continue;
+    const preferred = targets.get(source.id);
+    if (preferred && bind(source.id, preferred.id)) continue;
+    targetLibrary.some(target => bind(source.id, target.id));
+  }
+  return {definitions, aliases};
 }
 
 export function parseProject(text, {allowDraft = false} = {}) {

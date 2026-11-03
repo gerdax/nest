@@ -11,6 +11,7 @@ import { pasteCardClipboard } from './card-clipboard.js';
 import { isStatVariable } from '../project/checks.js';
 import { createDefinition, allowedCardKinds, isStoryKind, isConsumableKind } from '../project/cards.js';
 import { chapterVariables, createProjectChapter, importChapter, outputsForNode } from '../project/model.js';
+import {importLibrary} from '../project/library-packages.js';
 import { definitionGraph } from '../project/dependencies.js';
 import { removeLibraryDefinition } from './library-removal.js';
 import { captureNodeClipboard, pasteNodeClipboard, captureNodesClipboard, pasteNodesClipboard } from './node-clipboard.js';
@@ -495,6 +496,7 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
       return {selection:{selected:chapter.startNode}};
     }
     case 'set-start': if(node.type==='death')throw new Error('Death cannot be the chapter start');chapter.startNode = node.id; break;
+    case 'import-library': return {project:importLibrary(project,data.source,data.ids)};
     case 'import': {
       const next = data.raw.kind === 'nest-project' ? data.incoming : importChapter(project, data.raw);
       const active = next.chapters.find(c => c.id === next.activeChapterId) || next.chapters[0];

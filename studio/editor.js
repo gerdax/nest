@@ -49,6 +49,7 @@ import { mountSaveConflictPanel } from './save-conflict-panel.js';
 import { openProjectSession } from './project-session.js';
 import {createProjectFileActions,projectFileName,projectFileUrl} from './project-file-actions.js';
 import {showProjectFileDialog,askUnsavedProjectChoice} from './project-file-dialog.js';
+import {showLibraryImportDialog} from './library-import-dialog.js';
 
 const $=s=>document.querySelector(s),projectSession=await openProjectSession(),loaded=projectSession.loaded;
 const previewOverrides = new PreviewOverrides();
@@ -278,7 +279,7 @@ function render({preserveProjectSettings=false}={}){
  $('#chapter-selector').innerHTML=sortedChapters(project).map(c=>`<option value="${esc(c.id)}" ${c.id===chapterId?'selected':''}>${esc(c.name)}</option>`).join('');
  $('#undo').disabled=!history.canUndo;$('#redo').disabled=!history.canRedo;
 
- $('#canvas').hidden=mode!=='chapter';$('#library-panel').hidden=mode!=='library';$('#node-tools').hidden=mode!=='chapter';$('#library-tabs').hidden=mode!=='library';
+ $('#canvas').hidden=mode!=='chapter';$('#library-panel').hidden=mode!=='library';$('#node-tools').hidden=mode!=='chapter';$('#library-toolbar').hidden=mode!=='library';
  $('#chapter-view').classList.toggle('active-tab',mode==='chapter');$('#library-view').classList.toggle('active-tab',mode==='library');
  const issues=validateProject(project);$('#errors').innerHTML=issues.map(e=>`<div>${esc(e.message)}</div>`).join('');
  renderGraph(issues);renderLibrary();renderInspector({preserveProjectSettings});
@@ -506,6 +507,22 @@ $('#library-search-clear').onclick=()=>{
  $('#library-search').value='';renderLibrary();$('#library-search').focus();
 };
 $('#library-match-beat').onchange=renderLibrary;
+$('#import-library').onclick=()=>$('#import-library-file').click();
+$('#import-library-file').onchange=async event=>{
+ const file=event.target.files?.[0];if(!file)return;
+ try {
+  const {project:source}=parseStudioImport(await file.text(),{kind:'project'});
+  const ids=await showLibraryImportDialog(source);if(!ids)return;
+  preview.stop();
+  const previousCount=project.library.length;
+  const result=edit('import-library',{source,ids});
+  if(result.ok){
+   const added=project.library.length-previousCount;
+   report(`Library imported: ${added} card${added===1?'':'s'} added. Identical cards reused; existing cards kept. Undo restores the previous Library.`);
+  }
+ }catch(error){report(`Library import rejected: ${error.message}`);}
+ finally {event.target.value='';}
+};
 $('#chapter-view').onclick=()=>{mode='chapter';render();};$('#library-view').onclick=()=>{mode='library';libraryTab='content';render();};
 $('#chapter-selector').onchange=e=>{preview.stop();edit('select-chapter',{id:e.target.value});graph.fit();};
 $('#add-chapter').onclick=()=>edit('add-chapter');
