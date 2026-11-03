@@ -152,13 +152,13 @@ export class GraphView {
  unlinked(node,exit){const target=this.target(node,exit);return target!==null&&!this.nodesById.has(target);}
  port(node,exit,label=null){
   const target=esc(this.portLabel(node,exit)),name=esc(labelForOutput(this.project,node,exit,this.libraryIndex));
-  if(exit.endsWith(':success')||exit.endsWith(':failure'))label='';
+  if(exit.endsWith(':success')||exit.endsWith(':failure')||node.type==='combat'&&exit==='victory')label='';
   return `<button class="port ${this.unlinked(node,exit)?'unlinked':''}" data-exit="${esc(exit)}" aria-label="${name} → ${target}">${label===null?`${exit==='next'?'':name+' '}→ ${target}`:`${label?`${esc(label)} | `:'→ '}${target}`}</button>`;
  }
  cardRows(node){
   const descriptor=nodeTypeDescriptor(node.type),outputs=outputsForNode(this.project,node,this.libraryIndex),used=new Set();
   const enemy=node.type==='combat'&&this.definitionsById.get(node.enemy?.definitionId);
-  let html=node.type==='combat'?`<div class="node-body">${enemy?.kind==='enemy'&&enemy.visibility!=='local'?`<button type="button" class="graph-definition-link" title="Open Enemy in Library">Enemy · ${esc(enemy.name||'Untitled Enemy')} ↗</button>`:'Enemy · Choose Enemy'}</div>`:'';
+  let html=node.type==='combat'?`<div class="node-body">${enemy?.kind==='enemy'&&enemy.visibility!=='local'?`<button type="button" class="graph-definition-link" title="Open Enemy in Library">${esc(enemy.name||'Untitled Enemy')} ↗</button>`:'None'}</div>`:'';
   for(const slot of Object.keys(descriptor?.slots||{})){
    const placements=slot==='intro'?(node.intro&&node.introEnabled!==false?[node.intro]:[]):node[slot]||[];
    for(const placement of placements){

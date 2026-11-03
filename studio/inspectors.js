@@ -168,7 +168,7 @@ export function nodeInspector(project,chapter,node,previewEffects=node?.entryEff
   }).join('');
   if(node.type==='legacyPool')html+=field('Legacy selections',node.count,'count','node','number');
  }
- const availability=['fork','linear'].includes(node.type)?select('Unavailable actions',node.unavailableActions??'project',[['project','Use project settings'],...unavailableActionOptions],'unavailableActions','node'):'';
+ const availability=['fork','linear','combat'].includes(node.type)?select('Unavailable actions',node.unavailableActions??'project',[['project','Use project settings'],...unavailableActionOptions],'unavailableActions','node'):'';
  if(['container','linear'].includes(node.type))html+='<hr class="connections-divider inventory-persistence-divider">'+checkbox('Keep swapped items on revisit',retainsInventoryItems(node),'retainInventoryItems','node');
  if(node.type==='death')return html;
  html+='<hr class="connections-divider"><h3>Connections</h3>'+outputsForNode(project,node).map(exit=>{

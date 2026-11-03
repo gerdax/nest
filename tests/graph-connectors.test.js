@@ -795,7 +795,7 @@ test('Combat Enemy link opens its current Library source without starting a grap
  s.graph.project.library=[enemy];Object.assign(s.chapter.nodes[0],{type:'combat',enemy:{definitionId:enemy.id},connections:{victory:'b'}});
  s.graph.onOpenDefinition=id=>opened.push(id);s.graph.render(s.graph.project,s.chapter,'a');
  assert.match(s.root.parts['#nodes'].rendered,/class="graph-definition-link"/);
- assert.match(s.root.parts['#nodes'].rendered,/Enemy · Rat &lt;guard&gt; ↗/);
+ assert.match(s.root.parts['#nodes'].rendered,/Rat &lt;guard&gt; ↗/);
  const link=new Element('graph-definition-link',{},s.root.node('a'));
  s.graph.down({target:link,button:0,pointerId:1,clientX:300,clientY:200,preventDefault(){}});
  assert.equal(s.graph.drag,null);assert.deepEqual(s.selections,[]);assert.deepEqual(s.moves,[]);
@@ -809,5 +809,5 @@ for(const definition of [null,{id:'bad',kind:'caption',name:'Wrong kind'},{id:'b
  const s=setup();s.graph.project.library=definition?[definition]:[];
  Object.assign(s.chapter.nodes[0],{type:'combat',enemy:{definitionId:'bad'},connections:{victory:false}});s.graph.render(s.graph.project,s.chapter,'a');
  assert.doesNotMatch(s.root.parts['#nodes'].rendered,/graph-definition-link/);
- assert.match(s.root.parts['#nodes'].rendered,/Enemy · Choose Enemy/);
+ assert.match(s.root.parts['#nodes'].rendered,/None/);
 });

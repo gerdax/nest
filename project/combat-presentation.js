@@ -18,7 +18,9 @@ export function enemyActionCard(action,id,context={}) {
 }
 
 
-export function combatChoices(choices,id,values={},definitions=[],{animateItemActions=true,preparationBonus=0}={}) {
+export function combatChoices(choices,id,values={},definitions=[],{animateItemActions=true,preparationBonus=0,unavailableActions='disabled'}={}) {
+ const showRules=['disabled','disabled-triggers'].includes(unavailableActions);
+ choices=choices.filter(choice=>!choice.disabled||showRules);
  const ordered=[...choices.filter(choice=>!(choice.cooldownRemaining>0)&&choice.source),...choices.filter(choice=>!(choice.cooldownRemaining>0)&&!choice.source),...choices.filter(choice=>choice.cooldownRemaining>0)];
  return {id,interaction:'choice',decisionOnly:true,allowClose:false,autoBrowse:true,actions:ordered.map(choice=>{
   const {action,source}=choice;

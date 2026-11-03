@@ -141,7 +141,6 @@ aside {overflow-anchor:none;}
 .artwork-positioning > .check-field {margin-top:12px;}
 
 #inspector label.field:has(> input[data-scope="node"][data-path="name"]) {margin-bottom:20px;}
-#inspector button[data-command="go-to-definition"] + label.field:has(> input[data-scope="node"][data-path="introEnabled"]) {margin-top:16px;}
 
 #settings .chapter-settings[open] > summary {margin-bottom:22px;}
 #project-settings-content [data-project-card-backs][open] > summary {margin-bottom:18px;}

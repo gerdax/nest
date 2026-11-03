@@ -2,13 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createProject,validateProject,parseProject,compileChapter,importChapter} from '../project/model.js';
 import {nodeInspector,projectSettingsInspector} from '../studio/inspectors.js';
+import {createNode} from '../studio/commands.js';
 import {exportStudioChapter} from '../studio/persistence.js';
 
 const labels=['Use project settings','Hide unmet rules &amp; triggers','Show unmet rules','Show unmet triggers','Show unmet rules &amp; triggers'];
 const choices=html=>html.match(/<select data-scope="(?:node|project)" data-path="unavailableActions">([\s\S]*?)<\/select>/)?.[1];
 
-test('node availability offers five named policies; project offers the four concrete defaults',()=>{
- const project=createProject(),chapter=project.chapters[0],node=chapter.nodes.find(n=>n.type==='fork');
+for(const type of ['fork','combat'])test(`${type} availability offers five named policies; project offers the four concrete defaults`,()=>{
+ const project=createProject(),chapter=project.chapters[0],node=type==='combat'?createNode(project,type):chapter.nodes.find(n=>n.type===type);
+ if(type==='combat')chapter.nodes.push(node);
  const nodeChoices=choices(nodeInspector(project,chapter,node));
  assert.ok(nodeChoices);for(const label of labels)assert.ok(nodeChoices.includes(label));
  assert.equal((nodeChoices.match(/<option /g)||[]).length,5);
@@ -18,8 +20,9 @@ test('node availability offers five named policies; project offers the four conc
  assert.ok(!projectChoices.includes('Use project settings'));
 });
 
-for(const projectPolicy of ['hidden','disabled','triggers-only','disabled-triggers'])for(const nodePolicy of ['project','hidden','disabled','triggers-only','disabled-triggers'])test(`availability persists: project ${projectPolicy}, beat ${nodePolicy}`,()=>{
- const project=createProject(),chapter=project.chapters[0],node=chapter.nodes.find(n=>n.type==='fork');
+for(const type of ['fork','combat'])for(const projectPolicy of ['hidden','disabled','triggers-only','disabled-triggers'])for(const nodePolicy of ['project','hidden','disabled','triggers-only','disabled-triggers'])test(`${type} availability persists: project ${projectPolicy}, beat ${nodePolicy}`,()=>{
+ const project=createProject(),chapter=project.chapters[0],node=type==='combat'?createNode(project,type):chapter.nodes.find(n=>n.type===type);
+ if(type==='combat')chapter.nodes.push(node);
  project.unavailableActions=projectPolicy;node.unavailableActions=nodePolicy;
  const before=structuredClone(project);
  assert.deepEqual(validateProject(project),[]);

@@ -127,7 +127,7 @@ export function combatDefinitionFields(project,d){
 export function combatProjectFields(project){return checkbox('Show death beat in chapter graph',project.showDeathBeat!==false,'showDeathBeat','project');}
 export function combatNodeFields(project,node){
  const enemy=project.library.find(d=>d.id===node.enemy?.definitionId&&d.kind==='enemy'&&d.visibility!=='local');
- return select('Enemy',node.enemy?.definitionId||'',refs(project,'enemy'),'enemy.definitionId','node')+button('Go to definition','go-to-definition',`data-definition="${esc(enemy?.id||'')}" ${enemy?'':'disabled'}`)+checkbox('Show introduction',node.introEnabled===true,'introEnabled','node');
+ return '<h3>Combat introduction</h3><div class="row introduction-controls">'+checkbox('Show introduction',node.introEnabled===true,'introEnabled','node')+'</div>'+select('Enemy',node.enemy?.definitionId||'',[['','None'],...refs(project,'enemy').slice(1)],'enemy.definitionId','node')+button('Go to definition','go-to-definition',`data-definition="${esc(enemy?.id||'')}" ${enemy?'':'disabled'}`);
 }
 export function applyCombatArrayCommand(root,data){
  const {parent,key}=pathTarget(root,data.path);if(data.command==='combat-add'&&data.factory==='prepared-reference')parent[key]??=[];const list=parent[key];if(!Array.isArray(list))throw new Error('Combat list is unavailable');

@@ -86,7 +86,7 @@ export class ProjectController {
   }
   unavailableActions(location=this.location) {
     const node=location?.node;
-    const override=['fork','linear'].includes(node?.type) ? node.unavailableActions : undefined;
+    const override=['fork','linear','combat'].includes(node?.type) ? node.unavailableActions : undefined;
     return (override && override!=='project' ? override : this.compiled.unavailableActions) ?? 'disabled';
   }
   cardAvailability(card, values=this.variables, inventory=this.inventory, location=this.location) {

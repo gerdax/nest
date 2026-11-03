@@ -527,3 +527,18 @@ test('classic enemies can opt into weighted Random and resample only on the next
  const choice=h.c.choices()[0],pending=h.c.accept({contentId:h.deck.content.id,action:{id:choice.id}});await tick();h.deck.depart?.();await pending;
  assert.equal(h.deck.content.heading,'rare');assert.equal(draws,2);assert.equal(h.c.encounter.actionIndex,0);assert.deepEqual(h.errors,[]);h.c.dispose();
 });
+
+for(const policy of ['project','hidden','disabled','triggers-only','disabled-triggers'])test(`Combat unavailable Actions follow beat policy ${policy}`,()=>{
+ const h=harness();
+ h.host.compiled.unavailableActions='hidden';h.c.node.unavailableActions=policy;
+ const punch=h.host.compiled.library.find(d=>d.name==='Punch');
+ punch.conditions=[{source:'variable',key:'energy',op:'gte',value:99}];
+ const choices=h.c.choices(),blocked=choices.find(c=>c.action.name==='Punch');
+ assert.equal(blocked.disabled,true);
+ assert.equal(ProjectController.prototype.unavailableActions.call(h.host,{node:h.c.node}),policy==='project'?'hidden':policy);
+ const shown=h.c.choiceContent().actions.find(c=>c.label==='Punch');
+ if(['disabled','disabled-triggers'].includes(policy))assert.equal(shown.disabled,true);
+ else assert.equal(shown,undefined);
+ assert(h.c.choiceContent().actions.some(c=>!c.disabled));
+ h.c.dispose();
+});
