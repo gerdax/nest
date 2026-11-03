@@ -641,7 +641,10 @@ if(projectSession.fileMode){
     onSubmit:mode==='save-as'?name=>actions.saveAs(name):name=>actions.open(name),
     onImport:async file=>{
      try {
-      const {project:incoming}=parseStudioImport(await file.text(),{kind:'project'});
+      const text=await file.text();
+      const existing=await actions.openMatchingFile(file.name,text);
+      if(existing)return existing;
+      const {project:incoming}=parseStudioImport(text,{kind:'project'});
       let suggestedName;try{suggestedName=projectFileName(file.name);}catch{suggestedName='imported-project.json';}
       const ok=await showProjectFileDialog({mode:'save-as',backend:projectSession.backend,currentFilename:projectSession.backend.filename,suggestedName,
        onSubmit:name=>actions.saveAs(name,{project:incoming})});

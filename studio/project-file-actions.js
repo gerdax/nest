@@ -67,5 +67,16 @@ export function createProjectFileActions({backend,getProject,persistence,confirm
       return {ok:true,filename};
     } catch(cause){return {ok:false,error:cause.message};}
   }
-  return {saveAs,open};
+  async function openMatchingFile(name,text) {
+    // Browsers expose no trustworthy parent folder for a selected file. Match
+    // both its name and exact contents before treating it as a server project.
+    try {validateProjectFilename(name);} catch {return null;}
+    try {
+      const state=await backend.forFile(name).probe();
+      if(!state.available)throw Error('The project file server is unavailable.');
+      if(state.text===null||state.text!==text)return null;
+      return await open(name);
+    } catch(cause){return {ok:false,error:cause.message};}
+  }
+  return {saveAs,open,openMatchingFile};
 }

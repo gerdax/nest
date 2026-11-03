@@ -71,6 +71,28 @@ test('a failed Save before opening, or an invalid/missing target, keeps the curr
  assert.equal((await h.actions.open('missing.json')).ok,false);assert.deepEqual(h.navigated,[]);assert.equal(h.state.dirty,true);
 });
 
+test('choosing an identical saved project opens directly without a save or overwrite prompt',async()=>{
+ const h=fixture();h.files.set('b.json',h.original);
+ assert.equal((await h.actions.openMatchingFile('b.json',h.original)).ok,true);
+ assert.deepEqual(h.navigated,['b.json']);
+ assert(!h.calls.some(([kind])=>['write','save-current','confirm'].includes(kind)));
+});
+
+test('selected files with missing names or different contents continue to import without opening another project',async()=>{
+ const h=fixture();
+ for(const [name,text] of [['missing.json',h.original],['a.json',h.original+'\n'],['../a.json',h.original]]){
+  assert.equal(await h.actions.openMatchingFile(name,text),null);
+ }
+ assert.deepEqual(h.navigated,[]);
+ assert(!h.calls.some(([kind])=>['write','save-current','confirm'].includes(kind)));
+});
+
+test('opening a matching selected file preserves unsaved-change cancellation',async()=>{
+ const h=fixture();h.files.set('b.json',h.original);h.state.dirty=true;
+ assert.equal((await h.actions.openMatchingFile('b.json',h.original)).cancelled,true);
+ assert.deepEqual(h.navigated,[]);assert.equal(h.state.dirty,true);
+});
+
 test('external imports are saved as named copies and honor unsaved-change cancellation',async()=>{
  const h=fixture(),incoming={...createProject(),name:'Imported'};h.state.dirty=true;
  assert.equal((await h.actions.saveAs('imported.json',{project:incoming})).cancelled,true);assert(!h.files.has('imported.json'));

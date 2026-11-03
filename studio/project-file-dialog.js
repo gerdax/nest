@@ -98,7 +98,7 @@ export function showProjectFileDialog({mode, backend, currentFilename = 'nest-pr
   }
   label.append(field); form.append(label);
   form.append(element('p', saveAs ? 'All project files are saved in saved-projects. Include .json in the file name.' :
-    'Open a project from saved-projects, or import an external JSON file. The external file is copied to saved-projects and autosave follows the named copy.'));
+    'Open a project from saved-projects, or choose a JSON file. Files matching a saved project open directly; other files are imported as a named copy.'));
   const error = element('p'); error.setAttribute('role', 'alert'); error.hidden = true;
   form.append(error);
   const submit = element('button', saveAs ? 'Save as' : 'Open project'); submit.type = 'submit';
@@ -107,8 +107,8 @@ export function showProjectFileDialog({mode, backend, currentFilename = 'nest-pr
   const importer = !saveAs && onImport ? element('input') : null;
   if (importer) {
     importer.type = 'file'; importer.accept = '.json,application/json';
-    importer.setAttribute('aria-label', 'Import JSON file…');
-    const importLabel = element('label', 'Import JSON file…'); importLabel.append(importer); form.append(importLabel);
+    importer.setAttribute('aria-label', 'Choose JSON file…');
+    const importLabel = element('label', 'Choose JSON file…'); importLabel.append(importer); form.append(importLabel);
   }
   form.append(retry, submit, cancel); dialog.append(form);
   let listReady = saveAs;
