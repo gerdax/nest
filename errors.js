@@ -236,6 +236,7 @@ export const errorDefinitions = Object.freeze({
   STUDIO_THIS_ITEM_SHARES_AN_INVENTORY_IDENTITY_WITH_ANOTHER_SOURCE_UPDATE_THOSE_GAMEPLAY_REFERENCES_FIRST: Object.freeze({message: 'This Item shares an inventory identity with another source. Update those gameplay references first.', type: Error}),
   STUDIO_UPDATE_GAMEPLAY_REFERENCES_TO_THIS_SOURCE_FIRST_INCLUDING_INVENTORY_RULES_ITEM_CONTEXT_OR_SOURCE_SELF: Object.freeze({message: 'Update gameplay references to this source first (including inventory rules, Item context, or source self-references).', type: Error}),
   STUDIO_LIBRARY_REMOVAL_BLOCKED: Object.freeze({message: ({reason}) => reason, type: Error}),
+  STUDIO_ENEMY_IS_USED_BY_COMBAT_BEATS: Object.freeze({message: ({name, uses}) => `Cannot delete “${name}”: used in combat at ${uses}. Choose another enemy there or delete the combat beats first.`, type: Error}),
   STUDIO_COPIED_IMAGE_SETTINGS_ARE_INVALID: Object.freeze({message: 'Copied image settings are invalid.', type: Error}),
   STUDIO_THE_SELECTED_BEAT_NO_LONGER_EXISTS: Object.freeze({message: 'The selected beat no longer exists.', type: Error}),
   STUDIO_COPY_A_BEAT_BEFORE_PASTING: Object.freeze({message: 'Copy a beat before pasting.', type: Error}),

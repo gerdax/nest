@@ -13,6 +13,26 @@ import { LocalCardDrafts } from '../studio/local-card-drafts.js';
 import { DocumentHistory } from '../editor/DocumentHistory.js';
 
 const effect = value => ({op:'add',key:'energy',value});
+test('enemy deletion names its combat beats and chapters without changing the project', () => {
+  const project = createProject(), chapter = project.chapters[0];
+  chapter.name = 'Rat chapter';
+  project.library.push({id:'rat',kind:'enemy',name:'Rat'});
+  chapter.nodes.push({id:'rat-fight',name:'Rat encounter',type:'combat',enemy:{definitionId:'rat'}});
+  const other = {...chapter,id:'second',name:'Other chapter',nodes:[{id:'second-fight',name:'Second encounter',type:'combat',enemy:{definitionId:'rat'}}]};
+  project.chapters.push(other);
+  const before = structuredClone(project);
+  const plan = libraryRemovalPlan(project, 'rat');
+  assert.equal(plan.blocked, true);
+  assert.match(plan.reason, /“Rat encounter” in chapter “Rat chapter”/);
+  assert.match(plan.reason, /“Second encounter” in chapter “Other chapter”/);
+  assert.match(plan.reason, /Choose another enemy/);
+  assert.doesNotMatch(plan.reason, /inventory|Item context/);
+  assert.throws(() => removeLibraryDefinition(project, 'rat'), /Rat encounter/);
+  assert.deepEqual(project, before);
+  chapter.nodes.pop();other.nodes.pop();
+  assert.equal(libraryRemovalPlan(project, 'rat').blocked, false);
+});
+
 function fixture(kind) {
   const project = createProject(), chapter = project.chapters[0];
   const source = {...createDefinition(kind, 'removable'), visibility:'shared', text:'Source text', image:'source.png', imageScale:73};

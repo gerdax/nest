@@ -12,6 +12,14 @@ export function libraryRemovalPlan(project, id) {
   // Use the full graph rather than users(): users deliberately omits self refs.
   const references = definitionGraph(project).references.filter(ref => ref.definitionId === id);
   const placements = references.filter(ref => ref.kind === 'placement' && ref.chapter && !ref.sourceDefinition);
+  if (definition.kind === 'enemy') {
+    const combatUses = references.filter(ref => ref.kind === 'enemy' && ref.node?.type === 'combat');
+    if (combatUses.length) {
+      const uses = [...new Set(combatUses.map(ref => `“${ref.node.name || ref.nodeId}” in chapter “${ref.chapter.name || ref.chapterId}”`))].join('; ');
+      return {definition, placements, blocked: true,
+        reason: errorMessage('STUDIO_ENEMY_IS_USED_BY_COMBAT_BEATS', {name: definition.name || id, uses})};
+    }
+  }
   if (definition.kind === 'item') {
     if (new Set(placements.map(ref => ref.chapterId)).size > 1) return {
       definition, placements, blocked: true,
