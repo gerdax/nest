@@ -83,7 +83,7 @@ export function playerChoices(compiled, run, encounter) {
     const reason=requirementReason(compiled,run,action.conditions)
       || (profile&&!Number.isSafeInteger(profile.max+(encounter.preparationBonus??0))?'Prepared damage exceeds supported range':'')
       || (!affordCosts(run.variables,run.inventory,action.costs,compiled.variables)?resourceShortage(compiled,run,action.costs)
-      : cooldownRemaining>0?`Cooldown: ${cooldownRemaining} turn`:'');
+      : cooldownRemaining>0?`READY IN ${cooldownRemaining===1?'NEXT':cooldownRemaining}⟳`:'');
     result.push({id:key,action:structuredClone(action),source:source?structuredClone(source):null,profile,cooldownRemaining,disabled:!!reason,disabledReason:reason});
   };
   for(const ref of compiled.combat?.defaultActions??[])add(ref);

@@ -1,4 +1,5 @@
 import { TriggerItemMini } from './TriggerItemMini.js';
+import { renderDescriptionIcons } from '../engine/description-icons.js';
 
 /** Shared caption and CSS visibility lifecycle for selected action context. */
 export class ActionContextPanel {
@@ -65,7 +66,8 @@ export class ActionContextPanel {
     this.caption.removeAttribute('aria-label');
     if (disabledReason && Array.isArray(disabledReasonParts) && disabledReasonParts.some(part => ['health','energy'].includes(part.resource))) {
       this.renderRequirements(disabledReason, disabledReasonParts);
-    } else this.caption.textContent = result ? `ROLL: ${result.total}  TARGET: ${result.target}` : disabledReason || (info ? info.stat ?? '' : 'USING');
+    } else if (disabledReason) renderDescriptionIcons(this.caption, disabledReason);
+    else this.caption.textContent = result ? `ROLL: ${result.total}  TARGET: ${result.target}` : (info ? info.stat ?? '' : 'USING');
     this.checkDetails.hidden = !info && !result;
     this.checkChance.textContent = result ? result.label ?? (result.success ? 'SUCCESS' : 'FAIL') : info ? `${Math.round(parseFloat(info.chance))}%` : '';
     this.checkDetails.setAttribute('data-presentation', result ? 'result' : 'odds');

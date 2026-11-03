@@ -135,6 +135,23 @@ test('source action entrances default to enabled and can be suppressed on later 
 });
 
 
+test('unavailable attacks show their base card while preparation remains active',()=>{
+ const action={id:'attack',kind:'combatAction',name:'Attack',type:'attack',resolution:'direct',attack:{source:'self',damage:{min:2,max:2}},text:'[DMG][IF:PREPARED] aimed[ENDIF]'};
+ for(const disabledReason of ['READY IN NEXT⟳','Not enough energy','Requirement not met']){
+  const choices=[{id:'attack',action,disabled:true,disabledReason}];
+  const shown=combatChoices(choices,'choices',{},[],{preparationBonus:2}).actions[0];
+  assert.equal(shown.prepared,false);
+  assert.equal(shown.typeLabel,'ATTACK');
+  assert.equal(shown.text,'2');
+  assert.equal(shown.disabledReason,disabledReason);
+  assert.equal(action.text,'[DMG][IF:PREPARED] aimed[ENDIF]');
+ }
+ const available=combatChoices([{id:'attack',action,disabled:false}],'choices',{},[],{preparationBonus:2}).actions[0];
+ assert.equal(available.prepared,true);
+ assert.equal(available.typeLabel,'PREPARED');
+ assert.equal(available.text,'4 aimed');
+});
+
 test('Attack descriptions contain only authored text, including when prepared',()=>{
  for(const text of [undefined,'','My editable description.']){
   const action={id:'attack',name:'Attack',type:'attack',resolution:'direct',text};

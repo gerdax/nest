@@ -147,7 +147,7 @@
   font-size: var(--card-font-size, clamp(16px, 4vw, 21px));
   line-height: 1.45;
   margin: 12px 0 0;
-  text-wrap: pretty;
+  text-wrap: wrap;
   overflow-wrap: anywhere;
 }
 .nest-action { border-color: var(--card-action-border, #60704480); }
@@ -220,7 +220,7 @@
   text-transform: none;
   color: var(--card-text, #d2dfb6);
   margin-top: 12px;
-  text-wrap: pretty;
+  text-wrap: wrap;
   overflow-wrap: anywhere;
 }
 .nest-card[data-card-kind="action"] .nest-copy,
