@@ -2,19 +2,55 @@
 import argparse
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from io import BytesIO
 import ipaddress
 import json
 import re
 from pathlib import Path
 from urllib.parse import parse_qsl, urlsplit
 
-from image_catalog import image_manifest_bytes
+from image_catalog import IMAGE_SUFFIXES, image_manifest_bytes
 from project_file_store import InvalidProject, MAX_PROJECT_BYTES, ProjectFileStore
+from runtime_catalog import DEBUG_ONLY_FILES, RUNTIME_FILES, RUNTIME_MODULE_DIRS
+
+
+def public_file(path):
+    parts, suffix = path.parts, path.suffix.lower()
+    if not parts or any(part.startswith('.') for part in parts):
+        return False
+    name = path.as_posix()
+    if name.casefold() in DEBUG_ONLY_FILES:
+        return False
+    if name in RUNTIME_FILES or name == 'dice.html':
+        return True
+    if parts[0] in RUNTIME_MODULE_DIRS and len(parts) == 2:
+        return suffix in {'.js', '.css'}
+    if parts[:2] == ('assets', 'img'):
+        return suffix in IMAGE_SUFFIXES
+    if parts[:2] == ('assets', 'fonts'):
+        return suffix == '.ttf'
+    if parts[0] == 'dice':
+        return name == 'dice/vendor/dice-box/LICENSE' or suffix in IMAGE_SUFFIXES | {'.js', '.html', '.json', '.wasm'}
+    # Browser-facing developer fixtures use the same local server as the app.
+    return parts[:2] == ('tests', 'fixtures') and suffix in {'.html', '.js', '.css', '.json'}
+
+
+def is_storage_path(candidate, directory):
+    if candidate.is_relative_to(directory):
+        return True
+    # On case-insensitive or normalization-insensitive volumes, a different
+    # spelling can still name the same directory.
+    ancestor = Path(*candidate.parts[:len(directory.parts)])
+    try:
+        return ancestor.samefile(directory)
+    except FileNotFoundError:
+        return False
 
 
 class PlaygroundHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, project_dir=None, **kwargs):
         root = Path(kwargs.get('directory') or '.').resolve()
+        kwargs['directory'] = str(root)
         self.project_store = ProjectFileStore(project_dir or root / 'saved-projects')
         super().__init__(*args, **kwargs)
 
@@ -129,19 +165,29 @@ class PlaygroundHandler(SimpleHTTPRequestHandler):
             self._json(500, {'error': 'Unable to save project file'})
 
     def send_head(self):
-        translated = Path(self.translate_path(self.path)).resolve()
-        protected = [self.project_store.directory, Path(self.directory).resolve() / 'saved-projects']
-        if any(translated == path or path in translated.parents for path in protected):
-            self.send_error(403, 'Project files are private')
-            return None
+        root = Path(self.directory)
         if urlsplit(self.path).path == '/assets/image-manifest.json':
-            from io import BytesIO
-            content = image_manifest_bytes(Path(self.directory))
+            content = image_manifest_bytes(root)
             self.send_response(200)
             self.send_header('Content-Type', 'application/json; charset=utf-8')
             self.send_header('Content-Length', str(len(content)))
             self.end_headers()
             return BytesIO(content)
+        translated = Path(self.translate_path(self.path))
+        requested_root = translated == root
+        candidate = root / 'index.html' if requested_root else translated
+        try:
+            resolved = candidate.resolve()
+            allowed = (resolved == candidate and resolved.is_relative_to(root)
+                       and public_file(resolved.relative_to(root))
+                       and not is_storage_path(resolved, self.project_store.directory)
+                       and (not requested_root or candidate.is_file())
+                       and not candidate.is_dir())
+        except (OSError, RuntimeError):
+            allowed = False
+        if not allowed:
+            self.send_error(403, 'Path is outside the public runtime')
+            return None
         return super().send_head()
 
     def list_directory(self, path):

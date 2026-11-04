@@ -7,6 +7,9 @@ import {createLegacyStarterChapter} from '../chapter/model.js';
 import {saveProject, loadProject} from '../project/storage.js';
 import {exportStudioChapter} from '../studio/persistence.js';
 import {ProjectController} from '../project/ProjectController.js';
+import {createRatCombatProject} from '../project/combat-fixture.js';
+import {resolveDescription} from '../project/description-tokens.js';
+import {initialValues} from '../project/state.js';
 
 const retiredNames = ['quantity', 'use', 'remainingTriggers'];
 class Deck extends EventTarget {
@@ -21,6 +24,29 @@ function runtime(compiled) {
   controller.destroy();
   return snapshot;
 }
+
+test('chapter import rewrites description tokens when a stat ID collides', () => {
+  const source = createRatCombatProject(), destination = createProject();
+  for (const [project, initial] of [[source, 8], [destination, 3]]) {
+    project.variables.push({id:'focus', type:'number', initial, min:1, max:10, stat:true});
+  }
+  source.library.find(card => card.id === 'rat-after').text = 'Focus [STAT:focus]';
+  source.library.find(card => card.id === 'rat').actions[0].text = 'Enemy sees focus [STAT:focus]';
+  const pkg = exportChapter(source), original = structuredClone(pkg);
+
+  const imported = importChapter(destination, pkg);
+  assert.deepEqual(pkg, original);
+  assert.deepEqual(validateProject(imported), []);
+  const compiled = compileChapter(imported);
+  const context = {variables:compiled.variables, values:initialValues(compiled.variables)};
+  assert.equal(context.values.focus, 3);
+  assert.equal(context.values['focus-2'], 8);
+  const caption = compiled.nodes.find(node => node.id === 'after-rat').cards[0];
+  const enemyRef = compiled.nodes.find(node => node.id === 'rat-fight').enemy;
+  const enemy = compiled.library.find(card => card.id === enemyRef.definitionId);
+  assert.deepEqual(resolveDescription(caption.text, context), {text:'Focus 8', warnings:[]});
+  assert.deepEqual(resolveDescription(enemy.actions[0].text, context), {text:'Enemy sees focus 8', warnings:[]});
+});
 
 for (const scope of ['global', 'chapter']) test(`${scope} variables named after retired item fields survive document round trips`, () => {
   const project = createProject(), chapter = project.chapters[0];

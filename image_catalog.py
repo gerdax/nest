@@ -7,17 +7,20 @@ IMAGE_SUFFIXES = frozenset({".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"})
 
 
 def image_files(root: Path) -> list[Path]:
-    image_root = (root / "assets" / "img").resolve()
+    image_root = root.resolve() / "assets" / "img"
+    if image_root.parent.is_symlink() or image_root.is_symlink():
+        return []
     return sorted(
         source for source in image_root.rglob("*")
         if source.is_file() and not source.is_symlink()
         and source.suffix.lower() in IMAGE_SUFFIXES
+        and not any(part.startswith(".") for part in source.relative_to(image_root).parts)
         and source.resolve().is_relative_to(image_root)
     )
 
 
 def image_manifest(root: Path) -> dict:
-    image_root = (root / "assets" / "img").resolve()
+    image_root = root.resolve() / "assets" / "img"
     return {"version": 1, "images": [
         {"filename": source.name, "path": source.relative_to(image_root).as_posix()}
         for source in image_files(root)

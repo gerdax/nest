@@ -10,41 +10,10 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from image_catalog import image_files, image_manifest_bytes
+from runtime_catalog import DEBUG_ONLY_FILES, RUNTIME_FILES, RUNTIME_MODULE_DIRS
 
 
 ROOT = Path(__file__).resolve().parent
-RUNTIME_FILES = (
-    "index.html",
-    "errors.js",
-    "player.html",
-    "editor/preview.js",
-    "editor/storage.js",
-    "engine/CardDeck.js",
-    "engine/CheckSurface.js",
-    "engine/DeckInteractionMotion.js",
-    "engine/DeckEntranceSequence.js",
-    "engine/InventoryPickup.js",
-    "engine/artworkColorize.js",
-    "engine/artworkReload.js",
-    "engine/cardBacks.js",
-    "engine/PointerInput.js",
-    "engine/geometry.js",
-    "engine/motion.js",
-    "engine/motionProfile.js",
-    "engine/presentationReadiness.js",
-    "engine/inventoryContext.js",
-    "engine/MovementHistory.js",
-    "engine/renderer.js",
-    "engine/description-icons.js",
-    "engine/cssScale.js",
-    "engine/cardSizing.js",
-    "engine/card-deck.css",
-    "demo/InventoryStrip.js",
-    "demo/inventory.css",
-)
-# Preserve this developer tool in source; no active host imports it.
-DEBUG_ONLY_FILES = frozenset({"studio/drawer-debug.js"})
-
 IMPORT_RE = re.compile(r"\b(?:from\s+|import\s+)['\"]([^'\"\r\n]+)['\"]")
 URL_RE = re.compile(r"url\(\s*(['\"]?)(.*?)\1\s*\)", re.IGNORECASE)
 ASSET_RE = re.compile(r"\b((?:assets/(?:img|fonts)/(?:[\w.-]+/)*)?[\w.-]+\.(?:png|ttf))")
@@ -91,10 +60,8 @@ def main() -> None:
     runtime_files = list(RUNTIME_FILES)
     # Include project/studio runtime and retained v1 chapter/editor dependencies.
     # Motion tuning stays independent of the authoring interface.
-    for folder in ("chapter", "player", "project", "studio"):
+    for folder in RUNTIME_MODULE_DIRS:
         runtime_files.extend(source.relative_to(ROOT).as_posix() for source in sorted((ROOT / folder).rglob("*")) if source.is_file() and source.suffix in {".js", ".css"})
-    runtime_files.append("editor.html")
-    runtime_files.extend(source.relative_to(ROOT).as_posix() for source in sorted((ROOT / "editor").rglob("*")) if source.is_file() and source.suffix in {".js", ".css"})
     runtime_files = [name for name in dict.fromkeys(runtime_files) if name not in DEBUG_ONLY_FILES]
     for relative in runtime_files:
         copy_repo_file(relative)

@@ -184,7 +184,7 @@ class HttpTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        self.storage = self.root / 'custom-storage'
+        self.storage = self.root / 'dice' / 'custom-storage'
         handler = partial(QuietHandler, directory=str(self.root), project_dir=self.storage)
         self.server = ThreadingHTTPServer(('127.0.0.1', 0), handler)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
@@ -253,14 +253,61 @@ class HttpTests(unittest.TestCase):
         self.assertEqual(self.request(path='/api/projects?file=a.json')[0], 400)
 
     def test_storage_and_listings_not_public(self):
-        self.storage.mkdir()
+        self.storage.mkdir(parents=True)
         (self.storage / 'nest-project.json').write_text(project())
         (self.root / 'saved-projects').mkdir()
         (self.root / 'saved-projects' / 'backup.json').write_text('secret')
         (self.root / 'alias').symlink_to(self.storage, target_is_directory=True)
-        for path in ['/custom-storage/nest-project.json', '/saved-projects/backup.json', '/saved-projects/',
+        for path in ['/dice/custom-storage/nest-project.json', '/dice/CUSTOM-STORAGE/nest-project.json',
+                     '/saved-projects/backup.json', '/saved-projects/',
                      '/saved%2dprojects/backup.json', '/alias/nest-project.json', '/']:
+            expected = 404 if 'CUSTOM-STORAGE' in path and not self.storage.with_name('CUSTOM-STORAGE').exists() else 403
+            self.assertEqual(self.request(path=path)[0], expected, path)
+
+    def test_public_runtime_and_lan_project_api(self):
+        files = ['index.html', 'player.html', 'editor.html', 'dice.html', 'errors.js',
+                 'studio/player.js', 'engine/CardDeck.js', 'dice/frame.html',
+                 'dice/themes/nest/theme.config.json', 'dice/vendor/engine.wasm',
+                 'dice/vendor/dice-box/LICENSE',
+                 'assets/img/ui/example card.png', 'assets/fonts/letter.ttf',
+                 'tests/fixtures/inventory-drawer.html']
+        lan_host = f'192.168.1.20:{self.server.server_port}'
+        headers = {'Host': lan_host, 'Origin': 'http://' + lan_host}
+        for name in files:
+            file = self.root / name
+            file.parent.mkdir(parents=True, exist_ok=True)
+            file.write_text('public')
+            path = '/' + name.replace(' ', '%20') + '?v=1'
+            self.assertEqual(self.request(path=path, headers=headers), (200, b'public'), name)
+        self.assertEqual(self.request(path='/?project=example', headers=headers), (200, b'public'))
+        status, body = self.request(path='/assets/image-manifest.json', headers=headers)
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)['images'][0]['path'], 'ui/example card.png')
+        payload = json.dumps({'text': project(), 'expectedRevision': None})
+        headers['Content-Type'] = 'application/json'
+        self.assertEqual(self.request('POST', data=payload, headers=headers)[0], 200)
+        self.assertEqual(json.loads(self.request(headers=headers)[1])['text'], project())
+
+    def test_source_paths_and_static_aliases_are_denied(self):
+        private_files = ['.git/HEAD', '.codex/settings.json', 'editor/exports/original.json',
+                         'editor/exports/helper.js', 'assets/img/source.psd',
+                         'assets/img/.private.png', 'demos/combat/index.html', 'serve.py',
+                         'studio/drawer-debug.js', 'tests/test_project_file_store.py']
+        for name in private_files:
+            file = self.root / name
+            file.parent.mkdir(parents=True, exist_ok=True)
+            file.write_text('private')
+        (self.root / 'assets/img/alias.png').symlink_to(self.root / '.git/HEAD')
+        (self.root / 'assets/img/linked-dir').symlink_to(self.root / 'editor/exports', target_is_directory=True)
+        (self.root / 'index.html').symlink_to(self.root / '.git/HEAD')
+        paths = ['/' + name for name in private_files] + [
+            '/studio/DRAWER-DEBUG.js',
+            '/', '/%2egit/HEAD', '/assets/img/%2e%2e/%2e%2e/.git/HEAD',
+            '/assets/img/alias.png', '/assets/img/linked-dir/original.json']
+        for path in paths:
             self.assertEqual(self.request(path=path)[0], 403, path)
+            self.assertEqual(self.request('HEAD', path=path), (403, b''), path)
+        self.assertEqual(json.loads(self.request(path='/assets/image-manifest.json')[1])['images'], [])
 
 
 if __name__ == '__main__':

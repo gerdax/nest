@@ -171,7 +171,7 @@ function mergePackageContent(next, imported, pkgOrV1, {libraryOnly = false} = {}
       else v.key = ruleVarMap.get(v.key) || v.key;
     }
     if (v.modifierVariable) v.modifierVariable = ruleVarMap.get(v.modifierVariable) || v.modifierVariable;
-    if (libraryOnly && typeof v.text === 'string') v.text = v.text.replace(/\[STAT:([^\[\]\r\n]*)\]/g, (token, key) => ruleVarMap.has(key) ? `[STAT:${ruleVarMap.get(key)}]` : token);
+    if (typeof v.text === 'string') v.text = v.text.replace(/\[STAT:([^\[\]\r\n]*)\]/g, (token, key) => ruleVarMap.has(key) ? `[STAT:${ruleVarMap.get(key)}]` : token);
   });
   };
   const ownedIds = new Set(defs);
@@ -224,33 +224,54 @@ function mergePackageContent(next, imported, pkgOrV1, {libraryOnly = false} = {}
 function matchLibraryDefinitions(sourceLibrary, targetLibrary) {
   const sources = new Map(sourceLibrary.map(d => [d.id, d]));
   const targets = new Map(targetLibrary.map(d => [d.id, d]));
-  let definitions = new Map(), aliases = new Map();
-  const snapshot = () => [new Map(definitions), new Map(aliases)];
-  const restore = saved => { [definitions, aliases] = saved; };
+  const definitions = new Map(), aliases = new Map(), aliasTargets = new Map();
+  const journal = [];
+  function remember(map, key, value) {
+    map.set(key, value);
+    journal.push({map, key});
+  }
+  function rollback(checkpoint) {
+    while (journal.length > checkpoint) {
+      const {map, key} = journal.pop();
+      map.delete(key);
+    }
+  }
   const bindAlias = (source, target) => {
     if (aliases.has(source)) return aliases.get(source) === target;
     // Distinct source inventories must remain independent even when their
     // Item presentations happen to be identical.
-    if ([...aliases].some(([key, value]) => key !== source && value === target)) return false;
-    aliases.set(source, target);
+    if (aliasTargets.has(target)) return false;
+    remember(aliases, source, target);
+    remember(aliasTargets, target, source);
     return true;
   };
-  function inventory(source, target) {
+  function* inventory(source, target) {
     if (typeof target !== 'string') return false;
-    if (sources.get(source)?.kind === 'item') return bind(source, target);
+    if (sources.get(source)?.kind === 'item') return yield bind(source, target);
     const group = sourceLibrary.filter(d => d.kind === 'item' && (d.inventoryKey ?? d.id) === source);
     if (!group.length) return source === target; // Tag references were remapped before matching.
     if (!bindAlias(source, target)) return false;
     const candidates = targetLibrary.filter(d => d.kind === 'item' && (d.inventoryKey ?? d.id) === target);
-    return group.every(item => candidates.some(candidate => bind(item.id, candidate.id)));
+    for (const item of group) {
+      let matched = false;
+      for (const candidate of candidates) {
+        if (yield bind(item.id, candidate.id)) {
+          matched = true;
+          break;
+        }
+      }
+      if (!matched) return false;
+    }
+    return true;
   }
-  function bind(sourceId, targetId) {
+  function* bind(sourceId, targetId) {
     if (definitions.has(sourceId)) return definitions.get(sourceId) === targetId;
     const source = sources.get(sourceId), target = targets.get(targetId);
     if (!source || !target || target.visibility === 'local' || source.kind !== target.kind) return false;
-    const saved = snapshot();
-    definitions.set(sourceId, targetId);
+    const checkpoint = journal.length;
+    remember(definitions, sourceId, targetId);
     const owned = new Map();
+    const dependencies = [];
     function collect(a, b, root = false) {
       if (Array.isArray(a)) return Array.isArray(b) && a.length === b.length && a.every((entry, index) => collect(entry, b[index]));
       if (!object(a)) return true;
@@ -272,23 +293,50 @@ function matchLibraryDefinitions(sourceLibrary, targetLibrary) {
         if (!Object.hasOwn(b, key)) return false;
         if (key === 'id' && named(a.id)) return owned.get(a.id) === b.id;
         if (key === 'actionId' && owned.has(a.actionId)) return owned.get(a.actionId) === b.actionId;
-        if (key === 'definitionId') return bind(a.definitionId, b.definitionId);
-        if (key === 'contextItemId' && sources.get(a.contextItemId)?.kind === 'item') return bind(a.contextItemId, b.contextItemId);
-        if (key === 'key' && (a.source === 'inventory' || ['addItem', 'removeItem'].includes(a.op))) return inventory(a.key, b.key);
+        if (key === 'definitionId' || key === 'contextItemId' && sources.get(a.contextItemId)?.kind === 'item') {
+          dependencies.push(bind(a[key], b[key]));
+          return true;
+        }
+        if (key === 'key' && (a.source === 'inventory' || ['addItem', 'removeItem'].includes(a.op))) {
+          dependencies.push(inventory(a.key, b.key));
+          return true;
+        }
         return equal(a[key], b[key]);
       });
     }
-    const matches = collect(source, target, true)
+    let matches = collect(source, target, true)
       && (source.kind !== 'item' || bindAlias(source.inventoryKey ?? source.id, target.inventoryKey ?? target.id))
       && equal(source, target, true);
-    if (!matches) restore(saved);
+    if (matches) for (const dependency of dependencies) {
+      matches = yield dependency;
+      if (!matches) break;
+    }
+    if (!matches) rollback(checkpoint);
     return matches;
+  }
+  function trial(sourceId, targetId) {
+    // Each frame yields one dependency and resumes with its result. Following
+    // references here keeps the JS call stack independent of graph depth.
+    const pending = [bind(sourceId, targetId)];
+    let result;
+    while (pending.length) {
+      const next = pending.at(-1).next(result);
+      if (next.done) {
+        result = next.value;
+        pending.pop();
+      } else {
+        pending.push(next.value);
+        result = undefined;
+      }
+    }
+    journal.length = 0;
+    return result;
   }
   for (const source of sourceLibrary) {
     if (definitions.has(source.id)) continue;
     const preferred = targets.get(source.id);
-    if (preferred && bind(source.id, preferred.id)) continue;
-    targetLibrary.some(target => bind(source.id, target.id));
+    if (preferred && trial(source.id, preferred.id)) continue;
+    targetLibrary.some(target => trial(source.id, target.id));
   }
   return {definitions, aliases};
 }

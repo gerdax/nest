@@ -291,6 +291,29 @@ test('reimport matches a cyclic dependency graph after colliding identities were
   assert.deepEqual(validateProject(first),[]);
 });
 
+test('Library reimport rolls back a deep mismatch and reuses a matching chain', () => {
+  const source = createProject(), destination = createProject();
+  const length = 1500;
+  for (let index = 0; index < length; index++) {
+    const id = 'deep-item-' + index;
+    const item = {...createDefinition('item', id), name: 'Deep Item ' + index};
+    const nextId = index + 1 < length ? 'deep-item-' + (index + 1) : null;
+    if (nextId) item.onCollect = [{op:'addItem', key:nextId}];
+    source.library.push(item);
+    destination.library.push({
+      ...cloneProject(item), id:id + '-copy',
+      ...(nextId ? {onCollect:[{op:'addItem', key:nextId + '-copy'}]} : {}),
+    });
+  }
+  // The preferred IDs match until the last dependency. Their trial must
+  // release all tentative bindings before the renamed chain can be reused.
+  const preferred = cloneProject(source.library.slice(-length));
+  preferred.at(-1).name = 'Different last Item';
+  destination.library.push(...preferred);
+  assert.deepEqual(validateProject(source), []);
+  assert.deepEqual(validateProject(destination), []);
+  assert.deepEqual(importLibrary(destination, source, ['deep-item-0']), destination);
+});
 
 test('cyclic graph matching rejects a different cycle topology without modifying the destination', () => {
   const source=createProject(),destination=createProject();
