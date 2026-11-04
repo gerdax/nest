@@ -704,14 +704,14 @@ if(loaded.recovery){
  recoveryDownload.onclick=()=>{const recovered=readRecoveredSave();if(!recovered.ok){report(errorMessage('STUDIO_RECOVERY_DOWNLOAD_FAILED', {message: recovered.error}));return;}downloadText(recovered.text,'nest-recovered-save.txt');report('Recovered save downloaded as exact original text. Recovery backup retained.');};
  $('#save-status').after(recoveryDownload);
 }
-$('#export-project').textContent='Save project';
+$('#export-project').textContent=projectSession.fileMode?'Save project':'Download JSON';
 function downloadProjectCopy(){try{download(exportProjectDraft(project),`${project.name.replace(/[^a-z0-9]+/gi,'-')}.nest.json`);report('Project JSON downloaded. Unfinished work is included; playback requires validation errors to be fixed.');}catch(error){report(errorMessage('STUDIO_PROJECT_EXPORT_FAILED', {message: error.message}));}}
 $('#export-project').onclick=projectSession.fileMode?saveManually:downloadProjectCopy;
 if(projectSession.fileMode){
  $('#export-project').title=`Save to ${projectSession.backend.path} (⌘S / Ctrl+S)`;
- const copy=document.createElement('button');copy.type='button';copy.textContent='Save copy';copy.onclick=downloadProjectCopy;
+ const copy=document.createElement('button');copy.type='button';copy.textContent='Download JSON';copy.onclick=downloadProjectCopy;
  $('#export-project').after(copy);
- const filename=document.createElement('span');filename.id='active-project-file';filename.className='active-project-file';filename.textContent=projectSession.backend.filename;filename.title=projectSession.backend.path;
+ const filename=document.createElement('span');filename.id='active-project-file';filename.className='active-project-file';filename.textContent=`Studio file · ${projectSession.backend.filename}`;filename.title=projectSession.backend.path;
  $('#project-name').parentElement.after(filename);
  const saveAs=document.createElement('button');saveAs.id='save-project-as';saveAs.type='button';saveAs.textContent='Save as…';
  $('#export-project').after(saveAs);
@@ -727,7 +727,9 @@ if(projectSession.fileMode){
   definitionId=project.library.find(d=>d.visibility!=='local')?.id;mode='chapter';libraryTab='content';
   localDrafts.reset();nodeErrors.runtime.clear();nodeClipboard=null;cardClipboard=null;copiedArtwork=null;
   graph.selected=selected;graph.selectedIds=new Set(selected?[selected]:[]);graph.lastCanvasClick=null;
-  filename.textContent=localFilename;filename.title='Opened from disk. This tab is separate from saved-projects.';
+  filename.textContent=`From disk · ${localFilename}`;filename.title='Opened from disk. Autosave is off.';
+  $('#export-project').textContent='Download JSON';
+  saveAs.textContent='Save in Studio…';copy.hidden=true;
   $('#export-project').title='Download the current project JSON (⌘S / Ctrl+S)';
   for(const link of playerLinks)link.hidden=true;
   const url=new URL(location.href);url.searchParams.delete('project');
@@ -749,7 +751,7 @@ if(projectSession.fileMode){
     chooseUnsaved:()=>askUnsavedProjectChoice(),
     navigate:name=>{deliberateReload=true;location.assign(projectFileUrl(name,location.href));},
    });
-   await showProjectFileDialog({mode,backend:projectSession.backend,currentFilename:localFilename?'':projectSession.backend.filename,
+   await showProjectFileDialog({mode,localFile:!!localFilename,backend:projectSession.backend,currentFilename:localFilename?'':projectSession.backend.filename,
     suggestedName:localFilename?`${localFilename.replace(/\.json$/i,'')}-copy.json`:undefined,
     onSubmit:mode==='save-as'?name=>actions.saveAs(name):name=>actions.open(name),
     onImport:actions.openLocal,

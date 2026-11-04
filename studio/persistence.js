@@ -27,7 +27,7 @@ export function createPersistence({loaded = {}, storage, onStatus = () => {}, on
   const dirty = () => draftText !== savedDraftText;
   const report = (text = '') => !destroyed && onStatus([warning, saveFailure,
     pending ? 'Saving…' : dirty() ? 'Unsaved changes.' : '',
-    download ? 'Local file. Autosave is off. Save project downloads a copy.' : !autosaveEnabled ? 'Autosave off.' : '',
+    download ? 'Opened from disk. Autosave is off.' : !autosaveEnabled ? 'Autosave off.' : '',
     text === saveFailure || ((pending || dirty()) && text.startsWith('Saved')) ? '' : text].filter(Boolean).join(' '));
   const setConflict = primary => {
     conflict = {primary};

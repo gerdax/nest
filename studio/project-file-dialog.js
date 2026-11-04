@@ -82,35 +82,38 @@ export function createProjectDialog(doc, title, marker) {
 
 /** Select a local server project; callbacks own all project state and overwrite decisions. */
 export function showProjectFileDialog({mode, backend, currentFilename = 'nest-project.json', suggestedName,
-  onSubmit, onImport, document = globalThis.document}) {
+  onSubmit, onImport, localFile = false, document = globalThis.document}) {
   if (!['save-as', 'open'].includes(mode)) throw Error('Unknown project file dialog mode.');
   const saveAs = mode === 'save-as';
-  const ui = createProjectDialog(document, saveAs ? 'Save project as' : 'Open project', 'data-project-file-dialog');
+  const saveLabel = localFile ? 'Save in Studio' : 'Save as';
+  const ui = createProjectDialog(document, saveAs ? (localFile ? saveLabel : 'Save project as') : 'Open project', 'data-project-file-dialog');
   const {element, dialog} = ui;
   const form = element('form');
   form.style.display = 'grid'; form.style.gap = '12px';
-  const label = element('label', saveAs ? 'File name' : 'Project file');
+  const label = element('label', saveAs ? 'File name' : 'Studio project');
   const field = element(saveAs ? 'input' : 'select');
-  field.setAttribute('aria-label', saveAs ? 'File name' : 'Project file');
+  field.setAttribute('aria-label', saveAs ? 'File name' : 'Studio project');
   if (saveAs) {
     field.type = 'text'; field.required = true; field.autocomplete = 'off';
     field.value = suggestedName || `${currentFilename.replace(/\.json$/i, '')}-copy.json`;
   }
   label.append(field); form.append(label);
   form.append(element('p', saveAs ? 'All project files are saved in saved-projects. Include .json in the file name.' :
-    'Open a project from saved-projects, or choose a JSON file to work on separately without autosave.'));
+    'Studio projects support autosave in the Studio folder.'));
   const error = element('p'); error.setAttribute('role', 'alert'); error.hidden = true;
   form.append(error);
-  const submit = element('button', saveAs ? 'Save as' : 'Open project'); submit.type = 'submit';
+  const submit = element('button', saveAs ? saveLabel : 'Open Studio project'); submit.type = 'submit';
   const cancel = element('button', 'Cancel'); cancel.type = 'button';
   const retry = element('button', 'Retry list'); retry.type = 'button'; retry.hidden = true;
+  form.append(retry, submit);
   const importer = !saveAs && onImport ? element('input') : null;
   if (importer) {
     importer.type = 'file'; importer.accept = '.json,application/json';
-    importer.setAttribute('aria-label', 'Choose JSON file…');
-    const importLabel = element('label', 'Choose JSON file…'); importLabel.append(importer); form.append(importLabel);
+    importer.setAttribute('aria-label', 'Open JSON from disk…');
+    const importLabel = element('label', 'Open JSON from disk…'); importLabel.append(importer);
+    form.append(importLabel, element('p', 'Edit a JSON file in this tab with autosave off.'));
   }
-  form.append(retry, submit, cancel); dialog.append(form);
+  form.append(cancel); dialog.append(form);
   let listReady = saveAs;
   const update = () => {
     for (const node of [field, submit, cancel, retry, importer].filter(Boolean)) node.disabled = ui.busy;

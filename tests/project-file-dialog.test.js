@@ -87,7 +87,7 @@ test('open list failures remain visible and can retry, current item selected and
   const f = fixture(); let lists = 0, chosen;
   const backend = {list:async()=>{if (++lists === 1) throw Error('Offline'); return {available:true,files:[{name:'Other.json'},{name:'Current.json'}]};}};
   const pending = showProjectFileDialog({mode:'open',document:f.doc,backend,currentFilename:'Current.json',onSubmit:async name=>{chosen=name;return {ok:true};}});
-  await settle(); assert.equal(alert(f.doc).textContent,'Offline'); assert.equal(button(f.doc,'Open project').disabled,true);
+  await settle(); assert.equal(alert(f.doc).textContent,'Offline'); assert.equal(button(f.doc,'Open Studio project').disabled,true);
   assert.equal(button(f.doc,'Retry list').hidden,false);
   emit(button(f.doc,'Retry list'),'click'); await settle();
   const select = find(f.doc,node=>node.tagName === 'SELECT');
@@ -99,7 +99,7 @@ test('empty list allows import and failed imports remain retryable', async()=>{
   const f = fixture(); let imported, succeeds = false;
   const pending = showProjectFileDialog({mode:'open',document:f.doc,backend:{list:async()=>({available:true,files:[]})},
     onImport:async file=>{imported=file;return succeeds ? {ok:true} : {ok:false,error:'Invalid JSON'};}});
-  await settle(); assert.equal(button(f.doc,'Open project').disabled,true);
+  await settle(); assert.equal(button(f.doc,'Open Studio project').disabled,true);
   const field = find(f.doc,node=>node.tagName === 'INPUT' && node.type === 'file');
   assert.equal(field.accept,'.json,application/json');
   const file = {name:'external.json'}; field.files = [file]; emit(field,'change'); await settle();
