@@ -14,7 +14,7 @@ function orderedEntry(html,path,index,count,{min=0,label='action',removeReason='
  return `<div class="card-placement-row combat-entry-row" data-combat-section="${esc(path)}">${html}<div class="card-order-controls">${arrow(-1,index===0)}${arrow(1,index===count-1)}</div><button type="button" class="card-remove-button" data-command="combat-remove" ${target} aria-label="Remove ${esc(label)}" title="${esc(removeReason||`Remove ${label}`)}" ${count<=min||removeReason?'disabled':''}><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="m3 3 10 10M13 3 3 13"/></svg></button></div>`;
 }
 export function combatReferenceList(project,list,path,label,scope='definition'){
- return `<h3>${esc(label)}</h3>`+(list||[]).map((ref,i)=>`<div class="entry">${select('Combat Action',ref.definitionId,refs(project,'combatAction').filter(([id])=>path!=='combat.defaultActions'||!id||!(project.library.find(d=>d.id===id)?.type==='attack'&&project.library.find(d=>d.id===id)?.attack?.source==='weapon')),`${path}.${i}.definitionId`,scope)}${controls(path,i,list.length,0,scope)}</div>`).join('')+add('Add Combat Action',path,'reference',scope);
+ return `<h3>${esc(label)}</h3>`+(list||[]).map((ref,i)=>`<div class="entry">${select('Combat Action',ref.definitionId,refs(project,'combatAction').filter(([id])=>path!=='combat.defaultActions'||!id||!(project.library.find(d=>d.id===id)?.type==='attack'&&project.library.find(d=>d.id===id)?.attack?.source==='weapon')),`${path}.${i}.definitionId`,scope)}${controls(path,i,list.length,0,scope)}</div>`).join('')+add('Add combat action',path,'reference',scope);
 }
 function damageFields(damage,prefix){return '<div class="row">'+field('Minimum damage',damage?.min??1,`${prefix}.min`,'definition','number')+field('Maximum damage',damage?.max??1,`${prefix}.max`,'definition','number')+'</div>';}
 function embeddedImage(card,path,definitionId,enemy=false){
@@ -78,14 +78,14 @@ function preparedActionFields(enemy,action,path){
   const p=`${base}.${i}`,selected=(enemy.preparedActions||[]).find(a=>a.id===ref.actionId);
   const timing=!selected?(ref.trigger==='incoming-hit'?'Choose a defense action for this trigger.':'Choose an Attack or Wait for this trigger.'):'';
   return '<div class="entry">'+picker('Action',ref.actionId,`${p}.actionId`,'all')+select('Trigger',ref.trigger,[['incoming-hit',"When the player's attack hits"],['after-player-action',"After the player's action"]],`${p}.trigger`)+(timing?`<p class="small">${esc(timing)}</p>`:'')+field('Chance weight',ref.weight??1,`${p}.weight`,'definition','number')+(selected?.type==='defend'?picker('Response to other player actions',ref.fallback?.actionId,`${p}.fallback.actionId`,'fallback')+(ref.fallback?.actionId?['defend','wait','prepare'].map(type=>checkbox(`Show response after player ${type}`,ref.fallback.when?.includes(type),`${p}.fallback.when.${type}`)).join('')+(Array.isArray(ref.fallback?.when)&&!ref.fallback.when.length?'<p class="small">No player actions selected. This fallback is disabled.</p>':''):''):'')+controls(base,i,list.length)+'</div>';
- }).join('')+add('+ Add choice',base,'prepared-reference');
+ }).join('')+add('Add choice',base,'prepared-reference');
 }
 function ownedPreparedActions(project,enemy){
  return '<h3>Prepared actions</h3><p class="small">Create an action, choose its type, then add it to a Prepare action above.</p>'+(enemy.preparedActions||[]).map((action,i)=>{
   const path=`preparedActions.${i}`;
 
   return orderedEntry(`<details class="entry combat-embedded" data-enemy-action-type="${esc(action.type||'attack')}" open><summary>${esc(action.name||'Prepared action')}</summary>`+field('Name',action.name,`${path}.name`)+select('Action type',action.type,[['attack','Attack'],['defend','Defend'],['wait','Wait']],`${path}.type`)+field('Description',action.text,`${path}.text`,'definition','textarea')+combatActionFields(project,action,`${path}.`,{enemy:true,owned:true,showType:false})+embeddedImage(action,path,enemy.id,true)+'</details>','preparedActions',i,enemy.preparedActions.length,{label:'prepared action'});
- }).join('')+add('+ Prepared Action','preparedActions','prepared-action');
+ }).join('')+add('Add prepared action','preparedActions','prepared-action');
 }
 
 function weaponActions(project,weapon){
@@ -93,7 +93,7 @@ function weaponActions(project,weapon){
  const path=`combat.actions.${i}`;
  if(action.kind!=='combatAction')return '<p class="small">Missing Combat Action. Restore its source definition to migrate it.</p>';
  return `<details class="entry combat-embedded" open><summary>${esc(action.name||'Combat Action')}</summary>`+field('Name',action.name,`${path}.name`)+combatActionTypeField(action,`${path}.`)+field('Description',action.text,`${path}.text`,'definition','textarea')+combatActionFields(project,action,`${path}.`,{showType:false,weapon})+embeddedImage(action,path,weapon.id)+defendRevealFields(project,action,`${path}.`)+controls('combat.actions',i,weapon.combat.actions.length)+'</details>';
- }).join('')+add('+ Combat Action','combat.actions','weapon-action');
+ }).join('')+add('Add combat action','combat.actions','weapon-action');
 }
 export function combatDefinitionFields(project,d){
  if(d.kind==='combatAction')return combatActionFields(project,d,'',{showType:false});
@@ -105,7 +105,7 @@ export function combatDefinitionFields(project,d){
  html+='<h3>Combat Actions</h3>'+select('Action selection',Object.hasOwn(d,'actionSelection')&&!['random','order'].includes(d.actionSelection)?d.actionSelection:enemyActionSelection(d),[['random','Random'],['order','Order']],'actionSelection')+'<p class="small">'+(d.actionSelection==='random'||!Object.hasOwn(d,'actionSelection')&&d.mechanics==='opposed-preparation'?'One action is selected each enemy turn using Random weights. Equal weights mean equal chances.':'Actions play from top to bottom, then repeat. Random weights are ignored.')+'</p>'+(d.actions||[]).map((action,i)=>{
  const path=`actions.${i}`;
  return orderedEntry(`<details class="entry" data-enemy-action-type="${esc(action.type||'attack')}" open><summary>${i+1} · ${esc(action.name)}</summary>`+field('Name',action.name,`${path}.name`)+combatActionTypeField(action,`${path}.`,'definition',{enemy:true})+field('Random weight',action.weight??1,`${path}.weight`,'definition','number').replace('step="any"','step="1" min="1"')+'<p class="small">Used by Random selection. Ignored in Order; kept when switching modes.</p>'+field('Description',action.text,`${path}.text`,'definition','textarea')+combatActionFields(project,action,`${path}.`,{enemy:true,showType:false,opposedPreparation:d.mechanics==='opposed-preparation'})+(action.type==='prepare'&&(d.mechanics==='opposed-preparation'||Array.isArray(action.preparedActions))?preparedActionFields(d,action,path):'')+embeddedImage(action,path,d.id,true)+'</details>','actions',i,d.actions.length,{min:1,label:'combat action'});
- }).join('')+add('+ Combat Action','actions','enemy-action');
+ }).join('')+add('Add combat action','actions','enemy-action');
 
  if(d.mechanics==='opposed-preparation'||Array.isArray(d.preparedActions))html+=ownedPreparedActions(project,d);
 

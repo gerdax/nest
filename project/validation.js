@@ -11,6 +11,7 @@ import { object, named, list, placements, legacyArtwork, chapterVariables } from
 import { hasDirectedCycle, outputsForNode } from './graph.js';
 import { definitionGraph } from './dependencies.js';
 import { createLibraryIndex } from './library-index.js';
+import { MAX_AUTO_DRAWS, validAutoDrawCount } from './randomizer.js';
 import { resolveBeatGroups } from './beat-groups.js';
 
 export function validateProject(project, {allowDraft = false} = {}) {
@@ -409,7 +410,8 @@ export function validateProject(project, {allowDraft = false} = {}) {
     const resolvedGroups = resolveBeatGroups(project, chapter);
     errors.push(...resolvedGroups.issues.filter(issue => !allowDraft || !issue.draft));
     chapter = resolvedGroups.chapter;
-    if(chapter.nodes.some(n=>n?.type==='combat'&&!isUnassignedCombat(n))) {
+    if(chapter.nodes.some(n=>n?.type==='combat'&&!isUnassignedCombat(n)
+      || n?.type==='randomizer'&&list(n.candidates).some(candidate=>definitions.get(candidate?.enemy?.definitionId)?.kind==='enemy'))) {
       const health=vars.get('health');
       if(!health||health.type!=='number'||!Number.isSafeInteger(health.initial)||(health.min!==undefined&&health.min>0)||(health.max!==undefined&&(!Number.isSafeInteger(health.max)||health.max<1)))add('Combat requires integer player Health with bounds allowing zero',cid);
     }
@@ -452,22 +454,36 @@ export function validateProject(project, {allowDraft = false} = {}) {
       if(node.type==='combat'){if(!isUnassignedCombat(node))typedRef(node.enemy,'enemy',label);if(['intro','cards','attacks','actions','health','hit','reactions','death','combat'].some(key=>Object.hasOwn(node,key)))add('Combat does not support encounter overrides',cid,nid);if(object(node.connections)&&Object.keys(node.connections).some(k=>k!=='victory'))add('Combat has only a Victory output',cid,nid);}
       if (node.type === 'randomizer') {
         if (object(node.connections) && Object.keys(node.connections).some(key => key !== 'next')) {
-          add(`${label}: Randomizer has only a Next output`,cid,nid);
+          add(`${label}: Auto has only a Next output`,cid,nid);
+        }
+        if (Object.hasOwn(node,'drawCount') && !validAutoDrawCount(node.drawCount)) {
+          add(`${label}: Auto draw count must be a whole number from 1 to ${MAX_AUTO_DRAWS}`,cid,nid);
         }
         if (!Number.isFinite(node.noneWeight) || node.noneWeight < 0) {
-          add(`${label}: Randomizer None weight must be a finite nonnegative number`,cid,nid);
+          add(`${label}: Auto None weight must be a finite nonnegative number`,cid,nid);
         }
-        if (!Array.isArray(node.candidates)) add(`${label}: Randomizer candidates must be a list`,cid,nid);
-        const candidateGroups = new Set();
+        if (!Array.isArray(node.candidates)) add(`${label}: Auto candidates must be a list`,cid,nid);
+        const candidateTargets = new Set();
         for (const candidate of list(node.candidates)) {
-          if (!object(candidate) || !named(candidate.groupId) || !Number.isFinite(candidate.weight) || candidate.weight <= 0) {
-            add(`${label}: Randomizer candidate requires a group and a positive finite weight`,cid,nid);
+          const group = candidate?.groupId, beat = candidate?.beatId, enemy = candidate?.enemy;
+          const hasTarget = [group,beat,enemy].filter(target=>target!==undefined).length===1
+            && (named(group) || named(beat) || object(enemy));
+          if (!object(candidate) || !hasTarget || !Number.isFinite(candidate.weight) || candidate.weight <= 0) {
+            add(`${label}: Auto candidate requires a group, beat, or Enemy and a positive finite weight`,cid,nid);
             continue;
           }
-          if (candidateGroups.has(candidate.groupId)) add(`${label}: duplicate Randomizer group`,cid,nid);
-          candidateGroups.add(candidate.groupId);
+          if (Object.hasOwn(candidate,'allowRepeats') && typeof candidate.allowRepeats!=='boolean') {
+            add(`${label}: Auto Allow repeats must be a boolean`,cid,nid);
+          }
+          const targetKey = JSON.stringify([group,beat,enemy?.definitionId]);
+          if (candidateTargets.has(targetKey)) add(`${label}: duplicate Auto ${enemy!==undefined?'Enemy':beat!==undefined?'beat':'group'}`,cid,nid);
+          candidateTargets.add(targetKey);
           const issueStart = errors.length;
-          inspectConditions(candidate.conditions,`${label} / Randomizer candidate ${candidate.groupId}`);
+          if (Object.hasOwn(candidate,'introEnabled') && (enemy===undefined || typeof candidate.introEnabled!=='boolean')) {
+            add(`${label}: Auto introduction override requires an Enemy and a boolean value`,cid,nid);
+          }
+          if (enemy!==undefined) typedRef(enemy,'enemy',`${label} / Auto candidate`);
+          inspectConditions(candidate.conditions,`${label} / Auto candidate ${group??beat??enemy?.definitionId}`);
           for (const issue of errors.slice(issueStart)) Object.assign(issue,{chapterId:cid,nodeId:nid});
         }
       }

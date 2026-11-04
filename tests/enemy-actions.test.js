@@ -25,7 +25,7 @@ test('new Enemy Actions expose the Attack type and perform their authored repeat
  const p=createProject(),enemy=createEnemy('enemy');enemy.actions.push(createEnemyAction('second'));p.library.push(enemy);
  assert.equal(enemy.actions[0].type,'attack');assert.equal(enemy.attacks,undefined);
  const html=definitionInspector(p,enemy);assert(html.includes('<h3>Combat Actions</h3>'));assert(html.includes('Actions play from top to bottom, then repeat. Random weights are ignored.'));assert(html.includes('Action type'));assert(html.includes('data-path="actions.0.type"'));assert(html.includes('>Attack</option>'));assert(!html.includes('Add attack'));
- assert(html.includes('>+ Combat Action</button>'));
+ assert(html.includes('>Add combat action</button>'));
  assert(html.includes('class="entry check-settings"><h3>Check settings</h3>'));
  assert(!html.includes('<h4>Dice check</h4>'));
  assert(!html.includes('data-path="actions.0.effects"'));

@@ -70,7 +70,7 @@ test('validation rejects malformed weights, duplicates, conditions and output ke
   randomizer.candidates.push({groupId:'another-group',weight:0});
   randomizer.connections.other = false;
   const messages = validateProject(project).filter(issue => issue.nodeId === randomizer.id).map(issue => issue.message);
-  for (const pattern of [/Next output/, /None weight/, /duplicate Randomizer group/, /variable condition/i, /positive finite weight/]) {
+  for (const pattern of [/Next output/, /None weight/, /duplicate Auto group/, /variable condition/i, /positive finite weight/]) {
     assert(messages.some(message => pattern.test(message)),pattern + ' missing in ' + messages.join(', '));
   }
 });

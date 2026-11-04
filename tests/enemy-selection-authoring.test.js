@@ -41,7 +41,7 @@ test('normal actions alone have Random weight, while prepared-choice weights rem
  assert(html.includes('data-path="actions.0.preparedActions.0.weight"'));
  assert(!html.includes('data-path="preparedActions.0.weight"'));
  assert.equal((html.match(/>Random weight</g)||[]).length,1);
- assert.equal((html.match(/>\+ Prepared Action<\/button>/g)||[]).length,1);
+ assert.equal((html.match(/>Add prepared action<\/button>/g)||[]).length,1);
  assert(html.indexOf('<h3>Prepared actions</h3>')>html.indexOf('<h3>Combat Actions</h3>'));
  assert(html.includes('data-enemy-action-type="prepare"'));assert(html.includes('data-enemy-action-type="wait"'));
  assert.deepEqual(enemy,before);

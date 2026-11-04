@@ -9,6 +9,7 @@ import { playerCardSummary, isStoryKind, collectionEffects } from './cards.js';
 import { selectPool } from '../chapter/random.js';
 import { isInventoryContext } from '../engine/inventoryContext.js';
 import { resolveCheck } from './checks.js';
+import { randomizerSceneKey, validAutoDrawCount } from './randomizer.js';
 import { actionAvailability } from './action-availability.js';
 
 /** Playback only. CardDeck remains responsible for gestures and departure choreography. */
@@ -26,7 +27,7 @@ export class ProjectController {
     for(const [name,listener] of Object.entries(this.listeners)) deck.addEventListener(name,listener);
     this.restart();
   }
-  get state() { return {activeNodeId:this.location?.node.id ?? null,cardId:this.card()?.id ?? null,variables:{...this.variables},collectedItems:this.inventory.map(i=>({...i})),completed:this.completed,terminalReason:this.terminalReason,combat:this.combat?.state??null,checking:!!this.checking||!!this.combat?.checking,idle:(!this.combat||this.combat.idle)&&!this.halted&&!this.deathHandoff&&!this.completed&&!this.checking&&!this.pendingItem&&!this.pendingIntro&&!this.pendingExchange&&!this.deck.busy&&!this.deck.pickup?.pending&&!this.deck.drag&&!['revealing','closing','committing','collecting'].includes(this.deck.phase)}; }
+  get state() { return {activeNodeId:this.location?.node.autoOwnerId ?? this.location?.node.id ?? null,cardId:this.card()?.id ?? null,variables:{...this.variables},collectedItems:this.inventory.map(i=>({...i})),completed:this.completed,terminalReason:this.terminalReason,combat:this.combat?.state??null,checking:!!this.checking||!!this.combat?.checking,idle:(!this.combat||this.combat.idle)&&!this.halted&&!this.deathHandoff&&!this.completed&&!this.checking&&!this.pendingItem&&!this.pendingIntro&&!this.pendingExchange&&!this.deck.busy&&!this.deck.pickup?.pending&&!this.deck.drag&&!['revealing','closing','committing','collecting'].includes(this.deck.phase)}; }
   notify() {if(!this.destroyed)this.onChange(this.state);}
   error(error) {if(!this.destroyed)this.onError(error,this.state);}
   succeeded(nodeId) {
@@ -147,12 +148,16 @@ export class ProjectController {
     let ticket=draw*total;
     return routes.find(r=>(ticket-=r.weight/maximum)<0) ?? routes.at(-1);
   }
-  randomizerChoices(node,values,inventory,run,excluded) {
+  randomizerChoices(node,values,inventory,run,visit,excluded) {
     const choices=[];
-    const groups=this.compiled.randomizerGroups??{};
     for(const candidate of node.candidates??[]){
-      if(!Object.hasOwn(groups,candidate.groupId))continue;
-      const group=groups[candidate.groupId];
+      const enemyId=candidate.enemy?.definitionId;
+      const scenes=(enemyId!==undefined?this.compiled.randomizerEnemies
+        :candidate.beatId!==undefined?this.compiled.randomizerBeats:this.compiled.randomizerGroups)??{};
+      const id=enemyId!==undefined?JSON.stringify([node.id,enemyId]):candidate.beatId??candidate.groupId;
+      if(!Object.hasOwn(scenes,id))continue;
+      const group=scenes[id], key=randomizerSceneKey(candidate);
+      if(visit.played.has(key))continue;
       if(group.oncePerRun&&run.seen.has(candidate.groupId)||!conditionsMet(candidate.conditions,values,inventory))continue;
       // Test entry with a terminal return so the probe cannot traverse another caller.
       const probeRun={...run,scene:{group,next:null,callerId:node.id}};
@@ -162,22 +167,26 @@ export class ProjectController {
         if(this.routingReason(error))continue;
         throw error;
       }
-      choices.push({group,groupId:candidate.groupId,weight:candidate.weight});
+      choices.push({group,groupId:candidate.groupId,key,allowRepeats:candidate.allowRepeats===true,weight:candidate.weight});
     }
     if(node.noneWeight>0)choices.push({weight:node.noneWeight});
     return choices;
   }
-  randomizerDestination(choice,node,run) {
+  randomizerDestination(choice,node,run,visit,preview) {
     const next=node.connections?.next;
     if(!choice?.group)return {id:next,run};
-    const {group,groupId}=choice;
+    const {group,groupId,key,allowRepeats}=choice;
     const seen=group.oncePerRun?new Set([...run.seen,groupId]):run.seen;
-    return {id:group.entryId,run:{seen,scene:{group,next,callerId:node.id}}};
+    const remaining=visit.remaining-1;
+    const played=allowRepeats?visit.played:new Set([...visit.played,key]);
+    const autoVisit=remaining>0?{remaining,played,defer:preview}:null;
+    return {id:group.entryId,run:{seen,scene:{group,next,callerId:node.id,remaining,autoVisit}}};
   }
   routeStep(node,output,id,run) {
     const scene=run?.scene;
     if(scene?.group.exits.some(exit=>exit.nodeId===node.id&&exit.output===output)){
-      return {id:scene.next,run:{...run,scene:null}};
+      const autoVisit=scene.autoVisit;
+      return {id:autoVisit?scene.callerId:scene.next,run:{...run,scene:null},autoVisit};
     }
     return {id,run};
   }
@@ -216,11 +225,14 @@ export class ProjectController {
           else pending.push({...next,values,inventory,changed});
           continue;
         }
+        // Preflight checks the current draw without expanding every possible
+        // future draw. A real scene exit checks again with the updated state.
+        if(preview&&step.autoVisit?.defer){result=null;continue;}
         const id=step.id;
         if(id===null){result=arrive({completed:true},step,run);continue;}
         if(id===false||id===undefined)throw createError('RUNTIME_UNLINKED_OUTPUT');
         // Two callers can traverse the same automatically skipped scene in one transition.
-        const visitKey=run?JSON.stringify([run.scene?.callerId??null,id]):id;
+        const visitKey=run?JSON.stringify([run.scene?.callerId??null,id,run.scene?.remaining??null,step.autoVisit?.remaining??null]):id;
         if(visited.has(visitKey))throw createError('RUNTIME_AUTOMATIC_ROUTING_CYCLE');
         const cached=preview&&preflight.completed.get(visitKey);
         if(cached&&cached.values===values&&cached.inventory===inventory&&cached.run===run){result=cached.result;continue;}
@@ -232,7 +244,7 @@ export class ProjectController {
         if(node.type==='death'&&run?.scene)run={...run,scene:null};
         // Keep entry effects speculative until the full route succeeds. Branches
         // inherit their parent's state rather than a preceding sibling's effects.
-        for(const effect of Object.hasOwn(this.nodeEntryEffects,id)?this.nodeEntryEffects[id]:[]) {
+        for(const effect of !step.autoVisit&&Object.hasOwn(this.nodeEntryEffects,id)?this.nodeEntryEffects[id]:[]) {
           if(effect.op==='removeItem'&&!inventoryQuantity(inventory,effect.key))continue;
           const state=transact(values,inventory,{effects:[effect]},this.compiled.variables,this.compiled.library);
           values=state.variables;inventory=state.inventory;changed=true;
@@ -242,10 +254,11 @@ export class ProjectController {
         if(node.type==='randomizer') {
           if(run?.scene)throw createError('RUNTIME_AUTOMATIC_ROUTING_CYCLE');
           run??={seen:new Set(),scene:null};
-          const choices=this.randomizerChoices(node,values,inventory,run,excluded);
+          const visit=step.autoVisit??{remaining:validAutoDrawCount(node.drawCount)?node.drawCount:1,played:new Set()};
+          const choices=this.randomizerChoices(node,values,inventory,run,visit,excluded);
           const results=preview?(choices.length?choices:[null]):[this.weighted(choices)];
           for(let i=results.length-1;i>=0;i--){
-            pending.push({...this.randomizerDestination(results[i],node,run),values,inventory,changed});
+            pending.push({...this.randomizerDestination(results[i],node,run,visit,preview),values,inventory,changed});
           }
         }else if(node.type==='random') {
           const routes=(node.routes ?? []).filter(r=>r.weight>0&&conditionsMet(r.conditions,values,inventory));
@@ -802,7 +815,7 @@ export class ProjectController {
     try {
       const destination=this.next(this.location,'victory');
       this.combat.dispose();this.combat=null;
-      if(!this.succeeded(nodeId)||this.generation!==generation)return false;
+      if(!this.succeeded(this.location.node.autoOwnerId ?? nodeId)||this.generation!==generation)return false;
       this.adopt(destination,false);this.show();return true;
     }catch(error){this.error(error);return false;}
   }

@@ -200,8 +200,13 @@ export function pasteNodesClipboard(project, chapter, payload, {position} = {}) 
   const groupIds=new Map((payload.beatGroups??[]).map(group=>[group.id,uid('beat-group')]));
   const existingGroupIds=new Set(crossChapter?[]:beatGroups(chapter).map(group=>group.id));
   for(const node of added)if(node.type==='randomizer'){
-    node.candidates=(node.candidates??[]).filter(candidate=>groupIds.has(candidate.groupId)||existingGroupIds.has(candidate.groupId));
-    for(const candidate of node.candidates)candidate.groupId=groupIds.get(candidate.groupId)??candidate.groupId;
+    node.candidates=(node.candidates??[]).filter(candidate=>candidate.enemy!==undefined || (candidate.beatId!==undefined
+      ?nodeIds.has(candidate.beatId)||!crossChapter&&chapter.nodes.some(beat=>beat.id===candidate.beatId)
+      :groupIds.has(candidate.groupId)||existingGroupIds.has(candidate.groupId)));
+    for(const candidate of node.candidates){
+      if(candidate.beatId!==undefined)candidate.beatId=nodeIds.get(candidate.beatId)??candidate.beatId;
+      else if(candidate.groupId!==undefined)candidate.groupId=groupIds.get(candidate.groupId)??candidate.groupId;
+    }
   }
   if(payload.beatGroups?.length){
     const refs=bindings=>bindings.map(({nodeId,output})=>({nodeId:nodeIds.get(nodeId),output:outputMaps.get(nodeId)(output)}));

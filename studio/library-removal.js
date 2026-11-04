@@ -13,6 +13,12 @@ export function libraryRemovalPlan(project, id) {
   const references = definitionGraph(project).references.filter(ref => ref.definitionId === id);
   const placements = references.filter(ref => ref.kind === 'placement' && ref.chapter && !ref.sourceDefinition);
   if (definition.kind === 'enemy') {
+    const autoUses = references.filter(ref => ref.kind === 'enemy' && ref.node?.type === 'randomizer');
+    if (autoUses.length) {
+      const uses = [...new Set(autoUses.map(ref => `“${ref.node.name || ref.nodeId}” in chapter “${ref.chapter.name || ref.chapterId}”`))].join('; ');
+      return {definition, placements, blocked: true,
+        reason: `Cannot delete “${definition.name || id}”: used by Auto at ${uses}. Remove or replace the Enemy options first.`};
+    }
     const combatUses = references.filter(ref => ref.kind === 'enemy' && ref.node?.type === 'combat');
     if (combatUses.length) {
       const uses = [...new Set(combatUses.map(ref => `“${ref.node.name || ref.nodeId}” in chapter “${ref.chapter.name || ref.chapterId}”`))].join('; ');

@@ -13,6 +13,7 @@ import { createDefinition, allowedCardKinds, isStoryKind, isConsumableKind } fro
 import { chapterVariables, createProjectChapter, importChapter, outputsForNode } from '../project/model.js';
 import {importLibrary} from '../project/library-packages.js';
 import {beatGroups, beatGroupFor, connectBeatBoundary, createBeatGroup, ungroupBeatGroup} from '../project/beat-groups.js';
+import {MAX_AUTO_DRAWS, validAutoDrawCount, randomizerSceneKey, randomizerSceneType, randomizerScenes} from '../project/randomizer.js';
 import { definitionGraph } from '../project/dependencies.js';
 import { removeLibraryDefinition } from './library-removal.js';
 import { captureNodeClipboard, pasteNodeClipboard, captureNodesClipboard, pasteNodesClipboard } from './node-clipboard.js';
@@ -108,20 +109,34 @@ function changeField(project, selection, field, localDrafts) {
   const root = documentScope(project, selection, field);
   if (!root) return;
   if(scope==='node'&&node.type==='randomizer'){
-    const candidateField=/^candidates\.(\d+)\.(groupId|weight)$/.exec(path);
+    const candidateField=/^candidates\.(\d+)\.(scene|weight|introEnabled|allowRepeats)$/.exec(path);
     if(candidateField){
       const candidate=node.candidates[Number(candidateField[1])];
-      if(!candidate)throw new Error('This Randomizer group no longer exists');
-      if(candidateField[2]==='groupId'){
-        if(!beatGroups(chapter).some(group=>group.id===raw)||node.candidates.some(other=>other!==candidate&&other.groupId===raw)){
-          throw new Error('Choose a group from this chapter that is not already in this Randomizer');
+      if(!candidate)throw new Error('This Auto candidate no longer exists');
+      const key=candidateField[2];
+      if(key==='scene'){
+        const target=randomizerScenes(chapter,project,randomizerSceneType(candidate)).find(scene=>randomizerSceneKey(scene.target)===raw)?.target;
+        if(!target||node.candidates.some(other=>other!==candidate&&randomizerSceneKey(other)===raw)){
+          throw new Error('Choose an available scene from this chapter');
         }
-        candidate.groupId=raw;
+        Object.assign(candidate,target);
+      }else if(key==='introEnabled'){
+        if(!candidate.enemy||typeof checked!=='boolean')throw new Error('Show introduction requires an Auto Enemy option');
+        candidate.introEnabled=checked;
+      }else if(key==='allowRepeats'){
+        if(typeof checked!=='boolean')throw new Error('Allow repeats requires a checkbox value');
+        candidate.allowRepeats=checked;
       }else{
         const weight=Number(raw);
-        if(!Number.isFinite(weight)||weight<=0)throw new Error('Group weight must be greater than zero');
+        if(!Number.isFinite(weight)||weight<=0)throw new Error('Candidate weight must be greater than zero');
         candidate.weight=weight;
       }
+      return;
+    }
+    if(path==='drawCount'){
+      const count=Number(raw);
+      if(!validAutoDrawCount(count))throw new Error(`Draw count must be a whole number from 1 to ${MAX_AUTO_DRAWS}`);
+      node.drawCount=count;
       return;
     }
     if(path==='noneWeight'){
@@ -333,10 +348,10 @@ function inspectorCommand(project, selection, data, localDrafts) {
     case 'add-route': node.routes.push({id:uid('route'),name:`Route ${node.routes.length+1}`,target:false,weight:1,conditions:[]}); break;
     case 'remove-route': node.routes.splice(Number(data.index), 1); break;
     case 'add-randomizer-candidate': {
-      if(node?.type!=='randomizer')break;
-      const used=new Set(node.candidates.map(candidate=>candidate.groupId));
-      const group=beatGroups(chapterFor(project,selection)).find(candidate=>!used.has(candidate.id));
-      if(group)node.candidates.push({groupId:group.id,weight:1,conditions:[]});
+      if(node?.type!=='randomizer'||!['group','beat','enemy'].includes(data.sceneType))break;
+      const used=new Set(node.candidates.map(randomizerSceneKey));
+      const scene=randomizerScenes(chapterFor(project,selection),project,data.sceneType).find(option=>!used.has(randomizerSceneKey(option.target)));
+      if(scene)node.candidates.push({...scene.target,weight:1,conditions:[]});
       break;
     }
     case 'remove-randomizer-candidate': {

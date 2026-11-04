@@ -170,7 +170,7 @@ test('create actions first, then add choices with Action before editable Trigger
  const html=combatDefinitionFields(project,enemy);
  assert(html.indexOf('<h3>Prepared actions</h3>')>html.indexOf('<h3>Combat Actions</h3>'));
  assert(html.indexOf(`data-path="${p}.actionId"`)<html.indexOf(`data-path="${p}.trigger"`));
- assert(html.includes('+ Add choice'));assert(!html.includes('+ prepared action'));assert(!html.includes('Choose an owned prepared action'));
+ assert(html.includes('Add choice'));assert(!html.includes('+ prepared action'));assert(!html.includes('Choose an owned prepared action'));
  const choices=html.slice(html.indexOf('<h4>What can this enemy prepare?</h4>'),html.indexOf('<h3>Prepared actions</h3>'));
  assert(!choices.includes('data-factory="prepared-dodge"'));assert(!choices.includes('data-factory="prepared-attack"'));assert(!choices.includes('data-factory="prepared-wait"'));
  assert.deepEqual(validateProject(project),[]);
@@ -203,7 +203,7 @@ test('one Prepared Action button creates an editable Attack without assigning it
  assert.equal(enemy.preparedActions.length,1);const action=enemy.preparedActions[0];assert.equal(action.type,'attack');assert.equal(action.name,'Prepared Action');
  assert.deepEqual(enemy.actions[0].preparedActions,[]);
  const html=combatDefinitionFields(project,enemy);
- assert(html.includes('>+ Prepared Action</button>'));for(const text of ['+ New defense','+ New attack','+ New wait'])assert(!html.includes(text));
+ assert(html.includes('>Add prepared action</button>'));for(const text of ['+ New defense','+ New attack','+ New wait'])assert(!html.includes(text));
  assert(html.indexOf('<h3>Combat Actions</h3>')<html.indexOf('<h3>Prepared actions</h3>'));
  field('preparedActions.0.type','defend');assert.equal(action.type,'defend');assert.equal(action.protection,'all');field('preparedActions.0.type','wait');assert.equal(action.type,'wait');
 });

@@ -1,9 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {createEnemy} from '../project/combat-model.js';
 import {ProjectController} from '../project/ProjectController.js';
 import {compileChapter, createProject} from '../project/model.js';
 
 class Deck extends EventTarget {
+  state={busy:false};
   reset() {}
   replaceContent(content) {this.content=content;}
   endContent() {}
@@ -87,6 +89,21 @@ test('weighted None and condition fallback both follow Next without running the 
   }
 });
 
+test('a standalone beat and a group share the draw, and the beat returns to the caller',()=>{
+  const project=fixture();
+  const randomizer=project.chapters[0].nodes.find(node=>node.id==='r1');
+  randomizer.candidates.push({beatId:'ordinary',weight:3,conditions:[]});
+  const game=run(project,0.75);
+  game.deck.advance();
+  assert.equal(game.controller.state.activeNodeId,'ordinary');
+  game.deck.advance();
+  assert.equal(game.controller.state.activeNodeId,'mid');
+  assert.equal(game.controller.state.completed,false);
+  assert.equal(game.draws,1);
+  assert.deepEqual(game.errors,[]);
+  game.controller.destroy();
+});
+
 test('adjacent Randomizers can both draw the same automatically skipped scene',()=>{
   const project=fixture(),chapter=project.chapters[0];
   chapter.nodes.find(node=>node.id==='scene-entry').cards=[];
@@ -133,6 +150,94 @@ test('ordinary entry uses the authored group destination and Death cancels a pen
   assert.equal(game.controller.randomizerRun.scene,null);
   game.deck.advance();
   assert.equal(game.controller.state.terminalReason,'death');
+  assert.deepEqual(game.errors,[]);
+  game.controller.destroy();
+});
+
+test('Auto runs a Library Enemy as combat and its victory resumes the draw', () => {
+  const project=fixture(), chapter=project.chapters[0];
+  project.library.push({...createEnemy('rat'),name:'Rat',introEnabled:true});
+  const auto=chapter.nodes.find(node=>node.id==='r1');
+  auto.candidates=[{enemy:{definitionId:'rat'},weight:1,conditions:[]}];
+  for(const [libraryDefault, override, expected] of [[true,undefined,true],[true,false,false],[false,true,true]]){
+    project.library.find(definition=>definition.id==='rat').introEnabled=libraryDefault;
+    if(override!==undefined)auto.candidates[0].introEnabled=override;
+    const compiled=compileChapter(project);
+    assert.equal(compiled.nodes.find(node=>node.autoOwnerId==='r1').introEnabled,expected);
+  }
+  auto.candidates[0].introEnabled=true;
+  auto.drawCount=2;
+  auto.candidates.push({beatId:'ordinary',weight:1,conditions:[]});
+  const game=run(project);
+  game.deck.advance();
+  assert.equal(game.controller.state.activeNodeId,'r1');
+  assert.equal(game.controller.state.combat.phase,'entering');
+  assert.equal(game.controller.state.combat.enemyName,'Rat');
+  assert.equal(game.controller.combatVictoryReason(),'');
+  assert.equal(game.controller.completeCombatVictory(),true);
+  assert.equal(game.controller.state.activeNodeId,'ordinary');
+  game.deck.advance();
+  assert.equal(game.controller.state.activeNodeId,'mid');
+  assert.equal(game.controller.state.combat,null);
+  assert.deepEqual(game.errors,[]);
+  assert.equal(game.draws,2);
+  game.controller.destroy();
+});
+
+test('Auto checks conditions between draws and stops early when non-repeating options run out',()=>{
+  const project=fixture(), chapter=project.chapters[0];
+  const auto=chapter.nodes.find(node=>node.id==='r1');
+  auto.drawCount=5;
+  auto.entryEffects=[{op:'add',key:'visits',value:10}];
+  auto.candidates.push({beatId:'ordinary',weight:1,
+    conditions:[{source:'variable',key:'visits',op:'eq',value:11}]});
+  const game=run(project);
+  for(const beat of ['scene-entry','ordinary','mid']){
+    game.deck.advance();
+    assert.equal(game.controller.state.activeNodeId,beat);
+  }
+  assert.equal(game.draws,2);
+  assert.equal(game.controller.state.variables.visits,11);
+  assert.deepEqual(game.errors,[]);
+  game.controller.destroy();
+});
+
+for(const once of [false,true])test(`Auto repeat permission respects the chapter group limit (once=${once})`,()=>{
+  const project=fixture({once}), chapter=project.chapters[0];
+  const auto=chapter.nodes.find(node=>node.id==='r1');
+  auto.drawCount=2;
+  auto.candidates[0].allowRepeats=true;
+  const game=run(project);
+  for(const beat of once?['scene-entry','mid','end']:['scene-entry','scene-entry','mid','scene-entry','end']){
+    game.deck.advance();
+    assert.equal(game.controller.state.activeNodeId,beat);
+  }
+  assert.equal(game.draws,once?1:3);
+  assert.deepEqual(game.errors,[]);
+  game.controller.destroy();
+});
+
+test('None ends a multi-draw visit immediately',()=>{
+  const project=fixture({noneWeight:1});
+  project.chapters[0].nodes.find(node=>node.id==='r1').drawCount=4;
+  const game=run(project,0.8);
+  game.deck.advance();
+  assert.equal(game.controller.state.activeNodeId,'mid');
+  assert.equal(game.draws,1);
+  game.controller.destroy();
+});
+
+test('Auto can redraw the same scene when it exits without showing any cards',()=>{
+  const project=fixture(),chapter=project.chapters[0];
+  const auto=chapter.nodes.find(node=>node.id==='r1');
+  auto.drawCount=3;
+  auto.candidates[0].allowRepeats=true;
+  chapter.nodes.find(node=>node.id==='scene-entry').cards=[];
+  const game=run(project);
+  game.deck.advance();
+  assert.equal(game.controller.state.activeNodeId,'mid');
+  assert.equal(game.controller.state.variables.visits,3);
+  assert.equal(game.draws,3);
   assert.deepEqual(game.errors,[]);
   game.controller.destroy();
 });

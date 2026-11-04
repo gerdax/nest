@@ -117,15 +117,18 @@ html.graph-dragging,html.graph-dragging *,#canvas.graph-dragging,#canvas.graph-d
 #canvas .beat-group.active {border-color:#f0cc5b;box-shadow:0 0 16px #f0cc5b55;}
 #canvas .beat-group.has-error {border-color:#c67979;box-shadow:inset 0 0 0 2px #c67979;}
 #canvas .beat-group-header {
-  pointer-events:auto;display:block;width:100%;height:48px;padding:0 12px 0 20px;
+  pointer-events:auto;display:flex;align-items:center;justify-content:space-between;gap:12px;
+  width:100%;height:48px;padding:0 20px;
   border:0;border-bottom:2px solid #080d0f;border-radius:11px 11px 0 0;
   background:#202b2e;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;
-  font-weight:650;cursor:grab;
+  text-align:left;font-weight:650;cursor:grab;
 }
-#canvas .beat-group-count {padding:20px 20px 0;color:#96a7a7;font-size:12px;}
+#canvas .beat-group-name {overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+#canvas .beat-group.collapsed .beat-group-header {border:0;border-radius:11px;}
+#canvas .beat-group-count {flex:none;color:#fff;font-size:12px;letter-spacing:normal;text-transform:none;}
+#canvas .beat-group.collapsed .beat-group-port {top:50%;}
 #canvas .beat-group-port {
-  position:absolute;pointer-events:auto;top:59px;width:24px;height:24px;
+  position:absolute;pointer-events:auto;top:71px;width:24px;height:24px;
   display:grid;place-items:center;transform:translate(-50%,-50%);
   padding:0;border:0;border-radius:50%;background:none;color:#b1d2c4;
   font-size:11px;cursor:crosshair;

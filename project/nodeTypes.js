@@ -10,7 +10,6 @@ const legacyOutputs = node => Object.keys(node.connections || {});
 const introduction = makePlacement => ({introEnabled:false, introOnce:false, intro:makePlacement('event')});
 
 export const nodeTypes = Object.freeze({
- combat: Object.freeze({label:'Combat',iconPath:'M8 5V19M16 5V19',slots:Object.freeze({}),outputs:()=>['victory'],create:()=>({introEnabled:false,enemy:{definitionId:''},connections:{victory:false}})}),
  death: Object.freeze({label:'Death',iconPath:'M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6',slots:Object.freeze({cards:storyKinds}),defaultKinds:Object.freeze({cards:'caption'}),outputs:()=>[],create:({makePlacement})=>({cards:[makePlacement('caption')],connections:{}})}),
  linear: Object.freeze({
   label:'Linear', iconPath:'M4.35 12H19.65', slots:Object.freeze({cards:linearKinds}), outputs:nextOutput,
@@ -31,12 +30,13 @@ export const nodeTypes = Object.freeze({
   defaultKinds:Object.freeze({intro:'event',items:'item'}),
   create:({makePlacement}) => ({...introduction(makePlacement),retainInventoryItems:true,items:[makePlacement('item')]})
  }),
+ combat: Object.freeze({label:'Combat',iconPath:'M8 5V19M16 5V19',slots:Object.freeze({}),outputs:()=>['victory'],create:()=>({introEnabled:false,enemy:{definitionId:''},connections:{victory:false}})}),
  random: Object.freeze({
-  label:'Random', iconPath:'M3 6.25H7L17 17.75H21M3 17.75H7L9 15.45M15 8.55L17 6.25H21', slots:Object.freeze({}), outputs:node => [...objects(node.routes).map(r=>r.id),'fallback'],
+  label:'Shuffle', iconPath:'M3 6.25H7L17 17.75H21M3 17.75H7L9 15.45M15 8.55L17 6.25H21', slots:Object.freeze({}), outputs:node => [...objects(node.routes).map(r=>r.id),'fallback'],
   create:({uid}) => ({routes:[{id:uid('route'),name:'Route 1',target:false,weight:1,conditions:[]}],fallback:false})
  }),
  randomizer: Object.freeze({
-  label:'Randomizer', iconPath:'M8 3H16L21 8V16L16 21H8L3 16V8ZM12 8V12H16M12 12H8', slots:Object.freeze({}),
+  label:'Auto', iconPath:'M8 5H17A6 6 0 0 1 22 14M16 19H7A6 6 0 0 1 2 10', iconFillPath:'M4 5L9 1.5V8.5ZM20 19L15 15.5V22.5Z', slots:Object.freeze({}),
   outputs:nextOutput, create:()=>({candidates:[],noneWeight:0,connections:{next:false}})
  }),
  legacySequence: Object.freeze({label:'Legacy sequence', slots:Object.freeze({}), outputs:legacyOutputs}),

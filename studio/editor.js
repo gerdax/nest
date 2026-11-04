@@ -642,7 +642,6 @@ const stopNodeClipboardShortcuts=mountNodeClipboardShortcuts(document,{copy:()=>
 for(const [kind,label] of [['enemy','+ Enemy']]){
  const b=document.createElement('button');b.type='button';b.dataset.addKind=kind;b.textContent=label;document.querySelector('.library-create-buttons').append(b);
 }
-{const b=document.createElement('button');b.type='button';b.dataset.add='combat';b.textContent='+ Combat';document.querySelector('[data-add="random"]').after(b);}
 for(const b of document.querySelectorAll('[data-add-kind]'))b.onclick=()=>edit('add-definition',{kind:b.dataset.addKind});
 for(const b of document.querySelectorAll('[data-add]'))b.onclick=()=>{graph.cancel();edit('add-node',{type:b.dataset.add,position:{x:(150-graph.view.x)/graph.view.z,y:(140-graph.view.y)/graph.view.z}});};
 $('#duplicate').onclick=duplicateBeat;

@@ -160,6 +160,8 @@ aside {overflow-anchor:none;}
 .item-reference-links {flex:1 1 180px;min-width:0;margin:6px 0 10px;}
 .rule-entry-actions > .item-reference-links {margin:0;}
 .rule-entry-actions > [data-command="remove-rule"] {margin-left:auto;}
+.auto-add-options {display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 22px;}
+.entry > [data-command="remove-randomizer-candidate"] {display:block;margin-left:auto;}
 .cost-entry-actions {align-items:center;}
 .cost-entry-actions > .check-field {margin:0 0 0 8px;}
 .item-reference {display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:6px 12px;margin:6px 0;}
@@ -180,6 +182,7 @@ aside {overflow-anchor:none;}
 .state-panel > .field:has(> select[data-scope="node"][data-path="unavailableActions"]) {margin-top:24px;margin-bottom:8px;}
 
 .node-overrides {padding-top:16px;}
+.state-panel > button[data-command="add-rule"][data-rule-kind="conditions"] {margin-top:8px;}
 .state-panel > button[data-command="add-rule"][data-path$="successEffects"],
 .state-panel > button[data-command="add-rule"][data-path$="failureEffects"] {margin-top:16px;}
 

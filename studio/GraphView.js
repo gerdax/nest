@@ -226,8 +226,10 @@ export class GraphView {
   layer.innerHTML=[...this.groupsById.values()].map(group=>{
    const {id,name,collapsed}=group;
    return `<div class="beat-group${collapsed?' collapsed':''}" data-group-id="${esc(id)}">
-    <button type="button" class="beat-group-header" aria-expanded="${!collapsed}" title="Drag to move. Double-click to ${collapsed?'expand':'collapse'}">${esc(name)}</button>
-    ${collapsed?`<div class="beat-group-count">${group.memberIds.length} ${group.memberIds.length===1?'beat':'beats'}</div>`:''}
+    <button type="button" class="beat-group-header" aria-expanded="${!collapsed}" title="Drag to move. Double-click to ${collapsed?'expand':'collapse'}">
+     <span class="beat-group-name">${esc(name)}</span>
+     ${collapsed?`<span class="beat-group-count">${group.memberIds.length} ${group.memberIds.length===1?'beat':'beats'}</span>`:''}
+    </button>
     <button type="button" class="beat-group-port" data-port="input" aria-label="${esc(name)} Group In" title="${collapsed?'Connect an outside outcome here':'Connect an outside outcome here, or drag from here to the entry beat'}"></button>
     <button type="button" class="beat-group-port" data-port="output" aria-label="${esc(name)} Group Out" title="${collapsed?'Drag to an outside beat or group input':'Connect a member outcome here, or drag from here to the outside destination'}"></button>
    </div>`;
@@ -246,7 +248,7 @@ export class GraphView {
    left=Math.min(left,x);top=Math.min(top,y);right=Math.max(right,x+width);bottom=Math.max(bottom,y+height);
   }
   if(!Number.isFinite(left))return null;
-  return {x:left-30,y:top-72,width:group.collapsed?320:Math.max(320,right-left+60),height:group.collapsed?112:bottom-top+104};
+  return {x:left-30,y:top-72,width:group.collapsed?320:Math.max(320,right-left+60),height:group.collapsed?50:bottom-top+104};
  }
  layoutGroups() {
   this.groupRects=new Map();
@@ -286,7 +288,8 @@ export class GraphView {
   const rect=this.groupRects?.get(groupId);
   if(!rect)return null;
   // The same connector joins the two segments at the border.
-  return {x:rect.x+(port==='output'?rect.width:0),y:rect.y+60};
+  const portOffset=this.groupsById.get(groupId)?.collapsed?rect.height/2:72;
+  return {x:rect.x+(port==='output'?rect.width:0),y:rect.y+portOffset};
  }
  connectionPoint(endpoint,source) {
   if(endpoint.groupId)return this.boundaryPoint(endpoint);
