@@ -20,7 +20,8 @@
 #canvas .node-heading .badge {cursor:pointer;}
 /* Keep the captured drag cursor even when the pointer leaves the graph. */
 html.graph-dragging,html.graph-dragging *,#canvas.graph-dragging,#canvas.graph-dragging * {cursor:grabbing!important;}
-#canvas .node-heading .badge,#canvas .graph-override-marker {color:#91b8ab;}
+#canvas .node-heading .badge,#canvas .graph-override-marker,#canvas .beat-group-header {color:#91b8ab;}
+#canvas .node-heading .badge,#canvas .beat-group-header {font-size:10px;text-transform:uppercase;letter-spacing:1px;}
 #canvas .graph-start-label {color:#fff;}
 #canvas .graph-override-marker {display:inline-block;flex:none;margin-left:4px;font-size:13px;font-weight:700;line-height:1;letter-spacing:0;}
 #canvas .graph-override-marker.ignored {opacity:.45;}
@@ -104,3 +105,32 @@ html.graph-dragging,html.graph-dragging *,#canvas.graph-dragging,#canvas.graph-d
 #edges .edge-line.preview-active[data-exit$=":failure"] {
   stroke:#e4a6a5;stroke-width:2.5;filter:drop-shadow(0 0 3px #e4a6a585);
 }
+
+/* Frames share world coordinates with their beats. Only their controls catch input. */
+#beat-groups {position:absolute;}
+#canvas .beat-group {
+  position:absolute;pointer-events:none;border:1px solid #648e85;border-radius:12px;
+  background:#79aa9b12;color:#b7dcd1;user-select:none;
+}
+#canvas .beat-group.collapsed {background:#20332f;pointer-events:auto;}
+#canvas .beat-group.selected {outline:2px solid #a2d3c3;}
+#canvas .beat-group.active {border-color:#f0cc5b;box-shadow:0 0 16px #f0cc5b55;}
+#canvas .beat-group.has-error {border-color:#c67979;box-shadow:inset 0 0 0 2px #c67979;}
+#canvas .beat-group-header {
+  pointer-events:auto;display:block;width:100%;height:48px;padding:0 12px 0 20px;
+  border:0;border-bottom:2px solid #080d0f;border-radius:11px 11px 0 0;
+  background:#202b2e;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;
+  font-weight:650;cursor:grab;
+}
+#canvas .beat-group-port {
+  position:absolute;pointer-events:auto;top:59px;width:24px;height:24px;
+  display:grid;place-items:center;transform:translate(-50%,-50%);
+  padding:0;border:0;border-radius:50%;background:none;color:#b1d2c4;
+  font-size:11px;cursor:crosshair;
+}
+#canvas .beat-group-port::after {content:'●';}
+#canvas .beat-group-port[data-port="input"] {left:0;}
+#canvas .beat-group-port[data-port="output"] {left:100%;}
+#canvas .beat-group-port.connection-target {outline:3px solid #b7e4d3;}
+#canvas .beat-group.active.has-error {box-shadow:inset 0 0 0 2px #c67979,0 0 16px #f0cc5b55;}

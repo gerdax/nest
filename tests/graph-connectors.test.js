@@ -16,7 +16,7 @@ class Element {
  getBoundingClientRect(){return {width:0,height:0};}
 }
 class Root extends Element {
- constructor(){super();this.handlers={};this.capture=null;this.parts={'#world':new Element(),'#edges':new Element(),'#nodes':new Element()};this.ownerDocument={documentElement:new Element(),elementFromPoint:()=>this.hit};
+ constructor(){super();this.handlers={};this.capture=null;this.parts={'#world':new Element(),'#edges':new Element(),'#nodes':new Element(),'#beat-groups':new Element()};this.ownerDocument={documentElement:new Element(),elementFromPoint:()=>this.hit};
   Object.defineProperty(this.parts['#edges'],'innerHTML',{configurable:true,get:()=>this.edgeMarkup,set:html=>{
    this.edgeMarkup=html;
    this.parts['#edges'].children=[...html.matchAll(/<path class="(edge-line[^"]*)" data-source="([^"]*)" data-exit="([^"]*)"/g)].map(([,cls,source,exit])=>new Element(cls,{source,exit}));
@@ -27,11 +27,20 @@ class Root extends Element {
     const node=new Element(classes,{id},this);node.cardRows=[...body.matchAll(/<div class="(graph-card-row[^"]*)" data-card-slot="[^"]*" data-card-placement="([^"]*)"/g)].map(([,cls,cardPlacement])=>new Element(cls,{cardPlacement},node));node.children=[...body.matchAll(/<button class="([^"]*)" data-exit="([^"]*)"/g)].map(([,cls,exit])=>new Element(cls,{exit},node));return node;
    });
   }});
+  const groups=this.parts['#beat-groups'];
+  Object.defineProperty(groups,'innerHTML',{set:html=>{
+   groups.children=[...html.matchAll(/<div class="(beat-group(?: collapsed)?)" data-group-id="([^"]+)"/g)].map(([,classes,groupId])=>{
+    const group=new Element(classes,{groupId},this),header=new Element('beat-group-header',{},group);
+    group.children=[header,...['input','output'].map(port=>new Element('beat-group-port',{port},group))];
+    group.header=header;
+    return group;
+   });
+  }});
  }
  addEventListener(name,callback){this.handlers[name]=callback;}
  querySelector(selector){return this.parts[selector];}
  querySelectorAll(selector){return selector==='.node'?this.nodes:[];}
- contains(el){return el?.parent===this;}
+ contains(el){for(let parent=el?.parent;parent;parent=parent.parent)if(parent===this)return true;return false;}
  getBoundingClientRect(){return {left:10,top:20,right:1010,bottom:820,width:1000,height:800};}
  setPointerCapture(id){this.capture=id;}
  hasPointerCapture(id){return this.capture===id;}
@@ -729,11 +738,11 @@ test('editor full rendering preserves explicit empty selection but repairs delet
  const source=readFileSync(new URL('../studio/editor.js',import.meta.url),'utf8');
  const start=source.indexOf('function render({');
  const body=source.slice(start,source.indexOf('function scopeRoot',start));
- const render=new Function('selected','project','chapter','graph','$','chapterId','sortedChapters','history','mode','validateProject','esc','renderGraph','renderLibrary','renderInspector','const projectSession={fileMode:false};'+body+';render();return selected;');
+ const render=new Function('selected','project','chapter','graph','$','chapterId','sortedChapters','history','mode','validateProject','renderErrors','renderGraph','renderLibrary','renderInspector','const projectSession={fileMode:false};'+body+';render();return selected;');
  const chapter={id:'chapter',startNode:'a',nodes:[{id:'a'},{id:'b'}]},project={chapters:[chapter],activeChapterId:chapter.id};
  for(const [selection,expected] of [[undefined,undefined],['missing','a'],['b','b']]) {
   const element={classList:{toggle(){}}};
-  assert.equal(render(selection,project,()=>chapter,{cancelCreation(){}},()=>element,chapter.id,()=>[],{},'chapter',()=>[],value=>value,()=>{},()=>{},()=>{}),expected);
+  assert.equal(render(selection,project,()=>chapter,{cancelCreation(){}},()=>element,chapter.id,()=>[],{},'chapter',()=>[],()=>{},()=>{},()=>{},()=>{}),expected);
  }
 });
 
@@ -810,4 +819,112 @@ for(const definition of [null,{id:'bad',kind:'caption',name:'Wrong kind'},{id:'b
  Object.assign(s.chapter.nodes[0],{type:'combat',enemy:{definitionId:'bad'},connections:{victory:false}});s.graph.render(s.graph.project,s.chapter,'a');
  assert.doesNotMatch(s.root.parts['#nodes'].rendered,/graph-definition-link/);
  assert.match(s.root.parts['#nodes'].rendered,/None/);
+});
+
+function groupedCanvas(collapsed=false){
+ const s=setup(),{chapter,graph,root}=s;
+ chapter.nodes[0].connections.next=false;
+ chapter.nodes[1].connections.next='c';
+ chapter.nodes[2].connections.next=false;
+ chapter.nodes.push({id:'d',name:'D',type:'linear',cards:[],x:1050,y:190,connections:{next:null}});
+ const group={id:'g',name:'Encounter',collapsed,memberIds:['b','c'],entryId:'b',
+  incoming:[{nodeId:'a',output:'next'}],outgoing:[{nodeId:'c',output:'next'}],destination:{nodeId:'d'}};
+ chapter.beatGroups=[group];
+ const commands=[],connections=[];
+ graph.onGroupCommand=(...args)=>commands.push(args);
+ graph.onBoundaryConnect=connection=>connections.push(connection);
+ graph.render(graph.project,chapter,'a','b');
+ return {...s,group,commands,connections,tile:()=>graph.groupElements.get('g'),
+  groupPort:port=>graph.groupElements.get('g').children.find(element=>element.dataset.port===port)};
+}
+
+test('expanded groups project both halves of each wire and collapse keeps outside wires and beat state',()=>{
+ const s=groupedCanvas(),{root,graph}=s;
+ const edgeMarkup=()=>root.parts['#edges'].innerHTML;
+ assert.match(edgeMarkup(),/data-source="a" data-exit="next"/);
+ assert.match(edgeMarkup(),/data-group-source="g" data-group-port="input"/);
+ assert.match(edgeMarkup(),/data-source="b" data-exit="next"/);
+ assert.match(edgeMarkup(),/data-source="c" data-exit="next"/);
+ assert.match(edgeMarkup(),/data-group-source="g" data-group-port="output"/);
+ assert.match(root.parts['#nodes'].rendered,/Next → Encounter In/);
+
+ s.group.collapsed=true;
+ graph.render(graph.project,s.chapter,'a','b');
+ assert.deepEqual([...graph.nodesById.keys()],['a','b','c','d']);
+ assert.deepEqual([...graph.nodeElements.keys()],['a','d']);
+ assert.match(edgeMarkup(),/data-source="a" data-exit="next"/);
+ assert.match(edgeMarkup(),/data-group-source="g" data-group-port="output"/);
+ assert.doesNotMatch(edgeMarkup(),/data-source="[bc]"|data-group-port="input"/);
+ assert.equal(s.tile().classes.has('active'),true);
+ graph.setNodeErrors(new Map([['c',['Member error']],['g',['Boundary error']]]));
+ assert.equal(s.tile().classes.has('has-error'),true);
+ assert.match(s.tile().title,/Boundary error\nMember error/);
+ graph.setActive('d');
+ assert.equal(s.tile().classes.has('active'),false);
+});
+
+test('boundary drag dispatches both internal and external connections without routing across the frame directly',()=>{
+ const s=groupedCanvas(),{root,connections,graph}=s;
+ const drag=(source,target)=>{
+  root.event('pointerdown',source,300,220);
+  root.hit=target();
+  root.event('pointermove',root,420,240);
+  root.event('pointerup',root,420,240);
+ };
+ drag(s.port(),()=>s.groupPort('input'));
+ drag(s.groupPort('input'),()=>root.node('b'));
+ drag(root.node('c').children[0],()=>s.groupPort('output'));
+ drag(s.groupPort('output'),()=>root.node('d'));
+ drag(s.port(),()=>root.node('c'));
+ assert.deepEqual(connections,[
+  {source:{nodeId:'a',output:'next'},target:{groupId:'g',port:'input'}},
+  {source:{groupId:'g',port:'input'},target:{nodeId:'b'}},
+  {source:{nodeId:'c',output:'next'},target:{groupId:'g',port:'output'}},
+  {source:{groupId:'g',port:'output'},target:{nodeId:'d'}}
+ ]);
+ assert.deepEqual(s.calls,[]);
+ s.group.collapsed=true;
+ graph.render(graph.project,s.chapter,'a','b');
+ drag(s.groupPort('output'),()=>root.node('d'));
+ assert.deepEqual(connections.at(-1),{source:{groupId:'g',port:'output'},target:{nodeId:'d'}});
+ assert.equal(connections.length,5);
+});
+
+test('group header dragging moves the frame and members transiently and commits once on release',()=>{
+ const s=groupedCanvas(),{root,graph}=s;
+ const start=s.tile().style.left;
+ root.event('pointerdown',s.tile().header,300,200);
+ root.event('pointermove',root,350,225);
+ assert.notEqual(s.tile().style.left,start);
+ assert.equal(root.node('b').style.left,'450px');
+ assert.deepEqual(s.groups,[['b','c']]);
+ root.handlers.pointercancel({pointerId:1});
+ assert.equal(s.tile().style.left,start);
+ assert.deepEqual(s.commands,[]);
+
+ root.event('pointerdown',s.tile().header,300,200);
+ root.event('pointerup',root,340,230);
+ assert.deepEqual(s.commands,[['move-beat-group',{id:'g',dx:40,dy:30}]]);
+ assert.deepEqual(s.moves,[]);
+ assert.equal(graph.drag,null);
+});
+
+test('the name bar selects a group without capturing stationary presses and double-click toggles collapse',()=>{
+ const s=groupedCanvas(),{graph,root}=s;
+ const selections=[];
+ graph.onSelectMany=(ids,id)=>selections.push({ids,id});
+ const bar=s.tile().header;
+ root.event('pointerdown',bar,300,200);
+ assert.equal(root.capture,null);
+ root.event('pointerup',bar,300,200);
+ assert.deepEqual(selections,[{ids:['b','c'],id:'g'}]);
+ assert.equal(s.tile().classes.has('selected'),true);
+ assert.equal(root.node('b').classes.has('selected'),false);
+ assert.equal(s.tile().header,bar,'the bar must survive both clicks');
+ root.handlers.dblclick({target:bar,preventDefault(){}});
+ assert.deepEqual(s.commands,[['collapse-beat-group',{id:'g',collapsed:true}]]);
+ s.group.collapsed=true;
+ graph.render(graph.project,s.chapter,'b','b');
+ root.handlers.click({target:s.tile().header,detail:0,preventDefault(){}});
+ assert.deepEqual(s.commands.at(-1),['collapse-beat-group',{id:'g',collapsed:false}]);
 });

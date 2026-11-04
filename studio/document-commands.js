@@ -12,6 +12,7 @@ import { isStatVariable } from '../project/checks.js';
 import { createDefinition, allowedCardKinds, isStoryKind, isConsumableKind } from '../project/cards.js';
 import { chapterVariables, createProjectChapter, importChapter, outputsForNode } from '../project/model.js';
 import {importLibrary} from '../project/library-packages.js';
+import {beatGroups, beatGroupFor, connectBeatBoundary, createBeatGroup, ungroupBeatGroup} from '../project/beat-groups.js';
 import { definitionGraph } from '../project/dependencies.js';
 import { removeLibraryDefinition } from './library-removal.js';
 import { captureNodeClipboard, pasteNodeClipboard, captureNodesClipboard, pasteNodesClipboard } from './node-clipboard.js';
@@ -74,13 +75,21 @@ export function setConnection(node, exit, target) {
   } else node.connections[exit] = target;
 }
 
+function connectBeat(project, chapter, node, output, target) {
+  if (beatGroups(chapter).length) return connectBeatBoundary(project, chapter, {source:{nodeId:node.id,output},target});
+  if (target?.nodeId && chapter.nodes.find(candidate=>candidate.id===target.nodeId)?.type==='death') throw new Error('Death cannot have incoming connections');
+  setConnection(node,output,target?.nodeId??target);
+}
+
 /** Apply an already-read form value to a draft, without DOM or browser services. */
 function changeField(project, selection, field, localDrafts) {
   const {scope, path, value:raw, checked, inputType, colorField, color} = field;
   const chapter = chapterFor(project, selection), node = nodeFor(project, selection);
   if (scope === 'connection') {
-    if(raw.startsWith('target:')&&chapter.nodes.find(n=>n.id===raw.slice(7))?.type==='death')throw new Error('Death cannot have incoming connections');
-    setConnection(node, path, raw === 'unlinked' ? false : raw === 'end' ? null : raw.slice(7));
+    const target = raw === 'unlinked' ? false : raw === 'end' ? null
+      : raw === 'group-output' ? {groupId:beatGroupFor(chapter,node.id)?.id,port:'output'}
+      : raw.startsWith('group-input:') ? {groupId:raw.slice(12),port:'input'} : {nodeId:raw.slice(7)};
+    connectBeat(project,chapter,node,path,target);
     return;
   }
   if (scope === 'initial-toggle') {
@@ -327,7 +336,31 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
     case 'beat-overrides': new PreviewOverrides().update(project,chapter,node,data);break;
     case 'field': return changeField(project, selection, data, localDrafts);
     case 'inspector': return inspectorCommand(project, selection, data, localDrafts);
-    case 'connect': if(chapter.nodes.find(n=>n.id===data.target)?.type==='death')throw new Error('Death cannot have incoming connections');setConnection(chapter.nodes.find(n => n.id === data.id), data.exit, data.target); break;
+    case 'connect': connectBeat(project,chapter,chapter.nodes.find(n=>n.id===data.id),data.exit,typeof data.target==='string'?{nodeId:data.target}:data.target);break;
+    case 'connect-beat-boundary': connectBeatBoundary(project,chapter,data);break;
+    case 'group-beats': {
+      const group=createBeatGroup(project,chapter,data.ids,uid('beat-group'));
+      return {selection:{selected:data.ids[0],selectedIds:data.ids,groupId:group.id},value:group.id};
+    }
+    case 'ungroup-beats': ungroupBeatGroup(project,chapter,data.id);break;
+    case 'rename-beat-group':
+    case 'collapse-beat-group':
+    case 'move-beat-group': {
+      const group=beatGroups(chapter).find(group=>group.id===data.id);
+      if(!group)throw new Error('This beat group no longer exists');
+      if(type==='rename-beat-group'){
+        const name=String(data.name??'').trim();
+        if(!name)throw new Error('Enter a name for the beat group');
+        group.name=name;
+      }else if(type==='collapse-beat-group'){
+        group.collapsed=data.collapsed===true;
+      }else{
+        if(!Number.isFinite(data.dx)||!Number.isFinite(data.dy))throw new Error('Invalid beat group movement');
+        const ids=new Set(group.memberIds);
+        for(const member of chapter.nodes)if(ids.has(member.id)){member.x+=data.dx;member.y+=data.dy;}
+      }
+      break;
+    }
     case 'move-node': Object.assign(chapter.nodes.find(n => n.id === data.id), {x:data.x, y:data.y}); break;
     case 'move-nodes': {
       for(const position of data.positions){
@@ -458,7 +491,9 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
       if (!outputsForNode(project, source).includes(data.exit)) throw createError('STUDIO_THE_SOURCE_OUTPUT_NO_LONGER_EXISTS');
       const added = createNode(project, data.type, data.position, chapter.id);
       chapter.nodes.push(added);
-      setConnection(source, data.exit, added.id);
+      const group=beatGroupFor(chapter,source.id);
+      if(group)group.memberIds.push(added.id);
+      connectBeat(project,chapter,source,data.exit,{nodeId:added.id});
       return {selection:{selected:added.id}};
     }
     case 'duplicate-disconnected-node': {
@@ -473,6 +508,9 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
       return {selection:{selected:added.id}};
     }
     case 'duplicate-node': {
+      if(beatGroupFor(chapter,node.id)){
+        return applyDocumentCommand(project,selection,'duplicate-nodes',{ids:[node.id]},localDrafts);
+      }
       const added = duplicateNode(project, node); chapter.nodes.push(added);
       return {selection:{selected:added.id}};
     }

@@ -48,9 +48,9 @@ const editorSource=readFileSync(new URL('../studio/editor.js',import.meta.url),'
 const navigation=editorSource.slice(editorSource.indexOf('function goToPreviewCard('),editorSource.indexOf('\nconst selection='));
 function editorFixture(){
  const calls=[],source={chapter:{id:'chapter'},node:{id:'next'}};
- const context={project:{},chapterId:'chapter',selected:'previous',mode:'chapter',graph:{selectedIds:new Set(['previous']),fit:()=>calls.push('fit')},
+ const context={project:{},chapterId:'chapter',selected:'previous',selectedGroupId:undefined,mode:'chapter',graph:{selectedIds:new Set(['previous']),fit:()=>calls.push('fit')},
   sourceCard:(_project,target)=>target.placementId==='deleted'?null:source,
-  report:()=>calls.push('report'),render:options=>calls.push(['render',options]),
+  expandBeatGroup:()=>false,report:()=>calls.push('report'),render:options=>calls.push(['render',options]),
   revealCardEntry:(_inspector,target,options)=>{calls.push(['reveal',target,options]);return true;},$:()=>({})};
  runInNewContext(navigation,context);
  return {context,calls};

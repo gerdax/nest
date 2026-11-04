@@ -25,7 +25,7 @@ import { GraphView } from './GraphView.js';
 import { NodeErrors } from './node-errors.js';
 import { previewActiveNode, updatePreviewHighlight } from './preview-highlight.js';
 import { ProjectPreview } from './ProjectPreview.js';
-import { definitionInspector,nodeInspector,projectSettingsInspector,chapterSettingsInspector } from './inspectors.js';
+import { beatGroupInspector,definitionInspector,nodeInspector,projectSettingsInspector,chapterSettingsInspector } from './inspectors.js';
 import { esc, field, select } from './forms.js';
 import { mountPreviewWindow } from './preview-window.js';
 import { mountAutoplay } from './autoplay.js';
@@ -50,6 +50,7 @@ import { openProjectSession } from './project-session.js';
 import {createProjectFileActions,projectFileName,projectFileUrl} from './project-file-actions.js';
 import {showProjectFileDialog,askUnsavedProjectChoice} from './project-file-dialog.js';
 import {showLibraryImportDialog} from './library-import-dialog.js';
+import {beatGroups,beatGroupFor} from '../project/beat-groups.js';
 
 const $=s=>document.querySelector(s),projectSession=await openProjectSession(),loaded=projectSession.loaded;
 const previewOverrides = new PreviewOverrides();
@@ -61,10 +62,12 @@ let fileDialogOpen=false;
 const artworkClipboardKey = 'nest.artwork.clipboard';
 let project=loaded.project||createProject(),chapterId=project.activeChapterId,selected=project.chapters.find(c=>c.id===chapterId)?.startNode,definitionId=project.library.find(d=>d.visibility!=='local')?.id,mode='chapter';
 let libraryTab='content';
+let selectedGroupId;
 const history=new DocumentHistory(project);
 const localDrafts=new LocalCardDrafts();
 const chapter=()=>project.chapters.find(c=>c.id===chapterId)||project.chapters[0];
 const node=()=>chapter().nodes.find(n=>n.id===selected);
+const selectedGroup=()=>mode==='chapter'&&beatGroups(chapter()).find(group=>group.id===selectedGroupId);
 const definition=()=>project.library.find(d=>d.id===definitionId);
 const preview=new ProjectPreview($('#preview'),{previewOverrides,inventoryHost:$('.preview-window-body'),onChange:state=>updatePreviewHighlight(graph,preview,chapter(),state),onStop:()=>graph.setActive(null),onNodeError:issue=>{if(nodeErrors.report(issue))refreshNodeErrors();},onNodeResolved:issue=>{if(nodeErrors.resolve(issue))refreshNodeErrors();},onCardChange:target=>{graph.setActiveCard(target);autoPanel.follow(target);},onGoToCard:goToPreviewCard});
 const previewWindow=mountPreviewWindow($('#preview-window'),{onClose:()=>preview.stop()});
@@ -72,21 +75,27 @@ const autoplay=mountAutoplay($('#autoplay'),{getSelected:()=>graph.selectedIds.s
 const autoPanel=mountAutoPanel($('#auto-panel'),{getTarget:()=>preview.cardTarget(),onReveal:target=>goToPreviewCard(target,{automatic:true})});
 const nodeCreateMenu=mountNodeCreateMenu({onChoose:(type,request)=>edit('create-connected-node',{...request,type}),onDismiss:()=>graph.cancelCreation(),returnFocus:$('#canvas')});
 const graph=new GraphView($('#canvas'),{
- onOpenDefinition:(id,nodeId)=>{selected=nodeId;graph.selectedIds=new Set([nodeId]);goToDefinition(id);},
- onSelect:id=>{graph.selectedIds=new Set([id]);selected=id;renderInspector({collapseCards:true});renderGraph();autoplay.select(id);},
+ onOpenDefinition:(id,nodeId)=>{selectedGroupId=undefined;selected=nodeId;graph.selectedIds=new Set([nodeId]);goToDefinition(id);},
+ onSelect:id=>{selectedGroupId=undefined;graph.selectedIds=new Set([id]);selected=id;renderInspector({collapseCards:true});renderGraph();autoplay.select(id);},
  onOpenCard:(id,target,exit)=>{
-  graph.selectedIds=new Set([id]);selected=id;mode='chapter';renderInspector({collapseCards:true});renderGraph();
+  selectedGroupId=undefined;graph.selectedIds=new Set([id]);selected=id;mode='chapter';renderInspector({collapseCards:true});renderGraph();
   if(target)revealCardEntry($('#inspector'),target);
   else {const field=[...$('#inspector').querySelectorAll('[data-scope="connection"]')].find(el=>el.dataset.path===exit);field?.scrollIntoView({block:'center'});field?.focus({preventScroll:true});}
  },
  onCreateConnected:request=>nodeCreateMenu.open(request),
  onCancelCreate:()=>nodeCreateMenu.close(),
  onConnect:(id,exit,target)=>edit('connect',{id,exit,target}),
+ onBoundaryConnect:data=>edit('connect-beat-boundary',data),
+ onGroupCommand:(type,data)=>edit(type,data),
  onMove:(id,x,y)=>edit('move-node',{id,x,y}),
  onDuplicate:(id,position)=>edit('duplicate-disconnected-node',{id,position}),
  onDuplicateMany:(ids,position)=>edit('duplicate-disconnected-nodes',{ids,position}),
  onMoveMany:positions=>edit('move-nodes',{positions}),
- onSelectMany:ids=>{selected=ids[0];renderGraph();renderInspector({collapseCards:true});},
+ onSelectMany:(ids,groupId)=>{
+  selectedGroupId=groupId;selected=ids[0];
+  if(groupId)renderBeatToolbar();else renderGraph();
+  renderInspector({collapseCards:true});
+ },
  onTransferCard:data=>{preview.stop();edit('transfer-card',data);},
  onRemoveCard:data=>{preview.stop();edit('discard-card',data);},
  onDelete:()=>{if(mode==='chapter'&&node())edit('delete-node');},
@@ -142,14 +151,29 @@ function goToPreviewCard(target,{automatic=false}={}){
   return;
  }
  const changedChapter=chapterId!==source.chapter.id;
- const changedPanel=changedChapter||selected!==source.node.id||mode!=='chapter'||graph.selectedIds.size!==1;
+ const changedPanel=changedChapter||selected!==source.node.id||mode!=='chapter'||graph.selectedIds.size!==1||!!selectedGroupId;
+ selectedGroupId=undefined;
  graph.selectedIds=new Set([source.node.id]);
  chapterId=source.chapter.id;selected=source.node.id;mode='chapter';
- if(!automatic||changedPanel)render({preserveProjectSettings:automatic});
+ const expanded=expandBeatGroup(source.node.id);
+ if(!automatic||changedPanel||expanded)render({preserveProjectSettings:automatic});
  if(changedChapter)graph.fit();
  if(!revealCardEntry($('#inspector'),target,{focus:!automatic})&&!automatic)report('This card is not currently shown in the panel. Its introduction may have been disabled since playback started.');
 }
 const selection=()=>({chapterId,selected,definitionId,mode});
+function expandBeatGroup(nodeId){
+ const group=beatGroupFor(chapter(),nodeId);
+ return group?.collapsed&&edit('collapse-beat-group',{id:group.id,collapsed:false},{refresh:false}).ok;
+}
+function renderErrors(issues){
+ $('#errors').innerHTML=issues.map(issue=>{
+  const owner=project.chapters.find(candidate=>candidate.id===issue.chapterId);
+  const group=owner&&beatGroups(owner).find(group=>group.id===issue.groupId);
+  const nodeId=group&&!group.memberIds.includes(issue.nodeId)?group.memberIds[0]:issue.nodeId;
+  return nodeId&&owner? `<div><button type="button" data-error-chapter="${esc(owner.id)}" data-error-beat="${esc(nodeId)}">${esc(issue.message)}</button></div>`
+   :`<div>${esc(issue.message)}</div>`;
+ }).join('');
+}
 function edit(type,data={}, {preserveProjectSettings=false,refresh=true}={}){
  graph.cancel();
  const outcome=transactDocument(history,localDrafts,draft=>applyDocumentCommand(draft,selection(),type,data,localDrafts));
@@ -161,6 +185,7 @@ function edit(type,data={}, {preserveProjectSettings=false,refresh=true}={}){
  const patch=outcome.result?.selection||{};
  if('chapterId' in patch)chapterId=patch.chapterId;
  if('selected' in patch)selected=patch.selected;
+ if('selected' in patch||'chapterId' in patch||'groupId' in patch)selectedGroupId=patch.groupId;
  if('definitionId' in patch)definitionId=patch.definitionId;
  if('mode' in patch)mode=patch.mode;
  if(patch.selectedIds){graph.selected=selected;graph.selectedIds=new Set(patch.selectedIds);graph.lastCanvasClick=null;}
@@ -169,28 +194,40 @@ function edit(type,data={}, {preserveProjectSettings=false,refresh=true}={}){
  else {
   $('#undo').disabled=!history.canUndo;$('#redo').disabled=!history.canRedo;
   const issues=validateProject(project);
-  $('#errors').innerHTML=issues.map(e=>`<div>${esc(e.message)}</div>`).join('');
+  renderErrors(issues);
   refreshNodeErrors(issues);
  }
  report(outcome.failure||'');
  return {ok:!outcome.failure,value:outcome.result?.value,saved};
 }
 function refreshNodeErrors(issues=validateProject(project)){
- graph.setNodeErrors(nodeErrors.forChapter(project,chapter(),issues));
+ const current=chapter(),messages=nodeErrors.forChapter(project,current,issues);
+ for(const issue of issues)if(issue.chapterId===current.id&&issue.groupId){
+  const groupMessages=messages.get(issue.groupId)??[];
+  groupMessages.push(issue.message);messages.set(issue.groupId,groupMessages);
+ }
+ graph.setNodeErrors(messages);
 }
 function renderGraph(issues){
  if(mode==='chapter'){
   if(project.showDeathBeat===false&&node()?.type==='death'){selected=chapter().startNode;graph.selectedIds=new Set([selected]);}
   graph.overrideNodeIds=new Set(chapter().nodes.filter(n=>previewOverrides.effects(project,chapter(),n).length || (['fork','linear','combat'].includes(n.type)&&n.unavailableActions&&n.unavailableActions!=='project')).map(n=>n.id));
   refreshNodeErrors(issues);
+  graph.selectedGroupId=selectedGroup()?.id;
   graph.render(project,chapter(),selected,previewActiveNode(preview,chapter()));
   updatePreviewHighlight(graph,preview,chapter());
  }
- const multiple=graph.selectedIds.size>1;
+ renderBeatToolbar();
+}
+function renderBeatToolbar(){
+ const multiple=graph.selectedIds.size>1,group=selectedGroup();
  $('#copy-node').disabled=mode!=='chapter'||!node();
+ const selectedIds=[...graph.selectedIds],grouped=new Set(beatGroups(chapter()).flatMap(group=>group.memberIds));
+ $('#group-beats').disabled=mode!=='chapter'||selectedIds.length<2||selectedIds.some(id=>grouped.has(id)||id===chapter().deathNode);
+ $('#ungroup-beats').disabled=!group;
  $('#cut-node').disabled=$('#duplicate').disabled=mode!=='chapter'||!node()||[...graph.selectedIds].some(id=>chapter().nodes.find(n=>n.id===id)?.type==='death');
- $('#start').disabled=mode!=='chapter'||!node()||multiple||node()?.type==='death';
- for(const id of ['play-node'])$('#'+id).disabled=mode!=='chapter'||!node()||multiple;
+ $('#start').disabled=mode!=='chapter'||!node()||multiple||!!group||node()?.type==='death';
+ $('#play-node').disabled=mode!=='chapter'||!node()||multiple||!!group;
  $('#paste-node').disabled=mode!=='chapter'||!nodeClipboard||nodeClipboard.projectId!==project.id;
 }
 function renderProjectSettings(){
@@ -209,7 +246,7 @@ function renderProjectSettings(){
  }
 }
 function renderInspector({collapseCards=false,preserveProjectSettings=false}={}){
- const multiple=mode==='chapter'&&graph.selectedIds.size>1;
+ const group=selectedGroup(),multiple=mode==='chapter'&&!group&&graph.selectedIds.size>1;
  localDrafts.setContext(chapterId,selected);
  const sidebar=document.querySelector('aside'),scroll=sidebar.scrollTop;
  const settings=$('#settings'),active=document.activeElement;
@@ -217,13 +254,13 @@ function renderInspector({collapseCards=false,preserveProjectSettings=false}={})
  const settingsOpen=$('#settings').querySelector('details')?.open;
  const globalInitialValuesOpen=settings.querySelector('[data-global-initial-values]')?.open;
  const chapterVariablesOpen=settings.querySelector('[data-chapter-variables]')?.open;
- const inspectorKey=`${mode}:${mode==='library'?definitionId:`${chapterId}:${selected}`}`;
+ const inspectorKey=`${mode}:${mode==='library'?definitionId:`${chapterId}:${group?.id??selected}`}`;
  const sameInspector=$('#inspector').dataset.key===inspectorKey;
  const expanded=sameInspector?[...$('#inspector').querySelectorAll('details')].map((el,i)=>el.open?i:-1):[];
  $('#settings').hidden=mode==='library';
  $('#settings').innerHTML=chapterSettingsInspector(project,chapter());
  if(!preserveProjectSettings)renderProjectSettings();
- $('#inspector').innerHTML=mode==='library'?definitionInspector(project,definition()):multiple?`<p class="small">${graph.selectedIds.size} beats selected.</p>`:nodeInspector(project,chapter(),node(),previewOverrides.effects(project,chapter(),node()));
+ $('#inspector').innerHTML=mode==='library'?definitionInspector(project,definition()):group?beatGroupInspector(chapter(),group):multiple?`<p class="small">${graph.selectedIds.size} beats selected.</p>`:nodeInspector(project,chapter(),node(),previewOverrides.effects(project,chapter(),node()));
  if(mode==='library'&&isCommonDefinition(definition())){const panel=$('#inspector').querySelector('.card-definition-panel');if(panel){panel.insertAdjacentHTML('afterbegin',commonRoleControls(project,definition()));const oldRemoval=panel.querySelector('[data-command="delete-definition"]');if(oldRemoval){oldRemoval.previousElementSibling?.remove();oldRemoval.remove();}const deletion=panel.querySelector('.common-delete');if(deletion)panel.append(deletion);}}
  renderCardPreviews($('#inspector'),project,node(),chapterId);
  mountDescriptionEditors($('#inspector'),textarea=>descriptionEditorContext(project,{
@@ -239,9 +276,9 @@ function renderInspector({collapseCards=false,preserveProjectSettings=false}={})
  else if(mode==='library')for(const section of $('#inspector').querySelectorAll('details'))section.open=false;
  if(collapseCards)for(const entry of $('#inspector').querySelectorAll('details[data-placement],details[data-sequence]')){entry.open=false;entry.classList.remove('card-navigation-target');}
  $('#inspector').dataset.key=inspectorKey;
- const panelLabel=multiple?'Multiple beats':mode==='library'?(cardKinds[definition()?.kind]?.label||'Library'):nodeTypeLabel(node()?.type)||'Beat';
+ const panelLabel=group?'Beat group':multiple?'Multiple beats':mode==='library'?(cardKinds[definition()?.kind]?.label||'Library'):nodeTypeLabel(node()?.type)||'Beat';
  $('#panel-title').closest('.tabs').hidden=mode==='library'||(!multiple&&!node());
- $('#panel-title').innerHTML=`<span>${esc(panelLabel)}</span>${mode==='chapter'&&!multiple?nodeIcon(node()?.type):''}`;
+ $('#panel-title').innerHTML=`<span>${esc(panelLabel)}</span>${mode==='chapter'&&!group&&!multiple?nodeIcon(node()?.type):''}`;
  if(sameInspector&&focusedSetting){
   const next=[...settings.querySelectorAll('[data-path]')].find(el=>el.dataset.scope===focusedSetting.scope&&el.dataset.path===focusedSetting.path);
   next?.focus({preventScroll:true});
@@ -281,13 +318,23 @@ function render({preserveProjectSettings=false}={}){
 
  $('#canvas').hidden=mode!=='chapter';$('#library-panel').hidden=mode!=='library';$('#node-tools').hidden=mode!=='chapter';$('#library-toolbar').hidden=mode!=='library';
  $('#chapter-view').classList.toggle('active-tab',mode==='chapter');$('#library-view').classList.toggle('active-tab',mode==='library');
- const issues=validateProject(project);$('#errors').innerHTML=issues.map(e=>`<div>${esc(e.message)}</div>`).join('');
+ const issues=validateProject(project);renderErrors(issues);
  renderGraph(issues);renderLibrary();renderInspector({preserveProjectSettings});
 }
 function scopeRoot(scope,element){
  return documentScope(project,selection(),{scope,placementId:element.closest('[data-placement]')?.dataset.placement});
 }
 function changeField(event){const el=event.target,path=el.dataset.path,scope=el.dataset.scope;if(!path)return;
+ if(scope==='beat-group'){
+  const group=selectedGroup();
+  if(!group)return;
+  if(path==='name'){edit('rename-beat-group',{id:group.id,name:el.value});return;}
+  const value=el.value;
+  const target=value==='unlinked'?false:value==='end'?null:value.startsWith('group:')
+   ?{groupId:value.slice(6),port:'input'}:{nodeId:value.slice(5)};
+  edit('connect-beat-boundary',{source:{groupId:group.id,port:path==='entry'?'input':'output'},target});
+  return;
+ }
  if(scope==='preview-overrides'){
   edit('beat-overrides',{path,value:el.value,inputType:el.type});
   report('Beat overrides updated. Restart playback to apply.');return;
@@ -452,7 +499,7 @@ function command(event){const b=event.target.closest('[data-command]');if(!b||b.
     ...(b.dataset.sequence?{sequenceId:b.dataset.sequence,slot:b.dataset.slot,parentCardId:b.dataset.parent}: {})});
    graph.fit();
   }else{
-   chapterId=b.dataset.chapter;selected=b.dataset.node||project.chapters.find(c=>c.id===chapterId)?.startNode;graph.selectedIds=new Set(selected?[selected]:[]);mode='chapter';render();graph.fit();
+   selectedGroupId=undefined;chapterId=b.dataset.chapter;selected=b.dataset.node||project.chapters.find(c=>c.id===chapterId)?.startNode;graph.selectedIds=new Set(selected?[selected]:[]);mode='chapter';expandBeatGroup(selected);render();graph.fit();
    if(!b.dataset.node){const settings=$('#settings').querySelector('details');if(settings){settings.open=true;settings.scrollIntoView({block:'start'});}}
   }
   return;
@@ -527,6 +574,29 @@ $('#chapter-view').onclick=()=>{mode='chapter';render();};$('#library-view').onc
 $('#chapter-selector').onchange=e=>{preview.stop();edit('select-chapter',{id:e.target.value});graph.fit();};
 $('#add-chapter').onclick=()=>edit('add-chapter');
 function selectedBeatIds(){return graph.selectedIds.size?[...graph.selectedIds]:selected?[selected]:[];}
+function groupSelectedBeats(){
+ if($('#group-beats').disabled)return false;
+ const {value}=edit('group-beats',{ids:selectedBeatIds()});
+ if(value)graph.revealGroupHeader(value);
+ return true;
+}
+function ungroupSelectedBeats(){
+ const group=selectedGroup();
+ if(!group)return false;
+ if(edit('ungroup-beats',{id:group.id}).ok)selectedGroupId=undefined;
+ return true;
+}
+$('#group-beats').onclick=groupSelectedBeats;
+$('#ungroup-beats').onclick=ungroupSelectedBeats;
+$('#errors').onclick=event=>{
+ const button=event.target.closest('[data-error-beat]');
+ if(!button)return;
+ selectedGroupId=undefined;chapterId=button.dataset.errorChapter;selected=button.dataset.errorBeat;mode='chapter';
+ expandBeatGroup(selected);
+ graph.selectedIds=new Set([selected]);
+ render();
+ graph.centerOn(selected,{select:false});
+};
 function copyBeat(cut=false){
  if(mode!=='chapter'||!node())return false;
  graph.cancel();
@@ -560,7 +630,7 @@ function duplicateBeat(){
  const ids=selectedBeatIds();
  edit(ids.length>1?'duplicate-nodes':'duplicate-node',{ids});graph.centerOn(selected,{select:ids.length<=1});$('#canvas').focus({preventScroll:true});return true;
 }
-const stopNodeClipboardShortcuts=mountNodeClipboardShortcuts(document,{copy:()=>copyBeat(),cut:()=>copyBeat(true),paste:pasteBeat,duplicate:duplicateBeat,enabled:()=>mode==='chapter'});
+const stopNodeClipboardShortcuts=mountNodeClipboardShortcuts(document,{copy:()=>copyBeat(),cut:()=>copyBeat(true),paste:pasteBeat,duplicate:duplicateBeat,group:groupSelectedBeats,ungroup:ungroupSelectedBeats,enabled:()=>mode==='chapter'});
 // Keep creation controls aligned with the canonical Library kinds.
 for(const [kind,label] of [['enemy','+ Enemy']]){
  const b=document.createElement('button');b.type='button';b.dataset.addKind=kind;b.textContent=label;document.querySelector('.library-create-buttons').append(b);
@@ -699,7 +769,7 @@ function play(startNode,{restore=false,chapterId:targetChapterId=chapterId,focus
   report('Chapter ready.');return true;
  }catch(error){report(error.message);return false;}
 }
-function playSelected(options){if(!node()||graph.selectedIds.size>1)return false;return play(selected,options);}
+function playSelected(options){if(!node()||graph.selectedIds.size>1||selectedGroup())return false;return play(selected,options);}
 $('#play').onclick=()=>play();$('#play-node').onclick=()=>playSelected();
 $('#play-node').title='Play selected beat from the start (Shift+Enter)';
 $('#play-node').setAttribute('aria-keyshortcuts','Shift+Enter');
@@ -710,7 +780,7 @@ const stopPlayShortcuts=mountPlayShortcuts(document,{
   if(!target?.matches?.('input,textarea,select')||!target.closest('#inspector,#settings,#project-settings-content'))return false;
   target.blur();return true;
  },
- enabled:()=>!!node()&&graph.selectedIds.size<=1,
+ enabled:()=>!!node()&&graph.selectedIds.size<=1&&!selectedGroup(),
 });
 window.addEventListener('pagehide',event=>{if(event.persisted)return;graph.cancel();document.removeEventListener('keydown',saveShortcut);stopHistoryShortcuts();stopNodeClipboardShortcuts();stopViewShortcuts();stopPlayShortcuts();autoplay.destroy();autoPanel.destroy();previewWindow.destroy();projectSettingsWindow.destroy();preview.destroy();});
 render();graph.fit();if(loaded.error||loaded.recovery)report('');else if(loaded.migrated)report('Legacy save loaded; original browser save preserved.');else report(loaded.project?persistence.savedMessage:'Not saved yet.');

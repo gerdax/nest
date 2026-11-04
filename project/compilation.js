@@ -8,6 +8,7 @@ import { definitionGraph } from './dependencies.js';
 import { createLibraryIndex } from './library-index.js';
 import { cloneProject, legacyArtwork, list, chapterVariables } from './model-data.js';
 import { discardPlacementContext, normalizeSingleItems } from './normalization.js';
+import { resolveBeatGroups } from './beat-groups.js';
 
 export function compileChapter(project, chapterId = project.activeChapterId, {additionalDefinitionIds = []} = {}) {
   // All resolved mechanics and normalization must operate on detached data.
@@ -16,7 +17,11 @@ export function compileChapter(project, chapterId = project.activeChapterId, {ad
   discardPlacementContext(project, index);
   const chapter = project.chapters.find(c => c.id === chapterId);
   if (!chapter) throw createError('PROJECT_UNKNOWN_CHAPTER_ID', { chapterId });
-  const result = cloneProject(chapter);
+  const grouped = resolveBeatGroups(project, chapter);
+  const invalidGroup = grouped.issues.find(issue => !issue.draft);
+  if (invalidGroup) throw new Error(invalidGroup.message);
+  const result = grouped.chapter === chapter ? cloneProject(chapter) : grouped.chapter;
+  delete result.beatGroups;
   result.combat = cloneProject(project.combat);
   result.showDeathBeat = project.showDeathBeat;
   result.itemTags = cloneProject(project.itemTags || []);

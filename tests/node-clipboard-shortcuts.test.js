@@ -5,7 +5,7 @@ import {mountNodeClipboardShortcuts} from '../studio/node-clipboard-shortcuts.js
 function fixture({enabled=true,selection='',handled=true}={}){
  let listener;const calls=[];
  const root={getSelection:()=>({toString:()=>selection}),addEventListener:(name,fn)=>{listener=fn;},removeEventListener:(name,fn)=>{assert.equal(fn,listener);listener=null;}};
- const destroy=mountNodeClipboardShortcuts(root,{enabled:()=>enabled,...Object.fromEntries(['copy','cut','paste','duplicate'].map(action=>[action,()=>{calls.push(action);return handled;}]))});
+ const destroy=mountNodeClipboardShortcuts(root,{enabled:()=>enabled,...Object.fromEntries(['copy','cut','paste','duplicate','group','ungroup'].map(action=>[action,()=>{calls.push(action);return handled;}]))});
  const key=values=>{const event={key:'c',metaKey:true,target:{closest:()=>null},preventDefault(){this.prevented=true;},...values};listener(event);return event;};
  return {key,calls,destroy,get listener(){return listener;}};
 }
@@ -29,4 +29,15 @@ test('node shortcuts preserve typing, selections, preview, composition and other
 test('unavailable clipboard actions do not consume shortcuts and cleanup removes the listener',()=>{
  const f=fixture({handled:false});assert.equal(f.key({key:'v'}).prevented,undefined);
  f.destroy();assert.equal(f.listener,null);
+});
+
+test('Command and Control G group, with Shift selecting ungroup',()=>{
+ for(const modifier of ['metaKey','ctrlKey'])for(const shiftKey of [false,true]){
+  const f=fixture();
+  assert.equal(f.key({key:'G',metaKey:false,[modifier]:true,shiftKey}).prevented,true);
+  assert.deepEqual(f.calls,[shiftKey?'ungroup':'group']);
+  f.destroy();
+ }
+ const f=fixture({handled:false});
+ assert.equal(f.key({key:'g',shiftKey:true}).prevented,undefined);
 });

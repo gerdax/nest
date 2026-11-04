@@ -3,6 +3,8 @@ import { cardRuleIndicators } from './card-rule-indicators.js';
 import { itemTagsEditor } from './item-tags.js';
 import { cardLabel, cardFallbackLabel } from './card-label.js';
 import { sortedChapters, startChapter } from '../project/chapter-navigation.js';
+import { beatGroups, beatGroupFor, readBeatTarget } from '../project/beat-groups.js';
+
 import { projectCardBack } from '../project/card-backs.js';
 import { isStatVariable } from '../project/checks.js';
 import { defaultCardBack } from '../engine/cardBacks.js';
@@ -15,6 +17,25 @@ import { nodeTypeDescriptor, nodeTypeLabel, retainsInventoryItems } from '../pro
 import { inventoryItemOptions } from './item-options.js';
 import { itemReferenceLinks } from './item-reference.js';
 import { field, select, checkbox, button, rules, actionFields, imageField, artworkEditor, esc } from './forms.js';
+
+export function beatGroupInspector(chapter, group) {
+ const groups=beatGroups(chapter);
+ const members=new Set(group.memberIds);
+ const grouped=new Set(groups.flatMap(candidate=>candidate.memberIds));
+ const destination=group.destination;
+ const value=destination===null?'end':destination?.nodeId?`beat:${destination.nodeId}`
+  :destination?.groupId?`group:${destination.groupId}`:'unlinked';
+ const beatOption=node=>[`beat:${node.id}`,node.name||node.id];
+ return field('Group name',group.name,'name','beat-group')
+  +`<p class="small">${members.size} ${members.size===1?'beat':'beats'} · ${group.collapsed?'Collapsed':'Expanded'}</p>`
+  +'<h3>Connections</h3>'
+  +select('Entry beat',group.entryId?`beat:${group.entryId}`:'unlinked',
+   [['unlinked','Unlinked'],...chapter.nodes.filter(node=>members.has(node.id)).map(beatOption)],'entry','beat-group')
+  +select('Output destination',value,[['unlinked','Unlinked'],['end','End chapter'],
+   ...chapter.nodes.filter(node=>node.type!=='death'&&!grouped.has(node.id)).map(beatOption),
+   ...groups.filter(candidate=>candidate.id!==group.id).map(candidate=>[`group:${candidate.id}`,`${candidate.name} · Input`])],
+   'destination','beat-group');
+}
 
 const unavailableActionOptions=[['hidden','Hide unmet rules & triggers'],['disabled','Show unmet rules'],['triggers-only','Show unmet triggers'],['disabled-triggers','Show unmet rules & triggers']];
 
@@ -171,11 +192,19 @@ export function nodeInspector(project,chapter,node,previewEffects=node?.entryEff
  const availability=['fork','linear','combat'].includes(node.type)?select('Unavailable actions',node.unavailableActions??'project',[['project','Use project settings'],...unavailableActionOptions],'unavailableActions','node'):'';
  if(['container','linear'].includes(node.type))html+='<hr class="connections-divider inventory-persistence-divider">'+checkbox('Keep swapped items on revisit',retainsInventoryItems(node),'retainInventoryItems','node');
  if(node.type==='death')return html;
+ const groups=beatGroups(chapter),group=beatGroupFor(chapter,node.id);
+ const memberIds=new Set(group?group.memberIds:groups.flatMap(candidate=>candidate.memberIds));
+ const groupInputs=new Map(group?[]:groups.flatMap(candidate=>candidate.incoming
+  .filter(ref=>ref.nodeId===node.id).map(ref=>[ref.output,candidate.id])));
  html+='<hr class="connections-divider"><h3>Connections</h3>'+outputsForNode(project,node).map(exit=>{
-  const target=node.type==='random'?(exit==='fallback'?node.fallback:node.routes.find(r=>r.id===exit)?.target):node.connections?.[exit];
-  const value=target===null?'end':typeof target==='string'?`target:${target}`:'unlinked';
+  const target=readBeatTarget(node,exit),input=groupInputs.get(exit);
+  const value=group?.outgoing.some(ref=>ref.nodeId===node.id&&ref.output===exit)?'group-output'
+   :input?`group-input:${input}`:target===null?'end':typeof target==='string'?`target:${target}`:'unlinked';
   const hideLabel=['container','linear'].includes(node.type)&&exit==='next';
-  const connection=select(hideLabel?'':labelForOutput(project,node,exit),value,[['unlinked','Unlinked'],...(node.type==='combat'?[]:[['end','End chapter']]),...chapter.nodes.filter(n=>n.type!=='death'&&(project.allowCycles!==false||n.id!==node.id)).map(n=>[`target:${n.id}`,n.name])],exit,'connection');
+  const choices=group?[['group-output',`${group.name} · Output`]]
+   :[...(node.type==='combat'?[]:[['end','End chapter']]),...groups.map(candidate=>[`group-input:${candidate.id}`,`${candidate.name} · Input`])];
+  const connection=select(hideLabel?'':labelForOutput(project,node,exit),value,[['unlinked','Unlinked'],...choices,
+   ...chapter.nodes.filter(n=>n.type!=='death'&&memberIds.has(n.id)===Boolean(group)&&(project.allowCycles!==false||n.id!==node.id)).map(n=>[`target:${n.id}`,n.name])],exit,'connection');
   return hideLabel?connection.replace('<select ','<select aria-label="Next connection" '):connection;
  }).join('');
  const hasOverrides=previewEffects.length>0 || !!(availability && node.unavailableActions && node.unavailableActions!=='project');

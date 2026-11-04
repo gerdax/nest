@@ -11,6 +11,7 @@ import { object, named, list, placements, legacyArtwork, chapterVariables } from
 import { hasDirectedCycle, outputsForNode } from './graph.js';
 import { definitionGraph } from './dependencies.js';
 import { createLibraryIndex } from './library-index.js';
+import { resolveBeatGroups } from './beat-groups.js';
 
 export function validateProject(project, {allowDraft = false} = {}) {
   if(project?.version===2)project=ensureCombatDefaults(JSON.parse(JSON.stringify(project)));
@@ -397,7 +398,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
   if(!object(project.combat))add('Project requires combat settings');
   else {if(!Array.isArray(project.combat.defaultActions))add('Default combat Actions must be a list');else {if(new Set(project.combat.defaultActions.map(r=>r?.definitionId)).size!==project.combat.defaultActions.length)add('Duplicate Default combat Action');for(const ref of project.combat.defaultActions){typedRef(ref,'combatAction','Default combat Action');if(definitions.get(ref?.definitionId)?.type==='attack'&&definitions.get(ref?.definitionId)?.attack?.source==='weapon')add('Default combat Action requires a source Weapon');}}typedRef(project.combat.playerHit,'effect','Player Hit');typedRef(project.combat.playerDodge,'effect','Player Dodge');if(project.combat.playerDodge?.definitionId===project.combat.playerHit?.definitionId)add('Dodge and Damage received require separate Feedback definitions');}
   if (!allowDraft && !chapterIds.has(project.activeChapterId)) add(errorMessage('VALIDATION_ACTIVE_CHAPTER_MUST_EXIST'));
-  for (const chapter of chapters) {
+  for (let chapter of chapters) {
     if (!object(chapter)) continue;
     const cid = chapter.id;
     vars = new Map(chapterVariables(project, chapter).filter(object).map(v => [v.id, v]));
@@ -405,6 +406,9 @@ export function validateProject(project, {allowDraft = false} = {}) {
       add(errorMessage('VALIDATION_INVALID_CHAPTER_STRUCTURE'), cid);
       continue;
     }
+    const resolvedGroups = resolveBeatGroups(project, chapter);
+    errors.push(...resolvedGroups.issues.filter(issue => !allowDraft || !issue.draft));
+    chapter = resolvedGroups.chapter;
     if(chapter.nodes.some(n=>n?.type==='combat'&&!isUnassignedCombat(n))) {
       const health=vars.get('health');
       if(!health||health.type!=='number'||!Number.isSafeInteger(health.initial)||(health.min!==undefined&&health.min>0)||(health.max!==undefined&&(!Number.isSafeInteger(health.max)||health.max<1)))add('Combat requires integer player Health with bounds allowing zero',cid);

@@ -78,6 +78,7 @@ select:disabled {opacity:.5;cursor:not-allowed;}
 .check-field {display:flex!important;align-items:center;gap:8px;}
 .check-field input {width:auto;margin:0;}
 #errors {z-index:5;}
+#errors [data-error-beat] {padding:0;border:0;background:none;color:inherit;text-align:left;text-decoration:underline;}
 #library-panel:not([hidden]) ~ #errors {position:static;margin:12px 24px;}
 #inspector h2 {font-size:18px;}
 #panel-title {display:flex;align-items:center;gap:12px;width:100%;}

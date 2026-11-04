@@ -3,6 +3,7 @@ import { cardLabel } from './card-label.js';
 import { uiScale } from './ui-scale.js';
 import { esc } from './forms.js';
 import { outputsForNode, labelForOutput } from '../project/model.js';
+import { readBeatTarget } from '../project/beat-groups.js';
 import { nodeTypeLabel } from '../project/nodeTypes.js';
 import { nodeTypeDescriptor } from '../project/nodeTypes.js';
 import { nodeIcon } from './node-icons.js';
@@ -13,7 +14,8 @@ import { cardRuleIndicators } from './card-rule-indicators.js';
 
 /** Canvas interaction owns selection/pan, and emits completed document edits. */
 export class GraphView {
- constructor(root,{onSelect,onConnect,onMove,onDuplicate=()=>{},onDuplicateMany=()=>{},onSelectMany=()=>{},onMoveMany=()=>{},onOpenCard=()=>{},onOpenDefinition=()=>{},onTransferCard=()=>{},onRemoveCard=()=>{},onDelete=()=>{},onDeleteMany=()=>{},onCreateConnected=()=>{},onCancelCreate=()=>{}}) {
+ constructor(root,{onSelect,onConnect,onMove,onDuplicate=()=>{},onDuplicateMany=()=>{},onSelectMany=()=>{},onMoveMany=()=>{},onOpenCard=()=>{},onOpenDefinition=()=>{},onTransferCard=()=>{},onRemoveCard=()=>{},onDelete=()=>{},onDeleteMany=()=>{},onCreateConnected=()=>{},onCancelCreate=()=>{},onGroupCommand=()=>{},onBoundaryConnect=()=>{}}) {
+  this.onGroupCommand=onGroupCommand;this.onBoundaryConnect=onBoundaryConnect;
   this.onDuplicate=onDuplicate;this.onDuplicateMany=onDuplicateMany;this.overrideNodeIds=new Set();this.nodeErrors=new Map();
   this.selectedIds=new Set();this.onSelectMany=onSelectMany;this.onMoveMany=onMoveMany;
   this.onCreateConnected=onCreateConnected;this.onCancelCreate=onCancelCreate;this.creation=null;
@@ -21,10 +23,13 @@ export class GraphView {
   this.onOpenDefinition=onOpenDefinition;
   this.cardDrag=new CardDrag(this,onTransferCard,onRemoveCard);
   this.view={x:50,y:50,z:1};this.pending=null;this.drag=null;
-  root.innerHTML='<div id="world"><svg id="edges"></svg><div id="nodes"></div></div>';
+  root.innerHTML='<div id="world"><svg id="edges"></svg><div id="beat-groups"></div><div id="nodes"></div></div>';
   root.addEventListener('pointerdown',e=>this.down(e));
   root.addEventListener('pointermove',e=>this.move(e));
   root.addEventListener('pointerup',e=>this.up(e));
+  root.addEventListener('pointerleave',e=>{
+   if(this.drag?.kind==='beat-group'&&this.drag.pointer===e.pointerId&&!this.drag.moved)this.drag=null;
+  });
   for(const event of ['pointercancel','lostpointercapture'])root.addEventListener(event,e=>{if(this.drag?.pointer===e.pointerId)this.cancel();});
   root.addEventListener('keydown',e=>{
    if(['Enter',' '].includes(e.key)){this.cardDrag.suppressClick=false;this.suppressSelectionClick=false;}
@@ -41,6 +46,11 @@ export class GraphView {
   root.addEventListener('click',e=>{
    if(this.suppressSelectionClick){this.suppressSelectionClick=false;e.preventDefault();return;}
    if(this.cardDrag.consumeClick()){e.preventDefault();return;}
+   const groupHeader=e.target.closest('.beat-group-header');
+   if(groupHeader){
+    if(e.detail===0)this.toggleGroup(groupHeader);
+    return;
+   }
    const definitionLink=e.target.closest('.graph-definition-link');
    if(definitionLink){
     e.preventDefault();this.lastPortClick=null;
@@ -60,10 +70,13 @@ export class GraphView {
    if(node&&row){this.lastPortClick=null;this.openCard(node.dataset.id,row.dataset.cardPlacement);}
   });
   root.addEventListener('dblclick',e=>{
+   const groupHeader=e.target.closest('.beat-group-header');
+   if(groupHeader&&!this.drag){e.preventDefault();this.toggleGroup(groupHeader);return;}
    const edge=e.target.closest('.edge-hit');
    if(!edge||this.drag)return;
    e.preventDefault();this.lastPortClick=null;
-   this.onConnect(edge.dataset.source,edge.dataset.exit,false);
+   if(edge.dataset.groupSource)this.onBoundaryConnect({source:{groupId:edge.dataset.groupSource,port:edge.dataset.groupPort},target:false});
+   else this.onConnect(edge.dataset.source,edge.dataset.exit,false);
   });
   root.addEventListener('wheel',e=>{this.lastCanvasClick=null;if(this.drag?.kind==='select'){e.preventDefault();return;}this.cancelCreation();e.preventDefault();const r=root.getBoundingClientRect(),scale=uiScale(root),x=(e.clientX-r.left)/scale,y=(e.clientY-r.top)/scale,old=this.view.z;this.view.z=Math.max(.25,Math.min(1.6,old*Math.exp(-e.deltaY*.001)));this.view.x=x-(x-this.view.x)*this.view.z/old;this.view.y=y-(y-this.view.y)*this.view.z/old;this.transform();},{passive:false});
  }
@@ -74,14 +87,25 @@ export class GraphView {
   this.selectionChapter=chapterKey;
   this.selectedIds=new Set([...this.selectedIds].filter(id=>chapter.nodes.some(node=>node.id===id)));
   this.project=project;this.chapter=chapter;this.selected=selected;this.active=active;
-  const visibleNodes=chapter.nodes.filter(node=>node.type!=='death'||project.showDeathBeat!==false);
-  this.selectedIds=new Set([...this.selectedIds].filter(id=>visibleNodes.some(n=>n.id===id)));
-  this.nodesById=new Map(visibleNodes.map(node=>[node.id,node]));
+  const playableNodes=chapter.nodes.filter(node=>node.type!=='death'||project.showDeathBeat!==false);
+  this.nodesById=new Map(playableNodes.map(node=>[node.id,node]));
+  this.selectedIds=new Set([...this.selectedIds].filter(id=>this.nodesById.has(id)));
+  this.groupsById=new Map((chapter.beatGroups||[]).map(group=>[group.id,group]));
+  this.groupsByMember=new Map([...this.groupsById.values()].flatMap(group=>group.memberIds.map(id=>[id,group])));
+  this.boundaryOutputs=new Map();
+  for(const group of this.groupsById.values())for(const [port,bindings] of [['input',group.incoming],['output',group.outgoing]]){
+   for(const {nodeId,output} of bindings){
+    if(!this.boundaryOutputs.has(nodeId))this.boundaryOutputs.set(nodeId,new Map());
+    this.boundaryOutputs.get(nodeId).set(output,{groupId:group.id,port});
+   }
+  }
+  const visibleNodes=playableNodes.filter(node=>!this.groupsByMember.get(node.id)?.collapsed);
   this.libraryIndex=createLibraryIndex(project.library);
   this.definitionsById=new Map(project.library.map(definition=>[definition.id,definition]));
   if(this.pending&&!chapter.nodes.some(n=>n.id===this.pending.nodeId&&outputsForNode(project,n,this.libraryIndex).includes(this.pending.exit)))this.pending=null;
-  this.root.querySelector('#nodes').innerHTML=visibleNodes.map(n=>`<article class="node ${n.type} ${this.selectedIds.has(n.id)?'selected':''} ${n.id===active?'active':''}" data-id="${esc(n.id)}" style="left:${this.position(n).x}px;top:${this.position(n).y}px"><div class="node-heading">${nodeIcon(n.type)}<span class="badge">${n.id===chapter.startNode?'<span class="graph-start-label">START</span> · ':''}${esc(n.name?.trim()||nodeTypeLabel(n.type))}</span>${this.overrideMarker(n.id)}</div>${n.type==='random'?`<div class="node-body">${n.routes.length} ${n.routes.length===1?'route':'routes'}</div>`:n.type.startsWith('legacy')?'<div class="node-body">Preserved legacy behaviour</div>':''}${this.cardRows(n)}</article>`).join('');
+  this.root.querySelector('#nodes').innerHTML=visibleNodes.map(n=>`<article class="node ${n.type} ${!this.selectedGroupId&&this.selectedIds.has(n.id)?'selected':''} ${n.id===active?'active':''}" data-id="${esc(n.id)}" style="left:${this.position(n).x}px;top:${this.position(n).y}px"><div class="node-heading">${nodeIcon(n.type)}<span class="badge">${n.id===chapter.startNode?'<span class="graph-start-label">START</span> · ':''}${esc(n.name?.trim()||nodeTypeLabel(n.type))}</span>${this.overrideMarker(n.id)}</div>${n.type==='random'?`<div class="node-body">${n.routes.length} ${n.routes.length===1?'route':'routes'}</div>`:n.type.startsWith('legacy')?'<div class="node-body">Preserved legacy behaviour</div>':''}${this.cardRows(n)}</article>`).join('');
   this.nodeElements=new Map([...this.root.querySelectorAll('.node')].map(el=>[el.dataset.id,el]));
+  this.renderGroups();
   this.setNodeErrors(this.nodeErrors);
   this.portElements=new Map([...this.nodeElements].map(([id,el])=>[id,new Map([...el.querySelectorAll('.port')].map(port=>[port.dataset.exit,port]))]));
   this.setActiveCard(this.activeCard);
@@ -101,6 +125,7 @@ export class GraphView {
   this.active=active;
   this.nodeElements?.get(previous)?.classList.toggle('active',false);
   this.nodeElements?.get(active)?.classList.toggle('active',true);
+  this.syncGroupStates();
  }
  // Validation and playback update errors without disturbing focus or gestures.
  // The caller supplies only errors belonging to the displayed chapter.
@@ -118,6 +143,7 @@ export class GraphView {
     for(const name of ['aria-invalid','aria-description','data-error-message','title'])element.removeAttribute(name);
    }
   }
+  this.syncGroupStates();
  }
  // Match authored placements, so equal names and shared definitions stay distinct.
  setActiveCard(target) {
@@ -147,9 +173,12 @@ export class GraphView {
   for(const edge of next)if(!this.activeEdges?.has(edge))edge.classList.toggle('preview-active',true);
   this.activeEdges=next;
  }
- target(n,exit) {if(n.type==='random')return exit==='fallback'?n.fallback:n.routes.find(r=>r.id===exit)?.target;return n.connections?.[exit];}
- portLabel(node,exit){const target=this.target(node,exit);return target===null?'End chapter':this.nodesById.get(target)?.name||'Unlinked';}
- unlinked(node,exit){const target=this.target(node,exit);return target!==null&&!this.nodesById.has(target);}
+ target(n,exit) {return readBeatTarget(n,exit);}
+ portLabel(node,exit){
+  const boundary=this.boundaryOutputs?.get(node.id)?.get(exit);
+  if(boundary)return `${this.groupsById.get(boundary.groupId)?.name} ${boundary.port==='input'?'In':'Out'}`;
+  const target=this.target(node,exit);return target===null?'End chapter':this.nodesById.get(target)?.name||'Unlinked';}
+ unlinked(node,exit){if(this.boundaryOutputs?.get(node.id)?.has(exit))return false;const target=this.target(node,exit);return target!==null&&!this.nodesById.has(target);}
  port(node,exit,label=null){
   const target=esc(this.portLabel(node,exit)),name=esc(labelForOutput(this.project,node,exit,this.libraryIndex));
   if(exit.endsWith(':success')||exit.endsWith(':failure')||node.type==='combat'&&exit==='victory')label='';
@@ -191,13 +220,108 @@ export class GraphView {
   if(port){const r=port.getBoundingClientRect();if(r.width&&r.height)return this.point({clientX:r.right,clientY:r.top+r.height/2});}
   const pos=this.position(n);return {x:pos.x+220,y:pos.y+104+outputsForNode(this.project,n,this.libraryIndex).indexOf(exit)*29};
  }
+ renderGroups() {
+  const layer=this.root.querySelector('#beat-groups');
+  if(!layer)return;
+  layer.innerHTML=[...this.groupsById.values()].map(group=>{
+   const {id,name,collapsed}=group;
+   return `<div class="beat-group${collapsed?' collapsed':''}" data-group-id="${esc(id)}">
+    <button type="button" class="beat-group-header" aria-expanded="${!collapsed}" title="Drag to move. Double-click to ${collapsed?'expand':'collapse'}">${esc(name)}</button>
+    <button type="button" class="beat-group-port" data-port="input" aria-label="${esc(name)} Group In" title="${collapsed?'Connect an outside outcome here':'Connect an outside outcome here, or drag from here to the entry beat'}"></button>
+    <button type="button" class="beat-group-port" data-port="output" aria-label="${esc(name)} Group Out" title="${collapsed?'Drag to an outside beat or group input':'Connect a member outcome here, or drag from here to the outside destination'}"></button>
+   </div>`;
+  }).join('');
+  this.groupElements=new Map([...layer.querySelectorAll('.beat-group')].map(el=>[el.dataset.groupId,el]));
+  this.layoutGroups();
+ }
+ groupBounds(group) {
+  const scale=this.view.z*uiScale(this.root);
+  let left=Infinity,top=Infinity,right=-Infinity,bottom=-Infinity;
+  for(const id of group.memberIds){
+   const node=this.nodesById.get(id);
+   if(!node)continue;
+   const {x,y}=this.position(node),el=this.nodeElements.get(id);
+   const width=el?.offsetWidth||220,height=el?.offsetHeight||(el?.getBoundingClientRect().height/scale||120);
+   left=Math.min(left,x);top=Math.min(top,y);right=Math.max(right,x+width);bottom=Math.max(bottom,y+height);
+  }
+  if(!Number.isFinite(left))return null;
+  return {x:left-30,y:top-72,width:group.collapsed?320:Math.max(320,right-left+60),height:group.collapsed?112:bottom-top+104};
+ }
+ layoutGroups() {
+  this.groupRects=new Map();
+  for(const [id,element] of this.groupElements||[]){
+   const rect=this.groupBounds(this.groupsById.get(id));
+   if(!rect)continue;
+   this.groupRects.set(id,rect);
+   Object.assign(element.style,{left:`${rect.x}px`,top:`${rect.y}px`,width:`${rect.width}px`,height:`${rect.height}px`});
+  }
+ }
+ syncGroupStates() {
+  for(const [id,element] of this.groupElements||[]){
+   const group=this.groupsById.get(id),messages=[...(this.nodeErrors.get(id)||[]),...group.memberIds.flatMap(member=>this.nodeErrors.get(member)||[])];
+   element.classList.toggle('active',group.memberIds.includes(this.active));
+   element.classList.toggle('selected',id===this.selectedGroupId);
+   element.classList.toggle('has-error',!!messages.length);
+   if(messages.length){
+    const message=messages.join('\n');
+    element.setAttribute('aria-invalid','true');element.setAttribute('aria-description',message);element.setAttribute('title',message);
+   }else for(const name of ['aria-invalid','aria-description','title'])element.removeAttribute(name);
+  }
+ }
+ toggleGroup(header) {
+  const group=this.groupsById.get(header.closest('.beat-group').dataset.groupId);
+  if(!group)return;
+  if(this.selectedGroupId!==group.id)this.selectGroup(group);
+  this.onGroupCommand('collapse-beat-group',{id:group.id,collapsed:!group.collapsed});
+ }
+ selectGroup(group) {
+  const ids=[...group.memberIds];
+  this.selectedIds=new Set(ids);this.selected=ids[0];this.selectedGroupId=group.id;
+  for(const element of this.nodeElements.values())element.classList.toggle('selected',false);
+  this.syncGroupStates();
+  this.onSelectMany(ids,group.id);
+ }
+ boundaryPoint({groupId,port}) {
+  const rect=this.groupRects?.get(groupId);
+  if(!rect)return null;
+  // The same connector joins the two segments at the border.
+  return {x:rect.x+(port==='output'?rect.width:0),y:rect.y+60};
+ }
+ connectionPoint(endpoint,source) {
+  if(endpoint.groupId)return this.boundaryPoint(endpoint);
+  const node=this.nodesById.get(endpoint.nodeId);
+  if(!node||this.groupsByMember?.get(node.id)?.collapsed)return null;
+  if(source)return this.outputPoint(node,endpoint.output);
+  const to=this.position(node);return {x:to.x,y:to.y+40};
+ }
+ visibleWire(source,target) {
+  const from=this.connectionPoint(source,true),to=this.connectionPoint(target,false);
+  if(!from||!to)return '';
+  const path=this.wire(from.x,from.y,to.x,to.y);
+  const data=source.nodeId?`data-source="${esc(source.nodeId)}" data-exit="${esc(source.output)}"`
+   :`data-group-source="${esc(source.groupId)}" data-group-port="${esc(source.port)}"`;
+  return `<path class="edge-line" ${data} d="${path}"/><path class="edge-hit" ${data} d="${path}"/>`;
+ }
  edges() {
-  const paths=this.chapter.nodes.flatMap(n=>outputsForNode(this.project,n,this.libraryIndex).map(exit=>{
-   const t=this.nodesById.get(this.target(n,exit));if(!t)return '';
-   const {x,y}=this.outputPoint(n,exit),to=this.position(t),path=this.wire(x,y,to.x,to.y+40);
-   return `<path class="edge-line" data-source="${esc(n.id)}" data-exit="${esc(exit)}" d="${path}"/><path class="edge-hit" data-source="${esc(n.id)}" data-exit="${esc(exit)}" d="${path}"/>`;
-  }));
-  const d=this.creation||this.drag;if(d?.kind==='connect'&&d.moved){const n=this.nodesById.get(d.nodeId);if(n){const {x,y}=this.outputPoint(n,d.exit);paths.push(`<path class="edge-ghost" d="${this.wire(x,y,d.px,d.py)}"/>`);}}
+  const paths=[];
+  for(const node of this.chapter.nodes){
+   if(this.groupsByMember?.get(node.id)?.collapsed)continue;
+   for(const exit of outputsForNode(this.project,node,this.libraryIndex)){
+    const target=this.boundaryOutputs?.get(node.id)?.get(exit);
+    const nodeId=this.target(node,exit);
+    if(target||this.nodesById.has(nodeId))paths.push(this.visibleWire({nodeId:node.id,output:exit},target||{nodeId}));
+   }
+  }
+  for(const group of this.groupsById?.values()||[]){
+   if(!group.collapsed&&group.entryId)paths.push(this.visibleWire({groupId:group.id,port:'input'},{nodeId:group.entryId}));
+   if(group.destination)paths.push(this.visibleWire({groupId:group.id,port:'output'},group.destination.groupId
+    ?{groupId:group.destination.groupId,port:'input'}:{nodeId:group.destination.nodeId}));
+  }
+  const d=this.creation||this.drag;
+  if(d?.kind==='connect'&&d.moved){
+   const from=this.connectionPoint(d.source||{nodeId:d.nodeId,output:d.exit},true);
+   if(from)paths.push(`<path class="edge-ghost" d="${this.wire(from.x,from.y,d.px,d.py)}"/>`);
+  }
   if(d?.kind==='select'&&d.moved){const r=this.selectionRect(d);paths.push(`<rect class="graph-selection-box" x="${r.x}" y="${r.y}" width="${r.width}" height="${r.height}"/>`);}
   this.root.querySelector('#edges').innerHTML=paths.join('');
   this.edgeElements=[...this.root.querySelector('#edges').querySelectorAll('.edge-line')];
@@ -210,13 +334,33 @@ export class GraphView {
   world.style.setProperty('--graph-selection-width',`${2/(this.view.z*uiScale(this.root))}px`);
  }
  validTarget(id,source) {return this.nodesById.get(id)?.type!=='death'&&(id!==source||this.project.allowCycles!==false)&&this.nodesById.has(id);}
- dropTarget(e,source) {
+ connectionDrop(e,source) {
   const r=this.root.getBoundingClientRect();
   if(e.clientX<r.left||e.clientX>=r.right||e.clientY<r.top||e.clientY>=r.bottom)return null;
-  const el=this.root.ownerDocument.elementFromPoint(e.clientX,e.clientY)?.closest('.node');
-  return el&&this.root.contains(el)&&this.validTarget(el.dataset.id,source)?el.dataset.id:null;
+  const hit=this.root.ownerDocument.elementFromPoint(e.clientX,e.clientY);
+  if(!hit||!this.root.contains(hit))return null;
+  const port=hit.closest('.beat-group-port');
+  const sourceGroup=this.groupsByMember?.get(source.nodeId)?.id;
+  if(port){
+   const groupId=port.closest('.beat-group').dataset.groupId,targetPort=port.dataset.port;
+   if(source.nodeId&&(sourceGroup===groupId?targetPort==='output':!sourceGroup&&targetPort==='input')){
+    return {groupId,port:targetPort};
+   }
+   if(source.port==='output'&&source.groupId!==groupId&&targetPort==='input')return {groupId,port:targetPort};
+   return null;
+  }
+  const nodeId=hit.closest('.node')?.dataset.id;
+  if(!nodeId||!this.validTarget(nodeId,source.nodeId))return null;
+  const targetGroup=this.groupsByMember?.get(nodeId)?.id;
+  if(source.nodeId?sourceGroup===targetGroup:source.port==='input'?targetGroup===source.groupId:!targetGroup)return {nodeId};
+  return null;
  }
- hoverTarget(id) {for(const el of this.root.querySelectorAll('.node'))el.classList.toggle('connection-target',el.dataset.id===id);}
+ hoverTarget(target) {
+  for(const el of this.root.querySelectorAll('.node'))el.classList.toggle('connection-target',el.dataset.id===target?.nodeId);
+  for(const [id,group] of this.groupElements||[]){
+   for(const port of group.querySelectorAll('.beat-group-port'))port.classList.toggle('connection-target',id===target?.groupId&&port.dataset.port===target?.port);
+  }
+ }
  setDraggingCursor(active) {
   this.root.classList.toggle('graph-dragging',active);
   this.root.ownerDocument?.documentElement?.classList?.toggle('graph-dragging',active);
@@ -226,6 +370,21 @@ export class GraphView {
   this.cancelCreation();
   this.suppressSelectionClick=false;
   if(e.target.closest('.graph-definition-link')){this.cardDrag.suppressClick=false;return;}
+  const groupElement=e.target.closest('.beat-group');
+  if(groupElement){
+   const group=this.groupsById.get(groupElement.dataset.groupId),port=e.target.closest('.beat-group-port');
+   this.lastCanvasClick=null;this.lastPortClick=null;this.cardDrag.suppressClick=false;
+   if(port){
+    if(group.collapsed&&port.dataset.port==='input')return;
+    this.beginConnection(e,{groupId:group.id,port:port.dataset.port});
+   }else if(group.collapsed||e.target.closest('.beat-group-header')){
+    this.selectGroup(group);
+    this.drag={kind:'beat-group',groupId:group.id,x:e.clientX,y:e.clientY,pointer:e.pointerId,dx:0,dy:0,
+     origins:new Map(group.memberIds.map(id=>{const node=this.nodesById.get(id);return [id,{x:node.x,y:node.y}];}))};
+    // Leave stationary presses uncaptured so the bar receives a native double-click.
+   }
+   return;
+  }
   const el=e.target.closest('.node'),port=e.target.closest('.port'),edge=e.target.closest('.edge-hit');
   const previous=this.lastCanvasClick,time=e.timeStamp??performance.now(),pointerType=e.pointerType??'mouse';
   this.lastCanvasClick=null;
@@ -245,18 +404,11 @@ export class GraphView {
   if(name){if(this.cardDrag.start(e,name))this.setDraggingCursor(true);return;}
   this.cardDrag.suppressClick=false;
   if(edge)return;
-  if(port){
-   const nodeId=el.dataset.id,exit=port.dataset.exit;
-   this.pending=null;const p=this.point(e);
-   this.drag={kind:'connect',nodeId,exit,fromPort:!!port,x:e.clientX,y:e.clientY,px:p.x,py:p.y,moved:false,pointer:e.pointerId};
-   // Capture on the stable root before replacing port markup.
-   this.setDraggingCursor(true);this.root.setPointerCapture(e.pointerId);this.root.focus({preventScroll:true});
-   this.render(this.project,this.chapter,this.selected,this.active);e.preventDefault();return;
-  }
+  if(port){this.beginConnection(e,{nodeId:el.dataset.id,output:port.dataset.exit});return;}
   if(el){
    const copy=e.altKey&&!!e.target.closest('.node-heading');
-   if(copy&&[...this.selectedIds,el.dataset.id].some(id=>this.nodesById.get(id)?.type==='death'))return;
-   const id=el.dataset.id,group=this.selectedIds.size>1&&this.selectedIds.has(id);
+   if(copy&&[...this.selectedIds,el.dataset.id].some(id=>this.nodesById.get(id)?.type==='death'||!this.nodeElements.has(id)))return;
+   const id=el.dataset.id,group=!this.selectedGroupId&&this.selectedIds.size>1&&this.selectedIds.has(id);
    if(!group)this.onSelect(id);
    const n=this.nodesById.get(id);
    this.drag={kind:'node',id,copy,x:e.clientX,y:e.clientY,ox:n.x,oy:n.y,px:n.x,py:n.y,pointer:e.pointerId};
@@ -267,17 +419,32 @@ export class GraphView {
   this.root.setPointerCapture(e.pointerId);
   this.root.focus({preventScroll:true});
  }
- move(e) {
+ beginConnection(e,source) {
+  this.pending=null;const p=this.point(e);
+  this.drag={kind:'connect',source,nodeId:source.nodeId,exit:source.output,fromPort:true,x:e.clientX,y:e.clientY,px:p.x,py:p.y,moved:false,pointer:e.pointerId};
+  // Capture on the stable root before replacing port markup.
+  this.setDraggingCursor(true);this.root.setPointerCapture(e.pointerId);this.root.focus({preventScroll:true});
+  this.render(this.project,this.chapter,this.selected,this.active);e.preventDefault();
+ }
+ move(e,capture=true) {
   const d=this.drag;if(!d||d.pointer!==e.pointerId)return;
   if(d.kind==='card'){this.cardDrag.move(e);return;}
   if(d.kind==='select'){this.updateBoxSelection(e);return;}
   if(d.kind==='connect'){
    d.moved ||= Math.hypot(e.clientX-d.x,e.clientY-d.y)>4;
-   const p=this.point(e);d.px=p.x;d.py=p.y;this.hoverTarget(d.moved?this.dropTarget(e,d.nodeId):null);this.edges();
+   const p=this.point(e);d.px=p.x;d.py=p.y;this.hoverTarget(d.moved?this.connectionDrop(e,d.source):null);this.edges();
   }else if(d.kind==='pan'){d.moved ||= Math.hypot(e.clientX-d.x,e.clientY-d.y)>4;const scale=uiScale(this.root);this.view.x=d.ox+(e.clientX-d.x)/scale;this.view.y=d.oy+(e.clientY-d.y)/scale;this.transform();}
   else{
    const scale=this.view.z*uiScale(this.root),dx=(e.clientX-d.x)/scale,dy=(e.clientY-d.y)/scale;
-   d.px=d.ox+dx;d.py=d.oy+dy;
+   if(d.kind==='beat-group'){
+    if(!d.moved){
+     if(Math.hypot(e.clientX-d.x,e.clientY-d.y)<=4)return;
+     d.moved=true;
+     if(capture)this.root.setPointerCapture(e.pointerId);
+     this.setDraggingCursor(true);
+    }
+    d.dx=dx;d.dy=dy;
+   }else{d.px=d.ox+dx;d.py=d.oy+dy;}
    if(d.copy){
     d.moved ||= Math.hypot(e.clientX-d.x,e.clientY-d.y)>4;
     if(!d.moved)return;
@@ -301,16 +468,16 @@ export class GraphView {
    const positions=d.origins?new Map([...d.origins].map(([id,p])=>[id,{x:p.x+dx,y:p.y+dy}])):new Map([[d.id,{x:d.px,y:d.py}]]);
    if(d.origins)d.positions=positions;
    for(const [id,p] of positions){const el=this.nodeElements.get(id);if(el){el.style.left=`${p.x}px`;el.style.top=`${p.y}px`;}}
-   this.edges();
+   this.layoutGroups();this.edges();
   }
  }
  up(e){
   const d=this.drag;if(!d||d.pointer!==e.pointerId)return;
-  if(d.kind==='pan')this.move(e);
+  if(d.kind==='pan'||d.kind==='beat-group')this.move(e,false);
   if(d.copy)this.move(e);
   if(d.kind==='select')this.updateBoxSelection(e);
   if(d.kind==='connect')d.moved ||= Math.hypot(e.clientX-d.x,e.clientY-d.y)>4;
-  const target=d.kind==='connect'&&d.moved?this.dropTarget(e,d.nodeId):null;
+  const target=d.kind==='connect'&&d.moved?this.connectionDrop(e,d.source):null;
   this.drag=null;
   this.setDraggingCursor(false);
   if(this.root.hasPointerCapture(e.pointerId))this.root.releasePointerCapture(e.pointerId);
@@ -322,9 +489,14 @@ export class GraphView {
   if(d.kind==='connect'){
    if(d.moved)this.pending=null;
    this.render(this.project,this.chapter,this.selected,this.active);
-   if(target)this.onConnect(d.nodeId,d.exit,target);
-   else if(d.moved&&this.blankDrop(e)){
+   if(target){
+    if(d.nodeId&&target.nodeId)this.onConnect(d.nodeId,d.exit,target.nodeId);
+    else this.onBoundaryConnect({source:d.source,target});
+   }else if(d.source.groupId){
+    if(d.moved&&this.blankDrop(e))this.onBoundaryConnect({source:d.source,target:false});
+   }else if(d.moved&&this.blankDrop(e)){
     if(this.unlinked(this.nodesById.get(d.nodeId),d.exit)){
+     if(this.groupsByMember?.has(d.nodeId))return;
      const position=this.point(e);
      this.creation={...d,px:position.x,py:position.y};this.edges();
      this.onCreateConnected({id:d.nodeId,exit:d.exit,position,clientX:e.clientX,clientY:e.clientY});
@@ -332,6 +504,8 @@ export class GraphView {
    }
    else if(!d.moved&&d.fromPort)this.activatePort(d.nodeId,d.exit,e.timeStamp??performance.now(),e.clientX,e.clientY);
    if(d.moved)this.lastPortClick=null;
+  }else if(d.kind==='beat-group'){
+   if(d.moved)this.onGroupCommand('move-beat-group',{id:d.groupId,dx:d.dx,dy:d.dy});
   }else if(d.kind==='node'){
    if(d.copy){
     for(const ghost of d.ghosts?.values()||[])ghost.remove();
@@ -357,11 +531,18 @@ export class GraphView {
   if(!d.moved)return;
   const r=this.selectionRect(d),scale=this.view.z*uiScale(this.root);
   this.selectedIds=new Set(this.chapter.nodes.filter(n=>{
-   if(!this.nodesById.has(n.id))return false;
+   if(!this.nodeElements.has(n.id))return false;
    const bounds=this.nodeElements.get(n.id)?.getBoundingClientRect(),width=bounds?.width?bounds.width/scale:220,height=bounds?.height?bounds.height/scale:120;
    return n.x<=r.x+r.width&&n.x+width>=r.x&&n.y<=r.y+r.height&&n.y+height>=r.y;
   }).map(n=>n.id));
+  for(const [id,rect] of this.groupRects||[]){
+   const group=this.groupsById.get(id);
+   if(group.collapsed&&rect.x<=r.x+r.width&&rect.x+rect.width>=r.x&&rect.y<=r.y+r.height&&rect.y+rect.height>=r.y){
+    for(const member of group.memberIds)this.selectedIds.add(member);
+   }
+  }
   for(const [id,el] of this.nodeElements)el.classList.toggle('selected',this.selectedIds.has(id));
+  this.syncGroupStates();
   this.edges();
  }
  cancelCreation(){if(!this.creation)return;this.creation=null;this.onCancelCreate();this.edges();}
@@ -383,17 +564,36 @@ export class GraphView {
  centerOn(id,{select=true}={}){
   const node=this.nodesById.get(id);if(!node)return;
   const viewport=this.root.getBoundingClientRect(),bounds=this.nodeElements.get(id)?.getBoundingClientRect();
-  const scale=uiScale(this.root),width=bounds?.width?bounds.width/(this.view.z*scale):220,height=bounds?.height?bounds.height/(this.view.z*scale):120;
-  this.view.x=viewport.width/(2*scale)-(node.x+width/2)*this.view.z;
-  this.view.y=viewport.height/(2*scale)-(node.y+height/2)*this.view.z;
+  const scale=uiScale(this.root),group=this.groupsByMember?.get(id);
+  const rect=group?.collapsed&&this.groupRects?.get(group.id);
+  const {x,y,width,height}=rect||{x:node.x,y:node.y,width:bounds?.width?bounds.width/(this.view.z*scale):220,
+   height:bounds?.height?bounds.height/(this.view.z*scale):120};
+  this.view.x=viewport.width/(2*scale)-(x+width/2)*this.view.z;
+  this.view.y=viewport.height/(2*scale)-(y+height/2)*this.view.z;
   this.transform();
   if(select)this.onSelect(id);
+ }
+ revealGroupHeader(id){
+  const bar=this.groupElements?.get(id)?.querySelector('.beat-group-header');
+  if(!bar)return;
+  const {top,bottom}=bar.getBoundingClientRect(),viewport=this.root.getBoundingClientRect();
+  const shift=top<viewport.top+12?viewport.top+12-top:bottom>viewport.bottom-12?viewport.bottom-12-bottom:0;
+  if(shift){this.view.y+=shift/uiScale(this.root);this.transform();}
  }
  blankDrop(e){
   const r=this.root.getBoundingClientRect();
   if(e.clientX<r.left||e.clientX>=r.right||e.clientY<r.top||e.clientY>=r.bottom)return false;
   const hit=this.root.ownerDocument.elementFromPoint(e.clientX,e.clientY);
-  return (!hit||this.root.contains(hit))&&!hit?.closest('.node');
+  return (!hit||this.root.contains(hit))&&!hit?.closest('.node')&&!hit?.closest('.beat-group');
  }
- fit(){const nodes=this.chapter.nodes.filter(n=>n.type!=='death'||this.project?.showDeathBeat!==false);if(!nodes.length)return;const r=this.root.getBoundingClientRect(),scale=uiScale(this.root),minX=Math.min(...nodes.map(n=>n.x)),minY=Math.min(...nodes.map(n=>n.y)),maxX=Math.max(...nodes.map(n=>n.x+220)),maxY=Math.max(...nodes.map(n=>n.y+220));this.view.z=Math.max(.25,Math.min(1,(r.width/scale-80)/(maxX-minX),(r.height/scale-80)/(maxY-minY)));this.view.x=40-minX*this.view.z;this.view.y=40-minY*this.view.z;this.transform();}
+ fit(){
+  const rects=[...(this.groupRects?.values()||[]),...this.chapter.nodes.filter(node=>
+   (node.type!=='death'||this.project?.showDeathBeat!==false)&&!this.groupsByMember?.get(node.id)?.collapsed)
+   .map(({x,y})=>({x,y,width:220,height:220}))];
+  if(!rects.length)return;
+  const r=this.root.getBoundingClientRect(),scale=uiScale(this.root),minX=Math.min(...rects.map(rect=>rect.x)),minY=Math.min(...rects.map(rect=>rect.y)),
+   maxX=Math.max(...rects.map(rect=>rect.x+rect.width)),maxY=Math.max(...rects.map(rect=>rect.y+rect.height));
+  this.view.z=Math.max(.25,Math.min(1,(r.width/scale-80)/(maxX-minX),(r.height/scale-80)/(maxY-minY)));
+  this.view.x=40-minX*this.view.z;this.view.y=40-minY*this.view.z;this.transform();
+ }
 }

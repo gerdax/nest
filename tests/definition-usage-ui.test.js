@@ -67,8 +67,8 @@ function host() {
   const source = readFileSync(new URL('../studio/editor.js', import.meta.url), 'utf8');
   const start = source.indexOf('function command(event){'), end = source.indexOf('for(const root of', start);
   const calls = [], context = {
-    chapterId:'before', selected:'old', mode:'library', libraryTab:'content', project:createProject(),definitionDestination,isCommonDefinition,
-    goToPreviewCard:target => calls.push(['card', {...target}]),
+    chapterId:'before', selected:'old', selectedGroupId:undefined, mode:'library', libraryTab:'content', project:createProject(),definitionDestination,isCommonDefinition,
+    expandBeatGroup:()=>false,goToPreviewCard:target => calls.push(['card', {...target}]),
     graph:{fit:() => calls.push(['fit'])},
     render:() => calls.push(['render']),
   };

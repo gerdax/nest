@@ -3,6 +3,7 @@ import { remapVariableReferences } from './variable-ids.js';
 import { discardPlacementContext, normalizeLocalOwnership } from '../project/model.js';
 import { normalizeSingleItems } from '../project/normalization.js';
 import { synchronizeConnections } from './commands.js';
+import { pruneBeatGroups } from '../project/beat-groups.js';
 
 /** Commit one document command. UI selection, rendering and persistence stay in the host. */
 export function transactDocument(history, localDrafts, command) {
@@ -19,6 +20,7 @@ export function transactDocument(history, localDrafts, command) {
       normalizeLocalOwnership(next);
       discardPlacementContext(next);
       synchronizeConnections(next);
+      for(const chapter of next.chapters)pruneBeatGroups(next,chapter);
       localDrafts.refreshChangedDefinitions(next, previousLibrary);
       // Keep the newest cached variants before pruning their saved definitions.
       // Cleanup shares this edit's history entry, so undo restores both together.

@@ -4,6 +4,7 @@ import { restoreSnapshotTags } from './tag-snapshots.js';
 import { definitionGraph } from '../project/dependencies.js';
 import { walk } from '../project/model-data.js';
 import { outputsForNode, connectionForOutput } from '../project/graph.js';
+import { beatGroups, readBeatTarget, resolveBeatGroups, writeBeatTarget } from '../project/beat-groups.js';
 import { uid, remapInventory, preserveCopiedInventoryAliases } from './commands.js';
 
 function variableReferences(value) {
@@ -43,7 +44,40 @@ export function captureNodesClipboard(project, chapterId, ids, {cut = false} = {
   if(cut&&nodes.some(node=>node.type==='death'))throw new Error('The mandatory Death beat cannot be cut');
   const dependencies = definitionGraph(project).reachableFrom(nodes);
   const definitions = project.library.filter(definition => dependencies.has(definition.id));
-  return structuredClone({kind:'nest-nodes-clipboard', projectId:project.id, chapterId, nodes, definitions,
+  const selection = new Set(ids);
+  const groups = beatGroups(chapter);
+  const groupedSelection = groups.some(group=>group.memberIds.some(id=>selection.has(id)));
+  const fullGroups = structuredClone(groups.filter(group=>group.memberIds.every(id=>selection.has(id))));
+  const fullById = new Map(fullGroups.map(group=>[group.id,group]));
+  const fullByMember = new Map(fullGroups.flatMap(group=>group.memberIds.map(id=>[id,group])));
+  for(const group of fullGroups){
+    group.incoming=group.incoming.filter(ref=>selection.has(ref.nodeId));
+    const target=group.destination;
+    if(target?.nodeId&&!selection.has(target.nodeId))group.destination=false;
+    if(target?.groupId&&!fullById.has(target.groupId)){
+      const entry=groups.find(candidate=>candidate.id===target.groupId)?.entryId;
+      group.destination=selection.has(entry)?{nodeId:entry}:false;
+    }
+  }
+  let copiedNodes=nodes;
+  if(groupedSelection){
+    const projected=new Map(resolveBeatGroups(project,chapter).chapter.nodes.map(node=>[node.id,node]));
+    copiedNodes=structuredClone(nodes);
+    for(const copy of copiedNodes){
+      if(fullByMember.has(copy.id))continue;
+      for(const output of outputsForNode(project,copy)){
+        if(fullGroups.some(group=>group.incoming.some(ref=>ref.nodeId===copy.id&&ref.output===output)))continue;
+        const target=readBeatTarget(projected.get(copy.id),output);
+        const group=fullByMember.get(target);
+        if(group){
+          if(group.entryId===target)group.incoming.push({nodeId:copy.id,output});
+          writeBeatTarget(copy,output,false);
+        }else writeBeatTarget(copy,output,target===null||selection.has(target)?target:false);
+      }
+    }
+  }
+  return structuredClone({kind:'nest-nodes-clipboard', projectId:project.id, chapterId, nodes:copiedNodes, definitions,
+    ...(groupedSelection?{beatGroups:fullGroups,groupedSelection:true}:{}),
     variables:captureClipboardVariables(chapter, nodes, definitions), itemTags:project.itemTags||[], cut:!!cut});
 }
 
@@ -135,15 +169,15 @@ export function pasteNodesClipboard(project, chapter, payload, {position} = {}) 
         if (identities.has(id)) entry.target = entry.target.slice(0, colon + 1) + identities.get(id);
       }
     });
-    outputMaps.set(node,remapOutput);
+    outputMaps.set(node.id,remapOutput);
   }
   // Allocate every beat identity before resolving any peer connection.
   const nodeIds=new Map(nodes.map(node=>[node.id,node.type==='death'?destinationDeath.id:!payload.cut || chapter.nodes.some(candidate=>candidate.id===node.id)?uid('node'):node.id]));
   const origin=sources[0],dx=(position?.x ?? (origin.x ?? 100)+40)-(origin.x ?? 100),dy=(position?.y ?? (origin.y ?? 100)+40)-(origin.y ?? 100);
   const target = id => nodeIds.has(id) ? nodeIds.get(id) : id === null || id === false ? id
-    : chapter.id === payload.chapterId && chapter.nodes.some(candidate => candidate.id === id) ? id : false;
+    : !payload.groupedSelection && chapter.id === payload.chapterId && chapter.nodes.some(candidate => candidate.id === id) ? id : false;
   for(const node of nodes){
-    const remapOutput=outputMaps.get(node);
+    const remapOutput=outputMaps.get(node.id);
     node.id=nodeIds.get(node.id);
     node.x=(node.x ?? 100)+dx;node.y=(node.y ?? 100)+dy;
     if (node.connections) {
@@ -163,6 +197,18 @@ export function pasteNodesClipboard(project, chapter, payload, {position} = {}) 
   }
   project.library.push(...definitions);
   const added=nodes.map(node=>{if(node.type==='death'){destinationDeath.cards=node.cards;return destinationDeath;}chapter.nodes.push(node);return node;});
+  if(payload.beatGroups?.length){
+    const groupIds=new Map(payload.beatGroups.map(group=>[group.id,uid('beat-group')]));
+    const refs=bindings=>bindings.map(({nodeId,output})=>({nodeId:nodeIds.get(nodeId),output:outputMaps.get(nodeId)(output)}));
+    chapter.beatGroups??=[];
+    for(const group of payload.beatGroups){
+      const destination=group.destination;
+      chapter.beatGroups.push({...group,id:groupIds.get(group.id),memberIds:group.memberIds.map(id=>nodeIds.get(id)),
+        entryId:nodeIds.get(group.entryId)??false,incoming:refs(group.incoming),outgoing:refs(group.outgoing),
+        destination:destination?.groupId?{groupId:groupIds.get(destination.groupId)}
+          :destination?.nodeId?{nodeId:nodeIds.get(destination.nodeId)}:destination});
+    }
+  }
   if (!chapter.startNode) chapter.startNode = added.find(node=>node.type!=='death')?.id||'';
   return added;
 }

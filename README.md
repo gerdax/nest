@@ -159,6 +159,8 @@ See [architecture assumptions](docs/architecture.md) for node/sequence registrie
 
 Library usage counts and deletion checks include gameplay references as well as placed cards. **Clean unused local cards** removes only unused local definitions and can be undone; shared definitions and transitive dependencies are preserved.
 
+In the chapter canvas, select at least two beats with ⌘/Ctrl-click or box selection, then click **Group** or press ⌘G / Ctrl+G. Select the group bar to edit its name, entry beat, and output destination in the inspector. Drag the bar to move its members and double-click to collapse or expand the frame. Wire outside outcomes through the left dot and member outcomes through the right dot. Incomplete routes behave like unlinked beat outputs. **Ungroup** (⌘⇧G / Ctrl+Shift+G) keeps the beats and complete routes. Grouped files require a version of Nest that supports beat groups.
+
 Run variables and conditional choices can be authored in the beat panel. See [state authoring](docs/state-system.md) for available checks, effects and miniature artwork previews.
 
 For browser verification of the drawer, serve locally and open `tests/fixtures/inventory-drawer.html`. The fixture contains six items and custom card typography for checking targeting, reversal, full-inventory confirmation and style continuity.
