@@ -87,7 +87,7 @@ export function resolveBeatGroups(project, chapter) {
     const destination = group.destination;
     if (destination !== false && destination !== null) {
       const validBeat = object(destination) && Object.keys(destination).length === 1 && named(destination.nodeId)
-        && nodes.has(destination.nodeId) && nodes.get(destination.nodeId).type !== 'death' && !owners.has(destination.nodeId);
+        && nodes.has(destination.nodeId) && !owners.has(destination.nodeId);
       const validGroup = object(destination) && Object.keys(destination).length === 1 && named(destination.groupId)
         && groups.has(destination.groupId) && destination.groupId !== group.id;
       if (!validBeat && !validGroup) add(group, 'output must lead to an outside beat, another group input, or End Chapter');
@@ -145,7 +145,6 @@ export function connectBeatBoundary(project, chapter, {source, target}) {
   const {nodes, groups, owners, getOutputs} = indexChapter(project, chapter);
   const targetNode = nodes.get(target?.nodeId);
   const targetGroup = groups.get(target?.groupId);
-  if (targetNode?.type === 'death') throw new Error('Death cannot have incoming connections');
   if (source?.groupId !== undefined) {
     const group = groups.get(source.groupId);
     if (group && source.port === 'input') {
@@ -204,7 +203,7 @@ export function createBeatGroup(project, chapter, ids, id) {
     const target = readBeatTarget(node, output);
     if (selected.has(node.id)) {
       if (target === null || typeof target === 'string' && !selected.has(target)) {
-        if (typeof target === 'string' && (!nodes.has(target) || nodes.get(target).type === 'death')) {
+        if (typeof target === 'string' && !nodes.has(target)) {
           throw new Error('Resolve the selection’s invalid crossing route before grouping');
         }
         leave({nodeId:node.id, output}, target === null ? null : destinationFor(target, owners));

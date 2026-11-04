@@ -30,7 +30,7 @@ export const nodeTypes = Object.freeze({
   defaultKinds:Object.freeze({intro:'event',items:'item'}),
   create:({makePlacement}) => ({...introduction(makePlacement),retainInventoryItems:true,items:[makePlacement('item')]})
  }),
- combat: Object.freeze({label:'Combat',iconPath:'M8 5V19M16 5V19',slots:Object.freeze({}),outputs:()=>['victory'],create:()=>({introEnabled:false,enemy:{definitionId:''},connections:{victory:false}})}),
+ combat: Object.freeze({label:'Combat',iconPath:'M8 5V19M16 5V19',slots:Object.freeze({}),outputs:node=>node.ignoreDeath===true?['victory','failure']:['victory'],create:()=>({introEnabled:false,enemy:{definitionId:''},connections:{victory:false}})}),
  random: Object.freeze({
   label:'Shuffle', iconPath:'M3 6.25H7L17 17.75H21M3 17.75H7L9 15.45M15 8.55L17 6.25H21', slots:Object.freeze({}), outputs:node => [...objects(node.routes).map(r=>r.id),'fallback'],
   create:({uid}) => ({routes:[{id:uid('route'),name:'Route 1',target:false,weight:1,conditions:[]}],fallback:false})
@@ -44,6 +44,9 @@ export const nodeTypes = Object.freeze({
 });
 export const nodeTypeDescriptor = type => typeof type==='string' && Object.hasOwn(nodeTypes,type) ? nodeTypes[type] : undefined;
 export const nodeTypeLabel = type => nodeTypeDescriptor(type)?.label || type;
+export const beatOptionLabel = beat => beat.type === 'death'
+ ? 'Death'
+ : `${nodeTypeLabel(beat.type).toLowerCase()}: ${beat.name?.trim() || beat.id}`;
 export const nodeOutputs = (node,resolve) => (nodeTypeDescriptor(node.type)?.outputs || nextOutput)(node,resolve);
 export function createNodeDefaults(type,callbacks) {
  const descriptor=nodeTypeDescriptor(type);

@@ -7,7 +7,9 @@
 #canvas .port[data-exit$=":success"],
 #canvas .port[data-exit$=":success"]::after {color:#adf5ae;}
 #canvas .port[data-exit$=":failure"],
-#canvas .port[data-exit$=":failure"]::after {color:#e4a6a5;}
+#canvas .port[data-exit$=":failure"]::after,
+#canvas .port[data-exit="failure"],
+#canvas .port[data-exit="failure"]::after {color:#e4a6a5;}
 #canvas .port.unlinked::after {color:#000;}
 #canvas .node {overflow:hidden;}
 #canvas .graph-definition-link {border:0;padding:0;background:none;color:inherit;font:inherit;font-size:calc(12px + 1pt);line-height:1.6;text-align:left;cursor:pointer;text-decoration:none;}
@@ -102,7 +104,8 @@ html.graph-dragging,html.graph-dragging *,#canvas.graph-dragging,#canvas.graph-d
 #edges .edge-line.preview-active[data-exit$=":success"] {
   stroke:#adf5ae;stroke-width:2.5;filter:drop-shadow(0 0 3px #adf5ae85);
 }
-#edges .edge-line.preview-active[data-exit$=":failure"] {
+#edges .edge-line.preview-active[data-exit$=":failure"],
+#edges .edge-line.preview-active[data-exit="failure"] {
   stroke:#e4a6a5;stroke-width:2.5;filter:drop-shadow(0 0 3px #e4a6a585);
 }
 

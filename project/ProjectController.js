@@ -794,10 +794,21 @@ export class ProjectController {
     if(this.combatOperations.has(operationId))return this.variables.health>0;
     const result=transact(this.variables,this.inventory,{effects},this.compiled.variables,this.compiled.library);
     if(!Number.isSafeInteger(result.variables.health))throw new Error('Combat progression effects require integer Health values');
-    this.variables=result.variables;this.inventory=result.inventory;
+    const location=this.location;
+    const defeated=result.variables.health<=0&&location?.node.ignoreDeath===true;
+    // Restore positive Health before routing so the destination can play normally.
+    // Resolve the route before committing damage, so an unlinked route can be retried.
+    const recovered=defeated?transact(result.variables,result.inventory,{effects:[{op:'set',key:'health',value:1}]},this.compiled.variables,this.compiled.library):result;
+    const destination=defeated?this.next(location,'failure',recovered.variables,recovered.inventory):null;
+    this.variables=recovered.variables;this.inventory=recovered.inventory;
     // The encounter owner publishes intrinsic Enemy HP in this same commit,
     // after validation and before notifications or global death routing.
     onCommit?.();this.combatOperations.add(operationId);
+    if(destination){
+      this.combat.dispose();this.combat=null;
+      this.adopt(destination,false);this.show();
+      return false;
+    }
     if(this.deathDestination()){this.handoffDeath();return false;}
     this.notify();return true;
   }

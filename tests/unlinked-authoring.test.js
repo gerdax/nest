@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {createProject,parseProject,exportChapter,validateProject} from '../project/model.js';
 import {createNode,synchronizeConnections} from '../studio/commands.js';
 import {nodeInspector} from '../studio/inspectors.js';
+import {applyDocumentCommand} from '../studio/document-commands.js';
 
 test('new outputs are Unlinked while explicit End chapter survives synchronization and round trips',()=>{
  const project=createProject(),chapter=project.chapters[0],node=createNode(project,'linear');chapter.nodes.push(node);
@@ -22,4 +23,19 @@ test('random routes and fallback accept both Unlinked and End chapter',()=>{
  assert.deepEqual(validateProject(project),[]);
  random.routes[0].target=null;random.fallback=null;assert.deepEqual(validateProject(project),[]);
  assert.equal(parseProject(JSON.stringify(project)).chapters[0].nodes.at(-1).fallback,null);
+});
+
+test('Ignore death exposes a separate Combat Failure connection and removes it when disabled',()=>{
+ const project=createProject(),chapter=project.chapters[0],combat=createNode(project,'combat');
+ chapter.nodes.push(combat);
+ const selection={chapterId:chapter.id,selected:combat.id};
+ const toggle=checked=>applyDocumentCommand(project,selection,'field',{scope:'node',path:'ignoreDeath',inputType:'checkbox',checked});
+ toggle(true);
+ assert.equal(combat.connections.failure,false);
+ assert.match(nodeInspector(project,chapter,combat),/Failure<select[^>]*data-path="failure"/);
+ applyDocumentCommand(project,selection,'connect',{id:combat.id,exit:'failure',target:'arrival'});
+ assert.equal(parseProject(JSON.stringify(project)).chapters[0].nodes.at(-1).connections.failure,'arrival');
+ toggle(false);
+ assert.equal(Object.hasOwn(combat.connections,'failure'),false);
+ assert.doesNotMatch(nodeInspector(project,chapter,combat),/data-path="failure"/);
 });

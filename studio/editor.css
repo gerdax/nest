@@ -159,11 +159,16 @@ aside {overflow-anchor:none;}
 .rule-entry-actions {display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap;}
 .combat-enemy-controls {justify-content:space-between;align-items:center;}
 .combat-enemy-controls .check-field {flex-direction:row-reverse;margin:0 8px 0 auto;}
+.combat-connections-heading {margin:18px 0 14px;}
+.combat-connections-heading h3 {margin:0;}
 .item-reference-links {flex:1 1 180px;min-width:0;margin:6px 0 10px;}
 .rule-entry-actions > .item-reference-links {margin:0;}
 .rule-entry-actions > [data-command="remove-rule"] {margin-left:auto;}
 .auto-add-options {display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 22px;}
-.entry > [data-command="remove-randomizer-candidate"] {display:block;margin-left:auto;}
+.auto-scene-actions {justify-content:space-between;align-items:center;}
+.auto-scene-entry > .field:first-child {margin-top:6px;}
+.auto-scene-actions .check-field {margin:0;}
+.auto-scene-actions > button {margin-left:auto;}
 .cost-entry-actions {align-items:center;}
 .cost-entry-actions > .check-field {margin:0 0 0 8px;}
 .item-reference {display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:6px 12px;margin:6px 0;}
@@ -191,7 +196,7 @@ aside {overflow-anchor:none;}
 .node-overrides button[data-command="clear-overrides"] {float:right;}
 .node-overrides > .state-panel::after {content:"";display:block;clear:both;}
 
-.connections-divider:has(+ h3) {margin-top:24px;}
+.connections-divider:has(+ :is(h3,.combat-connections-heading)) {margin-top:24px;}
 #inspector > h3:has(+ .introduction-controls),
 #inspector > h3:has(~ .add-card-buttons [data-slot="choices"]),
 #inspector > .connections-divider + h3 {margin-bottom:14px;}

@@ -65,8 +65,10 @@ test('standalone beat candidates can be authored and remapped with their copied 
   edit('field', {scope:'node',path:'candidates.0.scene',value:'beat:arrival'});
   const beatId=randomizer.candidates[0].beatId;
   assert.deepEqual(randomizer.candidates[0],{beatId:'arrival',weight:1,conditions:[]});
-  assert.match(nodeInspector(project,chapter,randomizer), /container: Supplies[\s\S]*fork: /);
-  assert.doesNotMatch(nodeInspector(project,chapter,randomizer), /group: A scene/);
+  const [scenes,connections]=nodeInspector(project,chapter,randomizer).split('<h3>Connections</h3>');
+  assert.match(scenes, /container: Supplies[\s\S]*fork: /);
+  assert.doesNotMatch(scenes, /group: A scene/);
+  assert.match(connections, /Unlinked[\s\S]*End chapter[\s\S]*auto: Auto[\s\S]*container: Supplies[\s\S]*fork: Choose a route[\s\S]*group: A scene · Input[\s\S]*linear: Arrival/);
   assert.match(nodeInspector(project,chapter,randomizer), /data-path="candidates\.0\.scene"/);
   const other=createChapter('other');
   project.chapters.push(other);
@@ -80,7 +82,7 @@ test('Auto uses a separate Library Enemy picker and preserves the reference thro
   edit('inspector', {command:'add-randomizer-candidate',sceneType:'enemy'});
   const html = nodeInspector(project,chapter,randomizer);
   assert.match(html,/Enemy: Ant[\s\S]*Enemy: Rat/);
-  assert.doesNotMatch(html,/group: A scene|container: Supplies/);
+  assert.doesNotMatch(html.split('<h3>Connections</h3>')[0],/group: A scene|container: Supplies/);
   assert.throws(() => edit('field',{scope:'node',path:'candidates.0.scene',value:'beat:arrival'}), /available scene/);
   edit('field',{scope:'node',path:'candidates.0.scene',value:'enemy:rat'});
   assert.equal(randomizer.candidates[0].enemy.definitionId,'rat');

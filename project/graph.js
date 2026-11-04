@@ -38,6 +38,8 @@ export function connectionForOutput(connections, output) {
 }
 export function labelForOutput(project, node, output, index) {
   if (output === 'next') return 'Next';
+  if (node.type === 'combat' && output === 'victory') return 'Victory';
+  if (node.type === 'combat' && output === 'failure') return 'Failure';
   if (output === 'fallback') return 'Fallback';
   if (node.type === 'random') return node.routes?.find(r => r.id === output)?.name || output;
   const p = node.choices?.find(p => output === p.id || output === `${p.id}:success` || output === `${p.id}:failure`);

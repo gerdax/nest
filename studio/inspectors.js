@@ -14,10 +14,13 @@ import { cardKinds, resolvePlacement, cardSummary, cardSummaryParts, cardEditorT
 import { chapterVariables, outputsForNode, labelForOutput } from '../project/model.js';
 import { definitionUsagePanel } from './definition-usage-view.js';
 import { libraryRemovalPlan } from './library-removal.js';
-import { nodeTypeDescriptor, nodeTypeLabel, retainsInventoryItems } from '../project/nodeTypes.js';
+import { nodeTypeDescriptor, nodeTypeLabel, beatOptionLabel, retainsInventoryItems } from '../project/nodeTypes.js';
 import { inventoryItemOptions } from './item-options.js';
 import { itemReferenceLinks } from './item-reference.js';
 import { field, select, checkbox, button, rules, actionFields, imageField, artworkEditor, esc } from './forms.js';
+
+const byConnectionLabel = ([, a], [, b]) =>
+ Number(b === 'Death') - Number(a === 'Death') || a.localeCompare(b, 'en', {sensitivity:'base'});
 
 export function beatGroupInspector(chapter, group) {
  const groups=beatGroups(chapter);
@@ -26,16 +29,18 @@ export function beatGroupInspector(chapter, group) {
  const destination=group.destination;
  const value=destination===null?'end':destination?.nodeId?`beat:${destination.nodeId}`
   :destination?.groupId?`group:${destination.groupId}`:'unlinked';
- const beatOption=node=>[`beat:${node.id}`,node.name||node.id];
+ const beatOption=node=>[`beat:${node.id}`,beatOptionLabel(node)];
  return field('Group name',group.name,'name','beat-group')
   +`<p class="small">${members.size} ${members.size===1?'beat':'beats'}</p>`
   +checkbox('Auto can draw this group once per chapter run',group.oncePerRun===true,'oncePerRun','beat-group')
   +'<h3>Connections</h3>'
   +select('Entry beat',group.entryId?`beat:${group.entryId}`:'unlinked',
-   [['unlinked','Unlinked'],...chapter.nodes.filter(node=>members.has(node.id)).map(beatOption)],'entry','beat-group')
+   [['unlinked','Unlinked'],...chapter.nodes.filter(node=>members.has(node.id)).map(beatOption).sort(byConnectionLabel)],'entry','beat-group')
   +select('Output destination',value,[['unlinked','Unlinked'],['end','End chapter'],
-   ...chapter.nodes.filter(node=>node.type!=='death'&&!grouped.has(node.id)).map(beatOption),
-   ...groups.filter(candidate=>candidate.id!==group.id).map(candidate=>[`group:${candidate.id}`,`${candidate.name} · Input`])],
+   ...[
+    ...chapter.nodes.filter(node=>!grouped.has(node.id)).map(beatOption),
+    ...groups.filter(candidate=>candidate.id!==group.id).map(candidate=>[`group:${candidate.id}`,`group: ${candidate.name || candidate.id} · Input`])
+   ].sort(byConnectionLabel)],
    'destination','beat-group');
 }
 
@@ -171,14 +176,15 @@ function randomizerFields(project,chapter,node) {
    .map(({target,label})=>[randomizerSceneKey(target),label]).filter(([value])=>value===key||!used.has(value));
   if(!available.has(key))choices.unshift([key,`Unavailable ${type}`]);
   const enemy=type==='enemy' && available.has(key) ? project.library.find(definition=>definition.id===candidate.enemy.definitionId) : undefined;
-  return '<div class="entry">'
+  return '<div class="entry auto-scene-entry">'
    +select('Scene',key,choices,`${path}.scene`,'node')
    +(type==='enemy' ? combatEnemyControls(enemy,candidate.introEnabled??(enemy?.introEnabled===true),`${path}.introEnabled`) : '')
    +field('Weight',candidate.weight,`${path}.weight`,'node','number')
-   +checkbox('Allow repeats',candidate.allowRepeats===true,`${path}.allowRepeats`,'node')
    +(warning?`<p class="small">${esc(warning)}</p>`:'')
    +rules(project,candidate.conditions,`${path}.conditions`,'node','conditions',{chapter})
-   +button('Remove scene','remove-randomizer-candidate',`data-index="${index}"`)+'</div>';
+   +'<div class="row auto-scene-actions">'
+   +checkbox('Allow repeats',candidate.allowRepeats===true,`${path}.allowRepeats`,'node')
+   +button('Remove scene','remove-randomizer-candidate',`data-index="${index}"`)+'</div></div>';
  }).join('');
  return '<h3>Scene selection</h3>'
   +field('Draw count',node.drawCount??1,'drawCount','node','number')
@@ -198,7 +204,7 @@ export function nodeInspector(project,chapter,node,previewEffects=node?.entryEff
  let html=field('Beat name',node.name,'name','node');
  if(node.type==='combat')html+=combatNodeFields(project,node);
  if(node.type==='randomizer')html+=randomizerFields(project,chapter,node);
- if(node.type==='death')html+='<p class="small">Mandatory chapter Death. Plays when committed health reaches zero, then stops. This beat has no graph connections.</p>';
+ if(node.type==='death')html+='<p class="small">Plays when Health reaches zero or a connection leads here, then ends the run. Death has no outputs.</p>';
  const descriptor=nodeTypeDescriptor(node.type);
  for(const [slot,kinds] of Object.entries(descriptor?.slots||{})) {
   const kind=descriptor.defaultKinds[slot];
@@ -231,17 +237,27 @@ export function nodeInspector(project,chapter,node,previewEffects=node?.entryEff
  const memberIds=new Set(group?group.memberIds:groups.flatMap(candidate=>candidate.memberIds));
  const groupInputs=new Map(group?[]:groups.flatMap(candidate=>candidate.incoming
   .filter(ref=>ref.nodeId===node.id).map(ref=>[ref.output,candidate.id])));
- html+='<hr class="connections-divider"><h3>Connections</h3>'+outputsForNode(project,node).map(exit=>{
+ html+='<hr class="connections-divider">';
+ html+=node.type==='combat'
+  ? '<div class="row combat-enemy-controls combat-connections-heading"><h3>Connections</h3>'
+    +checkbox('Ignore death',node.ignoreDeath===true,'ignoreDeath','node')+'</div>'
+  : '<h3>Connections</h3>';
+ html+=outputsForNode(project,node).map(exit=>{
   const target=readBeatTarget(node,exit),input=groupInputs.get(exit);
   const value=group?.outgoing.some(ref=>ref.nodeId===node.id&&ref.output===exit)?'group-output'
    :input?`group-input:${input}`:target===null?'end':typeof target==='string'?`target:${target}`:'unlinked';
   const hideLabel=['container','linear'].includes(node.type)&&exit==='next';
-  const choices=group?[['group-output',`${group.name} · Output`]]
-   :[...(node.type==='combat'?[]:[['end','End chapter']]),...groups.map(candidate=>[`group-input:${candidate.id}`,`${candidate.name} · Input`])];
-  const connection=select(hideLabel?'':labelForOutput(project,node,exit),value,[['unlinked','Unlinked'],...choices,
-   ...chapter.nodes.filter(n=>n.type!=='death'&&memberIds.has(n.id)===Boolean(group)&&(project.allowCycles!==false||n.id!==node.id)).map(n=>[`target:${n.id}`,n.name])],exit,'connection');
+  const choices=group?[['group-output',`group: ${group.name || group.id} · Output`]]
+   :groups.map(candidate=>[`group-input:${candidate.id}`,`group: ${candidate.name || candidate.id} · Input`]);
+  const destinations=[...choices,
+   ...chapter.nodes.filter(n=>memberIds.has(n.id)===Boolean(group)&&(project.allowCycles!==false||n.id!==node.id)).map(n=>[`target:${n.id}`,beatOptionLabel(n)])
+  ].sort(byConnectionLabel);
+  const generalOptions=[['unlinked','Unlinked']];
+  if(!group&&node.type!=='combat')generalOptions.push(['end','End chapter']);
+  const connection=select(hideLabel?'':labelForOutput(project,node,exit),value,[...generalOptions,...destinations],exit,'connection');
   return hideLabel?connection.replace('<select ','<select aria-label="Next connection" '):connection;
  }).join('');
+ if(node.type==='combat'&&node.ignoreDeath===true)html+='<p class="small">On defeat, continue through Failure with 1 Health.</p>';
  const hasOverrides=previewEffects.length>0 || !!(availability && node.unavailableActions && node.unavailableActions!=='project');
  return html+'<div class="node-overrides">'+rules(project,previewEffects,'effects','preview-overrides','effects',{chapter,label:'Overrides',countSuffix:hasOverrides?' *':'',help:'Saved gameplay effects applied once on every entry to this beat, including direct starts and revisits. Set or add variable values, or add and remove inventory items. Included in project saves and exports, and used in preview and the game.',footer:button('Clear overrides','clear-overrides','data-scope="preview-overrides" '+(previewEffects.length?'':'disabled'))+availability})+'</div>';
 }

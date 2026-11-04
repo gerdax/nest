@@ -451,7 +451,15 @@ export function validateProject(project, {allowDraft = false} = {}) {
       if (node.introOnce !== undefined && typeof node.introOnce !== 'boolean') add(errorMessage('VALIDATION_INVALID_SHOW_ONCE_TOGGLE', {label}), cid, nid);
       if (Object.hasOwn(node,'introEnabled') && typeof node.introEnabled !== 'boolean') add(errorMessage('VALIDATION_INVALID_INTRODUCTION_TOGGLE', {label}), cid, nid);
       if(node.type==='death' && (!Array.isArray(node.cards)||!node.cards.length||node.intro!==undefined||!object(node.connections)||Object.keys(node.connections).length))add('Death requires cards and no introduction or connections',cid,nid);
-      if(node.type==='combat'){if(!isUnassignedCombat(node))typedRef(node.enemy,'enemy',label);if(['intro','cards','attacks','actions','health','hit','reactions','death','combat'].some(key=>Object.hasOwn(node,key)))add('Combat does not support encounter overrides',cid,nid);if(object(node.connections)&&Object.keys(node.connections).some(k=>k!=='victory'))add('Combat has only a Victory output',cid,nid);}
+      if(node.type==='combat'){
+        if(!isUnassignedCombat(node))typedRef(node.enemy,'enemy',label);
+        if(['intro','cards','attacks','actions','health','hit','reactions','death','combat'].some(key=>Object.hasOwn(node,key)))add('Combat does not support encounter overrides',cid,nid);
+        if(object(node.connections)&&Object.keys(node.connections).some(key=>key!=='victory'&&key!=='failure'))add('Combat supports only Victory and Failure outputs',cid,nid);
+        if(Object.hasOwn(node.connections??{},'failure')&&node.ignoreDeath!==true)add('Combat Failure output requires Ignore death',cid,nid);
+      }
+      if (Object.hasOwn(node,'ignoreDeath') && (node.type!=='combat' || typeof node.ignoreDeath!=='boolean')) {
+        add('Ignore death requires a boolean setting on a Combat beat',cid,nid);
+      }
       if (node.type === 'randomizer') {
         if (object(node.connections) && Object.keys(node.connections).some(key => key !== 'next')) {
           add(`${label}: Auto has only a Next output`,cid,nid);
@@ -607,7 +615,6 @@ export function validateProject(project, {allowDraft = false} = {}) {
         || !Number.isSafeInteger(node.count) || node.count < 1 || node.count > node.pool.length || node.pool.some(p => !object(p)
         || !Number.isFinite(p.weight) || p.weight <= 0 || !allowDraft && !node.sequences.some(s => s.id === p.sequenceId)))) add(errorMessage('VALIDATION_INVALID_LEGACY_POOL', {label}),
         cid, nid);
-      if(targets.includes(chapter.deathNode))add('Death cannot have incoming graph connections',cid,nid);
       if (!allowDraft) for (const t of targets) if (t !== null && t !== false && !nodeIds.has(t)) add(errorMessage('VALIDATION_UNKNOWN_TARGET', {label, t}), cid, nid);
       edges.set(nid, targets.filter(t => t !== null && nodeIds.has(t)));
     }

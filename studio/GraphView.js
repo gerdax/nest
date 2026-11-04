@@ -187,7 +187,7 @@ export class GraphView {
  unlinked(node,exit){if(this.boundaryOutputs?.get(node.id)?.has(exit))return false;const target=this.target(node,exit);return target!==null&&!this.nodesById.has(target);}
  port(node,exit,label=null){
   const target=esc(this.portLabel(node,exit)),name=esc(labelForOutput(this.project,node,exit,this.libraryIndex));
-  if(exit.endsWith(':success')||exit.endsWith(':failure')||node.type==='combat'&&exit==='victory')label='';
+  if(exit.endsWith(':success')||exit.endsWith(':failure')||node.type==='combat'&&['victory','failure'].includes(exit))label='';
   return `<button class="port ${this.unlinked(node,exit)?'unlinked':''}" data-exit="${esc(exit)}" aria-label="${name} → ${target}">${label===null?`${exit==='next'?'':name+' '}→ ${target}`:`${label?`${esc(label)} | `:'→ '}${target}`}</button>`;
  }
  cardRows(node){
@@ -344,7 +344,7 @@ export class GraphView {
   // Compensate for graph and editor zoom so selection stays two screen pixels wide.
   world.style.setProperty('--graph-selection-width',`${2/(this.view.z*uiScale(this.root))}px`);
  }
- validTarget(id,source) {return this.nodesById.get(id)?.type!=='death'&&(id!==source||this.project.allowCycles!==false)&&this.nodesById.has(id);}
+ validTarget(id,source) {return (id!==source||this.project.allowCycles!==false)&&this.nodesById.has(id);}
  connectionDrop(e,source) {
   const r=this.root.getBoundingClientRect();
   if(e.clientX<r.left||e.clientX>=r.right||e.clientY<r.top||e.clientY>=r.bottom)return null;

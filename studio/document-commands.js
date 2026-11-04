@@ -12,7 +12,7 @@ import { isStatVariable } from '../project/checks.js';
 import { createDefinition, allowedCardKinds, isStoryKind, isConsumableKind } from '../project/cards.js';
 import { chapterVariables, createProjectChapter, importChapter, outputsForNode } from '../project/model.js';
 import {importLibrary} from '../project/library-packages.js';
-import {beatGroups, beatGroupFor, connectBeatBoundary, createBeatGroup, ungroupBeatGroup} from '../project/beat-groups.js';
+import {beatGroups, beatGroupFor, connectBeatBoundary, createBeatGroup, pruneBeatGroups, ungroupBeatGroup} from '../project/beat-groups.js';
 import {MAX_AUTO_DRAWS, validAutoDrawCount, randomizerSceneKey, randomizerSceneType, randomizerScenes} from '../project/randomizer.js';
 import { definitionGraph } from '../project/dependencies.js';
 import { removeLibraryDefinition } from './library-removal.js';
@@ -78,7 +78,6 @@ export function setConnection(node, exit, target) {
 
 function connectBeat(project, chapter, node, output, target) {
   if (beatGroups(chapter).length) return connectBeatBoundary(project, chapter, {source:{nodeId:node.id,output},target});
-  if (target?.nodeId && chapter.nodes.find(candidate=>candidate.id===target.nodeId)?.type==='death') throw new Error('Death cannot have incoming connections');
   setConnection(node,output,target?.nodeId??target);
 }
 
@@ -145,6 +144,15 @@ function changeField(project, selection, field, localDrafts) {
       node.noneWeight=weight;
       return;
     }
+  }
+  if(scope==='node'&&node.type==='combat'&&path==='ignoreDeath'){
+    node.ignoreDeath=checked===true;
+    if(node.ignoreDeath)node.connections.failure??=false;
+    else {
+      delete node.connections.failure;
+      pruneBeatGroups(project,chapter);
+    }
+    return;
   }
   if (scope === 'chapter' && path === 'nextChapterId' && raw === '') {
     delete root.nextChapterId;

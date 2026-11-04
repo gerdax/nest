@@ -177,3 +177,43 @@ for(const final of [false,true])test(`native deck collection Death handoff prese
   deck.index=0;deck.b.x=deck.b.target=0;deck.collect();assert.equal(controller.state.variables.health,5);assert.notEqual(deck.collectMotion,null);assert.equal(resets,0);
   settle();await flush();settle();assert.equal(controller.state.activeNodeId,'death');assert.equal(controller.state.variables.health,0);assert.equal(deck.content.text,'death-one');assert.equal(deck.phase,'closed');assert.equal(resets,0);assert.deepEqual(errors,[]);dispose(deck,controller);
 });
+
+test('combat defeat can follow Failure with one Health, while ordinary defeat still plays Death',()=>{
+  for(const ignoreDeath of [false,true]){
+    const fight={id:'fight',type:'combat',ignoreDeath,enemy:{definitionId:'enemy'},connections:{victory:'after',failure:'after'}};
+    const {controller,errors}=fixture([{id:'start',type:'linear',cards:[story('start')],connections:{next:'fight'}},fight]);
+    controller.location=controller.locate('fight');
+    let disposed=false;
+    controller.combat={dispose(){disposed=true;}};
+    assert.equal(controller.commitCombatDamage('defeat',0),false);
+    assert.equal(disposed,true);
+    assert.equal(controller.state.activeNodeId,ignoreDeath?'after':'death');
+    assert.equal(controller.state.variables.health,ignoreDeath?1:0);
+    assert.deepEqual(errors,[]);
+    controller.destroy();
+  }
+});
+
+test('an unlinked combat Failure route leaves lethal damage uncommitted so the encounter can retry',()=>{
+  const fight={id:'fight',type:'combat',ignoreDeath:true,enemy:{definitionId:'enemy'},connections:{victory:'after',failure:false}};
+  const {controller}=fixture([{id:'start',type:'linear',cards:[story('start')],connections:{next:'fight'}},fight]);
+  controller.location=controller.locate('fight');
+  const combat={dispose(){}};
+  controller.combat=combat;
+  assert.throws(()=>controller.commitCombatDamage('defeat',0),/unlinked/i);
+  assert.equal(controller.variables.health,5);
+  assert.equal(controller.combat,combat);
+  controller.destroy();
+});
+
+test('an explicit Death connection ends the run even at positive Health',()=>{
+  const start={id:'start',type:'linear',cards:[story('start')],connections:{next:'death'}};
+  const {deck,controller,errors}=fixture([start]);
+  deck.accept();
+  assert.equal(controller.state.activeNodeId,'death');
+  deck.accept();
+  deck.accept();
+  assert.equal(controller.state.terminalReason,'death');
+  assert.deepEqual(errors,[]);
+  controller.destroy();
+});

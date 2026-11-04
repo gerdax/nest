@@ -1,7 +1,7 @@
 import { beatGroups, readBeatTarget } from './beat-groups.js';
 import { outputsForNode } from './graph.js';
 import { list } from './model-data.js';
-import { nodeTypeLabel } from './nodeTypes.js';
+import { beatOptionLabel } from './nodeTypes.js';
 
 export const MAX_AUTO_DRAWS = 100;
 export const validAutoDrawCount = count => Number.isInteger(count) && count >= 1 && count <= MAX_AUTO_DRAWS;
@@ -29,7 +29,7 @@ export function randomizerScenes(chapter, project, type) {
     target:{groupId:group.id}, label:`group: ${group.name || group.id}`
   }));
   const beats = randomizerBeats(chapter).map(beat => ({
-    target:{beatId:beat.id}, label:`${nodeTypeLabel(beat.type).toLowerCase()}: ${beat.name || beat.id}`
+    target:{beatId:beat.id}, label:beatOptionLabel(beat)
   }));
   const enemies = randomizerEnemies(project).map(enemy => ({
     target:{enemy:{definitionId:enemy.id}}, label:`Enemy: ${enemy.name || enemy.id}`
