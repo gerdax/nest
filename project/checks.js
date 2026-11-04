@@ -46,11 +46,15 @@ function summary(check, values, definitions, diagnostic) {
 }
 export const editorCheckSummary = (check, definitions = []) => summary(check, definitions, definitions, true);
 export const diceCheckTarget = check => check.target - (check.modifier ?? 0);
+const checkVariableName = (check, definitions) =>
+  definitions.find(v => v.id === check.modifierVariable)?.name || check.modifierVariable;
+
+export const statRollLabel = (check, definitions) => `${String(checkVariableName(check, definitions) ?? 'Stat').toUpperCase()} ROLL`;
+
 export function playerCheckSummary(check, values = {}, definitions = []) {
   if (check?.mode !== 'stat') return '';
   const resolved = resolveCheck(check, values);
-  const name = definitions.find(v => v.id === check.modifierVariable)?.name || check.modifierVariable;
-  return `${name}: ${resolved.modifier}`;
+  return `${checkVariableName(check, definitions)}: ${resolved.modifier}`;
 }
 
 export const checkChanceLabel = probability => probability >= .8 ? 'Very high' : probability >= .6 ? 'High'
@@ -61,7 +65,7 @@ export function playerCheckPresentation(check, values = {}, definitions = []) {
   if (check?.mode !== 'stat') return null;
   const resolved = resolveCheck(check, values);
   return { chance: `${(resolved.probability * 100).toFixed(1)}%`,
-    stat: playerCheckSummary(check, values, definitions),
+    stat: statRollLabel(check, definitions),
     label: checkChanceLabel(resolved.probability),
     formula: playerCheckSummary(check, values, definitions) };
 }

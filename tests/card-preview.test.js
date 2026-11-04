@@ -165,7 +165,7 @@ for(const mode of ['stat','custom','direct'])test(`inspector ${mode} action rend
  decorateCard(null,expected,live.image,live.heading,live.text,live.flipImage,live);
  assert.deepEqual(mount.children[0].children,expected.children);
  if(mode==='stat') {
-  assert.equal(live.summary,'Triggered by: Flashlight');assert.equal(live.checkInfo.stat,'Agility: 5');
+  assert.equal(live.summary,'Triggered by: Flashlight');assert.equal(live.checkInfo.stat,'AGILITY ROLL');
   assert.equal(mount.children[0].children[0].children.find(child=>child.className==='nest-card-summary'),undefined);
  }
  assert.equal(mount.children[0].attrs['data-inventory-action'],'true');

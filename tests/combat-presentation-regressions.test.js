@@ -66,7 +66,7 @@ test('Weapon card faces use WEAPON while ordinary Items retain their standard la
 test('combat odds show the tested stat name and value and the regular action chance description',()=>{
  const action={name:'Attack',resolution:'check',check:{mode:'stat',modifierVariable:'agility',difficulty:1}};
  const choice=combatChoices([{id:'attack',action}],'choices',{agility:3},[{id:'agility',name:'Agility'}]).actions[0];
- assert.equal(choice.checkInfo.stat,'Agility: 3');
+ assert.equal(choice.checkInfo.stat,'AGILITY ROLL');
  assert.equal(choice.checkInfo.label,'Very high');
  assert.equal(Math.round(Number(choice.checkInfo.chance)),84);
  assert.equal(choice.checkInfo.formula,'');

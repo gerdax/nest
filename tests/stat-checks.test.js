@@ -99,7 +99,7 @@ test('contextual stat check percentages and formulas match live state, including
  const definitions=defaultStats();
  for(const [stat,chance,label] of [[1,'16.2%','Very low'],[3,'37.5%','Low'],[4,'50.0%','Medium'],[5,'62.5%','High'],[7,'83.8%','Very high']]) {
   assert.deepEqual(playerCheckPresentation(statCheck(),{agility:stat},definitions),
-   {chance,stat:`Agility: ${stat}`,label,formula:`Agility: ${stat}`});
+   {chance,stat:'AGILITY ROLL',label,formula:`Agility: ${stat}`});
  }
  assert.equal(playerCheckPresentation(statCheck(10),{agility:1},definitions).chance,'0.0%');
  assert.equal(playerCheckPresentation(statCheck(1),{agility:10},definitions).chance,'100.0%');

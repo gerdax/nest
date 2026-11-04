@@ -592,7 +592,7 @@ test('check information follows selection and hides for story, commit, stop and 
  preview.deck.finishMotion();preview.syncActionContext();
  assert.equal(preview.actionContext.checkDetails.hidden,false);
  assert.equal(preview.actionContext.checkChance.textContent,'38%');
- assert.equal(preview.actionContext.caption.textContent,'Agility: 3');
+ assert.equal(preview.actionContext.caption.textContent,'AGILITY ROLL');
  preview.deck.start();
  preview.deck.move({axis:'y',x:0,y:-40,vx:0,vy:0});
  preview.syncActionContext();
@@ -602,7 +602,7 @@ test('check information follows selection and hides for story, commit, stop and 
  const phase=preview.deck.phase;preview.deck.phase='committing';
  preview.syncActionContext();
  assert.equal(preview.actionContext.visible,false,'commit starts the shared caption and odds fade');
- assert.equal(preview.actionContext.caption.textContent,'Agility: 3','last caption remains painted during fade');
+ assert.equal(preview.actionContext.caption.textContent,'AGILITY ROLL','last caption remains painted during fade');
  assert.equal(preview.actionContext.checkChance.textContent,'38%');
  preview.deck.phase=phase;preview.syncActionContext();
  assert.equal(preview.actionContext.checkRules.textContent,'Low');
