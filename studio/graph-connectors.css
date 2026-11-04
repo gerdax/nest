@@ -123,6 +123,7 @@ html.graph-dragging,html.graph-dragging *,#canvas.graph-dragging,#canvas.graph-d
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;
   font-weight:650;cursor:grab;
 }
+#canvas .beat-group-count {padding:20px 20px 0;color:#96a7a7;font-size:12px;}
 #canvas .beat-group-port {
   position:absolute;pointer-events:auto;top:59px;width:24px;height:24px;
   display:grid;place-items:center;transform:translate(-50%,-50%);

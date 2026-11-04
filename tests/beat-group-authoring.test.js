@@ -49,7 +49,7 @@ test('group edits, moves and collapse participate in undo/redo and reject bounda
   assert.match(nodeInspector(before,current,current.nodes.find(node=>node.id==='group-last')),/Encounter · Output/);
   const panel=beatGroupInspector(current,beatGroups(current)[0]);
   assert.match(panel,/Group name[\s\S]*value="Encounter"/);
-  assert.match(panel,/2 beats · Collapsed/);
+  assert.match(panel,/>2 beats<\/p>/);
   assert.match(panel,/value="beat:group-first" selected/);
   assert.match(panel,/value="beat:after-group" selected/);
 });

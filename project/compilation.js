@@ -9,6 +9,7 @@ import { createLibraryIndex } from './library-index.js';
 import { cloneProject, legacyArtwork, list, chapterVariables } from './model-data.js';
 import { discardPlacementContext, normalizeSingleItems } from './normalization.js';
 import { resolveBeatGroups } from './beat-groups.js';
+import { inspectRandomizerGroup } from './randomizer.js';
 
 export function compileChapter(project, chapterId = project.activeChapterId, {additionalDefinitionIds = []} = {}) {
   // All resolved mechanics and normalization must operate on detached data.
@@ -22,6 +23,16 @@ export function compileChapter(project, chapterId = project.activeChapterId, {ad
   if (invalidGroup) throw new Error(invalidGroup.message);
   const result = grouped.chapter === chapter ? cloneProject(chapter) : grouped.chapter;
   delete result.beatGroups;
+  const randomizers = chapter.nodes.filter(node => node.type === 'randomizer');
+  if (randomizers.length) {
+    const groupIds = new Set(randomizers.flatMap(node => list(node.candidates).map(candidate => candidate?.groupId)));
+    const entries = [];
+    for (const id of groupIds) {
+      const {group, usable, exits} = inspectRandomizerGroup(project, chapter, id);
+      if (usable) entries.push([id,{entryId:group.entryId,oncePerRun:group.oncePerRun === true,exits}]);
+    }
+    result.randomizerGroups = Object.fromEntries(entries);
+  }
   result.combat = cloneProject(project.combat);
   result.showDeathBeat = project.showDeathBeat;
   result.itemTags = cloneProject(project.itemTags || []);

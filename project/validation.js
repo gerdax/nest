@@ -450,6 +450,27 @@ export function validateProject(project, {allowDraft = false} = {}) {
       if (Object.hasOwn(node,'introEnabled') && typeof node.introEnabled !== 'boolean') add(errorMessage('VALIDATION_INVALID_INTRODUCTION_TOGGLE', {label}), cid, nid);
       if(node.type==='death' && (!Array.isArray(node.cards)||!node.cards.length||node.intro!==undefined||!object(node.connections)||Object.keys(node.connections).length))add('Death requires cards and no introduction or connections',cid,nid);
       if(node.type==='combat'){if(!isUnassignedCombat(node))typedRef(node.enemy,'enemy',label);if(['intro','cards','attacks','actions','health','hit','reactions','death','combat'].some(key=>Object.hasOwn(node,key)))add('Combat does not support encounter overrides',cid,nid);if(object(node.connections)&&Object.keys(node.connections).some(k=>k!=='victory'))add('Combat has only a Victory output',cid,nid);}
+      if (node.type === 'randomizer') {
+        if (object(node.connections) && Object.keys(node.connections).some(key => key !== 'next')) {
+          add(`${label}: Randomizer has only a Next output`,cid,nid);
+        }
+        if (!Number.isFinite(node.noneWeight) || node.noneWeight < 0) {
+          add(`${label}: Randomizer None weight must be a finite nonnegative number`,cid,nid);
+        }
+        if (!Array.isArray(node.candidates)) add(`${label}: Randomizer candidates must be a list`,cid,nid);
+        const candidateGroups = new Set();
+        for (const candidate of list(node.candidates)) {
+          if (!object(candidate) || !named(candidate.groupId) || !Number.isFinite(candidate.weight) || candidate.weight <= 0) {
+            add(`${label}: Randomizer candidate requires a group and a positive finite weight`,cid,nid);
+            continue;
+          }
+          if (candidateGroups.has(candidate.groupId)) add(`${label}: duplicate Randomizer group`,cid,nid);
+          candidateGroups.add(candidate.groupId);
+          const issueStart = errors.length;
+          inspectConditions(candidate.conditions,`${label} / Randomizer candidate ${candidate.groupId}`);
+          for (const issue of errors.slice(issueStart)) Object.assign(issue,{chapterId:cid,nodeId:nid});
+        }
+      }
       const ps = placements(node), pids = new Set();
       for (const p of ps) {
         if (!object(p) || !named(p.id) || typeof p.definitionId !== 'string') {

@@ -45,6 +45,7 @@ export class ProjectController {
     this.variables=transact(initialValues(this.compiled.variables),[],{effects:Object.entries(this.initialState?.variables || {}).map(([key,value])=>({op:'set',key,value}))},this.compiled.variables).variables;
     this.inventory=(this.initialState?.inventory || []).reduce((items,item)=>addInventory(items,structuredClone(item)),[]);
     this.remaining=new Map(); this.itemReplacements=new Map(); this.accepted=new Set();this.revealedIntros=new Set();this.pendingIntro=null; this.pendingItem=null;this.pendingExchange=null;this.stagedDestination=null;this.completed=false;this.halted=false;this.terminalReason=null;this.deathHandoff=null;
+    this.randomizerRun=this.compiled.randomizerGroups?{seen:new Set(),scene:null}:undefined;
     this.location=null;
     try {this.adopt(this.locate(this.compiled.startNode),false);this.show();if(!this.destroyed&&this.generation===generation)this.onStart(this.compiled.startNode);} catch(error){
       this.location=null;this.completed=false;
@@ -146,6 +147,40 @@ export class ProjectController {
     let ticket=draw*total;
     return routes.find(r=>(ticket-=r.weight/maximum)<0) ?? routes.at(-1);
   }
+  randomizerChoices(node,values,inventory,run,excluded) {
+    const choices=[];
+    const groups=this.compiled.randomizerGroups??{};
+    for(const candidate of node.candidates??[]){
+      if(!Object.hasOwn(groups,candidate.groupId))continue;
+      const group=groups[candidate.groupId];
+      if(group.oncePerRun&&run.seen.has(candidate.groupId)||!conditionsMet(candidate.conditions,values,inventory))continue;
+      // Test entry with a terminal return so the probe cannot traverse another caller.
+      const probeRun={...run,scene:{group,next:null,callerId:node.id}};
+      try {
+        this.traverse({id:group.entryId,run:probeRun},values,inventory,new Set(),excluded,true);
+      }catch(error){
+        if(this.routingReason(error))continue;
+        throw error;
+      }
+      choices.push({group,groupId:candidate.groupId,weight:candidate.weight});
+    }
+    if(node.noneWeight>0)choices.push({weight:node.noneWeight});
+    return choices;
+  }
+  randomizerDestination(choice,node,run) {
+    const next=node.connections?.next;
+    if(!choice?.group)return {id:next,run};
+    const {group,groupId}=choice;
+    const seen=group.oncePerRun?new Set([...run.seen,groupId]):run.seen;
+    return {id:group.entryId,run:{seen,scene:{group,next,callerId:node.id}}};
+  }
+  routeStep(node,output,id,run) {
+    const scene=run?.scene;
+    if(scene?.group.exits.some(exit=>exit.nodeId===node.id&&exit.output===output)){
+      return {id:scene.next,run:{...run,scene:null}};
+    }
+    return {id,run};
+  }
   locate(id,values=this.variables,inventory=this.inventory,visited=new Set(),excluded=null,preview=false,preflight=null) {
     return this.traverse({id},values,inventory,visited,excluded,preview,preflight);
   }
@@ -156,37 +191,45 @@ export class ProjectController {
       if(!preflight||preflight.values!==values||preflight.inventory!==inventory||preflight.excluded!==excluded)preflight={values,inventory,excluded,visiting:new Set(visited),completed:new Map()};
       visited=preflight.visiting;
     }
-    const pending=[{...start,values,inventory,changed:false}],entered=new Set();
+    const pending=[{run:start.location?.randomizerRun??this.randomizerRun,...start,values,inventory,changed:false}],entered=new Set();
+    const arrive=(destination,step,run)=>{
+      if(run)destination={...destination,randomizerRun:run};
+      if(step.changed)this.arrivalStates.set(destination,{variables:step.values,inventory:step.inventory});
+      return destination;
+    };
     let result;
     try {
       while(pending.length) {
         const step=pending.pop();
-        let {values,inventory,changed}=step;
-        if(step.halted){result={halted:true,terminalReason:'death'};if(changed)this.arrivalStates.set(result,{variables:values,inventory});continue;}
+        let {values,inventory,changed,run}=step;
+        if(step.halted){result=arrive({halted:true,terminalReason:'death'},step,run);continue;}
         if(step.finish) {
           if(step.random)result=null;
-          if(preview){preflight.completed.set(step.id,{values,inventory,result});visited.delete(step.id);entered.delete(step.id);}
+          if(preview){preflight.completed.set(step.id,{values,inventory,run,result});visited.delete(step.id);entered.delete(step.id);}
           continue;
         }
         if(step.location) {
           const death=this.deathDestination(values,step.location);
-          if(death){pending.push({id:death.node.id,values,inventory,changed});continue;}
+          if(death){pending.push({id:death.node.id,values,inventory,changed,run});continue;}
           const next=this.seekStep(step.location,values,inventory,excluded);
-          if(next.ready){result=next.location;if(changed)this.arrivalStates.set(result,{variables:values,inventory});}
+          if(next.ready)result=arrive(next.location,step,run);
           else pending.push({...next,values,inventory,changed});
           continue;
         }
         const id=step.id;
-        if(id===null){result={completed:true};if(changed)this.arrivalStates.set(result,{variables:values,inventory});continue;}
+        if(id===null){result=arrive({completed:true},step,run);continue;}
         if(id===false||id===undefined)throw createError('RUNTIME_UNLINKED_OUTPUT');
-        if(visited.has(id))throw createError('RUNTIME_AUTOMATIC_ROUTING_CYCLE');
-        const cached=preview&&preflight.completed.get(id);
-        if(cached&&cached.values===values&&cached.inventory===inventory){result=cached.result;continue;}
-        visited.add(id);entered.add(id);
+        // Two callers can traverse the same automatically skipped scene in one transition.
+        const visitKey=run?JSON.stringify([run.scene?.callerId??null,id]):id;
+        if(visited.has(visitKey))throw createError('RUNTIME_AUTOMATIC_ROUTING_CYCLE');
+        const cached=preview&&preflight.completed.get(visitKey);
+        if(cached&&cached.values===values&&cached.inventory===inventory&&cached.run===run){result=cached.result;continue;}
+        visited.add(visitKey);entered.add(visitKey);
         const node=this.nodes.get(id);if(!node)throw createError('RUNTIME_UNKNOWN_NODE', { id });
-        pending.push({finish:true,id,random:preview&&node.type==='random',values,inventory});
+        pending.push({finish:true,id:visitKey,random:preview&&['random','randomizer'].includes(node.type),values,inventory,run});
         const death=this.deathDestination(values,{node});
-        if(death){pending.push({id:death.node.id,values,inventory,changed});continue;}
+        if(death){pending.push({id:death.node.id,values,inventory,changed,run});continue;}
+        if(node.type==='death'&&run?.scene)run={...run,scene:null};
         // Keep entry effects speculative until the full route succeeds. Branches
         // inherit their parent's state rather than a preceding sibling's effects.
         for(const effect of Object.hasOwn(this.nodeEntryEffects,id)?this.nodeEntryEffects[id]:[]) {
@@ -195,19 +238,30 @@ export class ProjectController {
           values=state.variables;inventory=state.inventory;changed=true;
         }
         const enteredDeath=this.deathDestination(values,{node});
-        if(enteredDeath){pending.push({id:enteredDeath.node.id,values,inventory,changed});continue;}
-        if(node.type==='random') {
+        if(enteredDeath){pending.push({id:enteredDeath.node.id,values,inventory,changed,run});continue;}
+        if(node.type==='randomizer') {
+          if(run?.scene)throw createError('RUNTIME_AUTOMATIC_ROUTING_CYCLE');
+          run??={seen:new Set(),scene:null};
+          const choices=this.randomizerChoices(node,values,inventory,run,excluded);
+          const results=preview?(choices.length?choices:[null]):[this.weighted(choices)];
+          for(let i=results.length-1;i>=0;i--){
+            pending.push({...this.randomizerDestination(results[i],node,run),values,inventory,changed});
+          }
+        }else if(node.type==='random') {
           const routes=(node.routes ?? []).filter(r=>r.weight>0&&conditionsMet(r.conditions,values,inventory));
           if(preview) {
-            const targets=routes.length?routes.map(r=>r.target):[node.fallback];
-            for(let i=targets.length-1;i>=0;i--)pending.push({id:targets[i],values,inventory,changed});
+            const targets=routes.length?routes:[{id:'fallback',target:node.fallback}];
+            for(let i=targets.length-1;i>=0;i--){
+              const {id:output,target}=targets[i];
+              pending.push({...this.routeStep(node,output,target,run),values,inventory,changed});
+            }
           }else {
             const selected=this.weighted(routes);
-            pending.push({id:selected?selected.target:node.fallback,values,inventory,changed});
+            pending.push({...this.routeStep(node,selected?.id??'fallback',selected?selected.target:node.fallback,run),values,inventory,changed});
           }
         }else if(node.type==='legacyPool'&&preview)result=null;
         else {
-          const location={node,index:0,queue:[]};
+          const location={node,index:0,queue:[],...(run?{randomizerRun:run}:{})};
           if(node.type==='legacySequence')location.sequence=node.sequence;
           // A choice-free native Fork keeps its authored intro as a transient
           // narrative sequence; no placement or document data is synthesized.
@@ -219,9 +273,9 @@ export class ProjectController {
             location.queue=selectPool(node.pool,node.count,this.rng);
             const sequenceId=location.queue.shift();
             location.sequence=node.sequences.find(s=>s.id===sequenceId);
-            if(!location.sequence){pending.push({id:node.connections?.next,values,inventory,changed});continue;}
+            if(!location.sequence){pending.push({...this.routeStep(node,'next',node.connections?.next,run),values,inventory,changed});continue;}
           }
-          pending.push({location,values,inventory,changed});
+          pending.push({location,values,inventory,changed,run});
         }
       }
       return result;
@@ -255,13 +309,14 @@ export class ProjectController {
     return {ready:true,location};
   }
   nextStep(location,output='next') {
-    if(location.node.type==='death')return {halted:true,terminalReason:'death'};
+    const run=location.randomizerRun??this.randomizerRun;
+    if(location.node.type==='death')return {halted:true,terminalReason:'death',run};
     if(location.queue?.length) {
       const queue=[...location.queue],id=queue.shift();
-      return {location:{...location,sequence:location.node.sequences.find(s=>s.id===id),queue,index:0,ownedItemsAtEntry:undefined}};
+      return {location:{...location,sequence:location.node.sequences.find(s=>s.id===id),queue,index:0,ownedItemsAtEntry:undefined},run};
     }
     const key=location.node.type==='legacyPool'?'next':output;
-    return {id:location.node.connections?.[key]};
+    return this.routeStep(location.node,key,location.node.connections?.[key],run);
   }
   seek(location,values=this.variables,inventory=this.inventory,visited=new Set(),excluded=null,preview=false,preflight=null) {
     return this.traverse({location},values,inventory,visited,excluded,preview,preflight);
@@ -325,6 +380,7 @@ export class ProjectController {
     const death=this.deathDestination(state.variables,destination?.node?destination:this.location);
     if(death){destination=this.locate(death.node.id,state.variables,state.inventory);state=this.arrivalState(destination,state.variables,state.inventory);this.arrivalStates.delete(destination);}
     this.variables=state.variables;this.inventory=state.inventory;
+    if(destination.randomizerRun)this.randomizerRun=destination.randomizerRun;
     this.completed=!!destination.completed;this.halted=!!destination.halted;this.terminalReason=destination.terminalReason??null;
     if(!this.completed&&!this.halted)this.location=destination;
     if(notify){if(this.location?.node.type==='combat'&&!this.halted&&!this.completed)this.show();else this.notify();}
@@ -733,8 +789,10 @@ export class ProjectController {
     this.notify();return true;
   }
   combatVictoryReason() {
-    const target=this.location?.node.connections?.victory;
-    if(typeof target!=='string'||!target||!this.nodes.has(target))return 'Route unavailable';
+    if(!this.location)return 'Route unavailable';
+    const {id:target,run}=this.nextStep(this.location,'victory');
+    const sceneReturn=this.location.randomizerRun?.scene&&!run?.scene;
+    if(!(sceneReturn&&target===null)&&(typeof target!=='string'||!target||!this.nodes.has(target)))return 'Route unavailable';
     try {this.next(this.location,'victory',this.variables,this.inventory,new Set(),null,true);return '';}
     catch(error){return this.routingReason(error)||'Route unavailable';}
   }

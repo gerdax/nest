@@ -68,6 +68,12 @@ const localDrafts=new LocalCardDrafts();
 const chapter=()=>project.chapters.find(c=>c.id===chapterId)||project.chapters[0];
 const node=()=>chapter().nodes.find(n=>n.id===selected);
 const selectedGroup=()=>mode==='chapter'&&beatGroups(chapter()).find(group=>group.id===selectedGroupId);
+function selectedPreviewEntry(){
+ if(mode!=='chapter')return undefined;
+ const group=selectedGroup();
+ if(group)return group.entryId||undefined;
+ return graph.selectedIds.size<=1?node()?.id:undefined;
+}
 const definition=()=>project.library.find(d=>d.id===definitionId);
 const preview=new ProjectPreview($('#preview'),{previewOverrides,inventoryHost:$('.preview-window-body'),onChange:state=>updatePreviewHighlight(graph,preview,chapter(),state),onStop:()=>graph.setActive(null),onNodeError:issue=>{if(nodeErrors.report(issue))refreshNodeErrors();},onNodeResolved:issue=>{if(nodeErrors.resolve(issue))refreshNodeErrors();},onCardChange:target=>{graph.setActiveCard(target);autoPanel.follow(target);},onGoToCard:goToPreviewCard});
 const previewWindow=mountPreviewWindow($('#preview-window'),{onClose:()=>preview.stop()});
@@ -227,7 +233,7 @@ function renderBeatToolbar(){
  $('#ungroup-beats').disabled=!group;
  $('#cut-node').disabled=$('#duplicate').disabled=mode!=='chapter'||!node()||[...graph.selectedIds].some(id=>chapter().nodes.find(n=>n.id===id)?.type==='death');
  $('#start').disabled=mode!=='chapter'||!node()||multiple||!!group||node()?.type==='death';
- $('#play-node').disabled=mode!=='chapter'||!node()||multiple||!!group;
+ $('#play-node').disabled=!selectedPreviewEntry();
  $('#paste-node').disabled=mode!=='chapter'||!nodeClipboard||nodeClipboard.projectId!==project.id;
 }
 function renderProjectSettings(){
@@ -329,6 +335,7 @@ function changeField(event){const el=event.target,path=el.dataset.path,scope=el.
   const group=selectedGroup();
   if(!group)return;
   if(path==='name'){edit('rename-beat-group',{id:group.id,name:el.value});return;}
+  if(path==='oncePerRun'){edit('set-beat-group-once',{id:group.id,oncePerRun:el.checked});return;}
   const value=el.value;
   const target=value==='unlinked'?false:value==='end'?null:value.startsWith('group:')
    ?{groupId:value.slice(6),port:'input'}:{nodeId:value.slice(5)};
@@ -769,9 +776,12 @@ function play(startNode,{restore=false,chapterId:targetChapterId=chapterId,focus
   report('Chapter ready.');return true;
  }catch(error){report(error.message);return false;}
 }
-function playSelected(options){if(!node()||graph.selectedIds.size>1||selectedGroup())return false;return play(selected,options);}
+function playSelected(options){
+ const entry=selectedPreviewEntry();
+ return entry?play(entry,options):false;
+}
 $('#play').onclick=()=>play();$('#play-node').onclick=()=>playSelected();
-$('#play-node').title='Play selected beat from the start (Shift+Enter)';
+$('#play-node').title='Play selected beat or group from its entry (Shift+Enter)';
 $('#play-node').setAttribute('aria-keyshortcuts','Shift+Enter');
 const stopPlayShortcuts=mountPlayShortcuts(document,{
  playbackDeck:()=>previewWindow.visible&&!previewWindow.minimized&&$('#project-settings-overlay').hidden&&!graph.drag&&!graph.pending&&!graph.creation?preview.deck:null,
@@ -780,7 +790,7 @@ const stopPlayShortcuts=mountPlayShortcuts(document,{
   if(!target?.matches?.('input,textarea,select')||!target.closest('#inspector,#settings,#project-settings-content'))return false;
   target.blur();return true;
  },
- enabled:()=>!!node()&&graph.selectedIds.size<=1&&!selectedGroup(),
+ enabled:()=>!!selectedPreviewEntry(),
 });
 window.addEventListener('pagehide',event=>{if(event.persisted)return;graph.cancel();document.removeEventListener('keydown',saveShortcut);stopHistoryShortcuts();stopNodeClipboardShortcuts();stopViewShortcuts();stopPlayShortcuts();autoplay.destroy();autoPanel.destroy();previewWindow.destroy();projectSettingsWindow.destroy();preview.destroy();});
 render();graph.fit();if(loaded.error||loaded.recovery)report('');else if(loaded.migrated)report('Legacy save loaded; original browser save preserved.');else report(loaded.project?persistence.savedMessage:'Not saved yet.');

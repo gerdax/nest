@@ -70,6 +70,7 @@ export function resolveBeatGroups(project, chapter) {
   const membership = new Set(), claimedOutputs = new Set();
   for (const group of result.beatGroups) {
     if (!object(group) || !named(group.id) || !named(group.name) || typeof group.collapsed !== 'boolean'
+        || (group.oncePerRun !== undefined && typeof group.oncePerRun !== 'boolean')
         || !Array.isArray(group.memberIds) || !group.memberIds.length
         || !Array.isArray(group.incoming) || !Array.isArray(group.outgoing)) {
       add(group, 'invalid group structure');

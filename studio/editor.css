@@ -81,7 +81,7 @@ select:disabled {opacity:.5;cursor:not-allowed;}
 #errors [data-error-beat] {padding:0;border:0;background:none;color:inherit;text-align:left;text-decoration:underline;}
 #library-panel:not([hidden]) ~ #errors {position:static;margin:12px 24px;}
 #inspector h2 {font-size:18px;}
-#panel-title {display:flex;align-items:center;gap:12px;width:100%;}
+#panel-title {display:flex;align-items:center;gap:12px;width:100%;min-height:20px;}
 #panel-title .graph-beat-icon {position:static;float:none;width:20px;height:20px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
 #settings .chapter-settings {margin:0;}
 /* Revealing override fields must not move the sidebar's viewport. */

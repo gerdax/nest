@@ -35,6 +35,10 @@ export const nodeTypes = Object.freeze({
   label:'Random', iconPath:'M3 6.25H7L17 17.75H21M3 17.75H7L9 15.45M15 8.55L17 6.25H21', slots:Object.freeze({}), outputs:node => [...objects(node.routes).map(r=>r.id),'fallback'],
   create:({uid}) => ({routes:[{id:uid('route'),name:'Route 1',target:false,weight:1,conditions:[]}],fallback:false})
  }),
+ randomizer: Object.freeze({
+  label:'Randomizer', iconPath:'M8 3H16L21 8V16L16 21H8L3 16V8ZM12 8V12H16M12 12H8', slots:Object.freeze({}),
+  outputs:nextOutput, create:()=>({candidates:[],noneWeight:0,connections:{next:false}})
+ }),
  legacySequence: Object.freeze({label:'Legacy sequence', slots:Object.freeze({}), outputs:legacyOutputs}),
  legacyPool: Object.freeze({label:'Legacy Random', slots:Object.freeze({}), outputs:legacyOutputs})
 });

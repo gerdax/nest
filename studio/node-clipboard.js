@@ -197,8 +197,13 @@ export function pasteNodesClipboard(project, chapter, payload, {position} = {}) 
   }
   project.library.push(...definitions);
   const added=nodes.map(node=>{if(node.type==='death'){destinationDeath.cards=node.cards;return destinationDeath;}chapter.nodes.push(node);return node;});
+  const groupIds=new Map((payload.beatGroups??[]).map(group=>[group.id,uid('beat-group')]));
+  const existingGroupIds=new Set(crossChapter?[]:beatGroups(chapter).map(group=>group.id));
+  for(const node of added)if(node.type==='randomizer'){
+    node.candidates=(node.candidates??[]).filter(candidate=>groupIds.has(candidate.groupId)||existingGroupIds.has(candidate.groupId));
+    for(const candidate of node.candidates)candidate.groupId=groupIds.get(candidate.groupId)??candidate.groupId;
+  }
   if(payload.beatGroups?.length){
-    const groupIds=new Map(payload.beatGroups.map(group=>[group.id,uid('beat-group')]));
     const refs=bindings=>bindings.map(({nodeId,output})=>({nodeId:nodeIds.get(nodeId),output:outputMaps.get(nodeId)(output)}));
     chapter.beatGroups??=[];
     for(const group of payload.beatGroups){

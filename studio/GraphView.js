@@ -227,6 +227,7 @@ export class GraphView {
    const {id,name,collapsed}=group;
    return `<div class="beat-group${collapsed?' collapsed':''}" data-group-id="${esc(id)}">
     <button type="button" class="beat-group-header" aria-expanded="${!collapsed}" title="Drag to move. Double-click to ${collapsed?'expand':'collapse'}">${esc(name)}</button>
+    ${collapsed?`<div class="beat-group-count">${group.memberIds.length} ${group.memberIds.length===1?'beat':'beats'}</div>`:''}
     <button type="button" class="beat-group-port" data-port="input" aria-label="${esc(name)} Group In" title="${collapsed?'Connect an outside outcome here':'Connect an outside outcome here, or drag from here to the entry beat'}"></button>
     <button type="button" class="beat-group-port" data-port="output" aria-label="${esc(name)} Group Out" title="${collapsed?'Drag to an outside beat or group input':'Connect a member outcome here, or drag from here to the outside destination'}"></button>
    </div>`;

@@ -107,6 +107,30 @@ function changeField(project, selection, field, localDrafts) {
   const variables = chapterVariables(project, ruleChapter);
   const root = documentScope(project, selection, field);
   if (!root) return;
+  if(scope==='node'&&node.type==='randomizer'){
+    const candidateField=/^candidates\.(\d+)\.(groupId|weight)$/.exec(path);
+    if(candidateField){
+      const candidate=node.candidates[Number(candidateField[1])];
+      if(!candidate)throw new Error('This Randomizer group no longer exists');
+      if(candidateField[2]==='groupId'){
+        if(!beatGroups(chapter).some(group=>group.id===raw)||node.candidates.some(other=>other!==candidate&&other.groupId===raw)){
+          throw new Error('Choose a group from this chapter that is not already in this Randomizer');
+        }
+        candidate.groupId=raw;
+      }else{
+        const weight=Number(raw);
+        if(!Number.isFinite(weight)||weight<=0)throw new Error('Group weight must be greater than zero');
+        candidate.weight=weight;
+      }
+      return;
+    }
+    if(path==='noneWeight'){
+      const weight=Number(raw);
+      if(!Number.isFinite(weight)||weight<0)throw new Error('None weight must be zero or greater');
+      node.noneWeight=weight;
+      return;
+    }
+  }
   if (scope === 'chapter' && path === 'nextChapterId' && raw === '') {
     delete root.nextChapterId;
     return;
@@ -308,6 +332,18 @@ function inspectorCommand(project, selection, data, localDrafts) {
       break;
     case 'add-route': node.routes.push({id:uid('route'),name:`Route ${node.routes.length+1}`,target:false,weight:1,conditions:[]}); break;
     case 'remove-route': node.routes.splice(Number(data.index), 1); break;
+    case 'add-randomizer-candidate': {
+      if(node?.type!=='randomizer')break;
+      const used=new Set(node.candidates.map(candidate=>candidate.groupId));
+      const group=beatGroups(chapterFor(project,selection)).find(candidate=>!used.has(candidate.id));
+      if(group)node.candidates.push({groupId:group.id,weight:1,conditions:[]});
+      break;
+    }
+    case 'remove-randomizer-candidate': {
+      const index=Number(data.index);
+      if(node?.type==='randomizer'&&Number.isInteger(index)&&index>=0)node.candidates.splice(index,1);
+      break;
+    }
     case 'delete-definition': {
       // Inactive type drafts can outlive their pruned definitions. Their IDs
       // must not be reused by unrelated converted cards during cache refresh.
@@ -344,6 +380,7 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
     }
     case 'ungroup-beats': ungroupBeatGroup(project,chapter,data.id);break;
     case 'rename-beat-group':
+    case 'set-beat-group-once':
     case 'collapse-beat-group':
     case 'move-beat-group': {
       const group=beatGroups(chapter).find(group=>group.id===data.id);
@@ -352,6 +389,8 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
         const name=String(data.name??'').trim();
         if(!name)throw new Error('Enter a name for the beat group');
         group.name=name;
+      }else if(type==='set-beat-group-once'){
+        group.oncePerRun=data.oncePerRun===true;
       }else if(type==='collapse-beat-group'){
         group.collapsed=data.collapsed===true;
       }else{

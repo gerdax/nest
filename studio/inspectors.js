@@ -4,6 +4,7 @@ import { itemTagsEditor } from './item-tags.js';
 import { cardLabel, cardFallbackLabel } from './card-label.js';
 import { sortedChapters, startChapter } from '../project/chapter-navigation.js';
 import { beatGroups, beatGroupFor, readBeatTarget } from '../project/beat-groups.js';
+import { inspectRandomizerGroup } from '../project/randomizer.js';
 
 import { projectCardBack } from '../project/card-backs.js';
 import { isStatVariable } from '../project/checks.js';
@@ -27,7 +28,8 @@ export function beatGroupInspector(chapter, group) {
   :destination?.groupId?`group:${destination.groupId}`:'unlinked';
  const beatOption=node=>[`beat:${node.id}`,node.name||node.id];
  return field('Group name',group.name,'name','beat-group')
-  +`<p class="small">${members.size} ${members.size===1?'beat':'beats'} · ${group.collapsed?'Collapsed':'Expanded'}</p>`
+  +`<p class="small">${members.size} ${members.size===1?'beat':'beats'}</p>`
+  +checkbox('Randomizer can draw this group once per chapter run',group.oncePerRun===true,'oncePerRun','beat-group')
   +'<h3>Connections</h3>'
   +select('Entry beat',group.entryId?`beat:${group.entryId}`:'unlinked',
    [['unlinked','Unlinked'],...chapter.nodes.filter(node=>members.has(node.id)).map(beatOption)],'entry','beat-group')
@@ -155,6 +157,29 @@ function introductionControls(node) {
  return '<div class="row introduction-controls">'+checkbox('Show introduction',enabled,'introEnabled','node')+checkbox('Show once',node.introOnce===true,'introOnce','node',!enabled)+'</div>';
 }
 
+function randomizerFields(project,chapter,node) {
+ const groups=beatGroups(chapter);
+ const candidates=node.candidates??[];
+ const used=new Set(candidates.map(candidate=>candidate.groupId));
+ const rows=candidates.map((candidate,index)=>{
+  const {group,warning}=inspectRandomizerGroup(project,chapter,candidate.groupId);
+  const path=`candidates.${index}`;
+  const choices=groups.filter(option=>option.id===candidate.groupId||!used.has(option.id)).map(option=>[option.id,option.name]);
+  if(!group)choices.unshift([candidate.groupId,'Unavailable group']);
+  return '<div class="entry">'
+   +select('Group',candidate.groupId,choices,`${path}.groupId`,'node')
+   +field('Weight',candidate.weight,`${path}.weight`,'node','number')
+   +(warning?`<p class="small">${esc(warning)}</p>`:'')
+   +rules(project,candidate.conditions,`${path}.conditions`,'node','conditions',{chapter})
+   +button('Remove group','remove-randomizer-candidate',`data-index="${index}"`)+'</div>';
+ }).join('');
+ return '<h3>Scene selection</h3>'
+  +'<p class="small">Draw one eligible group, then follow Next. If no result is eligible, follow Next immediately.</p>'
+  +rows+button('Add group','add-randomizer-candidate',groups.some(group=>!used.has(group.id))?'':'disabled')
+  +field('None weight',node.noneWeight??0,'noneWeight','node','number')
+  +'<p class="small">None follows Next without playing a group. Set its weight to zero to disable it.</p>';
+}
+
 export function nodeInspector(project,chapter,node,previewEffects=node?.entryEffects??[]) {
  if(!node) {
   const count=chapter.nodes.length;
@@ -163,6 +188,7 @@ export function nodeInspector(project,chapter,node,previewEffects=node?.entryEff
  project={...project,variables:chapterVariables(project,chapter).map(v=>({...v,variableScope:(chapter.variables||[]).includes(v)?'chapter':'global'}))};
  let html=field('Beat name',node.name,'name','node');
  if(node.type==='combat')html+=combatNodeFields(project,node);
+ if(node.type==='randomizer')html+=randomizerFields(project,chapter,node);
  if(node.type==='death')html+='<p class="small">Mandatory chapter Death. Plays when committed health reaches zero, then stops. This beat has no graph connections.</p>';
  const descriptor=nodeTypeDescriptor(node.type);
  for(const [slot,kinds] of Object.entries(descriptor?.slots||{})) {
