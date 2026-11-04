@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
-import { applyMaterialShine } from '../dice/material-shine.js';
+import { applyMaterialShine } from '../assets/dice/material-shine.js';
 
 function fakeMaterial() {
   return {
@@ -27,12 +27,12 @@ test('shine settings accept zero, preserve omitted defaults and ignore invalid v
   assert.equal(material.specularPower, 128);
 });
 
-const base = new URL('../dice/vendor/dice-box/', import.meta.url);
-const onscreen = await readFile(new URL('world.onscreen.js', base), 'utf8');
-const wrapper = await readFile(new URL('world.offscreen.js', base), 'utf8');
+const onscreen = await readFile(new URL('../assets/dice/vendor/dice-box/world.onscreen.js', import.meta.url), 'utf8');
+// The active frame disables offscreen rendering. Keep coverage of the archived worker.
+const wrapper = await readFile(new URL('./dice-reference/world.offscreen.js', import.meta.url), 'utf8');
 const offscreen = Buffer.from(wrapper.match(/const p = "([^"]+)"/)[1], 'base64').toString('utf8');
 
-test('offscreen worker embeds the current self-contained shine helper and parses', () => {
+test('legacy offscreen worker embeds the current self-contained shine helper and parses', () => {
   assert.ok(offscreen.startsWith(applyMaterialShine.toString()));
   new vm.Script(offscreen);
 });
@@ -41,7 +41,7 @@ test('offscreen worker embeds the current self-contained shine helper and parses
 // This verifies configuration reaches both material paths, without WebGL.
 for (const [name, source, bindings] of [
   ['onscreen', onscreen, ['g', 'Re', 'mi']],
-  ['offscreen', offscreen, ['B', 'ri', 'Kr']],
+  ['legacy offscreen', offscreen, ['B', 'ri', 'Kr']],
 ]) {
   test(`${name} applies shine to standard materials and both color variants`, async () => {
     const created = [];

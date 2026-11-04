@@ -113,7 +113,7 @@ starting health; show only the stronger crossed reaction and skip both on death.
 
 New Enemy dice checks and **Add dice** default to **d6, Count 3**. Existing
 authored pools remain unchanged. Enemy dice use the supplied atlas at
-`dice/themes/nest-black/numbers.png`, selected by the `nest-black` theme.
+`assets/dice/themes/nest-black/numbers.png`, selected by the `nest-black` theme.
 
 Damage is sampled once, then committed exactly once after the damage Effect
 Card's accepted departure. Inspecting/canceling applies nothing. A valid result

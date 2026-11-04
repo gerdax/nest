@@ -61,7 +61,7 @@ compatible existing values survive, conflicting definitions are reported.
 Chapter packages retain collision-safe variable remapping, so conflicting
 imported stat definitions may appear as additional renamed variables.
 
-The owned `dice/themes/nest` theme reuses the supplied mesh/UV layout
+The owned `assets/dice/themes/nest` theme reuses the supplied mesh/UV layout
 with a vector atlas, light Big/Medium default green faces and black d6 pips.
 Other dice retain numeric markings; the old numeric bump map is omitted. Vendor files are untouched.
 The iframe explicitly uses dark color-scheme to preserve transparent composition

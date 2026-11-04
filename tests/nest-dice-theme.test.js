@@ -4,8 +4,10 @@ import { readFile } from 'node:fs/promises';
 import { inflateSync } from 'node:zlib';
 import { defaultCardColors } from '../project/card-styles.js';
 
-const themeURL = new URL('../dice/themes/nest/', import.meta.url);
+const themeURL = new URL('../assets/dice/themes/nest/', import.meta.url);
 const theme = JSON.parse(await readFile(new URL('theme.config.json', themeURL)));
+// The editable SVG and original atlas are reference assets outside the runtime.
+const sourceSvgURL = new URL('./dice-reference/numbers.svg', import.meta.url);
 
 test('Nest covers every numeric die and resolves its local material assets', async () => {
   assert.deepEqual(theme.diceAvailable, ['d4', 'd6', 'd8', 'd10', 'd12', 'd20', 'd100']);
@@ -23,7 +25,7 @@ test('Nest covers every numeric die and resolves its local material assets', asy
 });
 
 test('the preserved SVG source retains the original Nest palette and vector markings', async () => {
-  const svg = await readFile(new URL('numbers.svg', themeURL), 'utf8');
+  const svg = await readFile(sourceSvgURL, 'utf8');
   assert.ok(svg.includes(`fill="${defaultCardColors.big}"`));
   assert.equal(defaultCardColors.big, defaultCardColors.medium);
   assert.match(svg, /fill="#000000"/);
@@ -74,8 +76,8 @@ function defaultAtlasAlpha(png) {
 const d6Cells = [[850, 310, 174, 180], [395, 15, 174, 180], [220, 15, 174, 180], [850, 490, 174, 180], [850, 670, 174, 180], [850, 850, 174, 174]];
 
 test('Nest preserves every numeric UV silhouette outside the six d6 cells', async () => {
-  const original = defaultAtlasAlpha(await readFile(new URL('../dice/vendor/dice-box/assets/themes/default/diffuse-light.png', import.meta.url)));
-  const svg = await readFile(new URL('numbers.svg', themeURL), 'utf8');
+  const original = defaultAtlasAlpha(await readFile(new URL('./dice-reference/diffuse-light.png', import.meta.url)));
+  const svg = await readFile(sourceSvgURL, 'utf8');
   const vector = Buffer.alloc(original.length);
   for (const [, opacity, path] of svg.matchAll(/<path opacity="([\d.]+)" d="([^"]+)"\/>/g)) {
     for (const [, x, y, width, closingWidth] of path.matchAll(/M(\d+) (\d+)h(\d+)v1h-(\d+)z/g)) {
@@ -99,10 +101,10 @@ test('Nest preserves every numeric UV silhouette outside the six d6 cells', asyn
 
 
 test('d6 pip counts and locations agree with the unchanged default collider face values', async () => {
-  const meshData = JSON.parse(await readFile(new URL('../dice/vendor/dice-box/assets/themes/default/default.json', import.meta.url)));
+  const meshData = JSON.parse(await readFile(new URL('../assets/dice/vendor/dice-box/assets/themes/default/default.json', import.meta.url)));
   const mesh = meshData.meshes.find(mesh => mesh.name === 'd6');
   const collider = meshData.meshes.find(mesh => mesh.name === 'd6_collider');
-  const svg = await readFile(new URL('numbers.svg', themeURL), 'utf8');
+  const svg = await readFile(sourceSvgURL, 'utf8');
   function triangles(mesh) {
     return Array.from({ length: mesh.indices.length / 3 }, (_, index) => {
       const ids = mesh.indices.slice(index * 3, index * 3 + 3);

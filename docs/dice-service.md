@@ -3,7 +3,7 @@
 Open `dice.html` through `python3 serve.py` to try the isolated tray. No package installation, CDN or application build is needed. The host container must have a visible, nonzero height (the demo uses at least 280px).
 
 ```js
-import { DiceService } from './dice/DiceService.js';
+import { DiceService } from './assets/dice/DiceService.js';
 const dice = new DiceService().mount(document.querySelector('#my-tray'));
 const controller = new AbortController();
 const result = await dice.roll([
@@ -22,9 +22,11 @@ dice.destroy(); // Release the world permanently when the context closes.
 
 ## Provenance
 
-The engine is the actual browser distribution used by [gerdax/onejournal](https://github.com/gerdax/onejournal), copied unchanged from its `vendor/dice-box` at commit `d9b0ddd3a204bfa7bd4488b5c7d99fe214c37d73`: `@3d-dice/dice-box` 1.1.4. Its MIT license and upstream README remain in `dice/vendor/dice-box`. The vendor README attributes the original models/textures as CC0 and documents Onejournal's onscreen rendering fixes and d6 model adjustment. The default numbered theme is used; One Ring rules and glyph meanings are not imported. The full vendor tree retains its original optional theme assets for provenance.
+The vendored engine comes from the browser distribution used by [gerdax/onejournal](https://github.com/gerdax/onejournal) at commit `d9b0ddd3a204bfa7bd4488b5c7d99fe214c37d73` (`@3d-dice/dice-box` 1.1.4). The [runtime MIT license](../assets/dice/vendor/dice-box/LICENSE) ships with the active distribution. The Nest light and black themes share the default mesh and face map.
 
-The Nest wrapper adopts the physics and height-dependent scale settings shown in Onejournal's `dice-engine.js`, with a context-independent pool. Dice Box has no public disposal API, and clearing an active roll discards its promise. Nest therefore owns the engine in a disposable same-origin iframe, explicitly terminates that frame's workers and releases WebGL contexts before removing it. Cancelling always rejects the host promise, including during initialization. Vendor files are not modified.
+The fixtures in `tests/dice-reference/` preserve the offscreen bundle, the original CC0 atlas and the Nest SVG for comparison tests. The full former `dice/` directory, including the upstream README and optional themes, is preserved in the local archive alongside the repository.
+
+The Nest wrapper adopts the physics and height-dependent scale settings shown in Onejournal's `dice-engine.js`, with a context-independent pool. Dice Box has no public disposal API, and clearing an active roll discards its promise. Nest therefore owns the engine in a disposable same-origin iframe, explicitly terminates that frame's workers and releases WebGL contexts before removing it. Cancelling always rejects the host promise, including during initialization.
 
 Deterministic tests cover validation, lifecycle, concurrent-call rejection, cancellation, timeout and independent services using a fake transport. They do not verify GPU rendering, physical settlement, browser worker cleanup or mobile devices; those require browser checks of the actual demo.
 

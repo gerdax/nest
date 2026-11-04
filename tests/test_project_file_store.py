@@ -184,7 +184,7 @@ class HttpTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        self.storage = self.root / 'dice' / 'custom-storage'
+        self.storage = self.root / 'assets' / 'dice' / 'custom-storage'
         handler = partial(QuietHandler, directory=str(self.root), project_dir=self.storage)
         self.server = ThreadingHTTPServer(('127.0.0.1', 0), handler)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
@@ -258,7 +258,7 @@ class HttpTests(unittest.TestCase):
         (self.root / 'saved-projects').mkdir()
         (self.root / 'saved-projects' / 'backup.json').write_text('secret')
         (self.root / 'alias').symlink_to(self.storage, target_is_directory=True)
-        for path in ['/dice/custom-storage/nest-project.json', '/dice/CUSTOM-STORAGE/nest-project.json',
+        for path in ['/assets/dice/custom-storage/nest-project.json', '/assets/dice/CUSTOM-STORAGE/nest-project.json',
                      '/saved-projects/backup.json', '/saved-projects/',
                      '/saved%2dprojects/backup.json', '/alias/nest-project.json', '/']:
             expected = 404 if 'CUSTOM-STORAGE' in path and not self.storage.with_name('CUSTOM-STORAGE').exists() else 403
@@ -266,9 +266,9 @@ class HttpTests(unittest.TestCase):
 
     def test_public_runtime_and_lan_project_api(self):
         files = ['index.html', 'player.html', 'editor.html', 'dice.html', 'errors.js',
-                 'studio/player.js', 'engine/CardDeck.js', 'dice/frame.html',
-                 'dice/themes/nest/theme.config.json', 'dice/vendor/engine.wasm',
-                 'dice/vendor/dice-box/LICENSE',
+                 'studio/player.js', 'engine/CardDeck.js', 'assets/dice/frame.html',
+                 'assets/dice/themes/nest/theme.config.json', 'assets/dice/vendor/dice-box/assets/ammo/ammo.wasm.wasm',
+                 'assets/dice/vendor/dice-box/LICENSE',
                  'assets/img/ui/example card.png', 'assets/fonts/letter.ttf',
                  'tests/fixtures/inventory-drawer.html']
         lan_host = f'192.168.1.20:{self.server.server_port}'
@@ -292,7 +292,8 @@ class HttpTests(unittest.TestCase):
         private_files = ['.git/HEAD', '.codex/settings.json', 'editor/exports/original.json',
                          'editor/exports/helper.js', 'assets/img/source.psd',
                          'assets/img/.private.png', 'demos/combat/index.html', 'serve.py',
-                         'studio/drawer-debug.js', 'tests/test_project_file_store.py']
+                         'studio/drawer-debug.js', 'tests/test_project_file_store.py',
+                         'dice/frame.html', 'tests/dice-reference/world.offscreen.js']
         for name in private_files:
             file = self.root / name
             file.parent.mkdir(parents=True, exist_ok=True)

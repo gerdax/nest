@@ -29,8 +29,6 @@ def public_file(path):
         return suffix in IMAGE_SUFFIXES or (parts[:4] == ('assets', 'img', 'player-ui', 'fonts') and suffix == '.ttf')
     if parts[:2] == ('assets', 'fonts'):
         return suffix == '.ttf'
-    if parts[0] == 'dice':
-        return name == 'dice/vendor/dice-box/LICENSE' or suffix in IMAGE_SUFFIXES | {'.js', '.html', '.json', '.wasm'}
     if name.startswith(DICE_DIR + '/'):
         return name == f'{DICE_DIR}/{DICE_LICENSE}' or suffix in DICE_SUFFIXES
     # Browser-facing developer fixtures use the same local server as the app.
