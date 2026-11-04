@@ -902,9 +902,14 @@ test('group header dragging moves the frame and members transiently and commits 
  assert.equal(s.tile().style.left,start);
  assert.deepEqual(s.commands,[]);
 
+ const command=graph.onGroupCommand;
+ graph.onGroupCommand=(...args)=>{command(...args);root.focused=false;};
  root.event('pointerdown',s.tile().header,300,200);
  root.event('pointerup',root,340,230);
  assert.deepEqual(s.commands,[['move-beat-group',{id:'g',dx:40,dy:30}]]);
+ assert.equal(root.focused,true);
+ root.handlers.keydown({key:'Backspace',target:root,preventDefault(){}});
+ assert.deepEqual(s.commands.at(-1),['ungroup-beats',{id:'g'}]);
  assert.deepEqual(s.moves,[]);
  assert.equal(graph.drag,null);
 });
@@ -917,14 +922,51 @@ test('the name bar selects a group without capturing stationary presses and doub
  root.event('pointerdown',bar,300,200);
  assert.equal(root.capture,null);
  root.event('pointerup',bar,300,200);
+ assert.equal(root.focused,true);
  assert.deepEqual(selections,[{ids:['b','c'],id:'g'}]);
  assert.equal(s.tile().classes.has('selected'),true);
  assert.equal(root.node('b').classes.has('selected'),false);
  assert.equal(s.tile().header,bar,'the bar must survive both clicks');
+ root.focused=false;
  root.handlers.dblclick({target:bar,preventDefault(){}});
+ assert.equal(root.focused,true);
  assert.deepEqual(s.commands,[['collapse-beat-group',{id:'g',collapsed:true}]]);
  s.group.collapsed=true;
  graph.render(graph.project,s.chapter,'b','b');
  root.handlers.click({target:s.tile().header,detail:0,preventDefault(){}});
  assert.deepEqual(s.commands.at(-1),['collapse-beat-group',{id:'g',collapsed:false}]);
+});
+
+for(const collapsed of [false,true])test(`Alt-drag copies the beat group at the drop position (collapsed=${collapsed})`,()=>{
+ const s=groupedCanvas(collapsed),{root,graph}=s,copies=[];
+ graph.onDuplicateMany=(...args)=>copies.push(args);
+ const start=s.tile().style.left;
+ graph.down({target:s.tile().header,clientX:300,clientY:200,pointerId:1,button:0,altKey:true});
+ root.event('pointermove',root,340,230);
+ const ghost=graph.drag.groupGhost;
+ assert.equal(s.tile().style.left,start);
+ assert.equal(ghost.style.left,`${parseFloat(start)+40}px`);
+ assert.equal(graph.drag.ghosts.size,collapsed?0:2);
+ root.handlers.pointercancel({pointerId:1});
+ assert.equal(ghost.isConnected,false);
+ assert.deepEqual(copies,[]);
+
+ graph.down({target:s.tile().header,clientX:300,clientY:200,pointerId:1,button:0,altKey:true});
+ root.event('pointerup',root,350,225);
+ const first=s.chapter.nodes.find(node=>node.id==='b');
+ assert.deepEqual(copies,[[['b','c'],{x:first.x+50,y:first.y+25}]]);
+ assert.deepEqual(s.commands,[]);
+});
+
+test('Delete and Backspace ungroup a selected beat group without deleting its members',()=>{
+ for(const [key,collapsed] of [['Delete',false],['Backspace',true]]){
+  const s=groupedCanvas(collapsed);
+  s.graph.selectGroup(s.group);
+  let prevented=false;
+  s.root.handlers.keydown({key,target:s.tile().header,preventDefault(){prevented=true;}});
+  assert.equal(prevented,true);
+  assert.deepEqual(s.commands,[['ungroup-beats',{id:'g'}]]);
+  assert.deepEqual(s.deleted,[]);
+  assert.deepEqual(s.deletedGroups,[]);
+ }
 });

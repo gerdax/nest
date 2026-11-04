@@ -36,6 +36,12 @@ export class GraphView {
    if(e.key==='Escape')this.cancel();
    if(!['Delete','Backspace'].includes(e.key)||e.defaultPrevented||e.repeat||e.isComposing||e.ctrlKey||(e.metaKey&&e.key!=='Backspace')||e.altKey||e.shiftKey||this.drag)return;
    if(e.target?.closest('input,textarea,select,[contenteditable]:not([contenteditable="false"]),[role="textbox"]'))return;
+   if(this.groupsById?.has(this.selectedGroupId)){
+    e.preventDefault();
+    this.onGroupCommand('ungroup-beats',{id:this.selectedGroupId});
+    root.focus({preventScroll:true});
+    return;
+   }
    if(!this.nodesById?.has(this.selected))return;
    const ids=[...this.selectedIds].filter(id=>this.nodesById.has(id));
    e.preventDefault();
@@ -226,7 +232,7 @@ export class GraphView {
   layer.innerHTML=[...this.groupsById.values()].map(group=>{
    const {id,name,collapsed}=group;
    return `<div class="beat-group${collapsed?' collapsed':''}" data-group-id="${esc(id)}">
-    <button type="button" class="beat-group-header" aria-expanded="${!collapsed}" title="Drag to move. Double-click to ${collapsed?'expand':'collapse'}">
+    <button type="button" class="beat-group-header" aria-expanded="${!collapsed}" title="Drag to move. Alt-drag to duplicate. Double-click to ${collapsed?'expand':'collapse'}">
      <span class="beat-group-name">${esc(name)}</span>
      ${collapsed?`<span class="beat-group-count">${group.memberIds.length} ${group.memberIds.length===1?'beat':'beats'}</span>`:''}
     </button>
@@ -248,7 +254,7 @@ export class GraphView {
    left=Math.min(left,x);top=Math.min(top,y);right=Math.max(right,x+width);bottom=Math.max(bottom,y+height);
   }
   if(!Number.isFinite(left))return null;
-  return {x:left-30,y:top-72,width:group.collapsed?320:Math.max(320,right-left+60),height:group.collapsed?50:bottom-top+104};
+  return {x:left-30,y:top-72,width:group.collapsed?240:Math.max(320,right-left+60),height:group.collapsed?50:bottom-top+104};
  }
  layoutGroups() {
   this.groupRects=new Map();
@@ -276,6 +282,7 @@ export class GraphView {
   if(!group)return;
   if(this.selectedGroupId!==group.id)this.selectGroup(group);
   this.onGroupCommand('collapse-beat-group',{id:group.id,collapsed:!group.collapsed});
+  this.root.focus({preventScroll:true});
  }
  selectGroup(group) {
   const ids=[...group.memberIds];
@@ -383,7 +390,7 @@ export class GraphView {
     this.beginConnection(e,{groupId:group.id,port:port.dataset.port});
    }else if(group.collapsed||e.target.closest('.beat-group-header')){
     this.selectGroup(group);
-    this.drag={kind:'beat-group',groupId:group.id,x:e.clientX,y:e.clientY,pointer:e.pointerId,dx:0,dy:0,
+    this.drag={kind:'beat-group',groupId:group.id,copy:e.altKey,x:e.clientX,y:e.clientY,pointer:e.pointerId,dx:0,dy:0,
      origins:new Map(group.memberIds.map(id=>{const node=this.nodesById.get(id);return [id,{x:node.x,y:node.y}];}))};
     // Leave stationary presses uncaptured so the bar receives a native double-click.
    }
@@ -455,13 +462,31 @@ export class GraphView {
     if(!d.ghosts){
      d.ghosts=new Map();
      for(const id of d.origins?.keys()||[d.id]){
-      const ghost=this.nodeElements.get(id).cloneNode(true);
+      const element=this.nodeElements.get(id);
+      if(!element)continue; // Members of a collapsed group are hidden.
+      const ghost=element.cloneNode(true);
       ghost.removeAttribute('data-id');ghost.classList.remove('active');
       ghost.style.pointerEvents='none';ghost.style.opacity='.7';
       ghost.setAttribute('aria-hidden','true');
       this.root.querySelector('#nodes').appendChild(ghost);d.ghosts.set(id,ghost);
      }
      d.ghost=d.ghosts.get(d.id);
+     if(d.kind==='beat-group'){
+      const element=this.groupElements.get(d.groupId);
+      const ghost=element.cloneNode(true);
+      ghost.removeAttribute('data-group-id');
+      ghost.classList.remove('active');
+      ghost.setAttribute('aria-hidden','true');
+      ghost.inert=true;
+      Object.assign(ghost.style,{pointerEvents:'none',opacity:'.7',width:element.style.width,height:element.style.height});
+      this.root.querySelector('#beat-groups').appendChild(ghost);
+      d.groupGhost=ghost;
+     }
+    }
+    if(d.groupGhost){
+     const rect=this.groupRects.get(d.groupId);
+     d.groupGhost.style.left=`${rect.x+dx}px`;
+     d.groupGhost.style.top=`${rect.y+dy}px`;
     }
     for(const [id,ghost] of d.ghosts){
      const origin=d.origins?.get(id)||{x:d.ox,y:d.oy};
@@ -478,7 +503,7 @@ export class GraphView {
  up(e){
   const d=this.drag;if(!d||d.pointer!==e.pointerId)return;
   if(d.kind==='pan'||d.kind==='beat-group')this.move(e,false);
-  if(d.copy)this.move(e);
+  if(d.copy&&d.kind==='node')this.move(e);
   if(d.kind==='select')this.updateBoxSelection(e);
   if(d.kind==='connect')d.moved ||= Math.hypot(e.clientX-d.x,e.clientY-d.y)>4;
   const target=d.kind==='connect'&&d.moved?this.connectionDrop(e,d.source):null;
@@ -509,7 +534,15 @@ export class GraphView {
    else if(!d.moved&&d.fromPort)this.activatePort(d.nodeId,d.exit,e.timeStamp??performance.now(),e.clientX,e.clientY);
    if(d.moved)this.lastPortClick=null;
   }else if(d.kind==='beat-group'){
-   if(d.moved)this.onGroupCommand('move-beat-group',{id:d.groupId,dx:d.dx,dy:d.dy});
+   if(d.copy){
+    d.groupGhost?.remove();
+    for(const ghost of d.ghosts?.values()||[])ghost.remove();
+    if(d.moved){
+     const ids=[...d.origins.keys()],origin=d.origins.get(ids[0]);
+     this.onDuplicateMany(ids,{x:origin.x+d.dx,y:origin.y+d.dy});
+    }
+   }else if(d.moved)this.onGroupCommand('move-beat-group',{id:d.groupId,dx:d.dx,dy:d.dy});
+   this.root.focus({preventScroll:true});
   }else if(d.kind==='node'){
    if(d.copy){
     for(const ghost of d.ghosts?.values()||[])ghost.remove();
@@ -550,7 +583,7 @@ export class GraphView {
   this.edges();
  }
  cancelCreation(){if(!this.creation)return;this.creation=null;this.onCancelCreate();this.edges();}
- cancel(){this.lastCanvasClick=null;this.setDraggingCursor(false);for(const ghost of this.drag?.ghosts?.values()||[])ghost.remove();this.suppressSelectionClick=false;this.cardDrag.clear();this.cancelCreation();const d=this.drag,hadPending=!!this.pending;this.drag=null;this.pending=null;this.lastPortClick=null;if(d?.kind==='select')this.selectedIds=d.before;if(d?.kind==='pan'){this.view.x=d.ox;this.view.y=d.oy;}if(d&&this.root.hasPointerCapture(d.pointer))this.root.releasePointerCapture(d.pointer);if(this.project&&(d||hadPending))this.render(this.project,this.chapter,this.selected,this.active);}
+ cancel(){this.drag?.groupGhost?.remove();this.lastCanvasClick=null;this.setDraggingCursor(false);for(const ghost of this.drag?.ghosts?.values()||[])ghost.remove();this.suppressSelectionClick=false;this.cardDrag.clear();this.cancelCreation();const d=this.drag,hadPending=!!this.pending;this.drag=null;this.pending=null;this.lastPortClick=null;if(d?.kind==='select')this.selectedIds=d.before;if(d?.kind==='pan'){this.view.x=d.ox;this.view.y=d.oy;}if(d&&this.root.hasPointerCapture(d.pointer))this.root.releasePointerCapture(d.pointer);if(this.project&&(d||hadPending))this.render(this.project,this.chapter,this.selected,this.active);}
  openCard(nodeId,placementId){
   if(!this.nodesById.has(nodeId)||!placementId)return;
   this.onOpenCard(nodeId,{chapterId:this.chapter.id,nodeId,placementId});
