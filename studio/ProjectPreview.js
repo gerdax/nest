@@ -6,7 +6,7 @@ import { compileChapter, validateProject } from '../project/model.js';
 import { ProjectController } from '../project/ProjectController.js';
 import { chapterEntryState } from '../project/chapter-entry.js';
 import { applyCardStyles } from '../project/card-styles.js';
-import { nodeTypeLabel } from '../project/nodeTypes.js';
+import { isUnassignedCombat, nodeTypeLabel } from '../project/nodeTypes.js';
 import { previewCardTarget } from './preview-card-target.js';
 import { DiceLayer } from './DiceLayer.js';
 import { PlayerUI } from './PlayerUI.js';
@@ -97,7 +97,20 @@ export class ProjectPreview {
         onChange: state => { if (active()) this.update(state); },
         onStart: nodeId => { if (active()) this.onNodeResolved?.({projectId:this.project?.id,chapterId:this.chapterId,nodeId,entryOnly:true}); },
         onSuccess: nodeId => { if (active()) this.onNodeResolved?.({projectId:this.project?.id,chapterId:this.chapterId,nodeId}); },
-        onError: (error,state) => { if (!active() || errorCode(error) === 'NO_AVAILABLE_CHOICES') return; this.hideDice(); this.errorNode = state?.activeNodeId; this.errorMessage = error.message || String(error); this.syncPlayerUI(); this.onNodeError?.({projectId:this.project?.id,chapterId:this.chapterId,nodeId:this.errorNode ?? this.startNode ?? this.compiled?.startNode,code:errorCode(error),message:this.errorMessage,entryFailure:!state?.activeNodeId}); },
+        onError: (error, state) => {
+          const code = errorCode(error);
+          if (!active() || code === 'NO_AVAILABLE_CHOICES') return;
+          this.hideDice();
+          this.errorNode = state?.activeNodeId;
+          const entryFailure = !this.errorNode;
+          const nodeId = this.errorNode ?? chapter.startNode;
+          const entry = chapter.nodes.find(node => node.id === nodeId);
+          if (entryFailure && code === 'RUNTIME_UNLINKED_OUTPUT'
+              && isUnassignedCombat(entry) && [false, undefined].includes(entry.connections?.victory)) return;
+          this.errorMessage = error.message || String(error);
+          this.syncPlayerUI();
+          this.onNodeError?.({projectId:this.project?.id,chapterId:this.chapterId,nodeId,code,message:this.errorMessage,entryFailure});
+        },
         rollCheck: (pool, options) => {
           if (!active()) throw createError('STUDIO_PREVIEW_STOPPED');
           return this.roll(pool, options);

@@ -685,6 +685,19 @@ test('visible card notifications follow selection, transitions and stop without 
  preview.stop();assert.equal(targets.at(-1),null);preview.destroy();
 });
 
+test('starting an empty Combat with unlinked Victory blocks the route only in preview', () => {
+  environment();
+  const project = createProject(), chapter = project.chapters[0], reported = [];
+  chapter.nodes.push({id:'empty-combat', name:'Combat', type:'combat', x:0, y:0,
+    enemy:{definitionId:''}, connections:{victory:false}});
+  const preview = new ProjectPreview(new Element(), {onNodeError: issue => reported.push(issue)});
+  preview.play(project, chapter.id, 'empty-combat');
+  assert.equal(preview.deck.content.actions[0].disabled, true);
+  assert.match(preview.deck.content.actions[0].disabledReason, /Route unavailable/i);
+  assert.deepEqual(reported, []);
+  preview.destroy();
+});
+
 test('node error callbacks persist through stop and clear on a successful retry with scoped context',()=>{
  environment();
  const reported=[],resolved=[],project=createProject();
