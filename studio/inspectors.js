@@ -1,4 +1,4 @@
-import { combatDefinitionFields,combatProjectFields,combatNodeFields,combatActionTypeField,defendRevealFields } from './combat-authoring.js';
+import { combatDefinitionFields,combatProjectFields,combatNodeFields,combatEnemyControls,combatActionTypeField,defendRevealFields } from './combat-authoring.js';
 import { cardRuleIndicators } from './card-rule-indicators.js';
 import { itemTagsEditor } from './item-tags.js';
 import { cardLabel, cardFallbackLabel } from './card-label.js';
@@ -170,11 +170,10 @@ function randomizerFields(project,chapter,node) {
   const choices=scenes.filter(({target})=>randomizerSceneType(target)===type)
    .map(({target,label})=>[randomizerSceneKey(target),label]).filter(([value])=>value===key||!used.has(value));
   if(!available.has(key))choices.unshift([key,`Unavailable ${type}`]);
-  const enemy=type==='enemy' ? project.library.find(definition=>definition.id===candidate.enemy?.definitionId) : undefined;
+  const enemy=type==='enemy' && available.has(key) ? project.library.find(definition=>definition.id===candidate.enemy.definitionId) : undefined;
   return '<div class="entry">'
    +select('Scene',key,choices,`${path}.scene`,'node')
-   +(type==='enemy' ? '<div class="row introduction-controls">'
-    +checkbox('Show introduction',candidate.introEnabled??(enemy?.introEnabled===true),`${path}.introEnabled`,'node')+'</div>' : '')
+   +(type==='enemy' ? combatEnemyControls(enemy,candidate.introEnabled??(enemy?.introEnabled===true),`${path}.introEnabled`) : '')
    +field('Weight',candidate.weight,`${path}.weight`,'node','number')
    +checkbox('Allow repeats',candidate.allowRepeats===true,`${path}.allowRepeats`,'node')
    +(warning?`<p class="small">${esc(warning)}</p>`:'')

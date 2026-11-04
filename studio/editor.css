@@ -157,6 +157,8 @@ aside {overflow-anchor:none;}
 .chapter-delete-action {margin-top:20px;padding-top:16px;border-top:1px solid #394a4c;}
 
 .rule-entry-actions {display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap;}
+.combat-enemy-controls {justify-content:space-between;align-items:center;}
+.combat-enemy-controls .check-field {flex-direction:row-reverse;margin:0 8px 0 auto;}
 .item-reference-links {flex:1 1 180px;min-width:0;margin:6px 0 10px;}
 .rule-entry-actions > .item-reference-links {margin:0;}
 .rule-entry-actions > [data-command="remove-rule"] {margin-left:auto;}
