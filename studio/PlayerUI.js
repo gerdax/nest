@@ -21,6 +21,7 @@ export class PlayerUI {
     this.traceEnabled = traceEnabled;
     this.revision = null;
     this.canInspect = false;
+    this.resourceIcons = {health:{}, energy:{}};
     const inventoryRoot = root.querySelector('[data-inventory]');
     this.resources = root.querySelector('[data-resources]');
     this.healthValue = root.querySelector('[data-health-value]');
@@ -105,6 +106,7 @@ export class PlayerUI {
       for (const resource of view.resources) {
         const meter = this.root.querySelector(`[data-${resource.id}]`);
         meter.hidden = !resource.visible;
+        this.updateResourceIcon(resource.id, resource.visible ? resource.value : undefined, meter);
         if (!resource.visible) continue;
         visibleResources++;
         this[`${resource.id}Value`].textContent = resource.value;
@@ -118,6 +120,36 @@ export class PlayerUI {
     this.status.hidden = !view.status.visible;
     this.actionContext.update(view.context);
     this.syncBackdrop();
+  }
+
+  updateResourceIcon(id, value, meter) {
+    const state = this.resourceIcons[id];
+    const previous = state.value;
+    state.value = value;
+    if (value === previous) return;
+    state.animation?.cancel();
+    state.animation = null;
+    if (!Number.isFinite(value) || !Number.isFinite(previous)) return;
+    if (this.root.ownerDocument?.defaultView?.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) return;
+
+    const gained = value > previous;
+    const target = gained ? meter.querySelector('.resource-icon-flash') : meter;
+    const restingOpacity = gained ? 0 : 1;
+    const pulseOpacity = gained ? 1 : 0.28;
+    const lastPulse = gained ? 650 : 390;
+    const duration = lastPulse + 520;
+    const keyframes = [
+      {opacity:restingOpacity, offset:0},
+      {opacity:pulseOpacity, offset:130 / duration},
+      {opacity:restingOpacity, offset:260 / duration},
+      ...(gained ? [
+        {opacity:pulseOpacity, offset:390 / duration},
+        {opacity:restingOpacity, offset:520 / duration},
+      ] : []),
+      {opacity:pulseOpacity, offset:lastPulse / duration, easing:'ease-out'},
+      {opacity:restingOpacity, offset:1},
+    ];
+    state.animation = target?.animate?.(keyframes, {duration});
   }
 
   setInventoryContext(visible, options) {
@@ -167,6 +199,7 @@ export class PlayerUI {
 
   reset() {
     if (this.destroyed) return;
+    for (const id of Object.keys(this.resourceIcons)) this.updateResourceIcon(id, undefined);
     this.endInteractions();
     this.cardPreview.card = null;
     this.cardPreview.distance = null;
@@ -182,6 +215,7 @@ export class PlayerUI {
 
   destroy() {
     if (this.destroyed) return;
+    for (const id of Object.keys(this.resourceIcons)) this.updateResourceIcon(id, undefined);
     this.destroyed = true;
     this.canInspect = false;
     this.inventory.destroy();
