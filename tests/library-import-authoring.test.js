@@ -6,7 +6,7 @@ import {createDefinition} from '../project/cards.js';
 import {applyDocumentCommand} from '../studio/document-commands.js';
 import {transactDocument} from '../studio/document-session.js';
 import {LocalCardDrafts} from '../studio/local-card-drafts.js';
-import {DocumentHistory} from '../editor/DocumentHistory.js';
+import {DocumentHistory} from '../studio/DocumentHistory.js';
 
 class Element extends EventTarget {
  constructor(doc,tag='div') {

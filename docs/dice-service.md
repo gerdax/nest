@@ -1,6 +1,6 @@
 # Reusable 3D dice
 
-Open `dice.html` through `python3 serve.py` to try the isolated tray. No package installation, CDN or application build is needed. The host container must have a visible, nonzero height (the demo uses at least 280px).
+In-game checks and combat use the embedded dice tray in Player and Chapter Studio. No package installation, CDN or application build is needed. The host container must have a visible, nonzero height.
 
 ```js
 import { DiceService } from './assets/dice/DiceService.js';
@@ -28,6 +28,6 @@ The fixtures in `tests/dice-reference/` preserve the offscreen bundle, the origi
 
 The Nest wrapper adopts the physics and height-dependent scale settings shown in Onejournal's `dice-engine.js`, with a context-independent pool. Dice Box has no public disposal API, and clearing an active roll discards its promise. Nest therefore owns the engine in a disposable same-origin iframe, explicitly terminates that frame's workers and releases WebGL contexts before removing it. Cancelling always rejects the host promise, including during initialization.
 
-Deterministic tests cover validation, lifecycle, concurrent-call rejection, cancellation, timeout and independent services using a fake transport. They do not verify GPU rendering, physical settlement, browser worker cleanup or mobile devices; those require browser checks of the actual demo.
+Deterministic tests cover validation, lifecycle, concurrent-call rejection, cancellation, timeout and independent services using a fake transport. They do not verify GPU rendering, physical settlement, browser worker cleanup or mobile devices; those require browser checks in Player or Chapter Studio.
 
 Browser acceptance in Codex’s desktop browser confirmed settled d6 and d20 numerical rolls, cancellation during an active roll, and a fresh roll after cancellation, with no console errors. Actual phone testing and worker/GPU memory profiling remain unverified.

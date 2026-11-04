@@ -28,6 +28,7 @@ const owners = {
   exportChapter: packages,
   importChapter: packages,
   parseProject: packages,
+  parseCurrentProject: packages,
   validateProject: validation,
   normalizeSingleItems: normalization,
   discardPlacementContext: normalization,

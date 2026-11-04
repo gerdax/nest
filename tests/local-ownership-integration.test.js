@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {createProject,createChapter,parseProject,exportChapter,importChapter,compileChapter,validateProject,normalizeLocalOwnership} from '../project/model.js';
 import {createNode} from '../studio/commands.js';
 import {applyDocumentCommand} from '../studio/document-commands.js';
-import {DocumentHistory} from '../editor/DocumentHistory.js';
+import {DocumentHistory} from '../studio/DocumentHistory.js';
 import {LocalCardDrafts} from '../studio/local-card-drafts.js';
 import {transactDocument} from '../studio/document-session.js';
 import {saveProject,loadProject} from '../project/storage.js';

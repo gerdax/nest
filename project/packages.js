@@ -3,12 +3,10 @@ import { createError } from '../errors.js';
 import { isTagKey, tagKey, tagIdFromKey } from './item-tags.js';
 import { normalizeLocalOwnership } from './local-ownership.js';
 import { normalizeStats } from './checks.js';
-import { parseChapter } from '../chapter/model.js';
 import { canonicalCardKind } from './cards.js';
 import { projectCardBack } from './card-backs.js';
 import { definitionGraph, remapDefinitionReferences } from './dependencies.js';
 import { cloneProject, list, named, object, unique, walk } from './model-data.js';
-import { migrateChapter } from './migration.js';
 import { discardPlacementContext, normalizeSingleItems } from './normalization.js';
 import { validateProject } from './validation.js';
 
@@ -32,18 +30,18 @@ export function exportChapter(project, id = project.activeChapterId) {
   return normalizeStats(normalizeSingleItems(pkg));
 }
 
-export function importChapter(project, pkgOrV1) {
-  if(![1,2,3].includes(pkgOrV1?.version))throw new Error('Unsupported chapter package version');
+export function importChapter(project, pkg) {
+  if(![2,3].includes(pkg?.version))throw new Error('Unsupported chapter package version');
   // Importing merges chapter content; destination project-wide playback settings
   // (including ignoreAllOverrides) continue to govern the imported beats.
   const next = normalizeLocalOwnership(ensureCombatDefaults(cloneProject(project)));
-  const imported = pkgOrV1.version === 1 ? migrateChapter(pkgOrV1) : pkgOrV1.kind === 'nest-project' ? cloneProject(pkgOrV1) : {combat:cloneProject(pkgOrV1.combat || {}),library: cloneProject(pkgOrV1.library),
-    itemTags: cloneProject(pkgOrV1.itemTags || []), variables: cloneProject(pkgOrV1.variables || []), chapters: [cloneProject(pkgOrV1.chapter)]};
+  const imported = pkg.kind === 'nest-project' ? cloneProject(pkg) : {combat:cloneProject(pkg.combat || {}),library: cloneProject(pkg.library),
+    itemTags: cloneProject(pkg.itemTags || []), variables: cloneProject(pkg.variables || []), chapters: [cloneProject(pkg.chapter)]};
   normalizeSingleItems(next);
   normalizeSingleItems(imported);
   ensureCombatDefaults(imported);
   normalizeLocalOwnership(imported);
-  return mergePackageContent(next, imported, pkgOrV1);
+  return mergePackageContent(next, imported, pkg);
 }
 
 /** Merge portable Library content without applying defaults or touching destination settings. */
@@ -51,7 +49,7 @@ export function mergeLibraryContent(project, content) {
   return mergePackageContent(cloneProject(project), {...cloneProject(content), chapters: []}, {}, {libraryOnly: true});
 }
 
-function mergePackageContent(next, imported, pkgOrV1, {libraryOnly = false} = {}) {
+function mergePackageContent(next, imported, pkg, {libraryOnly = false} = {}) {
   const concreteIds = new Set(imported.library.filter(d => d.kind === 'item').map(d => d.id));
   const concreteKeys = new Set(imported.library.filter(d => d.kind === 'item').flatMap(d => [d.id,d.inventoryKey].filter(Boolean)));
   const destinationKeys = next.library.filter(d => d.kind === 'item').flatMap(d => [d.id,d.inventoryKey].filter(Boolean));
@@ -80,7 +78,7 @@ function mergePackageContent(next, imported, pkgOrV1, {libraryOnly = false} = {}
       value.key = tagKey(tagMap.get(tagIdFromKey(value.key)));
     }
   });
-  if (!next.cardStyles && pkgOrV1.cardStyles) next.cardStyles = cloneProject(pkgOrV1.cardStyles);
+  if (!next.cardStyles && pkg.cardStyles) next.cardStyles = cloneProject(pkg.cardStyles);
   for (const definition of imported.library) definition.kind = canonicalCardKind(definition.kind);
   const defMap = new Map(), varMap = new Map(), chapterIds = new Set(next.chapters.map(c => c.id)), defs = new Set(next.library.map(d => d.id)),
     vars = new Set([...next.variables, ...next.chapters.flatMap(c => list(c.variables))].map(v => v.id));
@@ -341,13 +339,22 @@ function matchLibraryDefinitions(sourceLibrary, targetLibrary) {
   return {definitions, aliases};
 }
 
-export function parseProject(text, {allowDraft = false} = {}) {
-  let value = JSON.parse(text);
-  if (value?.version === 1) {
-    parseChapter(text, {allowDraft});
-    value = migrateChapter(value);
+/** Current Player and Studio file format. Chapter packages open as projects. */
+export function parseCurrentProject(text, options = {}) {
+  const value = JSON.parse(text);
+  if (value?.version !== 3 || !['nest-project', 'nest-chapter'].includes(value.kind)) {
+    throw createError('PROJECT_EXPECTED_A_VERSION_3_NEST_FILE');
   }
-  else if ([2,3].includes(value?.version) && value.kind === 'nest-chapter') {
+  return normalizeProjectDocument(value, options);
+}
+
+/** Programmatic reader retained for version 2 integrations. */
+export function parseProject(text, options = {}) {
+  return normalizeProjectDocument(JSON.parse(text), options);
+}
+
+function normalizeProjectDocument(value, {allowDraft = false} = {}) {
+  if ([2,3].includes(value?.version) && value.kind === 'nest-chapter') {
     if (named(value.chapter?.nextChapterId) && value.chapter.nextChapterId !== value.chapter.id) delete value.chapter.nextChapterId;
     value = {version: value.version, kind: 'nest-project', combat:value.combat, showDeathBeat:value.showDeathBeat,
     id: `${value.chapter?.id || 'chapter'}-project`, name: value.chapter?.name, activeChapterId: value.chapter?.id, startChapterId: value.chapter?.id,

@@ -1,4 +1,4 @@
-"""Serve the player, chapter editor and dice tool without caching modules."""
+"""Serve the player, chapter editor and in-game dice assets without caching modules."""
 import argparse
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -21,7 +21,7 @@ def public_file(path):
     name = path.as_posix()
     if name.casefold() in DEBUG_ONLY_FILES:
         return False
-    if name in RUNTIME_FILES or name == 'dice.html':
+    if name in RUNTIME_FILES:
         return True
     if parts[0] in RUNTIME_MODULE_DIRS and len(parts) == 2:
         return suffix in {'.js', '.css'}

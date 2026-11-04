@@ -5,7 +5,7 @@ import {createDefinition} from '../project/cards.js';
 import {createNode, synchronizeConnections} from '../studio/commands.js';
 import {cardTransferSlot, transferCard} from '../studio/card-transfer.js';
 import {applyDocumentCommand} from '../studio/document-commands.js';
-import {DocumentHistory} from '../editor/DocumentHistory.js';
+import {DocumentHistory} from '../studio/DocumentHistory.js';
 import {normalizeLocalOwnership} from '../project/local-ownership.js';
 import {LocalCardDrafts} from '../studio/local-card-drafts.js';
 import {transactDocument} from '../studio/document-session.js';

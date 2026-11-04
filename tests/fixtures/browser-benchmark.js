@@ -1,6 +1,6 @@
 import {GraphView} from '../../studio/GraphView.js';
 import {ProjectPreview} from '../../studio/ProjectPreview.js';
-import {DocumentHistory} from '../../editor/DocumentHistory.js';
+import {DocumentHistory} from '../../studio/DocumentHistory.js';
 import {createProject} from '../../project/model.js';
 
 // Diagnostic harness only. It wraps the same methods and handlers used by the

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DocumentHistory } from '../editor/DocumentHistory.js';
+import { DocumentHistory } from '../studio/DocumentHistory.js';
 import { createStarterChapter } from '../chapter/model.js';
 
 test('transactions isolate input, returned snapshots and retained edit drafts', () => {

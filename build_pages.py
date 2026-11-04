@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage the project player, project studio and independent dice tool."""
+"""Stage the project player, project studio and in-game dice assets."""
 
 from __future__ import annotations
 
@@ -58,7 +58,7 @@ def main() -> None:
         return target
 
     runtime_files = list(RUNTIME_FILES)
-    # Include project/studio runtime and retained v1 chapter/editor dependencies.
+    # Include active project, Studio and Player runtime modules.
     # Motion tuning stays independent of the authoring interface.
     for folder in RUNTIME_MODULE_DIRS:
         runtime_files.extend(source.relative_to(ROOT).as_posix() for source in sorted((ROOT / folder).rglob("*")) if source.is_file() and source.suffix in {".js", ".css"})
@@ -96,7 +96,6 @@ def main() -> None:
                 and not any(part.startswith(".") for part in relative.parts)
                 and (relative.as_posix() == DICE_LICENSE or source.suffix.lower() in DICE_SUFFIXES)):
             copy_repo_file(source.relative_to(ROOT).as_posix())
-    copy_repo_file("dice.html")
 
     (output / ".nojekyll").write_text("", encoding="utf-8")
     # Confirm every local static URL and module dependency resolves in the staged tree.

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createProject, validateProject } from '../project/model.js';
 import { createDefinition } from '../project/cards.js';
-import { DocumentHistory } from '../editor/DocumentHistory.js';
+import { DocumentHistory } from '../studio/DocumentHistory.js';
 import { LocalCardDrafts } from '../studio/local-card-drafts.js';
 import { createNode } from '../studio/commands.js';
 import { applyDocumentCommand } from '../studio/document-commands.js';

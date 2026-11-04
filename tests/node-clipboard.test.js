@@ -8,7 +8,7 @@ import { createNode } from '../studio/commands.js';
 import { captureNodeClipboard, pasteNodeClipboard } from '../studio/node-clipboard.js';
 import { applyDocumentCommand } from '../studio/document-commands.js';
 import { cleanupLocalDefinitions } from '../project/dependencies.js';
-import { DocumentHistory } from '../editor/DocumentHistory.js';
+import { DocumentHistory } from '../studio/DocumentHistory.js';
 import { normalizeLocalOwnership } from '../project/local-ownership.js';
 
 function localFixture() {

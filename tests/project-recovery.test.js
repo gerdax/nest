@@ -6,7 +6,7 @@ import { STORAGE_KEY, RECOVERY_STORAGE_KEY, RECOVERY_NOTICE_KEY, loadProject, sa
 import { createPersistence, travelHistory, exportProjectDraft, parseStudioImport } from '../studio/persistence.js';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
-import { DocumentHistory } from '../editor/DocumentHistory.js';
+import { DocumentHistory } from '../studio/DocumentHistory.js';
 
 function memoryStorage(initial = {}) {
   const values = new Map(Object.entries(initial));

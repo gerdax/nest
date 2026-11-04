@@ -4,7 +4,7 @@ import {createProject,compileChapter,exportChapter,importChapter,validateProject
 import {createNode,replaceCard,promoteCard,synchronizeConnections,duplicateNode,duplicatePlacement,setCardSource,customizeAction} from '../studio/commands.js';
 import {nodeInspector,projectSettingsInspector} from '../studio/inspectors.js';
 import {saveProject,loadProject} from '../project/storage.js';
-import {DocumentHistory} from '../editor/DocumentHistory.js';
+import {DocumentHistory} from '../studio/DocumentHistory.js';
 
 test('Fork introductions retain local authoring, toggle data, export and independent duplication',()=>{
  const project=createProject(),chapter=project.chapters[0],node=createNode(project,'fork');chapter.nodes.push(node);chapter.startNode=node.id;synchronizeConnections(project);

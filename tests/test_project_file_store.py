@@ -265,7 +265,7 @@ class HttpTests(unittest.TestCase):
             self.assertEqual(self.request(path=path)[0], expected, path)
 
     def test_public_runtime_and_lan_project_api(self):
-        files = ['index.html', 'player.html', 'editor.html', 'dice.html', 'errors.js',
+        files = ['index.html', 'player.html', 'editor.html', 'errors.js',
                  'studio/player.js', 'engine/CardDeck.js', 'assets/dice/frame.html',
                  'assets/dice/themes/nest/theme.config.json', 'assets/dice/vendor/dice-box/assets/ammo/ammo.wasm.wasm',
                  'assets/dice/vendor/dice-box/LICENSE',
@@ -293,7 +293,8 @@ class HttpTests(unittest.TestCase):
                          'editor/exports/helper.js', 'assets/img/source.psd',
                          'assets/img/.private.png', 'demos/combat/index.html', 'serve.py',
                          'studio/drawer-debug.js', 'tests/test_project_file_store.py',
-                         'dice/frame.html', 'tests/dice-reference/world.offscreen.js']
+                         'dice/frame.html', 'dice.html', 'playground.js', 'tests/lazarus-reference/Lazarus-Awakening-EN.nest.json',
+                         'tests/dice-reference/world.offscreen.js']
         for name in private_files:
             file = self.root / name
             file.parent.mkdir(parents=True, exist_ok=True)

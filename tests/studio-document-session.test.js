@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createProject, compileChapter, validateProject, parseProject } from '../project/model.js';
-import { DocumentHistory } from '../editor/DocumentHistory.js';
+import { DocumentHistory } from '../studio/DocumentHistory.js';
 import { LocalCardDrafts } from '../studio/local-card-drafts.js';
 import { applyDocumentCommand, documentScope } from '../studio/document-commands.js';
 import { transactDocument } from '../studio/document-session.js';

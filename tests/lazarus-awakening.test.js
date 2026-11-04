@@ -6,7 +6,7 @@ import {ProjectController} from '../project/ProjectController.js';
 import {chapterEntryState} from '../project/chapter-entry.js';
 import {variableIdFromName} from '../studio/variable-ids.js';
 
-const read=name=>JSON.parse(fs.readFileSync(new URL(`../editor/exports/${name}`,import.meta.url),'utf8'));
+const read=name=>JSON.parse(fs.readFileSync(new URL(`./lazarus-reference/${name}`,import.meta.url),'utf8'));
 const pkg=read('Lazarus-Awakening-EN.nest.json');
 const project=parseProject(JSON.stringify(pkg));
 

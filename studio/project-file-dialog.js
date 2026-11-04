@@ -98,7 +98,7 @@ export function showProjectFileDialog({mode, backend, currentFilename = 'nest-pr
   }
   label.append(field); form.append(label);
   form.append(element('p', saveAs ? 'All project files are saved in saved-projects. Include .json in the file name.' :
-    'Open a project from saved-projects, or choose a JSON file. Files matching a saved project open directly; other files are imported as a named copy.'));
+    'Open a project from saved-projects, or choose a JSON file to work on separately without autosave.'));
   const error = element('p'); error.setAttribute('role', 'alert'); error.hidden = true;
   form.append(error);
   const submit = element('button', saveAs ? 'Save as' : 'Open project'); submit.type = 'submit';

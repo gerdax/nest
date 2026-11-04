@@ -1,7 +1,7 @@
 import { performance } from 'node:perf_hooks';
 import { createLargeProject } from '../../tests/fixtures/large-project.js';
 import { validateProject, compileChapter } from '../../project/model.js';
-import { DocumentHistory } from '../../editor/DocumentHistory.js';
+import { DocumentHistory } from '../../studio/DocumentHistory.js';
 import { LocalCardDrafts } from '../../studio/local-card-drafts.js';
 import { transactDocument } from '../../studio/document-session.js';
 import { saveProject } from '../../project/storage.js';

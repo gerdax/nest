@@ -5,7 +5,7 @@ import { InventorySurface } from './InventorySurface.js';
 import { CardBackdrop } from './CardBackdrop.js';
 import { ActionContextPanel } from './ActionContextPanel.js';
 import { applyCardStyles } from '../project/card-styles.js';
-import { acquireDock } from '../editor/dockOwnership.js';
+import { acquireDock } from './dockOwnership.js';
 import { playerUIState } from './player-ui-state.js';
 import { layoutBounds } from '../engine/cssScale.js';
 import { playfieldLayout } from './playfield-layout.js';

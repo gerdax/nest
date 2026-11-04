@@ -1,8 +1,7 @@
 import { createError, errorMessage } from '../errors.js';
-import { parseProject } from './model.js';
+import { parseCurrentProject } from './model.js';
 export const STORAGE_KEY = 'nest.project.v3';
 export const PREVIOUS_STORAGE_KEY = 'nest.project.v2';
-const upgradeSources = new WeakMap();
 export const LEGACY_STORAGE_KEY = 'nest.chapter.v1';
 export const RECOVERY_STORAGE_KEY = 'nest.project.v3.recovery';
 export const RECOVERY_NOTICE_KEY = 'nest.project.v3.recovery-notice';
@@ -47,12 +46,9 @@ function preserveDamagedSave(store, text) {
 }
 export function saveProject(project, storage, options = {}) {
   try {
-    const text = JSON.stringify(parseProject(JSON.stringify(project), {allowDraft:true}));
+    const text = JSON.stringify(parseCurrentProject(JSON.stringify(project), {allowDraft:true}));
     const store = storage ?? globalThis.localStorage;
     const current = store.getItem(STORAGE_KEY);
-    const upgrade=upgradeSources.get(store);
-    if(upgrade && (current!==null || store.getItem(upgrade.key)!==upgrade.text))return {ok:false,conflict:true,primary:current,error:errorMessage('PROJECT_SAVE_CONFLICT')};
-    if(upgrade){preservePayload(store,upgrade.text,'nest.project.v3.upgrade-source');if(store.getItem(upgrade.key)!==upgrade.text)return {ok:false,conflict:true,primary:current,error:errorMessage('PROJECT_SAVE_CONFLICT')};}
     if (Object.hasOwn(options, 'expectedPrimary') && current !== options.expectedPrimary) {
       return {ok:false, conflict:true, primary:current, error:errorMessage('PROJECT_SAVE_CONFLICT')};
     }
@@ -62,7 +58,7 @@ export function saveProject(project, storage, options = {}) {
       if (store.getItem(CONFLICT_NOTICE_KEY) !== key) throw createError('PROJECT_RECOVERY_NOTICE_COULD_NOT_BE_VERIFIED');
     }
     if (current !== null && current !== validatedPrimary.get(store)) {
-      try { parseProject(current, {allowDraft:true}); }
+      try { parseCurrentProject(current, {allowDraft:true}); }
       catch {
         try { preserveDamagedSave(store, current); }
         catch (error) { throw createError('PROJECT_DAMAGED_SAVE_NOT_REPLACED', { reason: message(error) }); }
@@ -73,7 +69,6 @@ export function saveProject(project, storage, options = {}) {
     // Outgoing data was normalized and validated above. Failed writes never
     // populate this cache, and a different stored string is never trusted.
     validatedPrimary.set(store, text);
-    upgradeSources.delete(store);
     return options.includePrimary ? {ok:true, primary:text} : {ok:true};
   } catch (error) { return {ok:false,error:message(error)}; }
 }
@@ -92,7 +87,7 @@ export function loadProject(storage) {
     const text = store.getItem(STORAGE_KEY);
     if (text !== null) {
       let project;
-      try { project = parseProject(text, {allowDraft:true}); }
+      try { project = parseCurrentProject(text, {allowDraft:true}); }
       catch (error) {
         try {
           const backupKey = preserveDamagedSave(store, text);
@@ -101,18 +96,13 @@ export function loadProject(storage) {
           return {project:null,sourceText:text,error:message(error),recovery:{error:message(backupError)}};
         }
       }
-      upgradeSources.delete(store);
       const backupKey = store.getItem(RECOVERY_NOTICE_KEY);
       return {project,sourceText:text,...(backupKey ? {recovery:{backupKey}} : {})};
     }
-    const previous=store.getItem(PREVIOUS_STORAGE_KEY);
-    const key=previous!==null?PREVIOUS_STORAGE_KEY:LEGACY_STORAGE_KEY;
-    const old=previous!==null?previous:store.getItem(LEGACY_STORAGE_KEY);
-    if(old===null)return {project:null,sourceText:null,migrated:false};
-    let project;
-    try{project=parseProject(old,{allowDraft:true});}catch(error){const backupKey=preserveDamagedSave(store,old);return {project:null,sourceText:null,error:message(error),recovery:{backupKey}};}
-    upgradeSources.set(store,{key,text:old});
-    return {project,sourceText:null,migrated:true,upgradeSource:{key,text:old}};
+    if (store.getItem(PREVIOUS_STORAGE_KEY) !== null || store.getItem(LEGACY_STORAGE_KEY) !== null) {
+      return {project:null,sourceText:null,error:errorMessage('PROJECT_EXPECTED_A_VERSION_3_NEST_FILE')};
+    }
+    return {project:null,sourceText:null};
   } catch (error) { return {project:null,error:message(error)}; }
 }
 
@@ -134,7 +124,7 @@ export function readRecoveredSave(storage) {
     // untouched text takes priority over any notice for an older recovery.
     const current = store.getItem(STORAGE_KEY);
     if (current !== null) {
-      try { parseProject(current, {allowDraft:true}); }
+      try { parseCurrentProject(current, {allowDraft:true}); }
       catch { return {ok:true,text:current,key:STORAGE_KEY}; }
     }
     const key = store.getItem(RECOVERY_NOTICE_KEY);

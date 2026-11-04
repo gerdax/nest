@@ -1,4 +1,4 @@
-import {parseProject} from '../project/model.js';
+import {parseCurrentProject} from '../project/model.js';
 import {sha256} from './sha256.js';
 
 export function validateProjectFilename(name) {
@@ -56,7 +56,7 @@ export function createProjectFileBackend({fetch = globalThis.fetch, endpoint = '
     async read() { return (await get()).text; },
     async save(project, {expectedPrimary = null, migrationSourceText} = {}) {
       try {
-        const text = JSON.stringify(parseProject(JSON.stringify(project), {allowDraft:true}), null, 2) + '\n';
+        const text = JSON.stringify(parseCurrentProject(JSON.stringify(project), {allowDraft:true}), null, 2) + '\n';
         const body = {text, expectedRevision:await revision(expectedPrimary)};
         // The server always preserves an existing competing file. This option
         // keeps the shared persistence interface explicit without weakening it.

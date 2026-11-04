@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import {pathToFileURL} from 'node:url';
 import {resolve} from 'node:path';
 import {createLargeProject} from './fixtures/large-project.js';
-import {DocumentHistory} from '../editor/DocumentHistory.js';
+import {DocumentHistory} from '../studio/DocumentHistory.js';
 import {LocalCardDrafts} from '../studio/local-card-drafts.js';
 import {transactDocument} from '../studio/document-session.js';
 

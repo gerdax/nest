@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { createLargeProject } from './fixtures/large-project.js';
 import { validateProject, compileChapter, exportChapter, parseProject, outputsForNode, connectionForOutput } from '../project/model.js';
 import { placements } from '../project/model-data.js';
@@ -11,23 +11,14 @@ test('large fixture is deterministic, valid, forward-only and portable without s
   assert.equal(JSON.stringify(createLargeProject()), source);
   assert.deepEqual(validateProject(project), []);
   assert.equal(project.chapters.length, 8);
-  assert.equal(project.library.length, 610);
-  assert.equal(project.library.filter(d => d.visibility === 'local').length, 360);
-  assert.equal(new Set(project.library.map(d => d.id)).size, 610);
-  const used = new Set(), counts = {}, images = new Set(project.library.map(definition => definition.image));
+  assert.equal(project.library.length, 621);
+  assert.equal(project.library.filter(d => d.visibility === 'local').length, 368);
+  assert.equal(new Set(project.library.map(d => d.id)).size, 621);
+  const used = new Set(), counts = {}, images = new Set(project.library.filter(definition => definition.image && definition.kind !== 'effect').map(definition => definition.image));
   assert.equal(images.size, 6);
-  const assetCheck = spawnSync('python3', ['-c', `
-from pathlib import Path
-from sys import argv
-from image_catalog import legacy_image_source
-
-root = Path.cwd()
-for image in map(Path, argv[1:]):
-    assert (root / image).is_file() or legacy_image_source(root, image.relative_to('assets/img')), image
-`, ...images], { cwd: new URL('..', import.meta.url), encoding: 'utf8' });
-  assert.equal(assetCheck.status, 0, assetCheck.stderr || assetCheck.error?.message);
+  for (const image of images) assert.ok(existsSync(new URL(image, new URL('../', import.meta.url))), image);
   for (const chapter of project.chapters) {
-    assert.equal(chapter.nodes.length, 60);
+    assert.equal(chapter.nodes.length, 61);
     const positions = new Map(chapter.nodes.map((node, index) => [node.id, index]));
     for (const [index, node] of chapter.nodes.entries()) {
       counts[node.type] = (counts[node.type] || 0) + 1;
@@ -38,7 +29,7 @@ for image in map(Path, argv[1:]):
       }
     }
     const compiled = compileChapter(project, chapter.id);
-    assert.equal(compiled.nodes.length, 61, 'compilation adds the mandatory Death beat to this legacy fixture');
+    assert.equal(compiled.nodes.length, 61);
     compiled.nodes[0].cards[0].text = 'Detached compiled card';
     compiled.library[0].text = 'Detached compiled library';
     compiled.variables[0].initial = 0;
@@ -48,11 +39,11 @@ for image in map(Path, argv[1:]):
     assert.deepEqual(exportChapter(portable), pkg);
     pkg.chapter.nodes[0].cards[0].id = 'Detached exported placement';
   }
-  assert.deepEqual(counts, {linear: 288, container: 48, fork: 96, random: 48});
-  assert.equal(used.size, 610, 'every definition has a placement');
+  assert.deepEqual(counts, {linear: 288, container: 48, fork: 96, random: 48, death: 8});
+  assert.equal(used.size, 618, 'only project-wide combat defaults have no placement');
   assert.equal(JSON.stringify(project), source);
   const stress = createLargeProject({chapters: 8, beatsPerChapter: 120});
-  assert.equal(stress.chapters.flatMap(c => c.nodes).length, 960);
+  assert.equal(stress.chapters.flatMap(c => c.nodes).length, 968);
   assert.deepEqual(validateProject(stress), []);
 });
 

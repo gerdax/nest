@@ -7,7 +7,7 @@ import {libraryCardSlot, libraryCardCompatible, appendLibraryCard, mountLibraryC
 import {applyDocumentCommand} from '../studio/document-commands.js';
 import {transactDocument} from '../studio/document-session.js';
 import {LocalCardDrafts} from '../studio/local-card-drafts.js';
-import {DocumentHistory} from '../editor/DocumentHistory.js';
+import {DocumentHistory} from '../studio/DocumentHistory.js';
 
 for (const [type, slot, kinds] of [
  ['linear','cards',['event','caption','action','item','health','energy']],

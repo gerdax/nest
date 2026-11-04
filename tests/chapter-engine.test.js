@@ -4,7 +4,6 @@ import { CardDeck } from '../engine/CardDeck.js';
 import { stageNextContent, stageActionDeck } from '../engine/renderer.js';
 import { ChapterController } from '../chapter/ChapterController.js';
 import { createLegacyStarterChapter as createStarterChapter } from '../chapter/model.js';
-import { ScenarioController, CHEST_ITEM_IDS } from '../playground/ScenarioController.js';
 import { ProjectController } from '../project/ProjectController.js';
 import { compileChapter } from '../project/model.js';
 import { createAlternativeRatCombatProject } from '../project/combat-fixture.js';
@@ -251,38 +250,6 @@ test('real engine restart cancels inventory and destination during final departu
   dispose(deck, controller);
 });
 
-
-test('scenario resolves the direct chest and carries only taken objects through later studies', () => {
-  const deck = new CardDeck(new Element(), { content: { id: 'placeholder', actions: [{ id: 'placeholder', label: 'Placeholder' }] } });
-  const notices = [];
-  const host = new ScenarioController(deck, { fixture: 'chest', onChange: state => notices.push(state) });
-  assert.equal(deck.content.interaction, 'container');
-  key(deck, 'ArrowUp');
-  const collectedId = deck.content.actions[deck.index].id;
-  deck.collect();
-  assert.equal(host.remainingIds.size, CHEST_ITEM_IDS.length);
-  assert.deepEqual(host.collectedItems, []);
-  settle();
-  assert.equal(host.remainingIds.size, CHEST_ITEM_IDS.length - 1);
-  assert.equal(host.collectedItems[0].id, collectedId);
-  assert.equal(host.collectedItems[0].sequenceId, 'chest');
-  assert.equal(notices.find(state => state.reason === 'collect').detail.action.label, host.collectedItems[0].label);
-  key(deck, 'ArrowUp');
-  deck.commit();
-  assert.equal(host.mode, 'container');
-  assert.equal(host.remainingIds.size, 1);
-  settle();
-  assert.equal(host.mode, 'choice');
-  assert.equal(host.remainingIds.size, 0);
-  assert.equal(host.collectedItems.length, 1);
-  assert.equal(deck.content.id, 'study-0-2');
-  revealCommit(deck);
-  assert.equal(host.collectedItems.length, 1);
-  host.reset('chest');
-  assert.deepEqual(host.collectedItems, []);
-  assert.deepEqual([...host.remainingIds], CHEST_ITEM_IDS);
-  dispose(deck, host);
-});
 
 for (const secondDirection of ['ArrowDown', 'ArrowUp']) test(`reused container templates have separate contents, second=${secondDirection}`, () => {
   const chapter = createStarterChapter();

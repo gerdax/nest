@@ -53,20 +53,3 @@ test('dice frame keeps workers and WebGL alive across cached departures before t
   assert.deepEqual(workers.map(worker => worker.terminations), [1, 1]);
   assert.equal(lostContexts, 1);
 });
-
-test('dice demo retains its service on cached departures and destroys it on a later terminal departure', () => {
-  const window = new EventTarget();
-  let mounts = 0, destructions = 0;
-  class DiceService {
-    mount() { mounts++; return this; }
-    destroy() { destructions++; }
-  }
-  const document = {getElementById: () => ({addEventListener() {}})};
-  runInNewContext(source('../assets/dice/demo.js').replace(/^import .*;\n/, ''), {window, document, DiceService});
-  assert.equal(mounts, 1);
-  pagehide(window, true);
-  pagehide(window, true);
-  assert.equal(destructions, 0);
-  pagehide(window, false);
-  assert.equal(destructions, 1);
-});

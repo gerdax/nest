@@ -1,12 +1,12 @@
 import {loadProject} from '../project/storage.js';
-import {parseProject} from '../project/model.js';
+import {parseCurrentProject} from '../project/model.js';
 import {createProjectFileBackend} from './project-file-storage.js';
 import {sha256} from './sha256.js';
 import {activeProjectFilename,rememberProjectFile} from './project-file-actions.js';
 
 const SOURCE_KEY = 'nest.project.file-source.v1';
 const message = error => error?.message || String(error);
-const normalized = project => JSON.stringify(parseProject(JSON.stringify(project), {allowDraft:true}));
+const normalized = project => JSON.stringify(parseCurrentProject(JSON.stringify(project), {allowDraft:true}));
 
 export async function openProjectSession({browserLoaded = loadProject(), backend,
   storage, choose = chooseProjectSource, readonly = false} = {}) {
@@ -22,7 +22,7 @@ export async function openProjectSession({browserLoaded = loadProject(), backend
   try {probe = await backend.probe();} catch (error) {return failed(error);}
   if (!probe.available) return {loaded:browserLoaded,backend:null,fileMode:false};
   let raw = probe.text, file;
-  const parseFile = () => raw === null ? null : parseProject(raw,{allowDraft:true});
+  const parseFile = () => raw === null ? null : parseCurrentProject(raw,{allowDraft:true});
   try {file = parseFile();} catch (error) {return failed(error);}
   const fileSession = () => {
     if(!readonly&&file&&backend.filename)rememberProjectFile(backend.filename,storage);

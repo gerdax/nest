@@ -1,5 +1,5 @@
 import { createError } from '../errors.js';
-import { esc } from '../editor/fields.js';
+import { esc } from './fields.js';
 import { walk } from '../project/model-data.js';
 import { tagKey, validItemTagName, itemTagNameAvailable } from '../project/item-tags.js';
 

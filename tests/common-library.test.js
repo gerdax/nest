@@ -7,7 +7,7 @@ import {createRatCombatProject} from '../project/combat-fixture.js';
 import {definitionInspector,projectSettingsInspector} from '../studio/inspectors.js';
 import {applyDocumentCommand} from '../studio/document-commands.js';
 import {LocalCardDrafts} from '../studio/local-card-drafts.js';
-import {DocumentHistory} from '../editor/DocumentHistory.js';
+import {DocumentHistory} from '../studio/DocumentHistory.js';
 import {transactDocument} from '../studio/document-session.js';
 const selection=p=>({chapterId:p.chapters[0].id,selected:p.chapters[0].startNode});
 test('Library Common has direct default Action and fixed player feedback entries',()=>{

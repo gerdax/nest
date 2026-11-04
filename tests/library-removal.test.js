@@ -10,7 +10,7 @@ import { addInventory } from '../project/state.js';
 import { applyDocumentCommand } from '../studio/document-commands.js';
 import { transactDocument } from '../studio/document-session.js';
 import { LocalCardDrafts } from '../studio/local-card-drafts.js';
-import { DocumentHistory } from '../editor/DocumentHistory.js';
+import { DocumentHistory } from '../studio/DocumentHistory.js';
 
 const effect = value => ({op:'add',key:'energy',value});
 test('enemy deletion names its combat beats and chapters without changing the project', () => {

@@ -1,6 +1,5 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
 import { uid, makeDefinition, makePlacement } from '../studio/commands.js';
 import { createProject, parseProject, validateProject } from '../project/model.js';
 
@@ -20,8 +19,6 @@ test('authoring retains the complete UUID when initial UUID segments match', t =
   assert.deepEqual(validateProject(project), []);
   assert.deepEqual(parseProject(JSON.stringify(project)).library.map(d => d.id), project.library.map(d => d.id));
 });
-test('uid preserves type prefixes and retained v1 editor uses full UUID generation', () => {
+test('uid preserves type prefixes', () => {
   assert.match(uid('choice'), /^choice-[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/);
-  const source = fs.readFileSync(new URL('../editor/editor.js', import.meta.url), 'utf8');
-  assert.match(source, /const uid = prefix => `\$\{prefix\}-\$\{crypto\.randomUUID\(\)\}`/);
 });

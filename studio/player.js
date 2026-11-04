@@ -2,7 +2,7 @@ import {createRatCombatProject,createAlternativeRatCombatProject} from '../proje
 import { errorMessage } from '../errors.js';
 import { sortedChapters, startChapter } from '../project/chapter-navigation.js';
 import { ProjectPreview } from './ProjectPreview.js';
-import { createProject, parseProject } from '../project/model.js';
+import { createProject, parseCurrentProject } from '../project/model.js';
 import { loadProject } from '../project/storage.js';
 import { mountMotionTuning } from '../player/motion-tuning.js';
 import { mountPerformanceTuning } from '../player/performance-tuning.js';
@@ -38,7 +38,7 @@ selector.addEventListener('change',play);
 document.querySelector('#play').addEventListener('click',play);
 document.querySelector('#restart').addEventListener('click',()=>{preview.restart();tools.open=false;document.querySelector('#stop').disabled=false;report('Chapter restarted.');});
 document.querySelector('#stop').addEventListener('click',()=>{preview.stop();document.querySelector('#stop').disabled=true;report('Stopped. Play or restart to begin again.');});
-document.querySelector('#import').addEventListener('change',async event=>{const file=event.target.files[0];if(!file)return;try{const imported=parseProject(await file.text());project=imported;listChapters();if(play())report(`Opened ${file.name}.`);}catch(error){report(errorMessage('STUDIO_COULD_NOT_OPEN_PROJECT_OR_CHAPTER', {message: error.message}),true);}event.target.value='';});
+document.querySelector('#import').addEventListener('change',async event=>{const file=event.target.files[0];if(!file)return;try{const imported=parseCurrentProject(await file.text());project=imported;listChapters();if(play())report(`Opened ${file.name}.`);}catch(error){report(errorMessage('STUDIO_COULD_NOT_OPEN_PROJECT_OR_CHAPTER', {message: error.message}),true);}event.target.value='';});
 listChapters();play();
 let requestedPanel=null;
 if(location.hash==='#dev-mode')requestedPanel=document.querySelector('#dev-mode');

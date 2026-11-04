@@ -4,7 +4,7 @@ import { createProject, compileChapter, exportChapter, parseProject, validatePro
 import { saveProject, loadProject } from '../project/storage.js';
 import { addHealthVariable } from '../studio/commands.js';
 import { variableInspector } from '../studio/inspectors.js';
-import { DocumentHistory } from '../editor/DocumentHistory.js';
+import { DocumentHistory } from '../studio/DocumentHistory.js';
 import { initialValues, transact } from '../project/state.js';
 
 test('resource definitions and chapter overrides survive save and chapter export without changing effects', () => {

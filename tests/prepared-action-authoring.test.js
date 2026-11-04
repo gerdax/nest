@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import {createProject,createEnemy,createCombatAction,validateProject} from '../project/model.js';
 import {combatDefinitionFields,combatActionTypeField,preparedActionChoices} from '../studio/combat-authoring.js';
 import {commonLibraryGroups,commonLibrary} from '../studio/common-library.js';
-import {DocumentHistory} from '../editor/DocumentHistory.js';
+import {DocumentHistory} from '../studio/DocumentHistory.js';
 import {applyDocumentCommand} from '../studio/document-commands.js';
 function fixture(){
  const project=createProject(),enemy=createEnemy('enemy');enemy.mechanics='opposed-preparation';

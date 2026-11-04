@@ -29,7 +29,7 @@ test('legacy linear and container custom output names keep their destinations',(
   const original=sequence.exits[0];sequence.exits[0]='custom';node.connections.custom=node.connections[original];delete node.connections[original];
  }
  assert.deepEqual(validateChapter(old),[]);
- const project=parseProject(JSON.stringify(old));
+ const project=migrateChapter(old);
  const [linear,container]=project.chapters[0].nodes;
  assert.equal(linear.connections.next,'supplies');assert.equal(container.connections.next,'encounter');
 });

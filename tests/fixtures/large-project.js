@@ -1,6 +1,9 @@
-// Native v2 authoring data for repeatable browser/storage benchmarks. No clock,
+// Native v3 authoring data for repeatable browser/storage benchmarks. No clock,
 // randomness, embedded artwork, runtime hooks, or external services are needed.
-const artwork = ['city.png', 'hall_01.png', 'corridor_02.png', 'flashlight.png', 'goggles_01.png', 'pack.png'];
+import {ensureCombatDefaults} from '../../project/combat-model.js';
+
+const artwork = ['rat.png', 'rat_hit.png', 'player_hit.png', 'Gemini_Generated_Image_i6t619i6t619i6t6.jpeg',
+  'Gemini_Generated_Image_mj65lrmj65lrmj65.png', 'Gemini_Generated_Image_z36necz36necz36n.png'];
 const districts = ['Harbour', 'Old market', 'Waterworks', 'Archive', 'Glass quarter', 'Rail yard', 'Observatory', 'North gate'];
 const pattern = ['linear', 'container', 'fork', 'linear', 'linear', 'random', 'linear', 'fork', 'linear', 'linear'];
 const sizes = {story: 140, direct: 30, check: 30, item: 50};
@@ -12,7 +15,7 @@ const condition = (key, value = 1) => ({source: 'variable', key, op: 'gte', valu
 function definition(group, id, index, visibility, district = 'Expedition') {
   const name = `${district} ${group === 'story' ? 'field note' : group === 'item' ? 'supply' : group === 'check' ? 'survey' : 'passage'} ${pad(index)}`;
   const base = {id, kind: group === 'story' ? (index % 7 === 6 ? 'caption' : 'event') : group === 'item' ? 'item' : 'action',
-    visibility, name, text: '', image: `./assets/img/${artwork[index % artwork.length]}`, flipImage: index % 11 === 10};
+    visibility, name, text: '', image: `./assets/img/card-art/${artwork[index % artwork.length]}`, flipImage: index % 11 === 10};
   if (group === 'story') return {...base,
     text: `The expedition follows the markers through ${district.toLowerCase()}. Rain gathers in the broken paving, and a line in the field journal points toward the next shelter. Record the crossing before moving on.`,
     effects: [add(['distance', 'knowledge', 'trust', 'supplies'][index % 4])]};
@@ -42,7 +45,7 @@ export function createLargeProject({chapters = 8, beatsPerChapter = 60} = {}) {
     library.push(...shared[group]);
     sharedCursor[group] = 0;
   }
-  const project = {version: 2, kind: 'nest-project', id: 'realistic-large-project', name: 'The northern expedition — large project',
+  const project = {version: 3, kind: 'nest-project', id: 'realistic-large-project', name: 'The northern expedition — large project',
     activeChapterId: 'chapter-001', cardStyles: {small: 14, medium: 18, big: 28}, library,
     variables: [
       {id: 'energy', name: 'Energy', type: 'number', initial: 8, min: 0, max: 12},
@@ -105,5 +108,5 @@ export function createLargeProject({chapters = 8, beatsPerChapter = 60} = {}) {
       chapter.nodes.push(node);
     }
   }
-  return project;
+  return ensureCombatDefaults(project);
 }

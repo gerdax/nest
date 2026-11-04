@@ -6,7 +6,7 @@ import { createDefinition } from '../project/cards.js';
 import { definitionGraph, definitionReferences, unusedLocalDefinitions, deleteDefinition, cleanupLocalDefinitions } from '../project/dependencies.js';
 import { definitionInspector } from '../studio/inspectors.js';
 import { makePlacement, replaceCard } from '../studio/commands.js';
-import { DocumentHistory } from '../editor/DocumentHistory.js';
+import { DocumentHistory } from '../studio/DocumentHistory.js';
 
 test('compilation isolates nested checks, overrides, collection rules, conditions and effects in both directions', () => {
   const project = createProject(), action = project.library.find(d => d.kind === 'action'), item = project.library.find(d => d.kind === 'item');

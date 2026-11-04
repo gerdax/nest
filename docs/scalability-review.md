@@ -6,7 +6,7 @@ Astra at medium effort assessed the existing boundaries and independently review
 
 The immediate architectural pressure was editor ownership: document edits, history and gestures shared mutable state. Node dragging bypassed the history cap; Escape retained unsaved coordinates; pointer cancellation committed movement. A pending connection could survive replacement imports.
 
-`editor/DocumentHistory.js` now provides atomic, DOM-free transactions, replacement imports, isolated snapshots and bounded undo/redo. All editor edits and completed node moves use it. Cancelled gestures restore committed coordinates, undo/import discard transient gesture state, and stale connection sources/exits are cleared. Exceptions and no-op edits do not consume history or erase redo. This creates a testable boundary for future command extraction without changing draft validation policy.
+`studio/DocumentHistory.js` now provides atomic, DOM-free transactions, replacement imports, isolated snapshots and bounded undo/redo. All editor edits and completed node moves use it. Cancelled gestures restore committed coordinates, undo/import discard transient gesture state, and stale connection sources/exits are cleared. Exceptions and no-op edits do not consume history or erase redo. This creates a testable boundary for future command extraction without changing draft validation policy.
 
 Preview had reusable stop behavior but no terminal disposal. `Preview.destroy()` now releases live playback, restart listeners, retained chapter state and shared body styling. Multiple docked previews share ownership, and existing host styling survives. Synchronous initial callbacks that stop or destroy playback also clean up the newly constructed controller.
 

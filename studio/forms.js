@@ -1,7 +1,7 @@
 import { isStatVariable, editorCheckSummary } from '../project/checks.js';
 import { eligibleInventoryItems, inventoryItemOptions } from './item-options.js';
 import { itemReferenceLinks } from './item-reference.js';
-import { esc, options } from '../editor/fields.js';
+import { esc, options } from './fields.js';
 
 export { esc };
 export const variableLabel = variable => `${variable.variableScope === 'chapter' ? 'Chapter' : 'Global'}: ${variable.name || (variable.id === 'energy' ? 'Energy' : variable.id)}`;

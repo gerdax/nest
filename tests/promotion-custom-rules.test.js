@@ -6,7 +6,7 @@ import {createDefinition, resolvePlacement} from '../project/cards.js';
 import {promoteCard} from '../studio/commands.js';
 import {applyDocumentCommand} from '../studio/document-commands.js';
 import {transactDocument} from '../studio/document-session.js';
-import {DocumentHistory} from '../editor/DocumentHistory.js';
+import {DocumentHistory} from '../studio/DocumentHistory.js';
 import {LocalCardDrafts} from '../studio/local-card-drafts.js';
 import {nodeInspector} from '../studio/inspectors.js';
 import {transact, initialValues} from '../project/state.js';

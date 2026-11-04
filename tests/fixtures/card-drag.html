@@ -3,7 +3,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Graph card transfer verification</title>
-<link rel="stylesheet" href="../../editor/editor.css">
+<link rel="stylesheet" href="../../studio/editor-base.css">
 <link rel="stylesheet" href="../../studio/editor.css">
 <link rel="stylesheet" href="../../studio/graph-connectors.css">
 <style>body{display:block}header{padding:12px}#canvas{height:900px;width:100%}#result{display:block;padding:12px;white-space:pre-wrap}</style>
@@ -18,7 +18,7 @@ import {validateProject} from '../../project/validation.js';
 import {transactDocument} from '../../studio/document-session.js';
 import {applyDocumentCommand} from '../../studio/document-commands.js';
 import {LocalCardDrafts} from '../../studio/local-card-drafts.js';
-import {DocumentHistory} from '../../editor/DocumentHistory.js';
+import {DocumentHistory} from '../../studio/DocumentHistory.js';
 const initial=createProject();
 initial.chapters[0].startNode='linear';
 initial.library=[['caption','caption','Caption'],['story','event','Vignette'],['item','item','Item'],['intro','event','Old introduction'],['fork-intro','caption','Fork introduction'],['choice','action','Action']].map(([id,kind,name])=>({...createDefinition(kind,id),name,visibility:'local',chapterId:initial.chapters[0].id}));

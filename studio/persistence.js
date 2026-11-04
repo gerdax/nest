@@ -1,11 +1,11 @@
 import { createError, errorMessage } from '../errors.js';
 import { projectCardBack } from '../project/card-backs.js';
 import { saveProject, acknowledgeRecovery, STORAGE_KEY } from '../project/storage.js';
-import { exportChapter, parseProject } from '../project/model.js';
+import { exportChapter, parseCurrentProject } from '../project/model.js';
 
 /** One status boundary for edits, history travel, imports and other messages. */
 export function createPersistence({loaded = {}, storage, onStatus = () => {}, onConflict = () => {},
-  eventTarget, backend, locks = globalThis.navigator?.locks} = {}) {
+  eventTarget, backend, download, locks = globalThis.navigator?.locks} = {}) {
   let warning = loaded.error || loaded.recovery ? recoveryWarning(loaded) : '';
   let saveFailure = '', conflict = null, pending = 0, running = false, generation = 0, destroyed = false;
   let lastSaveResult = {ok:true};
@@ -19,15 +19,15 @@ export function createPersistence({loaded = {}, storage, onStatus = () => {}, on
   let base, baseKnown = false;
   const queue = [];
   const store = () => storage ?? globalThis.localStorage;
-  const savedMessage = backend?.savedMessage || 'Saved in this browser.';
+  const savedMessage = download ? 'Project JSON downloaded.' : backend?.savedMessage || 'Saved in this browser.';
   try {
     if (Object.hasOwn(loaded, 'sourceText')) {base = loaded.sourceText; baseKnown = true;}
-    else if (!backend && !loaded.error) {base = store().getItem(STORAGE_KEY); baseKnown = true;}
+    else if (!backend && !download && !loaded.error) {base = store().getItem(STORAGE_KEY); baseKnown = true;}
   } catch {} // Access denial is reported on save; construction must leave export usable.
   const dirty = () => draftText !== savedDraftText;
   const report = (text = '') => !destroyed && onStatus([warning, saveFailure,
     pending ? 'Saving…' : dirty() ? 'Unsaved changes.' : '',
-    !autosaveEnabled ? 'Autosave off.' : '',
+    download ? 'Local file. Autosave is off. Save project downloads a copy.' : !autosaveEnabled ? 'Autosave off.' : '',
     text === saveFailure || ((pending || dirty()) && text.startsWith('Saved')) ? '' : text].filter(Boolean).join(' '));
   const setConflict = primary => {
     conflict = {primary};
@@ -51,9 +51,14 @@ export function createPersistence({loaded = {}, storage, onStatus = () => {}, on
   const perform = (project, options = {}, text = JSON.stringify(project), saveGeneration = generation) => {
     let result;
     try {
-      if (!baseKnown) throw createError('STUDIO_PRIMARY_SAVE_UNREADABLE');
-      const saveOptions = {expectedPrimary:base, ...options, includePrimary:true};
-      result = backend ? backend.save(project, saveOptions) : saveProject(project, store(), saveOptions);
+      if (download) {
+        download(exportProjectDraft(project));
+        result = {ok:true,primary:text};
+      } else {
+        if (!baseKnown) throw createError('STUDIO_PRIMARY_SAVE_UNREADABLE');
+        const saveOptions = {expectedPrimary:base, ...options, includePrimary:true};
+        result = backend ? backend.save(project, saveOptions) : saveProject(project, store(), saveOptions);
+      }
     } catch (error) {result = {ok:false,error:error.message};}
     if (backend) return Promise.resolve(result).catch(error => ({ok:false,error:error.message}))
       .then(result => applyResult(result, text, saveGeneration));
@@ -70,7 +75,7 @@ export function createPersistence({loaded = {}, storage, onStatus = () => {}, on
           const write = () => entry.generation === generation
             ? perform(JSON.parse(entry.text), entry.options, entry.text, entry.generation)
             : {ok:false,cancelled:true,error:'Save cancelled before leaving this document.'};
-          result = locks?.request ? await locks.request(STORAGE_KEY + '.write', write) : await write();
+          result = !download && locks?.request ? await locks.request(STORAGE_KEY + '.write', write) : await write();
         } catch (error) {
           result = {ok:false,error:error.message};
           if (entry.generation === generation) {lastSaveResult = result; saveFailure = errorMessage('STUDIO_SAVE_FAILED', {message:result.error});}
@@ -82,7 +87,7 @@ export function createPersistence({loaded = {}, storage, onStatus = () => {}, on
     } finally {running = false; settleFlush();}
   }
   const checkForChanges = () => {
-    if (destroyed || pending) return backend ? Promise.resolve(conflict) : conflict;
+    if (destroyed || pending || download) return backend ? Promise.resolve(conflict) : conflict;
     const checkGeneration = generation, checkBase = base;
     const obsolete = () => checkGeneration !== generation || checkBase !== base || pending > 0;
     const checked = primary => {
@@ -141,7 +146,7 @@ export function createPersistence({loaded = {}, storage, onStatus = () => {}, on
     if (event.storageArea && event.storageArea !== store()) return;
     checkForChanges();
   };
-  if (!backend) eventTarget?.addEventListener('storage', storageChanged);
+  if (!backend && !download) eventTarget?.addEventListener('storage', storageChanged);
   return {
     report, checkForChanges,
     get lastSaveResult() {return lastSaveResult;},
@@ -154,7 +159,7 @@ export function createPersistence({loaded = {}, storage, onStatus = () => {}, on
     get hasUnsaved() { return pending > 0 || dirty() || !!saveFailure; },
     save(project) {
       if (destroyed) return {ok:false,cancelled:true};
-      if (backend) return queueSave(project);
+      if (backend || download) return queueSave(project);
       try {draftText = JSON.stringify(project);} catch (error) {
         saveFailure = errorMessage('STUDIO_SAVE_FAILED', {message:error.message});report();
         lastSaveResult = {ok:false,error:error.message};
@@ -170,7 +175,7 @@ export function createPersistence({loaded = {}, storage, onStatus = () => {}, on
       const enabled = project.autosave !== false;
       // Persist a setting change once, including turning autosave off. Later
       // ordinary edits remain in memory until Save or re-enabling autosave.
-      if (enabled || enabled !== autosaveEnabled) return queueSave(project);
+      if (!download && (enabled || enabled !== autosaveEnabled)) return queueSave(project);
       try {draftText = JSON.stringify(project);} catch (error) {
         saveFailure = errorMessage('STUDIO_SAVE_FAILED', {message:error.message});report();
         lastSaveResult = {ok:false,error:error.message};
@@ -185,9 +190,9 @@ export function createPersistence({loaded = {}, storage, onStatus = () => {}, on
       return queueSave(project, options);
     },
     cancelPending,
-    destroy() {destroyed = true; cancelPending(); if (!backend) eventTarget?.removeEventListener('storage', storageChanged);},
+    destroy() {destroyed = true; cancelPending(); if (!backend && !download) eventTarget?.removeEventListener('storage', storageChanged);},
     adopt() {
-      if (backend) {warning = ''; return {ok:true};}
+      if (backend || download) {warning = ''; return {ok:true};}
       const result = acknowledgeRecovery(storage);
       if (result.ok) warning = '';
       else report(errorMessage('STUDIO_RECOVERY_WARNING_RETAINED', {message: result.error}));
@@ -210,7 +215,7 @@ export function travelHistory(history, method, persistence) {
 // Project files are portable authoring drafts. Playable chapter files and the
 // player keep the model's default strict validation.
 export function exportProjectDraft(project) {
-  return parseProject(JSON.stringify(project), {allowDraft:true});
+  return parseCurrentProject(JSON.stringify(project), {allowDraft:true});
 }
 export function exportStudioChapter(project, chapterId = project.activeChapterId) {
   const chapter = project.chapters.find(chapter => chapter.id === chapterId);
@@ -218,16 +223,16 @@ export function exportStudioChapter(project, chapterId = project.activeChapterId
   // Dependency discovery only needs the selected chapter. Other chapters may
   // still be unfinished or contain malformed draft data.
   const pkg = exportChapter({...project, cardBack:projectCardBack(project), chapters:[chapter]}, chapterId);
-  parseProject(JSON.stringify(pkg));
+  parseCurrentProject(JSON.stringify(pkg));
   return pkg;
 }
 export function parseStudioImport(text, {kind} = {}) {
   const raw = JSON.parse(text);
   if (kind !== undefined) {
     if (!['project', 'chapter'].includes(kind)) throw createError('STUDIO_UNKNOWN_STUDIO_IMPORT_KIND');
-    if (![2,3].includes(raw?.version) || raw.kind !== `nest-${kind}`) {
-      throw createError('STUDIO_EXPECTED_A_VERSION_2_NEST_FILE', {kind});
+    if (raw?.version !== 3 || raw.kind !== `nest-${kind}`) {
+      throw createError('STUDIO_EXPECTED_A_VERSION_3_NEST_FILE', {kind});
     }
   }
-  return {raw,project:parseProject(text, {allowDraft:raw?.kind === 'nest-project'})};
+  return {raw,project:parseCurrentProject(text, {allowDraft:raw?.kind === 'nest-project'})};
 }

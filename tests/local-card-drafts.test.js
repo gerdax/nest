@@ -8,7 +8,7 @@ import {createProject, exportChapter, parseProject, validateProject} from '../pr
 import {createDefinition} from '../project/cards.js';
 import {addInventory, conditionsMet} from '../project/state.js';
 import {createNode, makePlacement, synchronizeConnections} from '../studio/commands.js';
-import {DocumentHistory} from '../editor/DocumentHistory.js';
+import {DocumentHistory} from '../studio/DocumentHistory.js';
 import {cleanupLocalDefinitions} from '../project/dependencies.js';
 import {LocalCardDrafts} from '../studio/local-card-drafts.js';
 import {applyDocumentCommand} from '../studio/document-commands.js';

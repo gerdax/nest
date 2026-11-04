@@ -4,7 +4,7 @@ import {createProject, createChapter, migrateChapter} from '../project/model.js'
 import {createLegacyStarterChapter} from '../chapter/model.js';
 import {captureNodesClipboard, pasteNodesClipboard} from '../studio/node-clipboard.js';
 import {applyDocumentCommand} from '../studio/document-commands.js';
-import {DocumentHistory} from '../editor/DocumentHistory.js';
+import {DocumentHistory} from '../studio/DocumentHistory.js';
 import {LocalCardDrafts} from '../studio/local-card-drafts.js';
 import {transactDocument} from '../studio/document-session.js';
 

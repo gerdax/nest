@@ -1,4 +1,5 @@
-import {parseProject} from '../project/model.js';
+import {parseCurrentProject} from '../project/model.js';
+import {parseStudioImport} from './persistence.js';
 import {validateProjectFilename} from './project-file-storage.js';
 
 export function projectFileName(value) {
@@ -26,7 +27,7 @@ export function projectFileUrl(filename,href) {
 
 /** A file switch is a navigation, so history and pending writes cannot cross
  * project boundaries. No current draft is discarded until the target is valid. */
-export function createProjectFileActions({backend,getProject,persistence,confirmOverwrite,chooseUnsaved,navigate}) {
+export function createProjectFileActions({backend,getProject,persistence,confirmOverwrite,chooseUnsaved,navigate,openLocalProject,isLocal=false}) {
   const error=result=>({ok:false,error:result.error||(result.conflict?'The target file changed. Try again to review the newer version.':'The project could not be saved.')});
   async function leaveCurrent() {
     await persistence.flush();
@@ -38,13 +39,12 @@ export function createProjectFileActions({backend,getProject,persistence,confirm
     const result=await persistence.saveQueued(getProject());
     return result.ok?result:error(result);
   }
-  async function saveAs(value,{project:incoming}={}) {
+  async function saveAs(value) {
     try {
       const filename=projectFileName(value);
       await persistence.flush();
-      if(incoming){const permission=await leaveCurrent();if(!permission.ok)return permission;}
-      const project=incoming??getProject();
-      if(filename===backend.filename&&!incoming){
+      const project=getProject();
+      if(filename===backend.filename&&!isLocal){
         const result=await persistence.saveQueued(project);return result.ok?result:error(result);
       }
       const target=backend.forFile(filename),state=await target.probe();
@@ -61,22 +61,19 @@ export function createProjectFileActions({backend,getProject,persistence,confirm
       const filename=projectFileName(value),target=backend.forFile(filename);
       const state=await target.probe();
       if(!state.available||state.text===null)throw Error('This project file is no longer available.');
-      parseProject(state.text,{allowDraft:true});
+      parseCurrentProject(state.text,{allowDraft:true});
       const permission=await leaveCurrent();if(!permission.ok)return permission;
       navigate(filename);
       return {ok:true,filename};
     } catch(cause){return {ok:false,error:cause.message};}
   }
-  async function openMatchingFile(name,text) {
-    // Browsers expose no trustworthy parent folder for a selected file. Match
-    // both its name and exact contents before treating it as a server project.
-    try {validateProjectFilename(name);} catch {return null;}
+  async function openLocal(file) {
     try {
-      const state=await backend.forFile(name).probe();
-      if(!state.available)throw Error('The project file server is unavailable.');
-      if(state.text===null||state.text!==text)return null;
-      return await open(name);
+      const {project}=parseStudioImport(await file.text(),{kind:'project'});
+      const permission=await leaveCurrent();if(!permission.ok)return permission;
+      openLocalProject(project,file.name);
+      return {ok:true};
     } catch(cause){return {ok:false,error:cause.message};}
   }
-  return {saveAs,open,openMatchingFile};
+  return {saveAs,open,openLocal};
 }

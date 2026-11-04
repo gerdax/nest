@@ -4,16 +4,16 @@ import {createProject} from '../project/model.js';
 import {createProjectFileActions,activeProjectFilename,rememberProjectFile,projectFileName,projectFileUrl} from '../studio/project-file-actions.js';
 import {projectSettingsInspector} from '../studio/inspectors.js';
 
-function fixture() {
- const project=createProject(),original=JSON.stringify(project),files=new Map([['a.json',original]]),calls=[],navigated=[];
+function fixture({isLocal=false}={}) {
+ const project=createProject(),original=JSON.stringify(project),files=new Map([['a.json',original]]),calls=[],navigated=[],opened=[];
  const state={project,dirty:false,choice:'cancel',overwrite:false,saveOK:true,gate:Promise.resolve()};
  const backend=name=>Object.freeze({filename:name,async probe(){calls.push(['read',name]);return {available:true,text:files.get(name)??null};},
   forFile:backend,async save(value,{expectedPrimary}){calls.push(['write',name]);const current=files.get(name)??null;if(current!==expectedPrimary)return {ok:false,conflict:true,primary:current};const primary=JSON.stringify(value);files.set(name,primary);return {ok:true,primary};}});
  const persistence={async flush(){calls.push(['flush']);await state.gate;return {ok:true};},get hasUnsaved(){return state.dirty;},async saveQueued(value){calls.push(['save-current']);if(!state.saveOK)return {ok:false,error:'Disk full'};files.set('a.json',JSON.stringify(value));state.dirty=false;return {ok:true};}};
- const actions=createProjectFileActions({backend:backend('a.json'),getProject:()=>state.project,persistence,
+ const actions=createProjectFileActions({backend:backend('a.json'),getProject:()=>state.project,persistence,isLocal,openLocalProject:(project,name)=>opened.push({project,name}),
   confirmOverwrite:async name=>{calls.push(['confirm',name]);return typeof state.overwrite==='function'?state.overwrite(name):state.overwrite;},
   chooseUnsaved:async()=>{calls.push(['unsaved']);return state.choice;},navigate:name=>navigated.push(name)});
- return {state,files,calls,navigated,actions,backend,original};
+ return {state,files,calls,navigated,opened,actions,backend,original};
 }
 
 test('Save as creates a separate project and navigates only after verified save, preserving the original',async()=>{
@@ -71,33 +71,38 @@ test('a failed Save before opening, or an invalid/missing target, keeps the curr
  assert.equal((await h.actions.open('missing.json')).ok,false);assert.deepEqual(h.navigated,[]);assert.equal(h.state.dirty,true);
 });
 
-test('choosing an identical saved project opens directly without a save or overwrite prompt',async()=>{
- const h=fixture();h.files.set('b.json',h.original);
- assert.equal((await h.actions.openMatchingFile('b.json',h.original)).ok,true);
- assert.deepEqual(h.navigated,['b.json']);
- assert(!h.calls.some(([kind])=>['write','save-current','confirm'].includes(kind)));
-});
-
-test('selected files with missing names or different contents continue to import without opening another project',async()=>{
- const h=fixture();
- for(const [name,text] of [['missing.json',h.original],['a.json',h.original+'\n'],['../a.json',h.original]]){
-  assert.equal(await h.actions.openMatchingFile(name,text),null);
- }
+for(const identical of [true,false])test(`opening a disk file with a server filename stays separate (identical=${identical})`,async()=>{
+ const h=fixture(),selected=createProject();
+ if(!identical)selected.name='External version';
+ const result=await h.actions.openLocal({name:'a.json',text:async()=>JSON.stringify(selected)});
+ assert.equal(result.ok,true);
+ assert.deepEqual(h.opened,[{name:'a.json',project:selected}]);
  assert.deepEqual(h.navigated,[]);
- assert(!h.calls.some(([kind])=>['write','save-current','confirm'].includes(kind)));
+ assert.equal(h.files.get('a.json'),h.original);
+ assert.deepEqual(h.calls,[['flush']]);
 });
 
-test('opening a matching selected file preserves unsaved-change cancellation',async()=>{
- const h=fixture();h.files.set('b.json',h.original);h.state.dirty=true;
- assert.equal((await h.actions.openMatchingFile('b.json',h.original)).cancelled,true);
- assert.deepEqual(h.navigated,[]);assert.equal(h.state.dirty,true);
+test('local JSON is validated before leaving a dirty document and honors cancellation',async()=>{
+ const h=fixture();h.state.dirty=true;
+ const old=await h.actions.openLocal({name:'a.json',text:async()=>JSON.stringify({...createProject(),version:2})});
+ assert.match(old.error,/version 3/);
+ assert.deepEqual(h.calls,[]);
+ const file={name:'a.json',text:async()=>h.original};
+ assert.equal((await h.actions.openLocal(file)).cancelled,true);
+ assert.deepEqual(h.opened,[]);
+ h.state.choice='discard';
+ assert.equal((await h.actions.openLocal(file)).ok,true);
+ assert.equal(h.opened.length,1);
 });
 
-test('external imports are saved as named copies and honor unsaved-change cancellation',async()=>{
- const h=fixture(),incoming={...createProject(),name:'Imported'};h.state.dirty=true;
- assert.equal((await h.actions.saveAs('imported.json',{project:incoming})).cancelled,true);assert(!h.files.has('imported.json'));
- h.state.choice='discard';assert.equal((await h.actions.saveAs('imported.json',{project:incoming})).ok,true);
- assert.equal(JSON.parse(h.files.get('imported.json')).name,'Imported');assert.equal(h.files.get('a.json'),h.original);
+test('Save as from a local file needs confirmation even for the original server filename',async()=>{
+ const h=fixture({isLocal:true});h.state.project.name='Local copy';
+ assert.equal((await h.actions.saveAs('a.json')).cancelled,true);
+ assert.equal(h.files.get('a.json'),h.original);
+ h.state.overwrite=true;
+ assert.equal((await h.actions.saveAs('a.json')).ok,true);
+ assert.equal(JSON.parse(h.files.get('a.json')).name,'Local copy');
+ assert(!h.calls.some(([kind])=>kind==='save-current'));
 });
 
 test('file URLs pin each tab, override the last-opened metadata and retain unrelated URL settings',()=>{

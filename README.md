@@ -2,7 +2,7 @@
 
 [Repository](https://github.com/gerdax/nest) · [Published site](https://gerdax.github.io/nest/)
 
-Three tools share native JavaScript modules and the existing Nest artwork: the project player, project studio, and independent 3D dice tray. No package installation or application build is required. Local changes do not update the published site until explicitly deployed.
+Player and Chapter Studio share native JavaScript modules and the existing Nest artwork: the project player, project studio, and independent 3D dice tray. No package installation or application build is required. Local changes do not update the published site until explicitly deployed.
 
 ## Current version
 
@@ -21,6 +21,8 @@ specification and technical plan record earlier milestone scope. See the
 [30 October integrity fixes](docs/audit-fixes-2026-10-30.md) for the latest
 verification and remaining limitations.
 
+The `analysis/` directory retains balance scripts and their inputs. Historical outputs are preserved in the sibling archive under `analysis-history/analysis`.
+
 ## Local development
 
 ```sh
@@ -33,7 +35,6 @@ The server listens on all IPv4 interfaces by default for phone testing. Connect 
 
 - `/` redirects to `/player.html`, which plays a chapter from the saved project or an imported project/chapter JSON file.
 - `/editor.html` opens the project studio with Library and Chapter views.
-- `/dice.html` opens the independent 3D dice tray.
 
 Use a trusted Wi-Fi network for phone testing. Devices that can reach the local server can access the project save API. Static serving is limited to the app, runtime artwork, and browser test fixtures. Repository metadata, source documents, and archived exports stay private.
 
@@ -113,7 +114,7 @@ Events:
 
 Hosts supply final continuation synchronously on accepted `collect` or `discard`. During a held last-item gesture the physical reverse is already underneath, but no host state changes or flip occur before acceptance. Async content can remain staged while the engine waits.
 
-`project/ProjectController.js` runs compiled project v3 chapters (with additive v1/v2 import upgrades), including action checks and single-item ownership inventory. `chapter/ChapterController.js` remains available for legacy JSON v1 integrations. The original playground and `playground/ScenarioController.js` remain as source references; they are excluded from the active staged runtime. `editor/InventoryStrip.js` renders the legacy inventory strip. Player and Studio share `studio/inventory.css`.
+`project/ProjectController.js` runs compiled project v3 chapters, including action checks and single-item ownership inventory. `chapter/ChapterController.js` remains available in the source tree for legacy JSON v1 integrations and tests. The legacy editor, Playground and standalone dice demo are preserved in the sibling archive under `retired-entrypoints`. Player and Studio share `studio/inventory.css`.
 
 ## Motion model
 
@@ -137,9 +138,9 @@ Checkpoint `60e2db4` preserves direct container take/discard and inventory befor
 python3 build_pages.py /tmp/nest-pages
 ```
 
-Use a new or empty staging directory outside the source assets. The output contains the root redirect, project player with motion tuning, `.nojekyll`, project/studio, retained chapter/editor and engine modules, shared preview/storage and inventory UI, all usable supplied image assets, and runtime fonts. Copy it into a separate `gh-pages` checkout preserving `.git`, then commit and push normally. Do not force-push. The beat editor and dice tray are included, so navigation between all three tools works.
+Use a new or empty staging directory outside the source assets. The output contains the root redirect, project player with motion tuning, `.nojekyll`, project/studio, engine modules, shared preview/storage and inventory UI, all usable supplied image assets, and runtime fonts. Copy it into a separate `gh-pages` checkout preserving `.git`, then commit and push normally. Do not force-push. The Player and Chapter Studio both include in-game dice.
 
-`/editor.html` and its authoring modules, and `/dice.html` with its licensed engine assets, are included by default. `--include-editor` and `--include-dice` remain accepted compatibility flags. Layered PSD source files, the original playground runtime and the unmounted drawer debug tool are kept out of the staged site; their source files are preserved. Projects saved in one browser do not transfer to another device: export a project or chapter JSON from the studio and use Open JSON in the player.
+`/editor.html`, its authoring modules and the licensed in-game dice assets are included by default. `--include-editor` and `--include-dice` remain accepted compatibility flags. Layered PSD source files and the unmounted drawer debug tool are kept out of the staged site; their source files are preserved. Projects saved in one browser do not transfer to another device: export a project or chapter JSON from the studio and use Open JSON in the player.
 
 ## Previous checkpoints and assets
 
@@ -151,11 +152,11 @@ The current prototype owns its artwork in `assets/img` and fonts in `assets/font
 
 The lid experiment and its controls have been removed from the active prototype.
 
-The studio Library stores shared Vignette, Caption, story Action, Item/Weapon, Consumable and Enemy definitions across chapters; Common owns default Combat Actions and player damage Feedback. Chapter beats place those definitions and own their connections. Direct actions have one output; check actions have Success and Failure outputs. Linear cards advance with one swipe; visible narrative headings are optional. See [studio authoring](docs/chapter-editor.md) for reuse, local settings and v1 migration.
+The studio Library stores shared Vignette, Caption, story Action, Item/Weapon, Consumable and Enemy definitions across chapters; Common owns default Combat Actions and player damage Feedback. Chapter beats place those definitions and own their connections. Direct actions have one output; check actions have Success and Failure outputs. Linear cards advance with one swipe; visible narrative headings are optional. See [studio authoring](docs/chapter-editor.md) for reuse, local settings and supported imports.
 
 ## Architecture and reusable capabilities
 
-See [architecture assumptions](docs/architecture.md) for node/sequence registries, independent presentation policy, motion tuning, appearance tokens and the run inventory boundaries. Try the isolated [3D dice tray](dice.html); [dice service documentation](docs/dice-service.md) describes its context-independent API and Onejournal provenance. It is included in default static staging; `python3 build_pages.py /tmp/nest-pages-with-dice --include-dice` remains supported. The dice service returns results independently; action cards interpret them as checks without a separate Check beat.
+See [architecture assumptions](docs/architecture.md) for node/sequence registries, independent presentation policy, motion tuning, appearance tokens and the run inventory boundaries. [Dice service documentation](docs/dice-service.md) describes its context-independent API and Onejournal provenance. It is included in default static staging; `python3 build_pages.py /tmp/nest-pages-with-dice --include-dice` remains supported. The dice service returns results independently; action cards interpret them as checks without a separate Check beat.
 
 Library usage counts and deletion checks include gameplay references as well as placed cards. **Clean unused local cards** removes only unused local definitions and can be undone; shared definitions and transitive dependencies are preserved.
 

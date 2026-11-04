@@ -10,6 +10,8 @@ import {fileURLToPath, pathToFileURL} from 'node:url';
 
 const script = fileURLToPath(import.meta.url), checkout = resolve(dirname(script), '..');
 const load = (root, path) => import(pathToFileURL(join(root, path)).href);
+const loadHistory = root => load(root, existsSync(join(root,'studio/DocumentHistory.js'))
+  ? 'studio/DocumentHistory.js' : 'editor/DocumentHistory.js');
 const median = xs => [...xs].sort((a,b)=>a-b)[Math.floor(xs.length/2)];
 const rounded = value => +value.toFixed(3);
 const memoryStore = () => {
@@ -20,7 +22,7 @@ const memoryStore = () => {
 if (process.argv[2] === '--heap') {
   const root=resolve(process.argv[3]), beats=Number(process.argv[4]);
   const {createLargeProject}=await load(root,'tests/fixtures/large-project.js');
-  const {DocumentHistory}=await load(root,'editor/DocumentHistory.js');
+  const {DocumentHistory}=await loadHistory(root);
   const project=createLargeProject({beatsPerChapter:beats});
   global.gc();
   const before=process.memoryUsage();
@@ -69,7 +71,7 @@ if (process.argv[2] === '--heap') {
     heap:'One fresh --expose-gc process per workload/version, retained heap+ArrayBuffer delta after GC, 80 edits followed by all retained undo steps within each version’s history budget, then validated redo; excludes process/native overhead'},results:{}};
   if(!profileOnly)for(const [version,root] of Object.entries(roots)) {
     const {createLargeProject}=await load(root,'tests/fixtures/large-project.js');
-    const {DocumentHistory}=await load(root,'editor/DocumentHistory.js');
+    const {DocumentHistory}=await loadHistory(root);
     const {LocalCardDrafts}=await load(root,'studio/local-card-drafts.js');
     const {transactDocument}=await load(root,'studio/document-session.js');
     const {saveProject,STORAGE_KEY}=await load(root,'project/storage.js');
@@ -134,7 +136,7 @@ if (process.argv[2] === '--heap') {
       const originalJSON={parse:JSON.parse,stringify:JSON.stringify};
       const originalCodec={encode:TextEncoder.prototype.encode,decode:TextDecoder.prototype.decode};
       const {createLargeProject}=await load(temp,'tests/fixtures/large-project.js');
-      const {DocumentHistory}=await load(temp,'editor/DocumentHistory.js');
+      const {DocumentHistory}=await loadHistory(temp);
       const {LocalCardDrafts}=await load(temp,'studio/local-card-drafts.js');
       const {transactDocument}=await load(temp,'studio/document-session.js');
       const {saveProject}=await load(temp,'project/storage.js');

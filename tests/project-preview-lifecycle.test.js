@@ -2,7 +2,6 @@ import {restoreFixtureDefaults} from './fixtures/combat-project-support.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ProjectPreview } from '../studio/ProjectPreview.js';
-import { Preview } from '../editor/preview.js';
 import { ProjectController } from '../project/ProjectController.js';
 import { DiceService } from '../assets/dice/DiceService.js';
 import { createProject, compileChapter } from '../project/model.js';
@@ -361,18 +360,17 @@ test('stop supports restart; destroy is terminal and releases retained data and 
   assert.throws(() => preview.play(createProject()), /destroyed/);
 });
 
-for (const order of ['v1-first', 'v2-first']) test(`mixed preview dock ownership survives ${order} teardown`, () => {
+test('preview dock ownership survives until the last owner releases it', () => {
   environment();
-  const v1 = new Preview(new Element(), { inventoryDock: true });
-  const v2 = new ProjectPreview(new Element(), { inventoryDock: true });
-  const [first, second] = order === 'v1-first' ? [v1, v2] : [v2, v1];
+  const first = new ProjectPreview(new Element(), { inventoryDock: true });
+  const second = new ProjectPreview(new Element(), { inventoryDock: true });
   first.destroy(); first.destroy();
   assert.equal(document.body.classList.contains('has-inventory-dock'), true);
   second.destroy();
   assert.equal(document.body.classList.contains('has-inventory-dock'), false);
   document.body.classList.add('has-inventory-dock');
   const third = new ProjectPreview(new Element(), { inventoryDock: true });
-  const fourth = new Preview(new Element(), { inventoryDock: true });
+  const fourth = new ProjectPreview(new Element(), { inventoryDock: true });
   third.destroy(); fourth.destroy();
   assert.equal(document.body.classList.contains('has-inventory-dock'), true);
 });

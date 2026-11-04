@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mountHistoryShortcuts } from '../studio/history-shortcuts.js';
-import { DocumentHistory } from '../editor/DocumentHistory.js';
+import { DocumentHistory } from '../studio/DocumentHistory.js';
 
 function key(root, properties) {
   const event = new Event('keydown', { cancelable: true });

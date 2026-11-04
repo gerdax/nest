@@ -1,4 +1,4 @@
-import { esc } from '../editor/fields.js';
+import { esc } from './fields.js';
 import { isTagKey, itemTagLabel, tagIdFromKey } from '../project/item-tags.js';
 import { eligibleInventoryItems } from './item-options.js';
 

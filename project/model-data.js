@@ -39,10 +39,9 @@ export function chapterVariables(project, chapter) {
   return [...list(project?.variables), ...list(chapter?.variables)];
 }
 export function createProject() {
-  const event = {...createDefinition('event', 'arrival'), name: 'Arrival', heading: '', text: 'Your expedition begins at the edge of the city.',
-    image: './assets/img/city.png'};
-  const item = {...createDefinition('item', 'flashlight'), name: 'Flashlight', image: './assets/img/flashlight.png'};
-  const action = {...createDefinition('action', 'explore'), name: 'Explore', text: 'Follow the corridor', image: './assets/img/corridor_02.png'};
+  const event = {...createDefinition('event', 'arrival'), name: 'Arrival', heading: '', text: 'Your expedition begins at the edge of the city.'};
+  const item = {...createDefinition('item', 'flashlight'), name: 'Flashlight'};
+  const action = {...createDefinition('action', 'explore'), name: 'Explore', text: 'Follow the corridor'};
   const project = ensureCombatDefaults({
     version: 3,
     kind: 'nest-project',
@@ -80,6 +79,7 @@ export function createProject() {
       ]
     }]
   });
+  project.library.find(definition => definition.id === project.combat.playerHit.definitionId).image = '';
   // New projects get the basic choices. Loading authored projects remains
   // additive only for required legacy defaults, never inserts new play choices.
   const support=[

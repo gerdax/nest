@@ -28,7 +28,7 @@ test('imported chapter previews omit automatic chapter-variable effect summaries
 
 test('inspector preview and player use identical narrative heading/body/artwork, without context',()=>{
  const project=createProject(),node=project.chapters[0].nodes.find(n=>n.type==='container');project.chapters[0].startNode=node.id;
- const d=project.library.find(d=>d.id===node.intro.definitionId);d.heading='Box heading';d.showName=true;d.text='Desc';d.flipImage=true;node.intro.context='Discard me';
+ const d=project.library.find(d=>d.id===node.intro.definitionId);d.heading='Box heading';d.showName=true;d.text='Desc';d.image='./assets/img/card-art/rat.png';d.flipImage=true;node.intro.context='Discard me';
  const mount=new Element();mount.dataset.previewPlacement=node.intro.id;
  renderCardPreviews({querySelectorAll:()=>[mount]},project,node);
  const front=mount.children[0],copy=front.children[0],art=front.children[1];

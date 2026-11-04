@@ -1,6 +1,6 @@
 // Run from any directory with Node. No browser or real saved project is touched.
 import {createLargeProject} from '../../tests/fixtures/large-project.js';
-import {DocumentHistory} from '../../editor/DocumentHistory.js';
+import {DocumentHistory} from '../../studio/DocumentHistory.js';
 import {createPersistence} from '../../studio/persistence.js';
 for(const beatsPerChapter of [60,120,600]) {
   const project=createLargeProject({chapters:8,beatsPerChapter});

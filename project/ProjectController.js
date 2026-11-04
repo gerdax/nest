@@ -6,7 +6,7 @@ import { retainsInventoryItems, isUnassignedCombat } from './nodeTypes.js';
 import { initialValues, conditionsMet, affordCosts, transact, addInventory, canTriggerItem, inventoryQuantity } from './state.js';
 import { cardBody, cardFace, actionCardFace } from './presentation.js';
 import { playerCardSummary, isStoryKind, collectionEffects } from './cards.js';
-import { selectPool } from '../chapter/random.js';
+import { selectPool } from './legacy-pool.js';
 import { isInventoryContext } from '../engine/inventoryContext.js';
 import { resolveCheck } from './checks.js';
 import { randomizerSceneKey, validAutoDrawCount } from './randomizer.js';

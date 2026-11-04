@@ -48,16 +48,16 @@ test('chapter export validates transitive dependencies and exported settings', (
   assert.throws(() => exportStudioChapter(project), /iconScale/);
 });
 
-for(const version of [2,3])test(`scoped project import accepts version ${version} project drafts and preserves raw input`, () => {
-  const project = createProject();project.version=version;
+test('scoped project import accepts version 3 project drafts and preserves raw input', () => {
+  const project = createProject();
   project.chapters[0].nodes[0].connections.next = 'unfinished';
   const imported = parseStudioImport(JSON.stringify(project), {kind:'project'});
   assert.deepEqual(imported.raw, project);
   assert.deepEqual(imported.project, {...project,version:3});
 });
 
-for(const version of [2,3])test(`scoped version ${version} chapter import accepts playable chapters and rejects drafts`, () => {
-  const project = createProject(), pkg = exportChapter(project);pkg.version=version;
+test('scoped version 3 chapter import accepts playable chapters and rejects drafts', () => {
+  const project = createProject(), pkg = exportChapter(project);
   const imported = parseStudioImport(JSON.stringify(pkg), {kind:'chapter'});
   assert.deepEqual(imported.raw, pkg);
   assert.equal(imported.project.chapters[0].id, pkg.chapter.id);
@@ -68,16 +68,21 @@ for(const version of [2,3])test(`scoped version ${version} chapter import accept
 test('scoped imports reject the other kind and legacy files before migration', () => {
   const project = createProject(), pkg = exportChapter(project), legacy = createStarterChapter();
   for (const [kind, wrong] of [['project', pkg], ['chapter', project]]) {
-    assert.throws(() => parseStudioImport(JSON.stringify(wrong), {kind}), /Expected a version 2/);
-    assert.throws(() => parseStudioImport(JSON.stringify(legacy), {kind}), /Expected a version 2/);
-    assert.throws(() => parseStudioImport(JSON.stringify({...wrong, version:1}), {kind}), /Expected a version 2/);
+    assert.throws(() => parseStudioImport(JSON.stringify(wrong), {kind}), /Expected a version 3/);
+    assert.throws(() => parseStudioImport(JSON.stringify(legacy), {kind}), /Expected a version 3/);
+    const matching = kind === 'project' ? project : pkg;
+    assert.throws(() => parseStudioImport(JSON.stringify({...matching, version:2}), {kind}), /Expected a version 3/);
+    assert.throws(() => parseStudioImport(JSON.stringify({...wrong, version:1}), {kind}), /Expected a version 3/);
   }
   assert.throws(() => parseStudioImport(JSON.stringify(project), {kind:'other'}), /Unknown studio import kind/);
 });
 
-test('unscoped imports keep project, chapter and legacy compatibility', () => {
+test('unscoped imports accept only current projects and chapter packages', () => {
   const project = createProject(), pkg = exportChapter(project), legacy = createStarterChapter();
-  for (const raw of [project, pkg, legacy]) {
+  for (const raw of [legacy, {...project,version:2}, {...pkg,version:2}]) {
+    assert.throws(() => parseStudioImport(JSON.stringify(raw)), /version 3/);
+  }
+  for (const raw of [project, pkg]) {
     const imported = parseStudioImport(JSON.stringify(raw));
     assert.deepEqual(imported.raw, raw);
     assert.equal(imported.project.version, 3);

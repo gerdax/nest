@@ -4,20 +4,14 @@ import { createSequence, sequenceTypes, outputLabel } from '../chapter/sequenceT
 import { nodeType, nodeOutputs } from '../chapter/nodeTypes.js';
 import { createStarterChapter, validateChapter } from '../chapter/model.js';
 import { defaultPresentation } from '../chapter/presentation.js';
-import { renderSequenceInspector } from '../editor/sequenceInspector.js';
 import { ChapterController } from '../chapter/ChapterController.js';
 
-for(const type of Object.keys(sequenceTypes))test(`registry creates a playable ${type} with usable inspector and output definitions`,()=>{
+for(const type of Object.keys(sequenceTypes))test(`registry creates a playable ${type} with usable output definitions`,()=>{
  let id=0;const seq=createSequence(type,p=>`${p}-${++id}`,'Test');
  const node={id:'node',name:'Test',type:'static',x:0,y:0,sequenceId:seq.id,connections:Object.fromEntries(seq.exits.map(e=>[e,null]))};
  const chapter={version:1,name:'Test',startNode:'node',nodes:[node],sequences:[seq]};
  assert.deepEqual(validateChapter(chapter),[]);
  assert.deepEqual(nodeOutputs(node,seq),seq.exits);
- const inspector=renderSequenceInspector(seq,chapter);
- assert.ok(inspector.includes('Reuse content (advanced)'));
- assert.equal(inspector.includes('Sequence name'),false);
- assert.equal(inspector.includes('Title (optional)'),false);
- assert.equal(inspector.includes('showCardNumbers'),false);
  assert.equal(seq.cards[0].title,'');
  if(type==='forked')assert.equal(outputLabel(seq,seq.exits[0]),'Choice 1');
 });

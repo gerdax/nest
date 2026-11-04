@@ -5,7 +5,7 @@ import { createDefinition, resolvePlacement } from '../project/cards.js';
 import { nodeInspector } from '../studio/inspectors.js';
 import { applyDocumentCommand } from '../studio/document-commands.js';
 import { LocalCardDrafts } from '../studio/local-card-drafts.js';
-import { DocumentHistory } from '../editor/DocumentHistory.js';
+import { DocumentHistory } from '../studio/DocumentHistory.js';
 import { transactDocument } from '../studio/document-session.js';
 
 function fixture(kind='event') {

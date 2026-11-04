@@ -47,12 +47,12 @@ test('autosave only accepts optional boolean settings including draft imports',(
  }
 });
 
-test('Save stays available and editor edits and history use automatic saves while imports and conflict choices force save',()=>{
+test('Save stays available and imports force a save only for attached projects',()=>{
  const button=markup.match(/<button id="save-project"[^>]*>Save<\/button>/)?.[0];
  assert.ok(button);assert.doesNotMatch(button,/\bdisabled\b/);
  assert.match(button,/aria-keyshortcuts="Meta\+S Control\+S"/);
  assert.match(editor,/const saveProject=project=>persistence\.saveAutomatic\(project\)/);
- assert.match(editor,/const saved=type==='import'\?persistence\.saveQueued\(project\):saveProject\(project\)/);
+ assert.match(editor,/const saved=type==='import'&&!localFilename\?persistence\.saveQueued\(project\):saveProject\(project\)/);
  assert.match(editor,/travelHistory\(history,method,\{save:saveProject\}\)/);
  assert.match(editor,/saveQueued\(project,\{expectedPrimary:conflict\.primary,preservePrimary:true\}\)/);
 });

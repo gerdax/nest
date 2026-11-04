@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {createProject} from '../project/model.js';
 import {createPersistence,travelHistory} from '../studio/persistence.js';
 import {loadProject,saveProject,STORAGE_KEY,CONFLICT_STORAGE_KEY} from '../project/storage.js';
-import {DocumentHistory} from '../editor/DocumentHistory.js';
+import {DocumentHistory} from '../studio/DocumentHistory.js';
 
 function fixture({autosave}={}) {
  const values=new Map();let writes=0;
@@ -19,6 +19,24 @@ test('existing projects without a setting keep autosaving by default',async()=>{
  const h=fixture();h.project.name='Changed';
  assert.equal((await h.persistence.saveAutomatic(h.project)).ok,true);
  assert.equal(loadProject(h.storage).project.name,'Changed');assert.equal(h.persistence.hasUnsaved,false);
+});
+
+test('local file drafts stay detached and download only on explicit Save',async()=>{
+ const project=createProject(), downloads=[];
+ const storage={getItem(){assert.fail('unexpected storage read');},setItem(){assert.fail('unexpected storage write');}};
+ const persistence=createPersistence({loaded:{project},storage,download:value=>downloads.push(value)});
+ assert.equal(persistence.hasUnsaved,false);
+ project.name='Edited local file';
+ for(const autosave of [true,false,true]){
+  project.autosave=autosave;
+  assert.deepEqual(await persistence.saveAutomatic(project),{ok:true,deferred:true});
+ }
+ assert.equal(persistence.hasUnsaved,true);
+ assert.deepEqual(downloads,[]);
+ persistence.checkForChanges();
+ assert.equal((await persistence.saveQueued(project)).ok,true);
+ assert.deepEqual(downloads,[project]);
+ assert.equal(persistence.hasUnsaved,false);
 });
 
 test('disabling autosave persists the choice once; later edits wait for explicit Save',async()=>{

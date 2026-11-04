@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {DocumentHistory} from '../editor/DocumentHistory.js';
+import {DocumentHistory} from '../studio/DocumentHistory.js';
 const bytes=value=>new TextEncoder().encode(JSON.stringify(value)).byteLength;
 
 test('history trims by actual UTF-8 bytes and retains contiguous recent undo/redo',()=>{

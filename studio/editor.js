@@ -13,7 +13,7 @@ import { applyCardStyles, parseCardColor } from '../project/card-styles.js';
 import { nodeTypeLabel } from '../project/nodeTypes.js';
 import { nodeIcon } from './node-icons.js';
 import { artworkSettings, parseArtworkSettings } from './artwork-settings.js';
-import { DocumentHistory } from '../editor/DocumentHistory.js';
+import { DocumentHistory } from './DocumentHistory.js';
 import { LocalCardDrafts } from './local-card-drafts.js';
 import { cardKinds, cardEditorTint } from '../project/cards.js';
 import { createProject,validateProject } from '../project/model.js';
@@ -47,7 +47,7 @@ import { cardLabel } from './card-label.js';
 import { confirmLibraryRemoval } from './library-removal-confirmation.js';
 import { mountSaveConflictPanel } from './save-conflict-panel.js';
 import { openProjectSession } from './project-session.js';
-import {createProjectFileActions,projectFileName,projectFileUrl} from './project-file-actions.js';
+import {createProjectFileActions,projectFileUrl} from './project-file-actions.js';
 import {showProjectFileDialog,askUnsavedProjectChoice} from './project-file-dialog.js';
 import {showLibraryImportDialog} from './library-import-dialog.js';
 import {beatGroups,beatGroupFor} from '../project/beat-groups.js';
@@ -63,7 +63,7 @@ const artworkClipboardKey = 'nest.artwork.clipboard';
 let project=loaded.project||createProject(),chapterId=project.activeChapterId,selected=project.chapters.find(c=>c.id===chapterId)?.startNode,definitionId=project.library.find(d=>d.visibility!=='local')?.id,mode='chapter';
 let libraryTab='content';
 let selectedGroupId;
-const history=new DocumentHistory(project);
+let history=new DocumentHistory(project), localFilename;
 const localDrafts=new LocalCardDrafts();
 const chapter=()=>project.chapters.find(c=>c.id===chapterId)||project.chapters[0];
 const node=()=>chapter().nodes.find(n=>n.id===selected);
@@ -109,11 +109,12 @@ const graph=new GraphView($('#canvas'),{
 });
 const projectSettingsWindow=mountProjectSettingsWindow($('#project-settings-overlay'),{trigger:$('#project-settings-toggle'),preview:$('#preview-window'),onOpen:()=>graph.cancel()});
 let conflictPanel;
-const persistence=createPersistence({loaded,backend:projectSession.backend,eventTarget:window,onStatus:text=>{
+const makePersistence=options=>createPersistence({...options,eventTarget:window,onStatus:text=>{
  $('#save-status').textContent=text;
  window.removeEventListener('beforeunload',guardUnsaved);
  if(persistence.hasUnsaved)window.addEventListener('beforeunload',guardUnsaved);
 },onConflict:conflict=>conflictPanel?.update(conflict)});
+let persistence=makePersistence({loaded,backend:projectSession.backend});
 const saveProject=project=>persistence.saveAutomatic(project);
 function saveManually(){
  const active=document.activeElement;
@@ -195,7 +196,7 @@ function edit(type,data={}, {preserveProjectSettings=false,refresh=true}={}){
  if('definitionId' in patch)definitionId=patch.definitionId;
  if('mode' in patch)mode=patch.mode;
  if(patch.selectedIds){graph.selected=selected;graph.selectedIds=new Set(patch.selectedIds);graph.lastCanvasClick=null;}
- const saved=type==='import'?persistence.saveQueued(project):saveProject(project);
+ const saved=type==='import'&&!localFilename?persistence.saveQueued(project):saveProject(project);
  if(refresh)render({preserveProjectSettings});
  else {
   $('#undo').disabled=!history.canUndo;$('#redo').disabled=!history.canRedo;
@@ -243,7 +244,7 @@ function renderProjectSettings(){
  const end=start===null?null:active.selectionEnd,scroll=root.scrollTop;
  const sections=['data-project-variables','data-project-item-tags','data-project-card-styles','data-project-card-backs'];
  const expanded=sections.filter(key=>root.querySelector(`[${key}]`)?.open);
- root.innerHTML=projectSettingsInspector(project,{fileMode:projectSession.fileMode,filePath:projectSession.backend?.path});
+ root.innerHTML=projectSettingsInspector(project,{localFile:!!localFilename,fileMode:projectSession.fileMode,filePath:projectSession.backend?.path});
  for(const key of expanded)root.querySelector(`[${key}]`).open=true;
  root.scrollTop=scroll;
  if(restore&&path){
@@ -318,7 +319,7 @@ function render({preserveProjectSettings=false}={}){
  if(selected!==undefined&&!chapter()?.nodes.some(n=>n.id===selected))selected=chapter()?.startNode;
  if(mode==='library'&&definition()?.visibility!=='local'&&isCommonDefinition(definition())!==(libraryTab==='common'))definitionId=project.library.find(d=>d.visibility!=='local'&&isCommonDefinition(d)===(libraryTab==='common'))?.id;
  $('#project-name').textContent=project.name;
- if(projectSession.fileMode)document.title=`${project.name} · ${projectSession.backend.filename} · Nest`;
+ if(projectSession.fileMode)document.title=`${project.name} · ${localFilename??projectSession.backend.filename} · Nest`;
  $('#chapter-selector').innerHTML=sortedChapters(project).map(c=>`<option value="${esc(c.id)}" ${c.id===chapterId?'selected':''}>${esc(c.name)}</option>`).join('');
  $('#undo').disabled=!history.canUndo;$('#redo').disabled=!history.canRedo;
 
@@ -716,11 +717,23 @@ if(projectSession.fileMode){
  $('#export-project').after(saveAs);
  const open=document.createElement('button');open.id='open-project-file';open.type='button';open.textContent='Open project';
  $('#import').closest('label').hidden=true;$('#import').closest('label').after(open);
- const actions=createProjectFileActions({backend:projectSession.backend,getProject:()=>project,persistence,
-  confirmOverwrite:name=>confirm(`Replace ${name}? Its previous version will be preserved as a backup.`),
-  chooseUnsaved:()=>askUnsavedProjectChoice(),
-  navigate:name=>{deliberateReload=true;location.assign(projectFileUrl(name,location.href));},
- });
+ const playerLinks=[...document.querySelectorAll('a[href="player.html"]')];
+ function openLocalProject(incoming,name){
+  persistence.destroy();
+  conflictPanel.update(null);recoveryDownload?.remove();
+  project=incoming;localFilename=name||'project.json';history=new DocumentHistory(project);
+  persistence=makePersistence({loaded:{project},download:value=>download(value,`${localFilename.replace(/\.json$/i,'')}-edited.json`)});
+  chapterId=project.activeChapterId;selected=chapter()?.startNode;selectedGroupId=undefined;
+  definitionId=project.library.find(d=>d.visibility!=='local')?.id;mode='chapter';libraryTab='content';
+  localDrafts.reset();nodeErrors.runtime.clear();nodeClipboard=null;cardClipboard=null;copiedArtwork=null;
+  graph.selected=selected;graph.selectedIds=new Set(selected?[selected]:[]);graph.lastCanvasClick=null;
+  filename.textContent=localFilename;filename.title='Opened from disk. This tab is separate from saved-projects.';
+  $('#export-project').title='Download the current project JSON (⌘S / Ctrl+S)';
+  for(const link of playerLinks)link.hidden=true;
+  const url=new URL(location.href);url.searchParams.delete('project');
+  window.history.replaceState(window.history.state,'',url.href);
+  render();graph.fit();report(`Opened ${localFilename}.`);
+ }
  const commitForFileDialog=()=>{
   const active=document.activeElement;
   if(active?.matches('input,textarea,select')&&active.closest('#inspector,#settings,#project-settings-content')){changeField({target:active});active.blur();}
@@ -730,25 +743,21 @@ if(projectSession.fileMode){
   if(fileDialogOpen)return;
   commitForFileDialog();fileDialogOpen=true;
   try {
-   await showProjectFileDialog({mode,backend:projectSession.backend,currentFilename:projectSession.backend.filename,
+   const actions=createProjectFileActions({backend:projectSession.backend,getProject:()=>project,persistence,
+    isLocal:!!localFilename,openLocalProject,
+    confirmOverwrite:name=>confirm(`Replace ${name}? Its previous version will be preserved as a backup.`),
+    chooseUnsaved:()=>askUnsavedProjectChoice(),
+    navigate:name=>{deliberateReload=true;location.assign(projectFileUrl(name,location.href));},
+   });
+   await showProjectFileDialog({mode,backend:projectSession.backend,currentFilename:localFilename?'':projectSession.backend.filename,
+    suggestedName:localFilename?`${localFilename.replace(/\.json$/i,'')}-copy.json`:undefined,
     onSubmit:mode==='save-as'?name=>actions.saveAs(name):name=>actions.open(name),
-    onImport:async file=>{
-     try {
-      const text=await file.text();
-      const existing=await actions.openMatchingFile(file.name,text);
-      if(existing)return existing;
-      const {project:incoming}=parseStudioImport(text,{kind:'project'});
-      let suggestedName;try{suggestedName=projectFileName(file.name);}catch{suggestedName='imported-project.json';}
-      const ok=await showProjectFileDialog({mode:'save-as',backend:projectSession.backend,currentFilename:projectSession.backend.filename,suggestedName,
-       onSubmit:name=>actions.saveAs(name,{project:incoming})});
-      return ok?{ok:true}:{ok:false,cancelled:true};
-     } catch(error){return {ok:false,error:error.message};}
-    },
+    onImport:actions.openLocal,
    });
   } finally {fileDialogOpen=false;}
  };
  saveAs.onclick=()=>launch('save-as');open.onclick=()=>launch('open');
- for(const link of document.querySelectorAll('a[href="player.html"]'))link.href=projectFileUrl(projectSession.backend.filename,link.href);
+ for(const link of playerLinks)link.href=projectFileUrl(projectSession.backend.filename,link.href);
 }
 $('#export-chapter').onclick=()=>{try{download(exportStudioChapter(project,chapterId),`${chapter().name.replace(/[^a-z0-9]+/gi,'-')}.chapter.json`);report('Chapter exported.');}catch(error){report(errorMessage('STUDIO_CHAPTER_EXPORT_FAILED', {message: error.message}));}};
 function bindImport(input,kind){
@@ -760,7 +769,7 @@ function bindImport(input,kind){
    const result=edit('import',{raw,incoming});
    const saved=result.ok&&(await result.saved).ok;
    if(saved&&kind==='project'&&persistence.adopt().ok){recoveryDownload?.remove();report(`Project opened. ${persistence.savedMessage} Previous saves are preserved.`);}
-   else if(saved&&kind==='chapter')report(`Chapter imported. ${persistence.savedMessage}`);
+   else if(saved&&kind==='chapter')report(localFilename?'Chapter imported.':`Chapter imported. ${persistence.savedMessage}`);
    graph.fit();
   }catch(error){report(errorMessage('STUDIO_IMPORT_REJECTED', {message: error.message}));}
   e.target.value='';
@@ -792,4 +801,4 @@ const stopPlayShortcuts=mountPlayShortcuts(document,{
  enabled:()=>!!selectedPreviewEntry(),
 });
 window.addEventListener('pagehide',event=>{if(event.persisted)return;graph.cancel();document.removeEventListener('keydown',saveShortcut);stopHistoryShortcuts();stopNodeClipboardShortcuts();stopViewShortcuts();stopPlayShortcuts();autoplay.destroy();autoPanel.destroy();previewWindow.destroy();projectSettingsWindow.destroy();preview.destroy();});
-render();graph.fit();if(loaded.error||loaded.recovery)report('');else if(loaded.migrated)report('Legacy save loaded; original browser save preserved.');else report(loaded.project?persistence.savedMessage:'Not saved yet.');
+render();graph.fit();if(loaded.error||loaded.recovery)report('');else report(loaded.project?persistence.savedMessage:'Not saved yet.');

@@ -5,7 +5,7 @@ import {applyDocumentCommand} from '../studio/document-commands.js';
 import {createNode,duplicateNode} from '../studio/commands.js';
 import {captureNodeClipboard,captureNodesClipboard,pasteNodeClipboard} from '../studio/node-clipboard.js';
 import {LocalCardDrafts} from '../studio/local-card-drafts.js';
-import {DocumentHistory} from '../editor/DocumentHistory.js';
+import {DocumentHistory} from '../studio/DocumentHistory.js';
 import {transactDocument} from '../studio/document-session.js';
 import {nodeInspector} from '../studio/inspectors.js';
 const fixture=()=>{const p=createProject(),c=p.chapters[0],death=c.nodes.find(n=>n.id===c.deathNode);return {p,c,death,s:{chapterId:c.id,selected:death.id}};};

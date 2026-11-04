@@ -4,9 +4,16 @@ import {createProject,createChapter,cloneProject,validateProject,parseProject,mi
 import {createDefinition,resolvePlacement,cardSummary} from '../project/cards.js';
 import {createStarterChapter,createLegacyStarterChapter} from '../chapter/model.js';
 import {loadProject,saveProject,STORAGE_KEY,LEGACY_STORAGE_KEY} from '../project/storage.js';
+import {walk} from '../project/model-data.js';
 
 test('starter is valid and compiled placements keep library content separate',()=>{
  const p=createProject();assert.deepEqual(validateProject(p),[]);const c=compileChapter(p);assert.equal(c.nodes[0].cards[0].definitionId,'arrival');assert.equal(c.library[1].kind,'item');c.library[1].name='Changed';assert.equal(p.library[1].name,'Flashlight');assert.deepEqual(parseProject(JSON.stringify(p)),p);
+});
+test('starter and its compiled chapters have no assigned card artwork',()=>{
+ const project=createProject();
+ for(const document of [project,...project.chapters.map(chapter=>compileChapter(project,chapter.id))]){
+  walk(document,entry=>{if(Object.hasOwn(entry,'image'))assert.equal(entry.image,'',entry.id);});
+ }
 });
 test('placement overrides replace base arrays then append local rules',()=>{
  const p=createProject();p.library[2].effects=[{op:'add',key:'energy',value:1}];const placement={id:'a',definitionId:'explore',quantity:2,overrides:{effects:[{op:'set',key:'energy',value:2}]},effects:[{op:'add',key:'energy',value:-1}]};const card=resolvePlacement(p,placement);assert.deepEqual(card.effects,[{op:'set',key:'energy',value:2},{op:'add',key:'energy',value:-1}]);assert.equal(card.quantity,undefined);assert.equal(card.inventoryKey,'explore');assert.match(cardSummary(card,p.variables),/Energy/);
@@ -18,7 +25,7 @@ test('typed state, costs, quantities, dice and placement kinds are validated',()
  const p=createProject();p.library[2].costs=[{source:'variable',key:'energy',amount:-1}];p.library[2].resolution='check';p.library[2].check.pool=[{sides:6,count:10000}];p.chapters[0].nodes[1].items[0].unavailable='invalid';p.variables[0].initial=20;const errors=validateProject(p);for(const term of ['cost','check','placement','bounds'])assert.ok(errors.some(e=>e.message.includes(term)),term);const q=createProject();q.chapters[0].nodes[1].items[0].definitionId='arrival';assert.ok(validateProject(q).some(e=>e.message.includes('incompatible')));
 });
 test('migration preserves legacy sequence routes and collection behavior',()=>{
- const old=createLegacyStarterChapter();old.variables=[{id:'energy',type:'number',initial:2}];old.sequences[1].items[0].effects=[{op:'add',key:'energy',value:1}];const saved=cloneProject(old);const p=migrateChapter(old);assert.deepEqual(old,saved);assert.deepEqual(validateProject(p),[]);assert.equal(p.chapters[0].nodes[2].type,'legacyPool');const c=compileChapter(p);assert.equal(c.nodes[2].sequences[0].cards[0].choices[0].target,'card:exit');const item=p.library.find(d=>d.kind==='item');assert.equal(item.inventoryKey,'chapter-1:flashlight');assert.deepEqual(item.onCollect,[{op:'add',key:'chapter-1_energy',value:1}]);assert.equal(item.use,undefined);assert.equal(parseProject(JSON.stringify(old)).version,3);
+ const old=createLegacyStarterChapter();old.variables=[{id:'energy',type:'number',initial:2}];old.sequences[1].items[0].effects=[{op:'add',key:'energy',value:1}];const saved=cloneProject(old);const p=migrateChapter(old);assert.deepEqual(old,saved);assert.deepEqual(validateProject(p),[]);assert.equal(p.chapters[0].nodes[2].type,'legacyPool');const c=compileChapter(p);assert.equal(c.nodes[2].sequences[0].cards[0].choices[0].target,'card:exit');const item=p.library.find(d=>d.kind==='item');assert.equal(item.inventoryKey,'chapter-1:flashlight');assert.deepEqual(item.onCollect,[{op:'add',key:'chapter-1_energy',value:1}]);assert.equal(item.use,undefined);assert.equal(parseProject(JSON.stringify(p)).version,3);
 });
 test('simple migration uses typed forks and preserves namespaced inventory conditions',()=>{
  const old=createStarterChapter();old.sequences.find(s=>s.decisionOnly).cards[0].choices[0].conditions=[{source:'inventory',key:'flashlight',op:'has'}];const p=migrateChapter(old);const c=compileChapter(p);const fork=c.nodes.find(n=>n.type==='fork');assert.equal(fork.choices[0].conditions[0].key,'chapter-1:flashlight');assert.deepEqual(validateProject(p),[]);assert.equal(c.nodes[1].items[0].name,'Flashlight');
@@ -32,8 +39,8 @@ test('import remaps definition variable and inventory alias conflicts without mu
 test('variant changes placement binding without mutating shared definition',()=>{
  const p=createProject(),placement=p.chapters[0].nodes[1].items[0];const next=createVariant(p,placement,'flashlight-special');assert.equal(next.chapters[0].nodes[1].items[0].definitionId,'flashlight-special');assert.equal(p.chapters[0].nodes[1].items[0].definitionId,'flashlight');assert.equal(next.library.find(d=>d.id==='flashlight-special').inventoryKey,undefined);
 });
-test('storage migration preserves old key and reports denied access',()=>{
- const entries=new Map([[LEGACY_STORAGE_KEY,JSON.stringify(createStarterChapter())]]);const store={getItem:k=>entries.get(k)??null,setItem:(k,v)=>entries.set(k,v)};const loaded=loadProject(store);assert.equal(loaded.migrated,true);assert.equal(entries.has(STORAGE_KEY),false);assert.equal(saveProject(loaded.project,store).ok,true);assert.equal(entries.has(LEGACY_STORAGE_KEY),true);assert.equal(loadProject(store).project.version,3);assert.equal(saveProject(loaded.project,{getItem(){return null;},setItem(){throw Error('Denied');}}).error,'Denied');assert.equal(loadProject({getItem(){throw Error('Denied');}}).error,'Denied');
+test('storage leaves legacy saves untouched and reports denied access',()=>{
+ const entries=new Map([[LEGACY_STORAGE_KEY,JSON.stringify(createStarterChapter())]]);const store={getItem:k=>entries.get(k)??null,setItem:(k,v)=>entries.set(k,v)};const loaded=loadProject(store);assert.equal(loaded.project,null);assert.match(loaded.error,/version 3/);assert.equal(entries.has(STORAGE_KEY),false);assert.equal(saveProject(createProject(),store).ok,true);assert.equal(entries.get(LEGACY_STORAGE_KEY),JSON.stringify(createStarterChapter()));assert.equal(loadProject(store).project.version,3);assert.equal(saveProject(createProject(),{getItem(){return null;},setItem(){throw Error('Denied');}}).error,'Denied');assert.equal(loadProject({getItem(){throw Error('Denied');}}).error,'Denied');
 });
 test('invalid structure is rejected even for drafts while missing refs survive',()=>{
  const p=createProject();p.chapters[0].nodes[0].cards[0].definitionId='future';assert.throws(()=>parseProject(JSON.stringify(p)));assert.equal(parseProject(JSON.stringify(p),{allowDraft:true}).version,3);p.library[2].effects=[{op:'explode',key:'energy',value:1}];assert.throws(()=>parseProject(JSON.stringify(p),{allowDraft:true}));assert.deepEqual(createChapter('c','C'),{id:'c',name:'C',startNode:'',variables:[],nodes:[]});

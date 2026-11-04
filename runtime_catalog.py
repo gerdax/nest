@@ -5,8 +5,6 @@ RUNTIME_FILES = (
     "errors.js",
     "player.html",
     "editor.html",
-    "editor/preview.js",
-    "editor/storage.js",
     "engine/CardDeck.js",
     "engine/CheckSurface.js",
     "engine/DeckInteractionMotion.js",
@@ -31,7 +29,7 @@ RUNTIME_FILES = (
 # Preserve this developer tool in source; no active host imports it.
 DEBUG_ONLY_FILES = frozenset({"studio/drawer-debug.js"})
 
-RUNTIME_MODULE_DIRS = ("chapter", "editor", "player", "project", "studio")
+RUNTIME_MODULE_DIRS = ("player", "project", "studio")
 DICE_DIR = "assets/dice"
 DICE_SUFFIXES = frozenset({".js", ".html", ".json", ".wasm", ".png"})
 DICE_LICENSE = "vendor/dice-box/LICENSE"
