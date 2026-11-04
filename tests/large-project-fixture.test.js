@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { createLargeProject } from './fixtures/large-project.js';
 import { validateProject, compileChapter, exportChapter, parseProject, outputsForNode, connectionForOutput } from '../project/model.js';
 import { placements } from '../project/model-data.js';
@@ -14,12 +14,18 @@ test('large fixture is deterministic, valid, forward-only and portable without s
   assert.equal(project.library.length, 610);
   assert.equal(project.library.filter(d => d.visibility === 'local').length, 360);
   assert.equal(new Set(project.library.map(d => d.id)).size, 610);
-  const used = new Set(), counts = {}, images = new Set();
-  for (const definition of project.library) {
-    images.add(definition.image);
-    assert.ok(existsSync(new URL(`../${definition.image}`, import.meta.url)), definition.image);
-  }
+  const used = new Set(), counts = {}, images = new Set(project.library.map(definition => definition.image));
   assert.equal(images.size, 6);
+  const assetCheck = spawnSync('python3', ['-c', `
+from pathlib import Path
+from sys import argv
+from image_catalog import legacy_image_source
+
+root = Path.cwd()
+for image in map(Path, argv[1:]):
+    assert (root / image).is_file() or legacy_image_source(root, image.relative_to('assets/img')), image
+`, ...images], { cwd: new URL('..', import.meta.url), encoding: 'utf8' });
+  assert.equal(assetCheck.status, 0, assetCheck.stderr || assetCheck.error?.message);
   for (const chapter of project.chapters) {
     assert.equal(chapter.nodes.length, 60);
     const positions = new Map(chapter.nodes.map((node, index) => [node.id, index]));

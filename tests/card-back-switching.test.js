@@ -19,7 +19,7 @@ test('legacy switching settings are ignored across chapters and portable package
     for (const candidate of [parseProject(JSON.stringify(project)), parseProject(JSON.stringify(pkg)), importChapter(createProject(), pkg)]) {
       for (const chapter of candidate.chapters) {
         const appearance = resolveBackAppearance(compileChapter(candidate, chapter.id));
-        assert.equal(appearance.icons.default, candidate.cardBack?.icons.default ?? './assets/img/ui/default.png');
+        assert.equal(appearance.icons.default, candidate.cardBack?.icons.default ?? './assets/img/player-ui/default.png');
         assert.deepEqual(Object.keys(appearance.icons), ['default']);
         assert.equal(Object.hasOwn(appearance, 'switchIcons'), false);
         assert.equal(Object.hasOwn(appearance, 'switchDistance'), false);

@@ -1,4 +1,4 @@
-import {diceAppearanceScale} from '../dice/appearance-scale.js';
+import {diceAppearanceScale} from '../assets/dice/appearance-scale.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -41,7 +41,7 @@ test('dice frame keeps workers and WebGL alive across cached departures before t
     terminate() { this.terminations++; }
   };
   const document = {querySelectorAll: () => [{getContext: () => ({getExtension: () => ({loseContext() { lostContexts++; }})})}]};
-  const frameSource = source('../dice/frame.js').replace(/^import .*appearance-scale.*;\n/,'').replaceAll('import.meta.url', JSON.stringify(new URL('../dice/frame.js', import.meta.url).href));
+  const frameSource = source('../assets/dice/frame.js').replace(/^import .*appearance-scale.*;\n/,'').replaceAll('import.meta.url', JSON.stringify(new URL('../assets/dice/frame.js', import.meta.url).href));
   runInNewContext(frameSource, {diceAppearanceScale, window, document, URL, URLSearchParams, cancelAnimationFrame() {}});
   new window.Worker();
   pagehide(window, true);
@@ -62,7 +62,7 @@ test('dice demo retains its service on cached departures and destroys it on a la
     destroy() { destructions++; }
   }
   const document = {getElementById: () => ({addEventListener() {}})};
-  runInNewContext(source('../dice/demo.js').replace(/^import .*;\n/, ''), {window, document, DiceService});
+  runInNewContext(source('../assets/dice/demo.js').replace(/^import .*;\n/, ''), {window, document, DiceService});
   assert.equal(mounts, 1);
   pagehide(window, true);
   pagehide(window, true);

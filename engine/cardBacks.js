@@ -1,7 +1,7 @@
 import { errorMessage } from '../errors.js';
 export const defaultCardBack = Object.freeze({
-  background: './assets/img/ui/cardback.png',
-  icons: Object.freeze({ default: './assets/img/ui/default.png' }),
+  background: './assets/img/player-ui/cardback.png',
+  icons: Object.freeze({ default: './assets/img/player-ui/default.png' }),
   iconScale: 1,
 });
 

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {diceAppearanceScale} from '../dice/appearance-scale.js';
+import {diceAppearanceScale} from '../assets/dice/appearance-scale.js';
 
 test('game dice keep their design scale while the rendered viewport scales proportionally',()=>{
  const settings={referenceWidth:250,referenceHeight:200,referenceViewportHeight:300,sizeMultiplier:1.2};

@@ -44,7 +44,7 @@ Imports and storage catch exceptions, so malformed documents are still rejected 
 
 This does **not** establish the owning-chapter bug suggested by the test's name: earlier assertions verify the owner context successfully. Update the test to change the new effect's operation to `set` before assigning the flag, retaining its assertion that chapter-local variables are available. Do not weaken the Item eligibility check to make the test pass.
 
-The lead also ran the isolated demo suites: 31 tests, 30 passed, one failed. `/Users/adam.smereczynski2/Desktop/nest/demos/rat-dice-stack/tests/isolation.test.js:3` checks both the snapshot manifest hash and equality with today's root source. A frozen isolated demo can retain the correct manifest hash while the root renderer evolves; equality to the current root is then a stale contract. Follow the immutable snapshot/provenance contract, not an instruction to copy current production code into the preserved demo. Independent verification found all recorded Rat demo snapshot hashes intact; six source files have since diverged (renderer, CheckSurface, card-deck CSS, cardBacks, geometry and CardDeck). The failing assertion is equality with the current root renderer, not its recorded hash. Neither failure authorizes changing original demo assets.
+The lead also ran the isolated demo suites: 31 tests, 30 passed, one failed. `/Users/adam.smereczynski2/Desktop/nest-prototypes-archive-2026-11-04/demos/rat-dice-stack/tests/isolation.test.js:3` checks both the snapshot manifest hash and equality with today's root source. A frozen isolated demo can retain the correct manifest hash while the root renderer evolves; equality to the current root is then a stale contract. Follow the immutable snapshot/provenance contract, not an instruction to copy current production code into the preserved demo. Independent verification found all recorded Rat demo snapshot hashes intact; six source files have since diverged (renderer, CheckSurface, card-deck CSS, cardBacks, geometry and CardDeck). The failing assertion is equality with the current root renderer, not its recorded hash. Neither failure authorizes changing original demo assets.
 
 ## Material risks and design choices, separate from proven defects
 
@@ -132,7 +132,7 @@ The shell did not expose npm or Node on PATH. The main suite used the bundled No
 
 ```sh
 /Users/adam.smereczynski2/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node --test tests/*.test.js
-/Users/adam.smereczynski2/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node --test demos/combat/tests/*.test.js demos/rat-dice-stack/tests/*.test.js
+(cd ../nest-prototypes-archive-2026-11-04 && /Users/adam.smereczynski2/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node --test demos/combat/tests/*.test.js demos/rat-dice-stack/tests/*.test.js)
 python3 build_pages.py /tmp/nest-audit-pages-20261025
 ```
 

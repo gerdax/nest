@@ -1,7 +1,7 @@
 import { CardDeck } from '../engine/CardDeck.js';
 import { ChapterController } from '../chapter/ChapterController.js';
 import { cloneChapter, validateChapter } from '../chapter/model.js';
-import { InventoryStrip } from '../demo/InventoryStrip.js';
+import { InventoryStrip } from './InventoryStrip.js';
 import { acquireDock } from './dockOwnership.js';
 
 export class Preview {

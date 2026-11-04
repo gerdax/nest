@@ -32,7 +32,7 @@ test('Action markers show only positive upfront energy totals, never consequence
     assert.equal(face.summary,'Effects: Lose 2 energy');
     if (total>0) {
       assert.equal(marker(front).children[0].textContent,`-${total}`);
-      assert.equal(marker(front).children[1].children[0].attrs.src,'./assets/img/ui/hud-energy.png');
+      assert.equal(marker(front).children[1].children[0].attrs.src,'./assets/img/player-ui/hud-energy.png');
       assert.equal(marker(front).attrs['aria-label'],`Energy cost: ${total}`);
     } else assert.equal(marker(front),undefined);
   }
@@ -90,7 +90,7 @@ test('Health costs use the Health icon and remain distinct from progression loss
  const card={...createDefinition('action','health-cost'),costs:[{source:'variable',key:'health',amount:1},{source:'variable',key:'health',amount:2}],effects:[{op:'add',key:'health',value:-4}]};
  const face=cardFace(card),badge=marker(render(face));
  assert.equal(face.actionHealthCost,3);assert.equal(face.actionEnergyCost,0);
- assert.equal(badge.attrs['aria-label'],'Health cost: 3');assert.equal(badge.children[0].textContent,'-3');assert.equal(badge.children[1].children[0].attrs.src,'./assets/img/ui/hud-health.png');
+ assert.equal(badge.attrs['aria-label'],'Health cost: 3');assert.equal(badge.children[0].textContent,'-3');assert.equal(badge.children[1].children[0].attrs.src,'./assets/img/player-ui/hud-health.png');
  assert.equal(face.summary,'Effects: Lose 4 health');
  const noCost=cardFace({...card,costs:[]});assert.equal(marker(render(noCost)),undefined);
 });
@@ -99,7 +99,7 @@ test('mixed Health and Energy costs have separate signed amounts and matching ic
  const face=cardFace({...createDefinition('action','both'),costs:[energy(2),{source:'variable',key:'health',amount:1}]});
  const badge=marker(render(face));
  assert.equal(badge.attrs['aria-label'],'Health cost: 1, Energy cost: 2');
- assert.deepEqual(badge.children.map(child=>child.textContent??child.children[0].attrs.src),['-1','./assets/img/ui/hud-health.png','-2','./assets/img/ui/hud-energy.png']);
+ assert.deepEqual(badge.children.map(child=>child.textContent??child.children[0].attrs.src),['-1','./assets/img/player-ui/hud-health.png','-2','./assets/img/player-ui/hud-energy.png']);
 });
 
 test('retained action refreshes when only Health cost changes or disappears',()=>{
@@ -140,5 +140,5 @@ test('unavailable mixed-cost cards retain one independently tinted icon per reso
  const badge=marker(render({...face,disabled:true}));
  const icons=badge.children.filter(child=>child.className==='nest-action-cost-icon');
  assert.deepEqual(icons.map(icon=>icon.attrs['data-resource']),['health','energy']);
- assert.deepEqual(icons.map(icon=>icon.children[0].attrs.src),['./assets/img/ui/hud-health.png','./assets/img/ui/hud-energy.png']);
+ assert.deepEqual(icons.map(icon=>icon.children[0].attrs.src),['./assets/img/player-ui/hud-health.png','./assets/img/player-ui/hud-energy.png']);
 });

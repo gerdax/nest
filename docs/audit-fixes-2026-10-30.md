@@ -64,7 +64,7 @@ No installation or application build is required. With Node on PATH:
 
 ```sh
 npm test
-node --test demos/combat/tests/*.test.js demos/rat-dice-stack/tests/*.test.js
+(cd ../nest-prototypes-archive-2026-11-04 && node --test demos/combat/tests/*.test.js demos/rat-dice-stack/tests/*.test.js)
 node --expose-gc tests/benchmark-authoring.mjs
 python3 build_pages.py /tmp/nest-fixes-fresh-stage
 ```

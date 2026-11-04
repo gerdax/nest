@@ -122,31 +122,56 @@ test('catalog failures report inline and allow retry', async () => {
 
 test('Python image catalog is recursive, excludes source documents, and serves identical bytes', () => {
   const script = `
-import tempfile, threading, urllib.request
+import tempfile, threading, urllib.error, urllib.request
 from functools import partial
 from pathlib import Path
 from http.server import ThreadingHTTPServer
-from image_catalog import image_files, image_manifest, image_manifest_bytes
+from image_catalog import image_files, image_manifest, image_manifest_bytes, legacy_image_aliases
 from serve import PlaygroundHandler
 with tempfile.TemporaryDirectory() as folder:
-    root = Path(folder)
+    root = Path(folder).resolve()
     images = root / 'assets' / 'img'
     (images / 'nested folder').mkdir(parents=True)
     for name in ['a.png', 'source.psd', 'nested folder/a.png', 'nested folder/żółć.PNG']:
         (images / name).write_bytes(b'fixture')
     (images / 'outside.png').symlink_to(root / 'outside.png')
     (root / 'outside.png').write_bytes(b'fixture')
+    (images / 'card-art').mkdir()
+    (images / 'card-art' / 'new name.png').write_bytes(b'moved art')
+    (images / 'player-ui').mkdir()
+    (images / 'player-ui' / 'icon.svg').write_bytes(b'moved icon')
+    archive = root / 'assets' / 'legacy-images'
+    archive.mkdir()
+    (archive / 'archived.png').write_bytes(b'archived art')
+    (archive / 'a.png').write_bytes(b'must not shadow live file')
+    (archive / 'unsafe.png').symlink_to(images / 'a.png')
     paths = [entry['path'] for entry in image_manifest(root)['images']]
-    assert paths == ['a.png', 'nested folder/a.png', 'nested folder/żółć.PNG'], paths
-    assert len(image_files(root)) == 3
+    assert paths == ['a.png', 'card-art/new name.png', 'nested folder/a.png', 'nested folder/żółć.PNG', 'player-ui/icon.svg'], paths
+    assert len(image_files(root)) == 5
+    assert legacy_image_aliases(root) == {
+        images / 'archived.png': archive / 'archived.png',
+        images / 'new name.png': images / 'card-art' / 'new name.png',
+        images / 'ui' / 'icon.svg': images / 'player-ui' / 'icon.svg',
+    }
     with ThreadingHTTPServer(('127.0.0.1', 0), partial(PlaygroundHandler, directory=str(root))) as server:
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
-        address = 'http://127.0.0.1:' + str(server.server_port) + '/assets/image-manifest.json'
-        with urllib.request.urlopen(address) as response:
+        address = 'http://127.0.0.1:' + str(server.server_port) + '/assets/'
+        with urllib.request.urlopen(address + 'image-manifest.json') as response:
             assert response.read() == image_manifest_bytes(root)
             assert response.headers['Cache-Control'] == 'no-store'
             assert response.headers.get_content_type() == 'application/json'
+        for url, expected in [('new%20name.png', b'moved art'), ('ui/icon.svg', b'moved icon'),
+                              ('archived.png', b'archived art'), ('a.png', b'fixture')]:
+            with urllib.request.urlopen(address + 'img/' + url) as response:
+                assert response.read() == expected
+        for url, status in [('img/unsafe.png', 404), ('legacy-images/archived.png', 403)]:
+            try:
+                urllib.request.urlopen(address + url)
+            except urllib.error.HTTPError as error:
+                assert error.code == status, error
+            else:
+                raise AssertionError(url)
         server.shutdown()
         thread.join()
 `;

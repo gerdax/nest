@@ -45,7 +45,7 @@ for (const kind of ['health','energy']) {
    assert.equal(face.heading,card.name);assert.equal(face.value,4);
    const marker=element.children.find(n=>n.className==='nest-card-value');
    assert.equal(marker.children[0].textContent,'+4');
-   assert.equal(marker.children[1].attrs.src,`./assets/img/ui/hud-${kind}.png`);
+   assert.equal(marker.children[1].attrs.src,`./assets/img/player-ui/hud-${kind}.png`);
    assert.equal(marker.children[1].attrs['aria-hidden'],'true');
    assert.equal(marker.attrs['aria-label'],`${kind} +4`);
    assert.equal(element.children.find(n=>n.className==='nest-card-type').textContent,kind.toUpperCase());

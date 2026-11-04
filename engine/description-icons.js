@@ -1,10 +1,10 @@
 // Description text stays plain text until this rendering boundary. Icons reuse
 // the game's assets, inherit text colour, and never parse authored HTML.
 const icons = {
- '⚔':{id:'damage',label:'Damage',url:new URL('../assets/img/ui/damage.svg',import.meta.url).href},
- 'ϟ':{id:'energy',label:'Energy',url:new URL('../assets/img/ui/hud-energy.png',import.meta.url).href},
- '♥':{id:'health',label:'Health',url:new URL('../assets/img/ui/hud-health.png',import.meta.url).href},
- '⟳':{id:'round',label:'Combat round',url:new URL('../assets/img/ui/round.svg',import.meta.url).href}
+ '⚔':{id:'damage',label:'Damage',url:new URL('../assets/img/player-ui/damage.svg',import.meta.url).href},
+ 'ϟ':{id:'energy',label:'Energy',url:new URL('../assets/img/player-ui/hud-energy.png',import.meta.url).href},
+ '♥':{id:'health',label:'Health',url:new URL('../assets/img/player-ui/hud-health.png',import.meta.url).href},
+ '⟳':{id:'round',label:'Combat round',url:new URL('../assets/img/player-ui/round.svg',import.meta.url).href}
 };
 export function renderDescriptionIcons(element,text) {
  const value=String(text??'');

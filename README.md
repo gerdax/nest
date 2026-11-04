@@ -14,7 +14,7 @@ Health/Energy costs and common/success/failure progression effects. Open
 [player.html?example=rat](player.html?example=rat) for the non-saving
 [alternative rat encounter](docs/alternative-combat.md), or
 [the classic rat encounter](player.html?example=rat-classic) for the original
-Weapon pickup example. The isolated `demos/` remain preserved references.
+Weapon pickup example. The isolated combat and rat-dice-stack prototypes are preserved in the sibling directory `../nest-prototypes-archive-2026-11-04/demos`.
 
 Use [combat authoring](docs/combat.md) for current behavior. The dated combat
 specification and technical plan record earlier milestone scope. See the
@@ -113,7 +113,7 @@ Events:
 
 Hosts supply final continuation synchronously on accepted `collect` or `discard`. During a held last-item gesture the physical reverse is already underneath, but no host state changes or flip occur before acceptance. Async content can remain staged while the engine waits.
 
-`project/ProjectController.js` runs compiled project v3 chapters (with additive v1/v2 import upgrades), including action checks and single-item ownership inventory. `chapter/ChapterController.js` remains available for legacy JSON v1 integrations. The original playground and `demo/ScenarioController.js` remain as source references; they are excluded from the active staged runtime. `demo/InventoryStrip.js` renders the shared temporary inventory; include `demo/inventory.css` in hosts using it.
+`project/ProjectController.js` runs compiled project v3 chapters (with additive v1/v2 import upgrades), including action checks and single-item ownership inventory. `chapter/ChapterController.js` remains available for legacy JSON v1 integrations. The original playground and `playground/ScenarioController.js` remain as source references; they are excluded from the active staged runtime. `editor/InventoryStrip.js` renders the legacy inventory strip. Player and Studio share `studio/inventory.css`.
 
 ## Motion model
 

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DiceService, validatePool } from '../dice/DiceService.js';
+import { DiceService, validatePool } from '../assets/dice/DiceService.js';
 const container = { appendChild() {} };
 test('appearance options are validated and passed to the physical transport',async()=>{
   let received;

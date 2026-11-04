@@ -9,8 +9,8 @@ import shutil
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from image_catalog import image_files, image_manifest_bytes
-from runtime_catalog import DEBUG_ONLY_FILES, RUNTIME_FILES, RUNTIME_MODULE_DIRS
+from image_catalog import image_files, image_manifest_bytes, legacy_image_aliases
+from runtime_catalog import DEBUG_ONLY_FILES, DICE_DIR, DICE_LICENSE, DICE_SUFFIXES, RUNTIME_FILES, RUNTIME_MODULE_DIRS
 
 
 ROOT = Path(__file__).resolve().parent
@@ -47,8 +47,8 @@ def main() -> None:
 
     copied: set[Path] = set()
 
-    def copy_repo_file(relative: str) -> Path:
-        source = ROOT / relative
+    def copy_repo_file(relative: str, source: Path | None = None) -> Path:
+        source = ROOT / relative if source is None else source
         if not source.is_file():
             fail(f"required runtime file is missing: {relative}")
         target = output / relative
@@ -68,6 +68,7 @@ def main() -> None:
 
     # Runtime CSS and modules refer to these files through repository-relative URLs.
     text_sources = [ROOT / name for name in runtime_files if name.endswith((".css", ".js", ".html"))]
+    aliases = legacy_image_aliases(ROOT)
     assets: set[Path] = set()
     for source in text_sources:
         content = source.read_text(encoding="utf-8")
@@ -75,20 +76,25 @@ def main() -> None:
             filename = match.group(1)
             folder = "fonts" if filename.endswith(".ttf") else "img"
             asset = ROOT / filename if filename.startswith("assets/") else ROOT / "assets" / folder / filename
-            if not asset.is_file():
+            if not asset.is_file() and asset not in aliases:
                 fail(f"referenced runtime asset is missing: {asset.relative_to(ROOT)}")
             assets.add(asset)
     # Imported chapter JSON selects artwork dynamically even without the editor.
     # Publish usable images, keeping layered source documents out of the site.
     assets.update(image_files(ROOT))
+    assets.update(aliases)
     for source in sorted(assets):
         relative = source.relative_to(ROOT)
-        copy_repo_file(relative.as_posix())
+        copy_repo_file(relative.as_posix(), aliases.get(source))
 
     (output / "assets" / "image-manifest.json").write_bytes(image_manifest_bytes(ROOT))
 
-    for source in sorted((ROOT / "dice").rglob("*")):
-        if source.is_file():
+    dice_root = ROOT / DICE_DIR
+    for source in sorted(dice_root.rglob("*")):
+        relative = source.relative_to(dice_root)
+        if (source.is_file() and source.resolve() == source
+                and not any(part.startswith(".") for part in relative.parts)
+                and (relative.as_posix() == DICE_LICENSE or source.suffix.lower() in DICE_SUFFIXES)):
             copy_repo_file(source.relative_to(ROOT).as_posix())
     copy_repo_file("dice.html")
 
@@ -97,12 +103,13 @@ def main() -> None:
     missing: list[str] = []
     for staged in sorted(copied):
         source = ROOT / staged.relative_to(output)
-        if "vendor" in staged.relative_to(output).parts:
-            continue  # Third-party bundles use dynamic worker/asset URLs; copied intact.
         if source.suffix not in {".html", ".css", ".js"}:
             continue
         content = staged.read_text(encoding="utf-8")
         refs = [m.group(1) for m in IMPORT_RE.finditer(content)]
+        if "vendor" in staged.relative_to(output).parts:
+            # Bundled shader code can contain prose that matches IMPORT_RE.
+            refs = [ref for ref in refs if ref.startswith(("./", "../"))]
         if source.suffix == ".css":
             refs.extend(m.group(2) for m in URL_RE.finditer(content))
         if source.suffix == ".html":

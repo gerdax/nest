@@ -1,11 +1,11 @@
-import {diceAppearanceScale} from '../dice/appearance-scale.js';
+import {diceAppearanceScale} from '../assets/dice/appearance-scale.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 
 for (const floating of [false,true,'game']) test(`compact sizing and resize preserve physical scale without reroll, floating=${floating}`, async () => {
-  const url = new URL('../dice/frame.js', import.meta.url);
+  const url = new URL('../assets/dice/frame.js', import.meta.url);
   const source = await readFile(url, 'utf8');
   const tray = { clientWidth: floating ? 400 : 200, clientHeight: floating ? 240 : 120 };
   const canvas = {}, camera = {fov: .25};

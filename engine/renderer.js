@@ -219,7 +219,7 @@ export function decorateCard(deck, element, image, title, text, flipImage = fals
     amount.textContent = `${presentation.value >= 0 ? '+' : ''}${presentation.value ?? 0}`;
     value.setAttribute('aria-label', `${presentation.cardKind} ${amount.textContent}`);
     const icon = document.createElement('img');
-    icon.setAttribute('src', `./assets/img/ui/hud-${presentation.cardKind}.png`);
+    icon.setAttribute('src', `./assets/img/player-ui/hud-${presentation.cardKind}.png`);
     icon.setAttribute('alt', '');
     icon.setAttribute('aria-hidden', 'true');
     icon.draggable = false;
@@ -244,7 +244,7 @@ export function decorateCard(deck, element, image, title, text, flipImage = fals
       iconBox.className='nest-action-cost-icon';
       iconBox.setAttribute('data-resource',resource);
       const icon = document.createElement('img');
-      icon.setAttribute('src', `./assets/img/ui/hud-${resource}.png`);
+      icon.setAttribute('src', `./assets/img/player-ui/hud-${resource}.png`);
       icon.setAttribute('alt', '');
       icon.setAttribute('aria-hidden', 'true');
       icon.draggable = false;

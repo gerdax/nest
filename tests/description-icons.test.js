@@ -7,7 +7,7 @@ test('damage symbols render as tinted accessible custom vector icons between lit
  assert.equal(root.children.length,4);
  for(const i of [1,3]){
   const icon=root.children[i];assert.equal(icon.attrs['aria-label'],'Damage');assert.equal(icon.attrs.role,'img');
-  assert.equal(icon.style.backgroundColor,'currentColor');assert.match(icon.style.maskImage,/assets\/img\/ui\/damage.svg/);
+  assert.equal(icon.style.backgroundColor,'currentColor');assert.match(icon.style.maskImage,/assets\/img\/player-ui\/damage.svg/);
  }
  assert.equal(root.children[0].textContent,'2 ');assert.equal(root.children[2].textContent,' + 1 ');
 });
@@ -18,9 +18,9 @@ test('health and energy descriptions use the same image assets as HUD and card c
  const root=element();renderDescriptionIcons(root,'♥ 10 / ϟ 3 / ⚔ 2');
  const icons=root.children.filter(child=>child.attrs.role==='img');
  assert.deepEqual(icons.map(icon=>icon.attrs['aria-label']),['Health','Energy','Damage']);
- assert.match(icons[0].style.maskImage,/assets\/img\/ui\/hud-health.png/);
- assert.match(icons[1].style.maskImage,/assets\/img\/ui\/hud-energy.png/);
- assert.match(icons[2].style.maskImage,/assets\/img\/ui\/damage.svg/);
+ assert.match(icons[0].style.maskImage,/assets\/img\/player-ui\/hud-health.png/);
+ assert.match(icons[1].style.maskImage,/assets\/img\/player-ui\/hud-energy.png/);
+ assert.match(icons[2].style.maskImage,/assets\/img\/player-ui\/damage.svg/);
  assert.ok(icons.every(icon=>icon.style.backgroundColor==='currentColor'));
 });
 
@@ -28,6 +28,6 @@ test('combat round symbols use the circular arrow vector and inherit description
  const root=element();renderDescriptionIcons(root,'Lasts 2 ⟳');
  assert.equal(root.children[0].textContent,'Lasts 2 ');
  const icon=root.children[1];assert.equal(icon.attrs['aria-label'],'Combat round');
- assert.equal(icon.attrs.role,'img');assert.match(icon.style.maskImage,/assets\/img\/ui\/round.svg/);
+ assert.equal(icon.attrs.role,'img');assert.match(icon.style.maskImage,/assets\/img\/player-ui\/round.svg/);
  assert.equal(icon.style.backgroundColor,'currentColor');
 });

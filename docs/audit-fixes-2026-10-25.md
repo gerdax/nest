@@ -48,7 +48,7 @@ No package installation is needed. With Node on PATH:
 
 ```sh
 npm test
-node --test demos/combat/tests/*.test.js demos/rat-dice-stack/tests/*.test.js
+(cd ../nest-prototypes-archive-2026-11-04 && node --test demos/combat/tests/*.test.js demos/rat-dice-stack/tests/*.test.js)
 node docs/benchmarks/integrity-fixes-2026-10-25.mjs
 python3 build_pages.py /tmp/nest-fixes-fresh-pages
 ```

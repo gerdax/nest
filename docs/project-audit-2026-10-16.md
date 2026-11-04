@@ -101,7 +101,7 @@ Preview state notifications also call structural graph rendering (`studio/editor
 
 ## Dead code and compatibility
 
-No safe broad deletion list is established. `chapter/` and retained `editor/` modules serve v1 integrations; the playground and `demo/ScenarioController.js` are documented references. `dice/frame.js` is reached through its iframe document. A module absent from the active player/editor import graph can still serve a supported external or legacy entry point.
+No safe broad deletion list is established. `chapter/` and retained `editor/` modules serve v1 integrations; the playground and `playground/ScenarioController.js` are documented references. `dice/frame.js` is reached through its iframe document. A module absent from the active player/editor import graph can still serve a supported external or legacy entry point.
 
 Separate three categories in documentation and staging: active runtime, retained compatibility API, and preserved prototype/reference. Keep originals. Make compatibility support and its regression tests explicit before removing or excluding modules. Static staging currently includes legacy editor modules by policy, so bundle size alone does not justify deleting them.
 

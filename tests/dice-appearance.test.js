@@ -1,9 +1,9 @@
-import {diceAppearanceScale} from '../dice/appearance-scale.js';
+import {diceAppearanceScale} from '../assets/dice/appearance-scale.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
-import { DiceService } from '../dice/DiceService.js';
+import { DiceService } from '../assets/dice/DiceService.js';
 
 for (const color of ['black', 'light']) for (const throwSide of ['top', 'bottom']) {
   test(`explicit appearance reaches the transport: ${color}, ${throwSide}`, async () => {
@@ -39,7 +39,7 @@ for (const appearance of [{}, { color: 'black', throwSide: 'top' }, { color: 'li
 }
 
 async function frameConfig(search) {
-  const url = new URL('../dice/frame.js', import.meta.url);
+  const url = new URL('../assets/dice/frame.js', import.meta.url);
   const source = await readFile(url, 'utf8');
   let config;
   class FakeDiceBox { constructor(options) { config = options; } async init() {} }
@@ -58,18 +58,18 @@ test('frame maps local themes and keeps default random-edge configuration', asyn
     assert.equal(config.theme, theme);
     assert.equal(config.throwSide, side);
     assert.equal(Object.hasOwn(config, 'throwSide'), side !== undefined);
-    assert.match(config.externalThemes[theme], new RegExp(`/dice/themes/${theme}$`));
+    assert.match(config.externalThemes[theme], new RegExp(`/assets/dice/themes/${theme}$`));
   }
-  const config = JSON.parse(await readFile(new URL('../dice/themes/nest-black/theme.config.json', import.meta.url)));
+  const config = JSON.parse(await readFile(new URL('../assets/dice/themes/nest-black/theme.config.json', import.meta.url)));
   assert.equal(config.systemName, 'nest-black');
   assert.equal(config.material.diffuseTexture, 'numbers.png');
   assert.deepEqual(config.diceAvailable, ['d4', 'd6', 'd8', 'd10', 'd12', 'd20', 'd100']);
-  const png = await readFile(new URL(`../dice/themes/nest-black/${config.material.diffuseTexture}`, import.meta.url));
+  const png = await readFile(new URL(`../assets/dice/themes/nest-black/${config.material.diffuseTexture}`, import.meta.url));
   assert.deepEqual([...png.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
 });
 
 test('embedded Ammo spawn branch uses requested edges and preserves all default random branches', async () => {
-  const source = await readFile(new URL('../dice/vendor/dice-box/dice-box.es.js', import.meta.url), 'utf8');
+  const source = await readFile(new URL('../assets/dice/vendor/dice-box/dice-box.es.js', import.meta.url), 'utf8');
   const worker = Buffer.from(source.match(/const ml = "([^"]+)"/)[1], 'base64').toString();
   const spawn = worker.match(/fe=(\(\)=>\{.*?\}),Il=/)[1];
   const sequences = [

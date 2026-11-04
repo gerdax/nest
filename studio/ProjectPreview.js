@@ -1,7 +1,7 @@
 import { createError, errorCode } from '../errors.js';
 import { nextChapter } from '../project/chapter-navigation.js';
 import { CardDeck } from '../engine/CardDeck.js';
-import { DiceService } from '../dice/DiceService.js';
+import { DiceService } from '../assets/dice/DiceService.js';
 import { compileChapter, validateProject } from '../project/model.js';
 import { ProjectController } from '../project/ProjectController.js';
 import { chapterEntryState } from '../project/chapter-entry.js';
@@ -29,7 +29,7 @@ export class ProjectPreview {
     this.deckSettings = { ...deckSettings };
     this.presentationPolicy = { ...presentationPolicy };
     this.previewOverrides = previewOverrides;
-    this.root.innerHTML = '<section class="project-preview"><div class="chapter-preview-stage"><div class="player-resources" data-resources hidden><span class="player-resource" data-health aria-label="Health"><img src="./assets/img/ui/hud-health.png" alt=""><span data-health-value></span></span><span class="player-resource" data-energy aria-label="Energy"><span data-energy-value></span><img src="./assets/img/ui/hud-energy.png" alt=""></span></div><div class="chapter-preview-card-area"><div class="chapter-preview-card-layout"><div class="chapter-preview-deck" tabindex="0"></div></div></div><section data-action-context></section></div><div class="preview-status-row"><p data-status role="status" hidden></p></div><footer class="preview-footer" data-preview-footer><details data-state hidden><summary>Run state</summary><pre></pre></details><div data-preview-actions></div></footer><section data-inventory></section><section class="check-surface" data-check-surface hidden aria-label="Action check"><div class="check-tray"></div><div class="check-result" data-result role="status" aria-live="polite"></div></section></section>';
+    this.root.innerHTML = '<section class="project-preview"><div class="chapter-preview-stage"><div class="player-resources" data-resources hidden><span class="player-resource" data-health aria-label="Health"><img src="./assets/img/player-ui/hud-health.png" alt=""><span data-health-value></span></span><span class="player-resource" data-energy aria-label="Energy"><span data-energy-value></span><img src="./assets/img/player-ui/hud-energy.png" alt=""></span></div><div class="chapter-preview-card-area"><div class="chapter-preview-card-layout"><div class="chapter-preview-deck" tabindex="0"></div></div></div><section data-action-context></section></div><div class="preview-status-row"><p data-status role="status" hidden></p></div><footer class="preview-footer" data-preview-footer><details data-state hidden><summary>Run state</summary><pre></pre></details><div data-preview-actions></div></footer><section data-inventory></section><section class="check-surface" data-check-surface hidden aria-label="Action check"><div class="check-tray"></div><div class="check-result" data-result role="status" aria-live="polite"></div></section></section>';
     this.mount = root.querySelector('.chapter-preview-deck');
     this.nextChapterButton = document.createElement('button');
     this.nextChapterButton.type = 'button';

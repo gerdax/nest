@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { ProjectPreview } from '../studio/ProjectPreview.js';
 import { Preview } from '../editor/preview.js';
 import { ProjectController } from '../project/ProjectController.js';
-import { DiceService } from '../dice/DiceService.js';
+import { DiceService } from '../assets/dice/DiceService.js';
 import { createProject, compileChapter } from '../project/model.js';
 import { createDefinition } from '../project/cards.js';
 import { PreviewOverrides } from '../studio/preview-overrides.js';

@@ -27,10 +27,11 @@ RUNTIME_FILES = (
     "engine/cssScale.js",
     "engine/cardSizing.js",
     "engine/card-deck.css",
-    "demo/InventoryStrip.js",
-    "demo/inventory.css",
 )
 # Preserve this developer tool in source; no active host imports it.
 DEBUG_ONLY_FILES = frozenset({"studio/drawer-debug.js"})
 
 RUNTIME_MODULE_DIRS = ("chapter", "editor", "player", "project", "studio")
+DICE_DIR = "assets/dice"
+DICE_SUFFIXES = frozenset({".js", ".html", ".json", ".wasm", ".png"})
+DICE_LICENSE = "vendor/dice-box/LICENSE"

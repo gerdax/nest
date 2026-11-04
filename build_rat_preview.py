@@ -13,7 +13,7 @@ import sys
 from urllib.parse import unquote, urlsplit
 
 from build_pages import IMPORT_RE, URL_RE
-from image_catalog import image_manifest_bytes
+from image_catalog import IMAGE_SUFFIXES, image_manifest_bytes
 
 ROOT = Path(__file__).resolve().parent
 SOURCE = ROOT / "saved-projects/rat-alternative.json"
@@ -107,7 +107,7 @@ def main() -> None:
             retain("assets/img/" + match.group(1))
     image_root = output / "assets/img"
     for image in image_root.rglob("*"):
-        if image.is_file() and image.resolve() not in keep:
+        if image.is_file() and image.suffix.lower() in IMAGE_SUFFIXES and image.resolve() not in keep:
             image.unlink()
     for directory in sorted(image_root.rglob("*"), key=lambda p: len(p.parts), reverse=True):
         if directory.is_dir() and not any(directory.iterdir()):

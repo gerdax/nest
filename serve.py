@@ -7,11 +7,11 @@ import ipaddress
 import json
 import re
 from pathlib import Path
-from urllib.parse import parse_qsl, urlsplit
+from urllib.parse import parse_qsl, quote, urlsplit
 
-from image_catalog import IMAGE_SUFFIXES, image_manifest_bytes
+from image_catalog import IMAGE_SUFFIXES, image_manifest_bytes, legacy_image_source
 from project_file_store import InvalidProject, MAX_PROJECT_BYTES, ProjectFileStore
-from runtime_catalog import DEBUG_ONLY_FILES, RUNTIME_FILES, RUNTIME_MODULE_DIRS
+from runtime_catalog import DEBUG_ONLY_FILES, DICE_DIR, DICE_LICENSE, DICE_SUFFIXES, RUNTIME_FILES, RUNTIME_MODULE_DIRS
 
 
 def public_file(path):
@@ -26,11 +26,13 @@ def public_file(path):
     if parts[0] in RUNTIME_MODULE_DIRS and len(parts) == 2:
         return suffix in {'.js', '.css'}
     if parts[:2] == ('assets', 'img'):
-        return suffix in IMAGE_SUFFIXES
+        return suffix in IMAGE_SUFFIXES or (parts[:4] == ('assets', 'img', 'player-ui', 'fonts') and suffix == '.ttf')
     if parts[:2] == ('assets', 'fonts'):
         return suffix == '.ttf'
     if parts[0] == 'dice':
         return name == 'dice/vendor/dice-box/LICENSE' or suffix in IMAGE_SUFFIXES | {'.js', '.html', '.json', '.wasm'}
+    if name.startswith(DICE_DIR + '/'):
+        return name == f'{DICE_DIR}/{DICE_LICENSE}' or suffix in DICE_SUFFIXES
     # Browser-facing developer fixtures use the same local server as the app.
     return parts[:2] == ('tests', 'fixtures') and suffix in {'.html', '.js', '.css', '.json'}
 
@@ -188,6 +190,15 @@ class PlaygroundHandler(SimpleHTTPRequestHandler):
         if not allowed:
             self.send_error(403, 'Path is outside the public runtime')
             return None
+        if not candidate.exists() and (images := root / 'assets' / 'img') in candidate.parents:
+            source = legacy_image_source(root, candidate.relative_to(images))
+            if source is not None and not is_storage_path(source, self.project_store.directory):
+                original_path = self.path
+                try:
+                    self.path = '/' + quote(source.relative_to(root).as_posix())
+                    return super().send_head()
+                finally:
+                    self.path = original_path
         return super().send_head()
 
     def list_directory(self, path):

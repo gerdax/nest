@@ -24,8 +24,8 @@ test('authored config validation reports malformed objects and individual fields
 test('missing or malformed config uses the layered UI assets', () => {
   for (const cardBack of [undefined, null, false, true, [], 'custom.png']) {
     const appearance = resolveBackAppearance({ cardBack });
-    assert.equal(appearance.background, './assets/img/ui/cardback.png');
-    assert.equal(appearance.icons.default, './assets/img/ui/default.png');
+    assert.equal(appearance.background, './assets/img/player-ui/cardback.png');
+    assert.equal(appearance.icons.default, './assets/img/player-ui/default.png');
     assert.equal(appearance.iconScale, 1);
   }
 });
@@ -47,8 +47,8 @@ test('invalid active appearance fields fall back', () => {
   for (const invalid of [NaN, Infinity, -1, '0.2', null]) {
     const appearance = resolveBackAppearance({ cardBack: { iconScale: invalid, switchProgress: invalid, background: ' ', icons: { default: false } } });
     assert.equal(appearance.iconScale, 1);
-    assert.equal(appearance.background, './assets/img/ui/cardback.png');
-    assert.deepEqual(appearance.icons, { default: './assets/img/ui/default.png' });
+    assert.equal(appearance.background, './assets/img/player-ui/cardback.png');
+    assert.deepEqual(appearance.icons, { default: './assets/img/player-ui/default.png' });
   }
   assert.ok(resolveBackAppearance(null));
 });
