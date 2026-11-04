@@ -95,6 +95,11 @@ export class CombatCoordinator {
  }
  async showChoices(){
   if(!this.active())return;
+  // A fresh player choice begins after the enemy's response, even if it did not attack.
+  if(this.opposed){
+   this.playerDefense=null;
+   this.encounter={...this.encounter,guard:0};
+  }
   this.resume={kind:'choices'};this.sequence=null;
   if(this.opposed&&!this.declaration)this.nextDeclaration??=this.sampleEnemyDeclaration();
   if(!this.setPhase('player-enter'))return;const content=this.choiceContent();

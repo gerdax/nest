@@ -92,6 +92,24 @@ test('Defense retains the authored Skip response against a prepared Dodge',async
  assert.equal(h.rolls.length,0);assert.equal(h.deck.content.text,'The rat holds its ground');assert.equal(h.c.phase,'effects');
  assert.equal(h.host.variables.energy,2);assert.equal(h.c.encounter.preparationBonus,0);assert.equal(h.c.encounter.enemyHp,8);h.c.dispose();
 });
+test('Defend expires before the next player choice when Rat prepares instead of attacking',async()=>{
+ const h=harness();await prepared(h);
+ h.samples.push(.75,0);
+ await select(h,'Defend');
+ await swipe(h);
+ assert.equal(h.deck.content.heading,'The rat prepares…');
+ await swipe(h);
+ assert.equal(h.c.phase,'choice');
+ assert.equal(h.c.playerDefense,null);
+ assert.equal(h.c.state.guard,0);
+ await select(h,'Preparation');
+ assert.equal(h.c.pending.actor,'enemy');
+ assert(h.c.pending.damage>0);
+ await swipe(h);
+ assert(h.host.variables.health<10);
+ assert.deepEqual(h.errors,[]);
+ h.c.dispose();
+});
 for(const next of ['attack','prepare'])test(`Preparation against Dodge bypasses Skip and enters the next rat ${next}`,async()=>{
  const h=harness();await prepared(h);
  const shown=[],replace=h.deck.replaceContent.bind(h.deck),transition=h.deck.transitionContent.bind(h.deck);
