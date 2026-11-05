@@ -1,8 +1,10 @@
 # Comparing player effects on a phone
 
-The standalone player includes **Performance comparison · effects** inside **Controls**, at the bottom-right of the playfield. This is a session-only diagnostic panel; the original appearance is the default. It does not change projects, exported JSON, motion settings, or the editor. Reload restores Original effects. `player.html?perf=1#performance-mode` opens the panel directly.
+The standalone player includes **Performance comparison · effects** inside **Controls**, at the bottom-right of the playfield. This is a session-only diagnostic panel; Raster PNG is the default shadow mode. It does not change projects, exported JSON, motion settings, or the editor. Reload enables all effects with Raster PNG. `player.html?perf=1#performance-mode` opens the panel directly.
 
-**Original effects** enables every effect. **Light effects** disables all five effects. Individual checkboxes disable card shadows, artwork colorization, paper texture, the masked rim, and inventory backdrop blur. The controls affect CSS rendering only: shadow calculations, DOM updates, gesture sampling, source asset sizes, and motion physics remain the same. Thus this first comparison isolates visual effect cost rather than every potential source of work. It does not yet test smaller textures or one-render-per-frame input scheduling.
+**Original effects** enables every effect. **Light effects** disables all five effects. Individual checkboxes disable card shadows, artwork colorization, paper texture, the masked rim, and inventory backdrop blur. The effect checkboxes control CSS rendering. Shadow rendering also selects how the renderer supplies shadows. Gesture sampling and motion physics remain the same. The comparison does not test smaller artwork textures or one-render-per-frame input scheduling.
+
+**Shadow rendering** offers **Dynamic CSS · original**, **Static CSS**, and **Raster PNG** while Shadows is enabled. Dynamic CSS changes blur and offset with card elevation. Static CSS retains the CSS edge shading with a fixed soft shadow. Raster PNG uses a transparent nine-slice image around the card with a fixed footprint. Both fixed variants avoid updating shadow blur during motion. All variants follow the card's existing transforms. Reports record the selected variant, and changing it ends the current recording. Original effects restores Dynamic CSS. Reload restores the default settings.
 
 ## A52 comparison procedure
 

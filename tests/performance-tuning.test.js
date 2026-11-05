@@ -70,7 +70,7 @@ test('effects use session CSS flags, preserve preview state, and clean up listen
   for (const effect of effectControls) assert.equal(f.doc.documentElement.classList.contains(effect.className), true);
   assert.equal(JSON.stringify(f.preview), saved);
   f.click('original');
-  assert.ok(f.nodes.get('controls').children.every(row => row.children[0].checked));
+  assert.ok(f.nodes.get('controls').children.filter(row => row.className === 'performance-effect').every(row => row.children[0].checked));
   const checkbox = f.nodes.get('controls').children[0].children[0];
   checkbox.checked = false; checkbox.dispatchEvent(new Event('change'));
   assert.equal(f.doc.documentElement.classList.contains('nest-perf-no-shadows'), true);
@@ -93,6 +93,31 @@ test('recording excludes idle gaps, busy dice waits, and deck replacements', () 
   assert.match(f.nodes.get('report').value, /not device profiling/);
   assert.equal(f.frames.size, 0); assert.equal(f.timers.size, 0);
   f.cleanup();
+});
+
+test('shadow variants interrupt recordings and preserve their mode in reports', () => {
+  const f = fixture();
+  const row = f.nodes.get('controls').children.find(row => row.className === 'performance-shadow-mode');
+  const select = row.children[1];
+  assert.equal(select.value, 'raster');
+  assert.equal(f.doc.documentElement.dataset.performanceShadowMode, 'raster');
+  select.value = 'static';
+  select.dispatchEvent(new Event('change'));
+  assert.equal(f.doc.documentElement.dataset.performanceShadowMode, 'static');
+  f.click('record');
+  f.tick(0); f.tick(16);
+  select.value = 'raster';
+  select.dispatchEvent(new Event('change'));
+  assert.match(f.nodes.get('report').value, /Shadow rendering: static/);
+  assert.equal(f.frames.size, 0);
+  assert.equal(f.doc.documentElement.dataset.performanceShadowMode, 'raster');
+  f.click('record');
+  f.tick(32); f.tick(48); f.expire();
+  assert.match(f.nodes.get('report').value, /Shadow rendering: raster/);
+  f.click('original');
+  assert.equal(select.value, 'dynamic');
+  f.cleanup();
+  assert.equal(f.doc.documentElement.dataset.performanceShadowMode, undefined);
 });
 
 test('effect changes, visibility and manual stop interrupt; prior comparison reports remain', () => {

@@ -37,6 +37,21 @@ export function mountPerformanceTuning(root, preview) {
   const recordButton = root.querySelector('[data-performance-record]');
   const stopButton = root.querySelector('[data-performance-stop]');
   const fields = new Map();
+  const shadowRow = doc.createElement('label');
+  shadowRow.className = 'performance-shadow-mode';
+  const shadowLabel = doc.createElement('span');
+  shadowLabel.textContent = 'Shadow rendering';
+  const shadowMode = doc.createElement('select');
+  shadowMode.dataset.performanceShadowMode = '';
+  for (const [value, label] of [['dynamic', 'Dynamic CSS · original'], ['static', 'Static CSS'], ['raster', 'Raster PNG']]) {
+    const option = doc.createElement('option');
+    option.value = value;
+    option.textContent = label;
+    shadowMode.append(option);
+  }
+  shadowMode.value = 'raster';
+  shadowRow.append(shadowLabel, shadowMode);
+
   const listeners = [];
   const reports = [];
   let recording = null;
@@ -63,6 +78,7 @@ export function mountPerformanceTuning(root, preview) {
       'Nest effect comparison — active animation/input RAF cadence estimate',
       `Result: ${reason}`,
       `Effects enabled: ${effectControls.filter(({ key }) => run.effects[key]).map(({ label }) => label).join(', ') || 'none'}`,
+      `Shadow rendering: ${run.shadowMode}`,
       `User agent: ${run.userAgent}`,
       `Viewport: ${run.width} × ${run.height}; DPR: ${run.dpr}`,
       `Chapter: ${run.chapter}; choice cards at start: ${run.cardCount}`,
@@ -83,7 +99,15 @@ export function mountPerformanceTuning(root, preview) {
   };
   const apply = () => {
     for (const { key, className } of effectControls) classes.toggle(className, !fields.get(key).checked);
+    doc.documentElement.dataset.performanceShadowMode = shadowMode.value;
+    shadowMode.disabled = !fields.get('shadows').checked;
+    preview.deck?.render?.();
   };
+  listen(shadowMode, 'change', () => {
+    finish('interrupted: shadow rendering changed');
+    apply();
+    status.textContent = 'Shadow rendering updated for this session.';
+  });
   for (const { key, label, help } of effectControls) {
     const row = doc.createElement('label');
     row.className = 'performance-effect';
@@ -104,9 +128,11 @@ export function mountPerformanceTuning(root, preview) {
       status.textContent = 'Effects updated for this session. Earlier reports keep their recorded settings.';
     });
   }
+  controls.append(shadowRow);
   const preset = enabled => {
     finish('interrupted: preset changed');
     for (const input of fields.values()) input.checked = enabled;
+    shadowMode.value = 'dynamic';
     apply();
     status.textContent = enabled ? 'Current effects enabled.' : 'Light preset enabled.';
   };
@@ -117,7 +143,7 @@ export function mountPerformanceTuning(root, preview) {
     if (doc.hidden) { status.textContent = 'Show this page before recording.'; return; }
     const run = {
       intervals: [], previous: null, frame: 0, timer: 0,
-      effects: selectedEffects(), userAgent: win.navigator.userAgent,
+      effects: selectedEffects(), shadowMode: fields.get('shadows').checked ? shadowMode.value : 'off', userAgent: win.navigator.userAgent,
       width: win.innerWidth, height: win.innerHeight, dpr: win.devicePixelRatio,
       chapter: preview.chapterId || 'unavailable', cardCount: preview.deck?.cards?.length ?? 'unavailable',
     };
@@ -154,6 +180,8 @@ export function mountPerformanceTuning(root, preview) {
     disposed = true;
     for (const remove of listeners) remove();
     for (const { className } of effectControls) classes.remove(className);
+    delete doc.documentElement.dataset.performanceShadowMode;
+    preview.deck?.render?.();
     controls.replaceChildren();
   };
 }

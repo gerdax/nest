@@ -571,7 +571,13 @@ function applyPose(deck, element, layer, pose, order, shadow = true) {
   layer.style.perspective = `${deck.settings.perspective}px`;
   // Elevation changes the footprint of the shadow, never the card's opacity.
   const elevation = Math.max(0, pose.z + 24*(deck.settings.layoutScale??1));
-  element.style.boxShadow = shadow
+  const shadowMode = document.documentElement?.dataset?.performanceShadowMode;
+  if (shadowMode === 'static' || shadowMode === 'raster') {
+    element.style.boxShadow = shadow && shadowMode === 'static'
+      ? 'var(--card-edge-strata), 0 8px 18px #000b'
+      : 'var(--card-edge-strata, none)';
+    element.setAttribute('data-shadow-visible', String(shadow));
+  } else element.style.boxShadow = shadow
     ? `var(--card-edge-strata, 0 2px 0 #29301c), 0 ${8*(deck.settings.layoutScale??1) + elevation * .16}px ${18*(deck.settings.layoutScale??1) + elevation * .4}px #000b`
     : 'var(--card-edge-strata, none)';
 }
