@@ -1,0 +1,52 @@
+import { createError } from '../errors.js';
+import { compileChapter } from '../project/model.js';
+import { initialValues, inventoryQuantity, transact } from '../project/state.js';
+import { newRule, normalizeRule } from './commands.js';
+import { eligibleInventoryItems } from './item-options.js';
+
+/** Authored beat-entry effects, saved as part of each node. */
+export class PreviewOverrides {
+ effects(project, chapter, node) { return node ? structuredClone(node.entryEffects || []) : []; }
+ nodeEntryEffects(project, chapter) {
+  if(project.ignoreAllOverrides===true)return {};
+  const items=eligibleInventoryItems(project,chapter);
+  return Object.fromEntries(chapter.nodes.flatMap(node=>{
+   const effects=this.effects(project,chapter,node);
+   for(const effect of effects)if(['addItem','removeItem'].includes(effect.op)&&!items.some(item=>item.id===effect.key))
+    throw createError('STUDIO_OVERRIDE_ITEM_IS_UNAVAILABLE_IN_THIS_CHAPTER');
+   return effects.length?[[node.id,effects]]:[];
+  }));
+ }
+ update(project, chapter, node, {command, path, index, value, inputType}) {
+  if(!project.chapters.includes(chapter)||!chapter.nodes.includes(node)||node.type==='death')throw new Error('Select a non-Death beat to edit overrides.');
+  const effects=this.effects(project,chapter,node);
+  if(command==='clear-overrides')effects.length=0;
+  else if(command==='add-rule') {
+   effects.push(newRule(project,'effects',chapter));
+  } else if(command==='remove-rule')effects.splice(Number(index),1);
+  else {
+   const match=/^effects\.(\d+)\.(op|key|value)$/.exec(path||'');
+   if(!match||!effects[Number(match[1])])throw createError('STUDIO_UNKNOWN_PREVIEW_OVERRIDE');
+   const rule=effects[Number(match[1])],leaf=match[2];
+   rule[leaf]=inputType==='number'?Number(value):leaf==='value'&&['true','false'].includes(value)?value==='true':value;
+   if(['op','key'].includes(leaf))normalizeRule(project,rule,leaf,chapter);
+  }
+  if(effects.length)node.entryEffects=effects;else delete node.entryEffects;
+ }
+ initialState(project, chapter, node) {
+  if(project.ignoreAllOverrides===true)return null;
+  const effects=this.effects(project,chapter,node);
+  if(!effects.length)return null;
+  const compiled=compileChapter(project,chapter.id,{additionalDefinitionIds:effects.filter(effect=>effect.op==='addItem').map(effect=>effect.key)});
+  const items=eligibleInventoryItems(project,chapter);
+  let state={variables:initialValues(compiled.variables),inventory:[]};
+  for(const effect of effects) {
+   if(['addItem','removeItem'].includes(effect.op)) {
+    if(!items.some(item=>item.id===effect.key))throw createError('STUDIO_OVERRIDE_ITEM_IS_UNAVAILABLE_IN_THIS_CHAPTER');
+    if(effect.op==='removeItem'&&!inventoryQuantity(state.inventory,effect.key))continue;
+   }
+   state=transact(state.variables,state.inventory,{effects:[effect]},compiled.variables,compiled.library);
+  }
+  return state;
+ }
+}
