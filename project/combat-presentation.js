@@ -18,15 +18,16 @@ export function enemyActionCard(action,id,context={}) {
 }
 
 
-export function combatChoices(choices,id,values={},definitions=[],{animateItemActions=true,preparationBonus=0,unavailableActions='disabled'}={}) {
+export function combatChoices(choices,id,values={},definitions=[],{animateItemActions=true,preparationBonus=0,unavailableActions='disabled',showWeaponActionsOnCooldown=true}={}) {
  const showRules=['disabled','disabled-triggers'].includes(unavailableActions);
- choices=choices.filter(choice=>!choice.disabled||showRules);
+ const weaponCooldown = choice => Boolean(choice.source && choice.cooldownOnly);
+ choices=choices.filter(choice=>!choice.disabled||(weaponCooldown(choice)?showWeaponActionsOnCooldown:showRules));
  const ordered=[...choices.filter(choice=>!(choice.cooldownRemaining>0)&&choice.source),...choices.filter(choice=>!(choice.cooldownRemaining>0)&&!choice.source),...choices.filter(choice=>choice.cooldownRemaining>0)];
  return {id,interaction:'choice',decisionOnly:true,allowClose:false,autoBrowse:true,actions:ordered.map(choice=>{
   const {action,source}=choice;
   const c=action.resolution==='direct'?null:checkOdds(action.check,values);
   const displayedPreparationBonus=choice.disabled?0:preparationBonus;
   const prepared=displayedPreparationBonus>0&&(action.type??'attack')==='attack';
-  return {id:choice.id,label:action.name,heading:action.name,cardKind:'action',prepared,typeLabel:prepared?'PREPARED':(action.type??'attack').toUpperCase(),...art(action),text:resolveDescription(action.text??'',{card:action,source,values,variables:definitions,preparationBonus:displayedPreparationBonus}).text,actionEnergyCost:actionEnergyCost(action),actionHealthCost:actionHealthCost(action),summary:'',disabled:choice.disabled,disabledReason:choice.disabledReason,...(c?{checkTarget:diceCheckTarget(c),checkInfo:{stat:action.check?.modifierVariable?statRollLabel(action.check,definitions):'ATTACK',chance:String(c.probability*100),label:checkChanceLabel(c.probability),formula:''}}:{}),...(source?{contextItemId:source.definitionId??source.id,contextInventoryKey:source.inventoryKey??source.id,inventoryLabel:`USING · ${source.name}`,entrance:animateItemActions&&!choice.disabled?'from-top':undefined}:{})};
+  return {id:choice.id,label:action.name,heading:action.name,cardKind:'action',prepared,typeLabel:prepared?'PREPARED':(action.type??'attack').toUpperCase(),...art(action),text:resolveDescription(action.text??'',{card:action,source,values,variables:definitions,preparationBonus:displayedPreparationBonus}).text,actionEnergyCost:actionEnergyCost(action),actionHealthCost:actionHealthCost(action),summary:'',disabled:choice.disabled,disabledReason:choice.disabledReason,...(weaponCooldown(choice)?{disabledIcon:'round'}:{}),...(c?{checkTarget:diceCheckTarget(c),checkInfo:{stat:action.check?.modifierVariable?statRollLabel(action.check,definitions):'ATTACK',chance:String(c.probability*100),label:checkChanceLabel(c.probability),formula:''}}:{}),...(source?{contextItemId:source.definitionId??source.id,contextInventoryKey:source.inventoryKey??source.id,inventoryLabel:`USING · ${source.name}`,entrance:animateItemActions&&!choice.disabled?'from-top':undefined}:{})};
  })};
 }

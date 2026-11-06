@@ -218,7 +218,7 @@ function refreshNodeErrors(issues=validateProject(project)){
 function renderGraph(issues){
  if(mode==='chapter'){
   if(project.showDeathBeat===false&&node()?.type==='death'){selected=chapter().startNode;graph.selectedIds=new Set([selected]);}
-  graph.overrideNodeIds=new Set(chapter().nodes.filter(n=>previewOverrides.effects(project,chapter(),n).length || (['fork','linear','combat'].includes(n.type)&&n.unavailableActions&&n.unavailableActions!=='project')).map(n=>n.id));
+  graph.overrideNodeIds=new Set(chapter().nodes.filter(n=>previewOverrides.effects(project,chapter(),n).length || (['fork','linear','combat'].includes(n.type)&&n.unavailableActions&&n.unavailableActions!=='project') || (n.type==='combat'&&['show','hide'].includes(n.weaponCooldownVisibility))).map(n=>n.id));
   refreshNodeErrors(issues);
   graph.selectedGroupId=selectedGroup()?.id;
   graph.render(project,chapter(),selected,previewActiveNode(preview,chapter()));

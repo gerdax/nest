@@ -124,7 +124,8 @@ export function combatDefinitionFields(project,d){
  html+='<h3>Health reactions</h3><p class="small">At or below this percentage of starting health. If multiple thresholds are crossed, only the strongest reaction is shown.</p>'+(d.reactions||[]).map((r,i)=>orderedEntry(`<details class="entry" open><summary>${Number((r.threshold.numerator/r.threshold.denominator*100).toFixed(6))}% · ${esc(r.card?.name||'Reaction')}</summary>${field('Remaining health threshold (%)',Number((r.threshold.numerator/r.threshold.denominator*100).toFixed(6)),`reactions.${i}.threshold.percent`,'definition','number')}<div class="row">${field('Threshold numerator',r.threshold.numerator,`reactions.${i}.threshold.numerator`,'definition','number')}${field('Threshold denominator',r.threshold.denominator,`reactions.${i}.threshold.denominator`,'definition','number')}</div>${embeddedCard(r.card,`reactions.${i}.card`,d.id,{kinds:['caption','event'],collapsible:false})}</details>`,'reactions',i,d.reactions.length,{label:'health reaction'})).join('')+add('Add health reaction','reactions','reaction');
  return html+'<h3>Enemy death</h3>'+embeddedCard(d.death?.[0],'death.0',d.id,{kinds:['event','caption'],heading:d.death?.[0]?.name||'Death',fixedLabel:true});
 }
-export function combatProjectFields(project){return checkbox('Show death beat in chapter graph',project.showDeathBeat!==false,'showDeathBeat','project');}
+export function combatProjectFields(project){return checkbox('Show death beat in chapter graph',project.showDeathBeat!==false,'showDeathBeat','project')
+ +checkbox('Show weapon actions on cooldown',project.showWeaponActionsOnCooldown!==false,'showWeaponActionsOnCooldown','project');}
 export function combatNodeFields(project,node){
  const enemy=project.library.find(d=>d.id===node.enemy?.definitionId&&d.kind==='enemy'&&d.visibility!=='local');
  return select('Enemy',node.enemy?.definitionId||'',[['','None'],...refs(project,'enemy').slice(1)],'enemy.definitionId','node')

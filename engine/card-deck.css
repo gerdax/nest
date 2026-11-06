@@ -340,6 +340,9 @@
   pointer-events: none;
 }
 .nest-card[data-action-disabled="true"] .nest-unavailable-icon { display: block; }
+.nest-card[data-disabled-icon="round"] .nest-unavailable-icon {
+  background-image: url('../assets/img/player-ui/cooling.png');
+}
 
 .nest-card[data-card-kind="health"] .nest-card-value { --unavailable-value-icon: url('../assets/img/player-ui/hud-health.png'); }
 .nest-card[data-action-disabled="true"] .nest-card-value::after {width:1.14em;height:1.14em;}

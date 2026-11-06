@@ -448,7 +448,7 @@ test('cooling Weapon Actions move last and return to their stable front position
  await select(h,'Burst');await swipe(h);await swipe(h);
  assert.equal(h.c.phase,'choice');assert.equal(labels().at(-1),'Burst');
  const cooling=h.deck.content.actions.at(-1);
- assert.equal(cooling.disabled,true);assert.equal(cooling.disabledReason,'READY IN NEXT⟳');
+ assert.equal(cooling.disabled,true);assert.equal(cooling.disabledReason,'READY NEXT ⟳');
  assert(h.deck.content.actions.every(action=>action.entrance===undefined));
  await useDirect(h,'Wait');await swipe(h);
  assert.equal(h.c.phase,'choice');assert.deepEqual(labels().slice(0,2),['Shoot','Burst']);

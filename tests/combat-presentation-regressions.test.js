@@ -4,7 +4,8 @@ import assert from 'node:assert/strict';
 import {combatChoices} from '../project/combat-presentation.js';
 import {playerChoices,checkOdds} from '../project/combat-rules.js';
 import {createRatCombatProject} from '../project/combat-fixture.js';
-import {compileChapter} from '../project/model.js';
+import {compileChapter,exportChapter,parseProject} from '../project/model.js';
+import {CombatCoordinator} from '../project/CombatCoordinator.js';
 
 for(const [name,check,values,formula] of [
  ['custom positive',{pool:[{count:2,sides:6},{count:1,sides:4}],modifier:2,modifierVariable:'energy',target:12},{energy:3},''],
@@ -137,7 +138,7 @@ test('source action entrances default to enabled and can be suppressed on later 
 
 test('unavailable attacks show their base card while preparation remains active',()=>{
  const action={id:'attack',kind:'combatAction',name:'Attack',type:'attack',resolution:'direct',attack:{source:'self',damage:{min:2,max:2}},text:'[DMG][IF:PREPARED] aimed[ENDIF]'};
- for(const disabledReason of ['READY IN NEXT⟳','Not enough energy','Requirement not met']){
+ for(const disabledReason of ['READY NEXT ⟳','Not enough energy','Requirement not met']){
   const choices=[{id:'attack',action,disabled:true,disabledReason}];
   const shown=combatChoices(choices,'choices',{},[],{preparationBonus:2}).actions[0];
   assert.equal(shown.prepared,false);
@@ -176,4 +177,40 @@ test('owned prepared action previews preserve mechanics when rendering as a Capt
  const preview=combatCard(action,'preview',{enemy:true});
  const runtime=enemyActionCard(action,'runtime');
  assert.equal(preview.text,'Deals 3; costs 0.');assert.equal(preview.text,runtime.text);
+});
+
+
+test('weapon cooldown visibility follows project and Combat overrides, independently of other blockers',()=>{
+ const project=createRatCombatProject();
+ const node=project.chapters[0].nodes.find(node=>node.id==='rat-fight');
+ const burst=project.library.find(definition=>definition.id==='pistol').combat.actions.find(action=>action.name==='Burst');
+ burst.costs=[{source:'variable',key:'energy',amount:2}];
+ const presented=(energy)=>{
+  const restored=parseProject(JSON.stringify(exportChapter(project)));
+  const compiled=compileChapter(restored);
+  const combatNode=compiled.nodes.find(node=>node.id==='rat-fight');
+  const pistol=compiled.library.find(definition=>definition.id==='pistol');
+  const enemy=compiled.library.find(definition=>definition.id==='rat');
+  const coordinator=new CombatCoordinator({compiled,variables:{energy,health:10},inventory:[pistol],generation:1,serial:0},enemy,combatNode);
+  coordinator.encounter.cooldowns['pistol-burst@pistol']=1;
+  return coordinator.choiceContent().actions.find(action=>action.label==='Burst');
+ };
+ delete project.showWeaponActionsOnCooldown;
+ project.unavailableActions='hidden';
+ assert.equal(presented(3).disabledIcon,'round','older projects default to showing pure weapon cooldowns');
+ assert.equal(presented(0),undefined,'energy shortage follows general visibility');
+ project.showWeaponActionsOnCooldown=false;
+ assert.equal(presented(3),undefined);
+ node.weaponCooldownVisibility='show';
+ assert.equal(presented(3).disabledIcon,'round');
+ project.ignoreAllOverrides=true;
+ assert.equal(presented(3),undefined);
+ project.ignoreAllOverrides=false;
+ project.showWeaponActionsOnCooldown=true;
+ node.weaponCooldownVisibility='hide';
+ assert.equal(presented(3),undefined);
+ node.unavailableActions='disabled';
+ const blocked=presented(0);
+ assert.equal(blocked.disabledReason,'Not enough Energy');
+ assert.equal(blocked.disabledIcon,undefined);
 });

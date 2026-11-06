@@ -231,6 +231,9 @@ export function nodeInspector(project,chapter,node,previewEffects=node?.entryEff
   if(node.type==='legacyPool')html+=field('Legacy selections',node.count,'count','node','number');
  }
  const availability=['fork','linear','combat'].includes(node.type)?select('Unavailable actions',node.unavailableActions??'project',[['project','Use project settings'],...unavailableActionOptions],'unavailableActions','node'):'';
+ const cooldownOverride=node.type==='combat'?select('Weapon actions on cooldown',node.weaponCooldownVisibility??'project',[
+  ['project','Use project settings'],['show','Show'],['hide','Hide']
+ ],'weaponCooldownVisibility','node'):'';
  if(['container','linear'].includes(node.type))html+='<hr class="connections-divider inventory-persistence-divider">'+checkbox('Keep swapped items on revisit',retainsInventoryItems(node),'retainInventoryItems','node');
  if(node.type==='death')return html;
  const groups=beatGroups(chapter),group=beatGroupFor(chapter,node.id);
@@ -258,8 +261,8 @@ export function nodeInspector(project,chapter,node,previewEffects=node?.entryEff
   return hideLabel?connection.replace('<select ','<select aria-label="Next connection" '):connection;
  }).join('');
  if(node.type==='combat'&&node.ignoreDeath===true)html+='<p class="small">On defeat, continue through Failure with 1 Health.</p>';
- const hasOverrides=previewEffects.length>0 || !!(availability && node.unavailableActions && node.unavailableActions!=='project');
- return html+'<div class="node-overrides">'+rules(project,previewEffects,'effects','preview-overrides','effects',{chapter,label:'Overrides',countSuffix:hasOverrides?' *':'',help:'Saved gameplay effects applied once on every entry to this beat, including direct starts and revisits. Set or add variable values, or add and remove inventory items. Included in project saves and exports, and used in preview and the game.',footer:button('Clear overrides','clear-overrides','data-scope="preview-overrides" '+(previewEffects.length?'':'disabled'))+availability})+'</div>';
+ const hasOverrides=previewEffects.length>0 || !!(availability && node.unavailableActions && node.unavailableActions!=='project') || (cooldownOverride && ['show','hide'].includes(node.weaponCooldownVisibility));
+ return html+'<div class="node-overrides">'+rules(project,previewEffects,'effects','preview-overrides','effects',{chapter,label:'Overrides',countSuffix:hasOverrides?' *':'',help:'Saved gameplay effects applied once on every entry to this beat, including direct starts and revisits. Set or add variable values, or add and remove inventory items. Included in project saves and exports, and used in preview and the game.',footer:button('Clear overrides','clear-overrides','data-scope="preview-overrides" '+(previewEffects.length?'':'disabled'))+availability+cooldownOverride})+'</div>';
 }
 function chapterOptions(project, selected, allowNone=false) {
  const choices=sortedChapters(project).map(chapter=>[chapter.id,chapter.name]);

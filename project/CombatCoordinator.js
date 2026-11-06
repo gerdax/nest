@@ -75,7 +75,18 @@ export class CombatCoordinator {
  actionCard(){this.declareEnemy();return this.enemyCard(this.declaration?.action??this.enemy.actions[this.encounter.actionIndex]);}
  descriptionContext(){return {variables:this.host.compiled.variables,values:this.host.variables};}
  choices(){return playerChoices(this.host.compiled,this.snapshot(),this.encounter);}
- choiceContent(){return {...combatChoices(this.choices(),this.token(),this.host.variables,this.host.compiled.variables,{animateItemActions:!this.choicesPresented&&this.encounter.round===1,preparationBonus:this.encounter.preparationBonus??0,unavailableActions:this.node.unavailableActions&&this.node.unavailableActions!=='project'?this.node.unavailableActions:this.host.compiled.unavailableActions??'disabled'}),cardBack:this.host.compiled.cardBack};}
+ choiceContent(){
+  const {compiled,variables}=this.host;
+  const {unavailableActions,weaponCooldownVisibility}=this.node;
+  const showWeaponActionsOnCooldown=weaponCooldownVisibility==='show' ? true
+   : weaponCooldownVisibility==='hide' ? false : compiled.showWeaponActionsOnCooldown!==false;
+  return {...combatChoices(this.choices(),this.token(),variables,compiled.variables,{
+   animateItemActions:!this.choicesPresented&&this.encounter.round===1,
+   preparationBonus:this.encounter.preparationBonus??0,
+   unavailableActions:unavailableActions&&unavailableActions!=='project'?unavailableActions:compiled.unavailableActions??'disabled',
+   showWeaponActionsOnCooldown,
+  }),cardBack:compiled.cardBack};
+ }
  async enterEnemy({reveal=false,frontTurn=false}={}){
   if(!this.active())return;
   this.resume={kind:'enemy',reveal,frontTurn};this.sequence=null;if(!this.setPhase('enemy-enter'))return;

@@ -80,11 +80,12 @@ export function playerChoices(compiled, run, encounter) {
     if (!action || action.kind !== 'combatAction') throw new Error('Missing Combat Action');
     if(!source && !['defend','wait','prepare'].includes(action.type)&&action.attack?.source==='weapon') throw new Error('Default Action requires a weapon');
     const profile=attackProfile(action,source), key=cooldownKey(action,source), cooldownRemaining=encounter.cooldowns[key]??0;
-    const reason=requirementReason(compiled,run,action.conditions)
+    const otherReason=requirementReason(compiled,run,action.conditions)
       || (profile&&!Number.isSafeInteger(profile.max+(encounter.preparationBonus??0))?'Prepared damage exceeds supported range':'')
-      || (!affordCosts(run.variables,run.inventory,action.costs,compiled.variables)?resourceShortage(compiled,run,action.costs)
-      : cooldownRemaining>0?`READY IN ${cooldownRemaining===1?'NEXT':cooldownRemaining}⟳`:'');
-    result.push({id:key,action:structuredClone(action),source:source?structuredClone(source):null,profile,cooldownRemaining,disabled:!!reason,disabledReason:reason});
+      || (!affordCosts(run.variables,run.inventory,action.costs,compiled.variables)?resourceShortage(compiled,run,action.costs):'');
+    const cooldownOnly = !otherReason && cooldownRemaining > 0;
+    const reason = otherReason || (cooldownOnly ? (cooldownRemaining === 1 ? 'READY NEXT ⟳' : `READY IN ${cooldownRemaining}⟳`) : '');
+    result.push({id:key,action:structuredClone(action),source:source?structuredClone(source):null,profile,cooldownRemaining,cooldownOnly,disabled:!!reason,disabledReason:reason});
   };
   for(const ref of compiled.combat?.defaultActions??[])add(ref);
   for(const item of run.inventory??[])if(item.subtype==='weapon')for(const action of item.combat?.actions??[])add(action,item);

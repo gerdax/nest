@@ -19,6 +19,7 @@ export function exportChapter(project, id = project.activeChapterId) {
   const pkg = cloneProject({version: 3, kind: 'nest-chapter', combat:project.combat, showDeathBeat:project.showDeathBeat, library: project.library.filter(d => ids.has(d.id)),
     itemTags: project.itemTags || [], variables: project.variables, allowCycles: project.allowCycles !== false,
     ownedItemsVisibility: project.ownedItemsVisibility ?? 'disabled', unavailableActions: project.unavailableActions ?? 'disabled',
+    showWeaponActionsOnCooldown: project.showWeaponActionsOnCooldown !== false,
     ...(project.ignoreAllOverrides !== undefined ? {ignoreAllOverrides: project.ignoreAllOverrides} : {}),
     cardStyles: project.cardStyles || {}, cardBack: projectCardBack(project),
     chapter});
@@ -360,6 +361,7 @@ function normalizeProjectDocument(value, {allowDraft = false} = {}) {
     id: `${value.chapter?.id || 'chapter'}-project`, name: value.chapter?.name, activeChapterId: value.chapter?.id, startChapterId: value.chapter?.id,
     itemTags: value.itemTags, library: value.library, variables: value.variables || [], allowCycles: value.allowCycles,
     ownedItemsVisibility: value.ownedItemsVisibility, unavailableActions: value.unavailableActions,
+    showWeaponActionsOnCooldown: value.showWeaponActionsOnCooldown,
     ...(value.ignoreAllOverrides !== undefined ? {ignoreAllOverrides: value.ignoreAllOverrides} : {}),
     cardStyles: value.cardStyles || {}, cardBack: value.cardBack,
     chapters: [value.chapter]};

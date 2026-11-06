@@ -20,6 +20,8 @@ function flipped(action) { return !!action.flipImage; }
 
 function decorateActionAvailability(card, action) {
   card.setAttribute('data-action-disabled', String(!!action.disabled));
+  if (action.disabled && action.disabledIcon === 'round') card.setAttribute('data-disabled-icon', 'round');
+  else card.removeAttribute('data-disabled-icon');
   card.setAttribute('aria-disabled', String(!!(action.disabled || action.alreadyOwned)));
   if (action.disabled && action.disabledReason) card.setAttribute('aria-description', action.disabledReason);
   else card.removeAttribute('aria-description');

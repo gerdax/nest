@@ -50,6 +50,7 @@ export function createProject() {
     allowCycles: true,
     ownedItemsVisibility: 'disabled',
     unavailableActions: 'disabled',
+    showWeaponActionsOnCooldown: true,
     activeChapterId: 'chapter-1',
     startChapterId: 'chapter-1',
     library: [event, item, action],
