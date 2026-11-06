@@ -92,6 +92,7 @@ export class GraphView {
   if(this.selectionChapter!==chapterKey||selected!==this.selected)this.selectedIds=new Set(selected?[selected]:[]);
   this.selectionChapter=chapterKey;
   this.selectedIds=new Set([...this.selectedIds].filter(id=>chapter.nodes.some(node=>node.id===id)));
+  if(this.chapter?.id!==chapter.id||!active)this.activeAuto=null;
   this.project=project;this.chapter=chapter;this.selected=selected;this.active=active;
   const playableNodes=chapter.nodes.filter(node=>node.type!=='death'||project.showDeathBeat!==false);
   this.nodesById=new Map(playableNodes.map(node=>[node.id,node]));
@@ -109,7 +110,7 @@ export class GraphView {
   this.libraryIndex=createLibraryIndex(project.library);
   this.definitionsById=new Map(project.library.map(definition=>[definition.id,definition]));
   if(this.pending&&!chapter.nodes.some(n=>n.id===this.pending.nodeId&&outputsForNode(project,n,this.libraryIndex).includes(this.pending.exit)))this.pending=null;
-  this.root.querySelector('#nodes').innerHTML=visibleNodes.map(n=>`<article class="node ${n.type} ${!this.selectedGroupId&&this.selectedIds.has(n.id)?'selected':''} ${n.id===active?'active':''}" data-id="${esc(n.id)}" style="left:${this.position(n).x}px;top:${this.position(n).y}px"><div class="node-heading">${nodeIcon(n.type)}<span class="badge">${n.id===chapter.startNode?'<span class="graph-start-label">START</span> · ':''}${esc(n.name?.trim()||nodeTypeLabel(n.type))}</span>${this.overrideMarker(n.id)}</div>${n.type==='random'?`<div class="node-body">${n.routes.length} ${n.routes.length===1?'route':'routes'}</div>`:n.type.startsWith('legacy')?'<div class="node-body">Preserved legacy behaviour</div>':''}${this.cardRows(n)}</article>`).join('');
+  this.root.querySelector('#nodes').innerHTML=visibleNodes.map(n=>`<article class="node ${n.type} ${!this.selectedGroupId&&this.selectedIds.has(n.id)?'selected':''} ${(n.id===active||n.id===this.activeAuto)?'active':''}" data-id="${esc(n.id)}" style="left:${this.position(n).x}px;top:${this.position(n).y}px"><div class="node-heading">${nodeIcon(n.type)}<span class="badge">${n.id===chapter.startNode?'<span class="graph-start-label">START</span> · ':''}${esc(n.name?.trim()||nodeTypeLabel(n.type))}</span>${this.overrideMarker(n.id)}</div>${n.type==='random'?`<div class="node-body">${n.routes.length} ${n.routes.length===1?'route':'routes'}</div>`:n.type.startsWith('legacy')?'<div class="node-body">Preserved legacy behaviour</div>':''}${this.cardRows(n)}</article>`).join('');
   this.nodeElements=new Map([...this.root.querySelectorAll('.node')].map(el=>[el.dataset.id,el]));
   this.renderGroups();
   this.setNodeErrors(this.nodeErrors);
@@ -125,12 +126,14 @@ export class GraphView {
  }
  // Preview notifications change only these classes. Keep the graph DOM, focus,
  // viewport and in-flight gestures intact, including repeated same-node updates.
- setActive(active) {
-  if(this.active===active)return;
-  const previous=this.active;
+ setActive(active, auto = null) {
+  if(this.active===active&&this.activeAuto===auto)return;
+  const previous=new Set([this.active,this.activeAuto]);
+  const next=new Set([active,auto]);
   this.active=active;
-  this.nodeElements?.get(previous)?.classList.toggle('active',false);
-  this.nodeElements?.get(active)?.classList.toggle('active',true);
+  this.activeAuto=auto;
+  for(const id of previous)if(!next.has(id))this.nodeElements?.get(id)?.classList.toggle('active',false);
+  for(const id of next)if(!previous.has(id))this.nodeElements?.get(id)?.classList.toggle('active',true);
   this.syncGroupStates();
  }
  // Validation and playback update errors without disturbing focus or gestures.
@@ -268,7 +271,7 @@ export class GraphView {
  syncGroupStates() {
   for(const [id,element] of this.groupElements||[]){
    const group=this.groupsById.get(id),messages=[...(this.nodeErrors.get(id)||[]),...group.memberIds.flatMap(member=>this.nodeErrors.get(member)||[])];
-   element.classList.toggle('active',group.memberIds.includes(this.active));
+   element.classList.toggle('active',group.memberIds.includes(this.active)||group.memberIds.includes(this.activeAuto));
    element.classList.toggle('selected',id===this.selectedGroupId);
    element.classList.toggle('has-error',!!messages.length);
    if(messages.length){

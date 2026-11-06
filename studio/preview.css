@@ -39,14 +39,17 @@
 .resource-icon {position:relative;display:flex;}
 .player-resource[data-health] {--resource-icon-mask:url('../assets/img/player-ui/hud-health.png');}
 .player-resource[data-energy] {--resource-icon-mask:url('../assets/img/player-ui/hud-energy.png');}
+.resource-icon img {visibility:hidden;}
+.resource-icon::before {content:'';}
+.resource-icon::before,
 .resource-icon-flash {
   position:absolute;
   inset:0;
-  opacity:0;
-  background:currentColor;
   -webkit-mask:var(--resource-icon-mask) center / contain no-repeat;
   mask:var(--resource-icon-mask) center / contain no-repeat;
 }
+.resource-icon::before {background:#6e7a57;}
+.resource-icon-flash {opacity:0;background:currentColor;}
 
 .preview-footer{position:absolute;inset:auto 0 0;z-index:3100;box-sizing:border-box;display:flex;align-items:flex-end;justify-content:space-between;gap:12px;min-height:44px;padding:8px 12px max(8px,env(safe-area-inset-bottom));color:#89947c;pointer-events:auto;background:#000}
 .preview-footer [data-state]{min-width:0;max-width:75%;font-size:12px}

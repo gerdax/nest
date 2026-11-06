@@ -42,10 +42,12 @@ for (const presentation of ['closed', 'open']) test(`slide uncovers and adopts t
   step(active.motion.duration / 2);
   assert.equal(deck.scene, source); assert.equal(successor.style.visibility, 'visible');
   assert.ok(source.style.transform.includes(`translate3d(0px,${-departureDistance(active.motion, now)}px`));
+  const stagedPosition = successor.style.transform.split(' ')[0];
   step(active.motion.duration + 50);
   assert.equal(deck.content.id, 'linear'); assert.equal(deck.contentTransition.phase, 'settling');
   assert.equal(successor, presentation === 'open' ? deck.cards[0] : deck.scene);
   assert.equal(successor.style.visibility, 'visible', 'adoption never hides the uncovered successor');
+  assert.equal(successor.style.transform.split(' ')[0], stagedPosition, 'adoption preserves the uncovered card position');
   settle(); assert.equal(await promise, true); assert.equal(deck.busy, false);
   assert.equal(deck.phase, presentation === 'open' ? 'choices' : 'closed');
   assert.deepEqual(events, ['slide']); assert.equal(descendants(deck.mount).includes(source), false);
@@ -69,6 +71,51 @@ test('a settled check slides its actual reverse and retires the slot only after 
   deck.destroy();
 });
 
+test('a face-down choice shows its reverse before, during and after native turns', async () => {
+  const deck = create();
+  const hidden = content('choices', {
+    decisionOnly: true, actions: [{ id: 'hidden', label: 'Hidden choice', faceDown: true }]
+  });
+  const enter = deck.transitionContent(hidden, { transition: 'front-turn', presentation: 'open' });
+  deck.contentTransition.turn.x = -.75;
+  deck.adoptContentTransition();
+  deck.render();
+  assert.equal(deck.cards[0].style.visibility, 'hidden');
+  assert.equal(deck.cardBacks[0].style.visibility, 'visible');
+  assert.equal(angle(deck.cardBacks[0]), 45);
+  settle();
+  assert.equal(await enter, true);
+  assert.match(deck.cards[0].style.transform, /rotateY\(180deg\)$/);
+  assert.match(deck.cardBacks[0].style.transform, /rotateY\(360deg\)$/);
+  const leave = deck.transitionContent(content('next'), { transition: 'front-turn' });
+  assert.equal(deck.contentTransition.source.face, deck.cardBacks[0]);
+  assert.equal(deck.cards[0].style.visibility, 'hidden');
+  settle();
+  assert.equal(await leave, true);
+  deck.destroy();
+});
+
+test('a settled choice check turns its reverse into the first item of an open container', async () => {
+  const deck = create();
+  deck.replaceContent(content('search'), { presentation: 'open', animate: false });
+  settle();
+  deck.commit();
+  const prepared = deck.waitForCheckSurface();
+  settle();
+  const slot = await prepared;
+  const previousDepth = deck.underlayBack.style.transform.split(' ')[0];
+  assert.equal(deck.commitMotion, null);
+  deck.replaceContent(content('bag', { interaction: 'container' }), { presentation: 'open' });
+  assert.equal(angle(deck.cards[0]), 180);
+  assert.equal(slot.parentNode, deck.cardBacks[0]);
+  assert.equal(deck.cardBacks[0].style.transform.split(' ')[0], previousDepth);
+  settle();
+  assert.equal(angle(deck.cards[0]), 0);
+  assert.equal(slot.parentNode, null);
+  assert.equal(deck.phase, 'choices');
+  deck.destroy();
+});
+
 for (const presentation of ['closed', 'open']) test(`front turn exchanges actual fronts at the negative-Y edge into ${presentation}`, async () => {
   const deck = create(); deck.updateSettings({ flipAxisTilt: 7 });
   const original = deck.scene, back = deck.sceneBack;
@@ -88,6 +135,28 @@ for (const presentation of ['closed', 'open']) test(`front turn exchanges actual
   active.turn.x = -.75; deck.render(); assert.equal(angle(successor), 45);
   settle(); assert.equal(await promise, true); assert.equal(angle(successor), 0); assert.equal(deck.busy, false);
   assert.equal(deck.open, presentation === 'open'); deck.destroy();
+});
+
+for (const entrance of ['from-top', 'bottom']) test(`front turn waits for the weapon entrance (${entrance})`, async () => {
+  const deck = create(), events = [];
+  deck.addEventListener('transitioncomplete', event => events.push(event.detail.transition));
+  const promise = deck.transitionContent(content('hero', { actions: [
+    { id: 'shot', label: 'Single shot', entrance },
+    { id: 'punch', label: 'Punch' },
+  ] }), { transition: 'front-turn', presentation: 'open' });
+  deck.adoptContentTransition();
+  deck.render();
+  assert.equal(deck.cards[0].style.visibility, 'hidden');
+  assert.equal(deck.content.actions[deck.index].id, 'punch');
+  deck.completeContentTransition();
+  assert.equal(deck.phase, 'inserting');
+  assert.deepEqual(events, []);
+  settle();
+  assert.equal(await promise, true);
+  assert.equal(deck.content.actions[deck.index].id, 'shot');
+  assert.equal(deck.cards[0].style.visibility, 'visible');
+  assert.deepEqual(events, ['front-turn']);
+  deck.destroy();
 });
 
 for (const transition of ['slide', 'front-turn']) for (const reason of ['abort', 'reset', 'destroy', 'replace']) test(`${transition} resolves false exactly once on ${reason}`, async () => {
@@ -236,6 +305,41 @@ test('a direct card uncovers its pre-staged choice fronts throughout departure w
  deck.replaceContent(choices,{presentation:'open',transition:'flip'});
  assert.equal(deck.cards[0],front,'adopt the same uncovered card, without rebuilding a placeholder');
  settle();assert.equal(deck.phase,'choices');deck.destroy();
+});
+
+test('a choice turns the staged item from its reverse into an open container', t => {
+  document.documentElement = { dataset: { performanceShadowMode: 'static' } };
+  t.after(() => { delete document.documentElement; });
+  const deck = create();
+  deck.replaceContent(content('search'), { presentation: 'open', animate: false });
+  settle();
+  deck.addEventListener('commit', () => {
+    deck.replaceContent(content('bag', { interaction: 'container' }), { presentation: 'open' });
+  });
+  const swipe = { axis: 'y', x: 0, y: -200, vx: 0, vy: 0 };
+  assert.equal(deck.start(), true);
+  deck.move(swipe);
+  step();
+  assert.equal(deck.underlayBack.style.visibility, 'visible');
+  deck.end(swipe);
+  const [item] = deck.forwardDeck.cards;
+  const [reverse] = deck.forwardDeck.cardBacks;
+  assert.ok(reverse, 'the staged item has a physical reverse');
+  assert.equal(angle(item), 180, 'the item starts face down');
+  assert.equal(reverse.style.visibility, 'visible');
+  const stagedShadow = item.style.boxShadow;
+  assert.equal(item.getAttribute('data-shadow-visible'), 'true');
+  while (deck.commitMotion) step();
+  assert.equal(deck.cards[0], item);
+  assert.equal(deck.cardBacks[0], reverse);
+  assert.ok(angle(item) > 0, 'the item is still turning when adopted');
+  assert.equal(deck.fan.x, 0);
+  assert.equal(item.style.boxShadow, stagedShadow);
+  assert.equal(item.getAttribute('data-shadow-visible'), 'true');
+  settle();
+  assert.equal(angle(item), 0);
+  assert.equal(deck.phase, 'choices');
+  deck.destroy();
 });
 
 test('incoming rat Prepare keeps its staged choices hidden until the rat card is swiped',()=>{

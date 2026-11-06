@@ -1,7 +1,7 @@
 import { typingControls } from './view-shortcuts.js';
 
 /** Playback and editor commands work across panels without activating controls. */
-export function mountPlayShortcuts(root,{playSelected,commitField=()=>false,enabled=()=>true,playbackDeck=()=>null}) {
+export function mountPlayShortcuts(root,{playSelected,playChapter,commitField=()=>false,enabled=()=>true,playbackDeck=()=>null}) {
  const host=root.defaultView ?? root;
  const consume=event=>{event.preventDefault();event.stopPropagation();};
  const keydown=event=>{
@@ -25,6 +25,11 @@ export function mountPlayShortcuts(root,{playSelected,commitField=()=>false,enab
    if(!typing)consume(event);
    if(event.repeat||event.target?.closest?.('#preview-window'))return;
    if(commitField(event.target)===true)consume(event);
+   return;
+  }
+  if(event.shiftKey&&event.metaKey&&!event.ctrlKey&&playChapter){
+   consume(event);
+   if(!event.repeat)playChapter();
    return;
   }
   if(event.shiftKey&&!modified){

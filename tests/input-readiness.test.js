@@ -163,3 +163,62 @@ test('a partial unaccepted source lift remains continuously regrabbable', () => 
   assert.equal(deck.input.active.waiting, false); assert.equal(deck.p.x, lift);
   deck.input.pointerup(pointer()); settle(); dispose(deck);
 });
+
+for (const transition of ['reveal', 'closed', 'open', 'collect', 'front-turn']) test(`press admits only the negligible ${transition} tail, without changing untouched playback`, async () => {
+  const create = () => {
+    const deck = make(transition === 'collect' ? 'container' : 'choice');
+    if (transition !== 'reveal') ready(deck);
+    deck.addEventListener('commit', () => deck.replaceContent(content('next'), { presentation: transition }));
+    return deck;
+  };
+  const deck = create(), baseline = create();
+  let completions = 0, promise;
+  const begin = d => {
+    if (transition === 'reveal') { d.setOpen(true); d.schedule(); }
+    else if (transition === 'collect') d.collect();
+    else if (transition === 'front-turn') return d.transitionContent(content('next'), { transition: 'front-turn' });
+    else d.commit();
+  };
+  promise = begin(deck); const baselinePromise = begin(baseline);
+  const expected = transition === 'closed' || transition === 'open' ? 'commit' : transition;
+  deck.addEventListener('transitioncomplete', event => { if (event.detail.transition === expected) completions++; });
+  assert.equal(deck.start(), false, 'visible transition stays locked');
+  until(() => deck.inputTailReady());
+  assert.equal(completions, 0);
+  assert.equal(baseline.inputTailReady(), true);
+  assert.equal(deck.flip.x, baseline.flip.x);
+  assert.equal(deck.fan.x, baseline.fan.x);
+  assert.ok(baseline.busy || baseline.phase === 'revealing');
+  deck.input.pointerdown(pointer());
+  assert.equal(deck.input.active.waiting, false);
+  assert.ok(deck.drag);
+  assert.equal(completions, 1);
+  const admittedAt = now;
+  until(() => !baseline.busy && baseline.phase !== 'revealing');
+  assert.ok(now - admittedAt >= 64, 'press avoids a measurable settling wait');
+  deck.input.pointerup(pointer()); settle();
+  assert.equal(completions, 1, 'tail completion is never emitted twice');
+  if (promise) assert.equal(await promise, true);
+  if (baselinePromise) assert.equal(await baselinePromise, true);
+  dispose(deck); dispose(baseline);
+});
+
+test('tail admission checks speed, pending entrances and synchronous replacement', () => {
+  const deck = make(); deck.setOpen(true); deck.schedule();
+  until(() => deck.inputTailReady());
+  const speed = deck.fan.v;
+  deck.fan.v = 1; assert.equal(deck.inputTailReady(), false);
+  deck.fan.v = speed;
+  deck.prepareEntrances(['source-1']); assert.equal(deck.inputTailReady(), false);
+  deck.entranceSequence.clear();
+  let replacementReveals = 0;
+  deck.addEventListener('transitioncomplete', event => {
+    if (event.detail.contentId === 'replacement' && event.detail.transition === 'reveal') replacementReveals++;
+  });
+  deck.addEventListener('transitioncomplete', () => deck.replaceContent(content('replacement'), { presentation: 'open' }), { once: true });
+  assert.equal(deck.start(), false, 'completion callback replacement cannot inherit the press');
+  assert.equal(deck.content.id, 'replacement'); assert.equal(deck.drag, null);
+  assert.equal(deck.phase, 'revealing', 'replacement keeps its own visible reveal');
+  assert.equal(replacementReveals, 0, 'replacement reveal is not completed by the old press');
+  dispose(deck);
+});

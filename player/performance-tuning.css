@@ -1,7 +1,8 @@
 /* Diagnostic switches are opt-in; no baseline card styles are changed. */
 .nest-perf-no-shadows .nest-card { box-shadow:none !important; }
 [data-performance-shadow-mode="raster"] .nest-card {
-  /* Keep the PNG shadow and card rim, without the bright CSS edge layers. */
+  /* Keep the border geometry used by the nine-slice shadow. */
+  border-color:transparent;
   --card-edge-strata:none;
 }
 [data-performance-shadow-mode="raster"]:not(.nest-perf-no-shadows) .nest-card[data-shadow-visible="true"] {
@@ -15,6 +16,10 @@
 .performance-shadow-mode select {min-height:44px;width:100%;font:inherit;background:#172014;color:#dce5ce;border:1px solid #445039;border-radius:6px;padding:8px;}
 .nest-perf-no-colorize .nest-artwork { filter:none !important; }
 .nest-perf-no-texture .nest-card-texture { display:none !important; }
+[data-performance-shadow-mode="raster"] .nest-card::before {
+  /* Paint the rim independently of the shadow's border-image. */
+  background:#9aa78345;
+}
 .nest-perf-no-rim .nest-card::before { display:none !important; }
 .nest-perf-no-inventory-blur .nest-inventory-dock {
   -webkit-backdrop-filter:none !important;

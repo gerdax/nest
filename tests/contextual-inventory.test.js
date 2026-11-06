@@ -36,7 +36,7 @@ test('contextual choices resolve item artwork and ownership while preserving Act
   const card=resolvePlacement(project,placement);
   assert.equal(card.kind,'action');assert.equal(card.name,'Pick the lock');assert.equal(card.text,'Work the lock with your lockpick.');
   assert.equal(card.image,'./assets/img/flashlight.png');assert.equal(card.imageScale,140);assert.equal(card.imageOffsetX,12);assert.equal(card.imageOffsetY,-8);assert.equal(card.flipImage,true);
-  assert.equal(card.inventoryLabel,'Inventory · Lockpick');assert.equal(cardFace(card).inventoryLabel,'Inventory · Lockpick');assert.equal(card.entrance,'bottom');
+  assert.equal(card.inventoryLabel,'Inventory · Lockpick');assert.equal(cardFace(card).inventoryLabel,'Inventory · Lockpick');assert.equal(card.entrance,'from-top');
   assert.deepEqual(card.conditions.at(-1),{source:'inventory',key:'old:key',op:'has'});
   assert.deepEqual(card.costs,source.library.find(d=>d.id==='unlock').costs);
   const compiled=compileChapter(project);assert.equal(door({chapters:[compiled]}).choices[0].contextItemId,'key');
@@ -152,7 +152,7 @@ test('contextual action defaults to its own artwork and transforms, including a 
  for(const value of [undefined,false]){
   placement.contextOverrideImage=value;const card=resolvePlacement(project,placement);
   assert.equal(card.image,definition.image);assert.equal(card.imageScale,80);assert.equal(card.imageOffsetX,-5);assert.equal(card.imageOffsetY,7);assert.equal(card.flipImage,false);
-  assert.equal(card.contextOverrideImage,false);assert.equal(card.contextItemId,'key');assert.equal(card.entrance,'bottom');
+  assert.equal(card.contextOverrideImage,false);assert.equal(card.contextItemId,'key');assert.equal(card.entrance,'from-top');
  }
  definition.image='';assert.equal(resolvePlacement(project,placement).image,'');
  const compiled=compileChapter(project);assert.equal(compiled.nodes.find(n=>n.id==='door').choices[0].image,'');

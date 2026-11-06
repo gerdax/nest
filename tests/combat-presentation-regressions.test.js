@@ -129,7 +129,7 @@ test('source action entrances default to enabled and can be suppressed on later 
  ];
  const first=combatChoices(choices,'first').actions;
  const later=combatChoices(choices,'later',{},[],{animateItemActions:false}).actions;
- assert.deepEqual(first.map(action=>action.entrance),['bottom',undefined,undefined]);
+ assert.deepEqual(first.map(action=>action.entrance),['from-top',undefined,undefined]);
  assert.deepEqual(later.map(action=>action.entrance),[undefined,undefined,undefined]);
  assert.deepEqual(later,first.map(action=>({...action,...(action.contextItemId?{entrance:undefined}:{})})));
 });

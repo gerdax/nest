@@ -83,7 +83,7 @@ export function backPose(front) {
 }
 
 export function stageActionDeck(deck, content, selectedIndex = null, previous = null) {
-  if (selectedIndex === null) selectedIndex = Math.max(0, content.actions.findIndex(a => a.entrance !== 'bottom'));
+  if (selectedIndex === null) selectedIndex = Math.max(0, content.actions.findIndex(a => a.entrance !== 'from-top'));
   const bundle = { content, selectedIndex, cards: [], cardLayers: [], cardBacks: [], cardTitles: [] };
   const old = new Map(previous?.content.actions.map((a, i) => [a.id, i]) || []);
   const retained = new Set(content.actions.map(action => action.id));
@@ -296,7 +296,7 @@ export function stageContentDeck(deck, content) {
 // departure trajectory and RAF clock. Only actual engine faces are presented.
 function renderContentTransition(deck, time) {
   const transition = deck.contentTransition;
-  if (!transition || transition.phase === 'settling') return false;
+  if (!transition || ['settling', 'entrances'].includes(transition.phase)) return false;
   const { source, staged } = transition;
   for (const element of [deck.scene, deck.sceneBack, ...deck.cards, ...deck.cardBacks,
     deck.underlay, deck.underlayBack, ...(deck.forwardDeck?.cards || []), ...(deck.forwardDeck?.cardBacks || [])]) {
@@ -309,7 +309,9 @@ function renderContentTransition(deck, time) {
     : clamp(transition.turn.x + 1, 0, .5)) * 180;
   const elevation = deck.reduced ? 0 : flipLift(Math.abs(turn) / 180, deck.settings);
   if (!transition.adopted) {
-    renderStagedActions(deck, staged, 20, slide && transition.presentation === 'open', 0, -24*(deck.settings.layoutScale??1), 1);
+    // Match the compressed action stack at adoption (4 - 40), while the
+    // closed scene below uses its own base depth (16 - 40).
+    renderStagedActions(deck, staged, 20, slide && transition.presentation === 'open', 0, -36*(deck.settings.layoutScale??1), 1, 0, true);
     const pose = { x: 0, y: 0, z: -24*(deck.settings.layoutScale??1), rx: 0, ry: 0, rz: 0, turn: 0,
       visible: slide && transition.presentation === 'closed' };
     applyPose(deck, staged.scene, staged.sceneLayer, pose, 0);
@@ -328,10 +330,12 @@ function renderContentTransition(deck, time) {
     const context = poseContext(deck, time);
     if (deck.open) {
       deck.cards.forEach((card, index) => {
+        const entrance = deck.entrances.get(deck.content.actions[index].id);
         const pose = { ...cardPose(deck, index, time, context), turn,
-          turnAxis: deck.settings.flipAxisTilt, visible: true };
+          turnAxis: deck.settings.flipAxisTilt, visible: entrance?.startAt !== null };
         pose.z += elevation;
-        applyPose(deck, card, deck.cardLayers[index], pose, 100 + deck.cards.length - index);
+        const face = deck.content.actions[index].faceDown ? deck.cardBacks[index] : card;
+        applyPose(deck, face, deck.cardLayers[index], pose, 100 + deck.cards.length - index);
       });
     } else {
       const pose = { ...scenePose(deck, time), turn, turnAxis: deck.settings.flipAxisTilt, visible: true };
@@ -617,6 +621,7 @@ export function renderDeck(deck, time = performance.now()) {
   // Pre-staged choices belong under an outgoing card, never an incoming
   // turning card whose retained pendingPresentation may still be 'open'.
   const forwardActive = !!deck.forwardDeck && (((deck.content.directAdvance || deck.content.flipItemsOnReveal) && !deck.busy && deck.p.x > 0) || (deck.phase === 'committing' && !!deck.commitMotion && (deck.pendingPresentation === 'open' || !deck.pending && deck.content.directAdvance && deck.content.nextDeckPreview?.presentation === 'open'))
+    || (deck.phase === 'collecting' && deck.collectMotion?.final && deck.pending && deck.pendingPresentation === 'open')
     || (deck.phase === 'choices' && deck.l.x > 0 && deck.forwardOwner === deck.content.actions[deck.index]?.id));
   if (deck.underlay) {
     const stagedPose = {
@@ -634,7 +639,8 @@ export function renderDeck(deck, time = performance.now()) {
   }
   const forwardTurns = deck.pending?.decisionOnly && deck.pendingTransition === 'flip'
     || !deck.pending && (deck.content.flipItemsOnReveal || deck.content.directAdvance && deck.content.nextTransition === 'flip') && deck.forwardDeck?.content.decisionOnly;
-  renderStagedActions(deck, deck.forwardDeck, 20, forwardActive, 0, -36*(deck.settings.layoutScale??1) - (deck.nextTakeDepth || 0), nextScale, forwardTurns ? deck.nextFlip.x * 180 : 0, true, deck.nextTakeDepth || 0, context.bounds);
+  const stagedActionZ = forwardTurns && deck.pending?.interaction === 'container' && deck.backTransition?.exposedBack ? -24 : -36;
+  renderStagedActions(deck, deck.forwardDeck, 20, forwardActive, 0, stagedActionZ*(deck.settings.layoutScale??1) - (deck.nextTakeDepth || 0), nextScale, forwardTurns ? deck.nextFlip.x * 180 : 0, true, deck.nextTakeDepth || 0, context.bounds);
   renderStagedActions(deck, deck.returnDeck, 500,
     (deck.phase === 'closing' && deck.returning)
       || deck.returnLift.x > 0,
@@ -646,14 +652,18 @@ export function renderDeck(deck, time = performance.now()) {
   deck.scene.setAttribute('aria-hidden', String(deck.open || deck.busy));
   const painterOrder = poses.map((pose, index) => ({ index, depth: deck.fan.x === 0 ? -pose.rank : pose.front }));
   painterOrder.sort((a, b) => a.depth - b.depth || b.index - a.index);
+  // An uncovered successor already has its shadow while staged. Keep it
+  // through the compressed first frame, before the fan starts to open.
+  const showActionShadows = deck.fan.x > 0 || (deck.open && deck.skipCover);
   painterOrder.forEach(({ index }, order) => {
     order = deck.reflowOrder?.get(deck.content.actions[index].id) ?? 100 + order;
-    applyPose(deck, deck.cards[index], deck.cardLayers[index], poses[index], order, deck.fan.x > 0);
+    applyPose(deck, deck.cards[index], deck.cardLayers[index], poses[index], order, showActionShadows);
     if (deck.content.actions[index].faceDown) {
-      applyPose(deck, deck.cards[index], deck.cardLayers[index], backPose(poses[index]), order, deck.fan.x > 0);
-      applyPose(deck, deck.cardBacks[index], deck.cardLayers[index], { ...poses[index], face: 360 }, order, deck.fan.x > 0);
+      applyPose(deck, deck.cards[index], deck.cardLayers[index], backPose(poses[index]), order, showActionShadows);
+      applyPose(deck, deck.cardBacks[index], deck.cardLayers[index], { ...poses[index], face: 360 }, order, showActionShadows);
+    } else if (deck.content.decisionOnly && deck.cardBacks[index]) {
+      applyPose(deck, deck.cardBacks[index], deck.cardLayers[index], backPose(poses[index]), order, showActionShadows);
     }
-    if (deck.content.decisionOnly && deck.cardBacks[index]) applyPose(deck, deck.cardBacks[index], deck.cardLayers[index], backPose(poses[index]), order, deck.fan.x > 0);
     decorateActionAvailability(deck.cards[index], deck.content.actions[index]);
     if (deck.content.actions[index].faceDown) deck.cards[index].setAttribute('aria-label', deck.content.actions[index].accessibleLabel || 'Unavailable choice');
     else deck.cards[index].removeAttribute('aria-label');
@@ -664,12 +674,12 @@ export function renderDeck(deck, time = performance.now()) {
 
 function renderStagedActions(deck, bundle, baseOrder, visible, y = 0, z = -36*(deck.settings.layoutScale??1), scale = 1, turn = 0, suppressEntrances = false, takeDepth = 0, bounds = null) {
   if (!bundle) return;
-  const presented = bundle.content.actions.flatMap((action, i) => suppressEntrances && action.entrance === 'bottom' ? [] : [i]);
+  const presented = bundle.content.actions.flatMap((action, i) => suppressEntrances && action.entrance === 'from-top' ? [] : [i]);
   const slots = new Map(presented.map((index, slot) => [index, slot]));
   const count = Math.max(1, presented.length), selectedSlot = slots.get(bundle.selectedIndex) ?? 0;
   bundle.cards.forEach((card, index) => {
     const rank = ((slots.get(index) ?? 0) - selectedSlot + count) % count;
-    const pose = { x: 0, y, z: z - rank * deck.settings.stackDepth, rx: 0, ry: 0, rz: 0, scale, visible: visible && !(suppressEntrances && bundle.content.actions[index].entrance === 'bottom'), turn, turnAxis: deck.settings.flipAxisTilt };
+    const pose = { x: 0, y, z: z - rank * deck.settings.stackDepth, rx: 0, ry: 0, rz: 0, scale, visible: visible && !(suppressEntrances && bundle.content.actions[index].entrance === 'from-top'), turn, turnAxis: deck.settings.flipAxisTilt };
     if (!deck.reduced) pose.z += flipLift(turn / 180, deck.settings);
     if (takeDepth > 0) {
       anchorRecedingTop(pose, takeDepth, bounds.width, bounds.height, deck.settings.perspective);

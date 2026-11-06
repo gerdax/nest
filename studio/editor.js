@@ -791,11 +791,14 @@ function playSelected(options){
  return entry?play(entry,options):false;
 }
 $('#play').onclick=()=>play();$('#play-node').onclick=()=>playSelected();
+$('#play').title='Play chapter from the start (⌘⇧Enter)';
+$('#play').setAttribute('aria-keyshortcuts','Meta+Shift+Enter');
 $('#play-node').title='Play selected beat or group from its entry (Shift+Enter)';
 $('#play-node').setAttribute('aria-keyshortcuts','Shift+Enter');
 const stopPlayShortcuts=mountPlayShortcuts(document,{
  playbackDeck:()=>previewWindow.visible&&!previewWindow.minimized&&$('#project-settings-overlay').hidden&&!graph.drag&&!graph.pending&&!graph.creation?preview.deck:null,
  playSelected:()=>{graph.cancel();return playSelected({focus:false});},
+ playChapter:()=>{graph.cancel();return play(undefined,{focus:false});},
  commitField:target=>{
   if(!target?.matches?.('input,textarea,select')||!target.closest('#inspector,#settings,#project-settings-content'))return false;
   target.blur();return true;

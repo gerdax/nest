@@ -136,20 +136,16 @@ export class PlayerUI {
     const target = gained ? meter.querySelector('.resource-icon-flash') : meter;
     const restingOpacity = gained ? 0 : 1;
     const pulseOpacity = gained ? 1 : 0.28;
-    const lastPulse = gained ? 650 : 390;
+    const lastPulse = 390;
     const duration = lastPulse + 520;
     const keyframes = [
       {opacity:restingOpacity, offset:0},
       {opacity:pulseOpacity, offset:130 / duration},
       {opacity:restingOpacity, offset:260 / duration},
-      ...(gained ? [
-        {opacity:pulseOpacity, offset:390 / duration},
-        {opacity:restingOpacity, offset:520 / duration},
-      ] : []),
       {opacity:pulseOpacity, offset:lastPulse / duration, easing:'ease-out'},
       {opacity:restingOpacity, offset:1},
     ];
-    state.animation = target?.animate?.(keyframes, {duration});
+    state.animation = target?.animate?.(keyframes, {duration:gained ? duration * 3 : duration});
   }
 
   setInventoryContext(visible, options) {

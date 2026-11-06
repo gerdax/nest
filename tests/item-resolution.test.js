@@ -136,7 +136,16 @@ for (const resolution of ['collect', 'discard']) test(`final ${resolution} stage
   }
   assert.deepEqual(events, ['accepted', 'removed']); assert.equal(deck.phase, 'committing'); assert.ok(deck.flip.x>0&&deck.flip.x<=1);
   assert.equal(deck.scene.style.visibility, 'visible'); assert.equal(deck.sceneBack.style.visibility, 'visible');
-  while (frames.size) { assert.equal(deck.start(), false); opaque(deck); step(); }
+  while (frames.size) {
+    const tailReady = deck.inputTailReady();
+    assert.equal(deck.start(), tailReady);
+    opaque(deck);
+    if (tailReady) {
+      assert.equal(deck.phase, 'closed'); assert.equal(deck.busy, false);
+      deck.cancel(); settle(); break;
+    }
+    step();
+  }
   assert.deepEqual(events, ['accepted', 'removed', 'flipped']); assert.equal(deck.content.id, 'next'); assert.equal(deck.phase, 'closed'); assert.equal(deck.busy, false); assert.equal(deck.flip.x, 0);
   deck.finishMotion(); assert.equal(events.length, 3); dispose(deck);
 });
@@ -380,6 +389,40 @@ test('accepted drawer deposit appears immediately and persists through stack ref
   assert.equal(cleared,0);
   settle(); assert.equal(cleared,0,'stack reflow must not erase accepted slot');
   deck.destroy(); assert.equal(cleared,1);
+});
+
+test('dragging the last item to the drawer turns the staged successor without a depth jump', async () => {
+  const deck = make(1);
+  ready(deck);
+  await drawerFixture(deck);
+  deck.addEventListener('collect', () => {
+    deck.replaceContent({ ...fixture(1), id: 'next-container' }, {
+      presentation: 'open', preserveInventoryContext: true
+    });
+  });
+  const drag = { ...gesture(260), clientX: 115, clientY: 600 };
+  deck.start();
+  deck.move(drag);
+  settle();
+  const position = face => face.style.transform.split(' ')[0];
+  const previousDepth = position(deck.underlayBack);
+  deck.end(drag);
+  await flushPickup();
+  assert.ok(deck.collectMotion?.deposit);
+  const [item] = deck.forwardDeck.cards;
+  const [reverse] = deck.forwardDeck.cardBacks;
+  assert.equal(reverse.style.visibility, 'visible');
+  assert.equal(position(reverse), previousDepth);
+  assert.equal(deck.underlayBack.style.visibility, 'hidden');
+  const stagedPosition = position(item);
+  while (deck.collectMotion) step();
+  assert.equal(deck.cards[0], item);
+  assert.equal(position(item), stagedPosition);
+  assert.equal(deck.flip.x, 1);
+  settle();
+  assert.equal(deck.flip.x, 0);
+  assert.equal(deck.phase, 'choices');
+  deck.destroy();
 });
 
 test('replacement confirmation keeps the main stack at its held pose until a decision', async () => {

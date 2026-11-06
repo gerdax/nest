@@ -25,7 +25,8 @@ function validate(content) {
     interaction,
     allowClose: interaction === 'container' ? false : content.allowClose ?? false,
     actions: content.actions.map(a => ({
-      ...a
+      ...a,
+      ...(a.entrance === 'bottom' ? { entrance: 'from-top' } : {})
     }))
   };
 }
@@ -47,7 +48,7 @@ export class CardDeck extends EventTarget {
     this.presentationRevision = 0;
     this.presentationReadiness = new PresentationReadiness(presentationPolicy);
     this.presentationBrowsePending = this.content.autoBrowse === true;
-    this.index = Math.max(0, this.content.actions.findIndex(a => a.entrance !== 'bottom'));
+    this.index = Math.max(0, this.content.actions.findIndex(a => a.entrance !== 'from-top'));
     this.open = false;
     this.busy = false;
     this.destroyed = false;
@@ -350,7 +351,46 @@ export class CardDeck extends EventTarget {
     this.createReflow(poses);
   }
 
+  inputTailReady() {
+    // Only a new/held press may finish imperceptible residual motion. Keep
+    // ordinary playback, departures, entrance pauses and gameplay clocks intact.
+    if (this.destroyed || this.drag || this.finishingInputTail || this.finishingMotion
+      || this.commitMotion || this.collectMotion || this.pending || this.returning
+      || this.checkSurface || this.pickup?.pending || this.pickup?.target || this.pickup?.mix.x > .001
+      || this.presentationHint || !['revealing', 'committing', 'collecting', 'inserting'].includes(this.phase)
+      || this.contentTransition?.phase === 'outgoing'
+      || [...this.entrances.values()].some(entry => entry.startAt === null)) return false;
+    const { width, height } = layoutBounds(this.mount);
+    const rotations = [this.rotationX, this.rotationY, this.rotationZ];
+    const turns = [this.flip, this.nextFlip, this.contentTransition?.turn];
+    return [...this.motionStates(), ...(this.contentTransition ? [this.contentTransition.turn] : [])].every(state => {
+      if (state === this.p && this.open && (this.skipCover || this.coverCleared())) return true;
+      let scale = state === this.p || state === this.returnLift ? this.departureTravel()
+        : state === this.l ? Math.max(1, height) : state === this.n ? 40
+          : state === this.fan ? 40 * (this.settings.layoutScale ?? 1) : state === this.b ? Math.max(1, width) * 2 * Math.PI : 1;
+      let limit = 1; // layout pixel; also require less than 10 pixels/second
+      if (rotations.includes(state) || turns.includes(state)) {
+        scale = turns.includes(state) ? 180 : 1;
+        limit = turns.includes(state) ? 2 : .5; // degrees, also bounded in speed
+      }
+      // Reflow rotations use degrees too.
+      for (const offset of this.reflowOffsets.values()) {
+        if (['rx', 'ry', 'rz'].some(key => offset[key] === state)) limit = .5;
+      }
+      return Math.abs(state.x - state.target) * scale <= limit
+        && Math.abs(state.v) * scale <= limit * 10;
+    });
+  }
+
   start(event) {
+    if (this.finishingInputTail) return false;
+    if (this.inputTailReady()) {
+      const revision = this.presentationRevision, content = this.content;
+      this.finishingInputTail = true;
+      try { this.finishMotion(); } finally { this.finishingInputTail = false; }
+      // Completion listeners may synchronously replace/reset/destroy the deck.
+      if (this.destroyed || revision !== this.presentationRevision || content !== this.content) return false;
+    }
     if (this.pickup?.pending || this.pickup?.mix.x > .001 || this.destroyed || this.busy || this.openingCommit || this.openingReturn || ['closing', 'revealing', 'ended'].includes(this.phase)) return false;
     this.cancelPresentationHint();
     if (this.itemReturn) this.restoreLiftPoses();
@@ -825,6 +865,7 @@ export class CardDeck extends EventTarget {
     this.backTransition = {
       appearance: resolveBackAppearance(this.content),
       takingLast,
+      exposedBack: this.underlayBack?.style.visibility === 'visible',
     };
     this.render();
   }
@@ -1176,7 +1217,7 @@ export class CardDeck extends EventTarget {
 
   // Entrance hints affect presentation only. The complete action list remains
   // available to the controller throughout reveal and reconciliation.
-  prepareEntrances(ids = this.content.actions.filter(a => a.entrance === 'bottom').map(a => a.id)) {
+  prepareEntrances(ids = this.content.actions.filter(a => a.entrance === 'from-top').map(a => a.id)) {
     this.entranceSequence.prepare(ids, this.departureTravel());
     this.entranceAnnouncement = '';
   }
@@ -1250,6 +1291,12 @@ export class CardDeck extends EventTarget {
     this.reflowOffsets.clear();
     this.busy = false;
     if (labels.length) this.entranceAnnouncement = `New choices: ${labels.join(', ')}. `;
+    const active = this.contentTransition;
+    if (active?.phase === 'entrances') {
+      this.contentTransition = null;
+      active.signal?.removeEventListener('abort', active.abort);
+      active.resolve(true);
+    }
     this.completePhase('choices', transition || 'actionschange');
     if (lastId !== undefined && selectedId !== lastId && this.content === content && !this.destroyed && this.phase === 'choices' && !this.busy && this.content.actions[this.index]?.id === lastId) this.emit('selection', { action: this.content.actions[this.index] });
     if (transition !== 'reveal') this.browsePresentedStack();
@@ -1289,7 +1336,7 @@ export class CardDeck extends EventTarget {
       return;
     }
     const oldIds = new Set(old.actions.map(a => a.id));
-    this.prepareEntrances(actions.filter(a => a.entrance === 'bottom' && !oldIds.has(a.id)).map(a => a.id));
+    this.prepareEntrances(next.actions.filter(a => a.entrance === 'from-top' && !oldIds.has(a.id)).map(a => a.id));
     this.createReflow(poses);
     this.handoffEntrances('actionschange');
     this.render();
@@ -1322,11 +1369,14 @@ export class CardDeck extends EventTarget {
     if (!checking) this.finishMotion();
     if (!stillOwned()) return false;
     this.cancelPresentationHint();
+    const showingReverse = this.open && this.content.actions[this.index]?.faceDown;
     const source = checking
       ? { face: this.checkSurface.back, back: this.underlay, layer: this.underlayLayer,
         pose: { x: 0, y: 0, z: -24*(this.settings.layoutScale??1), rx: 0, ry: 0, rz: 0 } }
       : this.open
-        ? { face: this.cards[this.index], back: this.cardBacks[this.index], layer: this.cardLayers[this.index], pose: cardPose(this, this.index) }
+        ? { face: showingReverse ? this.cardBacks[this.index] : this.cards[this.index],
+          back: showingReverse ? this.cards[this.index] : this.cardBacks[this.index],
+          layer: this.cardLayers[this.index], pose: cardPose(this, this.index) }
         : { face: this.scene, back: this.sceneBack, layer: this.sceneLayer, pose: scenePose(this) };
     if (!source.face || !source.layer) return false;
     const staged = stageContentDeck(this, next);
@@ -1360,7 +1410,6 @@ export class CardDeck extends EventTarget {
     this.commitMotion = this.collectMotion = this.pending = null;
     this.install(active.next, { open: active.presentation === 'open', staged: active.staged,
       stagedDepth: active.transition === 'slide' ? 1 : 0 });
-    this.entranceSequence.clear();
     this.presentationBrowsePending = false;
     this.fan.target = this.open ? 1 : 0;
     this.busy = true;
@@ -1407,6 +1456,15 @@ export class CardDeck extends EventTarget {
     this.adoptContentTransition();
     this.n = spring();
     this.fan = spring(this.open ? 1 : 0);
+    if (this.open && this.entrances.size) {
+      active.phase = 'entrances';
+      this.beginEntrances(active.transition);
+      if (this.finishingMotion) {
+        this.finishEntrances();
+        this.input.resume();
+      } else this.schedule();
+      return;
+    }
     this.contentTransition = null;
     active.signal?.removeEventListener('abort', active.abort);
     this.busy = false;
@@ -1430,6 +1488,9 @@ export class CardDeck extends EventTarget {
       for (const layer of [...active.staged.cardLayers, active.staged.sceneLayer]) layer.remove();
       Object.assign(this, active.previous);
     } else {
+      if (this.open) this.entranceSequence.clear();
+      this.reflowOrder = null;
+      this.reflowOffsets.clear();
       this.n = spring();
       this.fan = spring(this.open ? 1 : 0);
       this.phase = this.open ? 'choices' : 'closed';
@@ -1453,8 +1514,10 @@ export class CardDeck extends EventTarget {
     preserveInventoryContext = Boolean(preserveInventoryContext && this.open && presentation === 'open'
       && isInventoryContext(this.content, 'open') && isInventoryContext(next, presentation));
     this.preserveInventoryContext = preserveInventoryContext;
-    // A coverless successor still turns when a story leaves its node.
-    if (this.coverDeparture && transition === 'flip' && presentation === 'open') next.decisionOnly = true;
+    // A settled check may expose the reverse after the outgoing motion ended.
+    if (this.backTransition && this.checkSurface?.ready) this.backTransition.exposedBack = true;
+    const exposedContainerBack = this.backTransition?.exposedBack && next.interaction === 'container';
+    if ((this.coverDeparture || exposedContainerBack) && transition === 'flip' && presentation === 'open') next.decisionOnly = true;
     if (this.busy && (this.phase === 'committing' || (this.phase === 'collecting' && this.collectMotion?.final))) {
       this.pending = next;
       this.pendingPresentation = presentation;
@@ -1478,7 +1541,7 @@ export class CardDeck extends EventTarget {
     if (presentation === 'open' && !animate) {
       this.entrances.clear();
       this.entranceTransition = null;
-      const top = this.content.actions.findLastIndex(action => action.entrance === 'bottom');
+      const top = this.content.actions.findLastIndex(action => action.entrance === 'from-top');
       if (top >= 0) { this.index = top; this.b = spring(top); }
       this.fan = spring(1);
       this.phase = 'choices';
@@ -1511,7 +1574,7 @@ export class CardDeck extends EventTarget {
     this.presentationBrowsePending = content.autoBrowse === true;
     this.ending = false;
     this.open = open && content.actions.length > 0;
-    this.index = Math.max(0, content.actions.findIndex(a => selectedId === undefined ? a.entrance !== 'bottom' : a.id === selectedId));
+    this.index = Math.max(0, content.actions.findIndex(a => selectedId === undefined ? a.entrance !== 'from-top' : a.id === selectedId));
     this.prepareEntrances();
     this.drag = null;
     this.phase = this.open ? 'revealing' : 'closed';
@@ -1606,7 +1669,8 @@ export class CardDeck extends EventTarget {
       if (presentation === 'open' && next.decisionOnly && transition === 'flip') {
         const staged = this.forwardDeck;
         const flipState = { ...this.nextFlip, target: 0 };
-        this.install(next, { open: true, staged, stagedDepth, flipState, backTransition, takeRecession, preserveInventoryContext });
+        const depth = next.interaction === 'container' && backTransition?.exposedBack ? stagedDepth - .3 : stagedDepth;
+        this.install(next, { open: true, staged, stagedDepth: depth, flipState, backTransition, takeRecession, preserveInventoryContext });
         this.commitTransition = introduction ? 'reveal' : 'commit';
         this.fan.target = 1;
         this.phase = 'committing';
@@ -1772,7 +1836,7 @@ export class CardDeck extends EventTarget {
     if (this.destroyed) return;
     let dt = this.last ? Math.min((t - this.last) / 1000, 0.05) : 1 / 60;
     this.last = t;
-    if (this.contentTransition) { this.stepContentTransition(dt, t); return; }
+    if (this.contentTransition && this.contentTransition.phase !== 'entrances') { this.stepContentTransition(dt, t); return; }
     const pickupMoving = this.pickup?.step(dt);
     // Releasing into a replacement question is still a held presentation.
     // Settling l/rotation/grab here would undo the stack's take-depth recession
@@ -1871,13 +1935,17 @@ export class CardDeck extends EventTarget {
   }
 
   finishMotionSequence() {
+    const tailRevision = this.finishingInputTail ? this.presentationRevision : null;
+    const tailContent = this.content;
+    const tailReplaced = () => tailRevision !== null
+      && (this.destroyed || this.presentationRevision !== tailRevision || this.content !== tailContent);
     this.entranceSequence.clearHint();
     if (this.entrances.size) this.presentationBrowsePending = false;
     cancelAnimationFrame(this.frame);
     this.frame = 0;
     this.last = 0;
     this.clearGrab();
-    if (this.contentTransition) { this.completeContentTransition(); return; }
+    if (this.contentTransition && this.contentTransition.phase !== 'entrances') { this.completeContentTransition(); return; }
     if (this.drag) return;
     if (this.collectMotion) {
       this.completeCollection();
@@ -1898,8 +1966,11 @@ export class CardDeck extends EventTarget {
       }
       if (this.liftPoses) { this.restoreLiftPoses(); continue; }
       if (['collect', 'discard'].includes(this.operation) && this.motionStates().every(s => this.atRest(s))) this.finishCollection();
+      if (tailReplaced()) return;
       if (this.entranceTransition) this.finishEntrances();
+      if (tailReplaced()) return;
       this.advancePhases();
+      if (tailReplaced()) return;
     }
     this.interactionMotion.clearFollowers();
     this.groupLeaveActive = false;

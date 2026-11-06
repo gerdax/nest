@@ -424,11 +424,11 @@ for(const boundary of ['player-roll','payment'])for(const lifecycle of ['restart
 test('Weapon Actions enter only on the first choice display, including retries and new encounters',async()=>{
  const h=harness();addSupport(h,'wait');
  const incoming=h.c.choiceContent().actions.filter(action=>action.contextItemId);
- assert(incoming.length>0);assert(incoming.every(action=>action.entrance==='bottom'));
+ assert(incoming.length>0);assert(incoming.every(action=>action.entrance==='from-top'));
  // Merely generating content must not consume the first entrance.
- assert(h.c.choiceContent().actions.filter(action=>action.contextItemId).every(action=>action.entrance==='bottom'));
+ assert(h.c.choiceContent().actions.filter(action=>action.contextItemId).every(action=>action.entrance==='from-top'));
  await reachPlayer(h);
- assert(h.deck.content.actions.filter(action=>action.contextItemId).every(action=>action.entrance==='bottom'));
+ assert(h.deck.content.actions.filter(action=>action.contextItemId).every(action=>action.entrance==='from-top'));
  h.c.fail(new Error('Retry choice presentation'));await h.c.retry();
  assert.equal(h.c.encounter.round,1);
  assert(h.deck.content.actions.filter(action=>action.contextItemId).every(action=>action.entrance===undefined));
@@ -437,7 +437,7 @@ test('Weapon Actions enter only on the first choice display, including retries a
  assert(h.deck.content.actions.filter(action=>action.contextItemId).every(action=>action.entrance===undefined));
  h.c.dispose();
  const fresh=harness();await reachPlayer(fresh);
- assert(fresh.deck.content.actions.filter(action=>action.contextItemId).every(action=>action.entrance==='bottom'));
+ assert(fresh.deck.content.actions.filter(action=>action.contextItemId).every(action=>action.entrance==='from-top'));
  fresh.c.dispose();
 });
 

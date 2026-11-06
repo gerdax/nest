@@ -188,9 +188,9 @@ for(const openSuccessor of [false,true])test(`actual Linear take recedes its und
  while(d.collectMotion){now+=1;const callbacks=[...frames.values()];frames.clear();callbacks.forEach(fn=>fn(now));}
  assert.ok(d.n.x>1,'installed successor retains the receded depth');
  const incoming=openSuccessor?cardPose(d,0,now):scenePose(d,now);
- assert.ok(Math.abs(incoming.z-((openSuccessor?-36:-24)-453*.4))<1e-6,'successor has no depth jump');
+ assert.ok(Math.abs(incoming.z-(-24-453*.4))<1e-6,'successor matches the depth of the exposed reverse');
  assert.ok(incoming.y<0,'successor retains upward compensation');
- const uncompensated={...incoming,y:0,z:openSuccessor?-36:-24};
+ const uncompensated={...incoming,y:0,z:-24};
  assert.ok(Math.abs(projectedBounds(incoming,340,453,d.settings.perspective).top-projectedBounds(uncompensated,340,453,d.settings.perspective).top)<1e-6,'incoming top starts anchored');
  settle();assert.equal(d.n.x,0);assert.equal(d.nextTakeDepth,0);assert.equal(standalone.controller.state.cardId,'after');
  dispose(d,standalone.controller);c.cancel();dispose(c,container.controller);

@@ -7,6 +7,7 @@ export function previewActiveNode(preview, chapter, state = preview.state) {
 
 export function updatePreviewHighlight(graph, preview, chapter, state = preview.state) {
   const active = graph.chapter?.id === chapter?.id ? previewActiveNode(preview, chapter, state) : null;
-  graph.setActive(active);
+  const callerId = active && !state.completed ? preview.controller?.location?.randomizerRun?.scene?.callerId : null;
+  graph.setActive(active, callerId === active ? null : callerId ?? null);
   graph.setActiveCard(active ? previewCardTarget(preview) : null);
 }

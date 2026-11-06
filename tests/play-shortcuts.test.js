@@ -6,6 +6,7 @@ import {mountPlayShortcuts} from '../studio/play-shortcuts.js';
 function fixture({enabled=true,handled=true,field=false}={}) {
  const root=new EventTarget(),calls=[];
  const stop=mountPlayShortcuts(root,{enabled:()=>enabled,
+  playChapter:()=>calls.push('chapter'),
   commitField:()=>{if(!field)return false;calls.push('commit');return true;},
   playSelected:()=>{calls.push('play');return handled;}});
  const key=(properties={},context=null)=>{
@@ -56,8 +57,15 @@ test('commit shortcut leaves interaction preview alone',()=>{
  assert.deepEqual(f.calls,[]);f.stop();
 });
 
+test('Command+Shift+Enter plays the chapter without a selection or field commit',()=>{
+ const f=fixture({enabled:false,field:true});
+ assert.equal(f.key({metaKey:true},'textarea').defaultPrevented,true);
+ assert.equal(f.key({metaKey:true,repeat:true},'button').defaultPrevented,true);
+ assert.deepEqual(f.calls,['chapter']);f.stop();
+});
+
 test('unassigned keys, mixed modifiers, composition and repeats never run play',()=>{
- for(const properties of [{shiftKey:false},{key:' '},{metaKey:true},{ctrlKey:true},{altKey:true},{repeat:true},{isComposing:true},{defaultPrevented:true}]){
+ for(const properties of [{shiftKey:false},{key:' '},{metaKey:true,ctrlKey:true},{ctrlKey:true},{altKey:true},{repeat:true},{isComposing:true},{defaultPrevented:true}]){
   const f=fixture({field:true});f.key(properties);assert.deepEqual(f.calls,[]);f.stop();
  }
 });

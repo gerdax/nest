@@ -77,14 +77,14 @@ export function resolvePlacement(project, placement, index) {
   if (placement.contextItemId && !contextItem && isTagKey(placement.contextItemId)) {
     if (base.kind !== 'action' || !itemTag(project, placement.contextItemId)) throw createError('PROJECT_CONTEXTUAL_CHOICE_NEEDS_AN_ACTION_AND_AN_ITEM_TAG');
     const key = placement.contextItemId;
-    Object.assign(resolved, {contextItemId:key, contextInventoryKey:key, inventoryLabel:itemTagLabel(project,key), entrance:'bottom', contextOverrideImage:false});
+    Object.assign(resolved, {contextItemId:key, contextInventoryKey:key, inventoryLabel:itemTagLabel(project,key), entrance:'from-top', contextOverrideImage:false});
     resolved.explicitConditions = [...resolved.conditions];
     resolved.conditions.push({source:'inventory',key,op:'has'});
   } else if (placement.contextItemId) {
     const item = contextItem;
     if (base.kind !== 'action' || !item) throw createError('PROJECT_CONTEXTUAL_CHOICE_NEEDS_AN_ACTION_AND_AN_ITEM_DEFINITION');
     const key = item.inventoryKey ?? item.id;
-    Object.assign(resolved, {contextItemId:item.id, contextInventoryKey:key, inventoryLabel:`Inventory · ${item.name}`, entrance:'bottom', contextOverrideImage:placement.contextOverrideImage===true});
+    Object.assign(resolved, {contextItemId:item.id, contextInventoryKey:key, inventoryLabel:`Inventory · ${item.name}`, entrance:'from-top', contextOverrideImage:placement.contextOverrideImage===true});
     if (placement.contextOverrideImage === true) Object.assign(resolved, {image:item.image ?? '', imageScale:item.imageScale ?? 100, imageOffsetX:item.imageOffsetX ?? 0,
       imageOffsetY:item.imageOffsetY ?? 0, flipImage:!!item.flipImage});
     resolved.explicitConditions=[...resolved.conditions];

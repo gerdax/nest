@@ -28,3 +28,16 @@ test('editor preview notification wiring uses highlight updates while document r
  assert.match(source,/onStop:\(\)=>graph\.setActive\(null\)/);
  assert.match(source,/function renderGraph\(issues\)\{[\s\S]*?if\(mode==='chapter'\)\{[\s\S]*?graph\.render\(project,chapter\(\),selected,previewActiveNode\(preview,chapter\(\)\)\)/);
 });
+
+test('an Auto scene highlights its caller alongside each beat until the scene ends',()=>{
+ const chapter={id:'chapter'},writes=[];
+ const graph={chapter,setActive:(...ids)=>writes.push(ids),setActiveCard:()=>{}};
+ const scene={callerId:'auto'};
+ const preview={chapterId:chapter.id,controller:{location:{randomizerRun:{scene}}}};
+ for(const activeNodeId of ['linear','group-member','auto']){
+  updatePreviewHighlight(graph,preview,chapter,{activeNodeId});
+ }
+ preview.controller.location.randomizerRun.scene=null;
+ updatePreviewHighlight(graph,preview,chapter,{activeNodeId:'next'});
+ assert.deepEqual(writes,[['linear','auto'],['group-member','auto'],['auto',null],['next',null]]);
+});
