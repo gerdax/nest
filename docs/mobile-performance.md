@@ -1,6 +1,6 @@
 # Comparing player effects on a phone
 
-The standalone player includes **Performance comparison · effects** inside **Controls**, at the bottom-right of the playfield. This is a session-only diagnostic panel; Raster PNG is the default shadow mode. It does not change projects, exported JSON, motion settings, or the editor. Reload enables all effects with Raster PNG. `player.html?perf=1#performance-mode` opens the panel directly.
+The standalone player includes **Performance comparison · effects** inside **Controls**, at the bottom-right of the playfield. The panel settings apply to the current session. Reloading enables all effects and selects Static CSS shadows. `player.html?perf=1#performance-mode` opens the panel directly.
 
 **Original effects** enables every effect. **Light effects** disables all five effects. Individual checkboxes disable card shadows, artwork colorization, paper texture, the masked rim, and inventory backdrop blur. The effect checkboxes control CSS rendering. Shadow rendering also selects how the renderer supplies shadows. Gesture sampling and motion physics remain the same. The comparison does not test smaller artwork textures or one-render-per-frame input scheduling.
 

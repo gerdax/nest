@@ -99,10 +99,7 @@ test('shadow variants interrupt recordings and preserve their mode in reports', 
   const f = fixture();
   const row = f.nodes.get('controls').children.find(row => row.className === 'performance-shadow-mode');
   const select = row.children[1];
-  assert.equal(select.value, 'raster');
-  assert.equal(f.doc.documentElement.dataset.performanceShadowMode, 'raster');
-  select.value = 'static';
-  select.dispatchEvent(new Event('change'));
+  assert.equal(select.value, 'static');
   assert.equal(f.doc.documentElement.dataset.performanceShadowMode, 'static');
   f.click('record');
   f.tick(0); f.tick(16);

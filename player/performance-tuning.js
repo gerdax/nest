@@ -49,7 +49,7 @@ export function mountPerformanceTuning(root, preview) {
     option.textContent = label;
     shadowMode.append(option);
   }
-  shadowMode.value = 'raster';
+  shadowMode.value = 'static';
   shadowRow.append(shadowLabel, shadowMode);
 
   const listeners = [];
