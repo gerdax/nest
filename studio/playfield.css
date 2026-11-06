@@ -3,6 +3,7 @@
 .nest-playfield {
   /* One 359 × 745 reset composition; every game dimension uses its fit scale. */
   --playfield-scale:1;
+  --playfield-content-drop:calc(6px * var(--playfield-scale));
   --card-layout-scale:var(--playfield-scale);
   --card-reference-width:273.6;
   --playfield-safe-top:0px;
@@ -41,9 +42,10 @@
   gap:var(--playfield-gap);overflow:visible;
 }
 .nest-playfield #preview .player-resources {
-  position:absolute;left:50%;top:calc(var(--playfield-hud-top-y,calc(40px * var(--playfield-scale))) - 10px * var(--playfield-scale));
+  position:absolute;left:50%;top:calc(var(--playfield-hud-top-y,0px) - 4px * var(--playfield-scale));
   translate:-50% 0;width:min(100%,276px);max-width:100%;height:auto;
 }
+.nest-playfield .resource-baseline {display:inline-block;width:0;height:0;vertical-align:baseline;}
 /* Editor's legacy [hidden] rule must not collapse this reserved lane. */
 .nest-playfield #preview .player-resources[hidden] {display:flex!important;visibility:hidden;}
 .nest-playfield #preview .player-resource {font-size:calc(76.25535px * var(--playfield-scale));gap:calc(6.149625px * var(--playfield-scale));}
@@ -55,11 +57,20 @@
 }
 .nest-playfield #preview .chapter-preview-card-layout {
   /* The deck measures this real size; no transformed gesture coordinate plane. */
-  --preview-card-width:min(calc(273.6px * var(--playfield-scale)),100%,calc(100cqh * .75));
+  --preview-card-width:calc(.95 * min(273.6px * var(--playfield-scale),100%,75cqh));
+}
+/* Use the game frame's proportions in both hosts. Keep the card bottom aligned. */
+@container playfield (max-aspect-ratio: 3/4) {
+  .nest-playfield .chapter-preview-card-area {
+    grid-template-rows:minmax(0,1fr);
+  }
+  .nest-playfield #preview .chapter-preview-card-layout {
+    --preview-card-width:calc(.95 * min(312px * var(--playfield-scale),100%,75cqh + 36px * var(--playfield-scale)));
+  }
 }
 .nest-playfield #preview .chapter-preview-card-layout,
 .nest-playfield #preview .action-context-panel {
-  position:relative;top:calc(8px * var(--playfield-scale) - var(--playfield-composition-lift,0px));
+  position:relative;top:calc(8px * var(--playfield-scale) - var(--playfield-composition-lift,0px) + var(--playfield-content-drop));
 }
 .nest-playfield #preview .action-context-panel {grid-row:3;translate:0 calc(20px * var(--playfield-scale));}
 .nest-playfield .action-context-caption {font-size:calc(var(--card-small-size,10px) * var(--playfield-scale));}
@@ -72,13 +83,13 @@
 .nest-playfield .check-surface .check-tray {inset:calc(16px * var(--playfield-scale)) calc(12px * var(--playfield-scale)) calc(130px * var(--playfield-scale));}
 .nest-playfield .nest-card-backdrop-fill {background:linear-gradient(to bottom,transparent 0,#000 calc(30px * var(--playfield-scale)),#000 100%);}
 .nest-playfield .preview-status-row {
-  position:absolute;inset:auto calc(12px * var(--playfield-scale)) var(--playfield-drawer-space);z-index:20;text-align:center;display:block;
+  position:absolute;inset:auto calc(12px * var(--playfield-scale)) calc(var(--playfield-drawer-space) - var(--playfield-content-drop));z-index:20;text-align:center;display:block;
 }
 .nest-playfield .preview-status-row [data-status] {
   max-height:20cqh;overflow:auto;background:#000;margin:0;padding:4px;
 }
 .nest-playfield .nest-inventory-surface .nest-inventory-drawer {
-  bottom:calc(var(--playfield-footer-height) + var(--playfield-safe-bottom) + var(--inventory-drawer-lift,calc(24px * var(--playfield-scale))));
+  bottom:calc(var(--playfield-footer-height) + var(--playfield-safe-bottom) + var(--inventory-drawer-lift,calc(24px * var(--playfield-scale))) - var(--playfield-content-drop));
   padding:calc(30px * var(--playfield-scale)) var(--playfield-safe-right) calc(16px * var(--playfield-scale)) var(--playfield-safe-left);
 }
 .nest-playfield .nest-inventory-drawer .nest-inventory-cards {width:var(--playfield-drawer-width);max-width:none;gap:calc(8px * var(--playfield-scale));}

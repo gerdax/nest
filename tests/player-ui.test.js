@@ -141,14 +141,16 @@ test('viewport scaling uses layout pixels and keeps the reset proportions',()=>{
  ui.destroy();
 });
 
-test('resource display top is one quarter between viewport top and card top across zoom',()=>{
+test('resource baseline is three quarters between viewport top and card top across zoom',()=>{
  const {ui,root,mount,doc}=fixture();
  for(const zoom of [1,.8,1.25]) {
   doc.documentElement={};doc.defaultView.getComputedStyle=()=>({zoom:String(zoom)});
   root.getBoundingClientRect=()=>({top:100*zoom,left:0,width:359*zoom,height:745*zoom});
-  root.querySelector('.chapter-preview-stage').getBoundingClientRect=()=>({top:100*zoom,left:0,width:359*zoom,height:745*zoom});
+  root.querySelector('.chapter-preview-stage').getBoundingClientRect=()=>({top:120*zoom,left:0,width:359*zoom,height:725*zoom});
   mount.getBoundingClientRect=()=>({top:300*zoom,left:0,width:273.6*zoom,height:364.8*zoom});
-  ui.contextResize.callback();assert.equal(root.style['--playfield-hud-top-y'],'50px');
+  ui.resources.getBoundingClientRect=()=>({top:120*zoom});
+  ui.resources.querySelector('.player-resource:not([hidden]) .resource-baseline').getBoundingClientRect=()=>({top:170*zoom});
+  ui.contextResize.callback();assert.equal(root.style['--playfield-hud-top-y'],'80px');
  }
  ui.destroy();
 });

@@ -30,7 +30,8 @@ export class PlayerUI {
     if (inventoryDock) {inventoryRoot.classList.add('nest-inventory-dock'); this.releaseDock = acquireDock((root.ownerDocument ?? document).body);}
     const container = inventoryHost ?? (inventoryDock ? null : root);
     this.surface = new InventorySurface({container});
-    this.backdrop = new CardBackdrop(root.querySelector('.chapter-preview-card-area'), {container});
+    const cardArea = root.querySelector('.chapter-preview-card-area');
+    this.backdrop = new CardBackdrop(cardArea, {container});
     this.surface.mount(inventoryRoot);
     // This is a host-provided slot. PlayerUI knows its dimensions, never its
     // editor diagnostics or navigation contents.
@@ -66,19 +67,24 @@ export class PlayerUI {
         setStyle(root,'--playfield-composition-lift',`${layout.lift}px`);
       }
       const cardBounds=layoutBounds(mount);
-      const cardTop=cardBounds.top-bounds.top;
-      const stageTop=layoutBounds(root.querySelector('.chapter-preview-stage')).top-bounds.top;
-      if(Number.isFinite(cardTop)&&cardTop>0&&Number.isFinite(stageTop))setStyle(root,'--playfield-hud-top-y',`${cardTop/4-stageTop}px`);
       const width=cardBounds.width;
       if(Number.isFinite(width)&&width>0){
         this.actionContext.root.style.width=`${width}px`;
         this.resources.style.width=`${width}px`;
+      }
+      const cardTop=cardBounds.top-bounds.top;
+      const stageTop=layoutBounds(root.querySelector('.chapter-preview-stage')).top-bounds.top;
+      const baseline=this.resources.querySelector('.player-resource:not([hidden]) .resource-baseline');
+      if(baseline && cardTop>0 && Number.isFinite(stageTop)){
+        const baselineOffset=layoutBounds(baseline).top-layoutBounds(this.resources).top;
+        setStyle(root,'--playfield-hud-top-y',`${cardTop*.75-stageTop-baselineOffset}px`);
       }
     };
     this.contextResize=new ResizeObserver(this.syncContextWidth);
     this.contextResize.observe(root);
     this.contextResize.observe(mount);
     this.syncContextWidth();
+    root.ownerDocument?.fonts?.ready.then(this.syncContextWidth);
   }
 
   applyStyles(styles) {
@@ -112,7 +118,11 @@ export class PlayerUI {
         this[`${resource.id}Value`].textContent = resource.value;
         meter.setAttribute('aria-label', `${resource.label} ${resource.value}${resource.max === undefined ? '' : ` out of ${resource.max}`}`);
       }
-      this.resources.hidden = visibleResources === 0;
+      const resourcesHidden = visibleResources === 0;
+      if (this.resources.hidden !== resourcesHidden) {
+        this.resources.hidden = resourcesHidden;
+        if (!resourcesHidden) this.syncContextWidth();
+      }
       const {items, ...options} = view.inventory;
       this.inventory.update(items, options);
     }

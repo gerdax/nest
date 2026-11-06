@@ -1,3 +1,5 @@
+import { DEFAULT_SHADOW_MODE } from '../engine/renderer.js';
+
 const RECORDING_MS = 10_000;
 const MAX_SAMPLES = 100_000;
 
@@ -49,7 +51,7 @@ export function mountPerformanceTuning(root, preview) {
     option.textContent = label;
     shadowMode.append(option);
   }
-  shadowMode.value = 'static';
+  shadowMode.value = DEFAULT_SHADOW_MODE;
   shadowRow.append(shadowLabel, shadowMode);
 
   const listeners = [];

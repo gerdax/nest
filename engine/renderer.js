@@ -6,6 +6,8 @@ import { applyArtworkColorize } from './artworkColorize.js';
 import { setArtworkSource } from './artworkReload.js';
 import { resolveBackAppearance } from './cardBacks.js';
 
+export const DEFAULT_SHADOW_MODE = 'static';
+
 // Stable per-card variation: adjacent IDs should not produce a regular fan,
 // and repeated renders of a held gesture must never jitter.
 function discardVariation(id, channel) {
@@ -577,7 +579,7 @@ function applyPose(deck, element, layer, pose, order, shadow = true) {
   layer.style.perspective = `${deck.settings.perspective}px`;
   // Elevation changes the footprint of the shadow, never the card's opacity.
   const elevation = Math.max(0, pose.z + 24*(deck.settings.layoutScale??1));
-  const shadowMode = document.documentElement?.dataset?.performanceShadowMode;
+  const shadowMode = document.documentElement?.dataset?.performanceShadowMode ?? DEFAULT_SHADOW_MODE;
   if (shadowMode === 'static' || shadowMode === 'raster') {
     element.style.boxShadow = shadow && shadowMode === 'static'
       ? 'var(--card-edge-strata), 0 8px 18px #000b'
