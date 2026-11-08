@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { sourceCard, revealCardEntry } from '../studio/card-navigation.js';
+import { sourceCard, revealCardEntry, mountCardAccordion } from '../studio/card-navigation.js';
 import { createProject } from '../project/model.js';
 import { nodeInspector } from '../studio/inspectors.js';
 
@@ -34,17 +34,19 @@ test('reveals opaque placement IDs, expands details, focuses summary and removes
  const inspector=element('DIV'),summary=element('SUMMARY'),outer=element('DETAILS',{},inspector);
  const id='card.\"[opaque]';const entry=element('DETAILS',{placement:id},outer),previous=element('DETAILS');
  previous.classList.add('card-navigation-target');entry.querySelector=()=>summary;
- inspector.querySelectorAll=selector=>selector==='.card-navigation-target'?[previous]:[entry];
+ previous.open=true;
+ inspector.querySelectorAll=selector=>selector==='.card-navigation-target'?[previous]:selector==='[data-preview-path]'?[]:[entry,previous];
  assert.equal(revealCardEntry(inspector,{placementId:id}),true);
  assert.equal(entry.open,true);assert.equal(outer.open,true);assert.equal(entry.classList.contains('card-navigation-target'),true);
  assert.equal(previous.classList.contains('card-navigation-target'),false);
+ assert.equal(previous.open,false);
  assert.deepEqual(entry.scrollOptions,{block:'start',inline:'nearest',behavior:'auto'});
  assert.deepEqual(summary.focusOptions,{preventScroll:true});
  assert.equal(revealCardEntry(inspector,{placementId:'missing'}),false);
 });
 test('legacy reveal expands the selected sequence without clicking its shared edit button',()=>{
  const inspector=element('DIV'),sequence=element('DETAILS',{sequence:'two'},inspector),entry=element('BUTTON',{cardPlacement:'card',cardSlot:'cards'},sequence);
- sequence.querySelectorAll=()=>[entry];inspector.querySelectorAll=selector=>selector==='.card-navigation-target'?[]:[sequence];
+ sequence.querySelectorAll=()=>[entry];inspector.querySelectorAll=selector=>selector.includes('data-sequence')?[sequence]:[];
  assert.equal(revealCardEntry(inspector,{sequenceId:'two',placementId:'card',slot:'cards'}),true);
  assert.equal(sequence.open,true);assert.deepEqual(entry.focusOptions,{preventScroll:true});
  assert.equal(revealCardEntry(inspector,{sequenceId:'one',placementId:'card',slot:'cards'}),false);
@@ -60,16 +62,34 @@ test('legacy choices with the same ID and definition stay scoped to their parent
  assert.equal(sourceCard(project,{...target,slot:'items'}).placement,sequence.items[0]);
  const inspector=element('DIV'),section=element('DETAILS',{sequence:sequence.id},inspector);
  const buttons=['one','two'].map(parent=>element('BUTTON',{cardPlacement:'repeat',cardSlot:'choices',cardParent:parent},section));
- section.querySelectorAll=()=>buttons;inspector.querySelectorAll=selector=>selector==='.card-navigation-target'?[]:[section];
+ section.querySelectorAll=()=>buttons;inspector.querySelectorAll=selector=>selector.includes('data-sequence')?[section]:[];
  assert.equal(revealCardEntry(inspector,target),true);assert.equal(buttons[0].focusOptions,undefined);assert.deepEqual(buttons[1].focusOptions,{preventScroll:true});
 });
 
 test('automatic reveal expands and scrolls the card without moving keyboard focus',()=>{
  const inspector=element('DIV'),summary=element('SUMMARY'),entry=element('DETAILS',{placement:'one'},inspector);
  entry.querySelector=()=>summary;
- inspector.querySelectorAll=selector=>selector==='.card-navigation-target'?[]:[entry];
+ inspector.querySelectorAll=selector=>selector.includes('data-placement')?[entry]:[];
  assert.equal(revealCardEntry(inspector,{placementId:'one'},{focus:false}),true);
  assert.equal(entry.open,true);assert.ok(entry.scrollOptions);assert.equal(summary.focusOptions,undefined);
+});
+
+test('opening a card by its summary closes other cards and preserves unrelated inspector details',()=>{
+ const inspector=element('DIV'),first=element('DETAILS',{placement:'first'},inspector),second=element('DETAILS',{placement:'second'},inspector);
+ const settings=element('DETAILS',{},inspector);
+ const click=section=>({target:{closest:()=>element('SUMMARY',{},section)}});
+ first.open=settings.open=true;
+ first.classList.add('card-navigation-target');
+ inspector.querySelectorAll=selector=>selector.includes('data-placement')?[first,second]:selector==='.card-navigation-target'?[first]:[];
+ let onClick;
+ inspector.addEventListener=(type,listener)=>{assert.equal(type,'click');onClick=listener;};
+ mountCardAccordion(inspector);
+ onClick(click(first));
+ assert.equal(first.open,true,'clicking the open card leaves closing to the browser');
+ onClick(click(second));
+ assert.equal(first.open,false);
+ assert.equal(settings.open,true);
+ assert.equal(first.classList.contains('card-navigation-target'),false);
 });
 
 test('definition sources use stable embedded IDs instead of old array positions',()=>{

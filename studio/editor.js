@@ -30,7 +30,7 @@ import { esc, field, select } from './forms.js';
 import { mountPreviewWindow } from './preview-window.js';
 import { mountAutoplay } from './autoplay.js';
 import { mountAutoPanel } from './auto-panel.js';
-import { sourceCard, revealCardEntry } from './card-navigation.js';
+import { sourceCard, revealCardEntry, mountCardAccordion } from './card-navigation.js';
 import { renderCardPreviews } from './card-preview.js';
 import { mountDescriptionEditors, descriptionEditorContext } from './description-tokens.js';
 import { bindImagePicker } from './image-picker.js';
@@ -79,6 +79,7 @@ const preview=new ProjectPreview($('#preview'),{previewOverrides,inventoryHost:$
 const previewWindow=mountPreviewWindow($('#preview-window'),{onClose:()=>preview.stop()});
 const autoplay=mountAutoplay($('#autoplay'),{getSelected:()=>graph.selectedIds.size>1?undefined:selected,onPlay:id=>play(id,{restore:false})});
 const autoPanel=mountAutoPanel($('#auto-panel'),{getTarget:()=>preview.cardTarget(),onReveal:target=>goToPreviewCard(target,{automatic:true})});
+mountCardAccordion($('#inspector'));
 const nodeCreateMenu=mountNodeCreateMenu({onChoose:(type,request)=>edit(request.id?'create-connected-node':'add-node',{...request,type}),onDismiss:()=>graph.cancelCreation(),returnFocus:$('#canvas')});
 const graph=new GraphView($('#canvas'),{
  onOpenDefinition:(id,nodeId)=>{selectedGroupId=undefined;selected=nodeId;graph.selectedIds=new Set([nodeId]);goToDefinition(id);},

@@ -33,6 +33,33 @@ export function sourceCard(project,target) {
  return placement?{chapter,node,placement}:null;
 }
 
+function cardSections(inspector) {
+ const sections=new Set(inspector.querySelectorAll('details[data-placement],details[data-sequence]'));
+ for(const preview of inspector.querySelectorAll('[data-preview-path]')){
+  const section=preview.closest('details');
+  if(section)sections.add(section);
+ }
+ return sections;
+}
+
+function closeOtherCards(inspector,entry,sections=cardSections(inspector)) {
+ const path=new Set();
+ for(let parent=entry;parent&&parent!==inspector;parent=parent.parentElement)path.add(parent);
+ for(const section of sections)if(!path.has(section)&&section.open)section.open=false;
+ for(const previous of inspector.querySelectorAll('.card-navigation-target'))previous.classList.remove('card-navigation-target');
+}
+
+export function mountCardAccordion(inspector) {
+ inspector.addEventListener('click',event=>{
+  if(event.defaultPrevented)return;
+  const summary=event.target.closest?.('summary');
+  const section=summary?.parentElement;
+  if(section?.tagName!=='DETAILS'||section.open)return;
+  const sections=cardSections(inspector);
+  if(sections.has(section))closeOtherCards(inspector,section,sections);
+ });
+}
+
 /** Expand and reveal the matching entry without dispatching editor selection events. */
 export function revealCardEntry(inspector,target,{focus=true}={}) {
  let entry;
@@ -46,7 +73,7 @@ export function revealCardEntry(inspector,target,{focus=true}={}) {
   entry=sequence&&[...sequence.querySelectorAll('[data-card-placement]')].find(el=>el.dataset.cardPlacement===target.placementId&&el.dataset.cardSlot===target.slot&&(!target.parentCardId||el.dataset.cardParent===target.parentCardId));
  }else entry=[...inspector.querySelectorAll('details[data-placement]')].find(el=>el.dataset.placement===target.placementId);
  if(!entry)return false;
- for(const previous of inspector.querySelectorAll('.card-navigation-target'))previous.classList.remove('card-navigation-target');
+ closeOtherCards(inspector,entry);
  for(let parent=entry;parent&&parent!==inspector;parent=parent.parentElement)if(parent.tagName==='DETAILS')parent.open=true;
  entry.classList.add('card-navigation-target');
  entry.scrollIntoView({block:'start',inline:'nearest',behavior:'auto'});
