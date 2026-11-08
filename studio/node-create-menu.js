@@ -12,6 +12,7 @@ export function mountNodeCreateMenu({onChoose, onDismiss, returnFocus, document:
   .filter(([type,descriptor])=>descriptor.create&&type!=='death')
   .map(([type,descriptor])=>`<button type="button" data-node-type="${esc(type)}" title="${esc(descriptor.label)}" aria-label="Create ${esc(descriptor.label)} beat">${nodeIcon(type)}<span>${esc(descriptor.label)}</span></button>`).join('')+'</div>';
  doc.body.append(menu);
+ const prompt=menu.querySelector('.node-create-prompt');
  const buttons=[...menu.querySelectorAll('[data-node-type]')];
  let request=null;
  function close({restoreFocus=false}={}) {
@@ -43,6 +44,8 @@ export function mountNodeCreateMenu({onChoose, onDismiss, returnFocus, document:
  return {
   open(context){
    request=context;menu.hidden=false;
+   prompt.textContent=context.id?'Create and connect':'Create beat';
+   menu.setAttribute('aria-label',context.id?'Create and connect a beat':'Create a beat');
    const bounds=menu.getBoundingClientRect(),view=doc.defaultView;
    menu.style.left=`${Math.max(8,Math.min(context.clientX,view.innerWidth-bounds.width-8))/uiScale(menu)}px`;
    menu.style.top=`${Math.max(8,Math.min(context.clientY,view.innerHeight-bounds.height-8))/uiScale(menu)}px`;

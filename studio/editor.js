@@ -79,7 +79,7 @@ const preview=new ProjectPreview($('#preview'),{previewOverrides,inventoryHost:$
 const previewWindow=mountPreviewWindow($('#preview-window'),{onClose:()=>preview.stop()});
 const autoplay=mountAutoplay($('#autoplay'),{getSelected:()=>graph.selectedIds.size>1?undefined:selected,onPlay:id=>play(id,{restore:false})});
 const autoPanel=mountAutoPanel($('#auto-panel'),{getTarget:()=>preview.cardTarget(),onReveal:target=>goToPreviewCard(target,{automatic:true})});
-const nodeCreateMenu=mountNodeCreateMenu({onChoose:(type,request)=>edit('create-connected-node',{...request,type}),onDismiss:()=>graph.cancelCreation(),returnFocus:$('#canvas')});
+const nodeCreateMenu=mountNodeCreateMenu({onChoose:(type,request)=>edit(request.id?'create-connected-node':'add-node',{...request,type}),onDismiss:()=>graph.cancelCreation(),returnFocus:$('#canvas')});
 const graph=new GraphView($('#canvas'),{
  onOpenDefinition:(id,nodeId)=>{selectedGroupId=undefined;selected=nodeId;graph.selectedIds=new Set([nodeId]);goToDefinition(id);},
  onSelect:id=>{selectedGroupId=undefined;graph.selectedIds=new Set([id]);selected=id;renderInspector({collapseCards:true});renderGraph();autoplay.select(id);},
@@ -88,6 +88,7 @@ const graph=new GraphView($('#canvas'),{
   if(target)revealCardEntry($('#inspector'),target);
   else {const field=[...$('#inspector').querySelectorAll('[data-scope="connection"]')].find(el=>el.dataset.path===exit);field?.scrollIntoView({block:'center'});field?.focus({preventScroll:true});}
  },
+ onCreate:request=>nodeCreateMenu.open(request),
  onCreateConnected:request=>nodeCreateMenu.open(request),
  onCancelCreate:()=>nodeCreateMenu.close(),
  onConnect:(id,exit,target)=>edit('connect',{id,exit,target}),

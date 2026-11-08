@@ -654,6 +654,22 @@ test('an empty-canvas click clears primary and group selection without editing o
  assert.deepEqual(s.moves,[]);assert.deepEqual(s.groupMoves,[]);assert.deepEqual(s.calls,[]);
 });
 
+test('stationary double-click opens standalone creation at the zoomed graph position',()=>{
+ const s=setup(),requests=[];let dismissed=0;
+ s.graph.onCreate=request=>requests.push(request);
+ s.graph.onCancelCreate=()=>dismissed++;
+ s.graph.view.z=.5;
+ s.root.ownerDocument.documentElement={};
+ s.root.ownerDocument.defaultView={getComputedStyle:()=>({zoom:2})};
+ blankClick(s,150,160);
+ assert.deepEqual(requests,[]);
+ blankClick(s,150,160,200);
+ assert.deepEqual(requests,[{position:{x:40,y:40},clientX:150,clientY:160}]);
+ assert.deepEqual(s.creations,[]);assert.deepEqual(s.calls,[]);
+ s.graph.cancelCreation();
+ assert.equal(dismissed,1);
+});
+
 test('double-click and held second press selects a rectangle and selected beats still move together',()=>{
  const s=setup(),view={...s.graph.view};
  blankClick(s);

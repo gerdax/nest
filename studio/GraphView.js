@@ -14,11 +14,11 @@ import { cardRuleIndicators } from './card-rule-indicators.js';
 
 /** Canvas interaction owns selection/pan, and emits completed document edits. */
 export class GraphView {
- constructor(root,{onSelect,onConnect,onMove,onDuplicate=()=>{},onDuplicateMany=()=>{},onSelectMany=()=>{},onMoveMany=()=>{},onOpenCard=()=>{},onOpenDefinition=()=>{},onTransferCard=()=>{},onRemoveCard=()=>{},onDelete=()=>{},onDeleteMany=()=>{},onCreateConnected=()=>{},onCancelCreate=()=>{},onGroupCommand=()=>{},onBoundaryConnect=()=>{}}) {
+ constructor(root,{onSelect,onConnect,onMove,onDuplicate=()=>{},onDuplicateMany=()=>{},onSelectMany=()=>{},onMoveMany=()=>{},onOpenCard=()=>{},onOpenDefinition=()=>{},onTransferCard=()=>{},onRemoveCard=()=>{},onDelete=()=>{},onDeleteMany=()=>{},onCreate=()=>{},onCreateConnected=()=>{},onCancelCreate=()=>{},onGroupCommand=()=>{},onBoundaryConnect=()=>{}}) {
   this.onGroupCommand=onGroupCommand;this.onBoundaryConnect=onBoundaryConnect;
   this.onDuplicate=onDuplicate;this.onDuplicateMany=onDuplicateMany;this.overrideNodeIds=new Set();this.nodeErrors=new Map();
   this.selectedIds=new Set();this.onSelectMany=onSelectMany;this.onMoveMany=onMoveMany;
-  this.onCreateConnected=onCreateConnected;this.onCancelCreate=onCancelCreate;this.creation=null;
+  this.onCreate=onCreate;this.onCreateConnected=onCreateConnected;this.onCancelCreate=onCancelCreate;this.creation=null;
   this.root=root;this.onSelect=onSelect;this.onConnect=onConnect;this.onMove=onMove;this.onOpenCard=onOpenCard;this.lastPortClick=null;
   this.onOpenDefinition=onOpenDefinition;
   this.cardDrag=new CardDrag(this,onTransferCard,onRemoveCard);
@@ -410,7 +410,7 @@ export class GraphView {
   if(!port)this.lastPortClick=null;
   if(((e.metaKey||e.ctrlKey)&&!e.altKey)||doubleDrag){
    const p=this.point(e);
-   this.drag={kind:'select',pointer:e.pointerId,x:e.clientX,y:e.clientY,start:p,end:p,moved:false,nodeId:el?.dataset.id,before:new Set(this.selectedIds)};
+   this.drag={kind:'select',pointer:e.pointerId,x:e.clientX,y:e.clientY,start:p,end:p,moved:false,nodeId:el?.dataset.id,before:new Set(this.selectedIds),createOnClick:!!doubleDrag&&!e.metaKey&&!e.ctrlKey};
    this.suppressSelectionClick=true;this.cardDrag.suppressClick=false;
    this.setDraggingCursor(true);this.root.setPointerCapture(e.pointerId);this.root.focus({preventScroll:true});e.preventDefault();return;
   }
@@ -515,6 +515,11 @@ export class GraphView {
   if(this.root.hasPointerCapture(e.pointerId))this.root.releasePointerCapture(e.pointerId);
   if(d.kind==='card'){this.cardDrag.finish(e,d);return;}
   if(d.kind==='select'){
+   if(d.createOnClick&&!d.moved){
+    this.creation={kind:'standalone'};
+    this.onCreate({position:this.point(e),clientX:e.clientX,clientY:e.clientY});
+    return;
+   }
    if(!d.moved){this.selectedIds=new Set(d.before);if(d.nodeId){if(this.selectedIds.has(d.nodeId))this.selectedIds.delete(d.nodeId);else this.selectedIds.add(d.nodeId);}else this.selectedIds.clear();}
    this.selected=[...this.selectedIds][0];this.onSelectMany([...this.selectedIds]);this.edges();return;
   }
