@@ -2,4 +2,4 @@
 
 ## Prezentacja kart
 
-- [ ] Dodać lekki, losowy obrót kart w stosie, żeby nie układały się zawsze równo i pionowo. Utrzymać wybrany kąt przez cały czas wyświetlania danej karty. Wprowadzić zmianę w warstwie prezentacji przy minimalnej ingerencji w silnik i zachować działanie gestów oraz animacji.
+- [x] Dodać lekki, losowy obrót kart w stosie, żeby nie układały się zawsze równo i pionowo. Kąt jest wyznaczany na podstawie identyfikatora karty i wprowadzany płynnie przy rozkładaniu stosu. Zakres to od −2° do +2°.

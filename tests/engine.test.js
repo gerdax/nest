@@ -262,13 +262,17 @@ test('two choices form a visible idle fan after either action is selected',()=>{
   const compressed=renderer.cardPose(d,i);assert.equal(compressed.x,0);assert.equal(compressed.rz,0);
  }
  ready(d);
+ const restingAngles=new Map();
  for(const direction of ['ArrowRight','ArrowLeft','ArrowLeft','ArrowRight']){
   key(d,direction);
   const front=renderer.cardPose(d,d.index),rear=renderer.cardPose(d,1-d.index);
-  assert.ok(Math.abs(front.x)<1e-7);assert.ok(Math.abs(front.rz)<1e-7);
+  assert.ok(Math.abs(front.x)<1e-7);assert.ok(Math.abs(front.rz)<=2);
+  if(restingAngles.has(d.index))assert.ok(Math.abs(front.rz-restingAngles.get(d.index))<1e-7);
+  restingAngles.set(d.index,front.rz);
   assert.ok(rear.x>=15,'rear choice must protrude sideways at rest');
   assert.ok(rear.rz>1,'rear choice must have a visible fan angle');
  }
+ assert.notEqual(restingAngles.get(0),restingAngles.get(1));
  d.destroy();
 });
 

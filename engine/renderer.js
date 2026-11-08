@@ -10,7 +10,7 @@ export const DEFAULT_SHADOW_MODE = 'static';
 
 // Stable per-card variation: adjacent IDs should not produce a regular fan,
 // and repeated renders of a held gesture must never jitter.
-function discardVariation(id, channel) {
+function cardVariation(id, channel) {
   let seed = 2166136261;
   for (const char of `${id}:${channel}`) seed = Math.imul(seed ^ char.charCodeAt(0), 16777619);
   seed = Math.imul(seed ^ seed >>> 16, 0x7feb352d);
@@ -487,6 +487,8 @@ function baseCardPose(deck, index, time, context) {
   pose.rx = fan * deck.rotationX.x * rotationWeight + clamp(deck.rotationX.x * underlyingWeight, -.9, .9);
   pose.ry = fan * (pose.ry + deck.rotationY.x * rotationWeight) + clamp(deck.rotationY.x * underlyingWeight, -.9, .9);
   pose.rz = fan * (pose.rz + deck.rotationZ.x * rotationWeight) + clamp(deck.rotationZ.x * underlyingWeight, -.9, .9);
+  // Fade in the resting angle as the stack fans out, so staged cards still align.
+  if (count > 1 && fan > 0) pose.rz += fan * 4 * (cardVariation(action.id, 'resting angle') - .5);
   if (deck.presentationHint && presented.length > 1 && slots.has(index)) {
     const progress = clamp(deck.presentationHint.travel.x, 0, 1);
     const radius = handoffRadius(2, width, height, deck.settings);
@@ -526,13 +528,13 @@ function baseCardPose(deck, index, time, context) {
     // Keep discard spin separate from the small pointer-tilt limit.
     const travel = clamp(deck.choiceLift(index, time) / (height * .65), 0, 1);
     const id = `${deck.content.id}:${action.id}`;
-    const sideways = discardVariation(id, 'side');
-    const spin = discardVariation(id, 'spin');
-    const curve = discardVariation(id, 'curve');
+    const sideways = cardVariation(id, 'side');
+    const spin = cardVariation(id, 'spin');
+    const curve = cardVariation(id, 'curve');
     pose.x += (sideways < .5 ? -1 : 1) * width * .44
-      * (.45 + .55 * discardVariation(id, 'spread')) * travel ** (.85 + .35 * curve);
+      * (.45 + .55 * cardVariation(id, 'spread')) * travel ** (.85 + .35 * curve);
     const discardSpin = (spin < .5 ? -1 : 1) * 36
-      * (.55 + .7 * discardVariation(id, 'rotation')) * travel ** (1.2 - .35 * curve);
+      * (.55 + .7 * cardVariation(id, 'rotation')) * travel ** (1.2 - .35 * curve);
     // Rotate the discard motion around a point 12% of the card height below
     // center. Bake the pivot translation into the pose so clearance geometry
     // and captured/reflow poses use the same position as the CSS rendering.
