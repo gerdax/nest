@@ -99,6 +99,9 @@ aside {overflow-anchor:none;}
 .preview-window-bar {position:relative;z-index:5001;order:1;display:flex;gap:8px;align-items:center;padding:8px;background:#263431;border-top:1px solid #46594f;flex-shrink:0;}
 .preview-window-handle {flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;cursor:grab;touch-action:none;user-select:none;border:0;background:transparent;font-weight:650;}
 .preview-window.dragging .preview-window-handle {cursor:grabbing;}
+.preview-window-bar [data-preview-minimize] {display:grid;place-items:center;flex:0 0 32px;height:30px;padding:0;}
+.preview-window-bar [data-preview-minimize]::before {content:'';box-sizing:border-box;width:12px;height:2px;background:currentColor;}
+.preview-window-bar [data-preview-minimize][aria-expanded="false"]::before {height:12px;border:2px solid currentColor;background:transparent;}
 .preview-window .preview-footer:has([data-state][open]) {background:rgb(0 0 0 / 55%);}
 .preview-window-body {position:relative;min-height:0;aspect-ratio:796/1654;height:var(--preview-custom-height,auto);flex:0 1 auto;overflow:hidden;background:#000;}
 .preview-window-scroll {position:absolute;inset:0;overflow:auto;overscroll-behavior:contain;}

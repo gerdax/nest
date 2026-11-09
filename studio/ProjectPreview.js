@@ -61,7 +61,7 @@ export class ProjectPreview {
     });
 
   }
-  play(project, chapterId, startNode, { focus = true, initialState = null } = {}) {
+  play(project, chapterId, startNode, { focus = true, initialState = null, startPlacementId } = {}) {
     if (this.destroyed) throw createError('STUDIO_PROJECT_PREVIEW_HAS_BEEN_DESTROYED');
     if (this.destroying) return;
     if (chapterId === undefined) chapterId = project.activeChapterId;
@@ -85,6 +85,7 @@ export class ProjectPreview {
     this.playerUI.applyStyles(chapter.cardStyles);
     this.project = structuredClone(project); this.chapterId = chapterId; this.startNode = startNode; this.compiled = chapter;
     this.initialState = initialState ? structuredClone(initialState) : null;
+    this.startPlacementId = startPlacementId;
     try {
       this.deck = new CardDeck(this.mount, { settings: this.deckSettings, presentationPolicy: this.presentationPolicy, inventoryDrawer: this.playerUI.inventoryAdapter({
         active,
@@ -93,6 +94,7 @@ export class ProjectPreview {
       }), content: { id:'project-loading',text:'',actions:[{id:'wait',label:'Loading',disabled:true}] } });
       const controller = new ProjectController(this.deck, chapter, {
         initialState:this.initialState,
+        startPlacementId,
         nodeEntryEffects,
         onChange: state => { if (active()) this.update(state); },
         onStart: nodeId => { if (active()) this.onNodeResolved?.({projectId:this.project?.id,chapterId:this.chapterId,nodeId,entryOnly:true}); },
@@ -109,6 +111,7 @@ export class ProjectPreview {
               && isUnassignedCombat(entry) && [false, undefined].includes(entry.connections?.victory)) return;
           this.errorMessage = error.message || String(error);
           this.syncPlayerUI();
+          if (code === 'STUDIO_PREVIEW_CARD_UNAVAILABLE') return;
           this.onNodeError?.({projectId:this.project?.id,chapterId:this.chapterId,nodeId,code,message:this.errorMessage,entryFailure});
         },
         rollCheck: (pool, options) => {
@@ -259,7 +262,7 @@ export class ProjectPreview {
     this.play(this.project, next.id, undefined, {initialState});
     return this.chapterId === next.id;
   }
-  restart() { if (!this.destroyed && this.project) this.play(this.project, this.chapterId, this.startNode, {initialState:this.initialState}); }
+  restart() { if (!this.destroyed && this.project) this.play(this.project, this.chapterId, this.startNode, {initialState:this.initialState,startPlacementId:this.startPlacementId}); }
   stop() {
     if (this.destroyed) return;
     const hadPlayback = !!(this.controller || this.deck || this.state);

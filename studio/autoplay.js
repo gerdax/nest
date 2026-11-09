@@ -6,7 +6,7 @@ export function mountAutoplay(checkbox,{getSelected,onPlay,storage}={}) {
  let enabled=true;
  try{enabled=storage?.getItem(STORAGE_KEY)!=='false';}catch{}
  checkbox.checked=enabled;
- const select=id=>{if(enabled&&id)onPlay(id);};
+ const select=(id,placementId)=>{if(enabled&&id)onPlay(id,placementId);};
  const change=()=>{
   enabled=checkbox.checked;
   try{storage?.setItem(STORAGE_KEY,String(enabled));}catch{}

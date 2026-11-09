@@ -51,7 +51,7 @@ export function mountPreviewWindow(root,{onClose=()=>{}}={}) {
   if(minimized)body.setAttribute('aria-hidden','true');else body.removeAttribute('aria-hidden');
   toggle.setAttribute('aria-expanded',String(!minimized));
   const label=minimized?'Restore preview':'Minimize preview';
-  toggle.setAttribute('aria-label',minimized?'Restore interaction preview':'Minimize interaction preview');toggle.title=label;toggle.textContent=minimized?'□':'−';
+  toggle.setAttribute('aria-label',minimized?'Restore interaction preview':'Minimize interaction preview');toggle.title=label;
  };
  const measureBody=()=>{
   // Preserve the expanded viewport for the still-running deck while the host collapses.

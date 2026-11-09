@@ -230,6 +230,7 @@ export const errorDefinitions = Object.freeze({
   STUDIO_COULD_NOT_OPEN_PROJECT_OR_CHAPTER: Object.freeze({message: ({message}) => `Could not open project or chapter: ${message}`, type: Error}),
   STUDIO_PROJECT_PREVIEW_HAS_BEEN_DESTROYED: Object.freeze({message: 'Project preview has been destroyed', type: Error}),
   STUDIO_PREVIEW_VALIDATION_FAILED: Object.freeze({message: ({message}) => message, type: Error}),
+  STUDIO_PREVIEW_CARD_UNAVAILABLE: Object.freeze({message: ({reason}) => `Cannot start at this card. ${reason}`, type: Error}),
   STUDIO_PREVIEW_STOPPED: Object.freeze({message: 'Preview stopped.', type: 'AbortError'}),
   STUDIO_CHOOSE_A_SHARED_LIBRARY_SOURCE_TO_REMOVE: Object.freeze({message: 'Choose a shared Library source to remove.', type: Error}),
   STUDIO_THIS_ITEM_IS_USED_IN_MULTIPLE_CHAPTERS_CONVERTING_IT_WOULD_CHANGE_ITS_SHARED_INVENTORY_IDENTITY: Object.freeze({message: 'This Item is used in multiple chapters. Converting it would change its shared inventory identity. Convert or update those uses first.', type: Error}),

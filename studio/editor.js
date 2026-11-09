@@ -79,7 +79,7 @@ function selectedPreviewEntry(){
 const definition=()=>project.library.find(d=>d.id===definitionId);
 const preview=new ProjectPreview($('#preview'),{previewOverrides,inventoryHost:$('.preview-window-body'),onChange:state=>updatePreviewHighlight(graph,preview,chapter(),state),onStop:()=>graph.setActive(null),onNodeError:issue=>{if(nodeErrors.report(issue))refreshNodeErrors();},onNodeResolved:issue=>{if(nodeErrors.resolve(issue))refreshNodeErrors();},onCardChange:target=>{graph.setActiveCard(target);autoPanel.follow(target);},onGoToCard:goToPreviewCard});
 const previewWindow=mountPreviewWindow($('#preview-window'),{onClose:()=>preview.stop()});
-const autoplay=mountAutoplay($('#autoplay'),{getSelected:()=>graph.selectedIds.size>1?undefined:selected,onPlay:id=>play(id,{restore:false})});
+const autoplay=mountAutoplay($('#autoplay'),{getSelected:()=>graph.selectedIds.size>1?undefined:selected,onPlay:(id,startPlacementId)=>play(id,{startPlacementId,focus:!startPlacementId})});
 const autoPanel=mountAutoPanel($('#auto-panel'),{getTarget:()=>preview.cardTarget(),onReveal:target=>goToPreviewCard(target,{automatic:true})});
 mountCardAccordion($('#inspector'));
 const nodeCreateMenu=mountNodeCreateMenu({onChoose:(type,request)=>edit(request.id?'create-connected-node':'add-node',{...request,type}),onDismiss:()=>graph.cancelCreation(),returnFocus:$('#canvas')});
@@ -88,7 +88,10 @@ const graph=new GraphView($('#canvas'),{
  onSelect:id=>{selectedGroupId=undefined;graph.selectedIds=new Set([id]);selected=id;renderInspector({collapseCards:true});renderGraph();autoplay.select(id);},
  onOpenCard:(id,target,exit)=>{
   selectedGroupId=undefined;graph.selectedIds=new Set([id]);selected=id;mode='chapter';renderInspector({collapseCards:true});renderGraph();
-  if(target)revealCardEntry($('#inspector'),target);
+  if(target){
+   revealCardEntry($('#inspector'),target);
+   autoplay.select(id,target.placementId);
+  }
   else {const field=[...$('#inspector').querySelectorAll('[data-scope="connection"]')].find(el=>el.dataset.path===exit);field?.scrollIntoView({block:'center'});field?.focus({preventScroll:true});}
  },
  onCreate:request=>nodeCreateMenu.open(request),
@@ -807,11 +810,11 @@ function bindImport(input,kind){
 }
 bindImport($('#import'),'project');
 bindImport($('#import-chapter'),'chapter');
-function play(startNode,{restore=false,chapterId:targetChapterId=chapterId,focus=true}={}){
+function play(startNode,{restore=false,chapterId:targetChapterId=chapterId,focus=true,startPlacementId}={}){
  try{
   previewWindow.show({restore});
-  preview.play(project,targetChapterId,startNode,{focus:focus&&!previewWindow.minimized});
-  report('Chapter ready.');return true;
+  preview.play(project,targetChapterId,startNode,{focus:focus&&!previewWindow.minimized,startPlacementId});
+  report((startPlacementId&&preview.errorMessage)||'Chapter ready.');return true;
  }catch(error){report(error.message);return false;}
 }
 function playSelected(options){

@@ -11,7 +11,7 @@ export function addHealthVariable(project) {
  return true;
 }
 export function makeDefinition(project,kind,name) {
- const definition=createDefinition(kind,uid(kind));if(name)definition.name=name;project.library.push(definition);return definition;
+ const definition=createDefinition(kind,uid(kind));if(name!==undefined)definition.name=name;project.library.push(definition);return definition;
 }
 function owningChapterId(project,value,chapterId) {
  if(chapterId)return chapterId;
@@ -20,7 +20,7 @@ function owningChapterId(project,value,chapterId) {
  return project.library.find(d=>d.id===placement?.definitionId)?.chapterId||project.activeChapterId||project.chapters?.[0]?.id;
 }
 export function makePlacement(project,kind,name,chapterId) {
- const definition=makeDefinition(project,kind,name);definition.visibility='local';definition.chapterId=owningChapterId(project,null,chapterId);
+ const definition=makeDefinition(project,kind,name??'');definition.visibility='local';definition.chapterId=owningChapterId(project,null,chapterId);
  return {id:uid('placement'),definitionId:definition.id};
 }
 export function remapInventory(value,ids) {
@@ -48,7 +48,7 @@ export function preserveCopiedInventoryAliases(sources,copies,inventoryIds) {
 }
 export function replaceCard(project,placement,kind,{copy=false,chapterId}={}) {
  const source=project.library.find(d=>d.id===placement.definitionId);
- const definition=copy?{...structuredClone(source),...structuredClone(placement.overrides||{}),id:uid(kind),visibility:'local'}:{...createDefinition(kind,uid(kind)),visibility:'local'};
+ const definition=copy?{...structuredClone(source),...structuredClone(placement.overrides||{}),id:uid(kind),visibility:'local'}:{...createDefinition(kind,uid(kind)),name:'',visibility:'local'};
  definition.chapterId=owningChapterId(project,placement,chapterId);
  if(copy){delete definition.inventoryKey;remapInventory(definition,new Map([[source.id,definition.id],...(source.inventoryKey?[[source.inventoryKey,definition.id]]:[])]));}
  project.library.push(definition);placement.definitionId=definition.id;delete placement.overrides;if(definition.kind!=='action'){delete placement.contextItemId;delete placement.contextOverrideImage;}return definition;

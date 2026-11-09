@@ -1503,7 +1503,7 @@ export class CardDeck extends EventTarget {
     this.input.resume();
   }
 
-  replaceContent(content, { presentation = 'closed', transition = 'flip', animate = true, preserveInventoryContext = false } = {}) {
+  replaceContent(content, { presentation = 'closed', transition = 'flip', animate = true, preserveInventoryContext = false, selectedId } = {}) {
     if (this.destroyed) return;
     this.cancelContentTransition();
     if (!['closed', 'open'].includes(presentation)) throw createError('DECK_UNKNOWN_PRESENTATION');
@@ -1537,16 +1537,16 @@ export class CardDeck extends EventTarget {
     const hintState = !animate && presentation === 'open' && this.content.autoBrowse && next.autoBrowse && this.cards.length > 1
       ? { pending: this.presentationBrowsePending, hint: this.presentationHint, browse: { ...this.b } } : null;
     if(this.reset({ preserveInventoryContext })===false)return;
-    this.install(next, { open: presentation === 'open', preserveInventoryContext });
+    this.install(next, { open: presentation === 'open', preserveInventoryContext, selectedId });
     if (presentation === 'open' && !animate) {
       this.entrances.clear();
       this.entranceTransition = null;
-      const top = this.content.actions.findLastIndex(action => action.entrance === 'from-top');
+      const top = selectedId === undefined ? this.content.actions.findLastIndex(action => action.entrance === 'from-top') : -1;
       if (top >= 0) { this.index = top; this.b = spring(top); }
       this.fan = spring(1);
       this.phase = 'choices';
       this.operation = null;
-      if (hintState && top < 0) {
+      if (hintState && top < 0 && selectedId === undefined) {
         this.presentationBrowsePending = hintState.pending;
         this.presentationHint = hintState.hint;
         this.b = hintState.browse;

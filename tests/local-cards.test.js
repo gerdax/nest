@@ -25,6 +25,7 @@ test('every native card slot starts local, edits inline, and promotes without ch
   const ps=[...(n.cards||[]),...(n.choices||[]),...(n.items||[]),...(n.intro?[n.intro]:[])];
   for(const p of ps){
    const d=project.library.find(d=>d.id===p.definitionId);assert.equal(d.visibility,'local');
+   assert.equal(d.name,'');
    assert.match(nodeInspector(project,chapter,n),/local-definition/);
    const before=structuredClone(p);promoteCard(project,p);assert.deepEqual(p,before);assert.equal(d.visibility,'shared');
    d.text='Shared edit';const compiled=compileChapter(project).nodes.find(c=>c.id===n.id);
@@ -50,7 +51,8 @@ test('local action copy retains customized mechanics and connections adapt to a 
  p.overrides={resolution:'check',check:{pool:[{sides:20,count:1}],modifier:2,target:12}};
  const d=replaceCard(project,p,'action',{copy:true});assert.equal(d.resolution,'check');assert.equal(d.check.modifier,2);assert.equal(p.overrides,undefined);
  synchronizeConnections(project);assert.equal(n.connections[p.id+':success'],dest);
- replaceCard(project,p,'action');synchronizeConnections(project);assert.equal(n.connections[p.id],dest);
+ const replacement=replaceCard(project,p,'action');assert.equal(replacement.name,'');
+ synchronizeConnections(project);assert.equal(n.connections[p.id],dest);
 });
 
 test('local cards roundtrip through autosave, exports and imports without merging local copies',()=>{
@@ -228,11 +230,12 @@ test('returned-item persistence defaults and explicit overrides survive authorin
  assert.ok(validateProject(project).some(e=>e.message.includes('inventory item persistence toggle')));
 });
 
-test('empty existing cards show typed placeholders in the inspector, distinct from missing definitions',()=>{
+test('new cards and whitespace-only names show typed placeholders, distinct from missing definitions',()=>{
  const project=createProject(),node=createNode(project,'linear'),chapter=project.chapters[0];chapter.nodes.push(node);
  const definition=project.library.find(d=>d.id===node.cards[0].definitionId);
  for(const name of ['', '   ']){
-  definition.name=name;const html=nodeInspector(project,chapter,node);
+  if(name)definition.name=name;
+  const html=nodeInspector(project,chapter,node);
   assert.match(html,/>Untitled Caption<\/summary>/);assert.doesNotMatch(html,/Missing definition/);
  }
  project.library=project.library.filter(d=>d!==definition);

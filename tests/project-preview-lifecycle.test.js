@@ -107,6 +107,69 @@ test('preview entry overrides apply once on direct start and arriving at a fork 
  } finally {preview.destroy();}
 });
 
+test('card preview starts a linear beat at the chosen card with only entry effects',()=>{
+ environment();
+ const project=createProject(),chapter=project.chapters[0],beat=chapter.nodes.find(node=>node.id==='arrival');
+ const first=project.library.find(card=>card.id==='arrival');
+ first.effects=[{op:'add',key:'energy',value:4}];
+ beat.entryEffects=[{op:'add',key:'energy',value:2}];
+ project.library.push({...createDefinition('caption','middle'),text:'Middle'},{...createDefinition('caption','last'),text:'Last'});
+ beat.cards.push({id:'middle-card',definitionId:'middle'},{id:'last-card',definitionId:'last'});
+ const preview=new ProjectPreview(new Element(),{onGoToCard(){}});
+ try {
+  preview.play(project,chapter.id,beat.id,{startPlacementId:'middle-card'});
+  assert.equal(preview.cardTarget().placementId,'middle-card');
+  assert.equal(preview.state.variables.energy,5);
+  acceptPreviewCard(preview);
+  assert.equal(preview.state.cardId,'last-card');
+  preview.restart();
+  assert.equal(preview.state.cardId,'middle-card');
+  assert.equal(preview.state.variables.energy,5);
+  preview.play(project,chapter.id,beat.id);
+  assert.equal(preview.state.cardId,'arrival-card');
+ } finally {preview.destroy();}
+});
+
+for(const [type,slot] of [['fork','choices'],['container','items']])test(`card preview selects the requested ${type} card without playing the intro`,()=>{
+ environment();
+ const project=createProject(),chapter=project.chapters[0],beat=chapter.nodes.find(node=>node.type===type);
+ const [first]=beat[slot],second={...first,id:'second'};
+ beat[slot].push(second);
+ if(type==='fork')beat.connections.second=beat.connections[first.id];
+ project.library.push({...createDefinition('event','preview-intro'),effects:[{op:'add',key:'energy',value:4}]});
+ beat.intro={id:'preview-intro-card',definitionId:'preview-intro'};
+ beat.introEnabled=true;
+ const preview=new ProjectPreview(new Element(),{onGoToCard(){}});
+ try {
+  preview.play(project,chapter.id,beat.id,{startPlacementId:second.id});
+  assert.equal(preview.state.variables.energy,3);
+  assert.equal(preview.deck.content.actions[preview.deck.index].id,second.id);
+  assert.deepEqual(preview.deck.content.actions.map(action=>action.id),[first.id,second.id]);
+  assert.equal(preview.cardTarget().placementId,second.id);
+  preview.play(project,chapter.id,beat.id);
+  assert.equal(preview.state.cardId,beat.intro.id);
+  assert.equal(preview.deck.phase,'closed');
+ } finally {preview.destroy();}
+});
+
+test('card preview reports the unmet requirement for a hidden card without flagging the beat',()=>{
+ environment();
+ const project=createProject(),chapter=project.chapters[0],beat=chapter.nodes.find(node=>node.type==='linear');
+ const [first]=beat.cards;
+ const hidden={...first,id:'hidden-card',conditions:[{source:'variable',key:'energy',op:'gte',value:6}]};
+ beat.cards.push(hidden);
+ project.unavailableActions='hidden';
+ const preview=new ProjectPreview(new Element(),{onNodeError:()=>assert.fail('A hidden preview target is not a beat error')});
+ try {
+  preview.play(project,chapter.id,beat.id,{startPlacementId:hidden.id});
+  assert.equal(preview.state.activeNodeId,null);
+  assert.match(preview.status.textContent,/Cannot start at this card\. Requires: Energy ≥ 6/);
+  preview.play(project,chapter.id,beat.id);
+  assert.equal(preview.state.cardId,first.id);
+  assert.equal(preview.status.hidden,true);
+ } finally {preview.destroy();}
+});
+
 test('preview play snapshots authored overrides and restart refreshes unplaced item definitions',()=>{
  environment();
  const project=createProject(),chapter=project.chapters[0],overrides=new PreviewOverrides();

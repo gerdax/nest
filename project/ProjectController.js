@@ -14,10 +14,11 @@ import { actionAvailability } from './action-availability.js';
 
 /** Playback only. CardDeck remains responsible for gestures and departure choreography. */
 export class ProjectController {
-  constructor(deck, compiled, {onChange=()=>{},rng=Math.random,rollCheck,onCheckResult=()=>{},onError=()=>{},onStart=()=>{},onSuccess=()=>{},initialState,nodeEntryEffects={}} = {}) {
+  constructor(deck, compiled, {onChange=()=>{},rng=Math.random,rollCheck,onCheckResult=()=>{},onError=()=>{},onStart=()=>{},onSuccess=()=>{},initialState,nodeEntryEffects={},startPlacementId} = {}) {
     this.deck=deck; this.compiled=compiled; this.nodes=new Map(compiled.nodes.map(n=>[n.id,n]));
     Object.assign(this,{onChange,rng,rollCheck,onCheckResult,onError,onStart,onSuccess});
     this.initialState = initialState ? structuredClone(initialState) : null;
+    this.startPlacementId = startPlacementId;
     // Authored entry effects also work without an editor/preview host. Explicit
     // host entries replace the matching node list rather than applying it twice.
     this.nodeEntryEffects = structuredClone({...Object.fromEntries(compiled.nodes.filter(n=>n.entryEffects?.length).map(n=>[n.id,n.entryEffects])),...nodeEntryEffects});
@@ -48,9 +49,18 @@ export class ProjectController {
     this.remaining=new Map(); this.itemReplacements=new Map(); this.accepted=new Set();this.revealedIntros=new Set();this.pendingIntro=null; this.pendingItem=null;this.pendingExchange=null;this.stagedDestination=null;this.completed=false;this.halted=false;this.terminalReason=null;this.deathHandoff=null;
     this.randomizerRun=this.compiled.randomizerGroups?{seen:new Set(),scene:null}:undefined;
     this.location=null;
-    try {this.adopt(this.locate(this.compiled.startNode),false);this.show();if(!this.destroyed&&this.generation===generation)this.onStart(this.compiled.startNode);} catch(error){
+    try {
+      const id=this.compiled.startNode;
+      const destination=this.startPlacementId
+        ? this.traverse({id,startPlacementId:this.startPlacementId},this.variables,this.inventory,new Set())
+        : this.locate(id);
+      this.adopt(destination,false);
+      this.show({selectedId:this.startPlacementId});
+      if(!this.destroyed&&this.generation===generation)this.onStart(id);
+    } catch(error){
       this.location=null;this.completed=false;
-      const message=errorCode(error)==='RUNTIME_UNLINKED_OUTPUT'?errorMessage('RUNTIME_UNLINKED_OUTPUT'):errorMessage('RUNTIME_PLAYBACK_BLOCKED');
+      const code=errorCode(error);
+      const message=code==='STUDIO_PREVIEW_CARD_UNAVAILABLE'?error.message:code==='RUNTIME_UNLINKED_OUTPUT'?errorMessage('RUNTIME_UNLINKED_OUTPUT'):errorMessage('RUNTIME_PLAYBACK_BLOCKED');
       this.deck.replaceContent({id:`${this.generation}:${++this.serial}`,title:message,actions:[{id:'unavailable',label:message,disabled:true,disabledReason:this.routingReason(error)||error.message||message}],decisionOnly:true},{presentation:'open',animate:false});
       this.error(error);this.notify();
     }
@@ -243,6 +253,7 @@ export class ProjectController {
         const node=this.nodes.get(id);if(!node)throw createError('RUNTIME_UNKNOWN_NODE', { id });
         pending.push({finish:true,id:visitKey,random:preview&&['random','randomizer'].includes(node.type),values,inventory,run});
         const death=this.deathDestination(values,{node});
+        if(death&&step.startPlacementId)throw createError('STUDIO_PREVIEW_CARD_UNAVAILABLE',{reason:'The entry state routes to the Death beat.'});
         if(death){pending.push({id:death.node.id,values,inventory,changed,run});continue;}
         if(node.type==='death'&&run?.scene)run={...run,scene:null};
         // Keep entry effects speculative until the full route succeeds. Branches
@@ -253,6 +264,7 @@ export class ProjectController {
           values=state.variables;inventory=state.inventory;changed=true;
         }
         const enteredDeath=this.deathDestination(values,{node});
+        if(enteredDeath&&step.startPlacementId)throw createError('STUDIO_PREVIEW_CARD_UNAVAILABLE',{reason:'The entry state routes to the Death beat.'});
         if(enteredDeath){pending.push({id:enteredDeath.node.id,values,inventory,changed,run});continue;}
         if(node.type==='randomizer') {
           if(run?.scene)throw createError('RUNTIME_AUTOMATIC_ROUTING_CYCLE');
@@ -296,13 +308,33 @@ export class ProjectController {
             location.sequence=node.sequences.find(s=>s.id===sequenceId);
             if(!location.sequence){pending.push({...this.routeStep(node,'next',node.connections?.next,run),values,inventory,changed});continue;}
           }
-          pending.push({location,values,inventory,changed,run});
+          if(step.startPlacementId)result=arrive(this.startAtPlacement(location,step.startPlacementId,values,inventory),{values,inventory,changed},run);
+          else pending.push({location,values,inventory,changed,run});
         }
       }
       return result;
     }finally {
       if(preview)for(const id of entered)visited.delete(id);
     }
+  }
+  startAtPlacement(location,id,values,inventory) {
+    const {node}=location,type=this.type(location);
+    const intro=node.intro?.id===id;
+    const cards=type==='linear'?(location.sequence?.cards??node.cards??[]):type==='container'?node.items??[]:node.choices??[];
+    const index=cards.findIndex(card=>card.id===id);
+    const card=intro?node.intro:cards[index];
+    const unavailable=reason=>createError('STUDIO_PREVIEW_CARD_UNAVAILABLE',{reason});
+    if(!card)throw unavailable('The card is missing from this beat.');
+    if(intro&&!this.introEnabled(location))throw unavailable('The introduction is turned off.');
+    const availability=this.cardAvailability(card,values,inventory,location);
+    if(availability.hidden||intro&&!conditionsMet(card.conditions,values,inventory)) {
+      throw unavailable(availability.disabledReason||'The entry state does not meet the card’s requirements.');
+    }
+    if(card.kind==='item'&&this.hidesOwnedItem(card,inventory,location))throw unavailable('This item is already owned and hidden.');
+    if(type==='linear')location.index=intro?0:index;
+    else if(!intro)location.introRevealed=true;
+    if(type==='container')location.ownedItemsAtEntry=[...inventory];
+    return location;
   }
   seekStep(location,values,inventory,excluded) {
     const type=this.type(location);
@@ -515,7 +547,7 @@ export class ProjectController {
   reportBlocked(content=this.deck.content) {
     if((['fork','forked'].includes(this.type())||this.type()==='linear'&&this.card()?.kind==='action')&&this.presentation()==='open'&&!content.actions.some(a=>!a.disabled))this.error(createError('NO_AVAILABLE_CHOICES', { nodeName: this.location.node.name || this.location.node.id }));
   }
-  show({transition='flip',restore=false,presentation,animate=true,autoBrowse=true,preserveInventoryContext=false}={}) {
+  show({transition='flip',restore=false,presentation,animate=true,autoBrowse=true,preserveInventoryContext=false,selectedId}={}) {
     if(this.location?.node.type==='combat'&&!this.completed&&!this.halted){
       if(!this.combat){
         const enemy=combatDefinition(this.compiled.library,this.location.node.enemy);
@@ -526,13 +558,17 @@ export class ProjectController {
     }
     if(this.completed||this.halted){this.deck.endContent();if(!this.deck.busy)this.deck.completeCommit?.();this.notify();return;}
     if(restore)this.deck.reset();
-    if(this.type()==='container'&&!conditionsMet(this.card()?.conditions,this.variables,this.inventory)){this.location.introRevealed=true;this.revealedIntros.add(this.key());}
+    if(this.type()==='container'&&!this.location.introRevealed&&!conditionsMet(this.card()?.conditions,this.variables,this.inventory)){this.location.introRevealed=true;this.revealedIntros.add(this.key());}
     const content=this.content();
+    if(selectedId!==undefined&&content.actions.some(action=>action.id===selectedId)) {
+      animate=false;
+      autoBrowse=false;
+    }else selectedId=undefined;
     content.autoBrowse=content.autoBrowse&&autoBrowse;
-    this.deck.replaceContent(content,{presentation:presentation ?? this.presentation(),transition,animate,preserveInventoryContext});this.reportBlocked(content);this.notify();
+    this.deck.replaceContent(content,{presentation:presentation ?? this.presentation(),transition,animate,preserveInventoryContext,selectedId});this.reportBlocked(content);this.notify();
   }
   reveal(detail) {
-    if(this.destroyed||this.completed||this.halted||this.deathHandoff||this.checking||this.pendingItem||this.pendingIntro||this.pendingExchange||this.location.emptyFork||!['container','fork'].includes(this.location.node.type)||!this.introEnabled()||detail.contentId!==this.deck.content.id||this.introShown())return;
+    if(this.destroyed||!this.location||this.completed||this.halted||this.deathHandoff||this.checking||this.pendingItem||this.pendingIntro||this.pendingExchange||this.location.emptyFork||!['container','fork'].includes(this.location.node.type)||!this.introEnabled()||detail.contentId!==this.deck.content.id||this.introShown())return;
     const intro=this.card();
     if(!conditionsMet(intro?.conditions,this.variables,this.inventory))return;
     try {
