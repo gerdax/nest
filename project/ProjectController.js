@@ -476,7 +476,7 @@ export class ProjectController {
       const action={...enemyActionCard(enemy.actions[0],`${id}:action`,{variables:this.compiled.variables,values,enemy:true}),cardBack:this.compiled.cardBack};
       if(location.node.introEnabled!==true)return {...action,id};
       const content={...combatCard({...enemy,kind:'event'},id,{variables:this.compiled.variables,values}),cardBack:this.compiled.cardBack};
-      content.nextTransition='reveal';
+      content.nextTransition='flip';
       content.nextDeckPreview={content:action,presentation:'closed'};
       return content;
     }

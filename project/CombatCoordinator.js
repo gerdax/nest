@@ -87,15 +87,15 @@ export class CombatCoordinator {
    showWeaponActionsOnCooldown,
   }),cardBack:compiled.cardBack};
  }
- async enterEnemy({reveal=false,frontTurn=false}={}){
+ async enterEnemy({frontTurn=false}={}){
   if(!this.active())return;
-  this.resume={kind:'enemy',reveal,frontTurn};this.sequence=null;if(!this.setPhase('enemy-enter'))return;
+  this.resume={kind:'enemy',frontTurn};this.sequence=null;if(!this.setPhase('enemy-enter'))return;
   const content=this.introSuccessor??this.actionCard();this.introSuccessor=null;
   if(frontTurn){
    const entered=await this.deck.transitionContent(content,{transition:'front-turn',surface:'front',signal:this.abort.signal});
    if(!entered&&this.active())throw new Error('Enemy card transition unavailable');
    if(!entered)return;
-  }else if(!await this.replace(content,{transition:reveal?'reveal':'flip'}))return;
+  }else if(!await this.replace(content,{transition:'flip'}))return;
   if(this.active()){const action=this.declaration?.action??this.enemy.actions[this.encounter.actionIndex];if(action.resolution==='direct')this.setPhase('enemy-action');else await this.performEnemyAction(action);}
  }
  async performEnemyAction(action){
@@ -285,7 +285,7 @@ export class CombatCoordinator {
  }
  async completeSequence(){
   const kind=this.sequence?.kind;
-  if(kind==='intro')await this.enterEnemy({reveal:true});
+  if(kind==='intro')await this.enterEnemy();
   else if(kind==='enemy-death'){this.resume={kind:'victory'};this.host.completeCombatVictory();}
   else await this.finishAttack();
  }
@@ -304,7 +304,7 @@ export class CombatCoordinator {
   step.contentId??=this.token();
   const content={...combatCard(step.card,step.contentId,{...this.descriptionContext(),value:step.value,disabledReason:reason,enemy:step.enemy===true}),cardBack:this.host.compiled.cardBack};
   if(!last){content.nextTransition='reveal';content.nextDeckPreview={content:this.sequenceContent(index+1),presentation:'closed'};}
-  else if(sequence.kind==='intro'){this.introSuccessor??=this.actionCard();content.nextTransition='reveal';content.nextDeckPreview={content:this.introSuccessor,presentation:'closed'};}
+  else if(sequence.kind==='intro'){this.introSuccessor??=this.actionCard();content.nextTransition='flip';content.nextDeckPreview={content:this.introSuccessor,presentation:'closed'};}
   else content.nextTransition='flip';
   return content;
  }
