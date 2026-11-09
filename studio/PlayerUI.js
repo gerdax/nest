@@ -149,20 +149,29 @@ export class PlayerUI {
     if (!Number.isFinite(value) || !Number.isFinite(previous)) return;
     if (this.root.ownerDocument?.defaultView?.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) return;
 
-    const gained = value > previous;
-    const target = meter.querySelector(gained ? '.resource-icon-flash' : '.resource-icon');
-    const restingOpacity = gained ? 0 : 1;
-    const pulseOpacity = gained ? 1 : 0.28;
+    if (value > previous) {
+      const flash = meter.querySelector('.resource-icon-flash');
+      const rise = 130;
+      const duration = rise + 2610;
+      state.animation = flash?.animate?.([
+        {opacity:0},
+        {opacity:1, offset:rise / duration, easing:'ease-out'},
+        {opacity:0},
+      ], {duration});
+      return;
+    }
+
+    const target = meter.querySelector('.resource-icon');
     const lastPulse = 390;
     const duration = lastPulse + 520;
     const keyframes = [
-      {opacity:restingOpacity, offset:0},
-      {opacity:pulseOpacity, offset:130 / duration},
-      {opacity:restingOpacity, offset:260 / duration},
-      {opacity:pulseOpacity, offset:lastPulse / duration, easing:'ease-out'},
-      {opacity:restingOpacity, offset:1},
+      {opacity:1, offset:0},
+      {opacity:0.28, offset:130 / duration},
+      {opacity:1, offset:260 / duration},
+      {opacity:0.28, offset:lastPulse / duration, easing:'ease-out'},
+      {opacity:1, offset:1},
     ];
-    state.animation = target?.animate?.(keyframes, {duration:gained ? duration * 3 : duration});
+    state.animation = target?.animate?.(keyframes, {duration});
   }
 
   setInventoryContext(visible, options) {
