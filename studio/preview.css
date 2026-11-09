@@ -36,7 +36,7 @@
 .player-resource {display:flex;align-items:center;gap:6.149625px;font:76.25535px/1 NestVitals,monospace;font-variant-numeric:tabular-nums;}
 .player-resource[hidden] {display:none;}
 .player-resource img {width:.252em;height:.36em;object-fit:contain;}
-.player-resource[data-health] img {width:.378em;height:.329em;}
+.player-resource[data-health] img {width:.36666em;height:.31913em;}
 .resource-icon {position:relative;display:flex;}
 .player-resource[data-health] .resource-icon {top:.035em;}
 .player-resource[data-health] {--resource-icon-mask:url('../assets/img/player-ui/hud-health.png');}
