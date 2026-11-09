@@ -104,7 +104,7 @@ export function definitionInspector(project,definition) {
  html+=definitionUsagePanel(project,definition.id);
  const removal=libraryRemovalPlan(project,definition.id);
  html+=`<p class="small">${esc(removal.blocked?removal.reason:removal.placements.length?'Removing this definition converts its chapter placements to independent local cards, preserving their content and rules.':'This definition is unused. Removal requires confirmation.')}</p>`;
- return html+button('Remove from Library','delete-definition',removal.blocked?'disabled':'')+'</section>';
+ return html+'<div class="library-definition-actions">'+button('Duplicate','duplicate-definition')+button('Remove from Library','delete-definition',removal.blocked?'disabled':'')+'</div></section>';
 }
 export function placementInspector(project,p,kind,index,slot,count=Infinity,chapter) {
  let card;try{card=resolvePlacement(project,p);}catch{}

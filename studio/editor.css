@@ -8,8 +8,8 @@ header { flex-wrap:wrap; }
 header #save-status {margin-left:auto;margin-right:0;}
 .toolbar-divider {flex:0 0 auto;width:1px;height:22px;margin:0 4px;background:#3d4b4d;}
 .studio-stopwatch {display:flex;align-items:center;gap:8px;}
-.studio-stopwatch button {width:32px;padding-inline:0;}
-.studio-stopwatch [role="timer"] {min-width:5ch;text-align:right;font-size:30px;line-height:1;font-variant-numeric:tabular-nums;color:#fff;}
+.studio-stopwatch button {display:grid;place-items:center;width:32px;height:32px;padding:0;line-height:1;}
+.studio-stopwatch [role="timer"] {min-width:5ch;text-align:right;font-size:30px;font-weight:200;line-height:1;font-variant-numeric:tabular-nums;color:#fff;}
 main {grid-template-columns:minmax(0,1fr) 500px;flex:1;min-height:0;height:auto;}
 .card-placement-row {display:grid;grid-template-columns:minmax(0,1fr) 28px 36px;gap:8px;margin:10px 0;align-items:start;}
 .card-placement-row > .card-panel {min-width:0;margin:0 0 6px;}
@@ -320,3 +320,7 @@ details > summary {cursor:pointer;}
 .card-panel[data-card-type="enemy"] [data-enemy-action-type="defend"] {--enemy-action-tint:#97b7c9;}
 .card-panel[data-card-type="enemy"] [data-enemy-action-type="prepare"] {--enemy-action-tint:#b4a4c8;}
 .card-panel[data-card-type="enemy"] [data-enemy-action-type="wait"] {--enemy-action-tint:#b5bda4;}
+
+.library-definition-actions {display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+.library-entry[data-library-drop="before"] {box-shadow:-3px 0 #aee4ce;}
+.library-entry[data-library-drop="after"] {box-shadow:3px 0 #aee4ce;}

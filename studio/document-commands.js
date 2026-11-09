@@ -19,6 +19,7 @@ import { definitionGraph } from '../project/dependencies.js';
 import { removeLibraryDefinition } from './library-removal.js';
 import { captureNodeClipboard, pasteNodeClipboard, captureNodesClipboard, pasteNodesClipboard } from './node-clipboard.js';
 import { transferCard } from './card-transfer.js';
+import { isCommonDefinition } from './common-library.js';
 import { appendLibraryCard } from './library-cards.js';
 import { sortedChapters } from '../project/chapter-navigation.js';
 import {
@@ -515,6 +516,19 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
       if(project.combat.playerDodge?.definitionId===data.id)throw new Error('Dodge feedback cannot also be Damage received');
       delete project.library.find(d=>d.id===data.id).showValue;
       project.combat.playerHit={definitionId:data.id};break;
+    }
+    case 'move-definition':
+    case 'duplicate-definition': {
+      const isContent = card => card && card.visibility !== 'local' && !isCommonDefinition(card);
+      const source = project.library.find(card => card.id === data.id);
+      const target = data.targetId === undefined ? source : project.library.find(card => card.id === data.targetId);
+      if (!isContent(source) || !isContent(target)) return {};
+      if (type === 'move-definition' && source === target) return {};
+      const duplicate = type === 'duplicate-definition';
+      const card = duplicate ? {...structuredClone(source), id:uid(source.kind)} : source;
+      if (!duplicate) project.library.splice(project.library.indexOf(source), 1);
+      project.library.splice(project.library.indexOf(target) + (data.before ? 0 : 1), 0, card);
+      return {selection:{definitionId:card.id, mode:'library'}};
     }
     case 'add-definition': {
       const added = createDefinition(data.kind, uid(data.kind)); project.library.push(added);

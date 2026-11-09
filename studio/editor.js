@@ -281,7 +281,7 @@ function renderInspector({collapseCards=false,preserveProjectSettings=false}={})
  $('#settings').innerHTML=chapterSettingsInspector(project,chapter());
  if(!preserveProjectSettings)renderProjectSettings();
  $('#inspector').innerHTML=mode==='library'?definitionInspector(project,definition()):group?beatGroupInspector(chapter(),group):multiple?`<p class="small">${graph.selectedIds.size} beats selected.</p>`:nodeInspector(project,chapter(),node(),previewOverrides.effects(project,chapter(),node()));
- if(mode==='library'&&isCommonDefinition(definition())){const panel=$('#inspector').querySelector('.card-definition-panel');if(panel){panel.insertAdjacentHTML('afterbegin',commonRoleControls(project,definition()));const oldRemoval=panel.querySelector('[data-command="delete-definition"]');if(oldRemoval){oldRemoval.previousElementSibling?.remove();oldRemoval.remove();}const deletion=panel.querySelector('.common-delete');if(deletion)panel.append(deletion);}}
+ if(mode==='library'&&isCommonDefinition(definition())){const panel=$('#inspector').querySelector('.card-definition-panel');if(panel){panel.insertAdjacentHTML('afterbegin',commonRoleControls(project,definition()));const oldRemoval=panel.querySelector('[data-command="delete-definition"]');if(oldRemoval){const actions=oldRemoval.parentElement;actions.previousElementSibling?.remove();actions.remove();}const deletion=panel.querySelector('.common-delete');if(deletion)panel.append(deletion);}}
  renderCardPreviews($('#inspector'),project,node(),chapterId);
  mountDescriptionEditors($('#inspector'),textarea=>descriptionEditorContext(project,{
   scope:textarea.dataset.scope,path:textarea.dataset.path,root:scopeRoot(textarea.dataset.scope,textarea),chapter:chapter(),
@@ -323,7 +323,7 @@ function renderLibrary(){
   const indicators=cardRuleIndicators(project,{definitionId:d.id},libraryIndex);
   const indicatorLabel=indicators.map(([letter,label])=>`${letter}: ${label}`).join('; ');
   const hint=compatible?(node().type==='combat'?`Click to inspect. Double-click to replace the Enemy for ${node().name}.`:`Double-click to add to ${node().name}`):node()?'Cannot add this card type to the selected beat. Click to inspect.':'Select a beat to add this card. Click to inspect.';
-  return `<button type="button" data-definition="${esc(d.id)}" class="library-entry card-panel ${d.id===definitionId?'selected':''} ${match&&!compatible?'library-entry-incompatible':''}" data-card-type="${esc(d.kind)}" title="${esc(hint)}" style="--card-editor-tint:${esc(cardEditorTint(d.kind))}"><strong>${esc(cardLabel(d))}</strong><span class="library-card-meta"><span>${esc(cardKinds[d.kind]?.label||d.kind)} · ${dependencies.users(d.id).length} uses</span>${indicators.length?`<span class="library-card-rules" role="img" aria-label="${esc(indicatorLabel)}" title="${esc(indicatorLabel)}">${esc(indicators.map(([letter])=>letter).join(' · '))}</span>`:''}</span>${d.kind==='item'&&d.tagId?`<span class="library-item-tag">[${esc((project.itemTags||[]).find(tag=>tag.id===d.tagId)?.name||d.tagId)}]</span>`:''}</button>`;
+  return `<button type="button" draggable="true" data-definition="${esc(d.id)}" class="library-entry card-panel ${d.id===definitionId?'selected':''} ${match&&!compatible?'library-entry-incompatible':''}" data-card-type="${esc(d.kind)}" title="${esc(hint)}" style="--card-editor-tint:${esc(cardEditorTint(d.kind))}"><strong>${esc(cardLabel(d))}</strong><span class="library-card-meta"><span>${esc(cardKinds[d.kind]?.label||d.kind)} · ${dependencies.users(d.id).length} uses</span>${indicators.length?`<span class="library-card-rules" role="img" aria-label="${esc(indicatorLabel)}" title="${esc(indicatorLabel)}">${esc(indicators.map(([letter])=>letter).join(' · '))}</span>`:''}</span>${d.kind==='item'&&d.tagId?`<span class="library-item-tag">[${esc((project.itemTags||[]).find(tag=>tag.id===d.tagId)?.name||d.tagId)}]</span>`:''}</button>`;
  }).join('');
 }
 function render({preserveProjectSettings=false}={}){
@@ -469,6 +469,7 @@ function command(event){const b=event.target.closest('[data-command]');if(!b||b.
   if(result.ok)report('Prepared action deleted and Prepare references removed. Undo restores both.');
   return;
  }
+ if(cmd==='duplicate-definition'){edit(cmd,{id:definitionId});return;}
  if(cmd==='delete-definition'){
   if(b.disabled||!confirmLibraryRemoval(project,definitionId,{report}))return;
   preview.stop();
@@ -538,6 +539,7 @@ function command(event){const b=event.target.closest('[data-command]');if(!b||b.
 }
 for(const root of [$('#inspector'),$('#settings'),$('#project-settings-content')])root.addEventListener('click',command);
 mountLibraryCardActions($('#library-list'),{
+ onDrop:data=>edit(data.duplicate?'duplicate-definition':'move-definition',data),
  onOpen:id=>{
   definitionId=id;
   // Keep the clicked element mounted so the browser can deliver its dblclick.
