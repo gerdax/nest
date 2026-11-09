@@ -14,7 +14,7 @@ import { cardKinds, resolvePlacement, cardSummary, cardSummaryParts, cardEditorT
 import { chapterVariables, outputsForNode, labelForOutput } from '../project/model.js';
 import { definitionUsagePanel } from './definition-usage-view.js';
 import { libraryRemovalPlan } from './library-removal.js';
-import { nodeTypeDescriptor, nodeTypeLabel, beatOptionLabel, retainsInventoryItems } from '../project/nodeTypes.js';
+import { nodeTypeDescriptor, nodeTypeLabel, beatOptionLabel, retainsInventoryItems, isRouteBeat, routeFallbackEnabled } from '../project/nodeTypes.js';
 import { inventoryItemOptions } from './item-options.js';
 import { itemReferenceLinks } from './item-reference.js';
 import { field, select, checkbox, button, rules, actionFields, imageField, artworkEditor, esc } from './forms.js';
@@ -25,7 +25,6 @@ const byConnectionLabel = ([, a], [, b]) =>
 export function beatGroupInspector(chapter, group) {
  const groups=beatGroups(chapter);
  const members=new Set(group.memberIds);
- const grouped=new Set(groups.flatMap(candidate=>candidate.memberIds));
  const destination=group.destination;
  const value=destination===null?'end':destination?.nodeId?`beat:${destination.nodeId}`
   :destination?.groupId?`group:${destination.groupId}`:'unlinked';
@@ -38,7 +37,7 @@ export function beatGroupInspector(chapter, group) {
    [['unlinked','Unlinked'],...chapter.nodes.filter(node=>members.has(node.id)).map(beatOption).sort(byConnectionLabel)],'entry','beat-group')
   +select('Output destination',value,[['unlinked','Unlinked'],['end','End chapter'],
    ...[
-    ...chapter.nodes.filter(node=>!grouped.has(node.id)).map(beatOption),
+    ...chapter.nodes.filter(node=>!members.has(node.id)).map(beatOption),
     ...groups.filter(candidate=>candidate.id!==group.id).map(candidate=>[`group:${candidate.id}`,`group: ${candidate.name || candidate.id} · Input`])
    ].sort(byConnectionLabel)],
    'destination','beat-group');
@@ -217,9 +216,14 @@ export function nodeInspector(project,chapter,node,previewEffects=node?.entryEff
    html+='<div class="add-card-buttons">'+[kind,...kinds.filter(k=>k!==kind)].map(k=>button(`+ ${cardKinds[k]?.label||k}`,'add-placement',`data-slot="${esc(slot)}" data-kind="${esc(k)}" style="--card-editor-tint:${esc(cardEditorTint(k))}"`)).join('')+'</div>';
   }
  }
- if(node.type==='random') {
-  html+='<p class="small">Select one eligible route, then follow its normal connections.</p>';
-  html+=node.routes.map((r,i)=>`<div class="entry">${field('Route label',r.name||r.id,`routes.${i}.name`,'node')}${field('Weight',r.weight,`routes.${i}.weight`,'node','number')}${rules(project,r.conditions,`routes.${i}.conditions`,'node','conditions',{chapter})}${button('Remove route','remove-route',`data-index="${i}"`)}</div>`).join('')+button('Add route','add-route');
+ if(isRouteBeat(node.type)) {
+  const ordered=node.type==='condition';
+  html+=`<p class="small">${ordered?'Use the first matching route, from top to bottom. If none match, use Fallback.':'Select one eligible route, then follow its normal connections.'}</p>`;
+  html+=node.routes.map((r,i)=>{
+   const order=ordered?'<div class="row">'+button('Move up','move-condition-route',`data-index="${i}" data-direction="-1" ${i===0?'disabled':''}`)
+    +button('Move down','move-condition-route',`data-index="${i}" data-direction="1" ${i===node.routes.length-1?'disabled':''}`)+'</div>':'';
+   return `<div class="entry">${field('Route label',r.name||r.id,`routes.${i}.name`,'node')}${ordered?'':field('Weight',r.weight,`routes.${i}.weight`,'node','number')}${rules(project,r.conditions,`routes.${i}.conditions`,'node','conditions',{chapter})}${order}${button('Remove route','remove-route',`data-index="${i}"`)}</div>`;
+  }).join('')+button('Add route','add-route');
  }
  if(node.type.startsWith('legacy')) {
   html+='<p class="small">Imported sequence behaviour is preserved. Replace this beat deliberately to use the new mechanics.</p>';
@@ -237,23 +241,25 @@ export function nodeInspector(project,chapter,node,previewEffects=node?.entryEff
  if(['container','linear'].includes(node.type))html+='<hr class="connections-divider inventory-persistence-divider">'+checkbox('Keep swapped items on revisit',retainsInventoryItems(node),'retainInventoryItems','node');
  if(node.type==='death')return html;
  const groups=beatGroups(chapter),group=beatGroupFor(chapter,node.id);
- const memberIds=new Set(group?group.memberIds:groups.flatMap(candidate=>candidate.memberIds));
- const groupInputs=new Map(group?[]:groups.flatMap(candidate=>candidate.incoming
+ const groupInputs=new Map(groups.flatMap(candidate=>candidate.incoming
   .filter(ref=>ref.nodeId===node.id).map(ref=>[ref.output,candidate.id])));
  html+='<hr class="connections-divider">';
  html+=node.type==='combat'
   ? '<div class="row combat-enemy-controls combat-connections-heading"><h3>Connections</h3>'
     +checkbox('Ignore death',node.ignoreDeath===true,'ignoreDeath','node')+'</div>'
-  : '<h3>Connections</h3>';
+  : node.type==='random'
+   ? '<div class="row combat-enemy-controls combat-connections-heading"><h3>Connections</h3>'
+    +checkbox('Use fallback',routeFallbackEnabled(node),'fallbackEnabled','node')+'</div>'
+   : '<h3>Connections</h3>';
  html+=outputsForNode(project,node).map(exit=>{
   const target=readBeatTarget(node,exit),input=groupInputs.get(exit);
   const value=group?.outgoing.some(ref=>ref.nodeId===node.id&&ref.output===exit)?'group-output'
    :input?`group-input:${input}`:target===null?'end':typeof target==='string'?`target:${target}`:'unlinked';
   const hideLabel=['container','linear'].includes(node.type)&&exit==='next';
-  const choices=group?[['group-output',`group: ${group.name || group.id} · Output`]]
-   :groups.map(candidate=>[`group-input:${candidate.id}`,`group: ${candidate.name || candidate.id} · Input`]);
+  const choices=groups.filter(candidate=>candidate!==group).map(candidate=>[`group-input:${candidate.id}`,`group: ${candidate.name || candidate.id} · Input`]);
+  if(group)choices.push(['group-output',`group: ${group.name || group.id} · Output`]);
   const destinations=[...choices,
-   ...chapter.nodes.filter(n=>memberIds.has(n.id)===Boolean(group)&&(project.allowCycles!==false||n.id!==node.id)).map(n=>[`target:${n.id}`,beatOptionLabel(n)])
+   ...chapter.nodes.filter(n=>project.allowCycles!==false||n.id!==node.id).map(n=>[`target:${n.id}`,beatOptionLabel(n)])
   ].sort(byConnectionLabel);
   const generalOptions=[['unlinked','Unlinked']];
   if(!group&&node.type!=='combat')generalOptions.push(['end','End chapter']);

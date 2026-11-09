@@ -60,6 +60,36 @@ test('one group returns to the Next of each Randomizer and preserves scene effec
   game.controller.destroy();
 });
 
+test('Auto can draw its own group when the scene cannot reach that Auto',()=>{
+ for(const [draw,firstBeat] of [[0,'scene-entry'],[.99,'mid']]){
+  const project=fixture({noneWeight:2}),chapter=project.chapters[0];
+  chapter.beatGroups[0].memberIds.push('r1');
+  const game=run(project,draw);
+  game.deck.advance();
+  assert.equal(game.controller.state.activeNodeId,firstBeat);
+  if(firstBeat==='scene-entry')game.deck.advance();
+  assert.equal(game.controller.state.activeNodeId,'mid');
+  assert.equal(game.draws,1);
+  assert.deepEqual(game.errors,[]);
+  game.controller.destroy();
+ }
+});
+
+test('a direct exit from a drawn group follows the exact link and releases the Auto scene',()=>{
+ const project=fixture(),chapter=project.chapters[0],group=chapter.beatGroups[0];
+ group.outgoing=[];group.destination=false;
+ chapter.nodes.find(node=>node.id==='scene-entry').connections.next='ordinary';
+ chapter.nodes.find(node=>node.id==='ordinary').connections.next='r2';
+ const game=run(project);
+ for(const beat of ['scene-entry','ordinary','scene-entry','ordinary']){
+  game.deck.advance();
+  assert.equal(game.controller.state.activeNodeId,beat);
+ }
+ assert.equal(game.draws,2);
+ assert.deepEqual(game.errors,[]);
+ game.controller.destroy();
+});
+
 test('preview is pure and a once-per-run group is shared between Randomizers and reset on restart',()=>{
   const game=run(fixture({once:true}));
   assert.equal(game.draws,0);

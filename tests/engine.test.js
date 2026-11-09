@@ -370,24 +370,6 @@ test('reduced motion and hidden tabs finish the incoming flip face up immediatel
  }
 });
 
-test('Fork browse back is exposed horizontally and hands off to the usual upward preview',()=>{
- for(const count of [2,3]){
-  const d=deck(count);d.content.showBrowseBack=true;ready(d);
-  assert.equal(d.underlayBack,null);
-  for(const x of [-90,90]){
-   d.start();d.move({axis:'x',x,y:0,vx:0,vy:0});d.render();
-   assert.equal(d.underlayBack.style.visibility,'visible');
-   assert.equal(yaw(d.underlayBack),360);
-   d.cancel();settle(d);
-   assert.equal(d.underlayBack.style.visibility,'hidden');
-  }
-  d.start();d.move({axis:'y',x:0,y:-170,vx:0,vy:0});d.render();
-  assert.equal(d.underlayBack.style.visibility,'visible');
-  assert.equal(d.underlayBack.getAttribute('data-back-icon'),'default');
-  d.cancel();settle(d);d.destroy();
- }
-});
-
 test('the next reverse is exposed during a held upward gesture without committing',()=>{
  for(const count of [2,3,4]){
   const d=deck(count);ready(d);let commits=0;d.addEventListener('commit',()=>commits++);

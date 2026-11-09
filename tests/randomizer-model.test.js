@@ -25,7 +25,7 @@ test('Randomizer has one output and compilation retains boundaries for dynamic r
   assert.deepEqual(validateProject(project), []);
   const compiled = compileChapter(project);
   assert.deepEqual(compiled.randomizerGroups.scene,{
-    entryId:'route',oncePerRun:true,exits:group.outgoing
+    entryId:'route',memberIds:['route','encounter'],oncePerRun:true,exits:group.outgoing
   });
   assert.equal(compiled.nodes.find(node => node.id === 'encounter').fallback,false);
   assert.deepEqual(compiled.nodes.find(node => node.id === randomizer.id).candidates,randomizer.candidates);
@@ -45,6 +45,7 @@ test('unavailable candidates compile out without preventing the chapter from pla
     if (failure === 'nested') {
       group.memberIds.push(randomizer.id);
       randomizer.connections.next = false;
+      chapter.nodes.find(node => node.id === 'route').connections['explore-choice'] = randomizer.id;
     }
     assert.deepEqual(validateProject(project), []);
     assert.equal(inspectRandomizerGroup(project,chapter,randomizer.candidates[0].groupId).usable,false);

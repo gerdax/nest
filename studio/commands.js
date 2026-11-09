@@ -2,7 +2,7 @@ import { createError } from '../errors.js';
 import { eligibleInventoryItems } from './item-options.js';
 import { createDefinition, resolvePlacement, isStoryKind, isConsumableKind, placementOverrideKeys } from '../project/cards.js';
 import { chapterVariables,outputsForNode,connectionForOutput } from '../project/model.js';
-import { createNodeDefaults, nodeTypeLabel } from '../project/nodeTypes.js';
+import { createNodeDefaults, isRouteBeat, nodeTypeLabel } from '../project/nodeTypes.js';
 import { definitionGraph } from '../project/dependencies.js';
 export const uid = prefix => `${prefix}-${crypto.randomUUID()}`;
 export function addHealthVariable(project) {
@@ -147,7 +147,7 @@ export function createNode(project,type,position={x:100,y:100},chapterId) {
  if(type==='death')throw new Error('Each chapter already owns its mandatory Death beat');
  const defaults=createNodeDefaults(type,{makePlacement:kind=>makePlacement(project,kind,undefined,chapterId),uid});
  const node={id:uid('node'),name:nodeTypeLabel(type),type,...position,connections:{},...defaults};
- if(type==='random')delete node.connections;
+ if(isRouteBeat(type))delete node.connections;
  return node;
 }
 export function placements(node){return [...(node.cards||[]),...(node.choices||[]),...(node.items||[]),...(node.intro?[node.intro]:[])];}
@@ -158,7 +158,7 @@ export function pathTarget(root,path) {
 }
 export function synchronizeConnections(project) {
  for(const chapter of project.chapters)for(const node of chapter.nodes){
-  if(node.type==='random')continue;
+  if(isRouteBeat(node.type))continue;
   const old=node.connections||{};
   node.connections=Object.fromEntries(outputsForNode(project,node).map(exit=>[exit,connectionForOutput(old,exit)]));
  }

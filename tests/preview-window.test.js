@@ -33,12 +33,17 @@ function fixture(){
 
 test('minimization keeps layout dimensions, hides interactions and focuses its toggle',()=>{
  const f=fixture();f.api.show();const before=f.body.getBoundingClientRect().height;
+ const original=f.root.getBoundingClientRect();
  emit(f.toggle,'click');assert.equal(f.api.minimized,true);assert.equal(f.root.hidden,false);
+ const collapsed=f.root.getBoundingClientRect();
+ assert.equal(collapsed.top+collapsed.height,original.top+original.height);
+ assert.ok(collapsed.top>original.top);
  assert.equal(f.root.styles.get('--preview-body-height'),`${before}px`);assert.equal(f.body.getBoundingClientRect().height,before);
  assert.equal(f.root.getBoundingClientRect().height,50);assert.equal(f.body.inert,true);assert.equal(f.body.getAttribute('aria-hidden'),'true');
  assert.equal(f.toggle.getAttribute('aria-expanded'),'false');assert.equal(f.toggle.getAttribute('aria-label'),'Restore interaction preview');assert.equal(f.toggle.focused,true);assert.equal(f.closes,0);
  f.api.minimize();assert.equal(f.root.styles.get('--preview-body-height'),`${before}px`);
- emit(f.toggle,'click');assert.equal(f.api.minimized,false);assert.equal(f.body.inert,false);assert.equal(f.body.getAttribute('aria-hidden'),null);assert.equal(f.root.styles.has('--preview-body-height'),false);assert.equal(f.toggle.getAttribute('aria-expanded'),'true');assert.equal(f.closes,0);f.api.destroy();
+ emit(f.toggle,'click');assert.equal(f.api.minimized,false);assert.equal(f.body.inert,false);assert.equal(f.body.getAttribute('aria-hidden'),null);assert.equal(f.root.styles.has('--preview-body-height'),false);assert.equal(f.toggle.getAttribute('aria-expanded'),'true');assert.equal(f.closes,0);
+ assert.equal(f.root.getBoundingClientRect().top,original.top);f.api.destroy();
 });
 
 test('expanded close and reopen stays expanded; visible reports host visibility',()=>{
@@ -65,7 +70,7 @@ test('toggle API changes minimized state',()=>{
 test('minimized header drags and keyboard movement clamps to its own bounds',()=>{
  const f=fixture();f.api.show();f.api.minimize();
  const down=emit(f.handle,'pointerdown',{button:0,isPrimary:true,pointerId:1,clientX:20,clientY:20});assert.equal(down.defaultPrevented,true);assert.equal(f.handle.hasPointerCapture(1),true);
- emit(f.handle,'pointermove',{pointerId:2,clientX:2000,clientY:2000});assert.equal(f.root.style.top,'100px');
+ emit(f.handle,'pointermove',{pointerId:2,clientX:2000,clientY:2000});assert.equal(f.root.style.top,'540px');
  emit(f.handle,'pointermove',{pointerId:1,clientX:2000,clientY:2000});assert.equal(f.root.style.left,'572px');assert.equal(f.root.style.top,'742px');
  emit(f.handle,'pointerup',{pointerId:1});assert.equal(f.handle.hasPointerCapture(1),false);assert.equal(f.root.classList.contains('dragging'),false);
  emit(f.handle,'keydown',{key:'ArrowLeft',shiftKey:true});assert.equal(f.root.style.left,'532px');
@@ -83,7 +88,7 @@ test('resize keeps minimized state and body height current; restore clamps expan
 test('reopening after hidden viewport resize refreshes body height and clamps without restoring',()=>{
  const f=fixture();f.api.show();f.api.minimize();f.api.hide();
  f.viewport.innerWidth=360;f.viewport.innerHeight=300;emit(f.viewport,'resize');
- assert.equal(f.root.styles.get('--preview-body-height'),'440px');assert.equal(f.root.style.top,'100px');
+ assert.equal(f.root.styles.get('--preview-body-height'),'440px');assert.equal(f.root.style.top,'540px');
  f.root.style.left='900px';f.root.style.top='700px';f.api.show();
  assert.equal(f.api.minimized,true);assert.equal(f.body.inert,true);assert.equal(f.body.getAttribute('aria-hidden'),'true');
  assert.equal(f.root.styles.get('--preview-body-height'),'234px');assert.equal(f.root.style.left,'8px');assert.equal(f.root.style.top,'242px');assert.equal(f.body.style.visibility,undefined);

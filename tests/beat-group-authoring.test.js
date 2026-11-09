@@ -24,7 +24,7 @@ function fixture() {
   return {project,chapter,history,edit,group};
 }
 
-test('group edits, moves and collapse participate in undo/redo and reject boundary bypasses',()=>{
+test('group edits, moves, collapse and direct links participate in undo/redo',()=>{
   const {chapter,history,edit,group}=fixture();
   const original=compileChapter(history.document).nodes;
   const grouped=group();
@@ -42,7 +42,9 @@ test('group edits, moves and collapse participate in undo/redo and reject bounda
   assert.ok(history.redo());
   assert.equal(getGroup().name,'Encounter');
   const before=history.document;
-  assert.match(edit('connect',{id:'before-group',exit:'next',target:'group-last'}).failure,/boundary/i);
+  assert.equal(edit('connect',{id:'before-group',exit:'next',target:'group-last'}).failure,undefined);
+  assert.equal(compileChapter(history.document).nodes.find(node=>node.id==='before-group').connections.next,'group-last');
+  assert.ok(history.undo());
   assert.deepEqual(history.document,before);
   const current=before.chapters.find(candidate=>candidate.id===chapter.id);
   assert.match(nodeInspector(before,current,current.nodes.find(node=>node.id==='before-group')),/Encounter · Input/);
@@ -52,6 +54,29 @@ test('group edits, moves and collapse participate in undo/redo and reject bounda
   assert.match(panel,/>2 beats<\/p>/);
   assert.match(panel,/value="beat:group-first" selected/);
   assert.match(panel,/value="beat:after-group" selected/);
+});
+
+test('detaching one beat keeps the group, its Auto reference and existing direct links',()=>{
+ const {history,edit,group}=fixture();
+ const id=group().result.value;
+ assert.match(edit('detach-beat-from-group',{nodeId:'group-first'}).failure,/entry/i);
+ assert.match(edit('detach-beat-from-group',{nodeId:'group-last'}).failure,/output/i);
+ assert.equal(edit('add-beat-to-group',{groupId:id,nodeId:'after-group'}).failure,undefined);
+ assert.equal(edit('connect',{id:'after-group',exit:'next',target:'second-tail'}).failure,undefined);
+ const added=edit('add-node',{type:'randomizer'}).result.selection.selected;
+ const auto=history.document.chapters[0].nodes.find(node=>node.id===added);
+ const before=compileChapter(history.document).nodes.find(node=>node.id==='group-last').routes;
+ assert.equal(edit('inspector',{command:'add-randomizer-candidate',sceneType:'group'},auto.id).failure,undefined);
+ const detached=edit('detach-beat-from-group',{nodeId:'after-group'},'after-group');
+ assert.equal(detached.failure,undefined);
+ assert.deepEqual(detached.result.selection.selectedIds,['after-group']);
+ const chapter=history.document.chapters[0];
+ assert.deepEqual(beatGroups(chapter)[0].memberIds,['group-first','group-last']);
+ assert.equal(beatGroups(chapter)[0].id,id);
+ assert.equal(chapter.nodes.find(node=>node.id===added).candidates[0].groupId,id);
+ assert.deepEqual(compileChapter(history.document).nodes.find(node=>node.id==='group-last').routes,before);
+ assert.ok(history.undo());
+ assert.ok(beatGroups(history.document.chapters[0])[0].memberIds.includes('after-group'));
 });
 
 test('copying a complete group remaps its members, Random outcomes and group-to-group bindings',()=>{

@@ -8,6 +8,7 @@ test('card artwork controls put Reload immediately left of Clear and retain fiel
  for(const scope of ['definition','local-definition']){
   const html=imageField('Artwork path','./assets/img/scene.jpeg','image',scope,{clearable:true});
   assert.match(html,new RegExp(`data-command="reload-image" data-scope="${scope}" data-path="image"`));
+  assert.match(html,new RegExp(`Choose image file</button><button[^>]*data-command="reveal-image" data-scope="${scope}" data-path="image" aria-label="Reveal in Finder"[^>]*>Reveal</button>`));
   assert.match(html,/aria-label="Reload card image"[^>]*>Reload<\/button><button[^>]*data-command="clear-image"/);
   assert.doesNotMatch(html,/<button[^>]*data-command="reload-image"[^>]*\bdisabled\b/);
  }
@@ -16,6 +17,7 @@ test('card artwork controls put Reload immediately left of Clear and retain fiel
 test('empty artwork disables Reload and Clear; project card-back fields keep their existing controls',()=>{
  const empty=imageField('Artwork path','','image','definition',{clearable:true});
  assert.match(empty,/<button[^>]*data-command="reload-image"[^>]*\bdisabled\b/);
+ assert.match(empty,/<button[^>]*data-command="reveal-image"[^>]*\bdisabled\b/);
  assert.match(empty,/<button[^>]*data-command="clear-image"[^>]*\bdisabled\b/);
  const back=imageField('Background','./assets/img/cardback.png','cardBack.background','project');
  assert.doesNotMatch(back,/reload-image|clear-image/);

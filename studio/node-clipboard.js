@@ -3,6 +3,7 @@ import { createError } from '../errors.js';
 import { restoreSnapshotTags } from './tag-snapshots.js';
 import { definitionGraph } from '../project/dependencies.js';
 import { walk } from '../project/model-data.js';
+import { isRouteBeat } from '../project/nodeTypes.js';
 import { outputsForNode, connectionForOutput } from '../project/graph.js';
 import { beatGroups, readBeatTarget, resolveBeatGroups, writeBeatTarget } from '../project/beat-groups.js';
 import { uid, remapInventory, preserveCopiedInventoryAliases } from './commands.js';
@@ -186,7 +187,7 @@ export function pasteNodesClipboard(project, chapter, payload, {position} = {}) 
       node.connections = Object.fromEntries(outputsForNode({...project, library:[...project.library, ...definitions]}, node)
         .map(exit => [exit, connectionForOutput(connections, exit)]));
     }
-    if (node.type === 'random') {
+    if (isRouteBeat(node.type)) {
       for (const route of node.routes || []) route.target = target(route.target);
       node.fallback = target(node.fallback);
     }

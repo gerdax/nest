@@ -34,19 +34,21 @@ export function sourceCard(project,target) {
 }
 
 function cardSections(inspector) {
- const sections=new Set(inspector.querySelectorAll('details[data-placement],details[data-sequence]'));
- for(const preview of inspector.querySelectorAll('[data-preview-path]')){
-  const section=preview.closest('details');
-  if(section)sections.add(section);
- }
- return sections;
+ return new Set(inspector.querySelectorAll('details[data-placement],details[data-sequence]'));
+}
+
+function openDetails(inspector,entry) {
+ for(let parent=entry;parent&&parent!==inspector;parent=parent.parentElement)if(parent.tagName==='DETAILS')parent.open=true;
+}
+
+function clearCardHighlight(inspector) {
+ for(const previous of inspector.querySelectorAll('.card-navigation-target'))previous.classList.remove('card-navigation-target');
 }
 
 function closeOtherCards(inspector,entry,sections=cardSections(inspector)) {
  const path=new Set();
  for(let parent=entry;parent&&parent!==inspector;parent=parent.parentElement)path.add(parent);
  for(const section of sections)if(!path.has(section)&&section.open)section.open=false;
- for(const previous of inspector.querySelectorAll('.card-navigation-target'))previous.classList.remove('card-navigation-target');
 }
 
 export function mountCardAccordion(inspector) {
@@ -56,7 +58,10 @@ export function mountCardAccordion(inspector) {
   const section=summary?.parentElement;
   if(section?.tagName!=='DETAILS'||section.open)return;
   const sections=cardSections(inspector);
-  if(sections.has(section))closeOtherCards(inspector,section,sections);
+  if(sections.has(section)){
+   closeOtherCards(inspector,section,sections);
+   clearCardHighlight(inspector);
+  }
  });
 }
 
@@ -73,8 +78,9 @@ export function revealCardEntry(inspector,target,{focus=true}={}) {
   entry=sequence&&[...sequence.querySelectorAll('[data-card-placement]')].find(el=>el.dataset.cardPlacement===target.placementId&&el.dataset.cardSlot===target.slot&&(!target.parentCardId||el.dataset.cardParent===target.parentCardId));
  }else entry=[...inspector.querySelectorAll('details[data-placement]')].find(el=>el.dataset.placement===target.placementId);
  if(!entry)return false;
- closeOtherCards(inspector,entry);
- for(let parent=entry;parent&&parent!==inspector;parent=parent.parentElement)if(parent.tagName==='DETAILS')parent.open=true;
+ if(target.kind!=='definition')closeOtherCards(inspector,entry);
+ clearCardHighlight(inspector);
+ openDetails(inspector,entry);
  entry.classList.add('card-navigation-target');
  entry.scrollIntoView({block:'start',inline:'nearest',behavior:'auto'});
  if(focus){

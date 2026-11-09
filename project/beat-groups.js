@@ -1,19 +1,20 @@
 import { connectionForOutput, outputsForNode } from './graph.js';
 import { createLibraryIndex } from './library-index.js';
 import { list, named, object } from './model-data.js';
+import { isRouteBeat, routeFallbackEnabled } from './nodeTypes.js';
 
 export const beatGroups = chapter => list(chapter?.beatGroups);
 export const beatGroupFor = (chapter, nodeId) => beatGroups(chapter).find(group => list(group?.memberIds).includes(nodeId));
 
 export function readBeatTarget(node, output) {
   if (!node) return undefined;
-  if (node.type === 'random') return output === 'fallback'
+  if (isRouteBeat(node.type)) return output === 'fallback'
     ? node.fallback : list(node.routes).find(route => route?.id === output)?.target;
   return object(node.connections) ? connectionForOutput(node.connections, output) : undefined;
 }
 
 export function writeBeatTarget(node, output, target) {
-  if (node.type === 'random') {
+  if (isRouteBeat(node.type)) {
     if (output === 'fallback') node.fallback = target;
     else node.routes.find(route => route.id === output).target = target;
   } else {
@@ -33,7 +34,7 @@ function indexChapter(project, chapter) {
   const outputs = new Map();
   const getOutputs = node => {
     if (!outputs.has(node.id)) {
-      try { outputs.set(node.id, outputsForNode(project, node, library)); }
+      try { outputs.set(node.id, outputsForNode(project, routeFallbackEnabled(node)?node:{...node,fallbackEnabled:true}, library)); }
       catch { outputs.set(node.id, []); } // Malformed mechanics are diagnosed by project validation.
     }
     return outputs.get(node.id);
@@ -44,11 +45,6 @@ function indexChapter(project, chapter) {
 function targetFromDestination(destination, groups) {
   if (destination === null) return null;
   return destination?.nodeId ?? (groups.get(destination?.groupId)?.entryId || false);
-}
-
-function destinationFor(nodeId, owners) {
-  const group = owners.get(nodeId);
-  return group ? {groupId:group.id} : {nodeId};
 }
 
 /** Project authoring bindings onto the existing runtime graph without mutating the source. */
@@ -87,7 +83,7 @@ export function resolveBeatGroups(project, chapter) {
     const destination = group.destination;
     if (destination !== false && destination !== null) {
       const validBeat = object(destination) && Object.keys(destination).length === 1 && named(destination.nodeId)
-        && nodes.has(destination.nodeId) && !owners.has(destination.nodeId);
+        && nodes.has(destination.nodeId) && owners.get(destination.nodeId) !== group;
       const validGroup = object(destination) && Object.keys(destination).length === 1 && named(destination.groupId)
         && groups.has(destination.groupId) && destination.groupId !== group.id;
       if (!validBeat && !validGroup) add(group, 'output must lead to an outside beat, another group input, or End Chapter');
@@ -97,7 +93,7 @@ export function resolveBeatGroups(project, chapter) {
         const node = object(binding) && nodes.get(binding.nodeId);
         const owner = node && owners.get(node.id);
         if (!node || !named(binding.output) || !getOutputs(node).includes(binding.output)
-            || (side === 'incoming' ? owner !== undefined : owner !== group)) {
+            || (side === 'incoming' ? owner === group : owner !== group)) {
           add(group, `invalid ${side} beat outcome`, binding?.nodeId);
           continue;
         }
@@ -110,7 +106,7 @@ export function resolveBeatGroups(project, chapter) {
   }
   for (const node of nodes.values()) for (const output of getOutputs(node)) {
     const target = readBeatTarget(node, output), owner = owners.get(node.id);
-    if ((typeof target === 'string' && nodes.has(target) && owner !== owners.get(target)) || (target === null && owner)) {
+    if (target === null && owner) {
       add(owner ?? owners.get(target), 'crossing wires must use the group boundary', node.id);
     }
   }
@@ -156,7 +152,7 @@ export function connectBeatBoundary(project, chapter, {source, target}) {
     }
     if (group && source.port === 'output') {
       if (target === false || target === null) group.destination = target;
-      else if (targetNode && !owners.has(targetNode.id)) group.destination = {nodeId:targetNode.id};
+      else if (targetNode && owners.get(targetNode.id) !== group) group.destination = {nodeId:targetNode.id};
       else if (targetGroup && targetGroup !== group && target.port === 'input') group.destination = {groupId:targetGroup.id};
       else throw new Error('Group output must connect to an outside beat, another group input, or End Chapter');
       return;
@@ -170,8 +166,8 @@ export function connectBeatBoundary(project, chapter, {source, target}) {
   let side;
   let direct = false;
   if (target === false || target === null && !owner) direct = target;
-  else if (targetNode && owners.get(targetNode.id) === owner) direct = targetNode.id;
-  else if (targetGroup && target.port === 'input' && !owner) side = 'incoming';
+  else if (targetNode) direct = targetNode.id;
+  else if (targetGroup && target.port === 'input' && owner !== targetGroup) side = 'incoming';
   else if (targetGroup && target.port === 'output' && owner === targetGroup) side = 'outgoing';
   else throw new Error('Crossing wires must use the group boundary');
   removeOutputBinding(groups, source);
@@ -206,7 +202,8 @@ export function createBeatGroup(project, chapter, ids, id) {
         if (typeof target === 'string' && !nodes.has(target)) {
           throw new Error('Resolve the selection’s invalid crossing route before grouping');
         }
-        leave({nodeId:node.id, output}, target === null ? null : destinationFor(target, owners));
+        if (owners.has(target)) continue; // Preserve direct links to exact members of other groups.
+        leave({nodeId:node.id, output}, target === null ? null : {nodeId:target});
         direct.push({node, output});
       }
     } else if (selected.has(target)) {
@@ -230,6 +227,53 @@ export function createBeatGroup(project, chapter, ids, id) {
   for (const {other, binding} of transferred) other.incoming = other.incoming.filter(candidate => candidate !== binding);
   (chapter.beatGroups ??= []).push(group);
   return group;
+}
+
+export function addBeatToGroup(project, chapter, groupId, nodeId) {
+  const {nodes, groups, owners, getOutputs} = indexChapter(project, chapter);
+  const group = groups.get(groupId), node = nodes.get(nodeId);
+  if (!group || !node || node.type === 'death' || owners.has(nodeId)) {
+    throw new Error('Drop an ungrouped beat other than Death onto an existing group');
+  }
+  const internalExit = group.destination?.nodeId === nodeId;
+  const terminal = getOutputs(node).filter(output => readBeatTarget(node, output) === null);
+  if (terminal.length && !internalExit && (group.destination !== false || group.outgoing.length) && group.destination !== null) {
+    throw new Error('Set the beat’s End chapter outcomes before adding it to a group with a different output');
+  }
+  if (internalExit) {
+    for (const binding of group.outgoing) writeBeatTarget(nodes.get(binding.nodeId), binding.output, nodeId);
+    group.outgoing = [];
+    group.destination = false;
+  }
+  group.incoming = group.incoming.filter(binding => {
+    if (binding.nodeId !== nodeId) return true;
+    writeBeatTarget(node, binding.output, group.entryId);
+    return false;
+  });
+  for (const output of terminal) {
+    writeBeatTarget(node, output, false);
+    group.outgoing.push({nodeId, output});
+    group.destination = null;
+  }
+  group.memberIds.push(nodeId);
+  return group;
+}
+
+export function beatDetachmentError(group, nodeId) {
+  if (!group?.memberIds.includes(nodeId)) return 'Select a beat that belongs to a group';
+  if (group.memberIds.length === 1) return 'Ungroup the entire group to remove its last beat';
+  if (group.entryId === nodeId) return 'Choose another group entry before removing this beat';
+  if (group.outgoing.some(binding => binding.nodeId === nodeId)) {
+    return 'Rewire this beat’s group output before removing it';
+  }
+  return '';
+}
+
+export function detachBeatFromGroup(chapter, nodeId) {
+  const group = beatGroupFor(chapter, nodeId);
+  const error = beatDetachmentError(group, nodeId);
+  if (error) throw new Error(error);
+  group.memberIds = group.memberIds.filter(id => id !== nodeId);
 }
 
 export function ungroupBeatGroup(project, chapter, id) {
@@ -261,11 +305,10 @@ export function pruneBeatGroups(project, chapter) {
     return group.memberIds.length;
   });
   const ids = new Set(groups.map(group => group.id));
-  const groupedMembers = new Set(groups.flatMap(group => group.memberIds));
   const existingOutcome = binding => nodes.has(binding.nodeId) && getOutputs(nodes.get(binding.nodeId)).includes(binding.output);
   for (const group of groups) {
     if (!group.memberIds.includes(group.entryId)) group.entryId = false;
-    group.incoming = group.incoming.filter(binding => !groupedMembers.has(binding.nodeId) && existingOutcome(binding));
+    group.incoming = group.incoming.filter(binding => !group.memberIds.includes(binding.nodeId) && existingOutcome(binding));
     group.outgoing = group.outgoing.filter(binding => group.memberIds.includes(binding.nodeId) && existingOutcome(binding));
     if (group.destination?.nodeId && !nodes.has(group.destination.nodeId)
         || group.destination?.groupId && !ids.has(group.destination.groupId)) group.destination = false;

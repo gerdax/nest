@@ -29,7 +29,7 @@
 @media(prefers-reduced-motion:reduce){.nest-inventory-drawer .nest-inventory-slot{transition:none}}
 
 
-.nest-inventory-drag-preview{box-sizing:border-box;border:var(--mini-border-width,2px) solid var(--mini-active-stroke);border-radius:10.5px;background:#000;box-shadow:0 0 0 2px #dce5b933,0 8px 22px #000a;pointer-events:none;user-select:none}
+.nest-inventory-drag-preview{box-sizing:border-box;border:var(--mini-border-width,2px) solid var(--resource-icon-color);border-radius:10.5px;background:#000;box-shadow:0 8px 22px #000a;pointer-events:none;user-select:none}
 .nest-inventory-drag-preview .nest-image-vignette{position:absolute;inset:0}
 
 .nest-inventory-drag-preview.is-floating{box-shadow:0 12px 28px #0008}
@@ -67,9 +67,6 @@
 .nest-inventory-drawer.is-holding-mini .nest-inventory-slot {opacity:0;pointer-events:none}
 .nest-inventory-drawer.is-holding-mini .nest-inventory-slot:has(>.is-held-mini) {opacity:1;pointer-events:auto}
 
-/* Press and hold use the same project highlight as a moving mini. */
+/* Press and hold match the resting HUD icons. */
 .nest-inventory-drawer .nest-inventory-slot>button:is(:active,[aria-pressed="true"]),
-.nest-inventory-drawer .nest-inventory-overflow button:is(:active,[aria-pressed="true"]) {border-color:var(--mini-active-stroke);}
-
-/* One step below the brightest text, matching the HIGH odds palette step. */
-.nest-inventory-slot>button,.nest-inventory-overflow button,.nest-trigger-item>button,.nest-inventory-drag-preview {--mini-active-stroke:color-mix(in srgb,color-mix(in srgb,var(--card-medium-color,#d2dfb6) 80%,black),var(--card-text,#d2dfb6));}
+.nest-inventory-drawer .nest-inventory-overflow button:is(:active,[aria-pressed="true"]) {border-color:var(--resource-icon-color);outline-color:var(--resource-icon-color);}

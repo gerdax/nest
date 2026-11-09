@@ -29,6 +29,7 @@ import { beatGroupInspector,definitionInspector,nodeInspector,projectSettingsIns
 import { esc, field, select } from './forms.js';
 import { mountPreviewWindow } from './preview-window.js';
 import { mountAutoplay } from './autoplay.js';
+import { mountStopwatch } from './stopwatch.js';
 import { mountAutoPanel } from './auto-panel.js';
 import { sourceCard, revealCardEntry, mountCardAccordion } from './card-navigation.js';
 import { renderCardPreviews } from './card-preview.js';
@@ -50,8 +51,9 @@ import { openProjectSession } from './project-session.js';
 import {createProjectFileActions,projectFileUrl} from './project-file-actions.js';
 import {showProjectFileDialog,askUnsavedProjectChoice} from './project-file-dialog.js';
 import {showLibraryImportDialog} from './library-import-dialog.js';
-import {beatGroups,beatGroupFor} from '../project/beat-groups.js';
+import {beatDetachmentError,beatGroups,beatGroupFor} from '../project/beat-groups.js';
 
+mountStopwatch(document.querySelector('.studio-stopwatch'));
 const $=s=>document.querySelector(s),projectSession=await openProjectSession(),loaded=projectSession.loaded;
 const previewOverrides = new PreviewOverrides();
 const nodeErrors = new NodeErrors();
@@ -138,6 +140,10 @@ function saveShortcut(event){
 }
 document.addEventListener('keydown',saveShortcut);
 function report(text){persistence.report(text);}
+if(['localhost','127.0.0.1','[::1]'].includes(location.hostname)){
+ fetch('/api/reveal-image').then(response=>response.ok?response.json():null)
+  .then(status=>{if(status?.available===true)document.body.classList.add('finder-available');}).catch(()=>{});
+}
 function goToDefinition(id){
  const destination=definitionDestination(project,id);
  if(!destination){report('This definition is no longer available.');return;}
@@ -233,7 +239,12 @@ function renderBeatToolbar(){
  $('#copy-node').disabled=mode!=='chapter'||!node();
  const selectedIds=[...graph.selectedIds],grouped=new Set(beatGroups(chapter()).flatMap(group=>group.memberIds));
  $('#group-beats').disabled=mode!=='chapter'||selectedIds.length<2||selectedIds.some(id=>grouped.has(id)||id===chapter().deathNode);
- $('#ungroup-beats').disabled=!group;
+ const memberGroup=mode==='chapter'&&!group&&!multiple&&beatGroupFor(chapter(),selected);
+ const ungroup=$('#ungroup-beats');
+ const detachError=memberGroup?beatDetachmentError(memberGroup,selected):'';
+ ungroup.disabled=!group&&(!memberGroup||!!detachError);
+ ungroup.textContent=memberGroup?'Remove from group':'Ungroup';
+ ungroup.title=detachError||(memberGroup?'Remove selected beat from group':'Ungroup beats')+' (⌘⇧G / Ctrl+Shift+G)';
  $('#cut-node').disabled=$('#duplicate').disabled=mode!=='chapter'||!node()||[...graph.selectedIds].some(id=>chapter().nodes.find(n=>n.id===id)?.type==='death');
  $('#start').disabled=mode!=='chapter'||!node()||multiple||!!group||node()?.type==='death';
  $('#play-node').disabled=!selectedPreviewEntry();
@@ -321,7 +332,7 @@ function render({preserveProjectSettings=false}={}){
  if(selected!==undefined&&!chapter()?.nodes.some(n=>n.id===selected))selected=chapter()?.startNode;
  if(mode==='library'&&definition()?.visibility!=='local'&&isCommonDefinition(definition())!==(libraryTab==='common'))definitionId=project.library.find(d=>d.visibility!=='local'&&isCommonDefinition(d)===(libraryTab==='common'))?.id;
  $('#project-name').textContent=project.name;
- if(projectSession.fileMode)document.title=`${project.name} · ${localFilename??projectSession.backend.filename} · Nest`;
+ if(projectSession.fileMode)document.title=`${project.name} · ${localFilename??projectSession.backend.filename} · Nest Studio`;
  $('#chapter-selector').innerHTML=sortedChapters(project).map(c=>`<option value="${esc(c.id)}" ${c.id===chapterId?'selected':''}>${esc(c.name)}</option>`).join('');
  $('#undo').disabled=!history.canUndo;$('#redo').disabled=!history.canRedo;
 
@@ -415,6 +426,15 @@ function refreshCardClipboardButtons(){
  }
 }
 function command(event){const b=event.target.closest('[data-command]');if(!b||b.disabled)return;const cmd=b.dataset.command;
+ if(cmd==='reveal-image'){
+  const image=b.dataset.path.split('.').reduce((value,key)=>value?.[key],scopeRoot(b.dataset.scope,b));
+  if(!image)return;
+  b.disabled=true;
+  fetch('/api/reveal-image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image})})
+   .then(async response=>{const result=await response.json();if(!response.ok)throw new Error(result.error);})
+   .catch(error=>report(error.message)).finally(()=>{b.disabled=false;});
+  return;
+ }
  if(['add-common-action','use-common-action','remove-common-action','move-common-action','use-common-effect','delete-common-card'].includes(cmd)){libraryTab='common';const result=edit(cmd,{id:b.dataset.actionId,direction:b.dataset.direction});if(cmd==='delete-common-card'&&result.ok)report('Common card deleted. Undo restores it.');return;}
  if(b.dataset.scope==='preview-overrides'){
   if(b.disabled)return;
@@ -592,8 +612,12 @@ function groupSelectedBeats(){
 }
 function ungroupSelectedBeats(){
  const group=selectedGroup();
- if(!group)return false;
- if(edit('ungroup-beats',{id:group.id}).ok)selectedGroupId=undefined;
+ if(group){
+  if(edit('ungroup-beats',{id:group.id}).ok)selectedGroupId=undefined;
+  return true;
+ }
+ if(mode!=='chapter'||graph.selectedIds.size!==1||!beatGroupFor(chapter(),selected))return false;
+ edit('detach-beat-from-group',{nodeId:selected});
  return true;
 }
 $('#group-beats').onclick=groupSelectedBeats;

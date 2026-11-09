@@ -2,7 +2,7 @@ import {CombatCoordinator} from './CombatCoordinator.js';
 import {combatCard,enemyActionCard} from './combat-presentation.js';
 import {definition as combatDefinition} from './combat-rules.js';
 import { createError, errorMessage, errorCode } from '../errors.js';
-import { retainsInventoryItems, isUnassignedCombat } from './nodeTypes.js';
+import { retainsInventoryItems, isUnassignedCombat, routeFallbackEnabled } from './nodeTypes.js';
 import { initialValues, conditionsMet, affordCosts, transact, addInventory, canTriggerItem, inventoryQuantity } from './state.js';
 import { cardBody, cardFace, actionCardFace } from './presentation.js';
 import { playerCardSummary, isStoryKind, collectionEffects } from './cards.js';
@@ -188,6 +188,9 @@ export class ProjectController {
       const autoVisit=scene.autoVisit;
       return {id:autoVisit?scene.callerId:scene.next,run:{...run,scene:null},autoVisit};
     }
+    if(scene?.group.memberIds && typeof id==='string' && !scene.group.memberIds.includes(id)){
+      return {id,run:{...run,scene:null}};
+    }
     return {id,run};
   }
   locate(id,values=this.variables,inventory=this.inventory,visited=new Set(),excluded=null,preview=false,preflight=null) {
@@ -260,9 +263,14 @@ export class ProjectController {
           for(let i=results.length-1;i>=0;i--){
             pending.push({...this.randomizerDestination(results[i],node,run,visit,preview),values,inventory,changed});
           }
+        }else if(node.type==='condition') {
+          const selected=(node.routes ?? []).find(route=>conditionsMet(route.conditions,values,inventory));
+          pending.push({...this.routeStep(node,selected?.id??'fallback',selected?selected.target:node.fallback,run),values,inventory,changed});
         }else if(node.type==='random') {
           const routes=(node.routes ?? []).filter(r=>r.weight>0&&conditionsMet(r.conditions,values,inventory));
-          if(preview) {
+          if(!routes.length&&!routeFallbackEnabled(node)){
+            pending.push({id:false,values,inventory,changed,run});
+          }else if(preview) {
             const targets=routes.length?routes:[{id:'fallback',target:node.fallback}];
             for(let i=targets.length-1;i>=0;i--){
               const {id:output,target}=targets[i];
@@ -468,10 +476,7 @@ export class ProjectController {
     if(container||linearItem)for(const action of actions)action.disabled ||= action.collectDisabled&&action.discardDisabled;
     if(!actions.length)actions=[{id:'unavailable',label:'No available choices',disabled:true,disabledReason:'No available choices'}];
     const payload={autoBrowse:fork||container,id:`${this.generation}:${++this.serial}`,cardBack:this.compiled.cardBack,title:card?.name ?? card?.title ?? '',heading:cardFace(card,this.compiled.variables,this.compiled.library,values).heading,text:this.body(card,values),cardKind:card?.kind==='consumable'?card.subtype:card?.kind ?? 'event',...(card?.kind==='item'&&card.subtype==='weapon'?{typeLabel:'WEAPON'}:{}),value:card?.value,summary:card&&!isStoryKind(card.kind??card.cardKind)&&fork?playerCardSummary(card,this.compiled.variables,this.compiled.library,values):'',image:card?.image ?? '',imageScale:card?.imageScale??100,imageOffsetX:card?.imageOffsetX??0,imageOffsetY:card?.imageOffsetY??0,flipImage:!!card?.flipImage,actions,directAdvance:!fork&&!container&&!linearFace,decisionOnly:linearFace||fork&&(location.sequence?!!location.sequence.decisionOnly:this.presentation(location,values,inventory)==='open'),interaction:container||linearItem?'container':'choice',discardAll:container,allowClose:false};
-    if(fork){
-      payload.choiceFollowerRatio=.82;
-      payload.showBrowseBack=true;
-    }
+    if(fork)payload.choiceFollowerRatio=.82;
     payload.flipItemsOnReveal=container&&this.presentation(location,values,inventory)==='closed'||fork&&this.introductionUnlocksNext(location,values,inventory);
     if(payload.directAdvance){
       payload.nextTransition='flip';

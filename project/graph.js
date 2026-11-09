@@ -1,5 +1,5 @@
 import { resolvePlacement } from './cards.js';
-import { nodeOutputs } from './nodeTypes.js';
+import { isRouteBeat, nodeOutputs } from './nodeTypes.js';
 
 // Explicit DFS frames keep validation safe for long authoring graphs.
 export function hasDirectedCycle(ids, edges) {
@@ -41,7 +41,7 @@ export function labelForOutput(project, node, output, index) {
   if (node.type === 'combat' && output === 'victory') return 'Victory';
   if (node.type === 'combat' && output === 'failure') return 'Failure';
   if (output === 'fallback') return 'Fallback';
-  if (node.type === 'random') return node.routes?.find(r => r.id === output)?.name || output;
+  if (isRouteBeat(node.type)) return node.routes?.find(r => r.id === output)?.name || output;
   const p = node.choices?.find(p => output === p.id || output === `${p.id}:success` || output === `${p.id}:failure`);
   if (!p) return output;
   const d = index && index.usable !== false ? index.byId.get(p.definitionId) : project.library.find(d => d.id === p.definitionId);

@@ -5,7 +5,7 @@ import { isTagKey, tagKey, tagIdFromKey, validItemTagName } from './item-tags.js
 import { isStatVariable, validStatValue, compatibleStatVariable } from './checks.js';
 import { validateCardBack } from '../engine/cardBacks.js';
 import { cardKinds, resolvePlacement, canonicalCardKind, allowedCardKinds, placementOverrideKeys, isConsumableKind, consumableResource } from './cards.js';
-import { nodeTypeDescriptor, isUnassignedCombat } from './nodeTypes.js';
+import { nodeTypeDescriptor, isUnassignedCombat, isRouteBeat, routeFallbackEnabled } from './nodeTypes.js';
 import { isCardColor } from './card-styles.js';
 import { object, named, list, placements, legacyArtwork, chapterVariables } from './model-data.js';
 import { hasDirectedCycle, outputsForNode } from './graph.js';
@@ -534,13 +534,14 @@ export function validateProject(project, {allowDraft = false} = {}) {
         }
       }
       let targets = [];
-      if (node.type === 'random') {
+      if (isRouteBeat(node.type)) {
+        if (node.type === 'random' && node.fallbackEnabled !== undefined && typeof node.fallbackEnabled !== 'boolean') add(`${label}: Use fallback must be a boolean`, cid, nid);
         if (!Array.isArray(node.routes)) {
           add(errorMessage('VALIDATION_ROUTES_MUST_BE_A_LIST', {label}), cid, nid);
         } else {
           const ids = new Set();
           for (const r of node.routes) {
-            if (!object(r) || !named(r.id) || ids.has(r.id) || !Number.isFinite(r.weight) || r.weight <= 0
+            if (!object(r) || !named(r.id) || ids.has(r.id) || (node.type === 'random' && (!Number.isFinite(r.weight) || r.weight <= 0))
               || r.target !== null && r.target !== false && typeof r.target !== 'string') add(errorMessage('VALIDATION_INVALID_RANDOM_ROUTE', {label}),
               cid, nid);
             if (object(r)) {
@@ -551,7 +552,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
           }
         }
         if (node.fallback !== null && node.fallback !== false && typeof node.fallback !== 'string') add(errorMessage('VALIDATION_INVALID_FALLBACK', {label}), cid, nid);
-        targets.push(node.fallback);
+        if (routeFallbackEnabled(node)) targets.push(node.fallback);
       }
       else {
         if (!object(node.connections)) add(errorMessage('VALIDATION_CONNECTIONS_MUST_BE_AN_OBJECT', {label}), cid, nid);

@@ -30,7 +30,7 @@ export function compileChapter(project, chapterId = project.activeChapterId, {ad
     const entries = [];
     for (const id of groupIds) {
       const {group, usable, exits} = inspectRandomizerGroup(project, chapter, id);
-      if (usable) entries.push([id,{entryId:group.entryId,oncePerRun:group.oncePerRun === true,exits}]);
+      if (usable) entries.push([id,{entryId:group.entryId,memberIds:[...group.memberIds],oncePerRun:group.oncePerRun === true,exits}]);
     }
     result.randomizerGroups = Object.fromEntries(entries);
     const beatIds = new Set(randomizers.flatMap(node => list(node.candidates).map(candidate => candidate?.beatId).filter(id => id !== undefined)));

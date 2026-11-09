@@ -105,9 +105,12 @@ test('definition sources use stable embedded IDs instead of old array positions'
 test('definition reveal expands its embedded section and parents without selection clicks',()=>{
  const inspector=element('DIV'),outer=element('DETAILS',{},inspector),entry=element('DETAILS',{},outer),summary=element('SUMMARY');
  const preview=element('DIV',{previewPath:'actions.1'},entry);preview.closest=tag=>tag==='details'?entry:null;
- entry.querySelector=()=>summary;inspector.querySelectorAll=selector=>selector==='[data-preview-path]'?[preview]:[];
+ const sibling=element('DETAILS',{},inspector),otherPreview=element('DIV',{previewPath:'hit'},sibling);
+ otherPreview.closest=()=>sibling;sibling.open=true;
+ entry.querySelector=()=>summary;inspector.querySelectorAll=selector=>selector==='[data-preview-path]'?[preview,otherPreview]:[];
  assert.equal(revealCardEntry(inspector,{kind:'definition',definitionPath:'actions.1'}),true);
  assert.equal(entry.open,true);assert.equal(outer.open,true);assert.deepEqual(summary.focusOptions,{preventScroll:true});
+ assert.equal(sibling.open,true);
  assert.equal(revealCardEntry(inspector,{kind:'definition',definitionPath:'actions.9'}),false);
 });
 

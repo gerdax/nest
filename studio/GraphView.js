@@ -4,8 +4,7 @@ import { uiScale } from './ui-scale.js';
 import { esc } from './forms.js';
 import { outputsForNode, labelForOutput } from '../project/model.js';
 import { readBeatTarget } from '../project/beat-groups.js';
-import { nodeTypeLabel } from '../project/nodeTypes.js';
-import { nodeTypeDescriptor } from '../project/nodeTypes.js';
+import { isRouteBeat, nodeTypeDescriptor, nodeTypeLabel } from '../project/nodeTypes.js';
 import { nodeIcon } from './node-icons.js';
 import { cardEditorTint,canonicalCardKind } from '../project/cards.js';
 import { createLibraryIndex } from '../project/library-index.js';
@@ -110,7 +109,7 @@ export class GraphView {
   this.libraryIndex=createLibraryIndex(project.library);
   this.definitionsById=new Map(project.library.map(definition=>[definition.id,definition]));
   if(this.pending&&!chapter.nodes.some(n=>n.id===this.pending.nodeId&&outputsForNode(project,n,this.libraryIndex).includes(this.pending.exit)))this.pending=null;
-  this.root.querySelector('#nodes').innerHTML=visibleNodes.map(n=>`<article class="node ${n.type} ${!this.selectedGroupId&&this.selectedIds.has(n.id)?'selected':''} ${(n.id===active||n.id===this.activeAuto)?'active':''}" data-id="${esc(n.id)}" style="left:${this.position(n).x}px;top:${this.position(n).y}px"><div class="node-heading">${nodeIcon(n.type)}<span class="badge">${n.id===chapter.startNode?'<span class="graph-start-label">START</span> · ':''}${esc(n.name?.trim()||nodeTypeLabel(n.type))}</span>${this.overrideMarker(n.id)}</div>${n.type==='random'?`<div class="node-body">${n.routes.length} ${n.routes.length===1?'route':'routes'}</div>`:n.type.startsWith('legacy')?'<div class="node-body">Preserved legacy behaviour</div>':''}${this.cardRows(n)}</article>`).join('');
+  this.root.querySelector('#nodes').innerHTML=visibleNodes.map(n=>`<article class="node ${n.type} ${!this.selectedGroupId&&this.selectedIds.has(n.id)?'selected':''} ${(n.id===active||n.id===this.activeAuto)?'active':''}" data-id="${esc(n.id)}" style="left:${this.position(n).x}px;top:${this.position(n).y}px"><div class="node-heading">${nodeIcon(n.type)}<span class="badge">${n.id===chapter.startNode?'<span class="graph-start-label">START</span> · ':''}${esc(n.name?.trim()||nodeTypeLabel(n.type))}</span>${this.overrideMarker(n.id)}</div>${isRouteBeat(n.type)?`<div class="node-body">${n.routes.length} ${n.routes.length===1?'route':'routes'}</div>`:n.type.startsWith('legacy')?'<div class="node-body">Preserved legacy behaviour</div>':''}${this.cardRows(n)}</article>`).join('');
   this.nodeElements=new Map([...this.root.querySelectorAll('.node')].map(el=>[el.dataset.id,el]));
   this.renderGroups();
   this.setNodeErrors(this.nodeErrors);
@@ -186,7 +185,11 @@ export class GraphView {
  portLabel(node,exit){
   const boundary=this.boundaryOutputs?.get(node.id)?.get(exit);
   if(boundary)return `${this.groupsById.get(boundary.groupId)?.name} ${boundary.port==='input'?'In':'Out'}`;
-  const target=this.target(node,exit);return target===null?'End chapter':this.nodesById.get(target)?.name||'Unlinked';}
+  const target=this.target(node,exit);
+  if(target===null)return 'End chapter';
+  const destination=this.nodesById.get(target);
+  return destination?(destination.name?.trim()||nodeTypeLabel(destination.type)):'Unlinked';
+ }
  unlinked(node,exit){if(this.boundaryOutputs?.get(node.id)?.has(exit))return false;const target=this.target(node,exit);return target!==null&&!this.nodesById.has(target);}
  port(node,exit,label=null){
   const target=esc(this.portLabel(node,exit)),name=esc(labelForOutput(this.project,node,exit,this.libraryIndex));
@@ -304,32 +307,45 @@ export class GraphView {
  connectionPoint(endpoint,source) {
   if(endpoint.groupId)return this.boundaryPoint(endpoint);
   const node=this.nodesById.get(endpoint.nodeId);
-  if(!node||this.groupsByMember?.get(node.id)?.collapsed)return null;
+  if(!node)return null;
+  const group=this.groupsByMember?.get(node.id);
+  if(group?.collapsed)return this.boundaryPoint({groupId:group.id,port:source?'output':'input'});
   if(source)return this.outputPoint(node,endpoint.output);
   const to=this.position(node);return {x:to.x,y:to.y+40};
  }
- visibleWire(source,target) {
+ visibleWire(source,target,labelLanes=new Map()) {
+  const sourceGroup=this.groupsByMember?.get(source.nodeId);
+  const targetGroup=this.groupsByMember?.get(target.nodeId);
+  if(sourceGroup?.collapsed&&sourceGroup===targetGroup)return '';
   const from=this.connectionPoint(source,true),to=this.connectionPoint(target,false);
   if(!from||!to)return '';
   const path=this.wire(from.x,from.y,to.x,to.y);
   const data=source.nodeId?`data-source="${esc(source.nodeId)}" data-exit="${esc(source.output)}"`
    :`data-group-source="${esc(source.groupId)}" data-group-port="${esc(source.port)}"`;
-  return `<path class="edge-line" ${data} d="${path}"/><path class="edge-hit" ${data} d="${path}"/>`;
+  const label=(group,endpoint,point,anchor)=>{
+   if(!group?.collapsed)return '';
+   const key=JSON.stringify([group.id,anchor]),lane=labelLanes.get(key)??0;
+   labelLanes.set(key,lane+1);
+   const node=this.nodesById.get(endpoint.nodeId);
+   return `<text class="edge-beat-label" x="${point.x+(anchor==='start'?8:-8)}" y="${point.y-7-lane*14}" text-anchor="${anchor}">${esc(node.name||node.id)}</text>`;
+  };
+  const labels=label(sourceGroup,source,from,'start')+label(targetGroup,target,to,'end');
+  return `<path class="edge-line" ${data} d="${path}"/><path class="edge-hit" ${data} d="${path}"/>${labels}`;
  }
  edges() {
-  const paths=[];
+  const paths=[],labelLanes=new Map();
   for(const node of this.chapter.nodes){
-   if(this.groupsByMember?.get(node.id)?.collapsed)continue;
    for(const exit of outputsForNode(this.project,node,this.libraryIndex)){
     const target=this.boundaryOutputs?.get(node.id)?.get(exit);
+    if(target?.port==='output'&&this.groupsByMember.get(node.id)?.collapsed)continue;
     const nodeId=this.target(node,exit);
-    if(target||this.nodesById.has(nodeId))paths.push(this.visibleWire({nodeId:node.id,output:exit},target||{nodeId}));
+    if(target||this.nodesById.has(nodeId))paths.push(this.visibleWire({nodeId:node.id,output:exit},target||{nodeId},labelLanes));
    }
   }
   for(const group of this.groupsById?.values()||[]){
    if(!group.collapsed&&group.entryId)paths.push(this.visibleWire({groupId:group.id,port:'input'},{nodeId:group.entryId}));
    if(group.destination)paths.push(this.visibleWire({groupId:group.id,port:'output'},group.destination.groupId
-    ?{groupId:group.destination.groupId,port:'input'}:{nodeId:group.destination.nodeId}));
+    ?{groupId:group.destination.groupId,port:'input'}:{nodeId:group.destination.nodeId},labelLanes));
   }
   const d=this.creation||this.drag;
   if(d?.kind==='connect'&&d.moved){
@@ -357,7 +373,7 @@ export class GraphView {
   const sourceGroup=this.groupsByMember?.get(source.nodeId)?.id;
   if(port){
    const groupId=port.closest('.beat-group').dataset.groupId,targetPort=port.dataset.port;
-   if(source.nodeId&&(sourceGroup===groupId?targetPort==='output':!sourceGroup&&targetPort==='input')){
+   if(source.nodeId&&(sourceGroup===groupId?targetPort==='output':targetPort==='input')){
     return {groupId,port:targetPort};
    }
    if(source.port==='output'&&source.groupId!==groupId&&targetPort==='input')return {groupId,port:targetPort};
@@ -366,7 +382,7 @@ export class GraphView {
   const nodeId=hit.closest('.node')?.dataset.id;
   if(!nodeId||!this.validTarget(nodeId,source.nodeId))return null;
   const targetGroup=this.groupsByMember?.get(nodeId)?.id;
-  if(source.nodeId?sourceGroup===targetGroup:source.port==='input'?targetGroup===source.groupId:!targetGroup)return {nodeId};
+  if(source.nodeId||(source.port==='input'?targetGroup===source.groupId:targetGroup!==source.groupId))return {nodeId};
   return null;
  }
  hoverTarget(target) {
@@ -374,6 +390,20 @@ export class GraphView {
   for(const [id,group] of this.groupElements||[]){
    for(const port of group.querySelectorAll('.beat-group-port'))port.classList.toggle('connection-target',id===target?.groupId&&port.dataset.port===target?.port);
   }
+ }
+ groupHeaderDrop(e,drag) {
+  if(!this.groupElements?.size||drag.kind!=='node'||drag.copy||drag.origins||this.groupsByMember.has(drag.id)
+   ||this.nodesById.get(drag.id)?.type==='death'||Math.hypot(e.clientX-drag.x,e.clientY-drag.y)<=4)return null;
+  const bounds=this.root.getBoundingClientRect();
+  if(e.clientX<bounds.left||e.clientX>=bounds.right||e.clientY<bounds.top||e.clientY>=bounds.bottom)return null;
+  for(const [id,element] of [...this.groupElements].reverse()){
+   const header=element.querySelectorAll('.beat-group-header')[0]?.getBoundingClientRect();
+   if(header&&e.clientX>=header.left&&e.clientX<header.right&&e.clientY>=header.top&&e.clientY<header.bottom)return id;
+  }
+  return null;
+ }
+ highlightGroupDrop(groupId) {
+  for(const [id,element] of this.groupElements||[])element.classList.toggle('group-drop-target',id===groupId);
  }
  setDraggingCursor(active) {
   this.root.classList.toggle('graph-dragging',active);
@@ -501,6 +531,7 @@ export class GraphView {
    if(d.origins)d.positions=positions;
    for(const [id,p] of positions){const el=this.nodeElements.get(id);if(el){el.style.left=`${p.x}px`;el.style.top=`${p.y}px`;}}
    this.layoutGroups();this.edges();
+   this.highlightGroupDrop(this.groupHeaderDrop(e,d));
   }
  }
  up(e){
@@ -510,6 +541,8 @@ export class GraphView {
   if(d.kind==='select')this.updateBoxSelection(e);
   if(d.kind==='connect')d.moved ||= Math.hypot(e.clientX-d.x,e.clientY-d.y)>4;
   const target=d.kind==='connect'&&d.moved?this.connectionDrop(e,d.source):null;
+  const groupId=this.groupHeaderDrop(e,d);
+  this.highlightGroupDrop(null);
   this.drag=null;
   this.setDraggingCursor(false);
   if(this.root.hasPointerCapture(e.pointerId))this.root.releasePointerCapture(e.pointerId);
@@ -558,6 +591,10 @@ export class GraphView {
      const position={x:d.px,y:d.py};
      if(d.origins)this.onDuplicateMany([...d.origins.keys()],position);else this.onDuplicate(d.id,position);
     }
+   }
+   else if(groupId){
+    const bounds=this.groupBounds({...this.groupsById.get(groupId),collapsed:false});
+    this.onGroupCommand('add-beat-to-group',{groupId,nodeId:d.id,position:{x:bounds.x+bounds.width,y:bounds.y+72}});
    }
    else if(d.origins)this.onMoveMany([...d.positions].map(([id,p])=>({id,...p})));
    else this.onMove(d.id,d.px,d.py);

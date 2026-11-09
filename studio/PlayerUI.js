@@ -72,7 +72,11 @@ export class PlayerUI {
         this.actionContext.root.style.width=`${width}px`;
         this.resources.style.width=`${width}px`;
       }
-      const cardTop=cardBounds.top-bounds.top;
+      // The inventory peek moves the card plane, but the HUD follows its resting position.
+      const plane=this.cardPreview.plane;
+      const translate=plane.ownerDocument?.defaultView?.getComputedStyle?.(plane).translate;
+      const cameraY=parseFloat(translate?.split(/\s+/)[1])||0;
+      const cardTop=cardBounds.top-bounds.top-cameraY;
       const stageTop=layoutBounds(root.querySelector('.chapter-preview-stage')).top-bounds.top;
       const baseline=this.resources.querySelector('.player-resource:not([hidden]) .resource-baseline');
       if(baseline && cardTop>0 && Number.isFinite(stageTop)){

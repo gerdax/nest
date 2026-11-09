@@ -595,10 +595,6 @@ export function renderDeck(deck, time = performance.now()) {
   if (renderContentTransition(deck, time)) return;
   const context = poseContext(deck, time);
   const { front } = context;
-  const browsingBack = deck.content.showBrowseBack && context.count > 1 && deck.phase === 'choices'
-    && !deck.busy && deck.l.x === 0 && deck.drag?.axis !== 'y'
-    && (deck.drag?.axis === 'x' || !deck.atRest(deck.b));
-  if (browsingBack) stageNextBack(deck);
   const poses = deck.cards.map((_, index) => ({ ...cardPose(deck, index, time, context), ...(deck.coverDeparture || deck.content.flipItemsOnReveal ? { visible: false } : {}) }));
   const { width, height } = context;
   const cleared = deck.phase === 'committing' && !deck.commitMotion;
@@ -633,9 +629,9 @@ export function renderDeck(deck, time = performance.now()) {
     || (deck.phase === 'choices' && deck.l.x > 0 && deck.forwardOwner === deck.content.actions[deck.index]?.id));
   if (deck.underlay) {
     const stagedPose = {
-      x: 0, y: 0, z: -24*(deck.settings.layoutScale??1) - (deck.nextTakeDepth || 0), rx: 0, ry: 0, rz: 0, scale: browsingBack ? 1 : nextScale,
-      turn: browsingBack ? 180 : deck.nextFlip.x * 180, turnAxis: deck.settings.flipAxisTilt,
-      visible: (browsingBack || ((deck.content.directAdvance || deck.content.flipItemsOnReveal) && deck.p.x > 0 && !deck.busy) || (deck.phase === 'committing' && (!!deck.commitMotion || deck.operation !== 'commit')) || (deck.phase === 'collecting' && deck.collectMotion?.final)
+      x: 0, y: 0, z: -24*(deck.settings.layoutScale??1) - (deck.nextTakeDepth || 0), rx: 0, ry: 0, rz: 0, scale: nextScale,
+      turn: deck.nextFlip.x * 180, turnAxis: deck.settings.flipAxisTilt,
+      visible: (((deck.content.directAdvance || deck.content.flipItemsOnReveal) && deck.p.x > 0 && !deck.busy) || (deck.phase === 'committing' && (!!deck.commitMotion || deck.operation !== 'commit')) || (deck.phase === 'collecting' && deck.collectMotion?.final)
         || (deck.phase === 'choices' && (deck.content.interaction === 'container' ? (resolution && deck.l.x !== 0) || (deck.groupLeaveActive && deck.l.x > 0) : deck.l.x > 0)
         && !deck.content.actions[deck.index]?.disabled))
         && !forwardActive && !deck.ending && !deck.content.noSuccessor

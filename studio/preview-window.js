@@ -26,6 +26,7 @@ export function mountPreviewWindow(root,{onClose=()=>{}}={}) {
   root.style.top=`${Math.max(8,Math.min(y,window.innerHeight-rect.height-8))/uiScale(root)}px`;
  };
  const clamp=()=>{const rect=root.getBoundingClientRect();position(rect.left,rect.top);};
+ const keepBottom=previous=>position(previous.left,previous.top+previous.height-root.getBoundingClientRect().height);
  const setSize=(width,height)=>{
   const scale=uiScale(root),rect=root.getBoundingClientRect();
   const frameWidth=Math.max(0,(rect.width-body.getBoundingClientRect().width)/scale);
@@ -63,13 +64,15 @@ export function mountPreviewWindow(root,{onClose=()=>{}}={}) {
   measureBody();root.classList.add('minimized');body.style.removeProperty('visibility');
  };
  const restore=()=>{
+  const previous=root.getBoundingClientRect();
   minimized=false;updateState();root.style.removeProperty('--preview-body-height');
-  if(!root.hidden)clamp();
+  if(!root.hidden)keepBottom(previous);
   showSize();
  };
  const minimize=()=>{
   if(root.hidden||minimized)return;
-  measureBody();minimized=true;updateState();toggle.focus();clamp();
+  const previous=root.getBoundingClientRect();
+  measureBody();minimized=true;updateState();keepBottom(previous);toggle.focus();
  };
  const show=({restore:shouldRestore=false}={})=>{
   root.hidden=false;measureBar();

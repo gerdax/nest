@@ -221,6 +221,33 @@ class HttpTests(unittest.TestCase):
         self.assertEqual(self.request('POST', data=payload, headers={'Content-Type': 'text/plain'})[0], 415)
         self.assertEqual(self.request('POST', data=payload, headers={'Content-Type': 'application/json', 'Content-Length': str(51 * 1024 * 1024)})[0], 413)
 
+    def test_reveal_image_is_loopback_only_and_resolves_project_artwork(self):
+        endpoint = '/api/reveal-image'
+        headers = {'Content-Type': 'application/json', 'Origin': 'http://' + self.host}
+        artwork = self.root / 'assets' / 'img' / 'card-art' / 'Scene one.png'
+        artwork.parent.mkdir(parents=True)
+        artwork.touch()
+        (artwork.parent / 'link.png').symlink_to(artwork)
+
+        def reveal(image, request_headers=headers):
+            return self.request('POST', endpoint, json.dumps({'image': image}), request_headers)[0]
+
+        with patch('serve.sys.platform', 'darwin'), patch('serve.subprocess.run') as launch:
+            self.assertTrue(json.loads(self.request(path=endpoint)[1])['available'])
+            for image in ('./assets/img/card-art/Scene%20one.png', './assets/img/Scene%20one.png'):
+                self.assertEqual(reveal(image), 200)
+                self.assertEqual(launch.call_args.args[0], ['/usr/bin/open', '-R', str(artwork.resolve())])
+            launch.reset_mock()
+            for image in ('./assets/img/%2e%2e/private.png', './assets/img/card-art/link.png', 'https://example.com/assets/img/file.png'):
+                self.assertEqual(reveal(image), 400)
+            self.assertEqual(reveal('./assets/img/missing.png'), 404)
+            self.assertEqual(reveal('./assets/img/Scene%20one.png', {**headers, 'Origin': 'http://example.com'}), 403)
+            self.assertEqual(reveal('./assets/img/Scene%20one.png', {'Content-Type': 'application/json', 'Host': '192.0.2.1'}), 403)
+            launch.assert_not_called()
+        with patch('serve.sys.platform', 'linux'):
+            self.assertFalse(json.loads(self.request(path=endpoint)[1])['available'])
+            self.assertEqual(reveal('./assets/img/Scene%20one.png'), 403)
+
     def test_host_and_origin_guards(self):
         for headers in [{'Host': 'evil.example'}, {'Host': self.host, 'Origin': 'http://evil.example'},
                         {'Origin': 'null'}, {'Origin': 'http://localhost:1234'},

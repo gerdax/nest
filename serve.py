@@ -6,8 +6,10 @@ from io import BytesIO
 import ipaddress
 import json
 import re
+import subprocess
+import sys
 from pathlib import Path
-from urllib.parse import parse_qsl, quote, urlsplit
+from urllib.parse import parse_qsl, quote, unquote, urlsplit
 
 from image_catalog import IMAGE_SUFFIXES, image_manifest_bytes, legacy_image_source
 from project_file_store import InvalidProject, MAX_PROJECT_BYTES, ProjectFileStore
@@ -108,6 +110,9 @@ class PlaygroundHandler(SimpleHTTPRequestHandler):
 
     def _get_project_api(self, head=False):
         route = urlsplit(self.path)
+        if route.path == '/api/reveal-image':
+            self._json(200, {'available': self._finder_available()}, head=head)
+            return True
         if route.path not in ('/api/project', '/api/projects'):
             return False
         if self._allowed_request():
@@ -134,35 +139,80 @@ class PlaygroundHandler(SimpleHTTPRequestHandler):
             super().do_HEAD()
 
     def do_POST(self):
-        if urlsplit(self.path).path != '/api/project':
+        route = urlsplit(self.path).path
+        if route not in ('/api/project', '/api/reveal-image'):
             self._json(404, {'error': 'Unknown endpoint'})
             return
         if not self._allowed_request():
+            return
+        reveal = route == '/api/reveal-image'
+        if reveal and not self._finder_available():
+            self._json(403, {'error': 'Finder is only available in local macOS Studio'})
             return
         if self.headers.get_content_type() != 'application/json':
             self._json(415, {'error': 'Content-Type must be application/json'})
             return
         try:
-            store = self._selected_store()
             if self.headers.get('Transfer-Encoding'):
                 raise InvalidProject('Transfer-Encoding is unsupported')
             lengths = self.headers.get_all('Content-Length', [])
             if len(lengths) != 1:
                 raise InvalidProject('Content-Length is required')
             length = int(lengths[0])
-            if length < 0 or length > MAX_PROJECT_BYTES:
-                self._json(413, {'error': 'Request exceeds 50 MB'})
+            if length < 0 or length > (8192 if reveal else MAX_PROJECT_BYTES):
+                self._json(413, {'error': 'Request is too large' if reveal else 'Request exceeds 50 MB'})
                 return
             body = self.rfile.read(length)
             if len(body) != length:
                 raise InvalidProject('Incomplete body')
             request = json.loads(body)
-            status, result = store.save(request)
+            if reveal:
+                self._reveal_image(request)
+                return
+            status, result = self._selected_store().save(request)
             self._json(status, result)
         except (InvalidProject, ValueError, UnicodeError):
-            self._json(400, {'error': 'Invalid project save request'})
+            self._json(400, {'error': 'Invalid image path' if reveal else 'Invalid project save request'})
         except OSError:
-            self._json(500, {'error': 'Unable to save project file'})
+            self._json(500, {'error': 'Unable to open Finder' if reveal else 'Unable to save project file'})
+
+    def _finder_available(self):
+        if sys.platform != 'darwin' or not ipaddress.ip_address(self.client_address[0]).is_loopback:
+            return False
+        try:
+            host, _ = self._authority(self.headers.get('Host', ''))
+            return host == 'localhost' or ipaddress.ip_address(host).is_loopback
+        except (ValueError, TypeError):
+            return False
+
+    def _reveal_image(self, request):
+        value = request.get('image') if isinstance(request, dict) else None
+        if not isinstance(value, str) or any(ord(char) < 32 for char in value):
+            raise ValueError('Invalid image path')
+        url = urlsplit(value)
+        path = unquote(url.path, errors='strict')
+        parts = path.removeprefix('./').removeprefix('/').split('/')
+        if (url.scheme or url.netloc or parts[:2] != ['assets', 'img']
+                or any(not part or part.startswith('.') or '\\' in part or '\0' in part for part in parts)):
+            raise ValueError('Invalid image path')
+        relative = Path(*parts[2:])
+        if relative.suffix.lower() not in IMAGE_SUFFIXES:
+            raise ValueError('Unsupported image type')
+        root = Path(self.directory)
+        source = root / 'assets' / 'img' / relative
+        if source.resolve() != source or is_storage_path(source, self.project_store.directory):
+            raise ValueError('Invalid image path')
+        if not source.exists():
+            source = legacy_image_source(root, relative)
+        if source is None or not source.is_file() or is_storage_path(source, self.project_store.directory):
+            self._json(404, {'error': 'Artwork file not found'})
+            return
+        try:
+            subprocess.run(['/usr/bin/open', '-R', str(source)], check=True, capture_output=True, timeout=5)
+        except (subprocess.SubprocessError, OSError):
+            self._json(500, {'error': 'Unable to open Finder'})
+            return
+        self._json(200, {'ok': True})
 
     def send_head(self):
         root = Path(self.directory)

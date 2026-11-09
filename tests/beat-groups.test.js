@@ -3,12 +3,31 @@ import assert from 'node:assert/strict';
 import { compileChapter, createProject, exportChapter, importChapter, parseProject, validateProject } from '../project/model.js';
 import { createRatCombatProject } from '../project/combat-fixture.js';
 import { ProjectController } from '../project/ProjectController.js';
-import { beatGroups, connectBeatBoundary, createBeatGroup, pruneBeatGroups, readBeatTarget, resolveBeatGroups, ungroupBeatGroup } from '../project/beat-groups.js';
+import { addBeatToGroup, beatGroups, connectBeatBoundary, createBeatGroup, pruneBeatGroups, readBeatTarget, resolveBeatGroups, ungroupBeatGroup } from '../project/beat-groups.js';
 
 const beat = (nodeId, output) => output === undefined ? {nodeId} : {nodeId, output};
 const port = (groupId, port) => ({groupId, port});
 const chapterFor = project => project.chapters[0];
 const nodeFor = (chapter, id) => chapter.nodes.find(node => node.id === id);
+
+test('adding the current destination preserves group identity and moves the boundary past the added beat',()=>{
+ const project=createProject(),chapter=chapterFor(project);
+ chapter.nodes=[
+  {id:'a',type:'linear',connections:{next:'b'}},
+  {id:'b',type:'linear',connections:{next:'c'}},
+  {id:'c',type:'linear',connections:{next:null}},
+  {id:'auto',type:'randomizer',candidates:[{groupId:'scene',weight:65}],noneWeight:35,connections:{next:null}}
+ ];
+ const group=createBeatGroup(project,chapter,['a','b'],'scene');
+ group.entryId='a';
+ assert.equal(addBeatToGroup(project,chapter,'scene','c'),group);
+ assert.deepEqual(group.memberIds,['a','b','c']);
+ assert.equal(group.entryId,'a');
+ assert.equal(group.destination,null);
+ assert.equal(readBeatTarget(nodeFor(chapter,'b'),'next'),'c');
+ assert.deepEqual(group.outgoing,[{nodeId:'c',output:'next'}]);
+ assert.deepEqual(nodeFor(chapter,'auto').candidates,[{groupId:'scene',weight:65}]);
+});
 
 test('grouping existing Random and Fork routes preserves compiled playback and package round trips', () => {
   const project = createProject(), chapter = chapterFor(project);
@@ -93,7 +112,9 @@ test('manual two-sided wiring projects only complete routes and preserves chapte
   assert.equal(readBeatTarget(nodeFor(compiled, 'quiet-passage'), 'next'), 'supplies');
   assert.equal(readBeatTarget(nodeFor(compiled, 'supplies'), 'next'), 'route');
   assert.equal(compiled.beatGroups, undefined);
-  assert.throws(() => wire(beat('supplies','next'), beat('route')), /boundary/);
+  wire(beat('supplies','next'), beat('route'));
+  assert.ok(!group.outgoing.some(binding=>binding.nodeId==='supplies'));
+  assert.equal(readBeatTarget(nodeFor(compileChapter(project),'supplies'),'next'),'route');
   project.allowCycles = false;
   assert(validateProject(project).some(issue => /beat cycle/.test(issue.message)));
 });

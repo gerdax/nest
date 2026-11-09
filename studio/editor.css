@@ -7,6 +7,9 @@ body > nav:first-of-type {background:#182124;}
 header { flex-wrap:wrap; }
 header #save-status {margin-left:auto;margin-right:0;}
 .toolbar-divider {flex:0 0 auto;width:1px;height:22px;margin:0 4px;background:#3d4b4d;}
+.studio-stopwatch {display:flex;align-items:center;gap:8px;}
+.studio-stopwatch button {width:32px;padding-inline:0;}
+.studio-stopwatch [role="timer"] {min-width:5ch;text-align:right;font-size:30px;line-height:1;font-variant-numeric:tabular-nums;color:#fff;}
 main {grid-template-columns:minmax(0,1fr) 500px;flex:1;min-height:0;height:auto;}
 .card-placement-row {display:grid;grid-template-columns:minmax(0,1fr) 28px 36px;gap:8px;margin:10px 0;align-items:start;}
 .card-placement-row > .card-panel {min-width:0;margin:0 0 6px;}
@@ -93,13 +96,13 @@ aside {overflow-anchor:none;}
 @media(max-width:336px) {.inspector-card-preview {width:min(100%,240px);}}
 
 .preview-window {--preview-bar-height:48px;position:fixed;z-index:3000;left:24px;top:100px;width:var(--preview-custom-width,min(360px,calc(var(--editor-viewport-width) - 16px),calc((var(--editor-viewport-height) - var(--preview-bar-height) - 18px)*796/1654)));max-height:calc(var(--editor-viewport-height) - 16px);display:flex;flex-direction:column;background:#11191c;border:1px solid #63786d;border-radius:10px;box-shadow:0 16px 48px #000a;overflow:hidden;}
-.preview-window-bar {position:relative;z-index:5001;display:flex;gap:8px;align-items:center;padding:8px;background:#263431;border-bottom:1px solid #46594f;flex-shrink:0;}
+.preview-window-bar {position:relative;z-index:5001;order:1;display:flex;gap:8px;align-items:center;padding:8px;background:#263431;border-top:1px solid #46594f;flex-shrink:0;}
 .preview-window-handle {flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;cursor:grab;touch-action:none;user-select:none;border:0;background:transparent;font-weight:650;}
 .preview-window.dragging .preview-window-handle {cursor:grabbing;}
 .preview-window .preview-footer:has([data-state][open]) {background:rgb(0 0 0 / 55%);}
 .preview-window-body {position:relative;min-height:0;aspect-ratio:796/1654;height:var(--preview-custom-height,auto);flex:0 1 auto;overflow:hidden;background:#000;}
 .preview-window-scroll {position:absolute;inset:0;overflow:auto;overscroll-behavior:contain;}
-.preview-window.minimized .preview-window-body {position:absolute;top:100%;left:0;width:100%;height:var(--preview-body-height);visibility:hidden;pointer-events:none;}
+.preview-window.minimized .preview-window-body {position:absolute;bottom:100%;left:0;width:100%;height:var(--preview-body-height);visibility:hidden;pointer-events:none;}
 .preview-window.minimized .preview-window-body * {visibility:hidden!important;}
 
 .artwork-slider { position:relative; }
@@ -152,7 +155,8 @@ aside {overflow-anchor:none;}
 #project-settings-content [data-project-card-backs][open] > summary {margin-bottom:18px;}
 #project-settings-content [data-project-card-backs] > [data-image-picker] {margin-bottom:16px;}
 
-.image-field-actions {display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+.image-field-actions {display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+body:not(.finder-available) [data-command="reveal-image"] {display:none;}
 .image-field-actions [data-command="reload-image"] {margin-left:auto;}
 .chapter-delete-action {margin-top:20px;padding-top:16px;border-top:1px solid #394a4c;}
 
@@ -163,7 +167,10 @@ aside {overflow-anchor:none;}
 .combat-connections-heading h3 {margin:0;}
 .item-reference-links {flex:1 1 180px;min-width:0;margin:6px 0 10px;}
 .rule-entry-actions > .item-reference-links {margin:0;}
+.rule-entry-actions:has(> .item-reference-links > .item-reference) {align-items:flex-end;}
+.rule-entry-actions > .item-reference-links > .item-reference {margin:0;}
 .rule-entry-actions > [data-command="remove-rule"] {margin-left:auto;}
+[data-command="remove-route"] {display:block;margin-inline-start:auto;}
 .auto-add-options {display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 22px;}
 .auto-scene-actions {justify-content:space-between;align-items:center;}
 .auto-scene-entry > .field:first-child {margin-top:6px;}

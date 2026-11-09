@@ -6,6 +6,7 @@ const branchKinds = Object.freeze(['event', 'caption', 'action']);
 const itemKinds = Object.freeze(['item']);
 const objects = value => Array.isArray(value) ? value.filter(v => v !== null && typeof v === 'object' && !Array.isArray(v)) : [];
 const nextOutput = () => ['next'];
+export const routeFallbackEnabled = node => node.type !== 'random' || node.fallbackEnabled !== false;
 const legacyOutputs = node => Object.keys(node.connections || {});
 const introduction = makePlacement => ({introEnabled:false, introOnce:false, intro:makePlacement('event')});
 
@@ -32,8 +33,12 @@ export const nodeTypes = Object.freeze({
  }),
  combat: Object.freeze({label:'Combat',iconPath:'M8 5V19M16 5V19',slots:Object.freeze({}),outputs:node=>node.ignoreDeath===true?['victory','failure']:['victory'],create:()=>({introEnabled:false,enemy:{definitionId:''},connections:{victory:false}})}),
  random: Object.freeze({
-  label:'Shuffle', iconPath:'M3 6.25H7L17 17.75H21M3 17.75H7L9 15.45M15 8.55L17 6.25H21', slots:Object.freeze({}), outputs:node => [...objects(node.routes).map(r=>r.id),'fallback'],
-  create:({uid}) => ({routes:[{id:uid('route'),name:'Route 1',target:false,weight:1,conditions:[]}],fallback:false})
+  label:'Shuffle', iconPath:'M3 6.25H7L17 17.75H21M3 17.75H7L9 15.45M15 8.55L17 6.25H21', slots:Object.freeze({}), outputs:node => [...objects(node.routes).map(r=>r.id),...(routeFallbackEnabled(node)?['fallback']:[])],
+  create:({uid}) => ({routes:[{id:uid('route'),name:'Route 1',target:false,weight:1,conditions:[]}],fallback:false,fallbackEnabled:false})
+ }),
+ condition: Object.freeze({
+  label:'Condition', iconPath:'M5 9H19M5 15H19', slots:Object.freeze({}), outputs:node => [...objects(node.routes).map(r=>r.id),'fallback'],
+  create:({uid}) => ({routes:[{id:uid('route'),name:'Route 1',target:false,conditions:[]}],fallback:false})
  }),
  randomizer: Object.freeze({
   label:'Auto', iconPath:'M8 5H17A6 6 0 0 1 22 14M16 19H7A6 6 0 0 1 2 10', iconFillPath:'M4 5L9 1.5V8.5ZM20 19L15 15.5V22.5Z', slots:Object.freeze({}),
@@ -42,6 +47,7 @@ export const nodeTypes = Object.freeze({
  legacySequence: Object.freeze({label:'Legacy sequence', slots:Object.freeze({}), outputs:legacyOutputs}),
  legacyPool: Object.freeze({label:'Legacy Random', slots:Object.freeze({}), outputs:legacyOutputs})
 });
+export const isRouteBeat = type => type === 'random' || type === 'condition';
 export const nodeTypeDescriptor = type => typeof type==='string' && Object.hasOwn(nodeTypes,type) ? nodeTypes[type] : undefined;
 export const nodeTypeLabel = type => nodeTypeDescriptor(type)?.label || type;
 export const beatOptionLabel = beat => beat.type === 'death'

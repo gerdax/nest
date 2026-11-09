@@ -9,17 +9,20 @@ const project = () => ({version:2,kind:'nest-project',id:'p',name:'Project',acti
 
 test('active descriptors create independent valid defaults with the existing authoring shape',()=>{
  const p=project();
- for(const type of ['linear','fork','container','random']) {
+ for(const type of ['linear','fork','container','random','condition']) {
   const node=createNode(p,type,{x:20,y:30});
   assert.equal(node.name,nodeTypeLabel(type));assert.equal(node.x,20);assert.equal(node.y,30);
   p.chapters[0].nodes.push(node);
   assert.deepEqual(nodeOutputs(node,placement=>resolvePlacement(p,placement)),outputsForNode(p,node));
  }
- const [linear,fork,container,random]=p.chapters[0].nodes;
+ const [linear,fork,container,random,condition]=p.chapters[0].nodes;
  assert.equal(linear.cards.length,1);assert.equal(fork.choices.length,2);assert.equal(container.items.length,1);
  assert.equal(fork.introEnabled,false);assert.equal(container.introEnabled,false);assert.equal(container.introOnce,false);
- assert.deepEqual(Object.keys(random),['id','name','type','x','y','routes','fallback']);
+ assert.deepEqual(Object.keys(random),['id','name','type','x','y','routes','fallback','fallbackEnabled']);
  assert.equal(random.routes[0].weight,1);assert.equal(random.fallback,false);
+ assert.equal(random.fallbackEnabled,false);assert.deepEqual(nodeOutputs(random),[random.routes[0].id]);
+ assert.equal(condition.routes[0].weight,undefined);assert.equal(condition.fallback,false);
+ assert.deepEqual(nodeOutputs(condition),[condition.routes[0].id,'fallback']);
  assert.equal(p.library.length,6);
  assert.equal(new Set(p.library.map(d=>d.id)).size,6);
  assert.deepEqual(validateProject(p,{allowDraft:true}),[]);

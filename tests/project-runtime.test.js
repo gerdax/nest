@@ -17,6 +17,23 @@ const narrative=id=>({id,kind:'narrative',name:id,text:id,effects:[]});
 const action=(id,extra={})=>({id,kind:'action',name:id,resolution:'direct',...extra});
 function fixture(nodes,extra={},options={}){const deck=new Deck();const controller=new ProjectController(deck,{startNode:nodes[0].id,nodes,variables:[],library:[],...extra},options);return {deck,controller};}
 const flush=async()=>{await Promise.resolve();await Promise.resolve();await Promise.resolve();};
+test('Condition uses the first matching route in preview and play, or its fallback, without randomness',()=>{
+ const checked={source:'variable',key:'flag',op:'eq',value:true};
+ for(const [flag,expected] of [[true,'first'],[false,'fallback']]){
+  const nodes=[
+   {id:'start',type:'linear',cards:[narrative('intro')],connections:{next:'condition'}},
+   {id:'condition',type:'condition',routes:[
+    {id:'one',conditions:[checked],target:'first'},{id:'two',conditions:[checked],target:'second'}
+   ],fallback:'fallback'},
+   ...['first','second','fallback'].map(id=>({id,type:'linear',cards:[narrative(id)]}))
+  ];
+  const {deck,controller}=fixture(nodes,{variables:[{id:'flag',type:'flag',initial:flag}]},{rng:()=>assert.fail('Condition must not draw')});
+  assert.equal(deck.content.nextDeckPreview.content.text,expected);
+  deck.accept();
+  assert.equal(controller.state.activeNodeId,expected);
+  controller.destroy();
+ }
+});
 test('transaction costs combine atomically, inventory aliases represent ownership, values clamp',()=>{
  const values={energy:4};const inventory=[{id:'a',definitionId:'apple',inventoryKey:'old',quantity:3}];
  assert.equal(conditionsMet([{source:'inventory',key:'old',op:'gte',value:3}],values,inventory),true);
@@ -35,6 +52,18 @@ test('random conditions choose once, fallback works, transparent cycles report e
  const {controller}=fixture(nodes,{}, {rng:()=>{draws++;return 0;}});assert.equal(controller.state.cardId,'a');assert.equal(draws,1);controller.destroy();
  nodes[0].routes=[];const f=fixture(nodes);assert.equal(f.controller.state.cardId,'b');f.controller.destroy();
  const errors=[];const cycle=fixture([{id:'r',type:'random',routes:[],fallback:'r'}],{}, {onError:e=>errors.push(e)});assert.equal(errors.length,1);assert.equal(cycle.controller.state.completed,false);cycle.controller.destroy();
+});
+test('Shuffle can disable a saved fallback and use it again when re-enabled',()=>{
+ const shuffle={id:'r',type:'random',routes:[],fallback:'end',fallbackEnabled:false};
+ const end={id:'end',type:'linear',cards:[narrative('arrived')]};
+ const errors=[];
+ const blocked=fixture([shuffle,end],{},{onError:error=>errors.push(error),rng:()=>assert.fail('No eligible route')});
+ assert.equal(blocked.controller.state.completed,false);
+ assert.equal(errors.length,1);
+ blocked.controller.destroy();
+ const enabled=fixture([{...shuffle,fallbackEnabled:true},end]);
+ assert.equal(enabled.controller.state.activeNodeId,'end');
+ enabled.controller.destroy();
 });
 test('check spends costs then applies common and failure effects after feedback',async()=>{
  let resolve,feedback;const roll=new Promise(r=>resolve=r),wait=new Promise(r=>feedback=r);

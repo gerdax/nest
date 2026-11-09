@@ -8,11 +8,12 @@ import { placedLocalDefinitions, removeUnplacedLocalDefinitions } from './local-
 import { applyTagCommand } from './item-tags.js';
 import { allocateVariableId, renameVariable } from './variable-ids.js';
 import { pasteCardClipboard } from './card-clipboard.js';
+import { isRouteBeat } from '../project/nodeTypes.js';
 import { isStatVariable } from '../project/checks.js';
 import { createDefinition, allowedCardKinds, isStoryKind, isConsumableKind } from '../project/cards.js';
 import { chapterVariables, createProjectChapter, importChapter, outputsForNode } from '../project/model.js';
 import {importLibrary} from '../project/library-packages.js';
-import {beatGroups, beatGroupFor, connectBeatBoundary, createBeatGroup, pruneBeatGroups, ungroupBeatGroup} from '../project/beat-groups.js';
+import {addBeatToGroup, beatGroups, beatGroupFor, connectBeatBoundary, createBeatGroup, detachBeatFromGroup, pruneBeatGroups, ungroupBeatGroup} from '../project/beat-groups.js';
 import {MAX_AUTO_DRAWS, validAutoDrawCount, randomizerSceneKey, randomizerSceneType, randomizerScenes} from '../project/randomizer.js';
 import { definitionGraph } from '../project/dependencies.js';
 import { removeLibraryDefinition } from './library-removal.js';
@@ -70,7 +71,7 @@ export function documentScope(project, selection, {scope, placementId}) {
 }
 export function setConnection(node, exit, target) {
   if(node?.type==='death')throw new Error('Death has no connections');
-  if (node.type === 'random') {
+  if (isRouteBeat(node.type)) {
     if (exit === 'fallback') node.fallback = target;
     else node.routes.find(route => route.id === exit).target = target;
   } else node.connections[exit] = target;
@@ -353,7 +354,14 @@ function inspectorCommand(project, selection, data, localDrafts) {
         if (index >= 0 && target >= 0 && target < node[slot].length) [node[slot][index],node[slot][target]] = [node[slot][target],node[slot][index]];
       }
       break;
-    case 'add-route': node.routes.push({id:uid('route'),name:`Route ${node.routes.length+1}`,target:false,weight:1,conditions:[]}); break;
+    case 'add-route': node.routes.push({id:uid('route'),name:`Route ${node.routes.length+1}`,target:false,...(node.type==='random'?{weight:1}:{}),conditions:[]}); break;
+    case 'move-condition-route': {
+      const index=Number(data.index), direction=Number(data.direction), next=index+direction;
+      if(node?.type==='condition'&&Number.isInteger(index)&&Math.abs(direction)===1&&node.routes[index]&&node.routes[next]){
+        [node.routes[index],node.routes[next]]=[node.routes[next],node.routes[index]];
+      }
+      break;
+    }
     case 'remove-route': node.routes.splice(Number(data.index), 1); break;
     case 'add-randomizer-candidate': {
       if(node?.type!=='randomizer'||!['group','beat','enemy'].includes(data.sceneType))break;
@@ -401,7 +409,16 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
       const group=createBeatGroup(project,chapter,data.ids,uid('beat-group'));
       return {selection:{selected:data.ids[0],selectedIds:data.ids,groupId:group.id},value:group.id};
     }
+    case 'add-beat-to-group': {
+      const group=addBeatToGroup(project,chapter,data.groupId,data.nodeId);
+      const added=chapter.nodes.find(candidate=>candidate.id===data.nodeId);
+      if(data.position){added.x=data.position.x;added.y=data.position.y;}
+      return {selection:{selected:group.memberIds[0],selectedIds:group.memberIds,groupId:group.id}};
+    }
     case 'ungroup-beats': ungroupBeatGroup(project,chapter,data.id);break;
+    case 'detach-beat-from-group':
+      detachBeatFromGroup(chapter,data.nodeId);
+      return {selection:{selected:data.nodeId,selectedIds:[data.nodeId]}};
     case 'rename-beat-group':
     case 'set-beat-group-once':
     case 'collapse-beat-group':
@@ -525,7 +542,7 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
         const ids=new Set(added.map(node=>node.id)),target=id=>ids.has(id)?id:false;
         for(const node of added){
           for(const key of Object.keys(node.connections||{}))node.connections[key]=target(node.connections[key]);
-          if(node.type==='random'){
+          if(isRouteBeat(node.type)){
             for(const route of node.routes||[])route.target=target(route.target);
             node.fallback=target(node.fallback);
           }
@@ -563,7 +580,7 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
       const added = pasteNodeClipboard(project, chapter, clipboard, {position:data.position});
       added.name += ' copy';
       if (added.connections) for (const exit of Object.keys(added.connections)) added.connections[exit] = false;
-      if (added.type === 'random') {
+      if (isRouteBeat(added.type)) {
         for (const route of added.routes || []) route.target = false;
         added.fallback = false;
       }

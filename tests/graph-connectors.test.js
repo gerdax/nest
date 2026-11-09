@@ -59,6 +59,18 @@ function altHeaderDown(s,id='a',extra={}){
  const heading=new Element('node-heading',{},s.root.node(id));
  s.graph.down({target:heading,clientX:300,clientY:200,pointerId:1,button:0,altKey:true,...extra});
 }
+test('Shuffle Fallback and Linear Next label an unnamed linked beat by its type',()=>{
+ const s=setup(),{chapter,graph}=s;
+ Object.assign(chapter.nodes[0],{type:'random',routes:[],fallback:'b'});
+ chapter.nodes[1].name='';
+ chapter.nodes[1].connections.next='c';
+ chapter.nodes[2].name='   ';
+ graph.render(graph.project,chapter,'a');
+ assert.equal(graph.portLabel(chapter.nodes[0],'fallback'),'Linear');
+ assert.equal(graph.portLabel(chapter.nodes[1],'next'),'Linear');
+ assert.equal(graph.unlinked(chapter.nodes[0],'fallback'),false);
+ assert.equal(graph.unlinked(chapter.nodes[1],'next'),false);
+});
 test('Alt-dragging a header previews a copy without moving the source or its wires, then commits at release',()=>{
  const s=setup(),copies=[];s.graph.onDuplicate=(...args)=>copies.push(args);
  s.graph.view.z=.5;
@@ -879,7 +891,7 @@ test('expanded groups project both halves of each wire and collapse keeps outsid
  assert.equal(s.tile().classes.has('active'),false);
 });
 
-test('boundary drag dispatches both internal and external connections without routing across the frame directly',()=>{
+test('boundary drags and direct crossings dispatch distinct connections',()=>{
  const s=groupedCanvas(),{root,connections,graph}=s;
  const drag=(source,target)=>{
   root.event('pointerdown',source,300,220);
@@ -892,18 +904,49 @@ test('boundary drag dispatches both internal and external connections without ro
  drag(root.node('c').children[0],()=>s.groupPort('output'));
  drag(s.groupPort('output'),()=>root.node('d'));
  drag(s.port(),()=>root.node('c'));
+ drag(root.node('c').children[0],()=>root.node('d'));
  assert.deepEqual(connections,[
   {source:{nodeId:'a',output:'next'},target:{groupId:'g',port:'input'}},
   {source:{groupId:'g',port:'input'},target:{nodeId:'b'}},
   {source:{nodeId:'c',output:'next'},target:{groupId:'g',port:'output'}},
   {source:{groupId:'g',port:'output'},target:{nodeId:'d'}}
  ]);
- assert.deepEqual(s.calls,[]);
+ assert.deepEqual(s.calls,[['a','next','c'],['c','next','d']]);
  s.group.collapsed=true;
  graph.render(graph.project,s.chapter,'a','b');
  drag(s.groupPort('output'),()=>root.node('d'));
  assert.deepEqual(connections.at(-1),{source:{groupId:'g',port:'output'},target:{nodeId:'d'}});
  assert.equal(connections.length,5);
+});
+
+test('collapsed group shows direct crossings with the exact member names',()=>{
+ const s=groupedCanvas(true);
+ s.group.incoming=[];s.group.outgoing=[];s.group.destination=false;
+ s.chapter.nodes[0].connections.next='c';
+ s.chapter.nodes[2].connections.next='d';
+ s.graph.render(s.graph.project,s.chapter,'a');
+ const markup=s.root.parts['#edges'].innerHTML;
+ assert.match(markup,/data-source="a" data-exit="next"/);
+ assert.match(markup,/data-source="c" data-exit="next"/);
+ assert.equal((markup.match(/>C<\/text>/g)||[]).length,2);
+ assert.doesNotMatch(markup,/data-source="b"/);
+});
+
+test('dropping an ungrouped beat on either form of the group header adds it in one edit',()=>{
+ for(const collapsed of [false,true]){
+  const s=groupedCanvas(collapsed),{root}=s;
+  s.tile().header.getBoundingClientRect=()=>({left:400,right:700,top:80,bottom:128});
+  root.event('pointerdown',root.node('d'),810,250);
+  root.event('pointermove',root,500,100);
+  assert.ok(s.tile().classes.has('group-drop-target'));
+  root.event('pointerup',root,500,100);
+  assert.equal(s.tile().classes.has('group-drop-target'),false);
+  assert.equal(s.commands.length,1);
+  const [[command,{groupId,nodeId,position}]]=s.commands;
+  assert.equal(command,'add-beat-to-group');
+  assert.equal(groupId,'g');assert.equal(nodeId,'d');
+  assert.ok(position.x>600);assert.deepEqual(s.moves,[]);
+ }
 });
 
 test('group header dragging moves the frame and members transiently and commits once on release',()=>{

@@ -19,7 +19,15 @@ export function artworkEditor(card,scope='definition',prefix='') {
  const target=`data-scope="${esc(scope)}"${prefix?` data-artwork-path="${esc(prefix)}"`:''}`;
  return '<details class="state-panel artwork-positioning" open><summary>Image scale and position</summary>'+checkbox('Flip artwork horizontally',card.flipImage,path('flipImage'),scope)+slider('Scale','imageScale',card.imageScale??100,10,400)+slider('Horizontal offset','imageOffsetX',card.imageOffsetX??0,-100,100)+slider('Vertical offset','imageOffsetY',card.imageOffsetY??0,-100,100)+'<div class="artwork-settings-actions">'+button('Copy','copy-artwork',target)+button('Paste','paste-artwork',target)+button('Reset','reset-artwork',target)+'</div></details>';
 }
-export const imageField=(label,value,path,scope='definition',{clearable=false}={})=>field(label,value,path,scope)+`${clearable?'<div class="image-field-actions">':''}<button type="button" data-image-picker data-scope="${esc(scope)}" data-path="${esc(path)}">Choose image file</button>${clearable?button('Reload','reload-image',`data-scope="${esc(scope)}" data-path="${esc(path)}" aria-label="Reload card image" title="Reload artwork from disk" ${value?'':'disabled'}`)+button('Clear','clear-image',`data-scope="${esc(scope)}" data-path="${esc(path)}" aria-label="Clear card image" ${value?'':'disabled'}`):''}${clearable?'</div>':''}`;
+export function imageField(label,value,path,scope='definition',{clearable=false}={}) {
+ const target=`data-scope="${esc(scope)}" data-path="${esc(path)}"`;
+ const canReveal=/^(?:\.\/|\/)?assets\/img\//.test(value);
+ return field(label,value,path,scope)+'<div class="image-field-actions">'
+  +`<button type="button" data-image-picker ${target}>Choose image file</button>`
+  +button('Reveal','reveal-image',`${target} aria-label="Reveal in Finder" title="Reveal in Finder" ${canReveal?'':'disabled'}`)
+  +(clearable?button('Reload','reload-image',`${target} aria-label="Reload card image" title="Reload artwork from disk" ${value?'':'disabled'}`)
+   +button('Clear','clear-image',`${target} aria-label="Clear card image" ${value?'':'disabled'}`):'')+'</div>';
+}
 const extras=(scope,path,kind)=>`data-scope="${esc(scope)}" data-path="${esc(path)}" data-rule-kind="${kind}"`;
 export function rules(project,list=[],path,scope,kind,{label,help,chapter,footer='',countSuffix=''}={}) {
  const vars=project.variables.map(v=>[v.id,variableLabel(v)]);
