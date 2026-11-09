@@ -363,6 +363,17 @@ export class GraphView {
   // Compensate for graph and editor zoom so selection stays two screen pixels wide.
   world.style.setProperty('--graph-selection-width',`${2/(this.view.z*uiScale(this.root))}px`);
  }
+ panAtDragEdge({clientX,clientY}) {
+  const {left,right,top,bottom}=this.root.getBoundingClientRect();
+  if(clientX<left||clientX>=right||clientY<top||clientY>=bottom)return false;
+  const speed=(value,min,max)=>value<min+36?6:value>max-36?-6:0;
+  const x=speed(clientX,left,right),y=speed(clientY,top,bottom);
+  if(!x&&!y)return false;
+  const scale=uiScale(this.root);
+  this.view.x+=x/scale;this.view.y+=y/scale;
+  this.transform();
+  return true;
+ }
  validTarget(id,source) {return (id!==source||this.project.allowCycles!==false)&&this.nodesById.has(id);}
  connectionDrop(e,source) {
   const r=this.root.getBoundingClientRect();
@@ -470,13 +481,31 @@ export class GraphView {
   this.setDraggingCursor(true);this.root.setPointerCapture(e.pointerId);this.root.focus({preventScroll:true});
   this.render(this.project,this.chapter,this.selected,this.active);e.preventDefault();
  }
+ paintConnectionDrag(d,pointer) {
+  const p=this.point(pointer);
+  d.px=p.x;d.py=p.y;
+  this.hoverTarget(d.moved?this.connectionDrop(pointer,d.source):null);
+  this.edges();
+ }
+ trackConnectionEdge(d) {
+  this.root.ownerDocument.defaultView.requestAnimationFrame(()=>{
+   if(this.drag!==d)return;
+   if(this.panAtDragEdge(d.cursor))this.paintConnectionDrag(d,d.cursor);
+   this.trackConnectionEdge(d);
+  });
+ }
  move(e,capture=true) {
   const d=this.drag;if(!d||d.pointer!==e.pointerId)return;
   if(d.kind==='card'){this.cardDrag.move(e);return;}
   if(d.kind==='select'){this.updateBoxSelection(e);return;}
   if(d.kind==='connect'){
    d.moved ||= Math.hypot(e.clientX-d.x,e.clientY-d.y)>4;
-   const p=this.point(e);d.px=p.x;d.py=p.y;this.hoverTarget(d.moved?this.connectionDrop(e,d.source):null);this.edges();
+   if(d.moved){
+    const startTracking=!d.cursor;
+    d.cursor={clientX:e.clientX,clientY:e.clientY};
+    if(startTracking)this.trackConnectionEdge(d);
+   }
+   this.paintConnectionDrag(d,e);
   }else if(d.kind==='pan'){d.moved ||= Math.hypot(e.clientX-d.x,e.clientY-d.y)>4;const scale=uiScale(this.root);this.view.x=d.ox+(e.clientX-d.x)/scale;this.view.y=d.oy+(e.clientY-d.y)/scale;this.transform();}
   else{
    const scale=this.view.z*uiScale(this.root),dx=(e.clientX-d.x)/scale,dy=(e.clientY-d.y)/scale;

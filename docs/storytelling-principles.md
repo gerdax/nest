@@ -10,6 +10,12 @@ Treat story cards as comic panels. Let a salient detail in one card motivate the
 
 Use Linear for the narrative spine. Offer choices when the current scene puts a concrete decision in front of the player, such as taking the pistol or choosing how to move the forklift. Let encounters interrupt that flow at a believable moment. In First Descent, the booth and the Security door each have an independent 65% chance of a Rat encounter. The narrative continues smoothly when a draw is empty.
 
+## Chapter progression and saving
+
+A chapter moves forward from each committed choice. Use cards to advance the story. Avoid making the card flow a system for navigating the physical layout. Lazarus can occasionally return to a place he has already visited as the story unfolds.
+
+Completing a chapter saves the full game state, including inventory, stats, and the consequences of decisions. If Lazarus dies before completion, restart the same chapter from its entry state. Discard all changes from that attempt, including items gained or spent and changes to stats or story state.
+
 ## Escape and discovery
 
 Lazarus wants to reach the surface. The main gate is sealed, and the first useful lead takes him down. Each descent should follow a concrete clue or obstacle and keep the goal of getting out in view. Reveal causes gradually through evidence he encounters. At the gate, casings, wounds, and a weapon suggest the crowd turned on itself. Later records connect mutation with aggression, while the trigger at the gate remains uncertain.

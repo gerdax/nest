@@ -84,11 +84,7 @@ export class CardDrag {
   const win=this.graph.root.ownerDocument.defaultView;
   this.frame=win.requestAnimationFrame(()=>{
    this.frame=null;const g=this.graph,d=g.drag;if(d?.kind!=='card'||!d.moved)return;
-   const r=g.root.getBoundingClientRect(),speed=(v,min,max)=>v<min+36?6:v>max-36?-6:0;
-   if(d.clientX>=r.left&&d.clientX<r.right&&d.clientY>=r.top&&d.clientY<r.bottom){
-    const x=speed(d.clientX,r.left,r.right),y=speed(d.clientY,r.top,r.bottom);
-    if(x||y){const scale=uiScale(g.root);g.view.x+=x/scale;g.view.y+=y/scale;g.transform();this.paint(d);}
-   }
+   if(g.panAtDragEdge(d))this.paint(d);
    this.tick();
   });
  }

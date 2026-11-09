@@ -16,7 +16,7 @@ class Element {
  getBoundingClientRect(){return {width:0,height:0};}
 }
 class Root extends Element {
- constructor(){super();this.handlers={};this.capture=null;this.parts={'#world':new Element(),'#edges':new Element(),'#nodes':new Element(),'#beat-groups':new Element()};this.ownerDocument={documentElement:new Element(),elementFromPoint:()=>this.hit};
+ constructor(){super();this.handlers={};this.capture=null;this.parts={'#world':new Element(),'#edges':new Element(),'#nodes':new Element(),'#beat-groups':new Element()};this.ownerDocument={documentElement:new Element(),defaultView:{requestAnimationFrame:()=>1},elementFromPoint:()=>this.hit};
   Object.defineProperty(this.parts['#edges'],'innerHTML',{configurable:true,get:()=>this.edgeMarkup,set:html=>{
    this.edgeMarkup=html;
    this.parts['#edges'].children=[...html.matchAll(/<path class="(edge-line[^"]*)" data-source="([^"]*)" data-exit="([^"]*)"/g)].map(([,cls,source,exit])=>new Element(cls,{source,exit}));
@@ -74,7 +74,7 @@ test('Shuffle Fallback and Linear Next label an unnamed linked beat by its type'
 test('Alt-dragging a header previews a copy without moving the source or its wires, then commits at release',()=>{
  const s=setup(),copies=[];s.graph.onDuplicate=(...args)=>copies.push(args);
  s.graph.view.z=.5;
- s.root.ownerDocument.documentElement={};s.root.ownerDocument.defaultView={getComputedStyle:()=>({zoom:2})};
+ s.root.ownerDocument.documentElement={};s.root.ownerDocument.defaultView.getComputedStyle=()=>({zoom:2});
  const before=s.root.parts['#edges'].innerHTML;
  altHeaderDown(s);
  s.root.event('pointermove',s.root,350,225);
@@ -542,7 +542,7 @@ for(const modifier of ['metaKey','ctrlKey'])test(`${modifier} drag selects inter
 
 test('box selection works in reverse at combined graph and editor zoom',()=>{
  const s=setup();s.graph.view.z=.5;
- s.root.ownerDocument.documentElement={};s.root.ownerDocument.defaultView={getComputedStyle:()=>({zoom:2})};
+ s.root.ownerDocument.documentElement={};s.root.ownerDocument.defaultView.getComputedStyle=()=>({zoom:2});
  // client = root offset + UI scale * (pan + world * graph zoom).
  modifiedDown(s,s.root,700,260);
  s.root.event('pointerup',s.root,100,110);
@@ -672,7 +672,7 @@ test('stationary double-click opens standalone creation at the zoomed graph posi
  s.graph.onCancelCreate=()=>dismissed++;
  s.graph.view.z=.5;
  s.root.ownerDocument.documentElement={};
- s.root.ownerDocument.defaultView={getComputedStyle:()=>({zoom:2})};
+ s.root.ownerDocument.defaultView.getComputedStyle=()=>({zoom:2});
  blankClick(s,150,160);
  assert.deepEqual(requests,[]);
  blankClick(s,150,160,200);
@@ -699,7 +699,7 @@ test('double-click and held second press selects a rectangle and selected beats 
 
 test('double-drag selection works in reverse at combined graph and editor zoom',()=>{
  const s=setup();s.graph.view.z=.5;
- s.root.ownerDocument.documentElement={};s.root.ownerDocument.defaultView={getComputedStyle:()=>({zoom:2})};
+ s.root.ownerDocument.documentElement={};s.root.ownerDocument.defaultView.getComputedStyle=()=>({zoom:2});
  blankClick(s,700,260);
  blankPointer(s,'pointerdown',700,260,200);blankPointer(s,'pointerup',100,110,260);
  assert.deepEqual(s.groups,[[],['a','b']]);assert.deepEqual(s.graph.view,{x:50,y:50,z:.5});
@@ -1028,4 +1028,27 @@ test('Delete and Backspace ungroup a selected beat group without deleting its me
   assert.deepEqual(s.deleted,[]);
   assert.deepEqual(s.deletedGroups,[]);
  }
+});
+
+test('a held connector pans at the graph edge and refreshes its endpoint and target',()=>{
+ const {root,graph,port,calls}=setup();
+ const frames=[];
+ root.ownerDocument.defaultView.requestAnimationFrame=callback=>frames.push(callback);
+ root.event('pointerdown',port(),300,200);
+ root.event('pointermove',root,1000,200);
+ const start=graph.view.x;
+ root.hit=root.node('c');
+ frames.shift()();
+ assert.equal(graph.view.x,start-6);
+ assert.equal(graph.drag.px,graph.point({clientX:1000,clientY:200}).x);
+ assert.equal(root.node('c').classes.has('connection-target'),true);
+ frames.shift()();
+ assert.equal(graph.view.x,start-12);
+ root.event('pointermove',root,600,200);
+ frames.shift()();
+ assert.equal(graph.view.x,start-12);
+ root.event('pointerup',root,600,200);
+ frames.shift()();
+ assert.equal(frames.length,0);
+ assert.equal(calls.length,1);
 });
