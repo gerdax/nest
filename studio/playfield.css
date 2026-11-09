@@ -49,8 +49,6 @@
 /* Editor's legacy [hidden] rule must not collapse this reserved lane. */
 .nest-playfield #preview .player-resources[hidden] {display:flex!important;visibility:hidden;}
 .nest-playfield #preview .player-resource {font-size:calc(76.25535px * var(--playfield-scale));gap:calc(6.149625px * var(--playfield-scale));}
-.nest-playfield #preview .player-resource img {width:calc(33.207975px * var(--playfield-scale));height:calc(36.89775px * var(--playfield-scale));}
-.nest-playfield #preview .player-resource[data-health] img {width:calc(35.667825px * var(--playfield-scale));height:calc(31.97805px * var(--playfield-scale));}
 .nest-playfield .chapter-preview-card-area {
   grid-row:2;container-type:size;min-width:0;min-height:0;align-self:stretch;justify-self:stretch;
   display:grid;place-items:end center;

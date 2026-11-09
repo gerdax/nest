@@ -8,9 +8,11 @@ import json
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 from urllib.parse import parse_qsl, quote, unquote, urlsplit
 
+from android_transfer import LIMIT as ANDROID_LIMIT, TRANSFER_LOCK, TransferError, transfer_chapter
 from image_catalog import IMAGE_SUFFIXES, image_manifest_bytes, legacy_image_source
 from project_file_store import InvalidProject, MAX_PROJECT_BYTES, ProjectFileStore
 from runtime_catalog import DEBUG_ONLY_FILES, DICE_DIR, DICE_LICENSE, DICE_SUFFIXES, RUNTIME_FILES, RUNTIME_MODULE_DIRS
@@ -110,6 +112,9 @@ class PlaygroundHandler(SimpleHTTPRequestHandler):
 
     def _get_project_api(self, head=False):
         route = urlsplit(self.path)
+        if route.path == '/api/android-transfer':
+            self._json(200, {'available': self._android_request(require_origin=False)}, head=head)
+            return True
         if route.path == '/api/reveal-image':
             self._json(200, {'available': self._finder_available()}, head=head)
             return True
@@ -140,6 +145,9 @@ class PlaygroundHandler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         route = urlsplit(self.path).path
+        if route == '/api/android-transfer':
+            self._android_transfer()
+            return
         if route not in ('/api/project', '/api/reveal-image'):
             self._json(404, {'error': 'Unknown endpoint'})
             return
@@ -175,6 +183,74 @@ class PlaygroundHandler(SimpleHTTPRequestHandler):
             self._json(400, {'error': 'Invalid image path' if reveal else 'Invalid project save request'})
         except OSError:
             self._json(500, {'error': 'Unable to open Finder' if reveal else 'Unable to save project file'})
+
+    def _android_request(self, *, require_origin):
+        if not ipaddress.ip_address(self.client_address[0]).is_loopback:
+            return False
+        hosts = self.headers.get_all('Host', [])
+        origins = self.headers.get_all('Origin', [])
+        if len(hosts) != 1 or len(origins) > 1 or (require_origin and not origins):
+            return False
+        if not re.fullmatch(r'(?:localhost|[0-9.]+|\[[a-f0-9:]+\])(?::[0-9]+)?', hosts[0], re.I):
+            return False
+        try:
+            host, port = self._authority(hosts[0])
+            return (port == self.server.server_port
+                    and (host == 'localhost' or ipaddress.ip_address(host).is_loopback)
+                    and (not origins or origins[0].lower() == 'http://' + hosts[0].lower()))
+        except (ValueError, TypeError):
+            return False
+
+    def _android_transfer(self):
+        if not self._android_request(require_origin=True):
+            self._json(403, {'error': 'Transfer jest dostępny tylko z lokalnego Studio.'})
+            return
+        if self.headers.get_content_type() != 'application/json':
+            self._json(415, {'error': 'Transfer wymaga rozdziału w formacie JSON.'})
+            return
+        lengths = self.headers.get_all('Content-Length', [])
+        if (self.headers.get_all('Transfer-Encoding') or len(lengths) != 1
+                or not re.fullmatch(r'[0-9]{1,10}', lengths[0])):
+            self._json(400, {'error': 'Nieprawidłowa długość żądania.'})
+            return
+        length = int(lengths[0])
+        if not 0 < length <= ANDROID_LIMIT:
+            self._json(413, {'error': 'Rozdział musi mieścić się w limicie 50 MB.'})
+            return
+        if not TRANSFER_LOCK.acquire(blocking=False):
+            self._json(409, {'error': 'Trwa już transfer na Androida.'})
+            return
+        try:
+            # Bound the whole request body, including clients sending it slowly.
+            self.connection.settimeout(2)
+            deadline = time.monotonic() + 15
+            body = bytearray()
+            while len(body) < length and time.monotonic() < deadline:
+                chunk = self.rfile.read1(min(1024 * 1024, length - len(body)))
+                if not chunk:
+                    break
+                body.extend(chunk)
+            if len(body) != length:
+                raise ValueError('Incomplete chapter')
+            self.connection.settimeout(None)
+            result = transfer_chapter(Path(self.directory), json.loads(body), self.headers['Host'],
+                                      excluded=lambda path: is_storage_path(path, self.project_store.directory))
+            status = 200
+        except TransferError as error:
+            status, result = 422, {'error': str(error)}
+        except (ValueError, RecursionError):
+            status, result = 400, {'error': 'Nie udało się odczytać rozdziału. Sprawdź go w Studio.'}
+        except TimeoutError:
+            status, result = 408, {'error': 'Przekroczono czas przesyłania rozdziału ze Studio.'}
+        except (OSError, subprocess.SubprocessError):
+            status, result = 503, {'error': 'Transfer przerwany. Sprawdź ADB i połączenie USB, a następnie spróbuj ponownie.'}
+        finally:
+            self.connection.settimeout(5)
+            TRANSFER_LOCK.release()
+        try:
+            self._json(status, result)
+        except OSError:
+            pass
 
     def _finder_available(self):
         if sys.platform != 'darwin' or not ipaddress.ip_address(self.client_address[0]).is_loopback:

@@ -34,7 +34,7 @@ test('one owner hosts the drawer, context, HUD and backdrop without owning the h
   const {ui,input,root,host,footer}=fixture();
   ui.update(input);
   assert.equal(ui.surface.container,host);assert.equal(footer.parentNode,ui.surface.frame);
-  assert.equal(ui.healthValue.textContent,6);
+  assert.deepEqual(ui.healthValue.children.map(window => window.children[0].children[0].textContent), ['0', '6']);
   assert.equal(root.querySelector('[data-health]').getAttribute('aria-label'),'Health 6 out of 10');
   assert.equal(ui.actionContext.checkChance.textContent,'50%');
   assert.equal(ui.backdrop.root.getAttribute('data-visible'),'true');

@@ -793,6 +793,33 @@ if(projectSession.fileMode){
  for(const link of playerLinks)link.href=projectFileUrl(projectSession.backend.filename,link.href);
 }
 $('#export-chapter').onclick=()=>{try{download(exportStudioChapter(project,chapterId),`${chapter().name.replace(/[^a-z0-9]+/gi,'-')}.chapter.json`);report('Chapter exported.');}catch(error){report(errorMessage('STUDIO_CHAPTER_EXPORT_FAILED', {message: error.message}));}};
+const androidTransfer = $('#transfer-android');
+const androidTransferUrl = './api/android-transfer';
+fetch(androidTransferUrl).then(response => response.ok && response.json()).then(status => {
+  if (status?.available === true) {
+    $('#transfer-android-divider').hidden = false;
+    androidTransfer.hidden = false;
+  }
+}).catch(() => {});
+androidTransfer.onclick = async () => {
+  androidTransfer.disabled = true;
+  try {
+    const snapshot = exportStudioChapter(project, chapterId);
+    report(`Transfer na Androida · ${snapshot.chapter.name}…`);
+    const response = await fetch(androidTransferUrl, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(snapshot),
+    });
+    const result = await response.json();
+    if (!response.ok || result.ok !== true) throw new Error(result.error || 'Brak potwierdzenia z Androida.');
+    report(`Otwarto na Androidzie: ${snapshot.chapter.name}.`);
+  } catch (error) {
+    report(`Transfer na Androida nie powiódł się. ${error.message}`);
+  } finally {
+    androidTransfer.disabled = false;
+  }
+};
 function bindImport(input,kind){
  input.onchange=async e=>{
   const file=e.target.files[0];if(!file)return;

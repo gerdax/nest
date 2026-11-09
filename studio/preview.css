@@ -35,9 +35,10 @@
 .player-resources[hidden] {display:none;}
 .player-resource {display:flex;align-items:center;gap:6.149625px;font:76.25535px/1 NestVitals,monospace;font-variant-numeric:tabular-nums;}
 .player-resource[hidden] {display:none;}
-.player-resource img {width:33.207975px;height:36.89775px;object-fit:contain;}
-.player-resource[data-health] img {width:35.667825px;height:31.97805px;}
+.player-resource img {width:.28em;height:.40em;object-fit:contain;}
+.player-resource[data-health] img {width:.42em;height:.366em;}
 .resource-icon {position:relative;display:flex;}
+.player-resource[data-health] .resource-icon {top:.035em;}
 .player-resource[data-health] {--resource-icon-mask:url('../assets/img/player-ui/hud-health.png');}
 .player-resource[data-energy] {--resource-icon-mask:url('../assets/img/player-ui/hud-energy.png');}
 .resource-icon img {visibility:hidden;}
@@ -158,3 +159,42 @@
   -webkit-mask-image:url('../assets/img/player-ui/hud-health.png');
   mask-image:url('../assets/img/player-ui/hud-health.png');
 }
+
+/* Each window shows one rotating digit over half of the textured housing. */
+.resource-drums {
+  display:inline-flex;
+  align-items:center;
+  vertical-align:-.07em;
+  --resource-drum-depth:.41em;
+}
+.resource-drum-window {
+  position:relative;
+  display:block;
+  width:.50em;
+  height:.58em;
+  overflow:hidden;
+  perspective:2em;
+  background:url('../assets/img/player-ui/hud-counter.png') left center / 200% auto no-repeat;
+}
+.resource-drum-window--right {background-position:right center;}
+.resource-drum-rotor {
+  position:absolute;
+  inset:50% 0 auto;
+  height:0;
+  translate:.015em 0;
+  transform-style:preserve-3d;
+  transform:translateZ(calc(-1 * var(--resource-drum-depth)));
+}
+.resource-drum-window--right .resource-drum-rotor {translate:-.015em 0;}
+.resource-drum-face {
+  position:absolute;
+  inset:-.24em 0 auto;
+  height:.48em;
+  line-height:.36;
+  text-align:center;
+  backface-visibility:hidden;
+  background:linear-gradient(to bottom,#697553 0%,#83916c 24%,#b6c99b 25%,#b6c99b 73%,#879672 74%,#64714f 100%);
+  background-clip:text;
+  color:transparent;
+}
+.resource-drum-separator {font-size:.7em;line-height:.6;}

@@ -11,7 +11,7 @@ import { PreviewOverrides } from '../studio/preview-overrides.js';
 // A small DOM-shaped fixture for ownership/listeners, not rendering verification.
 class Element extends EventTarget {
   constructor() {
-    super(); this.elements = new Map(); this.children = []; this.attrs = new Map(); this.style = {};
+    super(); this.ownerDocument = globalThis.document; this.elements = new Map(); this.children = []; this.attrs = new Map(); this.style = {};
     const classes = new Set();
     this.classList = { add: value => classes.add(value), remove: value => classes.delete(value), contains: value => classes.has(value) };
   }
@@ -79,7 +79,7 @@ test('synchronous card observers replacing a run do not receive a stale state no
   try {
     preview.play(first);notifications.length=0;armed=true;
     preview.controller.notify();
-    assert.deepEqual(notifications,[4]);assert.equal(preview.healthValue.textContent,4);
+    assert.deepEqual(notifications,[4]);assert.match(preview.root.querySelector('[data-health]').getAttribute('aria-label'), /^Health 4\b/);
     assert.equal(preview.playerUI.input.run,preview.state);
   } finally {preview.destroy();}
 });
@@ -320,7 +320,7 @@ test('player preserves authored resources, bounds and chapter starts', () => {
   const result = preview.controller.transaction(preview.controller.card());
   assert.deepEqual(result.variables,{energy:10,health:10,agility:3,intelligence:3,composure:3});
   preview.update({...preview.state,variables:result.variables});
-  assert.equal(preview.energyValue.textContent,10);
+  assert.match(preview.root.querySelector('[data-energy]').getAttribute('aria-label'), /^Energy 10\b/);
   preview.destroy();
 });
 

@@ -9,6 +9,7 @@ import { acquireDock } from './dockOwnership.js';
 import { playerUIState } from './player-ui-state.js';
 import { layoutBounds } from '../engine/cssScale.js';
 import { playfieldLayout } from './playfield-layout.js';
+import { ResourceDrum } from './ResourceDrum.js';
 
 /** Player presentation owns views and geometry; gameplay owns every mutation. */
 export class PlayerUI {
@@ -26,6 +27,7 @@ export class PlayerUI {
     this.resources = root.querySelector('[data-resources]');
     this.healthValue = root.querySelector('[data-health-value]');
     this.energyValue = root.querySelector('[data-energy-value]');
+    this.resourceDrums = {health:new ResourceDrum(this.healthValue), energy:new ResourceDrum(this.energyValue)};
     this.status = root.querySelector('[data-status]');
     if (inventoryDock) {inventoryRoot.classList.add('nest-inventory-dock'); this.releaseDock = acquireDock((root.ownerDocument ?? document).body);}
     const container = inventoryHost ?? (inventoryDock ? null : root);
@@ -117,9 +119,10 @@ export class PlayerUI {
         const meter = this.root.querySelector(`[data-${resource.id}]`);
         meter.hidden = !resource.visible;
         this.updateResourceIcon(resource.id, resource.visible ? resource.value : undefined, meter);
+        this.resourceDrums[resource.id].update(resource.visible ? resource.value : undefined);
         if (!resource.visible) continue;
         visibleResources++;
-        this[`${resource.id}Value`].textContent = resource.value;
+        meter.setAttribute('role', 'img');
         meter.setAttribute('aria-label', `${resource.label} ${resource.value}${resource.max === undefined ? '' : ` out of ${resource.max}`}`);
       }
       const resourcesHidden = visibleResources === 0;
@@ -147,7 +150,7 @@ export class PlayerUI {
     if (this.root.ownerDocument?.defaultView?.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) return;
 
     const gained = value > previous;
-    const target = gained ? meter.querySelector('.resource-icon-flash') : meter;
+    const target = meter.querySelector(gained ? '.resource-icon-flash' : '.resource-icon');
     const restingOpacity = gained ? 0 : 1;
     const pulseOpacity = gained ? 1 : 0.28;
     const lastPulse = 390;
@@ -209,7 +212,10 @@ export class PlayerUI {
 
   reset() {
     if (this.destroyed) return;
-    for (const id of Object.keys(this.resourceIcons)) this.updateResourceIcon(id, undefined);
+    for (const id of Object.keys(this.resourceIcons)) {
+      this.updateResourceIcon(id, undefined);
+      this.resourceDrums[id].update(undefined);
+    }
     this.endInteractions();
     this.cardPreview.card = null;
     this.cardPreview.distance = null;
@@ -225,7 +231,10 @@ export class PlayerUI {
 
   destroy() {
     if (this.destroyed) return;
-    for (const id of Object.keys(this.resourceIcons)) this.updateResourceIcon(id, undefined);
+    for (const id of Object.keys(this.resourceIcons)) {
+      this.updateResourceIcon(id, undefined);
+      this.resourceDrums[id].update(undefined);
+    }
     this.destroyed = true;
     this.canInspect = false;
     this.inventory.destroy();
