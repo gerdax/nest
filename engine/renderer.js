@@ -10,12 +10,17 @@ export const DEFAULT_SHADOW_MODE = 'static';
 
 // Stable per-card variation: adjacent IDs should not produce a regular fan,
 // and repeated renders of a held gesture must never jitter.
-function discardVariation(id, channel) {
+function cardVariation(id, channel) {
   let seed = 2166136261;
   for (const char of `${id}:${channel}`) seed = Math.imul(seed ^ char.charCodeAt(0), 16777619);
   seed = Math.imul(seed ^ seed >>> 16, 0x7feb352d);
   seed = Math.imul(seed ^ seed >>> 15, 0x846ca68b);
   return ((seed ^ seed >>> 16) >>> 0) / 4294967296;
+}
+
+function linearRoll(content) {
+  // Up to one degree in either direction, stable for this card.
+  return content.linearRollKey === undefined ? 0 : 2 * cardVariation(content.linearRollKey, 'linear-roll') - 1;
 }
 
 function flipped(action) { return !!action.flipImage; }
@@ -143,6 +148,7 @@ export function buildDeck(deck, staged = null) {
   deck.underlay = null;
   deck.underlayLayer = null;
   deck.underlayBack = null;
+  deck.underlayRoll = 0;
   const bundle = staged || stageActionDeck(deck, deck.content, deck.index);
   for (const field of ['cards', 'cardLayers', 'cardBacks', 'cardTitles']) deck[field] = bundle[field];
   if (staged) deck.mount.append(...staged.cardLayers);
@@ -275,6 +281,7 @@ export function stageNextBack(deck) {
 // The host's next situation is physically below the departing action cards.
 export function stageNextContent(deck, content) {
   stageNextBack(deck);
+  deck.underlayRoll = linearRoll(content);
   decorateBack(deck.underlayBack, { ...deck.content, ...content });
   deck.underlay.replaceChildren();
   deck.underlay.style.backgroundImage = '';
@@ -316,7 +323,7 @@ function renderContentTransition(deck, time) {
     // Match the compressed action stack at adoption (4 - 40), while the
     // closed scene below uses its own base depth (16 - 40).
     renderStagedActions(deck, staged, 20, slide && transition.presentation === 'open', 0, -36*(deck.settings.layoutScale??1), 1, 0, true);
-    const pose = { x: 0, y: 0, z: -24*(deck.settings.layoutScale??1), rx: 0, ry: 0, rz: 0, turn: 0,
+    const pose = { x: 0, y: 0, z: -24*(deck.settings.layoutScale??1), rx: 0, ry: 0, rz: linearRoll(staged.content), turn: 0,
       visible: slide && transition.presentation === 'closed' };
     applyPose(deck, staged.scene, staged.sceneLayer, pose, 0);
     applyPose(deck, staged.sceneBack, staged.sceneLayer, { ...backPose(pose), visible: false }, 0);
@@ -381,7 +388,7 @@ export function scenePose(deck, time = performance.now(), travel = deck.departur
     rx: deck.rotationX.x * (1 - clamp(deck.p.x, 0, 1)),
     ry: deck.rotationY.x * (1 - clamp(deck.p.x, 0, 1)),
     turn: clamp(deck.flip.x, 0, 1) * 180, turnAxis: deck.settings.flipAxisTilt,
-    rz: deck.rotationZ.x * (1 - clamp(deck.p.x, 0, 1)),
+    rz: linearRoll(deck.content) + deck.rotationZ.x * (1 - clamp(deck.p.x, 0, 1)),
     visible: !deck.skipCover && !(deck.busy && !deck.commitMotion && deck.operation !== 'commit')
   };
   if (!deck.reduced) pose.z += flipLift(deck.flip.x, deck.settings);
@@ -458,7 +465,9 @@ function baseCardPose(deck, index, time, context) {
       pose.rx += deck.rotationX.x - deck.liftRotation.x;
       pose.ry += deck.rotationY.x - deck.liftRotation.y;
       pose.rz += deck.rotationZ.x - deck.liftRotation.z;
-      for (const field of ['rx', 'ry', 'rz']) pose[field] = clamp(pose[field], -deck.settings.maxTilt, deck.settings.maxTilt);
+      for (const field of ['rx', 'ry']) pose[field] = clamp(pose[field], -deck.settings.maxTilt, deck.settings.maxTilt);
+      const roll = linearRoll(deck.content);
+      pose.rz = roll + clamp(pose.rz - roll, -deck.settings.maxTilt, deck.settings.maxTilt);
     } else {
       recession = height * .4 * takeProgress(deck, time, height, selected, .45);
       pose.z -= recession;
@@ -520,19 +529,19 @@ function baseCardPose(deck, index, time, context) {
   }
   pose.rx = clamp(pose.rx, -deck.settings.maxTilt, deck.settings.maxTilt);
   pose.ry = clamp(pose.ry, -deck.settings.maxTilt, deck.settings.maxTilt);
-  pose.rz = clamp(pose.rz, -deck.settings.maxTilt, deck.settings.maxTilt);
+  pose.rz = linearRoll(deck.content) + clamp(pose.rz, -deck.settings.maxTilt, deck.settings.maxTilt);
   if (deck.groupLeaveActive && deck.content.interaction === 'container') {
     // Follow each card's delayed upward travel, including its return on cancel.
     // Keep discard spin separate from the small pointer-tilt limit.
     const travel = clamp(deck.choiceLift(index, time) / (height * .65), 0, 1);
     const id = `${deck.content.id}:${action.id}`;
-    const sideways = discardVariation(id, 'side');
-    const spin = discardVariation(id, 'spin');
-    const curve = discardVariation(id, 'curve');
+    const sideways = cardVariation(id, 'side');
+    const spin = cardVariation(id, 'spin');
+    const curve = cardVariation(id, 'curve');
     pose.x += (sideways < .5 ? -1 : 1) * width * .44
-      * (.45 + .55 * discardVariation(id, 'spread')) * travel ** (.85 + .35 * curve);
+      * (.45 + .55 * cardVariation(id, 'spread')) * travel ** (.85 + .35 * curve);
     const discardSpin = (spin < .5 ? -1 : 1) * 36
-      * (.55 + .7 * discardVariation(id, 'rotation')) * travel ** (1.2 - .35 * curve);
+      * (.55 + .7 * cardVariation(id, 'rotation')) * travel ** (1.2 - .35 * curve);
     // Rotate the discard motion around a point 12% of the card height below
     // center. Bake the pivot translation into the pose so clearance geometry
     // and captured/reflow poses use the same position as the CSS rendering.
@@ -629,7 +638,7 @@ export function renderDeck(deck, time = performance.now()) {
     || (deck.phase === 'choices' && deck.l.x > 0 && deck.forwardOwner === deck.content.actions[deck.index]?.id));
   if (deck.underlay) {
     const stagedPose = {
-      x: 0, y: 0, z: -24*(deck.settings.layoutScale??1) - (deck.nextTakeDepth || 0), rx: 0, ry: 0, rz: 0, scale: nextScale,
+      x: 0, y: 0, z: -24*(deck.settings.layoutScale??1) - (deck.nextTakeDepth || 0), rx: 0, ry: 0, rz: deck.underlayRoll, scale: nextScale,
       turn: deck.nextFlip.x * 180, turnAxis: deck.settings.flipAxisTilt,
       visible: (((deck.content.directAdvance || deck.content.flipItemsOnReveal) && deck.p.x > 0 && !deck.busy) || (deck.phase === 'committing' && (!!deck.commitMotion || deck.operation !== 'commit')) || (deck.phase === 'collecting' && deck.collectMotion?.final)
         || (deck.phase === 'choices' && (deck.content.interaction === 'container' ? (resolution && deck.l.x !== 0) || (deck.groupLeaveActive && deck.l.x > 0) : deck.l.x > 0)
@@ -683,7 +692,7 @@ function renderStagedActions(deck, bundle, baseOrder, visible, y = 0, z = -36*(d
   const count = Math.max(1, presented.length), selectedSlot = slots.get(bundle.selectedIndex) ?? 0;
   bundle.cards.forEach((card, index) => {
     const rank = ((slots.get(index) ?? 0) - selectedSlot + count) % count;
-    const pose = { x: 0, y, z: z - rank * deck.settings.stackDepth, rx: 0, ry: 0, rz: 0, scale, visible: visible && !(suppressEntrances && bundle.content.actions[index].entrance === 'from-top'), turn, turnAxis: deck.settings.flipAxisTilt };
+    const pose = { x: 0, y, z: z - rank * deck.settings.stackDepth, rx: 0, ry: 0, rz: linearRoll(bundle.content), scale, visible: visible && !(suppressEntrances && bundle.content.actions[index].entrance === 'from-top'), turn, turnAxis: deck.settings.flipAxisTilt };
     if (!deck.reduced) pose.z += flipLift(turn / 180, deck.settings);
     if (takeDepth > 0) {
       anchorRecedingTop(pose, takeDepth, bounds.width, bounds.height, deck.settings.perspective);

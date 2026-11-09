@@ -31,6 +31,21 @@ function key(deck,name){deck.key({key:name,preventDefault(){}});settle();}
 function real(nodes,extra={},options={}){const deck=new CardDeck(new Element(),{content:{id:'waiting',actions:[{id:'wait',label:'Wait'}]}});const controller=new ProjectController(deck,{startNode:nodes[0].id,nodes,variables:[],library:[],...extra},options);settle();return {deck,controller};}
 function dispose(deck,controller){controller.destroy();deck.destroy();settle();}
 
+test('Linear cards keep their individual Z roll from preview through adoption', () => {
+ const {deck,controller}=real(linear([narrative('story'),action('act')]));
+ try {
+  const storyRoll=scenePose(deck).rz;
+  assert(storyRoll!==0 && Math.abs(storyRoll)<=1);
+  assert.equal(scenePose(deck).rz,storyRoll);
+  const previewRoll=Number(deck.forwardDeck.cards[0].style.transform.match(/rotateZ\(([^)]+)deg\)/)[1]);
+  assert(previewRoll!==0 && Math.abs(previewRoll)<=1);
+  assert.notEqual(storyRoll,previewRoll);
+  key(deck,'ArrowUp');
+  assert.equal(controller.state.cardId,'act');
+  assert.equal(cardPose(deck,0).rz,previewRoll);
+ } finally {dispose(deck,controller);}
+});
+
 for(const reduced of [false,true])test(`returning Linear skips taken items and deposits its remaining item, reduced=${reduced}`,async()=>{
  const {InventoryPickup}=await import('../engine/InventoryPickup.js');
  const errors=[];
