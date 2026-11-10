@@ -6,7 +6,7 @@ Build the local launcher with:
 desktop/build-macos-launcher.sh "$HOME/Applications/Nest Studio.app"
 ```
 
-Open Nest Studio from Applications or pin it to the Dock. It opens First Descent in a dedicated Chrome window and uses the existing Nest server on port 8960 or starts it locally. The launcher uses the repository's existing saved projects. Rebuild it if you move the repository.
+Open Nest Studio from Applications or pin it to the Dock. A new Studio window resumes the last successfully opened project in its dedicated Chrome profile. If the profile has no remembered project, Studio uses `nest-project.json`. The launcher uses the existing Nest server on port 8960 or starts it locally. Rebuild it if you move the repository.
 
 The launcher requires Google Chrome in Applications and the macOS command-line tools for Python and building. Its Chrome profile and server log live in `~/Library/Application Support/Nest Studio`.
 

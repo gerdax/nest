@@ -362,16 +362,17 @@ export class CardDeck extends EventTarget {
       || [...this.entrances.values()].some(entry => entry.startAt === null)) return false;
     const { width, height } = layoutBounds(this.mount);
     const rotations = [this.rotationX, this.rotationY, this.rotationZ];
-    const turns = [this.flip, this.nextFlip, this.contentTransition?.turn];
-    return [...this.motionStates(), ...(this.contentTransition ? [this.contentTransition.turn] : [])].every(state => {
+    const incomingTurn = this.contentTransition?.phase === 'incoming' ? [this.contentTransition.turn] : [];
+    const turns = [this.flip, this.nextFlip, ...incomingTurn];
+    return [...this.motionStates(), ...incomingTurn].every(state => {
       if (state === this.p && this.open && (this.skipCover || this.coverCleared())) return true;
       let scale = state === this.p || state === this.returnLift ? this.departureTravel()
         : state === this.l ? Math.max(1, height) : state === this.n ? 40
           : state === this.fan ? 40 * (this.settings.layoutScale ?? 1) : state === this.b ? Math.max(1, width) * 2 * Math.PI : 1;
-      let limit = 1; // layout pixel; also require less than 10 pixels/second
+      let limit = 2; // layout pixels; also cap speed at 20 pixels/second
       if (rotations.includes(state) || turns.includes(state)) {
         scale = turns.includes(state) ? 180 : 1;
-        limit = turns.includes(state) ? 2 : .5; // degrees, also bounded in speed
+        limit = turns.includes(state) ? 3 : .5; // degrees, also bounded in speed
       }
       // Reflow rotations use degrees too.
       for (const offset of this.reflowOffsets.values()) {
@@ -1448,6 +1449,7 @@ export class CardDeck extends EventTarget {
     }
     this.render(time);
     this.schedule();
+    this.input.resume();
   }
 
   completeContentTransition() {

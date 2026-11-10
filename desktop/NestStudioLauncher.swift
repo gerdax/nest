@@ -50,7 +50,7 @@ final class Launcher: NSObject, NSApplicationDelegate {
             "--user-data-dir=\(support.appendingPathComponent("Chrome Profile").path)",
             "--no-first-run",
             "--no-default-browser-check",
-            "--app=\(origin.absoluteString)/editor.html?project=first-descent.json"
+            "--app=\(origin.absoluteString)/editor.html"
         ]
         launch.standardInput = FileHandle.nullDevice
         launch.standardOutput = FileHandle.nullDevice

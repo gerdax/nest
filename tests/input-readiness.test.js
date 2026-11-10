@@ -88,6 +88,24 @@ test('held pointer can start a fresh swipe after admission', () => {
   dispose(deck);
 });
 
+for (const transition of ['slide', 'front-turn']) test(`hold resumes during the incoming ${transition} tail`, async () => {
+  const deck = make(), baseline = make();
+  const destination = content('next');
+  const moved = deck.transitionContent(destination, { transition });
+  const untouched = baseline.transitionContent(destination, { transition });
+  hold(deck);
+  admitted(deck);
+  assert.equal(deck.content.id, 'next');
+  assert.equal(deck.phase, 'closed');
+  assert.equal(baseline.content.id, 'next');
+  assert.equal(baseline.busy, true, 'untouched animation is still settling');
+  deck.input.pointerup(pointer(80));
+  settle();
+  assert.equal(await moved, true);
+  assert.equal(await untouched, true);
+  dispose(deck); dispose(baseline);
+});
+
 for (const destination of ['closed', 'open']) test(`hold during choice departure resumes on the ${destination} destination`, () => {
   const deck = make(); ready(deck); let commits = 0, completions = 0;
   deck.addEventListener('commit', () => { commits++; deck.replaceContent(content('next'), { presentation: destination }); });
