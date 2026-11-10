@@ -18,7 +18,7 @@ test('health and energy descriptions use the same image assets as HUD and card c
  const root=element();renderDescriptionIcons(root,'♥ 10 / ϟ 3 / ⚔ 2');
  const icons=root.children.filter(child=>child.attrs.role==='img');
  assert.deepEqual(icons.map(icon=>icon.attrs['aria-label']),['Health','Energy','Damage']);
- assert.match(icons[0].style.maskImage,/assets\/img\/player-ui\/hud-health.png/);
+ assert.match(icons[0].style.maskImage,/assets\/img\/player-ui\/hud-health_alt.png/);
  assert.match(icons[1].style.maskImage,/assets\/img\/player-ui\/hud-energy.png/);
  assert.match(icons[2].style.maskImage,/assets\/img\/player-ui\/damage.svg/);
  assert.ok(icons.every(icon=>icon.style.backgroundColor==='currentColor'));
