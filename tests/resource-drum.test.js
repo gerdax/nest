@@ -35,14 +35,14 @@ test('tens wait for the carry or borrow and units traverse every intervening dig
   const {drum, root} = fixture();
   drum.update(8);
   drum.update(12);
-  assert.deepEqual(angles(drum.animations[0]), [[0, 0], [.25, 0], [.5, 36], [1, 36]]);
-  assert.deepEqual(angles(drum.animations[1]), [[0, 0], [.25, 36], [.5, 72], [.75, 108], [1, 144]]);
+  assert.deepEqual(angles(drum.animations[0]), [[0, 0], [.25, 0], [.5, -36], [1, -36]]);
+  assert.deepEqual(angles(drum.animations[1]), [[0, 0], [.25, -36], [.5, -72], [.75, -108], [1, -144]]);
   drum.animations[0].onfinish();
   assert.equal(settled(root), '12');
 
   drum.update(8);
-  assert.deepEqual(angles(drum.animations[0]), [[0, 0], [.5, 0], [.75, -36], [1, -36]]);
-  assert.equal(angles(drum.animations[1]).at(-1)[1], -144);
+  assert.deepEqual(angles(drum.animations[0]), [[0, 0], [.5, 0], [.75, 36], [1, 36]]);
+  assert.equal(angles(drum.animations[1]).at(-1)[1], 144);
   drum.animations[0].onfinish();
   assert.equal(settled(root), '08');
 });
@@ -52,13 +52,13 @@ test('a full turn of units advances tens once and a new value can interrupt the 
   drum.update(8);
   drum.update(18);
   const [tens, units] = drum.animations;
-  assert.deepEqual(angles(tens), [[0, 0], [.1, 0], [.2, 36], [1, 36]]);
-  assert.equal(angles(units).at(-1)[1], 360);
+  assert.deepEqual(angles(tens), [[0, 0], [.1, 0], [.2, -36], [1, -36]]);
+  assert.equal(angles(units).at(-1)[1], -360);
   tens.progress = .3;
   drum.update(12);
   assert.equal(units.cancelled, true);
   assert.equal(drum.animations.length, 1);
-  assert.deepEqual(angles(drum.animations[0]), [[0, 0], [1, 36]]);
+  assert.deepEqual(angles(drum.animations[0]), [[0, 0], [1, -36]]);
 });
 
 test('reduced motion displays the new value immediately', () => {

@@ -53,7 +53,8 @@ function rollKeyframes({start, ticks, direction}, place) {
     if (nextPosition === position) continue;
     // Higher places stay still until the lower wheels reach the carry step.
     if (frames.at(-1).offset < (step - 1) / ticks) frames.push(frame(step - 1, angle));
-    angle += direction * faceAngle;
+    // Increasing values turn the wheel downward (negative rotation around X).
+    angle -= direction * faceAngle;
     frames.push(frame(step, angle));
     position = nextPosition;
   }
@@ -129,7 +130,7 @@ export class ResourceDrum {
       if (frames) {
         const first = Math.floor(roll.start / place) % 10;
         for (let i = 0; i < 10; i++) {
-          rotor.append(face(doc, (first + i) % 10, -i * faceAngle));
+          rotor.append(face(doc, (first + i) % 10, i * faceAngle));
         }
         moving.push({rotor, frames});
       } else {
