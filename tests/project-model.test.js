@@ -5,6 +5,7 @@ import {createDefinition,resolvePlacement,cardSummary} from '../project/cards.js
 import {createStarterChapter,createLegacyStarterChapter} from '../chapter/model.js';
 import {loadProject,saveProject,STORAGE_KEY,LEGACY_STORAGE_KEY} from '../project/storage.js';
 import {walk} from '../project/model-data.js';
+import {createNodeDefaults} from '../project/nodeTypes.js';
 
 test('starter is valid and compiled placements keep library content separate',()=>{
  const p=createProject();assert.deepEqual(validateProject(p),[]);const c=compileChapter(p);assert.equal(c.nodes[0].cards[0].definitionId,'arrival');assert.equal(c.library[1].kind,'item');c.library[1].name='Changed';assert.equal(p.library[1].name,'Flashlight');assert.deepEqual(parseProject(JSON.stringify(p)),p);
@@ -34,7 +35,7 @@ test('portable export includes inventory-only and transitive item dependencies',
  const p=createProject();const extra={...createDefinition('item','battery'),name:'Battery'};const nested={...createDefinition('item','tool'),onCollect:[{op:'addItem',key:'battery',quantity:1}]};p.library.push(extra,nested);p.chapters[0].nodes[3].routes[0].conditions=[{source:'inventory',key:'tool',op:'has'}];const pkg=exportChapter(p);assert.ok(pkg.library.some(d=>d.id==='tool'));assert.ok(pkg.library.some(d=>d.id==='battery'));assert.deepEqual(validateProject(parseProject(JSON.stringify(pkg))),[]);
 });
 test('import remaps definition variable and inventory alias conflicts without mutation',()=>{
- const p=migrateChapter(createStarterChapter());p.variables=[{id:'energy',type:'number',initial:1}];const action=p.library.find(d=>d.kind==='action');action.effects=[{op:'add',key:'energy',value:1}];action.conditions=[{source:'inventory',key:'chapter-1:flashlight',op:'has'}];const pkg=exportChapter(p);const saved=cloneProject(pkg);const destination=cloneProject(p);destination.variables[0].initial=9;destination.library.find(d=>d.id===action.id).text='Different';destination.library.find(d=>d.kind==='item').name='Different';const result=importChapter(destination,pkg);assert.deepEqual(pkg,saved);assert.equal(result.chapters.length,2);assert.equal(result.variables[1].id,'energy-2');const imported=result.library.find(d=>d.id===`${action.id}-2`);assert.equal(imported.effects[0].key,'energy-2');assert.equal(imported.conditions[0].key,'chapter-1:flashlight-2');assert.deepEqual(validateProject(result),[]);
+ const p=migrateChapter(createStarterChapter());p.variables=[{id:'stamina',type:'number',initial:1}];const action=p.library.find(d=>d.kind==='action');action.effects=[{op:'add',key:'stamina',value:1}];action.conditions=[{source:'inventory',key:'chapter-1:flashlight',op:'has'}];const pkg=exportChapter(p);const saved=cloneProject(pkg);const destination=cloneProject(p);destination.variables[0].initial=9;destination.library.find(d=>d.id===action.id).text='Different';destination.library.find(d=>d.kind==='item').name='Different';const result=importChapter(destination,pkg);assert.deepEqual(pkg,saved);assert.equal(result.chapters.length,2);assert.equal(result.variables[1].id,'stamina-2');const imported=result.library.find(d=>d.id===`${action.id}-2`);assert.equal(imported.effects[0].key,'stamina-2');assert.equal(imported.conditions[0].key,'chapter-1:flashlight-2');assert.deepEqual(validateProject(result),[]);
 });
 test('variant changes placement binding without mutating shared definition',()=>{
  const p=createProject(),placement=p.chapters[0].nodes[1].items[0];const next=createVariant(p,placement,'flashlight-special');assert.equal(next.chapters[0].nodes[1].items[0].definitionId,'flashlight-special');assert.equal(p.chapters[0].nodes[1].items[0].definitionId,'flashlight');assert.equal(next.library.find(d=>d.id==='flashlight-special').inventoryKey,undefined);
@@ -105,4 +106,55 @@ test('saved item definitions cannot override a fresh ownership trigger budget',(
   assert.equal(output.library.find(d=>d.id===item.id).permability,2);
  }
  assert.equal(item.remainingTriggers,99);
+});
+
+test('chapter import keeps costs, effects, and consumables on the destination resources', () => {
+ const source=createProject(), destination=createProject();
+ source.variables.find(v=>v.id==='energy').initial=7;
+ source.variables.find(v=>v.id==='energy').max=20;
+ source.variables.find(v=>v.id==='health').initial=8;
+ const chapter=source.chapters[0];
+ chapter.initialValues={health:6};
+ const action=source.library.find(card=>card.kind==='action');
+ action.costs=[{source:'variable',key:'energy',amount:2}];
+ action.effects=[{op:'add',key:'health',value:1}];
+ source.library.push(createDefinition('energy','drink'));
+ chapter.nodes[0].cards.push({id:'drink-placement',definitionId:'drink'});
+ const pkg=exportChapter(source);
+ const imported=importChapter(destination,pkg);
+ assert.deepEqual(validateProject(imported),[]);
+ assert.deepEqual(imported.variables,destination.variables);
+ const compiled=compileChapter(imported,imported.activeChapterId);
+ const choice=compiled.nodes.flatMap(node=>node.choices??[]).find(card=>card.id==='explore-choice');
+ assert.deepEqual(choice.costs,action.costs);
+ assert.deepEqual(choice.effects,action.effects);
+ assert.deepEqual(compiled.nodes[0].cards.find(card=>card.id==='drink-placement').onCollect,[{op:'add',key:'energy',value:1}]);
+ assert.equal(compiled.variables.find(v=>v.id==='energy').initial,3);
+ assert.equal(compiled.variables.find(v=>v.id==='health').initial,6);
+ assert.throws(()=>importChapter({...destination,variables:destination.variables.map(v=>v.id==='energy'
+  ? {...v,type:'flag',initial:false} : v)},pkg),/Incompatible destination resource or stat: energy/);
+});
+
+test('chapter import honors noncombat Health bounds and rejects out-of-range starting overrides', () => {
+ const source=createProject(), destination=createProject();
+ destination.variables.find(v=>v.id==='health').min=1;
+ source.variables.find(v=>v.id==='energy').max=20;
+ source.chapters[0].nodes.push({id:'empty-combat',name:'Empty combat',type:'combat',x:0,y:0,...createNodeDefaults('combat')});
+ assert.deepEqual(validateProject(importChapter(destination,exportChapter(source))),[]);
+
+ source.chapters[0].initialValues={energy:15};
+ assert.deepEqual(validateProject(source),[]);
+ const before=cloneProject(destination);
+ assert.throws(()=>importChapter(destination,exportChapter(source)),/Chapter starting energy is outside destination resource bounds/);
+ assert.deepEqual(destination,before);
+});
+
+test('chapter import checks combat Health bounds for Randomizer enemies', () => {
+ const source=createProject(), destination=createProject();
+ destination.variables.find(v=>v.id==='health').min=1;
+ source.library.push(createDefinition('enemy','rat'));
+ source.chapters[0].nodes.push({id:'random-enemy',name:'Random enemy',type:'randomizer',x:0,y:0,
+  ...createNodeDefaults('randomizer'),candidates:[{enemy:{definitionId:'rat'},weight:1,conditions:[]}]});
+ assert.deepEqual(validateProject(source),[]);
+ assert.throws(()=>importChapter(destination,exportChapter(source)),/Incompatible destination resource or stat: health/);
 });

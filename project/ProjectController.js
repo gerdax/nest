@@ -1,6 +1,6 @@
 import {CombatCoordinator} from './CombatCoordinator.js';
 import {combatCard,enemyActionCard} from './combat-presentation.js';
-import {definition as combatDefinition} from './combat-rules.js';
+import {definition as combatDefinition,diceTotal} from './combat-rules.js';
 import { createError, errorMessage, errorCode } from '../errors.js';
 import { retainsInventoryItems, isUnassignedCombat, routeFallbackEnabled } from './nodeTypes.js';
 import { initialValues, conditionsMet, affordCosts, transact, addInventory, canTriggerItem, inventoryQuantity } from './state.js';
@@ -28,7 +28,7 @@ export class ProjectController {
     for(const [name,listener] of Object.entries(this.listeners)) deck.addEventListener(name,listener);
     this.restart();
   }
-  get state() { return {activeNodeId:this.location?.node.autoOwnerId ?? this.location?.node.id ?? null,cardId:this.card()?.id ?? null,variables:{...this.variables},collectedItems:this.inventory.map(i=>({...i})),completed:this.completed,terminalReason:this.terminalReason,combat:this.combat?.state??null,checking:!!this.checking||!!this.combat?.checking,idle:(!this.combat||this.combat.idle)&&!this.halted&&!this.deathHandoff&&!this.completed&&!this.checking&&!this.pendingItem&&!this.pendingIntro&&!this.pendingExchange&&!this.deck.busy&&!this.deck.pickup?.pending&&!this.deck.drag&&!['revealing','closing','committing','collecting'].includes(this.deck.phase)}; }
+  get state() { return {activeNodeId:this.location?.node.autoOwnerId ?? this.location?.node.id ?? null,cardId:this.card()?.id ?? null,variables:{...this.variables},collectedItems:structuredClone(this.inventory),completed:this.completed,terminalReason:this.terminalReason,combat:this.combat?.state??null,checking:!!this.checking||!!this.combat?.checking,idle:(!this.combat||this.combat.idle)&&!this.halted&&!this.deathHandoff&&!this.completed&&!this.checking&&!this.pendingItem&&!this.pendingIntro&&!this.pendingExchange&&!this.deck.busy&&!this.deck.pickup?.pending&&!this.deck.drag&&!['revealing','closing','committing','collecting'].includes(this.deck.phase)}; }
   notify() {if(!this.destroyed)this.onChange(this.state);}
   error(error) {if(!this.destroyed)this.onError(error,this.state);}
   succeeded(nodeId) {
@@ -626,7 +626,12 @@ export class ProjectController {
       const result=await this.rollCheck(check.pool,{signal:abort.signal,target:check.target});
       if(abort.signal.aborted||generation!==this.generation||this.destroyed)return;
       const dice=Array.isArray(result)?result:result?.dice;
-      const raw=typeof result==='number'?result:Array.isArray(dice)?dice.reduce((sum,d)=>sum+(typeof d==='number'?d:d.value),0):result?.total;
+      // Aggregate-only rollers are supported by the story check adapter.
+      let raw=typeof result==='number'?result:result?.total;
+      if(dice!=null){
+        try {raw=diceTotal(dice,check.pool,{implicitSides:true});}
+        catch {throw createError('RUNTIME_INVALID_DICE_RESULT');}
+      }
       if(!Number.isFinite(raw))throw createError('RUNTIME_INVALID_DICE_RESULT');
       const modifier=check.modifier;
       if(!Number.isFinite(modifier))throw createError('RUNTIME_INVALID_CHECK_MODIFIER');

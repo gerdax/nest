@@ -3,7 +3,7 @@ import { cloneProject, list, named, object, unique, walk } from './model-data.js
 import { compatibleStatVariable, STAT_IDS } from './checks.js';
 import { createEffectCard } from './combat-model.js';
 import { validateProject } from './validation.js';
-import { mergeLibraryContent } from './packages.js';
+import { destinationResource, mergeLibraryContent } from './packages.js';
 
 /** Import shared roots from an already parsed project, including their full
  * definition closure. No chapter or project playback configuration is copied.
@@ -26,16 +26,12 @@ export function importLibrary(project, sourceProject, ids) {
   const used = new Set(source.variables.map(variable => variable.id));
   const promoted = new Map();
   const include = variable => {
-    if (['health', 'energy', ...STAT_IDS].includes(variable.id)) {
+    if (['health', 'energy'].includes(variable.id)) {
+      variable = destinationResource(project, variable.id) ?? variable;
+    } else if (STAT_IDS.includes(variable.id)) {
       const target = list(project.variables).find(candidate => candidate.id === variable.id);
       if (target) {
-        const numeric = target.type === 'number' && Number.isFinite(target.initial)
-          && [target.min, target.max].every(bound => bound === undefined || Number.isFinite(bound));
-        const compatible = STAT_IDS.includes(variable.id) ? compatibleStatVariable(target)
-          : numeric && (variable.id !== 'health' || Number.isSafeInteger(target.initial)
-            && (target.min === undefined || Number.isSafeInteger(target.min) && target.min <= 0)
-            && (target.max === undefined || Number.isSafeInteger(target.max) && target.max >= 1));
-        if (!compatible) throw new Error(`Incompatible destination resource or stat: ${variable.id}`);
+        if (!compatibleStatVariable(target)) throw new Error(`Incompatible destination resource or stat: ${variable.id}`);
         variable = target;
       } else if (list(project.chapters).some(chapter => list(chapter.variables).some(candidate => candidate.id === variable.id))) {
         throw new Error(`Cannot import global resource or stat over a chapter variable: ${variable.id}`);

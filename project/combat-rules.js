@@ -103,13 +103,15 @@ export function checkOdds(check, values={}) {
   for(const [total,count] of distribution){outcomes+=count;if(total+resolved.modifier>=resolved.target)hits+=count;}
   return {...resolved,probability:outcomes?hits/outcomes:0};
 }
-export function diceTotal(dice,pool) {
+export function diceTotal(dice,pool,{implicitSides=false}={}) {
   if(!Array.isArray(dice))throw new Error('Missing dice');
   const expected=(pool??[]).flatMap(p=>Array(p.count).fill(p.sides));
   if(dice.length!==expected.length)throw new Error('Wrong dice count');
-  return dice.reduce((sum,die,i)=>{
-    const value=typeof die==='number'?die:die?.value,sides=typeof die==='number'?expected[i]:die?.sides;
-    if(sides!==expected[i]||!Number.isInteger(value)||value<1||value>sides)throw new Error('Invalid physical die');
+  return expected.reduce((sum,expectedSides,i)=>{
+    const die=dice[i];
+    const value=typeof die==='number'?die:die?.value;
+    const sides=typeof die==='number'||implicitSides&&die?.sides===undefined?expectedSides:die?.sides;
+    if(sides!==expectedSides||!Number.isInteger(value)||value<1||value>sides)throw new Error('Invalid physical die');
     return sum+value;
   },0);
 }

@@ -593,3 +593,34 @@ test('a refreshed live state aborts pending check and refunds costs without over
  assert.deepEqual(controller.inventory.map(item=>item.definitionId??item.id),['key'],'refund consumed cost only, preserve unrelated removal');
  assert.match(errors[0].message,/requirements changed/);controller.destroy();
 });
+
+test('story checks reject malformed dice and refund costs while accepting supported roll formats',async()=>{
+ const choice=action('try',{resolution:'check',check:{pool:[{sides:6,count:1}],target:4},
+  costs:[{source:'variable',key:'energy',amount:1}]});
+ const nodes=[{id:'fork',type:'fork',choices:[choice],connections:{'try:success':'win','try:failure':'lose'}},
+  ...['win','lose'].map(id=>({id,type:'linear',cards:[narrative(id)]}))];
+ const invalidRolls=[[99],[],[5,5],[1.5],Array(1),{dice:[{sides:8,value:4}]},{dice:[0],total:4}];
+ const validRolls=[[4],{dice:[{sides:6,value:4}]},[{value:4}],4,{total:4},{dice:null,total:4}];
+ for(const [result,valid] of [...invalidRolls.map(result=>[result,false]),...validRolls.map(result=>[result,true])]){
+  const errors=[],feedback=[];
+  const {deck,controller}=fixture(nodes,{variables:[{id:'energy',type:'number',initial:3}]},
+   {rollCheck:async()=>result,onError:error=>errors.push(error.code),onCheckResult:value=>feedback.push(value)});
+  deck.accept();
+  await flush();
+  assert.equal(controller.state.checking,false);
+  assert.equal(controller.state.activeNodeId,valid?'win':'fork');
+  assert.equal(controller.state.variables.energy,valid?2:3);
+  assert.deepEqual(errors,valid?[]:['RUNTIME_INVALID_DICE_RESULT']);
+  assert.deepEqual(feedback.map(result=>result.raw),valid?[4]:[]);
+  controller.destroy();
+ }
+});
+
+test('state snapshots detach nested owned weapon mechanics from the live run',()=>{
+ const weapon={id:'weapon',kind:'item',subtype:'weapon',combat:{actions:[{id:'attack',name:'Attack'}]}};
+ const {controller}=fixture([{id:'start',type:'linear',cards:[narrative('intro')]}],{},
+  {initialState:{inventory:[weapon]}});
+ controller.state.collectedItems[0].combat.actions[0].name='Changed';
+ assert.equal(controller.state.collectedItems[0].combat.actions[0].name,'Attack');
+ controller.destroy();
+});

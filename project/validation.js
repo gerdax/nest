@@ -5,7 +5,7 @@ import { isTagKey, tagKey, tagIdFromKey, validItemTagName } from './item-tags.js
 import { isStatVariable, validStatValue, compatibleStatVariable } from './checks.js';
 import { validateCardBack } from '../engine/cardBacks.js';
 import { cardKinds, resolvePlacement, canonicalCardKind, allowedCardKinds, placementOverrideKeys, isConsumableKind, consumableResource } from './cards.js';
-import { nodeTypeDescriptor, isUnassignedCombat, isRouteBeat, routeFallbackEnabled } from './nodeTypes.js';
+import { chapterHasCombat, nodeTypeDescriptor, isUnassignedCombat, isRouteBeat, routeFallbackEnabled } from './nodeTypes.js';
 import { isCardColor } from './card-styles.js';
 import { object, named, list, placements, legacyArtwork, chapterVariables } from './model-data.js';
 import { hasDirectedCycle, outputsForNode } from './graph.js';
@@ -411,8 +411,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
     const resolvedGroups = resolveBeatGroups(project, chapter);
     errors.push(...resolvedGroups.issues.filter(issue => !allowDraft || !issue.draft));
     chapter = resolvedGroups.chapter;
-    if(chapter.nodes.some(n=>n?.type==='combat'&&!isUnassignedCombat(n)
-      || n?.type==='randomizer'&&list(n.candidates).some(candidate=>definitions.get(candidate?.enemy?.definitionId)?.kind==='enemy'))) {
+    if(chapterHasCombat(chapter, definitions)) {
       const health=vars.get('health');
       if(!health||health.type!=='number'||!Number.isSafeInteger(health.initial)||(health.min!==undefined&&health.min>0)||(health.max!==undefined&&(!Number.isSafeInteger(health.max)||health.max<1)))add('Combat requires integer player Health with bounds allowing zero',cid);
     }

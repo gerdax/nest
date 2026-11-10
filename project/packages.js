@@ -7,6 +7,7 @@ import { canonicalCardKind } from './cards.js';
 import { projectCardBack } from './card-backs.js';
 import { definitionGraph, remapDefinitionReferences } from './dependencies.js';
 import { cloneProject, list, named, object, unique, walk } from './model-data.js';
+import { chapterHasCombat } from './nodeTypes.js';
 import { discardPlacementContext, normalizeSingleItems } from './normalization.js';
 import { validateProject } from './validation.js';
 
@@ -48,6 +49,24 @@ export function importChapter(project, pkg) {
 /** Merge portable Library content without applying defaults or touching destination settings. */
 export function mergeLibraryContent(project, content) {
   return mergePackageContent(cloneProject(project), {...cloneProject(content), chapters: []}, {}, {libraryOnly: true});
+}
+
+/** Built-in resources keep the destination project's definition across imports. */
+export function destinationResource(project, id, {combatHealth = true} = {}) {
+  const target = list(project.variables).find(variable => variable.id === id);
+  if (!target) {
+    if (list(project.chapters).some(chapter => list(chapter.variables).some(variable => variable.id === id))) {
+      throw new Error(`Cannot import global resource or stat over a chapter variable: ${id}`);
+    }
+    return undefined;
+  }
+  const numeric = target.type === 'number' && Number.isFinite(target.initial)
+    && [target.min, target.max].every(bound => bound === undefined || Number.isFinite(bound));
+  const compatible = numeric && (id !== 'health' || Number.isSafeInteger(target.initial)
+    && [target.min, target.max].every(bound => bound === undefined || Number.isSafeInteger(bound))
+    && (!combatHealth || (target.min ?? 0) <= 0 && (target.max ?? 1) >= 1));
+  if (!compatible) throw new Error(`Incompatible destination resource or stat: ${id}`);
+  return target;
 }
 
 function mergePackageContent(next, imported, pkg, {libraryOnly = false} = {}) {
@@ -94,7 +113,21 @@ function mergePackageContent(next, imported, pkg, {libraryOnly = false} = {}) {
     return id;
   };
   const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  const importedDefinitions = new Map(imported.library.map(definition => [definition.id, definition]));
+  const combatHealth = imported.chapters.some(chapter => chapterHasCombat(chapter, importedDefinitions));
   for (const v of imported.variables) {
+    const resource = !libraryOnly && v.type === 'number' && ['health', 'energy'].includes(v.id)
+      ? destinationResource(next, v.id, {combatHealth}) : undefined;
+    if (resource) {
+      for (const chapter of imported.chapters) {
+        const value = chapter.initialValues?.[v.id];
+        if (value !== undefined && (value < (resource.min ?? -Infinity) || value > (resource.max ?? Infinity))) {
+          throw new Error(`Chapter starting ${v.id} is outside destination resource bounds`);
+        }
+      }
+      varMap.set(v.id, v.id);
+      continue;
+    }
     const existing = next.variables.find(x => x.id === v.id);
     const copied = libraryOnly && vars.has(v.id) && (!existing || !same(existing, v)) ? next.variables.find(x =>
       x.id.startsWith(`${v.id}-`) && /^(?:[2-9]|[1-9]\d+)$/.test(x.id.slice(v.id.length + 1)) && same({...x, id: v.id}, v)) : undefined;

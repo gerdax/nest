@@ -76,3 +76,8 @@ export function isUnassignedCombat(node) {
  return node?.type==='combat' && (ref == null || typeof ref==='object'&&!Array.isArray(ref)
   && (ref.definitionId===undefined || ref.definitionId===''));
 }
+
+export function chapterHasCombat(chapter, definitions) {
+ return Array.isArray(chapter.nodes) && chapter.nodes.some(node => node?.type==='combat'&&!isUnassignedCombat(node)
+  || node?.type==='randomizer'&&objects(node.candidates).some(candidate=>definitions.get(candidate.enemy?.definitionId)?.kind==='enemy'));
+}
