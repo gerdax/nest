@@ -159,6 +159,7 @@ function goToDefinition(id){
  }
 }
 function goToPreviewCard(target,{automatic=false}={}){
+ if(automatic&&target?.kind==='definition')return;
  const source=sourceCard(project,target);
  if(!source){if(!automatic)report('This card was removed from the current project. Restart preview to use the latest version.');return;}
  if(target.kind==='definition'){

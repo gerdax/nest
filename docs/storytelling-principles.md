@@ -4,6 +4,8 @@
 
 Story cards stay with what Lazarus can see, hear, touch, remember, or reasonably infer in the moment. Use terse second-person present tense. Garrett in *Thief* is a reference for restraint and dry observation. Give each card one image, sound, or realization that earns the next beat. An inference belongs to Lazarus and can stay unresolved. Action cards use direct labels that make the player’s intent and any visible cost clear.
 
+Lazarus is skittish and unsure of himself. He sneaks everywhere, like a solitary, watchful rat. His posture and movement should always convey that furtiveness. Never show him standing with the bearing of a confident hero or portray him as one.
+
 ## Space through consecutive cards
 
 Treat story cards as comic panels. Let a salient detail in one card motivate the next movement. Introduce a landmark when it matters and reuse it when the player needs to orient themselves. Reveal spaces at the pace Lazarus encounters them. A player should be able to follow the scene without holding a floor plan in their head.

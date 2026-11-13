@@ -1,12 +1,10 @@
 import AppKit
-import CoreGraphics
 
 @MainActor
 final class Launcher: NSObject, NSApplicationDelegate {
     private let origin = URL(string: "http://127.0.0.1:8960")!
     private let chrome = URL(fileURLWithPath: "/Applications/Google Chrome.app")
     private let files = FileManager.default
-    private let defaults = UserDefaults.standard
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         Task {
@@ -38,53 +36,68 @@ final class Launcher: NSObject, NSApplicationDelegate {
             .trimmingCharacters(in: .newlines), isDirectory: true)
         try await ensureServer(workspace: workspace, support: support)
 
-        if let browser = runningBrowser(), hasWindow(browser.processIdentifier) {
-            browser.unhide()
-            browser.activate()
+        let profile = support.appendingPathComponent("Chrome Profile").standardizedFileURL
+        if let shim = installedApp(profile: profile) {
+            let configuration = NSWorkspace.OpenConfiguration()
+            configuration.activates = true
+            try await NSWorkspace.shared.openApplication(at: shim, configuration: configuration)
             return
         }
 
+        // Installation must go through Chrome so it registers a real macOS app
+        // shim. Keep the existing profile (and all its project storage) intact.
         let launch = Process()
         launch.executableURL = executable
         launch.arguments = [
-            "--user-data-dir=\(support.appendingPathComponent("Chrome Profile").path)",
+            "--user-data-dir=\(profile.path)",
+            "--profile-directory=Default",
             "--no-first-run",
             "--no-default-browser-check",
-            "--app=\(origin.absoluteString)/editor.html"
+            "--new-window", "\(origin.absoluteString)/editor.html"
         ]
         launch.standardInput = FileHandle.nullDevice
         launch.standardOutput = FileHandle.nullDevice
         launch.standardError = FileHandle.nullDevice
-        let existing = runningBrowser()
         try launch.run()
-        if existing == nil { defaults.set(Int(launch.processIdentifier), forKey: "ChromePID") }
-        for _ in 0..<30 {
-            if let browser = runningBrowser(), hasWindow(browser.processIdentifier) {
-                browser.activate()
-                return
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.messageText = "Install Nest Studio in Chrome"
+        alert.informativeText = "In the Chrome window just opened, choose the three-dot menu → Cast, save, and share → Install page as app… and install Nest Studio. Then open this launcher again. This one-time setup gives Nest its own Dock and Command-Tab icon while keeping your existing projects."
+        alert.addButton(withTitle: "Continue in Chrome")
+        alert.runModal()
+        // Chrome can reuse the process already holding this profile. Its lock
+        // identifies that process, so setup brings forward the correct browser.
+        if let lock = try? files.destinationOfSymbolicLink(atPath: profile.appendingPathComponent("SingletonLock").path),
+           let pid = lock.split(separator: "-").last.flatMap({ Int32($0) }),
+           let browser = NSRunningApplication(processIdentifier: pid),
+           browser.bundleURL?.standardizedFileURL == chrome.standardizedFileURL {
+            browser.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
+        }
+    }
+
+    private func installedApp(profile: URL) -> URL? {
+        // Chrome may localize or suffix the Applications subdirectory and app
+        // name. Match its metadata, never another profile's app with this title.
+        let applications = files.homeDirectoryForCurrentUser.appendingPathComponent("Applications")
+        guard let entries = files.enumerator(at: applications,
+            includingPropertiesForKeys: nil, options: [.skipsHiddenFiles, .skipsPackageDescendants]) else { return nil }
+        for case let url as URL in entries where url.pathExtension == "app" {
+            guard let info = NSDictionary(contentsOf: url.appendingPathComponent("Contents/Info.plist")),
+                  let appURL = info["CrAppModeShortcutURL"] as? String,
+                  let installedURL = URLComponents(string: appURL),
+                  installedURL.scheme == origin.scheme,
+                  installedURL.host == origin.host,
+                  installedURL.port == origin.port,
+                  installedURL.path == "/editor.html",
+                  let dataPath = info["CrAppModeUserDataDir"] as? String else { continue }
+            // Chrome records an app-specific path underneath the user data
+            // directory (including Web Applications/_crx_<app-id>).
+            let dataURL = URL(fileURLWithPath: dataPath).standardizedFileURL
+            if dataURL == profile || dataURL.path.hasPrefix(profile.path + "/") {
+                return url
             }
-            try await Task.sleep(for: .milliseconds(100))
         }
-    }
-
-    private func runningBrowser() -> NSRunningApplication? {
-        let pid = defaults.integer(forKey: "ChromePID")
-        guard pid > 0, let app = NSRunningApplication(processIdentifier: pid_t(pid)),
-              app.bundleURL?.standardizedFileURL.path == chrome.standardizedFileURL.path,
-              !app.isTerminated else { return nil }
-        return app
-    }
-
-    private func hasWindow(_ pid: pid_t) -> Bool {
-        let windows = CGWindowListCopyWindowInfo([.optionAll, .excludeDesktopElements], kCGNullWindowID)
-            as? [[String: Any]] ?? []
-        return windows.contains { window in
-            guard window[kCGWindowOwnerPID as String] as? Int == Int(pid),
-                  window[kCGWindowLayer as String] as? Int == 0,
-                  let bounds = window[kCGWindowBounds as String] as? NSDictionary,
-                  let rect = CGRect(dictionaryRepresentation: bounds) else { return false }
-            return rect.width >= 120 && rect.height >= 120
-        }
+        return nil
     }
 
     private func ensureServer(workspace: URL, support: URL) async throws {

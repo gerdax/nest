@@ -87,3 +87,15 @@ test('combat navigation opens the owning Library tab and resolves the current ne
  calls.length=0;definition.id='punch';definition.kind='combatAction';context.goToPreviewCard({...target,definitionId:'punch'});
  assert.equal(context.libraryTab,'common');assert.equal(context.definitionId,'punch');
 });
+
+test('automatic navigation skips Library definitions in both editor views',()=>{
+ for(const mode of ['chapter','library']){
+  const {context,calls}=editorFixture();
+  context.mode=mode;context.definitionId='current';context.libraryTab='common';
+  context.sourceCard=()=>{throw Error('automatic Library targets should be ignored');};
+  context.goToPreviewCard({kind:'definition',definitionId:'enemy',cardId:'bite'},{automatic:true});
+  assert.deepEqual(calls,[]);
+  assert.equal(context.mode,mode);assert.equal(context.definitionId,'current');assert.equal(context.libraryTab,'common');
+  assert.equal(context.selected,'previous');assert.deepEqual([...context.graph.selectedIds],['previous']);
+ }
+});

@@ -187,3 +187,5 @@ Undo/redo retains at most 80 snapshots and 32 MiB of archived UTF-8 data across 
 ## Combat and chapter Death
 
 See [combat authoring and runtime](docs/combat.md) for Weapon-provided Combat Actions, self-contained Enemies, Effect Cards, mandatory Death beats and compatibility. Open the non-saving [alternative Rat example](player.html?example=rat), described in [alternative combat](docs/alternative-combat.md), without replacing the stored project. The original [classic Rat example](player.html?example=rat-classic) remains available. The [technical plan](docs/combat-technical-plan.md) and [product decisions](docs/combat-implementation-spec.md) record the earlier implementation scope.
+
+The [combat progression proposal](docs/combat-progression.md) describes enemy behavior, weapon strength and stat growth for the opening chapters, with provisional balance targets.

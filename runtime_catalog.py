@@ -5,6 +5,7 @@ RUNTIME_FILES = (
     "errors.js",
     "player.html",
     "editor.html",
+    "studio/app.webmanifest",
     "engine/CardDeck.js",
     "engine/CheckSurface.js",
     "engine/DeckInteractionMotion.js",
