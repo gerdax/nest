@@ -58,7 +58,7 @@ test('Discovery titles remain hidden in new and retained choice faces', () => {
 
 test('Discovery is a distinct story kind accepted in Vignette slots and portable projects', () => {
   const project = createProject(), chapter = project.chapters[0];
-  const discovery = {...createDefinition('discovery', 'discovery'), name:'Hidden room', text:'A hidden room.', image:'discovery.png', imageScale:125};
+  const discovery = {...createDefinition('discovery', 'discovery'), name:'Hidden room', headline:'A hidden room.', image:'discovery.png', imageScale:125};
   project.library.push(discovery);
   chapter.nodes.find(node => node.type === 'linear').cards[0].definitionId = discovery.id;
   chapter.nodes.find(node => node.type === 'fork').intro = {id:'discovery-intro', definitionId:discovery.id};
@@ -71,11 +71,11 @@ test('Discovery is a distinct story kind accepted in Vignette slots and portable
   }
   assert.deepEqual(allowedCardKinds('container', 'items'), ['item']);
   assert.deepEqual(placementOverrideKeys('discovery'), ['effects']);
-  assert.equal(discovery.showName, false);
+  assert.equal(discovery.headline, 'A hidden room.');
   assert.deepEqual(discovery.effects, []);
   assert.equal(cardFace(discovery).summary, '');
   assert.equal(cardFace(discovery).cardKind, 'discovery');
-  assert.equal(cardFace(discovery).heading, '');
+  assert.equal(cardFace(discovery).heading, 'A hidden room.');
   const original = structuredClone(project);
   const parsed = parseProject(JSON.stringify(project));
   assert.equal(parsed.library.find(card => card.id === discovery.id).kind, 'discovery');
@@ -89,7 +89,7 @@ test('Discovery is a distinct story kind accepted in Vignette slots and portable
 for (const slot of ['linear', 'choice', 'container-intro', 'fork-intro']) {
   test(`Discovery applies custom story effects in ${slot}`, () => {
     const project = createProject(), chapter = project.chapters[0];
-    const discovery = {...createDefinition('discovery', 'discovery'), text:'A hidden room.', effects:[{op:'add', key:'energy', value:1}]};
+    const discovery = {...createDefinition('discovery', 'discovery'), headline:'A hidden room.', effects:[{op:'add', key:'energy', value:1}]};
     project.library.push(discovery);
     const placement = {id:'discovery-placement', definitionId:discovery.id, overrides:{effects:[{op:'add', key:'energy', value:2}]}};
     const type = slot === 'linear' ? 'linear' : slot === 'container-intro' ? 'container' : 'fork';

@@ -19,12 +19,12 @@ const definition=(p,placement)=>p.library.find(d=>d.id===placement.definitionId)
 
 test('card copy is detached; repeated local pastes replace target identity safely and preserve wiring',()=>{
  const {p,c,a,b,source,target}=fixture(),d=definition(p,source);
- d.name='Water';d.text='Line one\nLine two';d.onCollect=[{op:'add',key:'energy',value:2}];
+ d.name='Water';d.description='Line one\nLine two';d.onCollect=[{op:'add',key:'energy',value:2}];
  const payload=captureCardClipboard(p,c.id,a.id,source.id),snapshot=structuredClone(payload),targetId=target.id;
- d.text='Later source edit';const wiring=structuredClone(b.connections);
+ d.description='Later source edit';const wiring=structuredClone(b.connections);
  pasteCardClipboard(p,c,b,target,payload);
  const pasted=definition(p,target);assert.equal(target.id,targetId);assert.notEqual(pasted.id,d.id);
- assert.equal(pasted.text,'Line one\nLine two');assert.equal(pasted.chapterId,c.id);assert.deepEqual(b.connections,wiring);
+ assert.equal(pasted.description,'Line one\nLine two');assert.equal(pasted.chapterId,c.id);assert.deepEqual(b.connections,wiring);
  const first=pasted.id;pasteCardClipboard(p,c,b,target,payload);assert.notEqual(target.definitionId,first);assert.deepEqual(payload,snapshot);
  assert.deepEqual(validateProject(p),[]);
 });
@@ -72,11 +72,11 @@ test('cross chapter paste copies item dependencies and chapter variables with de
 
 test('intro paste works without replacing intro toggles; source canvas deletion does not invalidate a local snapshot',()=>{
  const {p,c,a,b}=fixture('container'),source=a.intro,target=b.intro;
- definition(p,source).text='Container intro';b.introEnabled=true;b.introOnce=true;
+ definition(p,source).headline='Container intro';b.introEnabled=true;b.introOnce=true;
  const payload=captureCardClipboard(p,c.id,a.id,source.id),id=target.id;
  p.library=p.library.filter(d=>d.id!==source.definitionId);c.nodes=c.nodes.filter(n=>n!==a);
  pasteCardClipboard(p,c,b,target,payload);
- assert.equal(target.id,id);assert.equal(definition(p,target).text,'Container intro');assert.equal(b.introEnabled,true);assert.equal(b.introOnce,true);
+ assert.equal(target.id,id);assert.equal(definition(p,target).headline,'Container intro');assert.equal(b.introEnabled,true);assert.equal(b.introOnce,true);
 });
 
 test('paste command is one undoable transaction including copied definitions and variable changes',()=>{

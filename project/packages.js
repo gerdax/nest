@@ -1,3 +1,4 @@
+import { normalizeProjectCardText } from './card-text.js';
 import { ensureCombatDefaults } from './combat-model.js';
 import { createError } from '../errors.js';
 import { isTagKey, tagKey, tagIdFromKey } from './item-tags.js';
@@ -48,7 +49,7 @@ export function importChapter(project, pkg) {
 
 /** Merge portable Library content without applying defaults or touching destination settings. */
 export function mergeLibraryContent(project, content) {
-  return mergePackageContent(cloneProject(project), {...cloneProject(content), chapters: []}, {}, {libraryOnly: true});
+  return mergePackageContent(normalizeProjectCardText(cloneProject(project)), normalizeProjectCardText({...cloneProject(content), chapters: []}), {}, {libraryOnly: true});
 }
 
 /** Built-in resources keep the destination project's definition across imports. */
@@ -147,7 +148,7 @@ function mergePackageContent(next, imported, pkg, {libraryOnly = false} = {}) {
     walk(candidate, value => {
       if (value.key && value.source !== 'inventory' && !['addItem', 'removeItem'].includes(value.op)) value.key = ruleVarMap.get(value.key) || value.key;
       if (value.modifierVariable) value.modifierVariable = ruleVarMap.get(value.modifierVariable) || value.modifierVariable;
-      if (typeof value.text === 'string') value.text = value.text.replace(/\[STAT:([^\[\]\r\n]*)\]/g,
+      for (const field of ['text','headline','description']) if (typeof value[field] === 'string') value[field] = value[field].replace(/\[STAT:([^\[\]\r\n]*)\]/g,
         (token, key) => ruleVarMap.has(key) ? `[STAT:${ruleVarMap.get(key)}]` : token);
     });
     return candidate;
@@ -203,7 +204,7 @@ function mergePackageContent(next, imported, pkg, {libraryOnly = false} = {}) {
       else v.key = ruleVarMap.get(v.key) || v.key;
     }
     if (v.modifierVariable) v.modifierVariable = ruleVarMap.get(v.modifierVariable) || v.modifierVariable;
-    if (typeof v.text === 'string') v.text = v.text.replace(/\[STAT:([^\[\]\r\n]*)\]/g, (token, key) => ruleVarMap.has(key) ? `[STAT:${ruleVarMap.get(key)}]` : token);
+    for (const field of ['text','headline','description']) if (typeof v[field] === 'string') v[field] = v[field].replace(/\[STAT:([^\[\]\r\n]*)\]/g, (token, key) => ruleVarMap.has(key) ? `[STAT:${ruleVarMap.get(key)}]` : token);
   });
   };
   const ownedIds = new Set(defs);

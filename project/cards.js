@@ -1,3 +1,4 @@
+import { cardText, validCardText } from './card-text.js';
 import { createCombatAction, createEffectCard, createEnemy } from './combat-model.js';
 import { createError, errorMessage } from '../errors.js';
 import { isTagKey, itemTag, itemTagLabel } from './item-tags.js';
@@ -8,9 +9,9 @@ export const cardKinds = Object.freeze({
   combatAction: {label:'Combat Action',editorTint:'#d99bea',validate:()=>[]},
   effect: {label:'Feedback',editorTint:'#edb4dc',validate:()=>[]},
   enemy: {label:'Enemy',editorTint:'#ef947c',validate:()=>[]},
-  event: { label: 'Vignette', editorTint: '#96f7a7', validate: card => typeof card.text === 'string' ? [] : [errorMessage('PROJECT_VIGNETTE_TEXT_MUST_BE_A_STRING')] },
-  discovery: { label: 'Discovery', editorTint: '#f4f1da', validate: card => typeof card.text === 'string' ? [] : ['Discovery text must be a string'] },
-  caption: { label: 'Caption', editorTint: '#e4ffeb', validate: card => typeof card.text === 'string' ? [] : [errorMessage('PROJECT_CAPTION_TEXT_MUST_BE_A_STRING')] },
+  event: { label: 'Vignette', editorTint: '#96f7a7', validate: card => validCardText(card) ? [] : [errorMessage('PROJECT_VIGNETTE_TEXT_MUST_BE_A_STRING')] },
+  discovery: { label: 'Discovery', editorTint: '#f4f1da', validate: card => validCardText(card) ? [] : ['Discovery text must be a string'] },
+  caption: { label: 'Caption', editorTint: '#e4ffeb', validate: card => validCardText(card) ? [] : [errorMessage('PROJECT_CAPTION_TEXT_MUST_BE_A_STRING')] },
   action: { label: 'Action', editorTint: '#a59bea', validate: card => ['direct','check'].includes(card.resolution) ? [] : [errorMessage('PROJECT_ACTION_RESOLUTION_MUST_BE_DIRECT_OR_CHECK')] },
   consumable: { label: 'Consumable', editorTint: '#9edcff', validate: validateResourceCard },
   item: { label: 'Item', editorTint: '#dfcf78', validate: card => Array.isArray(card.onCollect) ? [] : [errorMessage('PROJECT_ITEM_COLLECTION_EFFECTS_MUST_BE_A_LIST')] }
@@ -53,7 +54,7 @@ export function createDefinition(kind, id) {
   if(kind==='combatAction')return createCombatAction(id);
   if(kind==='effect')return createEffectCard(id);
   if(kind==='enemy')return createEnemy(id);
-  const base = { id, kind, name: cardKinds[kind].label, showName:kind==='item'||isConsumableKind(kind), text: '', image: '' };
+  const base = { id, kind, name: cardKinds[kind].label, headline: ['action','item','consumable'].includes(kind) ? cardKinds[kind].label : '', description: '', image: '' };
   if (isStoryKind(kind)) return { ...base, effects: [] };
   if (isConsumableKind(kind)) return { ...base, subtype:resource, value: 1, onCollect: [] };
   if (kind === 'item') return { ...base, onCollect: [], permability: 0 };
@@ -85,7 +86,7 @@ export function resolvePlacement(project, placement, index) {
     const item = contextItem;
     if (base.kind !== 'action' || !item) throw createError('PROJECT_CONTEXTUAL_CHOICE_NEEDS_AN_ACTION_AND_AN_ITEM_DEFINITION');
     const key = item.inventoryKey ?? item.id;
-    Object.assign(resolved, {contextItemId:item.id, contextInventoryKey:key, inventoryLabel:`Inventory · ${item.name}`, entrance:'from-top', contextOverrideImage:placement.contextOverrideImage===true});
+    Object.assign(resolved, {contextItemId:item.id, contextInventoryKey:key, inventoryLabel:`Inventory · ${cardText(item).headline || 'Item'}`, entrance:'from-top', contextOverrideImage:placement.contextOverrideImage===true});
     if (placement.contextOverrideImage === true) Object.assign(resolved, {image:item.image ?? '', imageScale:item.imageScale ?? 100, imageOffsetX:item.imageOffsetX ?? 0,
       imageOffsetY:item.imageOffsetY ?? 0, flipImage:!!item.flipImage});
     resolved.explicitConditions=[...resolved.conditions];

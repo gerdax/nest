@@ -32,18 +32,18 @@ const effect = value => ({op:'add', key:'energy', value});
 test('local Action, Caption and Vignette share current content and retain hidden artwork', () => {
   const state = setup(), {project, placement} = state, id = placement.id;
   switchTo(state, 'local:action');
-  const common = {name:'Remembered', text:'Story', image:'./assets/img/city.png', flipImage:true,
+  const common = {name:'Remembered', headline:'Story', image:'./assets/img/city.png', flipImage:true,
     imageScale:145, imageOffsetX:-12, imageOffsetY:8};
   Object.assign(definition(project, placement), common, {costs:[{source:'variable', key:'energy', amount:2}]});
   switchTo(state, 'local:caption');
   for (const [key, value] of Object.entries(common)) assert.equal(definition(project, placement)[key], value);
   assert.equal(definition(project, placement).costs, undefined);
-  definition(project, placement).text = 'Edited Caption';
+  definition(project, placement).headline = 'Edited Caption';
   switchTo(state, 'local:event');
   switchTo(state, 'local:action');
   const restored = definition(project, placement);
   assert.equal(placement.id, id);
-  for (const [key, value] of Object.entries({...common, text:'Edited Caption'})) assert.equal(restored[key], value);
+  for (const [key, value] of Object.entries({...common, headline:'Edited Caption'})) assert.equal(restored[key], value);
   assert.deepEqual(restored.costs, [{source:'variable', key:'energy', amount:2}]);
 });
 
@@ -77,7 +77,7 @@ test('Library detours restore local drafts while Convert copies current effectiv
   const state = setup(), {project, placement, drafts} = state;
   switchTo(state, 'local:action');
   const local = definition(project, placement);
-  local.name = 'Local draft'; local.text = 'Local story'; local.costs = [{source:'variable', key:'energy', amount:1}];
+  local.name = 'Local draft'; local.headline = 'Local story'; local.costs = [{source:'variable', key:'energy', amount:1}];
   switchTo(state, 'explore');
   placement.overrides = {costs:[{source:'variable', key:'energy', amount:7}], resolution:'check',
     check:{pool:[{sides:20,count:1}], modifier:4, target:12}};
@@ -109,14 +109,14 @@ test('same context retains inactive drafts; beat, chapter and explicit resets di
     const state = setup();
     switchTo(state, 'local:action');
     definition(state.project, state.placement).costs = [{source:'variable', key:'energy', amount:5}];
-    definition(state.project, state.placement).text = 'Active content';
+    definition(state.project, state.placement).headline = 'Active content';
     switchTo(state, 'local:caption');
     state.drafts.setContext(state.chapter.id, state.node.id);
     switchTo(state, 'local:action');
     assert.equal(definition(state.project, state.placement).costs[0].amount, 5);
     switchTo(state, 'local:caption'); reset(state); switchTo(state, 'local:action');
     assert.deepEqual(definition(state.project, state.placement).costs, []);
-    assert.equal(definition(state.project, state.placement).text, 'Active content');
+    assert.equal(definition(state.project, state.placement).headline, 'Active content');
   }
 });
 
@@ -168,7 +168,7 @@ test('drafts are isolated by placement', () => {
 test('Clear is one undoable edit, defaults local rules/settings and preserves IDs and destinations', () => {
   const state = setup('fork'), {project, node, placement, drafts} = state;
   const id = placement.id, definitionId = placement.definitionId;
-  Object.assign(definition(project, placement), {name:'Edited', text:'Story', image:'art.png', imageScale:150,
+  Object.assign(definition(project, placement), {name:'Edited', headline:'Story', image:'art.png', imageScale:150,
     resolution:'check', costs:[{source:'variable',key:'energy',amount:2}]});
   Object.assign(placement, {unavailable:'hidden', contextItemId:'flashlight', contextOverrideImage:true});
   node.connections = {[`${id}:success`]:'arrival', [`${id}:failure`]:'supplies'};
@@ -424,13 +424,13 @@ test('parse/export retain only active draft data and do not serialize cached typ
   const state = setup(); switchTo(state, 'local:action');
   definition(state.project, state.placement).check.modifier = 12345;
   switchTo(state, 'local:caption');
-  definition(state.project, state.placement).text = 'Saved Caption';
+  definition(state.project, state.placement).headline = 'Saved Caption';
   synchronizeConnections(state.project);
   const json = JSON.stringify(state.project), exported = JSON.stringify(exportChapter(state.project));
   assert.ok(!json.includes('12345')); assert.ok(!exported.includes('12345'));
   assert.deepEqual(parseProject(json), state.project);
   const restored = parseProject(exported);
-  assert.equal(restored.library.find(d => d.id === state.placement.definitionId).text, 'Saved Caption');
+  assert.equal(restored.library.find(d => d.id === state.placement.definitionId).headline, 'Saved Caption');
   const fresh = new LocalCardDrafts();
   fresh.switchSource(restored, restored.chapters[0].nodes.find(n => n.id === state.node.id).cards[0], 'local:action', {allowedKinds});
   const p = restored.chapters[0].nodes.find(n => n.id === state.node.id).cards[0];

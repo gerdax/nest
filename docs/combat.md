@@ -47,10 +47,10 @@ input files remain unchanged.
 **Effects Feedback → Health damage**, percentage reactions and one required death card.
 **Show introduction** is set independently on each Combat beat. It displays the
 Enemy’s main card before combat; existing projects retain their previous setting.
-Player and Enemy Feedback presentations use Name only as an editor label. Description
+Player and Enemy Feedback presentations use Name only as an editor label. Caption (`headline`)
 is the player-facing message, using the same large heading style in preview and combat.
 Health damage uses a fixed section label; its internal Name is not editable. Existing name-only damage
-copy migrates into Description once, preserving the displayed text. All artwork
+copy migrates into Caption once, preserving the displayed text. All artwork
 sections use preview → artwork path → image scale/position. Reaction percentages
 retain exact fraction boundaries. New Enemies have an Attack Action, damage Effect
 Card and death card; artwork is optional for testing. Use a separate Enemy
@@ -220,7 +220,7 @@ accepted departure. Both sides gain protection after their Defend card commits;
 only the opponent's next Attack consumes it. Wait/Defend do not consume the
 opponent's protection. Neither protection nor turns are repeated on retry.
 
-Action type is above Description in Common, Weapon and Enemy editors. The
+Action type is above Caption and Description in Common, Weapon and Enemy editors. The
 **Effect** section contains type-specific mechanical fields; Feedback presentations remain
 presentation. Statuses, initiative manipulation, extra turns and escape routing
 are outside this simple implementation.

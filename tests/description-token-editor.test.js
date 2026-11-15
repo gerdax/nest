@@ -7,7 +7,7 @@ import { createEnemy, createWeapon, createCombatAction } from '../project/combat
 import { descriptionEditorContext, insertDescriptionToken, mountDescriptionEditors } from '../studio/description-tokens.js';
 import { resolveDescription } from '../project/description-tokens.js';
 
-test('only Description textareas receive controls, without extra saved paths',()=>{
+test('Caption and Description textareas have previews, with one token picker per card',()=>{
  const html=field('Description','<b>[HP]</b>','text','definition','textarea');
  assert.match(html,/data-description-editor/);assert.match(html,/&lt;b&gt;\[HP\]&lt;\/b&gt;/);
  assert.equal((html.match(/data-path=/g)||[]).length,1);
@@ -18,6 +18,7 @@ test('only Description textareas receive controls, without extra saved paths',()
  for(const card of [enemy,weapon]){
   const fields=cardFields(project,card);
   assert.equal((fields.match(/<textarea /g)||[]).length,(fields.match(/data-description-editor/g)||[]).length);
+  assert.equal((fields.match(/data-description-token/g)||[]).length,(fields.match(/data-description-group/g)||[]).length);
  }
 });
 
@@ -112,4 +113,33 @@ test('ordinary and prepared text previews appear together without controls or sa
  assert.equal(textarea.value,'Base[IF:PREPARED], +[PREPBONUS] or breaks defence[ENDIF]');assert.equal(saves,0);
  textarea.value='Changed[IF:PREPARED] +[PREPBONUS][ENDIF]';textarea.dispatchEvent(new Event('input'));
  assert.equal(preview.textContent,'Base: Changed');assert.equal(prepared.textContent,'Prepared: Changed +3');
+});
+
+
+test('one card picker inserts into the last focused copy field without losing its selection',()=>{
+ const caption=new Control('Main copy'),description=new Control('Small copy');
+ caption.dataset={path:'headline'};description.dataset={path:'description'};
+ caption.setSelectionRange(5,9);description.setSelectionRange(0,5);
+ const menu=new Control(),insert=new Control(),target=new Control();
+ const group={querySelector:selector=>({'[data-description-token]':menu,'[data-description-insert]':insert,'[data-description-target]':target})[selector]};
+ const wrappers=[caption,description].map(textarea=>{
+  const controls={'[data-description-text]':textarea,'[data-description-preview]':new Control(),'[data-description-warnings]':new Control()};
+  return {dataset:{},closest:()=>group,querySelector:selector=>controls[selector]};
+ });
+ const root={querySelectorAll:()=>wrappers};
+ let captionSaves=0,descriptionSaves=0;
+ caption.addEventListener('change',()=>captionSaves++);description.addEventListener('change',()=>descriptionSaves++);
+ mountDescriptionEditors(root,()=>({values:{health:7},card:{}}));
+ assert.equal(menu.children.filter(option=>option.value==='[HP]').length,1);
+ assert.equal(target.textContent,'Insert into Caption');
+ description.dispatchEvent(new Event('focus'));
+ assert.equal(target.textContent,'Insert into Description');
+ menu.value='[HP]';menu.dispatchEvent(new Event('change'));insert.dispatchEvent(new Event('click'));
+ assert.equal(description.value,'[HP] copy');assert.equal(caption.value,'Main copy');
+ assert.equal(descriptionSaves,1);assert.equal(captionSaves,0);
+ caption.dispatchEvent(new Event('focus'));insert.dispatchEvent(new Event('click'));
+ assert.equal(caption.value,'Main [HP]');assert.equal(description.value,'[HP] copy');
+ assert.equal(captionSaves,1);assert.equal(target.textContent,'Insert into Caption');
+ mountDescriptionEditors(root,()=>({}));
+ assert.equal(menu.children.filter(option=>option.value==='[HP]').length,1);
 });

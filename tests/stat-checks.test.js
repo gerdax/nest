@@ -67,7 +67,7 @@ test('chapter packages preserve stat check refs including remapped override and 
  assert.equal(pkg.chapter.nodes[2].choices[0].overrides.check.modifierVariable,'agility');
 });
 test('card summaries keep rules separate from numerical check presentation',()=>{
- const project=checkedProject(), card=action(project);card.text='Agility 3 is authored prose';
+ const project=checkedProject(), card=action(project);card.description='Agility 3 is authored prose';
  card.conditions=[{source:'variable',key:'agility',op:'gte',value:7},{source:'variable',key:'energy',op:'gte',value:1}];
  card.costs=[{source:'variable',key:'agility',amount:2}];card.effects=[{op:'set',key:'agility',value:8},{op:'add',key:'energy',value:1}];
  const summary=playerCardSummary(card,project.variables,project.library,{agility:1});
@@ -76,7 +76,7 @@ test('card summaries keep rules separate from numerical check presentation',()=>
  assert.match(cardSummary(card,project.variables),/3d6/);assert.match(editorCheckSummary(card.check,project.variables),/Difficulty 5/);
  assert.equal(playerCheckSummary(card.check,{agility:3},project.variables),'Agility: 3');
  assert.doesNotMatch(playerCheckSummary(card.check,{agility:3},project.variables),/Difficulty|Hard|Easy/);
- assert.equal(cardFace(card,project.variables,project.library,{agility:3}).text,card.text);
+ assert.equal(cardFace(card,project.variables,project.library,{agility:3}).text,card.description);
 });
 test('stat authoring exposes finite difficulty and formula diagnostic while custom checks retain original data',()=>{
  const project=checkedProject(), card=action(project), selection={definitionId:card.id};

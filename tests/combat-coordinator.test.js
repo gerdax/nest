@@ -40,10 +40,10 @@ test('canceled valid player result retries from the error front with frozen outc
 });
 test('failed successor after committed damage resumes the next step without replaying its damage card',async()=>{
  const h=harness();await reachPlayer(h);h.c.encounter.enemyHp=1;await select(h);const sequence=h.c.sequence,damageId=sequence.steps[0].id;
- const native=h.deck.replaceContent;let failNext=true;h.deck.replaceContent=function(content,o){if(failNext&&content.text.includes('dead')){failNext=false;throw new Error('Successor unavailable');}return native.call(this,content,o);};
+ const native=h.deck.replaceContent;let failNext=true;h.deck.replaceContent=function(content,o){if(failNext&&content.heading.includes('dead')){failNext=false;throw new Error('Successor unavailable');}return native.call(this,content,o);};
  // Use the actual sequence card identity, independent of fixture prose.
- const death=sequence.steps[1].card;death.text='dead';await swipe(h);assert.equal(h.c.phase,'error');assert.equal(h.c.encounter.enemyHp,0);assert(h.c.committed.has(damageId));assert.equal(sequence.index,1);
- await h.c.retry();assert.equal(h.c.sequence,sequence);assert.equal(h.c.sequence.index,1);assert.equal(h.deck.content.text,'dead');assert.equal(h.c.encounter.enemyHp,0);assert.equal(h.c.committed.size,2); // enemy initial hit plus player damage
+ const death=sequence.steps[1].card;death.headline='dead';await swipe(h);assert.equal(h.c.phase,'error');assert.equal(h.c.encounter.enemyHp,0);assert(h.c.committed.has(damageId));assert.equal(sequence.index,1);
+ await h.c.retry();assert.equal(h.c.sequence,sequence);assert.equal(h.c.sequence.index,1);assert.equal(h.deck.content.heading,'dead');assert.equal(h.c.encounter.enemyHp,0);assert.equal(h.c.committed.size,2); // enemy initial hit plus player damage
  await swipe(h);assert.equal(h.won,1);h.c.dispose();
 });
 test('stat checks roll the resolved three-d6 pool rather than absent authored pool',async()=>{
@@ -64,9 +64,9 @@ test('active player dice AbortError restores choices; disposal AbortError stays 
 test('Energy-modified check freezes displayed pre-payment values while charging the cost',async()=>{const h=harness();await reachPlayer(h);const punch=h.host.compiled.library.find(d=>d.name==='Punch');punch.costs=[{source:'variable',key:'energy',amount:2}];punch.check={pool:[{sides:6,count:3}],modifier:0,target:11,modifierVariable:'energy'};let feedback;h.host.onCheckResult=async result=>{feedback=result;};h.host.rollCheck=async()=>({dice:[{sides:6,value:3},{sides:6,value:3},{sides:6,value:3}]});await select(h,'Punch');assert.equal(h.host.variables.energy,1);assert.equal(h.c.pending.total,12);assert.equal(feedback.raw,9);assert.equal(feedback.modifier,3);assert.equal(feedback.target-feedback.modifier,8);assert.equal(h.c.pending.success,true);h.c.dispose();});
 
 test('enabled introduction uses the main Enemy presentation and ignores legacy intro cards',async()=>{
- const h=harness();h.c.node.introEnabled=true;Object.assign(h.c.enemy,{introEnabled:false,text:'Main Enemy text',image:'main.png',imageScale:125,imageOffsetX:8,flipImage:true,intro:[{kind:'event',text:'Old intro',image:'old.png'}]});
+ const h=harness();h.c.node.introEnabled=true;Object.assign(h.c.enemy,{introEnabled:false,headline:'Main Enemy text',image:'main.png',imageScale:125,imageOffsetX:8,flipImage:true,intro:[{kind:'event',text:'Old intro',image:'old.png'}]});
  await h.c.start();assert.equal(h.c.phase,'intro');
- for(const [key,value] of Object.entries({text:'Main Enemy text',image:'main.png',imageScale:125,imageOffsetX:8,flipImage:true,cardKind:'event'}))assert.equal(h.deck.content[key],value);
+ for(const [key,value] of Object.entries({heading:'Main Enemy text',image:'main.png',imageScale:125,imageOffsetX:8,flipImage:true,cardKind:'event'}))assert.equal(h.deck.content[key],value);
  assert.equal(h.deck.content.nextTransition,'flip');
  const firstAction=h.deck.content.nextDeckPreview.content;
  const replace=h.deck.replaceContent;
@@ -185,7 +185,7 @@ test('canceling an Enemy Defend departure grants no protection and does not adva
 test('incoming combat preview uses the actual intro face without a disabled placeholder',async()=>{
  const {ProjectController}=await import('../project/ProjectController.js');
  const h=harness();h.c.node.introEnabled=true;
- Object.assign(h.c.enemy,{image:'rat-art.png',imageScale:115,imageOffsetX:7,imageOffsetY:-3,flipImage:true,text:'A rat blocks your path.'});
+ Object.assign(h.c.enemy,{image:'rat-art.png',imageScale:115,imageOffsetX:7,imageOffsetY:-3,flipImage:true,headline:'A rat blocks your path.'});
  const enemy=h.host.compiled.library.find(d=>d.id==='rat');Object.assign(enemy,h.c.enemy);
  const preview=ProjectController.prototype.content.call({compiled:h.host.compiled},{node:h.c.node});
  await h.c.start();
@@ -199,7 +199,7 @@ test('combat without introduction previews its first Enemy Action',async()=>{
  const {ProjectController}=await import('../project/ProjectController.js');
  const h=harness();const enemy=h.host.compiled.library.find(d=>d.id==='rat');enemy.introEnabled=true;h.c.node.introEnabled=false;
  const preview=ProjectController.prototype.content.call({compiled:h.host.compiled},{node:h.c.node});
- assert.equal(preview.heading,enemy.actions[0].text);
+ assert.equal(preview.heading,enemy.actions[0].headline);
  assert.equal(preview.image,enemy.actions[0].image);
  assert.equal(preview.cardKind,'action');await h.c.start();assert.equal(h.c.phase,'effects');h.c.dispose();
 });
@@ -468,7 +468,7 @@ test('cooling Weapon Actions move last and return to their stable front position
 function hiddenPreparationHarness(draw){
  const h=harness();
  const attack={...h.c.enemy.actions[0],attack:{source:'self',damage:{min:1,max:1}}};
- h.c.enemy.actions=[{...structuredClone(attack),id:'rat-prepare',name:'Rat prepares',text:'The rat prepares its next move.',type:'prepare',resolution:'direct',preparationBonus:2,damageReduction:1},attack];
+ h.c.enemy.actions=[{...structuredClone(attack),id:'rat-prepare',name:'Rat prepares',headline:'The rat prepares its next move.',type:'prepare',resolution:'direct',preparationBonus:2,damageReduction:1},attack];
  let samples=0;h.host.rng=()=>{samples++;return draw;};
  return {...h,get samples(){return samples;}};
 }
@@ -497,7 +497,7 @@ test('hidden block reveals before reduced damage and feedback departure still ow
  const punch=h.host.compiled.library.find(d=>d.name==='Punch');punch.attack.damage={min:3,max:3};
  await select(h,'Punch');
  assert.equal(h.c.pending.damage,2);assert.equal(h.c.pending.blockedDamage,1);
- assert.match(h.deck.content.text,/Rat prepared a block/);
+ assert.match(h.deck.content.heading,/Rat prepared a block/);
  assert.equal(h.c.encounter.enemyPreparation,null);assert.equal(h.c.encounter.enemyHp,4);
  await swipe(h);assert.equal(h.deck.content.cardKind,'health');assert.equal(h.c.encounter.enemyHp,4);
  await swipe(h);assert.equal(h.c.encounter.enemyHp,2);
@@ -518,7 +518,7 @@ test('hidden damage preparation survives a miss, reveals on a hit and retry neve
  assert.equal(h.c.encounter.enemyPreparation,null);assert.equal(h.host.variables.health,10);
  const rolled=rolls;await h.c.retry();
  assert.equal(h.c.pending,saved);assert.equal(rolls,rolled);assert.equal(h.samples,1);
- assert.match(h.deck.content.text,/Rat's preparation adds 2 damage/);
+ assert.match(h.deck.content.heading,/Rat's preparation adds 2 damage/);
  await swipe(h);assert.equal(h.host.variables.health,10);
  await swipe(h);assert.equal(h.host.variables.health,7);assert.equal(h.c.phase,'choice');
  h.c.dispose();

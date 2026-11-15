@@ -82,11 +82,11 @@ test('copy snapshots dependency closure and gives local definitions independent 
 test('shared definitions reuse current contents; missing shared definitions are restored from snapshots', () => {
   const project = createProject(), chapter = project.chapters[0], clipboard = captureNodeClipboard(project,chapter.id,'arrival');
   const count = project.library.length;
-  project.library[0].text = 'Current contents';
+  project.library[0].headline = 'Current contents';
   const pasted = pasteNodeClipboard(project,chapter,clipboard);
   assert.equal(pasted.cards[0].definitionId,'arrival');
   assert.equal(project.library.length,count);
-  assert.equal(project.library[0].text,'Current contents');
+  assert.equal(project.library[0].headline,'Current contents');
   project.library = project.library.filter(definition => definition.id !== 'arrival');
   pasteNodeClipboard(project,chapter,clipboard);
   assert.equal(project.library.find(definition => definition.id === 'arrival').text,clipboard.definitions[0].text);
@@ -157,8 +157,8 @@ test('missing global inventory dependencies restore snapshot identity while unre
   assert.deepEqual(restored,item);
   const copy = project.library.find(definition => definition.id === pasted.choices[1].definitionId);
   assert.notEqual(copy.id,localAction.id);
-  copy.text = 'Independent';
-  assert.notEqual(copy.text,localAction.text);
+  copy.description = 'Independent';
+  assert.notEqual(copy.description,localAction.description);
   assert.equal(conditionsMet(resolvePlacement(project,pasted.choices[0]).conditions,{},addInventory([],restored)),true);
   assert.deepEqual(validateProject(project),[]);
 });

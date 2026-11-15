@@ -16,12 +16,12 @@ function session(project = createProject()) {
 
 test('studio commands resolve the current history draft by IDs and preserve the rendered snapshot', () => {
   const state = session(), rendered = state.history.document;
-  const outcome = state.run('field', {scope:'definition',path:'text',value:'New action text',inputType:'text'});
+  const outcome = state.run('field', {scope:'definition',path:'description',value:'New action text',inputType:'text'});
   assert.equal(outcome.failure,undefined);
-  assert.equal(rendered.library.find(d=>d.id==='explore').text,'Follow the corridor');
-  assert.equal(outcome.project.library.find(d=>d.id==='explore').text,'New action text');
-  outcome.project.library[0].text='External mutation';
-  assert.notEqual(state.history.document.library[0].text,'External mutation');
+  assert.equal(rendered.library.find(d=>d.id==='explore').description,'Follow the corridor');
+  assert.equal(outcome.project.library.find(d=>d.id==='explore').description,'New action text');
+  outcome.project.library[0].headline='External mutation';
+  assert.notEqual(state.history.document.library[0].headline,'External mutation');
   assert.equal(state.selection.definitionId,'explore');
 });
 

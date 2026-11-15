@@ -10,7 +10,7 @@ import {LocalCardDrafts} from '../studio/local-card-drafts.js';
 
 test('Discovery can be authored and selected in every Vignette beat slot',()=>{
  const project=createProject(),chapter=project.chapters[0];
- const card=createDefinition('discovery','discovered');card.name='Hidden passage';card.text='A hidden passage.';project.library.push(card);
+ const card=createDefinition('discovery','discovered');card.name='Hidden passage';card.headline='A hidden passage.';project.library.push(card);
  assert.match(readFileSync(new URL('../editor.html',import.meta.url),'utf8'),/data-add-kind="discovery">\+ Discovery/);
  assert.match(cardFields(project,card),/value="discovery" selected>Discovery/);
  assert.ok(definitionInspector(project,card).includes(`--card-editor-tint:${cardEditorTint('discovery')}`));
@@ -33,10 +33,10 @@ test('switching a local Vignette to Discovery retains content and artwork while 
  const options={allowedKinds:allowedCardKinds(node.type,'cards')};
  drafts.switchSource(project,placement,'local:event',options);
  const source=project.library.find(d=>d.id===placement.definitionId);
- Object.assign(source,{text:'A clue.',image:'assets/img/city.png',effects:[{op:'add',key:'energy',value:1}]});
+ Object.assign(source,{headline:'A clue.',image:'assets/img/city.png',effects:[{op:'add',key:'energy',value:1}]});
  drafts.switchSource(project,placement,'local:discovery',options);
  const card=project.library.find(d=>d.id===placement.definitionId);
- assert.equal(card.kind,'discovery');assert.equal(card.text,'A clue.');assert.equal(card.image,source.image);
+ assert.equal(card.kind,'discovery');assert.equal(card.headline,'A clue.');assert.equal(card.image,source.image);
  assert.deepEqual(card.effects,[]);
  drafts.switchSource(project,placement,'local:event',options);
  assert.deepEqual(project.library.find(d=>d.id===placement.definitionId).effects,source.effects);

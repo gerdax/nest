@@ -40,14 +40,14 @@ for(const introEnabled of [undefined,true])test(`enabled intro retains reveal be
 
 for(const items of [[],[{...item,conditions:[{source:'variable',key:'energy',op:'gte',value:1}]}]])test(`disabled intro exits without applying effects when ${items.length?'items are ineligible':'items are empty'}`,()=>{
   const {deck,controller,errors}=fixture([box({introEnabled:false,items}),after],'hidden');
-  assert.equal(controller.state.activeNodeId,'after');assert.equal(controller.state.variables.energy,0);assert.equal(deck.content.text,'after');assert.deepEqual(errors,[]);controller.destroy();
+  assert.equal(controller.state.activeNodeId,'after');assert.equal(controller.state.variables.energy,0);assert.equal(deck.content.heading,'after');assert.deepEqual(errors,[]);controller.destroy();
 });
 
 test('disabled empty intro can exit to End and preview skips its effects',()=>{
   const terminal=fixture([box({introEnabled:false,items:[],connections:{next:null}})]);
   assert.equal(terminal.controller.state.completed,true);assert.equal(terminal.deck.ended,true);assert.equal(terminal.controller.state.variables.energy,0);terminal.controller.destroy();
   const {deck,controller}=fixture([{id:'start',type:'linear',cards:[story('start')],connections:{next:'box'}},box({introEnabled:false,items:[]}),after]);
-  assert.equal(deck.content.nextDeckPreview.content.text,'after');assert.equal(controller.state.variables.energy,0);controller.destroy();
+  assert.equal(deck.content.nextDeckPreview.content.heading,'after');assert.equal(controller.state.variables.energy,0);controller.destroy();
 });
 
 test('disabled intro preview presents items open and collection continues to the successor',()=>{
@@ -70,7 +70,7 @@ test('legacy container presentation and effects ignore the native intro toggle',
 
 test('an empty container skips its introduction and effects even on the first visit',()=>{
  const {deck,controller,errors}=fixture([box({items:[]}),after]);
- assert.equal(controller.state.activeNodeId,'after');assert.equal(deck.content.text,'after');assert.equal(controller.state.variables.energy,0);
+ assert.equal(controller.state.activeNodeId,'after');assert.equal(deck.content.heading,'after');assert.equal(controller.state.variables.energy,0);
  assert.deepEqual(errors,[]);controller.destroy();
 });
 

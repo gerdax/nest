@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { addInventory, inventoryQuantity, conditionsMet, affordCosts, transact } from '../project/state.js';
 import { InventoryView } from '../studio/InventoryView.js';
 
-const apple = {id:'apple',kind:'item',name:'Apple',inventoryKey:'fruit'};
+const apple = {id:'apple',kind:'item',name:'Apple',headline:'Apple',description:'',inventoryKey:'fruit'};
 
 test('collection owns one definition or alias and discards legacy quantity without mutating input',()=>{
   const legacy = {...apple,definitionId:'apple',quantity:20};
@@ -66,7 +66,7 @@ test('add and remove effects ignore legacy quantity and normalize preexisting du
   assert.equal(inventory[0].quantity,12);
 });
 
-test('inventory view keeps accessible item names without mini labels or a direct Use action',()=>{
+test('inventory view keeps accessible captions without mini labels or a direct Use action',()=>{
   class Element {
     constructor() { this.children=[]; this.style={}; this.attributes={}; this.classList={add(){},remove(){}}; }
     append(...children) { this.children.push(...children); }
@@ -88,7 +88,7 @@ test('inventory view keeps accessible item names without mini labels or a direct
     const view=new InventoryView(root);
     assert.doesNotMatch(root.innerHTML,/data-use/);
     assert.doesNotMatch(root.innerHTML,/data-count-detail|Use one/);
-    view.update([{...apple,definitionId:'apple',quantity:100,text:'Fresh.',image:'apple.png',flipImage:true,permability:2}]);
+    view.update([{...apple,definitionId:'apple',quantity:100,description:'Fresh.',image:'apple.png',flipImage:true,permability:2}]);
     assert.equal(root.nodes['[data-count]'].textContent,'1');
     const button=root.nodes.ul.children[0].children[0];
     assert.equal(button.attributes['aria-label'],'Apple');
@@ -98,6 +98,10 @@ test('inventory view keeps accessible item names without mini labels or a direct
     button.onclick({preventDefault(){}});
     assert.equal(dialog.open,undefined,'click does not open the removed popup');
     assert.doesNotMatch(root.innerHTML,/data-description|data-item-artwork/);
+    view.update([{...apple,name:'Private editor name',headline:'',description:'Fresh.',image:'apple.png'}]);
+    assert.equal(root.nodes.ul.children[0].children[0].attributes['aria-label'],'Item');
+    view.update([{...apple,name:'Private editor name',headline:'Visible caption',image:'apple.png'}]);
+    assert.equal(root.nodes.ul.children[0].children[0].attributes['aria-label'],'Visible caption');
     view.update([]);
     assert.equal(root.nodes['[data-count]'].textContent,'0');
     assert.equal(dialog.open,undefined);

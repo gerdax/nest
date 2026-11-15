@@ -10,7 +10,11 @@ import { ProjectController } from '../project/ProjectController.js';
 import { addInventory } from '../project/state.js';
 import { placementInspector } from '../studio/inspectors.js';
 
-const fixture=()=>parseProject(readFileSync(new URL('./fixtures/contextual-door.json',import.meta.url),'utf8'));
+const fixture=()=>{
+  const project=parseProject(readFileSync(new URL('./fixtures/contextual-door.json',import.meta.url),'utf8'));
+  project.library.find(d=>d.id==='key').headline='Lockpick';
+  return project;
+};
 const door=project=>project.chapters[0].nodes.find(n=>n.id==='door');
 class Deck extends EventTarget {
   reset(){this.busy=false;this.resets=(this.resets??0)+1;}
@@ -34,7 +38,7 @@ test('contextual choices resolve item artwork and ownership while preserving Act
   placement.contextOverrideImage=true;
   placement.conditions=[{source:'variable',key:'energy',op:'gte',value:1}];
   const card=resolvePlacement(project,placement);
-  assert.equal(card.kind,'action');assert.equal(card.name,'Pick the lock');assert.equal(card.text,'Work the lock with your lockpick.');
+  assert.equal(card.kind,'action');assert.equal(card.name,'Pick the lock');assert.equal(card.description,'Work the lock with your lockpick.');
   assert.equal(card.image,'./assets/img/flashlight.png');assert.equal(card.imageScale,140);assert.equal(card.imageOffsetX,12);assert.equal(card.imageOffsetY,-8);assert.equal(card.flipImage,true);
   assert.equal(card.inventoryLabel,'Inventory · Lockpick');assert.equal(cardFace(card).inventoryLabel,'Inventory · Lockpick');assert.equal(card.entrance,'from-top');
   assert.deepEqual(card.conditions.at(-1),{source:'inventory',key:'old:key',op:'has'});
@@ -45,6 +49,17 @@ test('contextual choices resolve item artwork and ownership while preserving Act
   const unlinked=resolvePlacement(project,{id:'normal',definitionId:'unlock'});
   assert.equal(unlinked.image,'./assets/img/corridor_02.png');assert.equal(unlinked.contextItemId,undefined);
   assert.deepEqual(validateProject(createProject()),[]);
+});
+
+test('context inventory labels use the authored caption and keep a blank caption independent of editor Name',()=>{
+  const project=fixture(),item=project.library.find(d=>d.id==='key'),placement=door(project).choices[0];
+  item.name='Private editor label';item.headline='Visible tool';
+  assert.equal(resolvePlacement(project,placement).inventoryLabel,'Inventory · Visible tool');
+  item.headline='';
+  const resolved=resolvePlacement(project,placement);
+  assert.equal(resolved.inventoryLabel,'Inventory · Item');
+  assert.equal(cardFace(resolved).inventoryLabel,'Inventory · Item');
+  assert.equal(item.name,'Private editor label');
 });
 
 test('context requires a native Fork or Linear Action placement with a real item definition',()=>{
@@ -114,7 +129,7 @@ test('context item dependencies export transitively, remap collisions and protec
   const references=definitionReferences(project,'key');assert.equal(references.some(r=>r.kind==='contextItem'),true);
   assert.throws(()=>deleteDefinition(project,'key'),/still used/);assert.equal(cleanupLocalDefinitions(project),0);
   const pkg=exportChapter(project);assert.ok(pkg.library.some(d=>d.id==='key'));assert.ok(pkg.library.some(d=>d.id==='potion'));
-  const target=fixture();target.library.find(d=>d.id==='key').text='different';
+  const target=fixture();target.library.find(d=>d.id==='key').description='different';
   const merged=importChapter(target,pkg),chapter=merged.chapters.at(-1),linked=chapter.nodes[0].choices[0].contextItemId;
   assert.notEqual(linked,'key');assert.equal(merged.library.find(d=>d.id===linked).name,'Lockpick');assert.deepEqual(validateProject(merged),[]);
   const compiled=compileChapter(merged,chapter.id),choice=compiled.nodes[0].choices[0];assert.notEqual(choice.contextInventoryKey,'old:key');

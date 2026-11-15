@@ -482,7 +482,7 @@ test('Escape and capture loss cancel card drags without transfer or node movemen
 });
 
 test('unnamed graph cards use an escaped description fallback without modifying the project',()=>{
- const s=setup(),definition={...createDefinition('event','unnamed'),name:'  ',text:'Wake <here>\n& now'};
+ const s=setup(),definition={...createDefinition('event','unnamed'),name:'  ',headline:'Wake <here>\n& now'};
  const node={id:'a',name:'A',type:'linear',x:0,y:0,cards:[{id:'p',definitionId:definition.id}],connections:{next:null}};
  const project={library:[definition]},before=structuredClone(project);
  s.graph.render(project,{nodes:[node],startNode:node.id},node.id);

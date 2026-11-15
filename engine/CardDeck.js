@@ -774,6 +774,7 @@ export class CardDeck extends EventTarget {
       // adding a full flip-settling wait before the inventory entrance pause.
       if (this.phase === 'committing' && this.operation === 'commit' && !this.commitMotion
         && this.open && this.content.interaction === 'choice' && this.content.decisionOnly && this.entrances.size) {
+        if(this.singleEntranceOnBack)this.fan=spring(1);
         if (this.fan.x >= .35 && this.flip.x <= .5) this.browsePresentedStack({ beforeEntrance: true });
         if (this.fan.x === 1 && this.atRest(this.fan)) {
           const transition = this.commitTransition;
@@ -792,7 +793,8 @@ export class CardDeck extends EventTarget {
       if (this.coverCleared()) {
         this.grabCover.target = 0;
         if (!this.sourceFloor) this.sourceFloor = Math.min(1, this.p.x + 8 / this.departureTravel());
-        this.fan.target = 1;
+        if(this.singleEntranceOnBack)this.fan=spring(1);
+        else this.fan.target = 1;
       }
       if (this.fan.x >= .35 && this.cards.length > 1) this.browsePresentedStack();
       if (this.fan.x === 1 && this.atRest(this.fan)) {
@@ -1237,8 +1239,12 @@ export class CardDeck extends EventTarget {
     this.beginEntrances(transition);
   }
 
+  get singleEntranceOnBack() {
+    return !!(this.content.entranceBackdrop&&this.entranceBackdropPose&&this.cards.length===1&&this.entrances.size===1);
+  }
+
   beginEntrances(transition) {
-    this.entranceSequence.begin({ transition, selectedId: this.content.actions[this.index]?.id, time: performance.now() });
+    this.entranceSequence.begin({ transition, selectedId: this.content.actions[this.index]?.id, time: performance.now(), delay:this.singleEntranceOnBack?0:200 });
     this.phase = 'inserting';
     this.busy = true;
     this.operation = null;
@@ -1266,9 +1272,10 @@ export class CardDeck extends EventTarget {
   }
 
   advanceEntrances(time) {
-    // The fixed pause can overlap residual flip/depth motion, but an arriving
-    // card must wait for both to finish. Never restart the pause after they settle.
-    if (!this.entranceTransition || !this.atRest(this.flip) || !this.atRest(this.n)) return;
+    // The stationary back already supports a single Linear inventory Action:
+    // its entrance can overlap residual depth settling. Other entrances still
+    // wait for depth, and every entrance must wait for a physical turn.
+    if (!this.entranceTransition || !this.atRest(this.flip) || !this.singleEntranceOnBack&&!this.atRest(this.n)) return;
     const stackSettled = [...this.reflowOffsets.values()].every(offset => Object.values(offset).every(state => this.atRest(state)));
     this.entranceSequence.markLanded();
     if (this.entranceSequence.allLanded() && stackSettled) {
@@ -1561,7 +1568,7 @@ export class CardDeck extends EventTarget {
     }
   }
 
-  install(content, { faceDown = false, open = false, selectedId, staged = null, stagedDepth = staged ? 1 : 0, flipState = null, backTransition = null, takeRecession = 0, preserveInventoryContext = false } = {}) {
+  install(content, { faceDown = false, open = false, selectedId, staged = null, stagedDepth = staged ? 1 : 0, flipState = null, backTransition = null, takeRecession = 0, preserveInventoryContext = false, entranceBackdropPose = null } = {}) {
     const heldCheck = this.checkSurface?.ready && (faceDown || flipState?.x > 0) ? this.checkSurface : null;
     if (!heldCheck) this.clearCheckSurface();
     this.preserveInventoryContext = preserveInventoryContext;
@@ -1573,6 +1580,8 @@ export class CardDeck extends EventTarget {
     this.groupLeaveActive = false;
     if (open && content.flipItemsOnReveal) content = { ...content, flipItemsOnReveal: false };
     this.content = content;
+    this.entranceBackdropPose=entranceBackdropPose;
+    this.stagedEntranceBackdropPose=null;
     this.entranceSequence.clearHint();
     this.presentationBrowsePending = content.autoBrowse === true;
     this.ending = false;
@@ -1668,12 +1677,18 @@ export class CardDeck extends EventTarget {
       const presentation = this.pendingPresentation;
       const transition = this.pendingTransition;
       const preserveInventoryContext = this.preserveInventoryContext;
+      const entranceBackdropPose=next.entranceBackdrop?this.stagedEntranceBackdropPose:null;
+      if(next.entranceBackdrop&&this.forwardDeck&&this.underlayBack){
+        // buildDeck adopts these exact nodes. The exposed reverse survives
+        // the handoff and the pause before the contextual Action slides in.
+        Object.assign(this.forwardDeck,{scene:this.underlay,sceneBack:this.underlayBack,sceneLayer:this.underlayLayer});
+      }
       this.pending = null;
       if (presentation === 'open' && next.decisionOnly && transition === 'flip') {
         const staged = this.forwardDeck;
         const flipState = { ...this.nextFlip, target: 0 };
         const depth = next.interaction === 'container' && backTransition?.exposedBack ? stagedDepth - .3 : stagedDepth;
-        this.install(next, { open: true, staged, stagedDepth: depth, flipState, backTransition, takeRecession, preserveInventoryContext });
+        this.install(next, { open: true, staged, stagedDepth: depth, flipState, backTransition, takeRecession, preserveInventoryContext, entranceBackdropPose });
         this.commitTransition = introduction ? 'reveal' : 'commit';
         this.fan.target = 1;
         this.phase = 'committing';
@@ -1685,7 +1700,7 @@ export class CardDeck extends EventTarget {
       }
       if (presentation === 'open') {
         const staged = this.forwardDeck;
-        this.install(next, { open: true, staged, stagedDepth, backTransition, takeRecession, preserveInventoryContext });
+        this.install(next, { open: true, staged, stagedDepth, backTransition, takeRecession, preserveInventoryContext, entranceBackdropPose });
         this.busy = false;
         this.openingCommit = this.open;
         if (!this.open) this.emit('transitioncomplete', { transition: 'commit' });

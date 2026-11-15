@@ -60,7 +60,7 @@ test('normal Action retains progression and outcome effect editors',()=>{
  assert(!html.includes('<h4>Action properties</h4>'));
 });
 
-test('Library exposes complete structured Combat Action, Weapon, Effect and embedded Enemy controls',()=>{const p=createProject(),e=createEnemy('enemy'),w=createWeapon('weapon');e.introEnabled=true;e.intro=[{id:'intro',kind:'event',name:'Intro',text:'',image:''}];e.reactions=[{id:'r',threshold:{numerator:2,denominator:3},card:{id:'rc',kind:'caption',name:'Reaction',text:'',image:''}}];p.library.push(e,w);const enemy=definitionInspector(p,e);for(const path of ['health','actions.0.check.target','actions.0.attack.damage.max','hit.image','reactions.0.threshold.denominator','death.0.text'])assert(enemy.includes(`data-path="${path}"`),path);assert(enemy.includes('data-preview-path="actions.0"'));const weapon=definitionInspector(p,w);for(const path of ['subtype','tagId','combat.damage.min','combat.actions'])assert(weapon.includes(`data-path="${path}"`),path);const action=definitionInspector(p,p.library.find(d=>d.kind==='combatAction'));for(const path of ['attack.source','attack.damage.min','cooldown','costs','check.target'])assert(action.includes(`data-path="${path}"`),path);const effect=definitionInspector(p,p.library.find(d=>d.kind==='effect'));assert(effect.includes('−2'));assert(!effect.includes('data-path="onCollect"'));});
+test('Library exposes complete structured Combat Action, Weapon, Effect and embedded Enemy controls',()=>{const p=createProject(),e=createEnemy('enemy'),w=createWeapon('weapon');e.introEnabled=true;e.intro=[{id:'intro',kind:'event',name:'Intro',text:'',image:''}];e.reactions=[{id:'r',threshold:{numerator:2,denominator:3},card:{id:'rc',kind:'caption',name:'Reaction',text:'',image:''}}];p.library.push(e,w);const enemy=definitionInspector(p,e);for(const path of ['health','actions.0.check.target','actions.0.attack.damage.max','hit.image','reactions.0.threshold.denominator','death.0.headline'])assert(enemy.includes(`data-path="${path}"`),path);assert(enemy.includes('data-preview-path="actions.0"'));const weapon=definitionInspector(p,w);for(const path of ['subtype','tagId','combat.damage.min','combat.actions'])assert(weapon.includes(`data-path="${path}"`),path);const action=definitionInspector(p,p.library.find(d=>d.kind==='combatAction'));for(const path of ['attack.source','attack.damage.min','cooldown','costs','check.target'])assert(action.includes(`data-path="${path}"`),path);const effect=definitionInspector(p,p.library.find(d=>d.kind==='effect'));assert(effect.includes('−2'));assert(!effect.includes('data-path="onCollect"'));});
 test('Enemy array edits, embedded artwork/dice and threshold edits use normal document commands',()=>{const p=createProject();p.library.push(createEnemy('enemy'));cmd(p,'actions','attack');field(p,'actions.1.name','Claw');field(p,'actions.1.attack.damage.max','3','number');cmd(p,'actions',null,'combat-move',{index:1,direction:-1});const e=p.library.find(d=>d.id==='enemy');assert.equal(e.actions[0].name,'Claw');assert.equal(e.actions[0].attack.damage.max,3);cmd(p,'reactions','reaction');field(p,'reactions.0.threshold.numerator','2','number');field(p,'reactions.0.threshold.denominator','3','number');assert.deepEqual(validateProject(p),[]);cmd(p,'actions',null,'combat-remove',{index:0});assert.throws(()=>cmd(p,'actions',null,'combat-remove',{index:0}),/at least one/);});
 test('Item subtype initialization and attack source changes preserve canonical profiles',()=>{const p=createProject(),item=p.library.find(d=>d.kind==='item');const s={...selection(p),definitionId:item.id};applyDocumentCommand(p,s,'field',{scope:'definition',path:'subtype',value:'weapon',inputType:'text'});assert.deepEqual(item.combat.damage,{min:1,max:2});assert.deepEqual(item.combat.actions,[]);const a=p.library.find(d=>d.kind==='combatAction');applyDocumentCommand(p,{...s,definitionId:a.id},'field',{scope:'definition',path:'attack.source',value:'weapon',inputType:'text'});assert.equal(a.attack.source,'weapon');assert.equal(a.attack.key,undefined);});
 test('Project combat settings and Combat Enemy picker are normal editable reference fields',()=>{const p=createProject();p.library.push(createEnemy('enemy'));const html=projectSettingsInspector(p);assert(html.includes('data-path="showDeathBeat"'));assert(!html.includes('combat.defaultActions'));assert(!html.includes('combat.playerHit'));const result=applyDocumentCommand(p,selection(p),'add-node',{type:'combat'});const node=p.chapters[0].nodes.find(n=>n.id===result.selection.selected);applyDocumentCommand(p,{...selection(p),selected:node.id},'field',{scope:'node',path:'enemy.definitionId',value:'enemy'});const nodeHtml=nodeInspector(p,p.chapters[0],node);assert(nodeHtml.includes('data-path="enemy.definitionId"'));assert(!nodeHtml.includes('End chapter'));assert(!nodeHtml.includes('data-path="health"'));assert(definitionUsage(p,'enemy').references.some(r=>r.nodeId===node.id));});
@@ -69,7 +69,7 @@ test('percentage editing stores an exact rational threshold without changing unt
 
 test('Combat beat introduction toggle reuses Enemy content independently per encounter',()=>{
  const p=createProject(),e=createEnemy('enemy');p.library.push(e);
- field(p,'text','A rat appears.');field(p,'image','rat.png');
+ field(p,'headline','A rat appears.');field(p,'image','rat.png');
  const chapter=p.chapters[0];
  const add=()=>{const result=applyDocumentCommand(p,selection(p),'add-node',{type:'combat'});const node=chapter.nodes.find(n=>n.id===result.selection.selected);node.enemy={definitionId:e.id};return node;};
  const first=add(),second=add();
@@ -81,16 +81,16 @@ test('Combat beat introduction toggle reuses Enemy content independently per enc
  assert(!html.includes('data-path="introEnabled"'));
  assert(!html.includes('data-path="intro.'));assert(!html.includes('data-preview-path="intro.'));
  toggle(false);toggle(true);
- assert.equal(e.text,'A rat appears.');assert.equal(e.image,'rat.png');assert.equal(e.intro,undefined);
+ assert.equal(e.headline,'A rat appears.');assert.equal(e.image,'rat.png');assert.equal(e.intro,undefined);
  assert.deepEqual(validateProject(p),[]);
 });
 
 test('Enemy death is one required editable card without list controls',()=>{
  const p=createProject(),e=createEnemy('enemy');p.library.push(e);
- field(p,'death.0.text','The rat falls.');
- assert.equal(e.death[0].text,'The rat falls.');
+ field(p,'death.0.headline','The rat falls.');
+ assert.equal(e.death[0].headline,'The rat falls.');
  const html=definitionInspector(p,e);
- assert(html.includes('data-path="death.0.text"'));
+ assert(html.includes('data-path="death.0.headline"'));
  assert(!/data-command="combat-(?:add|move|remove)"[^>]*data-path="death"/.test(html));
  for(const command of ['combat-add','combat-remove','combat-move'])assert.throws(()=>cmd(p,'death','caption',command,{index:0,direction:1}),/one required card/);
  e.death.push({...e.death[0],id:'extra-death'});

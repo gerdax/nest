@@ -257,6 +257,29 @@
 }
 .nest-card[data-card-kind="caption"] .nest-copy > p {margin:0;width:100%;}
 
+/* Authored Caption and Description keep the same typography on every kind. */
+.nest-card[data-semantic-text="true"] .nest-card-title {
+  font-family: var(--card-font, NestLetter, monospace);
+  font-size: var(--card-font-size, clamp(16px, 4vw, 21px));
+  font-weight: normal;
+  line-height: 1.45;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--card-text, #d2dfb6);
+  white-space: pre-wrap;
+  margin: 12px 0 0;
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+.nest-card[data-semantic-text="true"] .nest-copy > p.nest-card-description {
+  font-size: var(--card-medium-size, 15px);
+  line-height: 1.35;
+  color: var(--card-medium-color, var(--card-text, #d2dfb6));
+  margin: 12px 0 0;
+}
+.nest-card[data-semantic-text="true"] .nest-copy > p.nest-card-description:empty { display:none; }
+.nest-card[data-card-kind="caption"][data-semantic-text="true"] .nest-card-title { margin:0;width:100%; }
+
 .nest-copy p.nest-card-inventory {
   font-size: var(--card-small-size, 12px);
   line-height: 1.2;

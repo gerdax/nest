@@ -32,7 +32,7 @@ const flush=async()=>{await Promise.resolve();await Promise.resolve();await Prom
 test('lethal direct departure overrides an unlinked output; previews never commit it',()=>{
   const {deck,controller,errors}=fixture([{id:'start',type:'linear',cards:[story('danger',{effects:lethal}),story('unreachable')],connections:{}}],{}, {nodeEntryEffects:{death:[{op:'add',key:'health',value:1}]}});
   assert.equal(controller.state.variables.health,5);assert.equal(controller.state.activeNodeId,'start');
-  assert.equal(deck.content.nextDeckPreview.content.text,'death-one');assert.equal(deck.content.nextTransition,'flip');
+  assert.equal(deck.content.nextDeckPreview.content.heading,'death-one');assert.equal(deck.content.nextTransition,'flip');
   assert.equal(deck.content.advanceDisabled,false);assert.equal(deck.resets,1);
   assert.equal(controller.deathDestination({health:0}).node.id,'death');assert.equal(controller.state.variables.health,5);
   deck.accept();
@@ -56,7 +56,7 @@ test('Death cards progress once at zero health and halt without chapter completi
 
 for(const initial of [0,-2])test(`initial health ${initial} adopts Death before ordinary node entry`,()=>{
   const {deck,controller,errors}=fixture([{id:'start',type:'random',routes:[],fallback:false}],{}, {initialState:{variables:{health:initial}},nodeEntryEffects:{start:[{op:'add',key:'health',value:100}]},rng:()=>{throw new Error('No random draw during death');}});
-  assert.equal(controller.state.activeNodeId,'death');assert.equal(controller.state.variables.health,0);assert.equal(deck.content.text,'death-one');assert.deepEqual(errors,[]);controller.destroy();
+  assert.equal(controller.state.activeNodeId,'death');assert.equal(controller.state.variables.health,0);assert.equal(deck.content.heading,'death-one');assert.deepEqual(errors,[]);controller.destroy();
 });
 
 for(const variables of [[],[{id:'health',type:'flag',initial:false}],[{id:'health',initial:'0'}]])test(`missing or nonnumeric health does not infer player death: ${JSON.stringify(variables)}`,()=>{
@@ -101,7 +101,7 @@ for(const type of ['container','linear'])test(`final ${type} collection stages D
   const node=type==='linear'?{id:'start',type,cards:[item],connections:{}}:{id:'start',type,introEnabled:false,items:[item],connections:{}};
   const {deck,controller,errors}=fixture([node]);
   assert.equal(deck.content.actions[0].collectDisabled,false);deck.take('poison');
-  assert.equal(controller.state.variables.health,5);assert.deepEqual(controller.state.collectedItems,[]);assert.equal(controller.state.activeNodeId,'start');assert.equal(deck.pending.text,'death-one');assert.equal(deck.resets,1);
+  assert.equal(controller.state.variables.health,5);assert.deepEqual(controller.state.collectedItems,[]);assert.equal(controller.state.activeNodeId,'start');assert.equal(deck.pending.heading,'death-one');assert.equal(deck.resets,1);
   deck.finishTake();assert.equal(controller.state.activeNodeId,'death');assert.equal(controller.state.variables.health,0);assert.equal(controller.state.collectedItems[0].definitionId,'poison');assert.equal(deck.resets,1);assert.deepEqual(errors,[]);controller.destroy();
 });
 
@@ -117,7 +117,7 @@ for(const departing of [false,true])test(`lethal intro uses accepted reveal chor
   if(departing){deck.busy=true;deck.phase='committing';deck.commitMotion={introduction:true};}
   const id=deck.content.id;deck.emit('reveal');
   assert.equal(controller.state.variables.health,0);assert.equal(deck.resets,1);
-  if(departing){assert.equal(controller.state.activeNodeId,'death');assert.equal(deck.pending.text,'death-one');deck.arrive();}
+  if(departing){assert.equal(controller.state.activeNodeId,'death');assert.equal(deck.pending.heading,'death-one');deck.arrive();}
   else {assert.equal(controller.state.activeNodeId,'start');deck.emit('transitioncomplete',{transition:'reveal'});await flush();assert.equal(deck.turns,1);}
   assert.equal(controller.state.activeNodeId,'death');assert.equal(controller.pendingIntro,null);
   deck.emit('transitioncomplete',{contentId:id,transition:'reveal'});assert.equal(controller.state.cardId,'death-one');controller.destroy();
@@ -166,8 +166,8 @@ function dispose(deck,controller){controller.destroy();deck.destroy();settle();}
 for(const reduced of [false,true])test(`native deck preserves lethal intro departure and Death halt, reduced=${reduced}`,async()=>{
   const {deck,controller,errors}=real({id:'start',type:'container',intro:story('intro',{effects:lethal}),items:[{id:'item',kind:'item'}],connections:{}});deck.reduced=reduced;
   let resets=0;const reset=deck.reset.bind(deck);deck.reset=(...args)=>{resets++;return reset(...args);};
-  deck.commitIntroduction();assert.equal(controller.state.activeNodeId,'death');assert.equal((deck.pending??deck.content).text,'death-one');settle();await flush();
-  assert.equal(deck.content.text,'death-one');assert.equal(deck.phase,'closed');assert.equal(resets,0);
+  deck.commitIntroduction();assert.equal(controller.state.activeNodeId,'death');assert.equal((deck.pending??deck.content).heading,'death-one');settle();await flush();
+  assert.equal(deck.content.heading,'death-one');assert.equal(deck.phase,'closed');assert.equal(resets,0);
   deck.commitCover();settle();assert.equal(controller.state.cardId,'death-two');
   deck.commitCover();settle();assert.equal(deck.phase,'ended');assert.equal(controller.state.terminalReason,'death');assert.equal(controller.state.completed,false);assert.deepEqual(errors,[]);dispose(deck,controller);
 });
@@ -175,7 +175,7 @@ for(const final of [false,true])test(`native deck collection Death handoff prese
   const {deck,controller,errors}=real({id:'start',type:'container',introEnabled:false,items:[{id:'poison',kind:'item',onCollect:lethal},...(!final?[{id:'safe',kind:'item'}]:[])],connections:{}});
   let resets=0;const reset=deck.reset.bind(deck);deck.reset=(...args)=>{resets++;return reset(...args);};
   deck.index=0;deck.b.x=deck.b.target=0;deck.collect();assert.equal(controller.state.variables.health,5);assert.notEqual(deck.collectMotion,null);assert.equal(resets,0);
-  settle();await flush();settle();assert.equal(controller.state.activeNodeId,'death');assert.equal(controller.state.variables.health,0);assert.equal(deck.content.text,'death-one');assert.equal(deck.phase,'closed');assert.equal(resets,0);assert.deepEqual(errors,[]);dispose(deck,controller);
+  settle();await flush();settle();assert.equal(controller.state.activeNodeId,'death');assert.equal(controller.state.variables.health,0);assert.equal(deck.content.heading,'death-one');assert.equal(deck.phase,'closed');assert.equal(resets,0);assert.deepEqual(errors,[]);dispose(deck,controller);
 });
 
 test('combat defeat can follow Failure with one Health, while ordinary defeat still plays Death',()=>{

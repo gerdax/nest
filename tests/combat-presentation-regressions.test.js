@@ -98,7 +98,7 @@ test('combat choices preserve cooldown metadata when requirements or costs expla
 });
 
 test('combat choices stably group source actions, defaults, and all cooling actions without mutating choices',()=>{
- const source={id:'blade',definitionId:'blade',inventoryKey:'blade-1',name:'Blade'};
+ const source={id:'blade',definitionId:'blade',inventoryKey:'blade-1',name:'Blade',headline:'Blade'};
  const choice=(id,{source=null,cooldownRemaining=0,disabled=false,disabledReason=''}={})=>({id,action:{name:id,resolution:'direct'},source,cooldownRemaining,disabled,disabledReason});
  const choices=[
   choice('default-cooling',{cooldownRemaining:1,disabled:true,disabledReason:'Cooldown: 1 turn'}),
@@ -176,7 +176,7 @@ test('owned prepared action previews preserve mechanics when rendering as a Capt
  const action={kind:'combatAction',type:'attack',resolution:'direct',presentationKind:'caption',text:'Deals [DMG]; costs [ENERGYCOST].',attack:{source:'self',damage:{min:3,max:3},minBonus:0,maxBonus:0},costs:[]};
  const preview=combatCard(action,'preview',{enemy:true});
  const runtime=enemyActionCard(action,'runtime');
- assert.equal(preview.text,'Deals 3; costs 0.');assert.equal(preview.text,runtime.text);
+ assert.equal(preview.heading,'Deals 3; costs 0.');assert.equal(preview.heading,runtime.heading);assert.equal(preview.text,'');assert.equal(runtime.text,'');
 });
 
 

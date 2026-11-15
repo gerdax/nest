@@ -25,10 +25,10 @@ function render(face) {
 
 test('Action markers show only positive upfront energy totals, never consequences or other costs',()=>{
   for (const [costs,total] of [[[],0],[[energy(0)],0],[[energy(1)],1],[[energy(3)],3],[[energy(1),energy(2)],3]]) {
-    const card={...createDefinition('action','try'),costs,effects:[{op:'add',key:'energy',value:-2}],text:'Lose 2 energy if the attempt fails.'};
+    const card={...createDefinition('action','try'),costs,effects:[{op:'add',key:'energy',value:-2}],description:'Lose 2 energy if the attempt fails.'};
     const face=cardFace(card),front=render(face);
     assert.equal(face.actionEnergyCost,total);
-    assert.equal(face.text,card.text,'authored prose is never heuristically stripped');
+    assert.equal(face.text,card.description,'authored prose is never heuristically stripped');
     assert.equal(face.summary,'Effects: Lose 2 energy');
     if (total>0) {
       assert.equal(marker(front).children[0].textContent,`-${total}`);
@@ -47,7 +47,7 @@ test('resolved placement cost matches editor and player, and failure loss is add
   const project=createProject(),node=project.chapters[0].nodes.find(node=>node.type==='fork');
   const placement=node.choices[0];
   const definition=project.library.find(card=>card.id===placement.definitionId);
-  Object.assign(definition,{text:'Try the door. On failure, lose 2 energy.',costs:[energy(1)],resolution:'check',
+  Object.assign(definition,{description:'Try the door. On failure, lose 2 energy.',costs:[energy(1)],resolution:'check',
     failureEffects:[{op:'add',key:'energy',value:-2}]});
   placement.overrides={costs:[energy(2)]};
   node.connections={[`${placement.id}:success`]:null,[`${placement.id}:failure`]:null};

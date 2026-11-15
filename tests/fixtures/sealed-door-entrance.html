@@ -1,0 +1,43 @@
+<!doctype html><meta charset="utf-8"><base href="../../">
+<title>The sealed door entrance timing</title>
+<link rel="stylesheet" href="engine/card-deck.css"><link rel="stylesheet" href="studio/inventory.css"><link rel="stylesheet" href="studio/preview.css"><link rel="stylesheet" href="studio/playfield.css">
+<style>body{margin:16px;background:#172020;color:#dce5ce;font:14px system-ui}main{display:flex;gap:24px}#frame{width:359px;height:745px;flex:none}aside{max-width:540px}pre{white-space:pre-wrap}button{padding:10px}</style>
+<main><section id="frame" class="nest-playfield"><div id="preview"></div></section><aside><h1>The sealed door</h1><p>Read-only timing verification using the saved open project. No project data is written.</p><button id="measure" disabled>Measure Hmm → USING</button><pre id="result">Loading saved project…</pre></aside></main>
+<script type="module">
+import {parseProject} from '../../project/model.js';
+import {ProjectPreview} from '../../studio/ProjectPreview.js';
+const result=document.querySelector('#result'),button=document.querySelector('#measure');
+const preview=new ProjectPreview(document.querySelector('#preview'),{inventoryHost:document.querySelector('#frame')});
+const waitFor=predicate=>new Promise((resolve,reject)=>{
+ const start=performance.now();const frame=()=>{if(predicate())resolve();else if(performance.now()-start>15000)reject(new Error('Animation timeout'));else requestAnimationFrame(frame);};frame();
+});
+let project,chapter,node,previous,action;
+try{
+ const response=await fetch('/api/project?file=first-descent-chapter-1-en.json',{cache:'no-store'});
+ const saved=await response.json();project=parseProject(saved.text);
+ chapter=project.chapters.find(c=>c.nodes.some(n=>n.name.toLowerCase()==='the sealed door'));
+ node=chapter.nodes.find(n=>n.name.toLowerCase()==='the sealed door');
+ const index=node.cards.findIndex(p=>p.contextItemId);action=node.cards[index];previous=node.cards[index-1];
+ button.disabled=false;result.textContent=`Loaded ${project.name}\n${node.name}\nClick to measure the actual predecessor and triggered Action.`;
+}catch(error){result.textContent=error.stack;}
+button.onclick=async()=>{
+ button.disabled=true;result.textContent='Measuring…';
+ let deck,install,begin,start;
+ try{
+  preview.play(project,chapter.id,node.id,{startPlacementId:previous.id});deck=preview.deck;
+  await waitFor(()=>preview.controller.state.idle);
+  const times={};let states;
+  install=deck.install;begin=deck.beginEntrances;start=deck.startNextEntrance;
+  deck.install=function(content,options){install.call(this,content,options);if(content.entranceBackdrop){times.adopted=performance.now();states={fan:{...this.fan},depth:{...this.n},flip:{...this.flip}};}};
+  deck.beginEntrances=function(transition){times.queue=performance.now();begin.call(this,transition);times.deadline=this.entranceNextAt;};
+  deck.startNextEntrance=function(time){times.slide=performance.now();times.depthAtSlide={...this.n};start.call(this,time);};
+  times.swipe=performance.now();deck.key({key:'ArrowUp',preventDefault(){}});
+  await waitFor(()=>preview.controller.state.cardId===action.id&&preview.controller.state.idle);
+  times.ready=performance.now();
+  result.textContent=JSON.stringify({project:project.name,node:node.name,previous:project.library.find(d=>d.id===previous.definitionId)?.headline,
+   action:action.id,trigger:action.contextItemId,adoptionToQueueMs:Math.round(times.queue-times.adopted),configuredPauseMs:Math.round(times.deadline-times.queue),
+   adoptionToSlideMs:Math.round(times.slide-times.adopted),queueToSlideMs:Math.round(times.slide-times.queue),swipeToSlideMs:Math.round(times.slide-times.swipe),states,times},null,2);
+ }catch(error){result.textContent=error.stack;}
+ finally{if(deck){if(install)deck.install=install;if(begin)deck.beginEntrances=begin;if(start)deck.startNextEntrance=start;}button.disabled=false;}
+};
+</script>

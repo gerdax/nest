@@ -18,8 +18,8 @@ const combat=(id,next,enemy={definitionId:''})=>node(id,'combat',{enemy,connecti
 const fork=(id,next,fields={})=>node(id,'fork',{choices:[],connections:{next},...fields});
 function fixture(nodes){
  const project=createProject(),chapter=project.chapters[0];
- const shown=createDefinition('event','shown');shown.text='Visible';
- const intro=createDefinition('event','intro');intro.text='Introduction';intro.effects=[{op:'add',key:'energy',value:1}];
+ const shown=createDefinition('event','shown');shown.headline='Visible';
+ const intro=createDefinition('event','intro');intro.headline='Introduction';intro.effects=[{op:'add',key:'energy',value:1}];
  project.library.push(shown,intro);
  chapter.nodes=[...nodes,linear('end',null,[{id:'sentinel',definitionId:'shown'}]),...chapter.nodes.filter(n=>n.type==='death')];chapter.startNode=nodes[0].id;
  return project;
@@ -59,7 +59,7 @@ for(const enabled of [false,true])test(`choice-free Fork intro ${enabled?'plays 
  const project=fixture([fork('fork','end',{introEnabled:enabled,intro:{id:'intro-placement',definitionId:'intro'}})]);
  assert.deepEqual(validateProject(project),[]);const h=play(project);
  if(enabled){
-  assert.equal(h.controller.state.cardId,'intro-placement');assert.equal(h.deck.content.text,'Introduction');assert.equal(h.deck.content.directAdvance,true);
+  assert.equal(h.controller.state.cardId,'intro-placement');assert.equal(h.deck.content.heading,'Introduction');assert.equal(h.deck.content.directAdvance,true);
   assert.equal(h.controller.variables.energy,3);h.deck.reveal();assert.equal(h.controller.variables.energy,3);
   h.deck.accept();assert.equal(h.controller.variables.energy,4);
  }
@@ -76,7 +76,7 @@ test('introOnce empty Fork skips a committed introduction on revisits, with pure
 });
 
 test('blank narrative cards and authored unavailable Fork choices remain playable or blocked, not empty',()=>{
- const project=fixture([linear('blank','end',[{id:'blank-card',definitionId:'shown'}])]);project.library.find(d=>d.id==='shown').text='';
+ const project=fixture([linear('blank','end',[{id:'blank-card',definitionId:'shown'}])]);project.library.find(d=>d.id==='shown').headline='';
  const h=play(project);assert.equal(h.controller.state.cardId,'blank-card');h.controller.destroy();
  const choice=createDefinition('action','choice');choice.conditions=[{source:'variable',key:'energy',op:'eq',value:999}];
  const p=fixture([fork('fork','end',{choices:[{id:'choice-placement',definitionId:'choice'}],connections:{'choice-placement':'end'}})]);p.library.push(choice);p.unavailableActions='hidden';

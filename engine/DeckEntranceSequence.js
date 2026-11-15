@@ -15,10 +15,10 @@ export class DeckEntranceSequence {
     this.entranceActiveId = this.entranceNextAt = this.entranceSelectedId = this.entranceTransition = null;
   }
 
-  begin({ transition, selectedId, time }) {
+  begin({ transition, selectedId, time, delay = 200 }) {
     this.entranceTransition = transition;
     this.entranceSelectedId = selectedId;
-    this.entranceNextAt = this.entrances.size ? time + 200 : null;
+    this.entranceNextAt = this.entrances.size ? time + delay : null;
   }
 
   nextDue(time) {

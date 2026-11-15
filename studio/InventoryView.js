@@ -1,3 +1,4 @@
+import {cardText} from '../project/card-text.js';
 import { uiScale } from './ui-scale.js';
 import { applyArtworkColorize } from '../engine/artworkColorize.js';
 import { artworkUrl } from '../engine/artworkReload.js';
@@ -5,7 +6,7 @@ import { DrawerMotion } from './drawer-motion.js';
 import { dialogLayout } from './dialog-layout.js';
 
 const identity = item => item?.definitionId ?? item?.id;
-const name = item => item?.name || item?.label || 'Item';
+const name = item => cardText(item).headline || 'Item';
 
 /** Inventory presentation; the controller alone mutates ownership and effects. */
 export class InventoryView {

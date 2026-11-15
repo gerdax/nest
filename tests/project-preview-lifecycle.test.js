@@ -113,7 +113,7 @@ test('card preview starts a linear beat at the chosen card with only entry effec
  const first=project.library.find(card=>card.id==='arrival');
  first.effects=[{op:'add',key:'energy',value:4}];
  beat.entryEffects=[{op:'add',key:'energy',value:2}];
- project.library.push({...createDefinition('caption','middle'),text:'Middle'},{...createDefinition('caption','last'),text:'Last'});
+ project.library.push({...createDefinition('caption','middle'),headline:'Middle'},{...createDefinition('caption','last'),headline:'Last'});
  beat.cards.push({id:'middle-card',definitionId:'middle'},{id:'last-card',definitionId:'last'});
  const preview=new ProjectPreview(new Element(),{onGoToCard(){}});
  try {

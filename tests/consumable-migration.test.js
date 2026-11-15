@@ -21,7 +21,8 @@ for(const version of [2,3])test(`version ${version} Health/Energy migrate lossle
  const old=oldProject(version),text=JSON.stringify(old),p=parseProject(text);
  for(const subtype of ['health','energy']){
   const before=old.library.find(d=>d.id===`old-${subtype}`),after=p.library.find(d=>d.id===before.id);
-  assert.deepEqual(after,{...before,kind:'consumable',subtype});
+  const {text,...rest}=before;
+  assert.deepEqual(after,{...rest,kind:'consumable',subtype,headline:before.name,description:text});
  }
  assert.equal(JSON.stringify(old),text);assert.deepEqual(validateProject(p),[]);
  assert.deepEqual(parseProject(JSON.stringify(p)),p);

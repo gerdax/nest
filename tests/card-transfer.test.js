@@ -389,7 +389,7 @@ for (const replace of [false,true]) test(`moving a Container introduction preser
   assert.equal(f.source.introEnabled, false);
   const definition = f.project.library.find(card => card.id === fresh.definitionId);
   assert.equal(definition.kind, 'event');
-  assert.equal(definition.text, '');
+  assert.equal(definition.headline, '');
   assert.equal(definition.visibility, 'local');
   assert.equal(definition.chapterId, f.chapter.id);
   assert.deepEqual(validateProject(f.project, {allowDraft:true}), []);

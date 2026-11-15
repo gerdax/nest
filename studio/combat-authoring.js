@@ -1,6 +1,7 @@
+import {cardText} from '../project/card-text.js';
 import {isDodgeFeedback} from './common-library.js';
 import {attackDamageRange,enemyActionSelection} from '../project/combat-rules.js';
-import {field,select,checkbox,button,imageField,artworkEditor,rules,actionResolutionFields,checkSettingsFields,esc} from './forms.js';
+import {cardCopyFields,field,select,checkbox,button,imageField,artworkEditor,rules,actionResolutionFields,checkSettingsFields,esc} from './forms.js';
 import {createEnemyAction,createEffectCard,createCombatAction} from '../project/combat-model.js';
 import {uid,pathTarget} from './commands.js';
 const refs=(project,kind)=>[['','Choose a Library definition'],...project.library.filter(d=>d.kind===kind&&d.visibility!=='local').map(d=>[d.id,d.name||d.id])];
@@ -22,7 +23,7 @@ function embeddedImage(card,path,definitionId,enemy=false){
 }
 function embeddedCard(card,path,definitionId,{kinds=['event','discovery','caption'],heading='Card',fixedLabel=false,editableName=true,collapsible=true,beforePreview=''}={}){
  if(!card)return '<p class="small">Missing required card.</p>';
- return (collapsible?`<details class="entry combat-embedded" open><summary>${esc(heading)}${fixedLabel?'':` · ${esc(card.name||'Untitled')}`}</summary>`:'')+(editableName?field('Name',card.name,`${path}.name`):'')+ (kinds.length>1?select('Card type',card.kind,kinds.map(k=>[k,k==='event'?'Vignette':k==='discovery'?'Discovery':k==='effect'?'Feedback':'Caption']),`${path}.kind`):'')+field('Description',card.text,`${path}.text`,'definition','textarea')+beforePreview+embeddedImage(card,path,definitionId)+(collapsible?'</details>':'');
+ return (collapsible?`<details class="entry combat-embedded" open><summary>${esc(heading)}${fixedLabel?'':` · ${esc(card.name||'Untitled')}`}</summary>`:'')+(editableName?field('Name',card.name,`${path}.name`):'')+ (kinds.length>1?select('Card type',card.kind,kinds.map(k=>[k,k==='event'?'Vignette':k==='discovery'?'Discovery':k==='effect'?'Feedback':'Caption']),`${path}.kind`):'')+cardTextFields(card,path)+beforePreview+embeddedImage(card,path,definitionId)+(collapsible?'</details>':'');
 }
 export function defendRevealFields(project,action,prefix=''){
  if(action.kind!=='combatAction'||action.type!=='defend')return '';
@@ -84,7 +85,7 @@ function ownedPreparedActions(project,enemy){
  return '<h3>Prepared actions</h3><p class="small">Create an action, choose its type, then add it to a Prepare action above.</p>'+(enemy.preparedActions||[]).map((action,i)=>{
   const path=`preparedActions.${i}`;
 
-  return orderedEntry(`<details class="entry combat-embedded" data-enemy-action-type="${esc(action.type||'attack')}" open><summary>${esc(action.name||'Prepared action')}</summary>`+field('Name',action.name,`${path}.name`)+select('Action type',action.type,[['attack','Attack'],['defend','Defend'],['wait','Wait']],`${path}.type`)+field('Description',action.text,`${path}.text`,'definition','textarea')+combatActionFields(project,action,`${path}.`,{enemy:true,owned:true,showType:false})+embeddedImage(action,path,enemy.id,true)+'</details>','preparedActions',i,enemy.preparedActions.length,{label:'prepared action'});
+  return orderedEntry(`<details class="entry combat-embedded" data-enemy-action-type="${esc(action.type||'attack')}" open><summary>${esc(action.name||'Prepared action')}</summary>`+field('Name',action.name,`${path}.name`)+select('Action type',action.type,[['attack','Attack'],['defend','Defend'],['wait','Wait']],`${path}.type`)+cardTextFields(action,path,{enemyAction:true})+combatActionFields(project,action,`${path}.`,{enemy:true,owned:true,showType:false})+embeddedImage(action,path,enemy.id,true)+'</details>','preparedActions',i,enemy.preparedActions.length,{label:'prepared action'});
  }).join('')+add('Add prepared action','preparedActions','prepared-action');
 }
 
@@ -92,7 +93,7 @@ function weaponActions(project,weapon,chapter){
  return '<h3>Combat Actions</h3><p class="small">Owned by this Weapon and available while the player carries it.</p>'+(weapon.combat?.actions||[]).map((action,i)=>{
  const path=`combat.actions.${i}`;
  if(action.kind!=='combatAction')return '<p class="small">Missing Combat Action. Restore its source definition to migrate it.</p>';
- return `<details class="entry combat-embedded" open><summary>${esc(action.name||'Combat Action')}</summary>`+field('Name',action.name,`${path}.name`)+combatActionTypeField(action,`${path}.`)+field('Description',action.text,`${path}.text`,'definition','textarea')+combatActionFields(project,action,`${path}.`,{showType:false,weapon,chapter})+embeddedImage(action,path,weapon.id)+defendRevealFields(project,action,`${path}.`)+controls('combat.actions',i,weapon.combat.actions.length)+'</details>';
+ return `<details class="entry combat-embedded" open><summary>${esc(action.name||'Combat Action')}</summary>`+field('Name',action.name,`${path}.name`)+combatActionTypeField(action,`${path}.`)+cardTextFields(action,path)+combatActionFields(project,action,`${path}.`,{showType:false,weapon,chapter})+embeddedImage(action,path,weapon.id)+defendRevealFields(project,action,`${path}.`)+controls('combat.actions',i,weapon.combat.actions.length)+'</details>';
  }).join('')+add('Add combat action','combat.actions','weapon-action');
 }
 export function combatDefinitionFields(project,d,chapter){
@@ -104,7 +105,7 @@ export function combatDefinitionFields(project,d,chapter){
  let html='';
  html+='<h3>Combat Actions</h3>'+select('Action selection',Object.hasOwn(d,'actionSelection')&&!['random','order'].includes(d.actionSelection)?d.actionSelection:enemyActionSelection(d),[['random','Random'],['order','Order']],'actionSelection')+'<p class="small">'+(d.actionSelection==='random'||!Object.hasOwn(d,'actionSelection')&&d.mechanics==='opposed-preparation'?'One action is selected each enemy turn using Random weights. Equal weights mean equal chances.':'Actions play from top to bottom, then repeat. Random weights are ignored.')+'</p>'+(d.actions||[]).map((action,i)=>{
  const path=`actions.${i}`;
- return orderedEntry(`<details class="entry" data-enemy-action-type="${esc(action.type||'attack')}" open><summary>${i+1} · ${esc(action.name)}</summary>`+field('Name',action.name,`${path}.name`)+combatActionTypeField(action,`${path}.`,'definition',{enemy:true})+field('Random weight',action.weight??1,`${path}.weight`,'definition','number').replace('step="any"','step="1" min="1"')+'<p class="small">Used by Random selection. Ignored in Order; kept when switching modes.</p>'+field('Description',action.text,`${path}.text`,'definition','textarea')+combatActionFields(project,action,`${path}.`,{enemy:true,showType:false,opposedPreparation:d.mechanics==='opposed-preparation'})+(action.type==='prepare'&&(d.mechanics==='opposed-preparation'||Array.isArray(action.preparedActions))?preparedActionFields(d,action,path):'')+embeddedImage(action,path,d.id,true)+'</details>','actions',i,d.actions.length,{min:1,label:'combat action'});
+ return orderedEntry(`<details class="entry" data-enemy-action-type="${esc(action.type||'attack')}" open><summary>${i+1} · ${esc(action.name)}</summary>`+field('Name',action.name,`${path}.name`)+combatActionTypeField(action,`${path}.`,'definition',{enemy:true})+field('Random weight',action.weight??1,`${path}.weight`,'definition','number').replace('step="any"','step="1" min="1"')+'<p class="small">Used by Random selection. Ignored in Order; kept when switching modes.</p>'+cardTextFields(action,path,{enemyAction:true})+combatActionFields(project,action,`${path}.`,{enemy:true,showType:false,opposedPreparation:d.mechanics==='opposed-preparation'})+(action.type==='prepare'&&(d.mechanics==='opposed-preparation'||Array.isArray(action.preparedActions))?preparedActionFields(d,action,path):'')+embeddedImage(action,path,d.id,true)+'</details>','actions',i,d.actions.length,{min:1,label:'combat action'});
  }).join('')+add('Add combat action','actions','enemy-action');
 
  if(d.mechanics==='opposed-preparation'||Array.isArray(d.preparedActions))html+=ownedPreparedActions(project,d);
@@ -159,9 +160,14 @@ export function applyCombatArrayCommand(root,data){
   else if(data.factory==='reference')value={definitionId:''};
   else if(data.factory==='enemy-action'||data.factory==='attack')value=createEnemyAction(id);
   else if(data.factory==='weapon-action')value={...createCombatAction(id),attack:{source:'weapon',minBonus:0,maxBonus:0}};
-  else if(data.factory==='reaction')value={id,threshold:{numerator:1,denominator:2},card:{id:uid('caption'),kind:'caption',name:'Reaction',text:'',image:'',effects:[]}};
+  else if(data.factory==='reaction')value={id,threshold:{numerator:1,denominator:2},card:{id:uid('caption'),kind:'caption',name:'Reaction',headline:'',description:'',image:'',effects:[]}};
   else if(data.factory==='effect')value=createEffectCard(id);
-  else value={id,kind:data.factory==='event'?'event':'caption',name:data.factory==='event'?'Introduction':'Death',text:'',image:'',effects:[]};
+  else value={id,kind:data.factory==='event'?'event':'caption',name:data.factory==='event'?'Introduction':'Death',headline:'',description:'',image:'',effects:[]};
   list.push(value);
  }
+}
+
+function cardTextFields(card,path,options={}) {
+ const copy=cardText(card,options);
+ return cardCopyFields(copy,{prefix:`${path}.`,description:['action','combatAction','item','consumable','health','energy'].includes(card.kind)});
 }

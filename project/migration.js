@@ -1,3 +1,4 @@
+import {cardText} from './card-text.js';
 import { ensureCombatDefaults } from './combat-model.js';
 import { createDefinition } from './cards.js';
 import { cloneProject, unique, walk } from './model-data.js';
@@ -9,7 +10,7 @@ export function migrateChapter(v1) {
     library, variables: source.variables || [], chapters: []};
   const bind = (raw, kind, seq) => {
     const definitionId = unique(`${seq.id}-${kind}-${raw.id}`, used);
-    const d = {...createDefinition(kind, definitionId), name: raw.label || raw.title || raw.id, heading: '', text: raw.text || '', image: raw.image || ''};
+    const d = {...createDefinition(kind, definitionId), name: raw.label || raw.title || raw.id, ...cardText({...raw,kind,name:raw.label||raw.title||raw.id,showName:kind==='item'}), image: raw.image || ''};
     if (raw.flipImage !== undefined) d.flipImage = raw.flipImage;
     if (kind === 'item') {
       d.inventoryKey = `${id}:${raw.id}`;

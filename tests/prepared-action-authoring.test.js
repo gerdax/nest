@@ -57,7 +57,7 @@ test('owned actions expose complete editors while shared combat actions keep pla
  const html=combatDefinitionFields(project,enemy);
  for(const [i,action] of enemy.preparedActions.entries()){
   const prefix=`preparedActions.${i}.`;
-  for(const path of ['name','type','text','effects','presentationKind','image','imageScale'])assert(html.includes(`data-path="${prefix}${path}"`),prefix+path);
+  for(const path of ['name','type','headline','description','effects','presentationKind','image','imageScale'])assert(html.includes(`data-path="${prefix}${path}"`),prefix+path);
   for(const path of ['successEffects','failureEffects','check.mode'])assert.equal(html.includes(`data-path="${prefix}${path}"`),action.type!=='wait');
   for(const path of ['conditions','costs','cooldown'])assert(!html.includes(`data-path="${prefix}${path}"`));
  }

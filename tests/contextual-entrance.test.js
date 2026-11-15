@@ -351,6 +351,18 @@ test('first contextual card waits 200ms after the hint before starting its slide
  settle();assert.equal(deck.content.actions[deck.index].id,'key');dispose(deck);
 });
 
+for(const count of [1,2])test(`Fork with ${count} contextual Actions still waits for depth and turn settlement`,()=>{
+ const deck=make(count,choices(Array.from({length:count},(_,i)=>contextual(`tool-${i}`))));
+ deck.setOpen(true);deck.schedule();until(()=>deck.phase==='inserting');
+ const deadline=deck.entranceNextAt,entry=deck.entrances.get('tool-0');
+ deck.n={x:1,v:0,target:0};deck.flip={x:0,v:0,target:0};
+ deck.advanceEntrances(deadline+1000);assert.equal(entry.startAt,null,'ordinary Fork entrance retains the depth gate');
+ deck.n={x:0,v:0,target:0};deck.flip={x:.5,v:0,target:0};
+ deck.advanceEntrances(deadline+1000);assert.equal(entry.startAt,null,'physical turn must finish');
+ deck.flip={x:0,v:0,target:0};deck.advanceEntrances(deadline+1000);
+ assert.notEqual(entry.startAt,null);settle();dispose(deck);
+});
+
 for(const ordinaryCount of [1,2,3])test(`pending inventory cards do not affect ${ordinaryCount} ordinary hint slots`,()=>{
  const base=Array.from({length:ordinaryCount},(_,i)=>ordinary(`base-${i}`));
  const incoming=[contextual('inventory-before'),base[0],contextual('inventory-middle'),...base.slice(1),contextual('inventory-after')];

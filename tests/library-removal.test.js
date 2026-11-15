@@ -35,7 +35,7 @@ test('enemy deletion names its combat beats and chapters without changing the pr
 
 function fixture(kind) {
   const project = createProject(), chapter = project.chapters[0];
-  const source = {...createDefinition(kind, 'removable'), visibility:'shared', text:'Source text', image:'source.png', imageScale:73};
+  const source = {...createDefinition(kind, 'removable'), visibility:'shared', [['event','caption'].includes(kind)?'headline':'description']:'Source text', image:'source.png', imageScale:73};
   project.library.push(source);
   const placement = {id:'kept-placement',definitionId:source.id,entrance:'left',unavailable:'hidden',context:{custom:true},flipImage:true};
   chapter.nodes.push({id:'removal-node',name:'Removal',type:'linear',x:0,y:0,cards:[placement],connections:{next:null}});
@@ -64,7 +64,7 @@ for (const kind of ['event','caption','action','item','health','energy']) test(`
   delete metadata.definitionId; delete metadata.overrides;
   const after = {...placement};delete after.definitionId;assert.deepEqual(after,metadata);
   assert.equal(project.library.some(d => d.id === source.id),false);
-  source.text='Changed'; assert.equal(local.text,'Source text');
+  const field=['event','caption'].includes(kind)?'headline':'description';source[field]='Changed'; assert.equal(local[field],'Source text');
 });
 
 test('each placement across all chapters including intros gets independent content and collision-safe IDs', () => {

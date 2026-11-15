@@ -40,7 +40,7 @@ for (const kind of ['health','energy']) {
   class Element {constructor(ownerDocument){this.ownerDocument=ownerDocument;this.children=[];this.style={};this.attrs={};}append(...nodes){this.children.push(...nodes);}setAttribute(k,v){this.attrs[k]=v;}}
   const previous=globalThis.document,doc={};doc.createElement=()=>new Element(doc);doc.body=doc.createElement();globalThis.document=doc;
   try {
-   const card={...createDefinition(kind,kind),value:4,image:'asset.png',text:'Restore'};
+   const card={...createDefinition(kind,kind),value:4,image:'asset.png',description:'Restore'};
    const face=cardFace(card),element=doc.createElement();decorateCard(null,element,face.image,face.heading,face.text,false,face);
    assert.equal(face.heading,card.name);assert.equal(face.value,4);
    const marker=element.children.find(n=>n.className==='nest-card-value');

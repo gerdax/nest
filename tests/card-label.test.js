@@ -17,7 +17,7 @@ test('editor labels prefer names, then normalized descriptions, then a type plac
 test('inspector heading uses escaped description but leaves the Name input empty',()=>{
  const project=createProject(),chapter=project.chapters[0],placement=chapter.nodes[0].cards[0];
  const card=project.library.find(card=>card.id===placement.definitionId);
- card.name='';card.text='Wake <here>\n& now';
+ card.name='';card.headline='Wake <here>\n& now';
  const html=placementInspector(project,placement,card.kind,0,'cards',1,chapter);
  assert.match(html,/>Wake &lt;here&gt; &amp; now<\/summary>/);
  assert.match(cardFields(project,card),/data-path="name"[^>]*value=""/);

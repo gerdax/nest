@@ -37,24 +37,24 @@ test('B: successful rat defense shows SUCCESS and advances without a blocking fe
 });
 test('rat defense reveal uses authored artwork and ignores preserved legacy blocking feedback',async()=>{
  const h=harness(),cards=revealedActions(h);
- Object.assign(cards.block,{text:'Edited defense reveal',image:'custom-block.png',imageScale:125,imageOffsetX:9,imageOffsetY:-3,flipImage:true});
+ Object.assign(cards.block,{headline:'Edited defense reveal',image:'custom-block.png',imageScale:125,imageOffsetX:9,imageOffsetY:-3,flipImage:true});
  cards.blocked={id:'legacy-blocked',kind:'event',name:'Old block result',text:'Edited block result',image:'custom-result.png',effects:[]};
  const seen=[],native=h.deck.replaceContent;h.deck.replaceContent=function(content,options){seen.push(content);return native.call(this,content,options);};
- await prepared(h);h.samples.push(.75,0);assert(!seen.some(card=>card.text==='Edited defense reveal'));await select(h,'Attack');
- const reveal=seen.find(card=>card.text==='Edited defense reveal');assert(reveal);for(const key of ['image','imageScale','imageOffsetX','imageOffsetY','flipImage'])assert.equal(reveal[key],cards.block[key]);
- assert(!seen.some(card=>card.text==='Edited block result'));assert.equal(h.c.phase,'enemy-action');assert.equal(h.c.pending,null);assert.equal(h.c.encounter.enemyHp,8);h.c.dispose();
+ await prepared(h);h.samples.push(.75,0);assert(!seen.some(card=>card.heading==='Edited defense reveal'));await select(h,'Attack');
+ const reveal=seen.find(card=>card.heading==='Edited defense reveal');assert(reveal);for(const key of ['image','imageScale','imageOffsetX','imageOffsetY','flipImage'])assert.equal(reveal[key],cards.block[key]);
+ assert(!seen.some(card=>card.heading==='Edited block result'));assert.equal(h.c.phase,'enemy-action');assert.equal(h.c.pending,null);assert.equal(h.c.encounter.enemyHp,8);h.c.dispose();
 });
 test('charge uses its authored reveal without replacing Bite rules or artwork',async()=>{
  const h=harness({declaration:'charge'}),cards=revealedActions(h),bite=structuredClone(h.c.enemy.actions[0]);
- Object.assign(cards.charge,{text:'Edited charge reveal',image:'custom-charge.png',imageScale:145,imageOffsetX:3,imageOffsetY:2,flipImage:true});
+ Object.assign(cards.charge,{headline:'Edited charge reveal',image:'custom-charge.png',imageScale:145,imageOffsetX:3,imageOffsetY:2,flipImage:true});
  const seen=[],native=h.deck.replaceContent;h.deck.replaceContent=function(content,options){seen.push(content);return native.call(this,content,options);};
- await prepared(h);await select(h,'Preparation');const reveal=seen.find(card=>card.text==='Edited charge reveal');assert(reveal);
+ await prepared(h);await select(h,'Preparation');const reveal=seen.find(card=>card.heading==='Edited charge reveal');assert(reveal);
  for(const key of ['image','imageScale','imageOffsetX','imageOffsetY','flipImage'])assert.equal(reveal[key],cards.charge[key]);
  assert.equal(h.c.pending.damage,4);assert.deepEqual(h.c.enemy.actions[0],bite);h.c.dispose();
 });
 test('holds ground uses its authored presentation card',async()=>{
- const h=harness(),card=revealedActions(h).hold;Object.assign(card,{presentationKind:'event',text:'Edited hold',image:'hold.png'});
- await prepared(h);await select(h,'Defend');assert.equal(h.deck.content.text,'Edited hold');assert.equal(h.deck.content.image,'hold.png');assert.equal(h.c.sequence.steps[0].card.id,card.id);assert.equal(h.rolls.length,0);h.c.dispose();
+ const h=harness(),card=revealedActions(h).hold;Object.assign(card,{presentationKind:'event',headline:'Edited hold',image:'hold.png'});
+ await prepared(h);await select(h,'Defend');assert.equal(h.deck.content.heading,'Edited hold');assert.equal(h.deck.content.image,'hold.png');assert.equal(h.c.sequence.steps[0].card.id,card.id);assert.equal(h.rolls.length,0);h.c.dispose();
 });
 test('B: missed attack skips the defensive roll and still consumes the declared defense',async()=>{
  const h=harness({dice:[[1,1,1]]});await prepared(h);h.samples.push(.75,0);await select(h,'Attack');
@@ -89,7 +89,7 @@ test('D: hit or missed charge consumes the paid defense without a player roll',a
 });
 test('Defense retains the authored Skip response against a prepared Dodge',async()=>{
  const h=harness();await prepared(h);await select(h,'Defend');
- assert.equal(h.rolls.length,0);assert.equal(h.deck.content.text,'The rat holds its ground');assert.equal(h.c.phase,'effects');
+ assert.equal(h.rolls.length,0);assert.equal(h.deck.content.heading,'The rat holds its ground');assert.equal(h.c.phase,'effects');
  assert.equal(h.host.variables.energy,2);assert.equal(h.c.encounter.preparationBonus,0);assert.equal(h.c.encounter.enemyHp,8);h.c.dispose();
 });
 test('Defend expires before the next player choice when Rat prepares instead of attacking',async()=>{
@@ -117,7 +117,7 @@ for(const next of ['attack','prepare'])test(`Preparation against Dodge bypasses 
  h.deck.transitionContent=async(content,...args)=>{shown.push(content);return transition(content,...args);};
  h.samples.push(...(next==='attack'?[0]:[.75,0]));
  await select(h,'Preparation');
- assert.equal(shown.some(card=>card.text===revealedActions(h).hold.text),false);
+ assert.equal(shown.some(card=>card.heading===revealedActions(h).hold.headline),false);
  assert.equal(h.c.encounter.preparationBonus,2);assert.equal(h.c.encounter.round,2);
  assert.equal(h.c.encounter.enemyHp,8);assert.equal(h.host.variables.energy,3);
  if(next==='attack'){
@@ -137,7 +137,7 @@ test('charge roll failure retries without charging guaranteed defense again',asy
  await swipe(h);assert.equal(h.c.phase,'choice');assert.equal(h.c.pending,null);assert.equal(h.host.variables.health,10);assert.equal(h.c.encounter.round,2);h.c.dispose();
 });
 test('failed defensive reveal preserves the player roll and pays the attack cost once',async()=>{
- const h=harness();await prepared(h);const attack=h.host.compiled.library.find(d=>d.id==='alternative-attack');attack.costs=[{source:'variable',key:'energy',amount:1}];const native=h.deck.replaceContent;let fail=true;h.deck.replaceContent=function(content,options){if(fail&&content.text?.includes('reveals its defense')){fail=false;throw new Error('Reveal unavailable');}return native.call(this,content,options);};
+ const h=harness();await prepared(h);const attack=h.host.compiled.library.find(d=>d.id==='alternative-attack');attack.costs=[{source:'variable',key:'energy',amount:1}];const native=h.deck.replaceContent;let fail=true;h.deck.replaceContent=function(content,options){if(fail&&content.heading?.includes('reveals its defense')){fail=false;throw new Error('Reveal unavailable');}return native.call(this,content,options);};
  await select(h,'Attack');assert.equal(h.c.phase,'error');assert.equal(h.host.variables.energy,2);assert.equal(h.rolls.length,1);h.samples.push(.75,0);await h.c.retry();assert.equal(h.rolls.length,2);assert.equal(h.host.variables.energy,2);assert.equal(h.c.phase,'enemy-action');assert.equal(h.c.pending,null);assert.equal(h.c.encounter.enemyHp,8);h.c.dispose();
 });
 test('effect retry never rerolls or commits damage before accepted departure',async()=>{
@@ -186,7 +186,7 @@ test('prepared attack breaks the declared block without a defense roll and deals
  const h=harness({dice:[[4,4,4]]});await prepared(h);h.c.encounter.preparationBonus=2;
  const shown=[],replace=h.deck.replaceContent.bind(h.deck);h.deck.replaceContent=(content,...args)=>{shown.push(content);return replace(content,...args);};
  await select(h,'Attack');
- assert.equal(shown.some(content=>/prepared attack breaks/i.test(content.text??content.heading??'')),false);
+ assert.equal(shown.some(content=>/prepared attack breaks/i.test(`${content.heading??''} ${content.text??''}`)),false);
  assert.equal(h.c.sequence.steps.length,1);assert.equal(h.c.sequence.steps[0].operation,'enemyDamage');
  assert.equal(h.rolls.length,1);assert.equal(h.c.pending.actor,'player');assert.equal(h.c.pending.damage,2);
  assert.equal(h.c.pending.defenseBroken,true);assert.equal(h.c.encounter.preparationBonus,0);assert.equal(h.c.encounter.enemyHp,8);
@@ -228,12 +228,12 @@ test('player block reveal uses the active Defend artwork and survives presentati
  const h=harness({declaration:'charge'});await prepared(h);
  const defend=h.host.compiled.library.find(d=>d.id==='alternative-defend');
  const feedback=h.host.compiled.library.find(d=>d.id===(defend.reveal?.definitionId||h.host.compiled.combat.playerDodge.definitionId));
- Object.assign(feedback,{text:'My shield stops the blow',image:'shield.png',imageScale:127,imageOffsetX:5,imageOffsetY:-6,flipImage:true});
+ Object.assign(feedback,{headline:'My shield stops the blow',image:'shield.png',imageScale:127,imageOffsetX:5,imageOffsetY:-6,flipImage:true});
  const native=h.deck.transitionContent.bind(h.deck);let fail=true;
  h.deck.transitionContent=async(content,options)=>{if(fail&&content.heading==='My shield stops the blow'){fail=false;return false;}return native(content,options);};
  await select(h,'Defend');assert.equal(h.c.phase,'error');assert.equal(h.host.variables.energy,2);assert.equal(h.rolls.length,1);
  await h.c.retry();assert.equal(h.c.phase,'effects');assert.equal(h.c.sequence.steps[0].definitionId,feedback.id);
- assert.equal(h.deck.content.heading,feedback.text);assert.equal(h.deck.content.typeLabel,'EFFECT');assert.equal(h.deck.content.showValue,false);
+ assert.equal(h.deck.content.heading,feedback.headline);assert.equal(h.deck.content.typeLabel,'EFFECT');assert.equal(h.deck.content.showValue,false);
  for(const key of ['image','imageScale','imageOffsetX','imageOffsetY','flipImage'])assert.equal(h.deck.content[key],feedback[key]);
  assert.equal(h.host.variables.health,10);assert.equal(h.host.variables.energy,2);assert.equal(h.rolls.length,1);
  await swipe(h);assert.equal(h.c.phase,'choice');assert.equal(h.c.pending,null);assert.equal(h.host.variables.health,10);assert.equal(h.host.variables.energy,2);h.c.dispose();
@@ -302,11 +302,11 @@ test('Direct enemy Dodge cancels the entire hit without a defensive dice roll',a
 
 test('custom weighted Prepare chooses from three reusable actions without adding player choices',async()=>{
  const h=harness(),prepare=h.c.enemy.actions.find(a=>a.type==='prepare');
- const wait={...structuredClone(revealedActions(h).hold),id:'custom-wait',text:'The rat hesitates.',effects:[{op:'add',key:'energy',value:-1}]};
+ const wait={...structuredClone(revealedActions(h).hold),id:'custom-wait',headline:'The rat hesitates.',effects:[{op:'add',key:'energy',value:-1}]};
  h.c.enemy.preparedActions.push(wait);
  prepare.preparedActions=[{actionId:wait.id,weight:8,trigger:'after-player-action'},...prepare.preparedActions];
  await prepared(h);assert(!h.c.choices().some(c=>c.action.id===wait.id));
- await select(h,'Preparation');assert.equal(h.deck.content.text,'The rat hesitates.');
+ await select(h,'Preparation');assert.equal(h.deck.content.heading,'The rat hesitates.');
  assert.equal(h.host.variables.energy,3);assert.equal(h.rolls.length,0);
  await swipe(h);assert.equal(h.host.variables.energy,2);assert.deepEqual(h.errors,[]);h.c.dispose();
 });
@@ -343,7 +343,7 @@ test('fallback can explicitly reveal Skip after player Prepare and apply its eff
  prepare.preparedActions[0].fallback.when=['prepare'];
  revealedActions(h).hold.effects=[{op:'add',key:'energy',value:-1}];
  await prepared(h);await select(h,'Preparation');
- assert.equal(h.deck.content.text,revealedActions(h).hold.text);assert.equal(h.host.variables.energy,3);
+ assert.equal(h.deck.content.heading,revealedActions(h).hold.headline);assert.equal(h.host.variables.energy,3);
  h.samples.push(.75,0);await swipe(h);assert.equal(h.host.variables.energy,2);assert.equal(h.c.encounter.preparationBonus,2);
  assert.equal(h.rolls.length,0);h.c.dispose();
 });
@@ -352,7 +352,7 @@ test('an older ordinary defense does not reveal or apply a secretly selected Rus
  const h=harness({declaration:'charge'}),rush=revealedActions(h).charge;
  rush.successEffects=[{op:'add',key:'energy',value:-1}];
  // This protection was already resolved on an earlier enemy turn.
- h.c.enemyDefense={...structuredClone(revealedActions(h).block),id:'earlier-shield',resolution:'direct',text:'Existing shield'};
+ h.c.enemyDefense={...structuredClone(revealedActions(h).block),id:'earlier-shield',resolution:'direct',headline:'Existing shield'};
  await prepared(h);await select(h,'Attack');
  assert.equal(h.host.variables.energy,3);assert.equal(h.c.pending.actor,'enemy');
  assert.equal(h.c.pending.damage,4);assert.equal(h.rolls.length,2);
@@ -366,13 +366,13 @@ test('a failed checked player Prepare still shows its configured unused-defense 
  playerPrepare.resolution='check';playerPrepare.check={pool:[{sides:6,count:3}],modifier:0,target:10};
  revealedActions(h).hold.effects=[{op:'add',key:'energy',value:-1}];
  await prepared(h);await select(h,'Preparation');assert.equal(h.feedback.at(-1).label,'FAIL');
- assert.equal(h.deck.content.text,revealedActions(h).hold.text);assert.equal(h.host.variables.energy,3);
+ assert.equal(h.deck.content.heading,revealedActions(h).hold.headline);assert.equal(h.host.variables.energy,3);
  h.samples.push(.75,0);await swipe(h);assert.equal(h.host.variables.energy,2);assert.equal(h.c.encounter.preparationBonus,0);h.c.dispose();
 });
 
 for(const damage of [1,2])test(`ordinary enemy Blockieren uses the revealed front for ${damage===1?'full':'partial'} numeric protection`,async()=>{
  const h=harness({dice:[[4,4,4]]});
- h.c.enemy.actions.push({id:'blockieren',kind:'combatAction',name:'Blockieren 1',text:'Blockieren 1',type:'defend',resolution:'direct',damageReduction:1,effects:[],costs:[],conditions:[],cooldown:0});
+ h.c.enemy.actions.push({id:'blockieren',kind:'combatAction',name:'Blockieren 1',headline:'Blockieren 1',type:'defend',resolution:'direct',damageReduction:1,effects:[],costs:[],conditions:[],cooldown:0});
  h.samples.splice(0,h.samples.length,.99);
  const playerAttack=h.host.compiled.library.find(d=>d.id==='alternative-attack');playerAttack.attack.damage={min:damage,max:damage};
  await h.c.start();assert.equal(h.deck.content.heading,'Blockieren 1');h.samples.push(.4,0);await swipe(h);
@@ -389,7 +389,7 @@ for(const damage of [1,2])test(`ordinary enemy Blockieren uses the revealed fron
 
 for(const type of ['defend','wait'])test(`direct enemy ${type} stages the player hand before its swipe instead of an empty back`,async()=>{
  const h=harness();
- h.c.enemy.actions=[{...structuredClone(h.c.enemy.actions.find(a=>a.type==='attack')),id:'direct-enemy',type,name:type==='defend'?'Blockieren 1':'Wait',text:type==='defend'?'Blockieren 1':'Rat waits',resolution:'direct',damageReduction:1}];
+ h.c.enemy.actions=[{...structuredClone(h.c.enemy.actions.find(a=>a.type==='attack')),id:'direct-enemy',type,name:type==='defend'?'Blockieren 1':'Wait',headline:type==='defend'?'Blockieren 1':'Rat waits',resolution:'direct',damageReduction:1}];
  h.samples.splice(0,h.samples.length,0);
  await h.c.start();assert.equal(h.c.phase,'enemy-action');
  const staged=h.deck.content.nextDeckPreview;
@@ -411,12 +411,12 @@ test('empty fallback timings disable the response while normal enemy combat cont
  const shown=[],replace=h.deck.replaceContent.bind(h.deck);
  h.deck.replaceContent=(content,options)=>{shown.push(content);return replace(content,options);};
  await prepared(h);h.samples.push(.75,0);await select(h,'Defend');
- assert(!shown.some(card=>card.text===skip.text));assert.equal(h.host.variables.energy,2);assert.equal(h.c.phase,'enemy-action');assert.deepEqual(h.errors,[]);h.c.dispose();
+ assert(!shown.some(card=>card.heading===skip.headline));assert.equal(h.host.variables.energy,2);assert.equal(h.c.phase,'enemy-action');assert.deepEqual(h.errors,[]);h.c.dispose();
 });
 
 test('Order follows the authored enemy list and wraps without sampling normal-action randomness',async()=>{
  const h=harness();h.c.enemy.actionSelection='order';
- h.c.enemy.actions=['Third','First','Second'].map((name,index)=>({id:`ordered-${index}`,kind:'combatAction',name,text:name,type:'wait',resolution:'direct',weight:index+1,effects:[],costs:[],conditions:[],cooldown:0}));
+ h.c.enemy.actions=['Third','First','Second'].map((name,index)=>({id:`ordered-${index}`,kind:'combatAction',name,headline:name,type:'wait',resolution:'direct',weight:index+1,effects:[],costs:[],conditions:[],cooldown:0}));
  await h.c.start();const seen=[];
  for(let turn=0;turn<4;turn++){
   seen.push(h.deck.content.heading);if(turn===3)break;

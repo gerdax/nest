@@ -1,3 +1,4 @@
+import { normalizeProjectCardText } from './card-text.js';
 import { definitionGraph } from './dependencies.js';
 import { cloneProject, list, named, object, unique, walk } from './model-data.js';
 import { compatibleStatVariable, STAT_IDS } from './checks.js';
@@ -13,7 +14,7 @@ export function importLibrary(project, sourceProject, ids) {
     || !Array.isArray(sourceProject.library) || !Array.isArray(sourceProject.variables) || !Array.isArray(sourceProject.chapters)) {
     throw new Error('Library import requires a parsed version 3 project');
   }
-  const source = cloneProject(sourceProject);
+  const source = normalizeProjectCardText(cloneProject(sourceProject));
   const byId = new Map(source.library.map(definition => [definition.id, definition]));
   const roots = ids === undefined ? source.library.filter(d => d.visibility !== 'local').map(d => d.id) : ids;
   if (!Array.isArray(roots) || roots.some(id => !named(id) || !byId.has(id) || byId.get(id).visibility === 'local')) {
@@ -63,10 +64,10 @@ export function importLibrary(project, sourceProject, ids) {
     const fixedVariable = key => resolveVariable(key);
     if (definition.kind === 'consumable') fixedVariable(definition.subtype);
     walk(definition, value => {
-      if (typeof value.text === 'string') {
-        value.text = value.text.replace(/\[STAT:([^\[\]\r\n]*)\]/g, (_, key) => `[STAT:${resolveVariable(key)}]`);
-        if (value.text.includes('[HP]')) fixedVariable('health');
-        if (value.text.includes('[ENERGY]')) fixedVariable('energy');
+      for (const field of ['text','headline','description']) if (typeof value[field] === 'string') {
+        value[field] = value[field].replace(/\[STAT:([^\[\]\r\n]*)\]/g, (_, key) => `[STAT:${resolveVariable(key)}]`);
+        if (value[field].includes('[HP]')) fixedVariable('health');
+        if (value[field].includes('[ENERGY]')) fixedVariable('energy');
       }
       if (typeof value.key === 'string' && (value.source === 'variable' || ['set', 'add'].includes(value.op))) value.key = resolveVariable(value.key);
       if (named(value.modifierVariable)) value.modifierVariable = resolveVariable(value.modifierVariable);
@@ -98,7 +99,7 @@ function validateContent(content) {
   const hit = unique('__library-validation-hit', used), dodge = unique('__library-validation-dodge', used),
     death = unique('__library-validation-death', used);
   const library = [...cloneProject(content.library), createEffectCard(hit), createEffectCard(dodge),
-    {id: death, kind: 'caption', name: '', text: '', image: '', effects: []}];
+    {id: death, kind: 'caption', name: '', headline: '', description: '', image: '', effects: []}];
   const chapter = {id:'validation', name:'Validation', variables:[], startNode:'start', deathNode:'death', nodes:[
     {id:'start',name:'Start',type:'linear',x:0,y:0,cards:[],connections:{next:null}},
     {id:'death',name:'Death',type:'death',x:0,y:0,cards:[{id:'death-card',definitionId:death}],connections:{}}

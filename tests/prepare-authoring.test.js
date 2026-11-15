@@ -80,7 +80,7 @@ test('Enemy selector offers Prepare and commands initialize its direct hidden pr
 
 test('Existing player Wait and legacy Attack migration preserve saved content and do not add Prepare',()=>{
  const project=createProject(),wait=createCombatAction('old-wait');
- Object.assign(wait,{type:'wait',resolution:'direct',text:'Keep waiting',preparationBonus:7});project.library.push(wait);
+ Object.assign(wait,{type:'wait',resolution:'direct',description:'Keep waiting',preparationBonus:7});project.library.push(wait);
  const original=JSON.stringify(project),loaded=parseProject(original),action=loaded.library.find(d=>d.id===wait.id);
  assert.deepEqual(action,wait);
  assert.match(typeOptions(definitionInspector(loaded,action)),/value="wait" selected/);

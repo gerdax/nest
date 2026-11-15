@@ -68,7 +68,7 @@ for(const reduced of [false,true]) for(const success of [false,true]) for(const 
  }
  settle();assert.equal(controller.state.activeNodeId,success?'win':'lose');
  assert.equal(controller.state.variables.energy,3);assert.equal(controller.state.variables.composure,success?4:3);
- assert.equal(deck.checkSurface,null);assert.equal(successor==='fork'?deck.content.actions[0].text:deck.content.text,success?'win':'lose');
+ assert.equal(deck.checkSurface,null);assert.equal(successor==='fork'?deck.content.actions[0].text:deck.content.heading,success?'win':'lose');
  dispose(deck,controller);
 });
 

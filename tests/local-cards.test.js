@@ -8,12 +8,12 @@ import {DocumentHistory} from '../studio/DocumentHistory.js';
 
 test('Fork introductions retain local authoring, toggle data, export and independent duplication',()=>{
  const project=createProject(),chapter=project.chapters[0],node=createNode(project,'fork');chapter.nodes.push(node);chapter.startNode=node.id;synchronizeConnections(project);
- const intro=project.library.find(d=>d.id===node.intro.definitionId);intro.text='Before the choice';
+ const intro=project.library.find(d=>d.id===node.intro.definitionId);intro.headline='Before the choice';
  assert.equal(intro.visibility,'local');assert.equal(node.introEnabled,false);assert.match(nodeInspector(project,chapter,node),/Fork introduction/);
- node.introEnabled=false;assert.doesNotMatch(nodeInspector(project,chapter,node),new RegExp(`data-placement="${node.intro.id}"`));assert.equal(intro.text,'Before the choice');
+ node.introEnabled=false;assert.doesNotMatch(nodeInspector(project,chapter,node),new RegExp(`data-placement="${node.intro.id}"`));assert.equal(intro.headline,'Before the choice');
  node.introEnabled=true;assert.deepEqual(validateProject(project),[]);
  const imported=importChapter(createProject(),exportChapter(project));const restored=imported.chapters.at(-1).nodes.find(n=>n.name===node.name);
- assert.equal(restored.introEnabled,true);assert.equal(compileChapter(imported,imported.chapters.at(-1).id).nodes.find(n=>n.id===restored.id).intro.text,intro.text);
+ assert.equal(restored.introEnabled,true);assert.equal(compileChapter(imported,imported.chapters.at(-1).id).nodes.find(n=>n.id===restored.id).intro.headline,intro.headline);
  const copy=duplicateNode(project,node);assert.notEqual(copy.intro.definitionId,node.intro.definitionId);
  node.intro.definitionId=node.choices[0].definitionId;assert.ok(validateProject(project).some(e=>e.message.includes('incompatible card kind')));
 });
@@ -28,8 +28,8 @@ test('every native card slot starts local, edits inline, and promotes without ch
    assert.equal(d.name,'');
    assert.match(nodeInspector(project,chapter,n),/local-definition/);
    const before=structuredClone(p);promoteCard(project,p);assert.deepEqual(p,before);assert.equal(d.visibility,'shared');
-   d.text='Shared edit';const compiled=compileChapter(project).nodes.find(c=>c.id===n.id);
-   const resolved=[...(compiled.cards||[]),...(compiled.choices||[]),...(compiled.items||[]),...(compiled.intro?[compiled.intro]:[])].find(c=>c.id===p.id);assert.equal(resolved.text,'Shared edit');
+   const field=['action','item','consumable'].includes(d.kind)?'description':'headline';d[field]='Shared edit';const compiled=compileChapter(project).nodes.find(c=>c.id===n.id);
+   const resolved=[...(compiled.cards||[]),...(compiled.choices||[]),...(compiled.items||[]),...(compiled.intro?[compiled.intro]:[])].find(c=>c.id===p.id);assert.equal(resolved[field],'Shared edit');
   }
  }
  synchronizeConnections(project);assert.deepEqual(validateProject(project),[]);
@@ -91,7 +91,7 @@ test('copies and duplicated nodes remap item self references and legacy inventor
 test('local type source opens an independent same-type copy and library options stay compatible',()=>{
  const project=createProject(),node=project.chapters[0].nodes.find(n=>n.type==='linear'),p=node.cards[0],original=project.library.find(d=>d.id===p.definitionId),id=p.id;
  const sharedId=original.id;setCardSource(project,p,'local:event');const local=project.library.find(d=>d.id===p.definitionId);
- assert.equal(local.visibility,'local');assert.equal(local.kind,'event');assert.equal(local.text,original.text);assert.equal(p.id,id);
+ assert.equal(local.visibility,'local');assert.equal(local.kind,'event');assert.equal(local.headline,original.headline);assert.equal(p.id,id);
  const count=project.library.length;setCardSource(project,p,'local:event');assert.equal(project.library.length,count);
  const html=nodeInspector(project,project.chapters[0],node);assert.match(html,/<option value="local:event" selected>local \[Vignette\]/);assert.match(html,/local-definition/);assert.doesNotMatch(html,/Choose library card/);
  assert.throws(()=>setCardSource(project,p,'flashlight'),/same type/);assert.equal(p.definitionId,local.id);
@@ -114,7 +114,7 @@ test('Duplicate card inserts an independent local copy and retains shared refere
  const source=local.choices[0],definition=project.library.find(d=>d.id===source.definitionId);definition.imageScale=160;source.conditions=[];
  local.connections={[source.id]:'destination'};const copy=duplicatePlacement(project,local,source);
  assert.equal(local.choices[1],copy);assert.notEqual(copy.id,source.id);assert.notEqual(copy.definitionId,source.definitionId);assert.equal(local.connections[copy.id],'destination');
- const cloned=project.library.find(d=>d.id===copy.definitionId);assert.equal(cloned.imageScale,160);cloned.text='Only copy';assert.notEqual(definition.text,cloned.text);
+ const cloned=project.library.find(d=>d.id===copy.definitionId);assert.equal(cloned.imageScale,160);cloned.headline='Only copy';assert.notEqual(definition.headline,cloned.headline);
  const shared=project.chapters[0].nodes[0],original=shared.cards[0],reference=duplicatePlacement(project,shared,original);assert.equal(reference.definitionId,original.definitionId);assert.notEqual(reference.id,original.id);
  definition.resolution='check';local.connections[`${source.id}:success`]='yes';local.connections[`${source.id}:failure`]='no';
  const checked=duplicatePlacement(project,local,source);assert.equal(local.connections[`${checked.id}:success`],'yes');assert.equal(local.connections[`${checked.id}:failure`],'no');

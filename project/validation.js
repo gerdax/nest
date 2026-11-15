@@ -1,3 +1,4 @@
+import { validCardText } from './card-text.js';
 import { attackProfile, attackDamageRange } from './combat-rules.js';
 import { ensureCombatDefaults, migrateWeaponActions, migrateEnemyActions, migrateCombatActionTypes, migratePlayerBlockReveals, migrateEnemyPreparedActions } from './combat-model.js';
 import { errorMessage } from '../errors.js';
@@ -168,7 +169,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
   }
   function damage(value,label){if(!object(value)||!Number.isSafeInteger(value.min)||!Number.isSafeInteger(value.max)||value.min<0||value.max<value.min)add(`${label}: invalid damage range`);}
   function embedded(card,kinds,label){
-    if(!object(card)||!named(card.id)||!kinds.includes(card.kind)||typeof card.name!=='string'||typeof card.text!=='string'||typeof card.image!=='string'){add(`${label}: invalid embedded card`);return;}
+    if(!object(card)||!named(card.id)||!kinds.includes(card.kind)||typeof card.name!=='string'||!validCardText(card)||typeof card.image!=='string'){add(`${label}: invalid embedded card`);return;}
     if(list(card.effects).length)add(`${label}: additional embedded Enemy card effects are deferred`);
     inspectCard(card,label);
   }
@@ -243,7 +244,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
         inspectEffects(d.combat.effects,label);
         for(const action of d.combat.actions){
           if(object(action)&&typeof action.definitionId==='string'){typedRef(action,'combatAction',label);add(`${label}: unresolved embedded Weapon Action ${action.definitionId}`);continue;}
-          if(!object(action)||!named(action.id)||action.kind!=='combatAction'||typeof action.name!=='string'||typeof action.text!=='string'||typeof action.image!=='string'){add(`${label}: invalid embedded Weapon Action`);continue;}
+          if(!object(action)||!named(action.id)||action.kind!=='combatAction'||typeof action.name!=='string'||!validCardText(action)||typeof action.image!=='string'){add(`${label}: invalid embedded Weapon Action`);continue;}
           inspectCard(action,`${label} / ${action.name}`,false,d);
         }
         if(new Set(d.combat.actions.map(r=>r?.id)).size!==d.combat.actions.length)add(`${label}: duplicate Provided combat Action identity`);
@@ -277,7 +278,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
       for(const card of list(d.death)){identity(card);embedded(card,['event','discovery','caption'],label);}
       for(const action of list(d.actions)){
         identity(action);
-        if(!object(action)||!named(action.id)||typeof action.name!=='string'||typeof action.text!=='string'||typeof action.image!=='string'){add(`${label}: invalid embedded Enemy Action`);continue;}
+        if(!object(action)||!named(action.id)||typeof action.name!=='string'||!validCardText(action)||typeof action.image!=='string'){add(`${label}: invalid embedded Enemy Action`);continue;}
         if(action.kind!=='combatAction'){add(`${label}: invalid embedded Enemy Action kind`);continue;}
         inspectCard(action,label,true);
         if(Object.hasOwn(action,'preparedActions')){if(d.mechanics!=='opposed-preparation')add(`${label}: preparedActions requires opposed-preparation Enemy mechanics`);inspectPreparedActions(action,`${label} / ${action.name||action.id}`,d);}
@@ -293,7 +294,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
       for(const action of list(d.preparedActions)){
         identity(action);
         const actionLabel=`${label} / prepared ${action?.name||action?.id||'Action'}`;
-        if(!object(action)||!named(action.id)||action.kind!=='combatAction'||typeof action.name!=='string'||typeof action.text!=='string'||typeof action.image!=='string'){add(`${actionLabel}: invalid embedded Enemy Action`);continue;}
+        if(!object(action)||!named(action.id)||action.kind!=='combatAction'||typeof action.name!=='string'||!validCardText(action)||typeof action.image!=='string'){add(`${actionLabel}: invalid embedded Enemy Action`);continue;}
         inspectCard(action,actionLabel,true,d);
         if(!Array.isArray(action.costs)||action.costs.length)add(`${actionLabel}: prepared Enemy Action costs must be empty`);
         if(!Array.isArray(action.conditions)||action.conditions.length)add(`${actionLabel}: prepared Enemy Action conditions must be empty`);
@@ -369,7 +370,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
     if (!object(d)) continue;
     if (d.contextItemId !== undefined || d.contextOverrideImage !== undefined) add(errorMessage('VALIDATION_DEFINITION_INVENTORY_CONTEXT_BELONGS_TO_A_FORK_CHOICE_PLACEMENT', {definitionId: d.id}));
     if (d.visibility !== undefined && !['local', 'shared'].includes(d.visibility) || !['event', 'discovery', 'caption',
-      'narrative', 'action', 'item', 'consumable', 'combatAction', 'effect', 'enemy'].includes(d.kind) || typeof d.name !== 'string' || typeof d.text !== 'string'
+      'narrative', 'action', 'item', 'consumable', 'combatAction', 'effect', 'enemy'].includes(d.kind) || typeof d.name !== 'string' || !validCardText(d)
       || typeof d.image !== 'string' || d.heading !== undefined && typeof d.heading !== 'string' || d.showName !== undefined
       && typeof d.showName !== 'boolean' || d.flipImage !== undefined && typeof d.flipImage !== 'boolean'
       || d.inventoryKey !== undefined && !named(d.inventoryKey)) add(errorMessage('VALIDATION_DEFINITION_HAS_INVALID_CONTENT', {definitionId: d.id}));
@@ -594,7 +595,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
         }
         const cardIds = new Set(seq.cards.filter(object).map(c => c.id)), exitIds = new Set(seq.exits), adjacency = new Map();
         for (const card of seq.cards) {
-          if (!object(card) || !named(card.id) || typeof card.title !== 'string' || typeof card.text !== 'string' || typeof card.image !== 'string') {
+          if (!object(card) || !named(card.id) || typeof card.title !== 'string' || !validCardText(card) || typeof card.image !== 'string') {
             add(errorMessage('VALIDATION_INVALID_LEGACY_CARD', {label}), cid, nid);
             continue;
           }

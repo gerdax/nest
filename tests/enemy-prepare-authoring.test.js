@@ -49,7 +49,7 @@ test('Enemy Prepare keeps Enemy costs, conditions and cooldown restrictions',()=
 });
 
 test('authored Rat Prepare survives save, parse, compile and chapter package round trips without hidden runtime state',()=>{
- const f=fixture();prepare(f);Object.assign(f.action,{name:'Rat prepares…',text:'The rat prepares its next move.',preparationBonus:5,damageReduction:3});
+ const f=fixture();prepare(f);Object.assign(f.action,{name:'Rat prepares…',headline:'The rat prepares its next move.',preparationBonus:5,damageReduction:3});
  const before=structuredClone(f.project),saved=new Map(),storage={getItem:key=>saved.get(key)??null,setItem:(key,value)=>saved.set(key,value)};
  assert.equal(saveProject(f.project,storage).ok,true);
  const loaded=loadProject(storage).project,parsed=parseProject(JSON.stringify(loaded));
@@ -61,7 +61,7 @@ test('authored Rat Prepare survives save, parse, compile and chapter package rou
 });
 
 test('an old Attack named Prepare remains an Attack without new parameters',()=>{
- const f=fixture();f.action.name='Prepare';f.action.text='The rat prepares its next move.';
+ const f=fixture();f.action.name='Prepare';f.action.headline='The rat prepares its next move.';
  const loaded=parseProject(JSON.stringify(f.project)).library.find(d=>d.id==='rat').actions[0];
  assert.equal(loaded.type,'attack');assert.equal(loaded.preparationBonus,undefined);assert.equal(loaded.damageReduction,undefined);assert.deepEqual(loaded,f.action);
 });

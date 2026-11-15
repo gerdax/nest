@@ -1,8 +1,9 @@
+import { cardText, validCardText, normalizeProjectCardText } from './card-text.js';
 /** Canonical combat authoring data; no scenario fixtures are installed here. */
-const base=(id,kind,name)=>({id,kind,name,showName:true,text:'',image:''});
+const base=(id,kind,name)=>({id,kind,name,headline:['combatAction','item'].includes(kind)?name:'',description:'',image:''});
 export const createEffectCard=id=>({...base(id,'effect','Feedback'),headingFromDescription:true});
 export const createCombatAction=id=>({...base(id,'combatAction','Combat Action'),type:'attack',conditions:[],costs:[],effects:[],resolution:'check',check:{pool:[{sides:6,count:3}],modifier:0,target:11},successEffects:[],failureEffects:[],target:'opponent',attack:{source:'self',damage:{min:1,max:1},minBonus:0,maxBonus:0},cooldown:0});
-export const createEnemyAction=id=>({...createCombatAction(id),name:'Attack',attack:{source:'self',damage:{min:1,max:2},minBonus:0,maxBonus:0}});
+export const createEnemyAction=id=>({...createCombatAction(id),name:'Attack',headline:'',attack:{source:'self',damage:{min:1,max:2},minBonus:0,maxBonus:0}});
 // Retain the old factory entry point for existing integrations.
 export const createEnemyAttack=createEnemyAction;
 export const createWeapon=id=>({...base(id,'item','Weapon'),subtype:'weapon',onCollect:[],permability:0,combat:{damage:{min:1,max:2},effects:[],actions:[]}});
@@ -19,7 +20,7 @@ export function ensureEnemyPreparationCards(enemy,used=new Set()){
  const name=String(enemy.name??'Enemy');
  const defaults=[['block','event','Dodge',`${name} reveals its defense.`],['charge','event','Rush',`${name} reveals its charge!`],['hold','caption','Skip',`The ${name.toLowerCase()} holds its ground`]];
  for(const [key,kind,name,text] of defaults)if(!Object.hasOwn(enemy.preparationCards,key)){
-  enemy.preparationCards[key]={...base(allocate(`${enemy.id}-preparation-${key}`,used),kind,name),text,effects:[]};
+  enemy.preparationCards[key]={...base(allocate(`${enemy.id}-preparation-${key}`,used),kind,name),headline:text,effects:[]};
  }
  // Seed independent prepared checks once; later Attack edits must not retarget Rush.
  const attack=Array.isArray(enemy.actions)?enemy.actions.find(action=>action?.type==='attack'):null;
@@ -41,7 +42,7 @@ export const defendRevealCard=card=>({...card,kind:'effect',showValue:false});
 export function ensurePlayerBlockReveal(action,used=new Set()){
  if(action?.kind!=='combatAction'||action.type!=='defend'||Object.hasOwn(action,'blockReveal')||Object.hasOwn(action,'reveal'))return action;
  const collect=value=>{if(Array.isArray(value))value.forEach(collect);else if(object(value)){if(typeof value.id==='string')used.add(value.id);Object.values(value).forEach(collect);}};collect(action);
- action.blockReveal={...createEffectCard(allocate(`${action.id}-block-reveal`,used)),name:'Reveal',text:'You blocked the attack',effects:[]};
+ action.blockReveal={...createEffectCard(allocate(`${action.id}-block-reveal`,used)),name:'Reveal',headline:'You blocked the attack',effects:[]};
  return action;
 }
 export function migratePlayerBlockReveals(project){
@@ -51,19 +52,19 @@ export function migratePlayerBlockReveals(project){
  const actions=project.library.flatMap(d=>d?.kind==='combatAction'?[d]:d?.kind==='item'&&d.subtype==='weapon'&&Array.isArray(d.combat?.actions)?d.combat.actions:[]).filter(a=>a?.kind==='combatAction'&&a.type==='defend');
  for(const action of actions)ensurePlayerBlockReveal(action,used);
  if(!object(project.combat))return project;
- const valid=card=>object(card)&&['effect','event','discovery','caption'].includes(card.kind)&&['id','name','text','image'].every(k=>typeof card[k]==='string')&&['effects','onCollect','successEffects','failureEffects'].every(k=>card[k]===undefined||Array.isArray(card[k])&&!card[k].length);
+ const valid=card=>object(card)&&['effect','event','discovery','caption'].includes(card.kind)&&['id','name','image'].every(k=>typeof card[k]==='string')&&validCardText(card)&&['effects','onCollect','successEffects','failureEffects'].every(k=>card[k]===undefined||Array.isArray(card[k])&&!card[k].length);
  const defaults=new Set((project.combat.defaultActions??[]).map(ref=>ref?.definitionId));
  const seed=actions.find(a=>defaults.has(a.id)&&valid(a.blockReveal));
  const promoteSeed=!Object.hasOwn(project.combat,'playerDodge');
  const promote=(card,id,name)=>{const feedback={...defendRevealCard(structuredClone(card)),id:allocate(id,used),name,headingFromDescription:true};delete feedback.visibility;delete feedback.chapterId;delete feedback.showValue;delete feedback.onCollect;delete feedback.successEffects;delete feedback.failureEffects;project.library.push(feedback);return {definitionId:feedback.id};};
  if(!Object.hasOwn(project.combat,'playerDodge')){
-  project.combat.playerDodge=seed?promote(seed.blockReveal,'player-dodge','Dodge'):(()=>{const card={...createEffectCard('player-dodge'),text:'You dodge!'};return promote(card,'player-dodge','Dodge');})();
+  project.combat.playerDodge=seed?promote(seed.blockReveal,'player-dodge','Dodge'):(()=>{const card={...createEffectCard('player-dodge'),headline:'You dodge!'};return promote(card,'player-dodge','Dodge');})();
  }
  for(const action of actions){
   if(Object.hasOwn(action,'reveal')||!valid(action.blockReveal))continue;
   const card=action.blockReveal;
   // Generated legacy defaults use the shared card; authored variants retain their own source.
-  const generated=!card.image&&card.text==='You blocked the attack'&&['Reveal','Block reveal'].includes(card.name);
+  const generated=!card.image&&cardText(card).headline==='You blocked the attack'&&['Reveal','Block reveal'].includes(card.name);
   action.reveal=(promoteSeed&&action===seed)||generated?{...project.combat.playerDodge}:promote(card,`${card.id}-feedback`,card.name||'Dodge');
  }
  return project;
@@ -167,7 +168,7 @@ export function migrateEnemyPreparedActions(project){
  const empty=value=>value===undefined||Array.isArray(value)&&value.length===0;
  const checkValid=c=>object(c)&&(c.mode==='stat'?typeof c.modifierVariable==='string'&&Number.isInteger(c.difficulty)&&c.difficulty>=1&&c.difficulty<=10:
   (c.mode===undefined||c.mode==='custom')&&Array.isArray(c.pool)&&c.pool.length>0&&c.pool.every(d=>object(d)&&[4,6,8,10,12,20].includes(d.sides)&&Number.isSafeInteger(d.count)&&d.count>=1&&d.count<=30)&&c.pool.reduce((n,d)=>n+d.count,0)<=30&&Number.isFinite(c.modifier)&&Number.isFinite(c.target));
- const cardValid=(card,checked)=>object(card)&&['event','discovery','caption'].includes(card.kind)&&['id','name','text','image'].every(k=>typeof card[k]==='string')&&['conditions','costs','effects','onCollect','successEffects','failureEffects'].every(k=>empty(card[k]))&&(card.cooldown===undefined||card.cooldown===0)&&(!checked||['direct','check'].includes(card.resolution)&& (card.resolution!=='check'||checkValid(card.check)));
+ const cardValid=(card,checked)=>object(card)&&['event','discovery','caption'].includes(card.kind)&&['id','name','image'].every(k=>typeof card[k]==='string')&&validCardText(card)&&['conditions','costs','effects','onCollect','successEffects','failureEffects'].every(k=>empty(card[k]))&&(card.cooldown===undefined||card.cooldown===0)&&(!checked||['direct','check'].includes(card.resolution)&& (card.resolution!=='check'||checkValid(card.check)));
  const promote=(enemy,card,type,id,extra={})=>{
   const action={...structuredClone(card),id:allocate(id,used),kind:'combatAction',type,presentationKind:card.kind,conditions:[],costs:[],effects:[],successEffects:[],failureEffects:[],cooldown:0,target:'opponent',resolution:'direct',...extra};
   delete action.visibility;delete action.chapterId;delete action.onCollect;
@@ -217,15 +218,14 @@ export function ensureCombatDefaults(project){
  if(project.version!==undefined&&![1,2,3].includes(project.version))throw new Error('Unsupported project version');
  const used=new Set(project.library.map(d=>d?.id));if(!Object.hasOwn(project,'combat'))project.combat={};
  if(object(project.combat)){
- if(!Object.hasOwn(project.combat,'defaultActions')){const id=allocate('punch',used);project.library.push({...createCombatAction(id),name:'Punch'});project.combat.defaultActions=[{definitionId:id}];}
- if(!Object.hasOwn(project.combat,'playerHit')){const id=allocate('player-hit',used);project.library.push({...createEffectCard(id),name:'Player Hit',text:'You take damage!',image:'./assets/img/player_hit.png'});project.combat.playerHit={definitionId:id};}}
- // All Feedback presentations use Description as player-facing text; Name is an editor label.
- // Carry legacy name-only copy across once; an intentionally cleared description
- // stays empty on future loads.
+ if(!Object.hasOwn(project.combat,'defaultActions')){const id=allocate('punch',used);project.library.push({...createCombatAction(id),name:'Punch',headline:'Punch'});project.combat.defaultActions=[{definitionId:id}];}
+ if(!Object.hasOwn(project.combat,'playerHit')){const id=allocate('player-hit',used);project.library.push({...createEffectCard(id),name:'Player Hit',headline:'You take damage!',image:'./assets/img/player_hit.png'});project.combat.playerHit={definitionId:id};}}
+ // Carry legacy name-only Feedback copy across before text migration.
+ // Explicit canonical headlines, including empty strings, always win.
  for(const definition of project.library){
   const effects=[definition,...(definition?.kind==='enemy'?[definition.hit,...(Array.isArray(definition.reactions)?definition.reactions:[]).map(r=>r?.card)]:[])];
   for(const effect of effects)if(effect?.kind==='effect'&&effect.headingFromDescription!==true){
-   if(!effect.text)effect.text=effect.name??'';
+   if(!Object.hasOwn(effect,'headline')&&!effect.text)effect.text=effect.name??'';
    effect.headingFromDescription=true;
   }
   // Reactions are narrative presentations, never resource Feedback presentations.
@@ -247,7 +247,7 @@ export function ensureCombatDefaults(project){
    node.introEnabled=typeof enemy?.introEnabled==='boolean'?enemy.introEnabled:false;
   }
  }
- migrateEnemyActions(project);migrateWeaponActions(project);migrateCombatActionTypes(project);migratePlayerBlockReveals(project);migrateEnemyPreparedActions(project);project.version=3;return project;
+ migrateEnemyActions(project);migrateWeaponActions(project);migrateCombatActionTypes(project);migratePlayerBlockReveals(project);migrateEnemyPreparedActions(project);project.version=3;return normalizeProjectCardText(project);
 }
 export const createCombatDefaults=ensureCombatDefaults;
 export function createProjectChapter(project,id='chapter-1',name='First chapter'){const chapter={id,name,startNode:'',variables:[],nodes:[]};ensureChapterDeath(project,chapter);return chapter;}

@@ -75,7 +75,7 @@ for(const spec of [
   assert.equal(deck.phase,'closed');assert.equal(controller.combat.pending.damage,spec.damage);
   if(spec.preparationBonus!==undefined)assert.equal(controller.combat.encounter.preparationBonus,spec.preparationBonus);
   if(spec.actor){assert.equal(controller.combat.pending.actor,spec.actor);assert.equal(controller.combat.encounter.enemyHp,8);}
-  if(spec.text)assert.match(spec.blockReveal?deck.content.heading:deck.content.text,spec.text);
+  if(spec.text)assert.match(deck.content.heading,spec.text);
   if(spec.blockReveal){assert.equal(deck.content.typeLabel,'EFFECT');assert.equal(deck.content.showValue,false);}
   if(spec.blockReveal){assert.equal(controller.variables.health,10);assert.equal(controller.variables.energy,2);key(deck,'ArrowUp');await settleCombat();assert.equal(controller.combat.phase,'choice');assert.equal(deck.phase,'choices');assert.equal(controller.combat.pending,null);assert.deepEqual(surfaces,['front']);}
   assert.deepEqual(errors,spec.retry?['Dice unavailable']:[]);

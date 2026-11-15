@@ -11,7 +11,7 @@ const effect = value => ({op:'add', key:'energy', value});
 const condition = {source:'variable', key:'energy', op:'gte', value:1};
 function fixture(kind = 'event') {
   const project = createProject(), chapter = project.chapters[0];
-  const definition = {...createDefinition(kind, 'story'), text:'A story', effects:[effect(1)]};
+  const definition = {...createDefinition(kind, 'story'), headline:'A story', effects:[effect(1)]};
   project.library.push(definition);
   const placement = {id:'story-card', definitionId:definition.id, conditions:[{...condition}], overrides:{effects:[effect(4)]}};
   const node = {id:'story-beat', name:'Story', type:'linear', x:0, y:0, cards:[placement], connections:{next:null}};

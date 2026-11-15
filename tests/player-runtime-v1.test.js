@@ -22,7 +22,7 @@ for(const context of ['common','weapon'])test(`${context} player Defend still re
 });
 
 test('enemy presentation kinds do not change player cards or suppress their V1 action layout',()=>{
- const action={...createCombatAction('attack'),text:'Deal [DMG]',attack:{source:'self',damage:{min:4,max:4},minBonus:0,maxBonus:0}};
+ const action={...createCombatAction('attack'),description:'Deal [DMG]',attack:{source:'self',damage:{min:4,max:4},minBonus:0,maxBonus:0}};
  const player=combatCard(action,'card');
  assert.deepEqual(combatCard({...action,presentationKind:'caption'},'card'),player);
  assert.equal(player.cardKind,'action');assert.equal(player.typeLabel,'ATTACK');

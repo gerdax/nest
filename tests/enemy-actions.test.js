@@ -13,7 +13,7 @@ function legacy(){
 }
 test('legacy attacks migrate to typed Enemy Actions, preserving identity, content and order',()=>{
  const old=legacy(),original=JSON.stringify(old),p=parseProject(original),enemy=p.library.find(d=>d.id==='rat');
- assert.equal(enemy.attacks,undefined);assert.deepEqual(enemy.actions.map(action=>action.id),['bite','claw']);assert.deepEqual(enemy.actions.map(action=>action.attack.damage),[{min:1,max:2},{min:2,max:3}]);assert.equal(enemy.actions[0].text,'An old bite');assert.equal(enemy.actions[0].imageScale,120);assert.equal(enemy.actions[0].flipImage,true);assert.deepEqual(enemy.actions[0].check,old.library.find(d=>d.id==='rat').attacks[0].check);
+ assert.equal(enemy.attacks,undefined);assert.deepEqual(enemy.actions.map(action=>action.id),['bite','claw']);assert.deepEqual(enemy.actions.map(action=>action.attack.damage),[{min:1,max:2},{min:2,max:3}]);assert.equal(enemy.actions[0].headline,'An old bite');assert.equal(enemy.actions[0].imageScale,120);assert.equal(enemy.actions[0].flipImage,true);assert.deepEqual(enemy.actions[0].check,old.library.find(d=>d.id==='rat').attacks[0].check);
  assert.equal(JSON.stringify(old),original);assert.deepEqual(validateProject(p),[]);assert.deepEqual(parseProject(JSON.stringify(p)),p);
  assert.deepEqual(compileChapter(old).library.find(d=>d.id==='rat').actions,enemy.actions);
  // Keep Enemy reachable in a chapter package.
@@ -29,7 +29,7 @@ test('new Enemy Actions expose the Attack type and perform their authored repeat
  assert(html.includes('class="entry check-settings"><h3>Check settings</h3>'));
  assert(!html.includes('<h4>Dice check</h4>'));
  assert(!html.includes('data-path="actions.0.effects"'));
- const ordered=['actions.0.name','actions.0.type','actions.0.text','actions.0.attack.source','actions.0.resolution','actions.0.check.pool.0.sides'];
+ const ordered=['actions.0.name','actions.0.type','actions.0.headline','actions.0.attack.source','actions.0.resolution','actions.0.check.pool.0.sides'];
  for(let i=1;i<ordered.length;i++)assert(html.indexOf(`data-path="${ordered[i]}"`)>html.indexOf(`data-path="${ordered[i-1]}"`));
  assert(html.indexOf('data-preview-path="actions.0"')>html.indexOf('data-path="actions.0.check.target"'));
  let encounter=createEncounter(enemy,'encounter');assert.equal(encounter.actionIndex,0);
@@ -52,5 +52,5 @@ test('enemy Action dispatcher routes Attack explicitly and rejects unsupported t
 test('legacy kindless Enemy attacks gain the canonical Action kind without losing their presentation',()=>{
  const p=legacy(),old=p.library.find(d=>d.id==='rat').attacks[0];delete old.kind;
  const migrated=parseProject(JSON.stringify(p)).library.find(d=>d.id==='rat').actions[0];
- assert.equal(migrated.kind,'combatAction');assert.equal(migrated.type,'attack');for(const key of ['id','name','text','image','imageScale','flipImage','check'])assert.deepEqual(migrated[key],old[key]);assert.deepEqual(migrated.attack.damage,old.damage);assert.equal(migrated.damage,undefined);
+ assert.equal(migrated.headline,old.text);assert.equal(migrated.description,'');assert.equal(migrated.kind,'combatAction');assert.equal(migrated.type,'attack');for(const key of ['id','name','image','imageScale','flipImage','check'])assert.deepEqual(migrated[key],old[key]);assert.deepEqual(migrated.attack.damage,old.damage);assert.equal(migrated.damage,undefined);
 });

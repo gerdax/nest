@@ -10,25 +10,25 @@ const defend=id=>({...createCombatAction(id),type:'defend',resolution:'direct',d
 test('legacy dodge promotes to a separate shared effect once, preserving copy, artwork, identity and original input',()=>{
  const p=createAlternativeRatCombatProject(),action=p.library.find(d=>d.id==='alternative-defend');
  delete p.combat.playerDodge;delete action.reveal;
- Object.assign(action.blockReveal,{kind:'event',text:'You dodge!',image:'dodge.png',imageScale:141,imageOffsetX:8,imageOffsetY:4,flipImage:true,onCollect:[]});
+ Object.assign(action.blockReveal,{kind:'event',headline:'You dodge!',image:'dodge.png',imageScale:141,imageOffsetX:8,imageOffsetY:4,flipImage:true,onCollect:[]});
  const original=structuredClone(p),parsed=parseProject(JSON.stringify(p)),a=parsed.library.find(d=>d.id===action.id);
  const effect=parsed.library.find(d=>d.id===parsed.combat.playerDodge.definitionId);
  assert.deepEqual(p,original);assert.deepEqual(a.blockReveal,action.blockReveal);
  assert.equal(effect.kind,'effect');assert.equal(effect.showValue,undefined);assert.equal(effect.name,'Dodge');
- for(const key of ['text','image','imageScale','imageOffsetX','imageOffsetY','flipImage'])assert.equal(effect[key],action.blockReveal[key]);
+ for(const key of ['headline','description','image','imageScale','imageOffsetX','imageOffsetY','flipImage'])assert.equal(effect[key],action.blockReveal[key]);
  assert.equal(effect.onCollect,undefined);assert.deepEqual(a.blockReveal.onCollect,[]);
  assert.notEqual(effect.id,a.blockReveal.id);assert.deepEqual(a.reveal,parsed.combat.playerDodge);
  assert.deepEqual(parseProject(JSON.stringify(parsed)),parsed);assert.deepEqual(validateProject(parsed),[]);
  assert.deepEqual(compileChapter(p).combat.playerDodge,parsed.combat.playerDodge);
- effect.text='Updated separately';assert.equal(a.blockReveal.text,'You dodge!');
+ effect.headline='Updated separately';assert.equal(a.blockReveal.headline,'You dodge!');
 });
 
 test('custom Weapon reveals promote independently, remain typed dependencies, and survive chapter transfer',()=>{
  const p=createAlternativeRatCombatProject(),weapon=createWeapon('shield'),action=defend('parry');
- action.blockReveal={id:'custom-parry',kind:'caption',name:'Parry',text:'',image:'parry.png',effects:[]};
+ action.blockReveal={id:'custom-parry',kind:'caption',name:'Parry',headline:'',image:'parry.png',effects:[]};
  weapon.combat.actions=[action];p.library.push(weapon);p.chapters[0].entryEffects=[{op:'addItem',key:weapon.id}];ensureCombatDefaults(p);
  const effect=p.library.find(d=>d.id===action.reveal.definitionId);
- assert.equal(effect.kind,'effect');assert.equal(effect.text,'');assert.equal(effect.image,'parry.png');assert.notEqual(effect.id,p.combat.playerDodge.definitionId);
+ assert.equal(effect.kind,'effect');assert.equal(effect.headline,'');assert.equal(effect.image,'parry.png');assert.notEqual(effect.id,p.combat.playerDodge.definitionId);
  assert.equal(enumerateDefinitionReferences(weapon).find(r=>r.definitionId===effect.id).kind,'effect');
  const parsed=importChapter(createAlternativeRatCombatProject(),exportChapter(p));
  const copy=parsed.library.find(d=>d.id===weapon.id);

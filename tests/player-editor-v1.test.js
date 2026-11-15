@@ -63,7 +63,7 @@ test('player full preview keeps prepared toggle and Attack rendering with stray 
  globalThis.document={createElement:()=>new Element(),body:new Element()};
  try{
   for(const context of ['common','weapon']){
-   const project=createProject(),action={...createCombatAction('attack'),resolution:'direct',presentationKind:'caption',text:'Base[IF:PREPARED] +[PREPBONUS][ENDIF]'};
+   const project=createProject(),action={...createCombatAction('attack'),resolution:'direct',presentationKind:'caption',description:'Base[IF:PREPARED] +[PREPBONUS][ENDIF]'};
    const owner=context==='weapon'?createWeapon('weapon'):action;
    if(context==='weapon')owner.combat.actions=[action];
    project.library.push(owner,{...createCombatAction('preview-prepare'),type:'prepare',preparationBonus:3});project.combat.defaultActions=[{definitionId:'preview-prepare'}];

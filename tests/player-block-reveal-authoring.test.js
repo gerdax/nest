@@ -19,23 +19,23 @@ test('legacy standalone and Weapon Defend cards gain stable collision-free prese
  assert.deepEqual(project,original);
  for(const id of [action.id,weapon.id]){
   const definition=parsed.library.find(d=>d.id===id),card=(definition.kind==='item'?definition.combat.actions[0]:definition).blockReveal;
-  assert.equal(card.kind,'effect');assert.equal(card.name,'Reveal');assert.equal(card.text,'You blocked the attack');assert.deepEqual(card.effects,[]);
+  assert.equal(card.kind,'effect');assert.equal(card.name,'Reveal');assert.equal(card.headline,'You blocked the attack');assert.deepEqual(card.effects,[]);
  }
  assert.equal(parsed.library.find(d=>d.id===action.id).blockReveal.id,'custom-defend-block-reveal-2');
  assert.deepEqual(parseProject(JSON.stringify(parsed)),parsed);assert.deepEqual(validateProject(parsed),[]);
- assert.equal(compileChapter(project).library.find(d=>d.id===action.id).blockReveal.text,'You blocked the attack');
+ assert.equal(compileChapter(project).library.find(d=>d.id===action.id).blockReveal.headline,'You blocked the attack');
 });
 test('authored blank copy, identity and artwork survive parse and compile without repair',()=>{
  const {project,action,weapon}=fixture();ensureCombatDefaults(project);
- Object.assign(action.blockReveal,{kind:'event',text:'',image:'shield.png',imageScale:153,imageOffsetX:8,imageOffsetY:-9,flipImage:true});
- Object.assign(weapon.combat.actions[0].blockReveal,{text:'Weapon parry'});
+ Object.assign(action.blockReveal,{kind:'event',headline:'',image:'shield.png',imageScale:153,imageOffsetX:8,imageOffsetY:-9,flipImage:true});
+ Object.assign(weapon.combat.actions[0].blockReveal,{headline:'Weapon parry'});
  for(const result of [parseProject(JSON.stringify(project)),compileChapter(project)]){
   assert.deepEqual(result.library.find(d=>d.id===action.id).blockReveal,action.blockReveal);
   assert.deepEqual(result.library.find(d=>d.id===weapon.id).combat.actions[0].blockReveal,weapon.combat.actions[0].blockReveal);
  }
 });
 test('explicit invalid block cards are retained and diagnosed, while Enemy Defend needs no player card',()=>{
- for(const mutate of [a=>a.blockReveal=null,a=>a.blockReveal.kind='combatAction',a=>a.blockReveal.id=a.id,a=>a.blockReveal.text=null,a=>a.blockReveal.effects=[{op:'add',key:'health',value:1}],a=>a.blockReveal.onCollect=[{op:'add',key:'health',value:1}],a=>a.blockReveal.effects=null]){
+ for(const mutate of [a=>a.blockReveal=null,a=>a.blockReveal.kind='combatAction',a=>a.blockReveal.id=a.id,a=>a.blockReveal.headline=null,a=>a.blockReveal.effects=[{op:'add',key:'health',value:1}],a=>a.blockReveal.onCollect=[{op:'add',key:'health',value:1}],a=>a.blockReveal.effects=null]){
   const {project,action}=fixture();ensureCombatDefaults(project);mutate(action);const original=structuredClone(action.blockReveal);
   ensureCombatDefaults(project);assert.deepEqual(action.blockReveal,original);assert(validateProject(project).some(e=>/Block reveal/.test(e.message)));assert.throws(()=>parseProject(JSON.stringify(project)));
  }
@@ -54,7 +54,7 @@ test('Defend Reveal selects a common Feedback effect below artwork without an em
   assert(html.includes(`data-path="${prefix}reveal.definitionId"`));
   assert(html.includes('Default Dodge'));
   assert(html.includes(`data-definition="${defend.reveal?.definitionId||dodge.id}"`));
-  assert(!html.includes(`data-path="${prefix}blockReveal.text"`));
+  assert(!html.includes(`data-path="${prefix}blockReveal.headline"`));
   assert(!html.includes(`data-path="${prefix}blockReveal.image"`));
   const custom={...dodge,id:'custom-'+owner.id,name:'Parry'};project.library.push(custom);defend.reveal={definitionId:custom.id};
   html=definitionInspector(project,owner);
@@ -79,9 +79,9 @@ test('standalone helper reserves its owner ID and does not overwrite explicit au
 
 test('conflict imports retain block reveal identity under separately remapped owners',()=>{
  const {project,action}=fixture();project.combat.defaultActions.push({definitionId:action.id});ensureCombatDefaults(project);
- Object.assign(action.blockReveal,{kind:'event',text:'Imported parry',image:'parry.png',imageScale:125});
+ Object.assign(action.blockReveal,{kind:'event',headline:'Imported parry',image:'parry.png',imageScale:125});
  const pkg=exportChapter(project),destination=structuredClone(project);
- destination.library.find(d=>d.id===action.id).text='Conflicting original';
+ destination.library.find(d=>d.id===action.id).description='Conflicting original';
  const imported=importChapter(destination,pkg),copy=imported.library.find(d=>d.id===`${action.id}-2`);
  assert(copy);assert.deepEqual(copy.blockReveal,action.blockReveal);
  assert.deepEqual(validateProject(imported),[]);

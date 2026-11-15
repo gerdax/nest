@@ -88,7 +88,7 @@ export function compileChapter(project, chapterId = project.activeChapterId, {ad
       const originalId = raw.id;
       Object.assign(raw, resolved, {cardKind: resolved.kind, name: resolved.name, heading: resolved.heading,
         inventoryKey: resolved.inventoryKey, title: resolved.heading || resolved.name, label: resolved.name,
-        text: resolved.text, image: resolved.image, flipImage: resolved.flipImage});
+        headline: resolved.headline, description: resolved.description, image: resolved.image, flipImage: resolved.flipImage});
       if (resolved.kind === 'item') raw.effects = resolved.onCollect || [];
       else raw.effects = resolved.effects || [];
       if (resolved.kind === 'action') raw.conditions = resolved.conditions || [];

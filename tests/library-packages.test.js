@@ -127,10 +127,10 @@ test('empty selection copies no defaults, variables, tags, or project data', () 
 
 test('reimports reuse a previously copied changed card and never match by name alone', () => {
   const source=createProject(), destination=createProject();
-  const card=createDefinition('caption','custom');card.name='Same name';card.text='Source';source.library.push(card);
-  destination.library.push({...cloneProject(card),text:'Destination'});
+  const card=createDefinition('caption','custom');card.name='Same name';card.headline='Source';source.library.push(card);
+  destination.library.push({...cloneProject(card),headline:'Destination'});
   const first=importLibrary(destination,source,['custom']);
-  assert.equal(first.library.find(d=>d.id==='custom-2').text,'Source');
+  assert.equal(first.library.find(d=>d.id==='custom-2').headline,'Source');
   const second=importLibrary(first,source,['custom']);
   assert.deepEqual(second,first);
  });
@@ -140,7 +140,7 @@ test('built-in resources and stats use compatible destination semantics across r
   for(const id of ['health','energy','agility'])source.variables.find(v=>v.id===id).initial=7;
   source.variables.find(v=>v.id==='energy').max=20;
   const card=createDefinition('action','resource-action');
-  card.text='[HP] [ENERGY] [STAT:agility]';
+  card.description='[HP] [ENERGY] [STAT:agility]';
   card.costs=[{source:'variable',key:'energy',amount:1}];
   card.effects=[{op:'add',key:'health',value:1}];
   const consumable=createDefinition('energy','drink');
@@ -148,7 +148,7 @@ test('built-in resources and stats use compatible destination semantics across r
   const result=importLibrary(destination,source,['resource-action','drink']);
   assert.deepEqual(result.variables,destination.variables);
   assert.equal(result.library.find(d=>d.id===card.id).costs[0].key,'energy');
-  assert.equal(result.library.find(d=>d.id===card.id).text,card.text);
+  assert.equal(result.library.find(d=>d.id===card.id).description,card.description);
   assert.equal(result.library.find(d=>d.id==='drink').subtype,'energy');
   assert.deepEqual(validateProject(result),[]);
   const invalid=cloneProject(destination);invalid.variables.find(v=>v.id==='energy').type='flag';
@@ -159,9 +159,9 @@ test('description STAT dependencies are included and remapped without changing a
   const source=createProject(),destination=createProject();
   source.variables.push({id:'luck',type:'number',initial:4,min:1,max:10,stat:true});
   destination.variables.push({id:'luck',type:'number',initial:2,min:1,max:10,stat:true});
-  const card=createDefinition('caption','luck-card');card.text='Luck luck [STAT:luck] [ICON:health]';source.library.push(card);
+  const card=createDefinition('caption','luck-card');card.headline='Luck luck [STAT:luck] [ICON:health]';source.library.push(card);
   const result=importLibrary(destination,source,[card.id]);
-  assert.equal(result.library.find(d=>d.id===card.id).text,'Luck luck [STAT:luck-2] [ICON:health]');
+  assert.equal(result.library.find(d=>d.id===card.id).headline,'Luck luck [STAT:luck-2] [ICON:health]');
   assert.equal(result.variables.find(v=>v.id==='luck-2').initial,4);
   assert.deepEqual(validateProject(result),[]);
 });
@@ -193,7 +193,7 @@ test('tag name and ID collisions remap item and inventory references together', 
 test('imported top-level identities allocate around destination Enemy-owned cards', () => {
   const destination=createRatCombatProject(),source=createProject();
   const enemy=destination.library.find(d=>d.id==='rat');
-  const card=createDefinition('caption',enemy.hit.id);card.text='Independent caption';source.library.push(card);
+  const card=createDefinition('caption',enemy.hit.id);card.headline='Independent caption';source.library.push(card);
   const result=importLibrary(destination,source,[card.id]);
   assert(result.library.some(d=>d.id===`${card.id}-2`));
   assert.deepEqual(result.library.find(d=>d.id===enemy.id),enemy);
@@ -205,7 +205,7 @@ test('a custom-variable conflict copies its user but reuses unrelated identical 
   source.variables.push({id:'score',type:'number',initial:2});
   destination.variables.push({id:'score',type:'number',initial:0});
   const root={...createDefinition('action','score-action'),effects:[{op:'add',key:'score',value:1}]};
-  const caption={...createDefinition('caption','unrelated'),text:'Same caption'};
+  const caption={...createDefinition('caption','unrelated'),headline:'Same caption'};
   source.library.push(root,caption);destination.library.push(cloneProject(root),cloneProject(caption));
   const first=importLibrary(destination,source,[root.id,caption.id]);
   assert.equal(first.library.filter(d=>d.id.startsWith('unrelated')).length,1);
@@ -220,12 +220,12 @@ test('remapped description tokens and modifiers participate in per-card reuse', 
   const source=createProject(),destination=createProject();
   source.variables.push({id:'custom-stat',type:'number',initial:4,min:1,max:10,stat:true});
   destination.variables.push({id:'custom-stat',type:'number',initial:2,min:1,max:10,stat:true});
-  const root={...createDefinition('action','stat-action'),resolution:'check',check:{mode:'stat',modifierVariable:'custom-stat',difficulty:2},text:'[STAT:custom-stat]'};
+  const root={...createDefinition('action','stat-action'),resolution:'check',check:{mode:'stat',modifierVariable:'custom-stat',difficulty:2},description:'[STAT:custom-stat]'};
   const caption=createDefinition('caption','unrelated-stat');
   source.library.push(root,caption);destination.library.push(cloneProject(root),cloneProject(caption));
   const first=importLibrary(destination,source,[root.id,caption.id]);
   const copy=first.library.find(d=>d.id==='stat-action-2');
-  assert.equal(copy.check.modifierVariable,'custom-stat-2');assert.equal(copy.text,'[STAT:custom-stat-2]');
+  assert.equal(copy.check.modifierVariable,'custom-stat-2');assert.equal(copy.description,'[STAT:custom-stat-2]');
   assert.equal(first.library.filter(d=>d.id.startsWith(caption.id)).length,1);
   assert.deepEqual(importLibrary(first,source,[root.id,caption.id]),first);
 });

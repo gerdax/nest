@@ -60,7 +60,7 @@ test('imported chapter previews omit automatic chapter-variable effect summaries
 
 test('inspector preview and player use identical narrative heading/body/artwork, without context',()=>{
  const project=createProject(),node=project.chapters[0].nodes.find(n=>n.type==='container');project.chapters[0].startNode=node.id;
- const d=project.library.find(d=>d.id===node.intro.definitionId);d.heading='Box heading';d.showName=true;d.text='Desc';d.image='./assets/img/card-art/rat.png';d.flipImage=true;node.intro.context='Discard me';
+ const d=project.library.find(d=>d.id===node.intro.definitionId);d.heading='Box heading';d.showName=true;d.headline='Caption';d.description='Desc';d.image='./assets/img/card-art/rat.png';d.flipImage=true;node.intro.context='Discard me';
  const mount=new Element();mount.dataset.previewPlacement=node.intro.id;
  renderCardPreviews({querySelectorAll:()=>[mount]},project,node);
  const front=mount.children[0],copy=front.children[0],art=front.children[1];
@@ -75,7 +75,7 @@ test('item and action preview faces match gameplay headings, summaries and place
  const project=createProject();
  for(const type of ['container','fork']){
   const node=project.chapters[0].nodes.find(n=>n.type===type),p=(node.items||node.choices)[0],d=project.library.find(d=>d.id===p.definitionId);
-  d.text='Description';p.context='Discard';if(type==='fork')p.overrides={resolution:'check',check:{pool:[{sides:20,count:1}],modifier:2,target:12}};
+  d.description='Description';p.context='Discard';if(type==='fork')p.overrides={resolution:'check',check:{pool:[{sides:20,count:1}],modifier:2,target:12}};
   const resolved=resolvePlacement(project,p),face=cardFace(resolved,project.variables,project.library);
   const deck=new Deck(),compiled=compileChapter(project);compiled.startNode=node.id;const controller=new ProjectController(deck,compiled);
   const live=deck.content.actions[0];for(const key of ['heading','text','summary','image','flipImage','cardKind'])assert.equal(face[key],live[key]);controller.destroy();
@@ -84,33 +84,37 @@ test('item and action preview faces match gameplay headings, summaries and place
 
 test('old placement context is discarded on load and export without changing definition text',()=>{
  const project=createProject();project.chapters[0].nodes[0].cards[0].context='Old extra text';
- const loaded=parseProject(JSON.stringify(project));assert.equal(loaded.chapters[0].nodes[0].cards[0].context,undefined);assert.equal(loaded.library[0].text,project.library[0].text);
+ const loaded=parseProject(JSON.stringify(project));assert.equal(loaded.chapters[0].nodes[0].cards[0].context,undefined);assert.equal(loaded.library[0].headline,project.library[0].headline);
  assert.equal(exportChapter(project).chapter.nodes[0].cards[0].context,undefined);
 });
 
 
-test('action names always appear while item names follow showName',()=>{
+test('canonical captions are independent of editor names and legacy name visibility',()=>{
  const project=createProject();
  for(const definition of project.library.filter(card=>['event','caption','action','item'].includes(card.kind))){
-  assert.equal(definition.showName,definition.kind==='item');
-  const before=cardFace(definition,project.variables,project.library);assert.equal(before.heading,['action','item'].includes(definition.kind)?definition.name:'');
-  definition.showName=true;assert.equal(cardFace(definition,project.variables,project.library).heading,['action','item'].includes(definition.kind)?definition.name:'');
-  definition.showName=false;const after=cardFace(definition,project.variables,project.library);assert.equal(after.heading,definition.kind==='action'?definition.name:'');assert.equal(after.text,before.text);assert.equal(after.summary,before.summary);
-  delete definition.showName;assert.equal(cardFace(definition).heading,definition.kind==='action'?definition.name:'');
+  definition.headline='Authored caption';definition.description='Secondary copy';
+  const before=cardFace(definition,project.variables,project.library);
+  assert.equal(before.heading,'Authored caption');assert.equal(before.text,'Secondary copy');
+  definition.name='Changed editor label';
+  for(const showName of [true,false,undefined]){
+   definition.showName=showName;
+   const after=cardFace(definition,project.variables,project.library);
+   assert.equal(after.heading,'Authored caption');assert.equal(after.text,before.text);assert.equal(after.summary,before.summary);
+  }
+  definition.headline='';assert.equal(cardFace(definition).heading,'');
  }
- const d=project.library[0];d.showName=true;d.heading='Custom';assert.equal(cardFace(d).heading,'');
- const loaded=parseProject(JSON.stringify(project));assert.equal(loaded.library[0].showName,true);
- d.showName='yes';assert.throws(()=>parseProject(JSON.stringify(project)),/invalid content/);
+ const loaded=parseProject(JSON.stringify(project));assert.equal(loaded.library[0].headline,'');
+ project.library[0].headline=42;assert.throws(()=>parseProject(JSON.stringify(project)),/invalid content/);
 });
 
-test('name visibility reaches both narrative cover and action/item fronts during playback',()=>{
+test('authored captions reach narrative covers and action fronts during playback',()=>{
  const project=createProject();
  for(const type of ['linear','container','fork']){
   const node=project.chapters[0].nodes.find(n=>n.type===type),p=type==='linear'?node.cards[0]:type==='container'?node.intro:node.choices[0];
   const d=project.library.find(d=>d.id===p.definitionId);
-  for(const show of [false,true]){
-   d.showName=show;const compiled=compileChapter(project);compiled.startNode=node.id;const deck=new Deck(),controller=new ProjectController(deck,compiled);
-   assert.equal(type==='fork'?deck.content.actions[0].heading:deck.content.heading,type==='fork'?d.name:'');controller.destroy();
+  for(const headline of ['', 'Visible caption']){
+   d.headline=headline;d.name='Editor only';const compiled=compileChapter(project);compiled.startNode=node.id;const deck=new Deck(),controller=new ProjectController(deck,compiled);
+   assert.equal(type==='fork'?deck.content.actions[0].heading:deck.content.heading,headline);controller.destroy();
   }
  }
 });
@@ -128,18 +132,18 @@ test('artwork scale and position survive export and match inline and playback fa
 });
 
 
-test('typed fronts separate type labels from action and item names and keep item visibility controls',()=>{
+test('typed fronts separate type labels and authored captions and expose appropriate copy controls',()=>{
  const project=createProject();
  for(const kind of ['event','caption','action','item']) {
-  const definition=createDefinition(kind,kind);definition.showName=true;definition.name='Internal name';
+  const definition=createDefinition(kind,kind);definition.name='Internal name';definition.headline='Visible caption';
   const face=cardFace(definition),front=new Element();
   decorateCard(null,front,'',face.heading,'',false,face);
   const label=front.children.find(e=>e.className==='nest-card-type');
   assert.equal(label?.textContent,['action','item'].includes(kind)?kind.toUpperCase():undefined);
-  assert.equal(front.children[0].children[0].textContent,['action','item'].includes(kind)?'Internal name':'');
+  assert.equal(front.children[0].children[0].textContent,'Visible caption');
   const html=cardFields(project,definition);
-  assert.equal(html.includes('Show name on card'),kind==='item');
-  if(kind==='item') {definition.showName=false;assert.equal(cardFace(definition).heading,'');}
+  assert.equal(html.includes('Show name on card'),false);assert.match(html,/data-path="headline"/);assert.equal(html.includes('data-path="description"'),['action','item'].includes(kind));
+  definition.headline='';assert.equal(cardFace(definition).heading,'');
  }
 });
 
@@ -186,7 +190,7 @@ for(const mode of ['stat','custom','direct'])test(`inspector ${mode} action rend
  const project=createProject(),chapter=project.chapters[0],node=chapter.nodes.find(n=>n.type==='fork');
  const placement=node.choices[0],definition=project.library.find(d=>d.id===placement.definitionId);
  placement.contextItemId=project.library.find(d=>d.kind==='item').id;
- Object.assign(definition,{text:'Pass behind him before he turns.',imageScale:125,imageOffsetX:8,
+ Object.assign(definition,{description:'Pass behind him before he turns.',imageScale:125,imageOffsetX:8,
   costs:[{source:'variable',key:'energy',amount:1}],effects:[{op:'add',key:'agility',value:1}],
   resolution:mode==='direct'?'direct':'check',check:mode==='stat'?{mode:'stat',modifierVariable:'agility',difficulty:1}:{pool:[{sides:6,count:1}],modifier:0,target:4}});
  chapter.initialValues={agility:5};chapter.startNode=node.id;node.introEnabled=false;

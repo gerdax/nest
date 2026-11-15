@@ -1,10 +1,11 @@
+import {normalizeCardText} from '../project/card-text.js';
 import { createError } from '../errors.js';
 import {restoreSnapshotTags} from './tag-snapshots.js';
 import {createDefinition} from '../project/cards.js';
 import {definitionGraph,unusedLocalDefinitions} from '../project/dependencies.js';
 import {replaceCard,setCardSource,remapInventory} from './commands.js';
 
-const commonKeys=['name','text','image','flipImage','imageScale','imageOffsetX','imageOffsetY'];
+const commonKeys=['name','headline','description','image','flipImage','imageScale','imageOffsetX','imageOffsetY'];
 const placementKeys=['conditions','effects','unavailable','contextItemId','contextOverrideImage'];
 const pick=(value,keys)=>Object.fromEntries(keys.filter(key=>value[key]!==undefined).map(key=>[key,structuredClone(value[key])]));
 const sourceOf=(project,p)=>project.library.find(d=>d.id===p.definitionId);
@@ -37,7 +38,8 @@ export class LocalCardDrafts {
    saved.itemTags=[...new Map([...(saved.itemTags||[]),...(project.itemTags||[])].map(tag=>[tag.id,structuredClone(tag)])).values()];
    if(saved.definition.id===source.id){
     saved.definition=structuredClone(source);
-    draft.common=pick(source,commonKeys);
+    normalizeCardText(source);
+  draft.common=pick(source,commonKeys);
    }
    // Live definitions refresh the entire reachable closure. Cached definitions
    // remain available for dependencies already pruned by a type switch.
@@ -59,6 +61,7 @@ export class LocalCardDrafts {
   if(source?.visibility!=='local')return;
   let draft=this.drafts.get(p.id);
   if(!draft){draft={common:{},types:new Map()};this.drafts.set(p.id,draft);}
+  normalizeCardText(source);
   draft.common=pick(source,commonKeys);
   const placement=pick(p,placementKeys);
   const dependencies=definitionGraph(project).reachableFrom({definition:source,placement});

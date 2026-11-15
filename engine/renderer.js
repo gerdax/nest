@@ -123,7 +123,7 @@ export function stageActionDeck(deck, content, selectedIndex = null, previous = 
       const card = previous.cards[oldIndex], layer = previous.cardLayers[oldIndex];
       const oldAction = previous.content.actions[oldIndex];
       let title = previous.cardTitles[oldIndex], back = previous.cardBacks[oldIndex];
-      if (oldAction.label !== action.label || oldAction.heading !== action.heading || oldAction.inventoryLabel !== action.inventoryLabel || oldAction.summary !== action.summary || oldAction.text !== action.text || oldAction.cardKind !== action.cardKind || oldAction.typeLabel !== action.typeLabel || oldAction.prepared !== action.prepared || oldAction.value !== action.value || oldAction.showValue !== action.showValue || oldAction.actionEnergyCost !== action.actionEnergyCost || oldAction.actionHealthCost !== action.actionHealthCost || (oldAction.image ?? previous.content.image ?? '') !== (action.image ?? content.image ?? '') || flipped(oldAction) !== flipped(action) || ['imageScale','imageOffsetX','imageOffsetY'].some(key=>oldAction[key]!==action[key])) {
+      if (oldAction.semanticText !== action.semanticText || oldAction.descriptionHeading !== action.descriptionHeading || oldAction.label !== action.label || oldAction.heading !== action.heading || oldAction.inventoryLabel !== action.inventoryLabel || oldAction.summary !== action.summary || oldAction.text !== action.text || oldAction.cardKind !== action.cardKind || oldAction.typeLabel !== action.typeLabel || oldAction.prepared !== action.prepared || oldAction.value !== action.value || oldAction.showValue !== action.showValue || oldAction.actionEnergyCost !== action.actionEnergyCost || oldAction.actionHealthCost !== action.actionHealthCost || (oldAction.image ?? previous.content.image ?? '') !== (action.image ?? content.image ?? '') || flipped(oldAction) !== flipped(action) || ['imageScale','imageOffsetX','imageOffsetY'].some(key=>oldAction[key]!==action[key])) {
         card.replaceChildren();
         card.style.backgroundImage = '';
         title = deck.decorate(card, action.image ?? content.image ?? '', action.heading || '', action.cardKind ? action.text || '' : action.label, flipped(action), action);
@@ -150,7 +150,7 @@ export function stageActionDeck(deck, content, selectedIndex = null, previous = 
   bundle.cardTitles.forEach((title, index) => {
     const action = content.actions[index];
     decorateActionAvailability(bundle.cards[index], action);
-    title.hidden = !action.heading || ['event','discovery','narrative','caption'].includes(action.cardKind);
+    title.hidden = !action.heading || !action.semanticText && ['event','discovery','narrative','caption'].includes(action.cardKind);
     if (title.hidden) title.textContent = '';
   });
   return bundle;
@@ -207,14 +207,16 @@ export function decorateCard(deck, element, image, title, text, flipImage = fals
   const copy = document.createElement('div');
   copy.className = 'nest-copy';
   element.setAttribute('data-card-kind', presentation.cardKind || 'narrative');
+  element.setAttribute('data-semantic-text', String(presentation.semanticText === true));
   element.setAttribute('data-prepared', String(presentation.prepared === true));
   const heading = document.createElement('span');
   heading.className = 'nest-card-title';
-  const visibleTitle = ['event','discovery','narrative','caption'].includes(presentation.cardKind) ? '' : title;
-  if(presentation.cardKind==='health'&&presentation.typeLabel==='EFFECT'||presentation.descriptionHeading)renderDescriptionIcons(heading,visibleTitle||'');
+  const visibleTitle = !presentation.semanticText && ['event','discovery','narrative','caption'].includes(presentation.cardKind) ? '' : title;
+  if(presentation.semanticText||presentation.cardKind==='health'&&presentation.typeLabel==='EFFECT'||presentation.descriptionHeading)renderDescriptionIcons(heading,visibleTitle||'');
   else heading.textContent = visibleTitle || '';
   heading.hidden = !visibleTitle;
   const body = document.createElement('p');
+  if (presentation.semanticText) body.className = 'nest-card-description';
   renderDescriptionIcons(body,text||'');
   copy.append(heading);
   const actionCard = presentation.cardKind === 'action';
@@ -655,18 +657,21 @@ export function renderDeck(deck, time = performance.now()) {
   const forwardActive = !!deck.forwardDeck && (((deck.content.directAdvance || deck.content.flipItemsOnReveal) && !deck.busy && deck.p.x > 0) || (deck.phase === 'committing' && !!deck.commitMotion && (deck.pendingPresentation === 'open' || !deck.pending && deck.content.directAdvance && deck.content.nextDeckPreview?.presentation === 'open'))
     || (deck.phase === 'collecting' && deck.collectMotion?.final && deck.pending && deck.pendingPresentation === 'open')
     || (deck.phase === 'choices' && deck.l.x > 0 && deck.forwardOwner === deck.content.actions[deck.index]?.id));
+  const entranceBackdrop=deck.forwardDeck?.content.entranceBackdrop===true;
   if (deck.underlay) {
     const stagedPose = {
       x: 0, y: 0, z: -24*(deck.settings.layoutScale??1) - (deck.nextTakeDepth || 0), rx: 0, ry: 0,
       rz: turningRoll(deck.underlayRoll, deck.pending || deck.commitMotion || deck.collectMotion ? deck.backTransition : null, deck.nextFlip.x), scale: nextScale,
-      turn: deck.nextFlip.x * 180, turnAxis: deck.settings.flipAxisTilt,
+      turn: entranceBackdrop?180:deck.nextFlip.x * 180, turnAxis: deck.settings.flipAxisTilt,
       visible: (((deck.content.directAdvance || deck.content.flipItemsOnReveal) && deck.p.x > 0 && !deck.busy) || (deck.phase === 'committing' && (!!deck.commitMotion || deck.operation !== 'commit')) || (deck.phase === 'collecting' && deck.collectMotion?.final)
         || (deck.phase === 'choices' && (deck.content.interaction === 'container' ? (resolution && deck.l.x !== 0) || (deck.groupLeaveActive && deck.l.x > 0) : deck.l.x > 0)
         && !deck.content.actions[deck.index]?.disabled))
-        && !forwardActive && !deck.ending && !deck.content.noSuccessor
+        && (!forwardActive||entranceBackdrop) && !deck.ending && !deck.content.noSuccessor
     };
-    if (!deck.reduced) stagedPose.z += flipLift(deck.nextFlip.x, deck.settings);
+    if(entranceBackdrop){stagedPose.scale=1;stagedPose.rz=deck.underlayRoll;}
+    else if (!deck.reduced) stagedPose.z += flipLift(deck.nextFlip.x, deck.settings);
     anchorRecedingTop(stagedPose, deck.nextTakeDepth || 0, width, height, deck.settings.perspective);
+    deck.stagedEntranceBackdropPose=entranceBackdrop?{...stagedPose}:null;
     applyPose(deck, deck.underlay, deck.underlayLayer, stagedPose, 0);
     applyPose(deck, deck.underlayBack, deck.underlayLayer, backPose(stagedPose), 0);
   }
@@ -679,8 +684,15 @@ export function renderDeck(deck, time = performance.now()) {
       || deck.returnLift.x > 0,
     -(1 - clamp(deck.returnLift.x, 0, 1)) * context.travel,
     deck.cards.length && (deck.returning || deck.returnLift.x > 0) ? 4*(deck.settings.layoutScale??1) : -36*(deck.settings.layoutScale??1), 1);
-  applyPose(deck, deck.scene, deck.sceneLayer, front, 1000);
-  applyPose(deck, deck.sceneBack, deck.sceneLayer, backPose(front), 1000);
+  const sceneOrder=deck.content.entranceBackdrop?-1:1000;
+  // Keep the renderer's support independent of logical cover clearance, which
+  // still drives the ordinary fan/entrance lifecycle through scenePose.
+  const scene=deck.content.entranceBackdrop?{...(deck.entranceBackdropPose??{
+    x:0,y:0,z:-24*(deck.settings.layoutScale??1),rx:0,ry:0,rz:linearRoll(deck.content),
+    turn:180,turnAxis:deck.settings.flipAxisTilt,scale:1,
+  }),visible:true}:front;
+  applyPose(deck, deck.scene, deck.sceneLayer, scene, sceneOrder);
+  applyPose(deck, deck.sceneBack, deck.sceneLayer, backPose(scene), sceneOrder);
   decorateActionAvailability(deck.scene, deck.content.directAdvance ? deck.content.actions[0] : {});
   deck.scene.setAttribute('aria-hidden', String(deck.open || deck.busy));
   const painterOrder = poses.map((pose, index) => ({ index, depth: deck.fan.x === 0 ? -pose.rank : pose.front }));

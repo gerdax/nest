@@ -32,6 +32,6 @@ test('unsupported types, checked support Actions and invalid protection are diag
 
 test('Action type appears before Description for Common, Weapon and Enemy editors',()=>{
  const p=createProject(),a=p.library.find(d=>d.kind==='combatAction'),w=createWeapon('weapon'),e=createEnemy('enemy');p.library.push(e);w.combat.actions=[{...createCombatAction('block'),type:'defend',resolution:'direct',damageReduction:1}];p.library.push(w);
- const cases=[[a,'type','text'],[w,'combat.actions.0.type','combat.actions.0.text'],[e,'actions.0.type','actions.0.text']];
+ const cases=[[a,'type','description'],[w,'combat.actions.0.type','combat.actions.0.description'],[e,'actions.0.type','actions.0.headline']];
  for(const [definition,typePath,textPath] of cases){const html=definitionInspector(p,definition);assert(html.indexOf(`data-path="${typePath}"`)<html.indexOf(`data-path="${textPath}"`));assert.equal(html.split(`data-path="${typePath}"`).length-1,1);}
 });

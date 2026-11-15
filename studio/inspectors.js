@@ -1,3 +1,5 @@
+import {cardCopyFields} from './forms.js';
+import {cardText} from '../project/card-text.js';
 import { combatDefinitionFields,combatProjectFields,combatNodeFields,combatEnemyControls,combatActionTypeField,defendRevealFields } from './combat-authoring.js';
 import { cardRuleIndicators } from './card-rule-indicators.js';
 import { itemTagsEditor } from './item-tags.js';
@@ -58,13 +60,14 @@ function artworkControls(definition,scope) {
 
 export function cardFields(project,definition,scope='definition',showPreview=true,showRules=true,chapter) {
  const nameId=`card-name-${scope}-${definition.id}`;
- let html=definition.kind==='effect'?'':`<div class="card-name-field"><div class="card-name-heading"><label for="${esc(nameId)}">Name</label>${(definition.kind==='item'||isConsumableKind(definition.kind))?checkbox('Show name on card',definition.showName===true,'showName',scope):''}</div><input id="${esc(nameId)}" data-scope="${esc(scope)}" data-path="name" type="text" value="${esc(definition.name)}" placeholder="${esc(cardFallbackLabel(definition))}"></div>`;
+ let html=`<div class="card-name-field"><div class="card-name-heading"><label for="${esc(nameId)}">Name</label></div><input id="${esc(nameId)}" data-scope="${esc(scope)}" data-path="name" type="text" value="${esc(definition.name)}" placeholder="${esc(cardFallbackLabel(definition))}"></div>`;
  if(scope==='definition'&&isStoryKind(definition.kind))html+=select('Card type',definition.kind,[['event','Vignette'],['discovery','Discovery'],['caption','Caption']],'kind',scope);
  if(isConsumableKind(definition.kind))html+=select('Consumable subtype',definition.subtype,[['health','Health'],['energy','Energy']],'subtype',scope);
  if(definition.kind==='item')html+=select('Item subtype',definition.subtype||'',[['','Ordinary Item'],['weapon','Weapon']],'subtype',scope)+select('Tag',definition.tagId||'',[['','None'],...(project.itemTags||[]).map(tag=>[tag.id,tag.name])],'tagId',scope);
  if(definition.kind==='combatAction')html+=combatActionTypeField(definition,'',scope);
  if(definition.kind==='enemy')html+=field('Starting health',definition.health,'health',scope,'number');
- html+=field('Description',definition.text,'text',scope,'textarea');
+ const copy=cardText(definition);
+ html+=cardCopyFields(copy,{scope,description:['action','combatAction','item','consumable','health','energy'].includes(definition.kind)});
  if(showRules)html+=cardRuleFields(project,definition,scope,chapter);
  if(scope==='definition'&&(definition.kind==='enemy'||definition.kind==='item'&&definition.subtype==='weapon'))html+=(showPreview?`<div class="inspector-card-preview" data-card-preview data-preview-definition="${esc(definition.id)}"></div>`:'')+artworkControls(definition,scope);
  if(scope==='definition')html+=combatDefinitionFields(project,definition,chapter);

@@ -6,11 +6,17 @@ import { CREATE_FLAG, progressionFlagEditor } from './progression-flags.js';
 
 export { esc };
 export const variableLabel = variable => `${variable.variableScope === 'chapter' ? 'Chapter' : 'Global'}: ${variable.name || (variable.id === 'energy' ? 'Energy' : variable.id)}`;
-export const field = (label,value,path,scope='definition',type='text') => {
- const description=label==='Description'&&type==='textarea';
+export const field = (label,value,path,scope='definition',type='text',{tokenPicker=true}={}) => {
+ const description=['Caption','Description'].includes(label)&&type==='textarea';
  const control=`<label class="field">${esc(label)}${type==='textarea'?`<textarea data-scope="${esc(scope)}" data-path="${esc(path)}"${description?' data-description-text':''}>${esc(value??'')}</textarea>`:`<input data-scope="${esc(scope)}" data-path="${esc(path)}" type="${type}" ${type==='number'?'step="any"':''} value="${esc(value??'')}">`}</label>`;
- return description?`<div data-description-editor>${control}<div class="row"><select aria-label="Insert token" data-description-token></select><button type="button" data-description-insert>Insert token</button></div><p class="small" data-description-preview aria-live="polite"></p><p class="small" data-description-prepared-preview aria-live="polite" hidden></p><p class="small" data-description-warnings role="status"></p></div>`:control;
+ return description?`<div data-description-editor>${control}${tokenPicker?descriptionTokenPicker():''}<p class="small" data-description-preview aria-live="polite"></p><p class="small" data-description-prepared-preview aria-live="polite" hidden></p><p class="small" data-description-warnings role="status"></p></div>`:control;
 };
+const descriptionTokenPicker = () => '<div class="row"><select aria-label="Insert token" data-description-token></select><button type="button" data-description-insert>Insert token</button></div><p class="small" data-description-target aria-live="polite">Insert into Caption</p>';
+/** One token picker belongs to the card, with separate previews for each field. */
+export function cardCopyFields(copy,{scope='definition',prefix='',description=false}={}) {
+ const textField=(label,key)=>field(label,copy[key],prefix+key,scope,'textarea',{tokenPicker:false});
+ return `<div data-description-group>${textField('Caption','headline')}${description?textField('Description','description'):''}${descriptionTokenPicker()}</div>`;
+}
 export const select = (label,value,choices,path,scope='definition',{disabled=false,help=''}={}) => `<label class="field">${esc(label)}<select data-scope="${esc(scope)}" data-path="${esc(path)}"${disabled?' disabled':''}>${options(choices,value)}</select>${help?`<span class="small">${esc(help)}</span>`:''}</label>`;
 export const checkbox = (label,value,path,scope='definition',disabled=false) => `<label class="field check-field"><input type="checkbox" data-scope="${esc(scope)}" data-path="${esc(path)}" ${value?'checked':''} ${disabled?'disabled':''}>${esc(label)}</label>`;
 export const button = (label,cmd,attrs='') => `<button type="button" data-command="${cmd}" ${attrs}>${esc(label)}</button>`;

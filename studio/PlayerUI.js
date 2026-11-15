@@ -1,3 +1,4 @@
+import {cardText} from '../project/card-text.js';
 import {resolveDescription} from '../project/description-tokens.js';
 import { InventoryCardPreview } from './InventoryCardPreview.js';
 import { InventoryView } from './InventoryView.js';
@@ -100,8 +101,8 @@ export class PlayerUI {
 
   showInventoryCard(item) {
     if(!item){this.cardPreview.show(item);return;}
-    const text=resolveDescription(item.text??'',{card:item,variables:this.input?.definitions?.variables??[],values:this.input?.run?.variables??{}}).text;
-    this.cardPreview.show({...item,text});
+    const copy=cardText(item),context={card:item,variables:this.input?.definitions?.variables??[],values:this.input?.run?.variables??{}};
+    this.cardPreview.show({...item,headline:resolveDescription(copy.headline,context).text,description:resolveDescription(copy.description,context).text});
   }
 
   update(input) {

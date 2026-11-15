@@ -1,3 +1,4 @@
+import {normalizeProjectCardText} from '../project/card-text.js';
 import { normalizeConsumableCard } from '../project/cards.js';
 import { createError } from '../errors.js';
 import { restoreSnapshotTags } from './tag-snapshots.js';
@@ -13,6 +14,7 @@ function variableReferences(value) {
   walk(value, entry => {
     if (typeof entry.key === 'string' && (entry.source === 'variable' || ['set', 'add'].includes(entry.op))) ids.add(entry.key);
     if (typeof entry.modifierVariable === 'string') ids.add(entry.modifierVariable);
+    for(const field of ['text','headline','description'])if(typeof entry[field]==='string')for(const match of entry[field].matchAll(/\[STAT:([^\[\]\r\n]*)\]/g))ids.add(match[1]);
   });
   return ids;
 }
@@ -27,6 +29,7 @@ function remapVariables(value, ids) {
   walk(value, entry => {
     if (ids.has(entry.key) && (entry.source === 'variable' || ['set', 'add'].includes(entry.op))) entry.key = ids.get(entry.key);
     if (ids.has(entry.modifierVariable)) entry.modifierVariable = ids.get(entry.modifierVariable);
+    for(const field of ['text','headline','description'])if(typeof entry[field]==='string')entry[field]=entry[field].replace(/\[STAT:([^\[\]\r\n]*)\]/g,(token,key)=>ids.has(key)?`[STAT:${ids.get(key)}]`:token);
   });
 }
 
@@ -124,6 +127,7 @@ export function pasteNodesClipboard(project, chapter, payload, {position} = {}) 
     const sharedInventoryDependency = !crossChapter && source.kind === 'item' && sharedDependencies.has(source.id);
     if ((!cloneLocal || source.visibility !== 'local' || sharedInventoryDependency) && existing) continue;
     const definition = normalizeConsumableCard(structuredClone(source));
+    normalizeProjectCardText({library:[definition]});
     if (cloneLocal && source.visibility === 'local' && !sharedInventoryDependency) {
       definition.id = uid(source.kind);
       delete definition.inventoryKey;

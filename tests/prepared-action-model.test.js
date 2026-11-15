@@ -8,7 +8,7 @@ function legacy(){
  const project=createProject(),enemy=createEnemy('enemy');enemy.mechanics='opposed-preparation';
  const prepare={...createEnemyAction('prepare'),type:'prepare',resolution:'direct',preparationBonus:2,damageReduction:4};
  enemy.actions.push(prepare);ensureEnemyPreparationCards(enemy);
- enemy.preparationCards.block.text='A custom dodge';enemy.preparationCards.block.imageScale=140;
+ enemy.preparationCards.block.headline='A custom dodge';enemy.preparationCards.block.imageScale=140;
  enemy.preparationCards.charge.kind='caption';enemy.preparationCards.charge.check.target=15;
  project.library.push(enemy);return {project,enemy,prepare};
 }
@@ -22,7 +22,7 @@ test('legacy prepared cards become Enemy-owned independent profiles with origina
  assert.equal(prepare.preparedActions.length,2);assert.deepEqual(prepare.preparedActions.map(e=>[e.weight,e.trigger]),[[1,'incoming-hit'],[1,'after-player-action']]);
  const [dodge,rush]=prepare.preparedActions.map(e=>enemy.preparedActions.find(d=>d.id===e.actionId));
  const skip=enemy.preparedActions.find(d=>d.id===prepare.preparedActions[0].fallback.actionId);
- assert.equal(dodge.protection,'all');assert.equal(dodge.damageReduction,1);assert.equal(dodge.text,'A custom dodge');assert.equal(dodge.imageScale,140);
+ assert.equal(dodge.protection,'all');assert.equal(dodge.damageReduction,1);assert.equal(dodge.headline,'A custom dodge');assert.equal(dodge.imageScale,140);
  assert.deepEqual(dodge.check,cards.block.check);assert.equal(dodge.presentationKind,'event');assert.equal(rush.presentationKind,'caption');
  assert.deepEqual(rush.attack,{...attack.attack,damage:{min:3,max:4},minBonus:0,maxBonus:0});assert.deepEqual(rush.check,cards.charge.check);
  assert.equal(skip.type,'wait');assert.equal(skip.resolution,'direct');assert.deepEqual(prepare.preparedActions[0].fallback.when,['defend','wait']);
@@ -113,7 +113,7 @@ test('migrated Rush preserves the borrowed Attack progression and outcome effect
 
 test('shared draft migration owns copies per Enemy, reuses a source locally and preserves remaining users',()=>{
  const {project,enemy,prepare}=migrated();
- const source=structuredClone(enemy.preparedActions.find(a=>a.type==='attack'));source.id='common-rush';source.text='Authored rush';source.imageScale=133;
+ const source=structuredClone(enemy.preparedActions.find(a=>a.type==='attack'));source.id='common-rush';source.headline='Authored rush';source.imageScale=133;
  project.library.push(source);project.combat.defaultActions.push({definitionId:source.id});
  prepare.preparedActions=[{definitionId:source.id,weight:2,trigger:'after-player-action'},{definitionId:source.id,weight:3,trigger:'after-player-action'}];
  delete enemy.preparedActions;
@@ -122,8 +122,8 @@ test('shared draft migration owns copies per Enemy, reuses a source locally and 
  assert.equal(enemy.preparedActions.length,1);assert.equal(second.preparedActions.length,1);
  assert.equal(prepare.preparedActions[0].actionId,prepare.preparedActions[1].actionId);
  assert.notEqual(enemy.preparedActions[0].id,second.preparedActions[0].id);
- assert.equal(enemy.preparedActions[0].text,'Authored rush');assert.equal(enemy.preparedActions[0].imageScale,133);
- assert(project.library.includes(source));enemy.preparedActions[0].text='Changed';assert.equal(source.text,'Authored rush');assert.equal(second.preparedActions[0].text,'Authored rush');
+ assert.equal(enemy.preparedActions[0].headline,'Authored rush');assert.equal(enemy.preparedActions[0].imageScale,133);
+ assert(project.library.includes(source));enemy.preparedActions[0].headline='Changed';assert.equal(source.headline,'Authored rush');assert.equal(second.preparedActions[0].headline,'Authored rush');
  const before=structuredClone(project);migrateEnemyPreparedActions(project);assert.deepEqual(project,before);
  project.combat.defaultActions=project.combat.defaultActions.filter(r=>r.definitionId!==source.id);
  // Existing copies are never treated as permission to remove an unrelated common card.
@@ -157,10 +157,10 @@ test('save, compile and portable import keep owned Actions detached from Common 
  assert.deepEqual(saveProject(project,storage),{ok:true});
  const loaded=loadProject(storage);const saved=loaded.project??loaded;
  const savedEnemy=saved.library.find(d=>d.id===enemy.id);assert.deepEqual(savedEnemy.preparedActions,enemy.preparedActions);
- const compiled=compileChapter(saved),compiledEnemy=compiled.library.find(d=>d.id===enemy.id);compiledEnemy.preparedActions[0].text='Compiled';assert.notEqual(savedEnemy.preparedActions[0].text,'Compiled');
+ const compiled=compileChapter(saved),compiledEnemy=compiled.library.find(d=>d.id===enemy.id);compiledEnemy.preparedActions[0].headline='Compiled';assert.notEqual(savedEnemy.preparedActions[0].headline,'Compiled');
  const pkg=exportChapter(saved),imported=importChapter(createProject(),pkg);
  const importedEnemy=imported.library.find(d=>d.kind==='enemy');assert.deepEqual(importedEnemy.preparedActions,savedEnemy.preparedActions);
- importedEnemy.preparedActions[0].text='Imported';assert.notEqual(savedEnemy.preparedActions[0].text,'Imported');
+ importedEnemy.preparedActions[0].headline='Imported';assert.notEqual(savedEnemy.preparedActions[0].headline,'Imported');
  assert(!imported.library.some(d=>d.kind==='combatAction'&&enemy.preparedActions.some(a=>a.id===d.id)));
 });
 
@@ -206,7 +206,7 @@ test('existing owned Rush bonuses fold into minimum and maximum damage without c
 });
 
 test('legacy enemy-only shared checked Dodge is archived per owner without changing valid player sources',()=>{
- const {project,enemy,prepare}=migrated(),source={...createCombatAction('legacy-shared-dodge'),type:'defend',protection:'all',damageReduction:1,resolution:'check',text:'Preserve this Dodge'};
+ const {project,enemy,prepare}=migrated(),source={...createCombatAction('legacy-shared-dodge'),type:'defend',protection:'all',damageReduction:1,resolution:'check',headline:'Preserve this Dodge'};
  project.library.push(source);prepare.preparedActions=[{definitionId:source.id,weight:1,trigger:'incoming-hit'}];
  const second=structuredClone(enemy);second.id='second-owner';project.library.push(second);
  migrateEnemyPreparedActions(project);

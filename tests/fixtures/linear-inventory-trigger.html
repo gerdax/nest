@@ -15,10 +15,11 @@ button,select{padding:8px;margin:5px;background:#263838;color:#e3edda;border:1px
 <main><section id="frame" class="nest-playfield"><div id="preview"></div></section><aside>
 <h1>Linear Inventory trigger</h1>
 <p>Caption → Vignette → Action using an item → Next beat. Test controls below are outside the game.</p>
-<label>Scenario<select id="scenario"><option value="last">Last use</option><option value="multi">Two uses</option><option value="permanent">Permanent</option><option value="missing">Missing · skip</option><option value="blocked">Missing · show unavailable</option></select></label>
+<label>Scenario<select id="scenario"><option value="last">Final use · DISCARD</option><option value="multi">Two uses</option><option value="permanent">Permanent</option><option value="missing">Missing · skip</option><option value="blocked">Missing · show unavailable</option></select></label>
 <label><input type="checkbox" id="check">Stat check</label>
 <button id="restart">Restart</button><button id="next">Swipe up</button>
 <button id="cancel">Start and cancel swipe</button>
+<button id="continuity">Verify reverse continuity</button><output id="continuity-result" role="status"></output>
 <pre id="state" aria-live="polite"></pre>
 </aside></main>
 <script type="module">
@@ -27,12 +28,12 @@ import {createProject} from '../../project/model.js';
 import {createDefinition} from '../../project/cards.js';
 const project=createProject(),chapter=project.chapters[0],death=chapter.nodes.find(n=>n.type==='death');
 const tool=project.library.find(d=>d.id==='flashlight');
-Object.assign(tool,{name:'Wedge',text:'Lever the jammed door open.',permability:2,tagId:'tool'});
+Object.assign(tool,{name:'Wedge',headline:'Wedge',description:'Lever the jammed door open.',permability:2,tagId:'tool'});
 project.itemTags=[{id:'tool',name:'Tool'}];
-const caption={...createDefinition('caption','caption'),text:'A narrow service passage.'};
-const vignette={...createDefinition('event','door'),text:'The door is jammed. A thin gap runs along its edge.'};
-const action={...createDefinition('action','pry'),name:'Pry the door open',text:'Drive the wedge into the gap.',effects:[{op:'add',key:'energy',value:1}]};
-const after={...createDefinition('event','after'),text:'The door opens. You slip through.'};
+const caption={...createDefinition('caption','caption'),headline:'A narrow service passage.'};
+const vignette={...createDefinition('event','door'),headline:'The door is jammed. A thin gap runs along its edge.'};
+const action={...createDefinition('action','pry'),name:'Pry the door open',headline:'Pry the door open',description:'Drive the wedge into the gap.',effects:[{op:'add',key:'energy',value:1}]};
+const after={...createDefinition('event','after'),headline:'The door opens. You slip through.'};
 project.library.push(caption,vignette,action,after);
 chapter.nodes=[{id:'linear',type:'linear',name:'Jammed door',x:0,y:0,cards:[{id:'caption-slot',definitionId:'caption'},{id:'door-slot',definitionId:'door'},{id:'pry-slot',definitionId:'pry',contextItemId:'tag:tool'}],connections:{next:'next'}},
  {id:'next',type:'linear',name:'Beyond the door',x:300,y:0,cards:[{id:'after-slot',definitionId:'after'}],connections:{next:null}},death];
@@ -62,5 +63,42 @@ function play(){
 document.querySelector('#next').onclick=()=>{preview.deck.key({key:'ArrowUp',preventDefault(){}});observe();};
 document.querySelector('#cancel').onclick=()=>{if(preview.deck.start()){preview.deck.move({axis:'y',x:0,y:-60,vx:0,vy:0});preview.deck.cancel();}observe();};
 scenario.onchange=check.onchange=document.querySelector('#restart').onclick=play;
+const waitFor=predicate=>new Promise((resolve,reject)=>{
+ const start=performance.now();
+ const frame=()=>{if(predicate())resolve();else if(performance.now()-start>12000)reject(new Error('Animation timeout'));else requestAnimationFrame(frame);};frame();
+});
+document.querySelector('#continuity').onclick=async event=>{
+ const button=event.currentTarget,result=document.querySelector('#continuity-result');
+ button.disabled=true;result.textContent='Checking…';
+ let originalRender,deck;
+ try{
+  scenario.value='last';check.checked=false;play();
+  deck=preview.deck;
+  await waitFor(()=>preview.controller.state.idle);
+  deck.key({key:'ArrowUp',preventDefault(){}});
+  await waitFor(()=>preview.controller.state.cardId==='door-slot'&&preview.controller.state.idle);
+  const gesture={axis:'y',x:0,y:-180,vx:0,vy:-600};
+  if(!deck.start())throw new Error('Could not start predecessor swipe');
+  deck.move(gesture);deck.render();
+  const reverse=deck.underlayBack,layer=deck.underlayLayer,pose=reverse.style.transform;
+  if(reverse.style.visibility!=='visible'||!pose.includes('rotateY(180deg)'))throw new Error('Swipe does not expose a reverse');
+  let frames=0,failure;
+  originalRender=deck.render;
+  deck.render=function(...args){
+   originalRender.apply(this,args);
+   const adopted=this.content.entranceBackdrop;
+   const back=adopted?this.sceneBack:this.underlayBack;
+   if(back!==reverse||back.style.visibility!=='visible'||back.style.transform!==pose)failure='Reverse changed identity, visibility or position';
+   if(adopted&&this.sceneLayer!==layer)failure='Reverse layer was replaced';
+   frames++;
+  };
+  deck.end(gesture);
+  await waitFor(()=>preview.controller.state.cardId==='pry-slot'&&preview.controller.state.idle);
+  if(failure)throw new Error(failure);
+  if(!frames)throw new Error('No transition frames observed');
+  result.textContent=`PASS — ${frames} rendered frames; same reverse and pose throughout swipe, pause and entrance.`;
+ }catch(error){result.textContent=`FAIL — ${error.message}`;}
+ finally{if(deck&&originalRender)deck.render=originalRender;button.disabled=false;observe();}
+};
 play();
 </script>

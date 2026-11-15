@@ -31,6 +31,77 @@ function key(deck,name){deck.key({key:name,preventDefault(){}});settle();}
 function real(nodes,extra={},options={}){const deck=new CardDeck(new Element(),{content:{id:'waiting',actions:[{id:'wait',label:'Wait'}]}});const controller=new ProjectController(deck,{startNode:nodes[0].id,nodes,variables:[],library:[],...extra},options);settle();return {deck,controller};}
 function dispose(deck,controller){controller.destroy();deck.destroy();settle();}
 
+for(const reduced of [false,true])test(`Linear narrative exposes and retains the same reverse below a USING entrance, reduced=${reduced}`,()=>{
+ const use=action('using',{contextItemId:'tool',entrance:'from-top'});
+ const {deck,controller}=real(linear([{...narrative('before'),kind:'caption'},use,narrative('after')]),{}, {initialState:{inventory:[item('tool',{permability:1})]}});
+ deck.reduced=reduced;
+ try{
+  assert.equal(deck.content.nextDeckPreview.content.entranceBackdrop,true);
+  const gesture={axis:'y',x:0,y:-180,vx:0,vy:-600};
+  assert.equal(deck.start(),true);deck.move(gesture);deck.render();
+  const reverse=deck.underlayBack,layer=deck.underlayLayer;
+  assert.equal(reverse.style.visibility,'visible');
+  assert.match(reverse.style.transform,/rotateY\(180deg\).*rotateY\(180deg\)/,'exposes the back, not its empty front');
+  assert.equal(deck.forwardDeck.cards[0].style.visibility,'hidden','USING waits for its entrance');
+  deck.cancel();settle();assert.equal(controller.state.cardId,'before');assert.equal(controller.inventory[0].remainingTriggers,1);
+  assert.equal(deck.start(),true);deck.move(gesture);deck.render();
+  let adopted=false,enteringFrames=0,entranceDelay=null,adoptedAt=null,entranceWait=null,slideWait=null,depthAtEntrance=null;
+  const install=deck.install.bind(deck),render=deck.render.bind(deck);
+  const beginEntrances=deck.beginEntrances.bind(deck);
+  const startNextEntrance=deck.startNextEntrance.bind(deck);
+  deck.startNextEntrance=time=>{slideWait=performance.now()-adoptedAt;depthAtEntrance=deck.n.x;startNextEntrance(time);};
+  deck.beginEntrances=transition=>{const start=performance.now();beginEntrances(transition);entranceDelay=deck.entranceNextAt-start;entranceWait=start-adoptedAt;};
+  let transform;
+  deck.install=(content,options)=>{
+   if(content.entranceBackdrop){
+    transform=reverse.style.transform;
+    assert.equal(options.staged.sceneBack,reverse);assert.equal(options.staged.sceneLayer,layer);
+    install(content,options);adopted=true;adoptedAt=performance.now();
+    assert.equal(deck.sceneBack,reverse);assert.equal(reverse.style.visibility,'visible');assert.equal(reverse.style.transform,transform,'no pose jump on adoption');
+   }else install(content,options);
+  };
+  deck.render=()=>{
+   render();
+   if(deck.content.entranceBackdrop&&adopted){
+    assert.equal(deck.sceneBack,reverse);assert.equal(reverse.style.visibility,'visible');assert.equal(reverse.style.transform,transform,'reverse stays on table throughout entrance');
+    assert(Number(deck.sceneLayer.style.zIndex)<Number(deck.cardLayers[0].style.zIndex));
+    if(deck.phase==='inserting')enteringFrames++;
+   }else if(deck.content.directAdvance&&(deck.p.x>0||deck.commitMotion))assert.equal(reverse.style.visibility,'visible','departure never reveals an empty table');
+  };
+  deck.end(gesture);settle();
+  assert.equal(adopted,true);assert.equal(controller.state.cardId,'using');
+  assert.equal(deck.cards[0].style.visibility,'visible');assert.equal(cardPose(deck,0).visible,true);
+  assert.equal(controller.inventory[0].remainingTriggers,1,'entrance is presentation only');
+  if(!reduced){assert(enteringFrames>1,'checks the arrival frames');assert.equal(entranceDelay,0,'the single Action starts without an additional pause');assert(entranceWait<=16,`no invisible stack-opening wait (${entranceWait}ms)`);assert(slideWait<=32,`actual slide starts within two frames (${slideWait}ms)`);assert(depthAtEntrance>0,'entrance overlaps depth settling instead of waiting for it');}
+  deck.render=render;deck.install=install;
+  key(deck,'ArrowUp');assert.equal(controller.state.cardId,'after');assert.equal(controller.inventory.length,0);
+  assert.equal(deck.entranceBackdropPose,null,'following content clears retained backdrop state');
+ }finally{dispose(deck,controller);}
+});
+
+for(const mode of ['finish','restart','resize'])test(`Linear USING backdrop survives ${mode} during the entrance pause`,()=>{
+ const {deck,controller}=real(linear([narrative('before'),action('using',{contextItemId:'tool',entrance:'from-top'}),narrative('after')]),{}, {initialState:{inventory:[item('tool',{permability:1})]}});
+ try{
+  key(deck,'ArrowUp');
+  // Restart the handoff, stopping on its first adopted frame before settling.
+  controller.restart();settle();
+  deck.key({key:'ArrowUp',preventDefault(){}});
+  for(let i=0;!deck.content.entranceBackdrop&&i<200;i++){
+   now+=16;const callbacks=[...frames.values()];frames.clear();callbacks.forEach(fn=>fn(now));
+  }
+  assert.equal(deck.content.entranceBackdrop,true);assert.equal(deck.sceneBack.style.visibility,'visible');
+  if(mode==='restart'){
+   const oldBack=deck.sceneBack;controller.restart();settle();
+   assert.equal(controller.state.cardId,'before');assert.equal(deck.entranceBackdropPose,null);assert.equal(oldBack.parentNode?.parentNode,null);
+  }else{
+   if(mode==='finish')deck.finishMotion();else deck.updateSettings({perspective:1100});
+   settle();assert.equal(controller.state.cardId,'using');assert.equal(deck.phase,'choices');
+   assert.equal(deck.sceneBack.style.visibility,'visible');assert.equal(deck.cards[0].style.visibility,'visible');
+  }
+  assert.equal(controller.inventory[0].remainingTriggers,1);
+ }finally{dispose(deck,controller);}
+});
+
 for(const policy of ['hidden','disabled','triggers-only','disabled-triggers'])test(`Linear missing Inventory trigger follows visibility policy ${policy}`,()=>{
  const errors=[],triggered=action('use',{contextItemId:'tool',explicitConditions:[],conditions:[{source:'inventory',key:'tool',op:'has'}],effects:[{op:'add',key:'energy',value:1}]});
  const {deck,controller}=real(linear([{...narrative('caption'),kind:'caption'},narrative('vignette'),triggered,narrative('after')]),{variables:energy,unavailableActions:policy},{onError:e=>errors.push(e)});

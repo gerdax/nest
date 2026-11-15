@@ -407,7 +407,7 @@ export class ProjectController {
     try {
       const outcomes=source.resolution==='check'?[true,false]:[undefined];
       for(const outcome of outcomes) {
-        const collected=transition==='collect'?addInventory(inventory,{...source,text:source.text}):inventory;
+        const collected=transition==='collect'?addInventory(inventory,{...source}):inventory;
         const result=transact(values,collected,{triggerItem:transition?undefined:source.contextInventoryKey??source.contextItemId,costs:transition?[]:source.costs,effects:transition?(transition==='collect'?collectionEffects(source):[]):[...(source.effects??[]),...(outcome===undefined?[]:outcome?source.successEffects??[]:source.failureEffects??[])]},this.compiled.variables,this.compiled.library);
         // A lethal accepted result always has its implicit Death route, even
         // when this action's ordinary output is unlinked.
@@ -443,7 +443,7 @@ export class ProjectController {
     const {context,...content}=card;
     const typed={...card,kind:card.kind ?? (this.type()==='container'?'item':'action')};
     const face=actionCardFace(typed,this.compiled.variables,this.compiled.library,values);
-    return {...content,label:card.name ?? card.label ?? 'Continue',...face};
+    return {...content,label:face.heading || face.text || 'Continue',...face};
   }
   linearTransition(location, destination, source=this.card(location), values=this.variables, inventory=this.inventory) {
     const revealing=this.type(location)==='linear'&&!['action','item','consumable','health','energy'].includes(source?.kind)&&destination&&!destination.completed&&!destination.halted&&this.key(location)===this.key(destination)&&destination.index>location.index;
@@ -507,7 +507,9 @@ export class ProjectController {
     }
     if(container||linearItem)for(const action of actions)action.disabled ||= action.collectDisabled&&action.discardDisabled;
     if(!actions.length)actions=[{id:'unavailable',label:'No available choices',disabled:true,disabledReason:'No available choices'}];
-    const payload={autoBrowse:fork||container,id:`${this.generation}:${++this.serial}`,cardBack:this.compiled.cardBack,title:card?.name ?? card?.title ?? '',heading:cardFace(card,this.compiled.variables,this.compiled.library,values).heading,text:this.body(card,values),cardKind:card?.kind==='consumable'?card.subtype:card?.kind ?? 'event',...(card?.kind==='item'&&card.subtype==='weapon'?{typeLabel:'WEAPON'}:{}),value:card?.value,summary:card&&!isStoryKind(card.kind??card.cardKind)&&fork?playerCardSummary(card,this.compiled.variables,this.compiled.library,values):'',image:card?.image ?? '',imageScale:card?.imageScale??100,imageOffsetX:card?.imageOffsetX??0,imageOffsetY:card?.imageOffsetY??0,flipImage:!!card?.flipImage,actions,directAdvance:!fork&&!container&&!linearFace,decisionOnly:linearFace||fork&&(location.sequence?!!location.sequence.decisionOnly:this.presentation(location,values,inventory)==='open'),interaction:container||linearItem?'container':'choice',discardAll:container,allowClose:false};
+    const payload={autoBrowse:fork||container,id:`${this.generation}:${++this.serial}`,cardBack:this.compiled.cardBack,title:'',...cardFace(card,this.compiled.variables,this.compiled.library,values),cardKind:card?.kind==='consumable'?card.subtype:card?.kind ?? 'event',...(card?.kind==='item'&&card.subtype==='weapon'?{typeLabel:'WEAPON'}:{}),value:card?.value,summary:card&&!isStoryKind(card.kind??card.cardKind)&&fork?playerCardSummary(card,this.compiled.variables,this.compiled.library,values):'',image:card?.image ?? '',imageScale:card?.imageScale??100,imageOffsetX:card?.imageOffsetX??0,imageOffsetY:card?.imageOffsetY??0,flipImage:!!card?.flipImage,actions,directAdvance:!fork&&!container&&!linearFace,decisionOnly:linearFace||fork&&(location.sequence?!!location.sequence.decisionOnly:this.presentation(location,values,inventory)==='open'),interaction:container||linearItem?'container':'choice',discardAll:container,allowClose:false};
+    payload.title=payload.heading || '';
+    if(type==='linear'&&card?.kind==='action'&&(card.contextInventoryKey??card.contextItemId))payload.entranceBackdrop=true;
     if(location.node.type==='linear'&&card)payload.linearRollKey=JSON.stringify([this.key(location),card.id]);
     if(fork)payload.choiceFollowerRatio=.82;
     payload.flipItemsOnReveal=container&&this.presentation(location,values,inventory)==='closed'||fork&&this.introductionUnlocksNext(location,values,inventory);
@@ -530,7 +532,7 @@ export class ProjectController {
         if(next&&!next.completed&&!next.halted) {
           const nextContent=this.content(next,predicted.variables,predicted.inventory,false);
           payload.nextDeckPreview={content:nextContent,presentation:this.presentation(next,predicted.variables,predicted.inventory)};
-          if(this.type(next)==='linear')payload.nextCardPreview={linearRollKey:nextContent.linearRollKey,title:nextContent.title,heading:nextContent.heading,text:nextContent.text,image:nextContent.image,imageScale:nextContent.imageScale,imageOffsetX:nextContent.imageOffsetX,imageOffsetY:nextContent.imageOffsetY,flipImage:nextContent.flipImage,cardKind:nextContent.cardKind,value:nextContent.value};
+          if(this.type(next)==='linear')payload.nextCardPreview={linearRollKey:nextContent.linearRollKey,title:nextContent.title,heading:nextContent.heading,text:nextContent.text,semanticText:nextContent.semanticText,image:nextContent.image,imageScale:nextContent.imageScale,imageOffsetX:nextContent.imageOffsetX,imageOffsetY:nextContent.imageOffsetY,flipImage:nextContent.flipImage,cardKind:nextContent.cardKind,value:nextContent.value};
         }
       }catch { /* An invalid transaction must never leak a speculative successor. */ }
     }
@@ -681,7 +683,7 @@ export class ProjectController {
     try {
       const inventory = this.collectionInventory(item, decision.replacementId);
       if (!decision.returnToStack && this.departureBlocked(item, this.location, this.variables, inventory, 'collect')) return false;
-      const collected = addInventory(inventory, {...item, text:item.text});
+      const collected = addInventory(inventory, {...item});
       transact(this.variables, collected, {effects:collectionEffects(item)}, this.compiled.variables, this.compiled.library);
       return true;
     } catch (error) { this.error(error); return false; }
@@ -711,7 +713,7 @@ export class ProjectController {
     };
     try {
       const {context,...itemContent}=item;
-      const inventory=addInventory(this.collectionInventory(item,decision.replacementId),{...itemContent,text:item.text});
+      const inventory=addInventory(this.collectionInventory(item,decision.replacementId),{...itemContent});
       const result=transact(this.variables,inventory,{effects:collectionEffects(item)},this.compiled.variables,this.compiled.library);
       // Reuse this runtime placement, preserving the displaced definition. Spawn
       // conditions have served their purpose; the returned owned item stays visible.
@@ -754,7 +756,7 @@ export class ProjectController {
     if(this.departureBlocked(item,this.location,this.variables,baseInventory,transition)){this.show({restore:true});return;}
     try {
       const {context,...itemContent}=item;
-      const inventory=transition==='collect'?addInventory(baseInventory,{...itemContent,text:item.text}):this.inventory;
+      const inventory=transition==='collect'?addInventory(baseInventory,{...itemContent}):this.inventory;
       const result=transact(this.variables,inventory,{effects:transition==='collect'?collectionEffects(item):[]},this.compiled.variables,this.compiled.library);
       this.pendingItem={item,key:this.key(),linearItem,all,transition,contentId:detail.contentId,result,removedIds:transition==='discard'?this.discardedReturns(this.location,item):[]};
       if(detail.final||linearItem||all) {

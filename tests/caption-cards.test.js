@@ -15,12 +15,12 @@ test('old Narrative definitions migrate to Event without changing identity, auth
  const restored=parseProject(JSON.stringify(project));assert.equal(restored.library[0].kind,'event');assert.equal(restored.library[0].id,source.id);assert.equal(restored.library[0].name,'My story');assert.equal(restored.library[0].imageScale,150);
  assert.equal(createDefinition('narrative','legacy').kind,'event');assert.equal(exportChapter(project).library.find(d=>d.id===source.id).kind,'event');
 });
-test('Caption has story effects, hidden name by default and no editable artwork controls',()=>{
- const project=createProject(),caption=createDefinition('caption','caption');caption.text='You open the door.';
- assert.equal(caption.showName,false);assert.deepEqual(caption.effects,[]);
- const html=cardFields(project,caption);assert.doesNotMatch(html,/Artwork path|Choose image file|Image scale and position|Flip artwork/);assert.match(html,/Description/);
- const front=new Element();decorateCard(null,front,'forbidden.png','',caption.text,true,{cardKind:'caption',imageScale:300,imageOffsetX:80});
- assert.equal(front.children[1].style.backgroundImage,undefined);assert.equal(front.children[1].style.transform,'');assert.equal(front.children[0].children[1].textContent,caption.text);
+test('Caption has story effects, independent caption and no editable artwork controls',()=>{
+ const project=createProject(),caption=createDefinition('caption','caption');caption.headline='You open the door.';
+ assert.equal(caption.headline,'You open the door.');assert.deepEqual(caption.effects,[]);
+ const html=cardFields(project,caption);assert.doesNotMatch(html,/Artwork path|Choose image file|Image scale and position|Flip artwork/);assert.match(html,/Caption<textarea[^>]+data-path="headline"/);assert.doesNotMatch(html,/data-path="description"/);
+ const front=new Element();decorateCard(null,front,'forbidden.png',caption.headline,'',true,{cardKind:'caption',semanticText:true,imageScale:300,imageOffsetX:80});
+ assert.equal(front.children[1].style.backgroundImage,undefined);assert.equal(front.children[1].style.transform,'');assert.equal(front.children[0].children[0].textContent,caption.headline);
  assert.equal(cardFace(caption).summary,'');
 });
 test('Caption is accepted in every story slot and portable chapter export',()=>{
@@ -32,7 +32,7 @@ test('Caption is accepted in every story slot and portable chapter export',()=>{
 });
 test('Caption applies effects on advance or choice and works as an introduction',()=>{
  for(const type of ['linear','fork','container']){
-  const project=createProject(),chapter=project.chapters[0],caption={...createDefinition('caption','caption'),text:'You open the door.',effects:[{op:'add',key:'energy',value:1}]};project.library.push(caption);
+  const project=createProject(),chapter=project.chapters[0],caption={...createDefinition('caption','caption'),headline:'You open the door.',effects:[{op:'add',key:'energy',value:1}]};project.library.push(caption);
   const node=chapter.nodes.find(n=>n.type===type);chapter.startNode=node.id;
   if(type==='linear')node.cards=[{id:'caption-placement',definitionId:caption.id}];else if(type==='fork'){node.choices=[{id:'caption-placement',definitionId:caption.id}];node.connections={'caption-placement':null};}else node.intro={id:'caption-placement',definitionId:caption.id};
   const deck=new Deck(),controller=new ProjectController(deck,compileChapter(project));

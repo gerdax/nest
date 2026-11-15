@@ -34,7 +34,7 @@ test('alternative fixture provides exactly the intended player costs and zero co
  assert.deepEqual(enemy.actions.map(action=>action.type),['attack','prepare']);
  assert.equal(enemy.stats,undefined);assert.equal(enemy.attributes,undefined);
  assert.deepEqual(bite.check,{pool:[{sides:6,count:3}],modifier:0,target:10});assert.deepEqual(bite.attack,attack.attack);
- assert.equal(prepare.resolution,'direct');assert.equal(prepare.text,'The rat prepares…');assert.equal(prepare.damageReduction,4);assert.equal(prepare.preparationBonus,2);
+ assert.equal(prepare.resolution,'direct');assert.equal(prepare.headline,'The rat prepares…');assert.equal(prepare.damageReduction,4);assert.equal(prepare.preparationBonus,2);
  for(const action of [...actions(project),...enemy.actions])assert.equal(action.cooldown,0);
 });
 

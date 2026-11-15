@@ -1,3 +1,4 @@
+import {cardFace} from '../project/presentation.js';
 import { decorateCard } from '../engine/renderer.js';
 
 export function inventoryTriggerSummary(item) {
@@ -31,8 +32,9 @@ export class InventoryCardPreview {
     }
     if (this.card.parentNode !== this.mount) this.mount.append(this.card);
     this.card.replaceChildren();
-    this.card.setAttribute('aria-label', item.name || item.label || 'Item');
-    decorateCard(null, this.card, item.image || '', item.name || item.label || 'Item', item.text || '', item.flipImage, { ...item, cardKind: 'item', ...(item.subtype==='weapon'?{typeLabel:'WEAPON'}:{}), summary: [item.summary, inventoryTriggerSummary(item)].filter(Boolean).join(' · ') });
+    const face=cardFace({...item,kind:'item'});
+    this.card.setAttribute('aria-label', face.heading || 'Item');
+    decorateCard(null, this.card, face.image, face.heading, face.text, face.flipImage, { ...item, ...face, cardKind: 'item', ...(item.subtype==='weapon'?{typeLabel:'WEAPON'}:{}), summary: [item.summary, inventoryTriggerSummary(item)].filter(Boolean).join(' · ') });
     this.card.style.top = `${distance}px`;
     this.card.style.bottom = 'auto';
     this.card.style.height = '100%';

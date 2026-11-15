@@ -152,7 +152,7 @@ test('tag requirements and triggers preserve local ownership without importing m
 test('legacy concrete tag-prefixed item IDs and aliases keep their original semantics', () => {
   for (const alias of [false,true]) {
     const p = createProject(), old = p.library.find(d=>d.kind==='item');
-    old.name = 'Legacy tool';
+    old.name = 'Legacy tool';old.headline='Legacy tool';
     if (alias) old.inventoryKey = 'tag:tool';
     else {
       old.id = 'tag:tool';

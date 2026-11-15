@@ -60,7 +60,7 @@ test('an imported item can keep its own ID as its alias after that ID is renamed
 
 test('an inventory alias matching a non-item definition ID remaps as inventory',()=>{
   const target=createProject(),source=sourceWithItem('tool','arrival');
-  source.library.find(d=>d.id==='arrival').text='A different arrival';
+  source.library.find(d=>d.id==='arrival').headline='A different arrival';
   const merged=importChapter(target,source),chapter=merged.chapters.at(-1);
   const action=merged.library.find(d=>d.id===chapter.nodes[2].choices[0].definitionId);
   assert.equal(action.conditions[0].key,'arrival');

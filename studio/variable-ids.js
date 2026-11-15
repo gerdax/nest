@@ -20,6 +20,7 @@ export function remapVariableReferences(value,oldId,newId) {
  walk(value,entry=>{
   if(entry.key===oldId&&(entry.source==='variable'||['set','add'].includes(entry.op)))entry.key=newId;
   if(entry.modifierVariable===oldId)entry.modifierVariable=newId;
+  for(const field of ['text','headline','description'])if(typeof entry[field]==='string')entry[field]=entry[field].replace(/\[STAT:([^\[\]\r\n]*)\]/g,(token,key)=>key===oldId?`[STAT:${newId}]`:token);
  });
 }
 export function renameVariable(project,variable,name,chapter) {

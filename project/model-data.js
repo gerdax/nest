@@ -39,9 +39,9 @@ export function chapterVariables(project, chapter) {
   return [...list(project?.variables), ...list(chapter?.variables)];
 }
 export function createProject() {
-  const event = {...createDefinition('event', 'arrival'), name: 'Arrival', heading: '', text: 'Your expedition begins at the edge of the city.'};
-  const item = {...createDefinition('item', 'flashlight'), name: 'Flashlight'};
-  const action = {...createDefinition('action', 'explore'), name: 'Explore', text: 'Follow the corridor'};
+  const event = {...createDefinition('event', 'arrival'), name: 'Arrival', headline: 'Your expedition begins at the edge of the city.'};
+  const item = {...createDefinition('item', 'flashlight'), name: 'Flashlight', headline:'Flashlight'};
+  const action = {...createDefinition('action', 'explore'), name: 'Explore', headline:'Explore', description: 'Follow the corridor'};
   const project = ensureCombatDefaults({
     version: 3,
     kind: 'nest-project',
@@ -84,8 +84,8 @@ export function createProject() {
   // New projects get the basic choices. Loading authored projects remains
   // additive only for required legacy defaults, never inserts new play choices.
   const support=[
-    {...createCombatAction('defend'),name:'Defend',type:'defend',resolution:'direct',damageReduction:1,text:'Brace yourself. Reduce damage from the next enemy attack by 1.'},
-    {...createCombatAction('prepare'),name:'Prepare',type:'prepare',resolution:'direct',preparationBonus:2,text:'Leave yourself exposed. Your next attack deals +2 damage, with any weapon. The bonus is spent even if you miss.'},
+    {...createCombatAction('defend'),name:'Defend',headline:'Defend',type:'defend',resolution:'direct',damageReduction:1,description:'Brace yourself. Reduce damage from the next enemy attack by 1.'},
+    {...createCombatAction('prepare'),name:'Prepare',headline:'Prepare',type:'prepare',resolution:'direct',preparationBonus:2,description:'Leave yourself exposed. Your next attack deals +2 damage, with any weapon. The bonus is spent even if you miss.'},
   ];
   project.library.push(...support);
   project.combat.defaultActions.push(...support.map(action=>({definitionId:action.id})));

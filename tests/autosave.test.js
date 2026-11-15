@@ -55,10 +55,10 @@ test('disabling autosave persists the choice once; later edits wait for explicit
 
 test('loading an autosave-off project makes no writes until manual Save; re-enabling flushes all edits',async()=>{
  const h=fixture({autosave:false}),writes=h.writes;
- h.project.library[0].text='Changed Library';await h.persistence.saveAutomatic(h.project);
+ h.project.library[0].headline='Changed Library';await h.persistence.saveAutomatic(h.project);
  assert.equal(h.writes,writes);assert.equal(h.persistence.hasUnsaved,true);
  h.project.autosave=true;await h.persistence.saveAutomatic(h.project);
- assert.equal(loadProject(h.storage).project.library[0].text,'Changed Library');
+ assert.equal(loadProject(h.storage).project.library[0].headline,'Changed Library');
  assert.equal(loadProject(h.storage).project.autosave,true);assert.equal(h.persistence.hasUnsaved,false);
 });
 

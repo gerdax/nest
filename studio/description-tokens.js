@@ -12,7 +12,7 @@ export function descriptionEditorContext(project,{scope,path,root,chapter,placem
   try { owner=resolvePlacement(project,placement); }
   catch { owner=project.library.find(card=>card.id===placement.definitionId)||root; }
  }
- const cardPath=(path||'text').replace(/(?:^|\.)text$/,'').replace(/^overrides(?:\.|$)/,'');
+ const cardPath=(path||'headline').replace(/(?:^|\.)(?:text|headline|description)$/,'').replace(/^overrides(?:\.|$)/,'');
  card=cardPath?atPath(owner,cardPath):owner;
  if(owner?.kind==='enemy'&&/^(?:actions|preparedActions)\.\d+$/.test(cardPath)){enemy=true;card=card&&{...card,kind:'combatAction'};}
  if(owner?.kind==='item'&&owner.subtype==='weapon'&&/^combat\.actions\.\d+$/.test(cardPath))source=owner;
@@ -47,27 +47,41 @@ export function insertDescriptionToken(textarea,token,editorRoot) {
  }
 }
 
+const tokenEditorGroups=new WeakMap();
+
 /** Controls stay mounted during selection/typing so the textarea keeps its caret. */
 export function mountDescriptionEditors(root,contextFor) {
  for(const wrapper of root.querySelectorAll('[data-description-editor]')) {
   if(wrapper.dataset.descriptionMounted)continue;
   wrapper.dataset.descriptionMounted='true';
   const textarea=wrapper.querySelector('[data-description-text]');
-  const menu=wrapper.querySelector('[data-description-token]');
-  const insert=wrapper.querySelector('[data-description-insert]');
+  const group=wrapper.closest?.('[data-description-group]')||wrapper;
+  const menu=group.querySelector('[data-description-token]');
+  const insert=group.querySelector('[data-description-insert]');
   const preview=wrapper.querySelector('[data-description-preview]');
   const warnings=wrapper.querySelector('[data-description-warnings]');
   const preparedPreview=wrapper.querySelector('[data-description-prepared-preview]');
   const choices=listDescriptionTokens(contextFor(textarea));
   const canPrepare=choices.some(choice=>choice.token==='[IF:PREPARED][ENDIF]');
-  const doc=textarea.ownerDocument;
-  const placeholder=doc.createElement('option');placeholder.value='';placeholder.textContent='Choose a token';menu.append(placeholder);
-  for(const choice of choices) {
-   const option=doc.createElement('option');option.value=choice.token;option.textContent=`${choice.label} · ${choice.token}`;menu.append(option);
+  let controller=tokenEditorGroups.get(group);
+  if(!controller){
+   controller={textarea};tokenEditorGroups.set(group,controller);
+   const doc=textarea.ownerDocument;
+   const placeholder=doc.createElement('option');placeholder.value='';placeholder.textContent='Choose a token';menu.append(placeholder);
+   for(const choice of choices) {
+    const option=doc.createElement('option');option.value=choice.token;option.textContent=`${choice.label} · ${choice.token}`;menu.append(option);
+   }
+   insert.disabled=true;
+   menu.addEventListener('change',()=>{insert.disabled=!menu.value;});
+   insert.addEventListener('click',()=>insertDescriptionToken(controller.textarea,menu.value,root));
   }
-  insert.disabled=true;
-  menu.addEventListener('change',()=>{insert.disabled=!menu.value;});
-  insert.addEventListener('click',()=>insertDescriptionToken(textarea,menu.value,root));
+  const activate=()=>{
+   controller.textarea=textarea;
+   const target=group.querySelector('[data-description-target]');
+   if(target)target.textContent=`Insert into ${/(?:^|\.)description$/.test(textarea.dataset.path)?'Description':'Caption'}`;
+  };
+  textarea.addEventListener('focus',activate);
+  if(controller.textarea===textarea)activate();
   const update=()=>{
    const context=contextFor(textarea);
    context.preparationBonus=0;

@@ -23,12 +23,22 @@ checks commit one use after either result. Canceled gestures, interrupted checks
 and blocked departures do not spend a use. Uses and ownership share the existing
 atomic transaction; no new use control or confirmation is introduced.
 
-The context caption is LAST USE when the selected concrete owned item has one
+The context caption is DISCARD when the selected concrete owned item has one
 finite trigger remaining. This works for single-use items and the final use of
 multi-use items, including selection through a tag. Permanent items show USING.
-The same caption appears in item-only context and beside odds in combined
+DISCARD indicates removal after the committed use; inspecting the owned item is
+not a separate discard action. The same caption appears in item-only context and beside odds in combined
 context. Results and unavailable reasons retain priority. Merely viewing or
 inspecting an item never spends a use.
+
+A narrative card preceding a contextual Linear Action exposes the physical
+reverse beneath it during the swipe. That same reverse and its pose survive
+adoption, the entrance pause and the arriving Action, which slides onto it.
+Ordinary narrative-to-narrative/front reveals retain their existing motion.
+For a single contextual Action arriving onto that adopted reverse, there is no
+extra queue pause or fan-opening wait, and the slide overlaps residual depth
+settling. Other entrances retain their depth gate and timings. Every entrance
+still waits for an unfinished physical turn.
 
 The browser fixture is `tests/fixtures/linear-inventory-trigger.html`. Its controls
 exercise Caption → Vignette → Action → Next with owned, missing, permanent and
