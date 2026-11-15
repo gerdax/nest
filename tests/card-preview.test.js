@@ -16,6 +16,38 @@ class Element {
 globalThis.document={createElement:()=>new Element(),body:new Element()};
 class Deck extends EventTarget {reset(){}replaceContent(content){this.content=content;}endContent(){}}
 
+test('static previews scale from layout width, follow resize and release replaced mounts',()=>{
+ const previous=globalThis.ResizeObserver,observers=[];
+ globalThis.ResizeObserver=class {
+  constructor(callback){this.callback=callback;this.targets=[];observers.push(this);}
+  disconnect(){this.targets=[];}
+  observe(mount){this.targets.push(mount);}
+ };
+ try {
+  const project=createProject(),definition=project.library[0];
+  const preview=width=>{
+   const mount=new Element();mount.dataset.previewDefinition=definition.id;
+   mount.style.setProperty=(key,value)=>{mount.style[key]=value;};
+   mount.ownerDocument={defaultView:{getComputedStyle:()=>({width:`${width}px`,getPropertyValue:()=> '273.6'})}};
+   // A thumbnail's painted size must not shrink its composition a second time.
+   mount.getBoundingClientRect=()=>({width:width*.309783});
+   return mount;
+  };
+  let mounts=[preview(276),preview(0)];
+  const root={querySelectorAll:()=>mounts};
+  renderCardPreviews(root,project,null);
+  const scale=mount=>Number(mount.style['--card-content-scale']);
+  assert.equal(scale(mounts[0]),276/273.6);
+  assert.equal(mounts[1].style['--card-content-scale'],undefined);
+  observers[0].callback([{target:mounts[1],contentRect:{width:240}}]);
+  assert.equal(scale(mounts[1]),240/273.6);
+  mounts=[preview(200)];renderCardPreviews(root,project,null);
+  assert.equal(observers.length,1);
+  assert.deepEqual(observers[0].targets,mounts);
+  assert.equal(scale(mounts[0]),200/273.6);
+ }finally{globalThis.ResizeObserver=previous;}
+});
+
 test('imported chapter previews omit automatic chapter-variable effect summaries',()=>{
  const source=createProject();
  source.chapters[0].variables=[{id:'focus',name:'Focus',type:'number',initial:3,max:10}];

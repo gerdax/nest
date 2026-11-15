@@ -3,6 +3,8 @@
 ## Prezentacja kart
 
 - Próba lekkiego, losowego obrotu kart została wycofana. Karty wróciły do pierwotnego ustawienia.
+- [x] W kontekście wybranej Action zastępować `USING` hasłem `LAST USE`, jeśli konkretny używany przedmiot ma limit użyć i pozostało mu dokładnie 1 użycie. Dotyczy zarówno przedmiotów jednorazowych, jak i ostatniego użycia przedmiotów wielorazowych; przedmioty permanentne zachowują `USING`. `DISCARD` pozostaje odrzuceniem bez użycia.
+- [x] Ostrzeżenie o ostatnim użyciu pokazywać przed zatwierdzeniem, także przy teście z jednoczesnym podglądem szans i przedmiotu oraz przy triggerze wybieranym przez tag. Korzystać z pozostałych użyć faktycznie wybranego przedmiotu, bez zużywania go przez podgląd. Zatwierdzona próba zużywa użycie także przy nieudanym teście; anulowanie lub przerwanie go nie zużywa.
 
 ## Wydajność na telefonie
 

@@ -23,6 +23,24 @@ function linearRoll(content) {
   return content.linearRollKey === undefined ? 0 : 2 * cardVariation(content.linearRollKey, 'linear-roll') - 1;
 }
 
+// Keep the exposed reverse's roll until its turn starts, then smoothly
+// introduce the successor's individual roll over the same flip.
+function turningRoll(roll, transition, turn) {
+  return Number.isFinite(transition?.roll) ? roll + (transition.roll - roll) * clamp(turn, 0, 1) : roll;
+}
+
+function incomingRoll(deck) {
+  return turningRoll(linearRoll(deck.content),
+    !deck.commitMotion && !deck.collectMotion ? deck.backTransition : null, deck.flip.x);
+}
+
+// Lock the card the player actually exposed, which may be a staged action
+// rather than the separate scene underlay.
+export function exposedSuccessorRoll(deck) {
+  return deck.forwardDeck?.cards.some(card => card.style.visibility === 'visible')
+    ? linearRoll(deck.forwardDeck.content) : deck.underlayRoll ?? 0;
+}
+
 function flipped(action) { return !!action.flipImage; }
 
 function decorateActionAvailability(card, action) {
@@ -132,7 +150,7 @@ export function stageActionDeck(deck, content, selectedIndex = null, previous = 
   bundle.cardTitles.forEach((title, index) => {
     const action = content.actions[index];
     decorateActionAvailability(bundle.cards[index], action);
-    title.hidden = !action.heading || ['event','narrative','caption'].includes(action.cardKind);
+    title.hidden = !action.heading || ['event','discovery','narrative','caption'].includes(action.cardKind);
     if (title.hidden) title.textContent = '';
   });
   return bundle;
@@ -192,7 +210,7 @@ export function decorateCard(deck, element, image, title, text, flipImage = fals
   element.setAttribute('data-prepared', String(presentation.prepared === true));
   const heading = document.createElement('span');
   heading.className = 'nest-card-title';
-  const visibleTitle = ['event','narrative','caption'].includes(presentation.cardKind) ? '' : title;
+  const visibleTitle = ['event','discovery','narrative','caption'].includes(presentation.cardKind) ? '' : title;
   if(presentation.cardKind==='health'&&presentation.typeLabel==='EFFECT'||presentation.descriptionHeading)renderDescriptionIcons(heading,visibleTitle||'');
   else heading.textContent = visibleTitle || '';
   heading.hidden = !visibleTitle;
@@ -216,10 +234,10 @@ export function decorateCard(deck, element, image, title, text, flipImage = fals
   }
   if (!actionCard) copy.append(body);
   element.append(copy, artwork, cardTexture());
-  if (['action','item','health','energy'].includes(presentation.cardKind) && presentation.typeLabel !== '') {
+  if (presentation.cardKind === 'discovery' || ['action','item','health','energy'].includes(presentation.cardKind) && presentation.typeLabel !== '') {
     const typeLabel = document.createElement('span');
     typeLabel.className = 'nest-card-type';
-    typeLabel.textContent = presentation.typeLabel ?? presentation.cardKind.toUpperCase();
+    typeLabel.textContent = presentation.cardKind === 'discovery' ? 'DISCOVERY' : presentation.typeLabel ?? presentation.cardKind.toUpperCase();
     element.append(typeLabel);
   }
   if (['health','energy'].includes(presentation.cardKind) && presentation.showValue !== false) {
@@ -389,7 +407,7 @@ export function scenePose(deck, time = performance.now(), travel = deck.departur
     rx: deck.rotationX.x * (1 - clamp(deck.p.x, 0, 1)),
     ry: deck.rotationY.x * (1 - clamp(deck.p.x, 0, 1)),
     turn: clamp(deck.flip.x, 0, 1) * 180, turnAxis: deck.settings.flipAxisTilt,
-    rz: linearRoll(deck.content) + deck.rotationZ.x * (1 - clamp(deck.p.x, 0, 1)),
+    rz: incomingRoll(deck) + deck.rotationZ.x * (1 - clamp(deck.p.x, 0, 1)),
     visible: !deck.skipCover && !(deck.busy && !deck.commitMotion && deck.operation !== 'commit')
   };
   if (!deck.reduced) pose.z += flipLift(deck.flip.x, deck.settings);
@@ -530,7 +548,7 @@ function baseCardPose(deck, index, time, context) {
   }
   pose.rx = clamp(pose.rx, -deck.settings.maxTilt, deck.settings.maxTilt);
   pose.ry = clamp(pose.ry, -deck.settings.maxTilt, deck.settings.maxTilt);
-  pose.rz = linearRoll(deck.content) + clamp(pose.rz, -deck.settings.maxTilt, deck.settings.maxTilt);
+  pose.rz = incomingRoll(deck) + clamp(pose.rz, -deck.settings.maxTilt, deck.settings.maxTilt);
   if (deck.groupLeaveActive && deck.content.interaction === 'container') {
     // Follow each card's delayed upward travel, including its return on cancel.
     // Keep discard spin separate from the small pointer-tilt limit.
@@ -639,7 +657,8 @@ export function renderDeck(deck, time = performance.now()) {
     || (deck.phase === 'choices' && deck.l.x > 0 && deck.forwardOwner === deck.content.actions[deck.index]?.id));
   if (deck.underlay) {
     const stagedPose = {
-      x: 0, y: 0, z: -24*(deck.settings.layoutScale??1) - (deck.nextTakeDepth || 0), rx: 0, ry: 0, rz: deck.underlayRoll, scale: nextScale,
+      x: 0, y: 0, z: -24*(deck.settings.layoutScale??1) - (deck.nextTakeDepth || 0), rx: 0, ry: 0,
+      rz: turningRoll(deck.underlayRoll, deck.pending || deck.commitMotion || deck.collectMotion ? deck.backTransition : null, deck.nextFlip.x), scale: nextScale,
       turn: deck.nextFlip.x * 180, turnAxis: deck.settings.flipAxisTilt,
       visible: (((deck.content.directAdvance || deck.content.flipItemsOnReveal) && deck.p.x > 0 && !deck.busy) || (deck.phase === 'committing' && (!!deck.commitMotion || deck.operation !== 'commit')) || (deck.phase === 'collecting' && deck.collectMotion?.final)
         || (deck.phase === 'choices' && (deck.content.interaction === 'container' ? (resolution && deck.l.x !== 0) || (deck.groupLeaveActive && deck.l.x > 0) : deck.l.x > 0)
@@ -693,7 +712,7 @@ function renderStagedActions(deck, bundle, baseOrder, visible, y = 0, z = -36*(d
   const count = Math.max(1, presented.length), selectedSlot = slots.get(bundle.selectedIndex) ?? 0;
   bundle.cards.forEach((card, index) => {
     const rank = ((slots.get(index) ?? 0) - selectedSlot + count) % count;
-    const pose = { x: 0, y, z: z - rank * deck.settings.stackDepth, rx: 0, ry: 0, rz: linearRoll(bundle.content), scale, visible: visible && !(suppressEntrances && bundle.content.actions[index].entrance === 'from-top'), turn, turnAxis: deck.settings.flipAxisTilt };
+    const pose = { x: 0, y, z: z - rank * deck.settings.stackDepth, rx: 0, ry: 0, rz: turningRoll(linearRoll(bundle.content), bundle === deck.forwardDeck ? deck.backTransition : null, turn / 180), scale, visible: visible && !(suppressEntrances && bundle.content.actions[index].entrance === 'from-top'), turn, turnAxis: deck.settings.flipAxisTilt };
     if (!deck.reduced) pose.z += flipLift(turn / 180, deck.settings);
     if (takeDepth > 0) {
       anchorRecedingTop(pose, takeDepth, bounds.width, bounds.height, deck.settings.perspective);

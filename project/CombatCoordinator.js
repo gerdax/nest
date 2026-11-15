@@ -286,7 +286,7 @@ export class CombatCoordinator {
  async completeSequence(){
   const kind=this.sequence?.kind;
   if(kind==='intro')await this.enterEnemy();
-  else if(kind==='enemy-death'){this.resume={kind:'victory'};this.host.completeCombatVictory();}
+  else if(kind==='enemy-death'){this.resume={kind:'victory'};this.completeVictory();}
   else await this.finishAttack();
  }
  refundPayment(){
@@ -397,6 +397,12 @@ export class CombatCoordinator {
   this.progressionCommitted.add(result.id);
   return alive&&this.active();
  }
+ completeVictory(){
+  const completed=this.host.completeCombatVictory();
+  // Routing can become unavailable during departure. Keep a visible retry
+  // even though the final death card has already left the deck.
+  if(completed===false&&this.active()&&this.phase!=='error')this.fail(new Error(this.host.combatVictoryReason()||'Victory route unavailable'));
+ }
  fail(error){
   if(!this.active())return;
   this.advancing=false;if(!this.setPhase('error'))return;this.host.error(error);
@@ -413,7 +419,7 @@ export class CombatCoordinator {
     case 'choices':await this.showChoices();break;
     case 'sequence':await this.presentSequence({replace:true});break;
     case 'resolution':await this.presentResolution({replace:true});break;
-    case 'victory':this.host.completeCombatVictory();break;
+    case 'victory':this.completeVictory();break;
     case 'enemy':await this.enterEnemy(this.resume);break;
     default:await this.enterEnemy();
    }

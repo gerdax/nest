@@ -7,26 +7,26 @@ import { makePlacement, setCardSource, customizeAction, synchronizeConnections }
 
 test('Linear authors every card kind, accepts library sources and keeps one Next output',()=>{
  const project=createProject(),chapter=project.chapters[0],node=chapter.nodes[0];
- node.cards=['event','caption','action','item'].map(kind=>makePlacement(project,kind));
+ node.cards=['event','discovery','caption','action','item'].map(kind=>makePlacement(project,kind));
  const html=nodeInspector(project,chapter,node);
- for(const kind of ['event','caption','action','item'])assert.ok(html.includes(`+ ${kind==='event'?'Vignette':kind[0].toUpperCase()+kind.slice(1)}`));
+ for(const kind of ['event','discovery','caption','action','item'])assert.ok(html.includes(`+ ${kind==='event'?'Vignette':kind[0].toUpperCase()+kind.slice(1)}`));
  assert.match(html,/Permability/);assert.doesNotMatch(html,/Item behaviour/);assert.doesNotMatch(html,/Use custom rules/);assert.match(html,/Unavailable actions/);assert.doesNotMatch(html,/data-scope="placement" data-path="unavailable"/);
  const shared=createDefinition('action','shared-check');project.library.push(shared);
- setCardSource(project,node.cards[2],shared.id,{allowedKinds:allowedCardKinds('linear','cards')});
- customizeAction(project,node.cards[2]);node.cards[2].overrides.resolution='check';
+ setCardSource(project,node.cards[3],shared.id,{allowedKinds:allowedCardKinds('linear','cards')});
+ customizeAction(project,node.cards[3]);node.cards[3].overrides.resolution='check';
  const destination=node.connections.next;synchronizeConnections(project);
  assert.deepEqual(outputsForNode(project,node),['next']);assert.deepEqual(node.connections,{next:destination});
  assert.deepEqual(validateProject(project),[]);
  const restored=parseProject(JSON.stringify(exportChapter(project)));
  assert.deepEqual(validateProject(restored),[]);
  const compiled=compileChapter(restored).nodes[0];
- assert.deepEqual(compiled.cards.map(card=>card.kind),['event','caption','action','item']);
- assert.equal(compiled.cards[2].resolution,'check');assert.deepEqual(compiled.cards[3].onCollect,[]);
+ assert.deepEqual(compiled.cards.map(card=>card.kind),['event','discovery','caption','action','item']);
+ assert.equal(compiled.cards[3].resolution,'check');assert.deepEqual(compiled.cards[4].onCollect,[]);
 });
 
 test('Forks still exclude items from authoring and validation',()=>{
  const project=createProject(),chapter=project.chapters[0],fork=chapter.nodes.find(n=>n.type==='fork');
- assert.deepEqual(allowedCardKinds('fork','choices'),['event','caption','action']);
+ assert.deepEqual(allowedCardKinds('fork','choices'),['event','discovery','caption','action']);
  const html=nodeInspector(project,chapter,fork);
  assert.doesNotMatch(html,/\+ Item/);
  const sources=[...html.matchAll(/<select[^>]*data-path="definitionId"[^>]*>([\s\S]*?)<\/select>/g)];

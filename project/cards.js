@@ -9,6 +9,7 @@ export const cardKinds = Object.freeze({
   effect: {label:'Feedback',editorTint:'#edb4dc',validate:()=>[]},
   enemy: {label:'Enemy',editorTint:'#ef947c',validate:()=>[]},
   event: { label: 'Vignette', editorTint: '#96f7a7', validate: card => typeof card.text === 'string' ? [] : [errorMessage('PROJECT_VIGNETTE_TEXT_MUST_BE_A_STRING')] },
+  discovery: { label: 'Discovery', editorTint: '#f4f1da', validate: card => typeof card.text === 'string' ? [] : ['Discovery text must be a string'] },
   caption: { label: 'Caption', editorTint: '#e4ffeb', validate: card => typeof card.text === 'string' ? [] : [errorMessage('PROJECT_CAPTION_TEXT_MUST_BE_A_STRING')] },
   action: { label: 'Action', editorTint: '#a59bea', validate: card => ['direct','check'].includes(card.resolution) ? [] : [errorMessage('PROJECT_ACTION_RESOLUTION_MUST_BE_DIRECT_OR_CHECK')] },
   consumable: { label: 'Consumable', editorTint: '#9edcff', validate: validateResourceCard },
@@ -28,7 +29,7 @@ export function normalizeConsumableCard(card) {
 export const resourceCollectionEffects = card => [{op:'add', key:consumableResource(card), value:card.value}, ...(Array.isArray(card.onCollect) ? card.onCollect : [])];
 export const canonicalCardKind = kind => kind === 'narrative' ? 'event' : ['health','energy'].includes(kind)?'consumable':kind;
 export const cardEditorTint = kind => cardKinds[canonicalCardKind(kind)]?.editorTint || '#aab8bb';
-export const isStoryKind = kind => ['event','caption'].includes(canonicalCardKind(kind));
+export const isStoryKind = kind => ['event','discovery','caption'].includes(canonicalCardKind(kind));
 // Compiled placements include their added effects in onCollect. Legacy callers
 // may still supply collection mechanics under effects instead.
 export const collectionEffects = card => card.onCollect ?? card.effects ?? [];

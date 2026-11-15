@@ -7,13 +7,28 @@ import { cardFace, actionCardFace } from '../project/presentation.js';
 import { enemyActionCard, combatCard } from '../project/combat-presentation.js';
 import { findPlacement } from './commands.js';
 import { applyCardStyles } from '../project/card-styles.js';
+import { syncCardContentScale } from '../engine/cardSizing.js';
 
 const preparedControls=new WeakMap();
+const sizeObservers=new WeakMap();
 
 /** Static card fronts use the gameplay renderer without gestures or game state. */
 export function renderCardPreviews(root,project,node,chapterId) {
+ // Rebind after each render so removed inspector cards are not retained.
+ let observer=sizeObservers.get(root);
+ observer?.disconnect();
+ if(!observer&&typeof ResizeObserver!=='undefined') {
+  observer=new ResizeObserver(entries=>{
+   // Layout widths exclude the transform used by Common's thumbnails.
+   for(const entry of entries)syncCardContentScale(entry.target,entry.contentRect.width);
+  });
+  sizeObservers.set(root,observer);
+ }
  for(const mount of root.querySelectorAll('[data-card-preview]')) {
   applyCardStyles(mount,project.cardStyles);
+  const width=parseFloat(mount.ownerDocument?.defaultView?.getComputedStyle(mount).width);
+  syncCardContentScale(mount,width);
+  observer?.observe(mount);
   const placement=mount.dataset.previewPlacement && findPlacement(node ?? {},mount.dataset.previewPlacement);
   let card;
   try { card=placement?resolvePlacement(project,placement):project.library.find(d=>d.id===mount.dataset.previewDefinition); }
@@ -49,7 +64,7 @@ export function renderCardPreviews(root,project,node,chapterId) {
     if(card.resolution==='check'&&card.check?.mode==='stat')face.summary='';
    }
    const front=document.createElement('article');
-   front.className=`nest-card ${['event','caption'].includes(face.cardKind)?'nest-situation':'nest-action'}`;
+   front.className=`nest-card ${['event','discovery','caption'].includes(face.cardKind)?'nest-situation':'nest-action'}`;
    decorateCard(null,front,face.image,face.heading,face.text,face.flipImage,face);
    mount.replaceChildren(front);
   };

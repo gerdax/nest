@@ -20,9 +20,9 @@ function damageFields(damage,prefix){return '<div class="row">'+field('Minimum d
 function embeddedImage(card,path,definitionId,enemy=false){
  return `<div class="inspector-card-preview" data-card-preview data-preview-definition="${esc(definitionId)}" data-preview-path="${esc(path)}"></div>`+(card.kind==='caption'||enemy&&card.kind==='combatAction'&&card.presentationKind==='caption'?'':imageField('Artwork path',card.image,`${path}.image`,'definition',{clearable:true})+artworkEditor(card,'definition',path));
 }
-function embeddedCard(card,path,definitionId,{kinds=['event','caption'],heading='Card',fixedLabel=false,editableName=true,collapsible=true,beforePreview=''}={}){
+function embeddedCard(card,path,definitionId,{kinds=['event','discovery','caption'],heading='Card',fixedLabel=false,editableName=true,collapsible=true,beforePreview=''}={}){
  if(!card)return '<p class="small">Missing required card.</p>';
- return (collapsible?`<details class="entry combat-embedded" open><summary>${esc(heading)}${fixedLabel?'':` · ${esc(card.name||'Untitled')}`}</summary>`:'')+(editableName?field('Name',card.name,`${path}.name`):'')+ (kinds.length>1?select('Card type',card.kind,kinds.map(k=>[k,k==='event'?'Vignette':k==='effect'?'Feedback':'Caption']),`${path}.kind`):'')+field('Description',card.text,`${path}.text`,'definition','textarea')+beforePreview+embeddedImage(card,path,definitionId)+(collapsible?'</details>':'');
+ return (collapsible?`<details class="entry combat-embedded" open><summary>${esc(heading)}${fixedLabel?'':` · ${esc(card.name||'Untitled')}`}</summary>`:'')+(editableName?field('Name',card.name,`${path}.name`):'')+ (kinds.length>1?select('Card type',card.kind,kinds.map(k=>[k,k==='event'?'Vignette':k==='discovery'?'Discovery':k==='effect'?'Feedback':'Caption']),`${path}.kind`):'')+field('Description',card.text,`${path}.text`,'definition','textarea')+beforePreview+embeddedImage(card,path,definitionId)+(collapsible?'</details>':'');
 }
 export function defendRevealFields(project,action,prefix=''){
  if(action.kind!=='combatAction'||action.type!=='defend')return '';
@@ -41,7 +41,7 @@ function weaponDamageBonusFields(action,weapon,prefix) {
   .replace('type="number"',`type="number" aria-describedby="${esc(id)}"${range.valid?'':' aria-invalid="true"'}`);
  return `<div class="weapon-damage-bonuses">${bonusField('Minimum damage bonus','minBonus')}${bonusField('Maximum damage bonus','maxBonus')}<p id="${esc(id)}" class="small calculated-damage${range.valid?'':' calculated-damage-invalid'}" role="status">Calculated damage: <strong>${esc(range.min)}–${esc(range.max)}</strong>${range.valid?'':' · Invalid'}<br>${esc(range.equation)}${range.reason?`<br>${esc(range.reason)}`:''}</p></div>`;
 }
-function combatActionFields(project,action,prefix='',{enemy=false,owned=false,showType=true,weapon,opposedPreparation=false}={}){
+function combatActionFields(project,action,prefix='',{enemy=false,owned=false,showType=true,weapon,chapter,opposedPreparation=false}={}){
  const path=key=>prefix+key,type=action.type||'attack';
  const playerRules=!enemy;
  let html=showType?combatActionTypeField(action,prefix,'definition',{enemy}):'';
@@ -57,12 +57,12 @@ function combatActionFields(project,action,prefix='',{enemy=false,owned=false,sh
   else html+='<p class="small">Direct Action. Passes the turn.</p>';
  }
  if(playerRules)html+=field('Cooldown (following player turns)',action.cooldown??0,path('cooldown'),'definition','number')
-  +rules(project,action.conditions,path('conditions'),'definition','conditions',{label:'Requirements',help:'All requirements must pass before this action can be selected. Health and Energy equality requirements act as minimums. Requirements do not spend resources.'})
+  +rules(project,action.conditions,path('conditions'),'definition','conditions',{chapter,createFlag:true,label:'Requirements',help:'All requirements must pass before this action can be selected. Health and Energy equality requirements act as minimums. Requirements do not spend resources.'})
   +rules(project,action.costs,path('costs'),'definition','costs');
  if(!enemy||owned)html+=rules(project,action.effects,path('effects'),'definition','effects',{label:'Progression effects',help:'Apply when the action completes. For a dice check, these apply on either outcome.'});
  if(type==='attack'||type==='prepare'&&!enemy||enemy&&type==='defend'&&action.protection==='all')html+=actionResolutionFields(project,action,prefix,'definition',undefined,{showEffects:!enemy||owned});
  if(owned)html+='<p class="small">Enemy preparation requires no costs/requirements and zero cooldown.</p>';
- if(enemy&&owned)html+=select('Card type',action.presentationKind||'event',[['event','Vignette'],['caption','Caption']],path('presentationKind'));
+ if(enemy&&owned)html+=select('Card type',action.presentationKind||'event',[['event','Vignette'],['discovery','Discovery'],['caption','Caption']],path('presentationKind'));
  return html;
 }
 
@@ -88,16 +88,16 @@ function ownedPreparedActions(project,enemy){
  }).join('')+add('Add prepared action','preparedActions','prepared-action');
 }
 
-function weaponActions(project,weapon){
+function weaponActions(project,weapon,chapter){
  return '<h3>Combat Actions</h3><p class="small">Owned by this Weapon and available while the player carries it.</p>'+(weapon.combat?.actions||[]).map((action,i)=>{
  const path=`combat.actions.${i}`;
  if(action.kind!=='combatAction')return '<p class="small">Missing Combat Action. Restore its source definition to migrate it.</p>';
- return `<details class="entry combat-embedded" open><summary>${esc(action.name||'Combat Action')}</summary>`+field('Name',action.name,`${path}.name`)+combatActionTypeField(action,`${path}.`)+field('Description',action.text,`${path}.text`,'definition','textarea')+combatActionFields(project,action,`${path}.`,{showType:false,weapon})+embeddedImage(action,path,weapon.id)+defendRevealFields(project,action,`${path}.`)+controls('combat.actions',i,weapon.combat.actions.length)+'</details>';
+ return `<details class="entry combat-embedded" open><summary>${esc(action.name||'Combat Action')}</summary>`+field('Name',action.name,`${path}.name`)+combatActionTypeField(action,`${path}.`)+field('Description',action.text,`${path}.text`,'definition','textarea')+combatActionFields(project,action,`${path}.`,{showType:false,weapon,chapter})+embeddedImage(action,path,weapon.id)+defendRevealFields(project,action,`${path}.`)+controls('combat.actions',i,weapon.combat.actions.length)+'</details>';
  }).join('')+add('Add combat action','combat.actions','weapon-action');
 }
-export function combatDefinitionFields(project,d){
- if(d.kind==='combatAction')return combatActionFields(project,d,'',{showType:false});
- if(d.kind==='item')return (d.subtype==='weapon'?`<h3>Weapon damage</h3>${damageFields(d.combat?.damage,'combat.damage')}<p class="small">This milestone resolves damage from the Weapon profile. Additional intrinsic effects and statuses are deferred.</p>${weaponActions(project,d)}`:'');
+export function combatDefinitionFields(project,d,chapter){
+ if(d.kind==='combatAction')return combatActionFields(project,d,'',{showType:false,chapter});
+ if(d.kind==='item')return (d.subtype==='weapon'?`<h3>Weapon damage</h3>${damageFields(d.combat?.damage,'combat.damage')}<p class="small">This milestone resolves damage from the Weapon profile. Additional intrinsic effects and statuses are deferred.</p>${weaponActions(project,d,chapter)}`:'');
  if(d.kind==='effect'&&isDodgeFeedback(project,d))return '';
  if(d.kind==='effect')return '<p class="small">Combat supplies the resolved signed health change. Preview sample: −2. This card applies no collection effects.</p>';
  if(d.kind!=='enemy')return '';
@@ -121,8 +121,8 @@ export function combatDefinitionFields(project,d){
   }).join('');
  }
  html+='<h3>Effects Feedback</h3>'+embeddedCard(d.hit,'hit',d.id,{kinds:['effect'],heading:'Health damage',fixedLabel:true,editableName:false});
- html+='<h3>Health reactions</h3><p class="small">At or below this percentage of starting health. If multiple thresholds are crossed, only the strongest reaction is shown.</p>'+(d.reactions||[]).map((r,i)=>orderedEntry(`<details class="entry" open><summary>${Number((r.threshold.numerator/r.threshold.denominator*100).toFixed(6))}% · ${esc(r.card?.name||'Reaction')}</summary>${field('Remaining health threshold (%)',Number((r.threshold.numerator/r.threshold.denominator*100).toFixed(6)),`reactions.${i}.threshold.percent`,'definition','number')}<div class="row">${field('Threshold numerator',r.threshold.numerator,`reactions.${i}.threshold.numerator`,'definition','number')}${field('Threshold denominator',r.threshold.denominator,`reactions.${i}.threshold.denominator`,'definition','number')}</div>${embeddedCard(r.card,`reactions.${i}.card`,d.id,{kinds:['caption','event'],collapsible:false})}</details>`,'reactions',i,d.reactions.length,{label:'health reaction'})).join('')+add('Add health reaction','reactions','reaction');
- return html+'<h3>Enemy death</h3>'+embeddedCard(d.death?.[0],'death.0',d.id,{kinds:['event','caption'],heading:d.death?.[0]?.name||'Death',fixedLabel:true});
+ html+='<h3>Health reactions</h3><p class="small">At or below this percentage of starting health. If multiple thresholds are crossed, only the strongest reaction is shown.</p>'+(d.reactions||[]).map((r,i)=>orderedEntry(`<details class="entry" open><summary>${Number((r.threshold.numerator/r.threshold.denominator*100).toFixed(6))}% · ${esc(r.card?.name||'Reaction')}</summary>${field('Remaining health threshold (%)',Number((r.threshold.numerator/r.threshold.denominator*100).toFixed(6)),`reactions.${i}.threshold.percent`,'definition','number')}<div class="row">${field('Threshold numerator',r.threshold.numerator,`reactions.${i}.threshold.numerator`,'definition','number')}${field('Threshold denominator',r.threshold.denominator,`reactions.${i}.threshold.denominator`,'definition','number')}</div>${embeddedCard(r.card,`reactions.${i}.card`,d.id,{kinds:['caption','event','discovery'],collapsible:false})}</details>`,'reactions',i,d.reactions.length,{label:'health reaction'})).join('')+add('Add health reaction','reactions','reaction');
+ return html+'<h3>Enemy death</h3>'+embeddedCard(d.death?.[0],'death.0',d.id,{kinds:['event','discovery','caption'],heading:d.death?.[0]?.name||'Death',fixedLabel:true});
 }
 export function combatProjectFields(project){return checkbox('Show death beat in chapter graph',project.showDeathBeat!==false,'showDeathBeat','project')
  +checkbox('Show weapon actions on cooldown',project.showWeaponActionsOnCooldown!==false,'showWeaponActionsOnCooldown','project');}

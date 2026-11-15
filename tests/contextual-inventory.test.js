@@ -47,21 +47,20 @@ test('contextual choices resolve item artwork and ownership while preserving Act
   assert.deepEqual(validateProject(createProject()),[]);
 });
 
-test('context is accepted only on native fork Action choices with a real item definition',()=>{
+test('context requires a native Fork or Linear Action placement with a real item definition',()=>{
   for(const value of [null,42,{},'missing','unlock']) {
     const project=fixture();door(project).choices[0].contextItemId=value;
     assert.ok(validateProject(project).some(e=>e.message.includes('inventory context')));
     assert.throws(()=>parseProject(JSON.stringify(project)),/inventory context/);
   }
-  for(const slot of ['cards','items','intro']) {
+  for(const slot of ['items','intro']) {
     const project=fixture(),node=project.chapters[0].nodes[0];
-    if(slot==='cards'){node.type='linear';node.cards=[{id:'invalid',definitionId:'unlock',contextItemId:'key'}];delete node.intro;delete node.items;}
-    else node[slot]=slot==='intro'?{id:'invalid',definitionId:'door-intro',contextItemId:'key'}:[{id:'invalid',definitionId:'key',contextItemId:'key'}];
+    node[slot]=slot==='intro'?{id:'invalid',definitionId:'door-intro',contextItemId:'key'}:[{id:'invalid',definitionId:'key',contextItemId:'key'}];
     assert.ok(validateProject(project,{allowDraft:true}).some(e=>e.message.includes('inventory context')));
   }
   const project=fixture();door(project).choices[3].contextItemId='key';
   assert.ok(validateProject(project).some(e=>e.message.includes('inventory context')));
-  project.library[0].contextItemId='key';assert.ok(validateProject(project).some(e=>e.message.includes('belongs to a fork')));
+  project.library[0].contextItemId='key';assert.ok(validateProject(project).some(e=>e.message.includes('belongs to an Action placement')));
   const blank=fixture();door(blank).choices[0].contextItemId='';
   assert.equal(Object.hasOwn(door(parseProject(JSON.stringify(blank))).choices[0],'contextItemId'),false);
 });
@@ -122,13 +121,14 @@ test('context item dependencies export transitively, remap collisions and protec
   delete door(project).choices[0].contextItemId;project.library.find(d=>d.id==='unlock').costs=[];deleteDefinition(project,'key');assert.equal(project.library.some(d=>d.id==='key'),false);
 });
 
-test('editor enables Inventory trigger only for Action choice placements',()=>{
+test('editor enables Inventory trigger for Fork and Linear Action placements',()=>{
   const project=fixture(),choice=door(project).choices[0],html=placementInspector(project,choice,'action',0,'choices');
   assert.match(html,/Inventory trigger/);assert.match(html,/data-path="contextItemId"/);assert.match(html,/<option value=""\s*>None<\/option>/);assert.match(html,/<option value="key" selected>Item: Lockpick<\/option>/);
   const selector=html.match(/<select[^>]*data-path="contextItemId"[^>]*>(.*?)<\/select>/s)[1];assert.doesNotMatch(selector,/value="unlock"|value="door-intro"/);
   assert.doesNotMatch(html,/<select[^>]*data-path="contextItemId"[^>]*disabled/);
   const linearHtml=placementInspector(project,{id:'linear',definitionId:'unlock'},'action',0,'cards');
-  assert.match(linearHtml,/<select[^>]*data-path="contextItemId"[^>]* disabled><option value="" selected>None<\/option><\/select>/);
+  assert.doesNotMatch(linearHtml,/<select[^>]*data-path="contextItemId"[^>]* disabled/);
+  assert.match(linearHtml,/<option value="key"/);
   assert.doesNotMatch(linearHtml,/Available only for Action choices in Fork nodes\./);
   assert.doesNotMatch(placementInspector(project,door(project).choices[3],'event',3,'choices'),/data-path="contextItemId"/);
 });

@@ -92,7 +92,7 @@ aside {overflow-anchor:none;}
 @media(max-width:560px) {main{grid-template-columns:1fr;overflow:auto;} .workspace{min-height:400px;} aside{min-height:400px;} header .brand span{display:none;} .chapter-picker select{width:140px;}}
 
 /* Same face renderer, styles and nominal width as the chapter player. */
-.inspector-card-preview {position:relative;width:min(100%,276px);aspect-ratio:3/4;margin:24px auto;isolation:isolate;}
+.inspector-card-preview {--card-reference-width:273.6;position:relative;width:min(100%,276px);aspect-ratio:3/4;margin:24px auto;isolation:isolate;}
 @media(max-width:336px) {.inspector-card-preview {width:min(100%,240px);}}
 
 .preview-window {--preview-bar-height:48px;position:fixed;z-index:3000;left:24px;top:100px;width:var(--preview-custom-width,min(360px,calc(var(--editor-viewport-width) - 16px),calc((var(--editor-viewport-height) - var(--preview-bar-height) - 18px)*796/1654)));max-height:calc(var(--editor-viewport-height) - 16px);display:flex;flex-direction:column;background:#11191c;border:1px solid #63786d;border-radius:10px;box-shadow:0 16px 48px #000a;overflow:hidden;}
@@ -197,6 +197,7 @@ body:not(.finder-available) [data-command="reveal-image"] {display:none;}
 .card-name-field input::placeholder {color:#899c9d;opacity:1;}
 
 .state-panel > .field:has(> select[data-scope="node"][data-path="unavailableActions"]) {margin-top:24px;margin-bottom:8px;}
+#inspector > .state-panel:has(button[data-command="add-rule"][data-scope="node"][data-path="victoryEffects"]) {margin-top:28px;}
 
 .node-overrides {padding-top:16px;}
 .state-panel > button[data-command="add-rule"][data-rule-kind="conditions"] {margin-top:8px;}
@@ -327,3 +328,6 @@ details > summary {cursor:pointer;}
 .library-definition-actions {display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;}
 .library-entry[data-library-drop="before"] {box-shadow:-3px 0 #aee4ce;}
 .library-entry[data-library-drop="after"] {box-shadow:3px 0 #aee4ce;}
+
+.rule-footer-actions {display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:8px;}
+.rule-footer-actions > [data-flag-open] {margin-left:auto;}

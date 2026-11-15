@@ -51,7 +51,7 @@ export function migratePlayerBlockReveals(project){
  const actions=project.library.flatMap(d=>d?.kind==='combatAction'?[d]:d?.kind==='item'&&d.subtype==='weapon'&&Array.isArray(d.combat?.actions)?d.combat.actions:[]).filter(a=>a?.kind==='combatAction'&&a.type==='defend');
  for(const action of actions)ensurePlayerBlockReveal(action,used);
  if(!object(project.combat))return project;
- const valid=card=>object(card)&&['effect','event','caption'].includes(card.kind)&&['id','name','text','image'].every(k=>typeof card[k]==='string')&&['effects','onCollect','successEffects','failureEffects'].every(k=>card[k]===undefined||Array.isArray(card[k])&&!card[k].length);
+ const valid=card=>object(card)&&['effect','event','discovery','caption'].includes(card.kind)&&['id','name','text','image'].every(k=>typeof card[k]==='string')&&['effects','onCollect','successEffects','failureEffects'].every(k=>card[k]===undefined||Array.isArray(card[k])&&!card[k].length);
  const defaults=new Set((project.combat.defaultActions??[]).map(ref=>ref?.definitionId));
  const seed=actions.find(a=>defaults.has(a.id)&&valid(a.blockReveal));
  const promoteSeed=!Object.hasOwn(project.combat,'playerDodge');
@@ -167,7 +167,7 @@ export function migrateEnemyPreparedActions(project){
  const empty=value=>value===undefined||Array.isArray(value)&&value.length===0;
  const checkValid=c=>object(c)&&(c.mode==='stat'?typeof c.modifierVariable==='string'&&Number.isInteger(c.difficulty)&&c.difficulty>=1&&c.difficulty<=10:
   (c.mode===undefined||c.mode==='custom')&&Array.isArray(c.pool)&&c.pool.length>0&&c.pool.every(d=>object(d)&&[4,6,8,10,12,20].includes(d.sides)&&Number.isSafeInteger(d.count)&&d.count>=1&&d.count<=30)&&c.pool.reduce((n,d)=>n+d.count,0)<=30&&Number.isFinite(c.modifier)&&Number.isFinite(c.target));
- const cardValid=(card,checked)=>object(card)&&['event','caption'].includes(card.kind)&&['id','name','text','image'].every(k=>typeof card[k]==='string')&&['conditions','costs','effects','onCollect','successEffects','failureEffects'].every(k=>empty(card[k]))&&(card.cooldown===undefined||card.cooldown===0)&&(!checked||['direct','check'].includes(card.resolution)&& (card.resolution!=='check'||checkValid(card.check)));
+ const cardValid=(card,checked)=>object(card)&&['event','discovery','caption'].includes(card.kind)&&['id','name','text','image'].every(k=>typeof card[k]==='string')&&['conditions','costs','effects','onCollect','successEffects','failureEffects'].every(k=>empty(card[k]))&&(card.cooldown===undefined||card.cooldown===0)&&(!checked||['direct','check'].includes(card.resolution)&& (card.resolution!=='check'||checkValid(card.check)));
  const promote=(enemy,card,type,id,extra={})=>{
   const action={...structuredClone(card),id:allocate(id,used),kind:'combatAction',type,presentationKind:card.kind,conditions:[],costs:[],effects:[],successEffects:[],failureEffects:[],cooldown:0,target:'opponent',resolution:'direct',...extra};
   delete action.visibility;delete action.chapterId;delete action.onCollect;

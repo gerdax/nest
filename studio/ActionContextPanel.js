@@ -1,5 +1,6 @@
 import { TriggerItemMini } from './TriggerItemMini.js';
 import { renderDescriptionIcons } from '../engine/description-icons.js';
+import { itemTriggersRemaining } from '../project/state.js';
 
 /** Shared caption and CSS visibility lifecycle for selected action context. */
 export class ActionContextPanel {
@@ -58,8 +59,11 @@ export class ActionContextPanel {
       return;
     }
     const mode = result ? 'result' : disabledReason ? 'reason' : info && item ? 'check-item' : info ? 'check' : 'item';
+    const remaining = item ? itemTriggersRemaining(item) : null;
+    const itemCaption = remaining === 1 ? 'LAST USE' : 'USING';
     const key = JSON.stringify([selectionKey,mode,result,disabledReason,disabledReasonParts,
-      info ? [info.stat,info.chance,info.label,info.formula,info.rules] : null,item?.inventoryKey ?? item?.id]);
+      info ? [info.stat,info.chance,info.label,info.formula,info.rules] : null,
+      item ? [item.inventoryKey ?? item.id,remaining,itemCaption] : null]);
     const outgoing = this.visible && key !== this.presentationKey ? this.snapshot() : null;
     this.presentationKey = key;
     this.view.setAttribute('data-mode', mode);
@@ -67,7 +71,7 @@ export class ActionContextPanel {
     if (disabledReason && Array.isArray(disabledReasonParts) && disabledReasonParts.some(part => ['health','energy'].includes(part.resource))) {
       this.renderRequirements(disabledReason, disabledReasonParts);
     } else if (disabledReason) renderDescriptionIcons(this.caption, disabledReason);
-    else this.caption.textContent = result ? `ROLL: ${result.total}  TARGET: ${result.target}` : (info ? info.stat ?? '' : 'USING');
+    else this.caption.textContent = result ? `ROLL: ${result.total}  TARGET: ${result.target}` : (info ? info.stat ?? '' : itemCaption);
     this.checkDetails.hidden = !info && !result;
     this.checkChance.textContent = result ? result.label ?? (result.success ? 'SUCCESS' : 'FAIL') : info ? `${Math.round(parseFloat(info.chance))}%` : '';
     this.checkDetails.setAttribute('data-presentation', result ? 'result' : 'odds');
@@ -81,6 +85,7 @@ export class ActionContextPanel {
     this.checkRules.hidden = !info?.label;
     this.checkDetails.title = info ? [info.formula, info.rules].filter(Boolean).join(' · ') : '';
     this.itemColumn.hidden = !item;
+    this.itemCaption.textContent = itemCaption;
     this.itemCaption.hidden = !info || !item;
     this.mini.update(item, { busy });
     // An unchanged item can reappear after an interrupted exit.

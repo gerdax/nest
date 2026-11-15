@@ -3,6 +3,7 @@ import { canonicalCardKind, allowedCardKinds } from '../project/cards.js';
 import { definitionGraph } from '../project/dependencies.js';
 import { placements } from '../project/model-data.js';
 import { captureClipboardVariables, pasteNodeClipboard } from './node-clipboard.js';
+import { supportsInventoryTrigger } from '../project/nodeTypes.js';
 
 function targetSlot(node, placement) {
  if(node?.intro===placement)return 'intro';
@@ -39,7 +40,7 @@ export function pasteCardClipboard(project,chapter,node,placement,payload) {
   definitions:payload.definitions,itemTags:payload.itemTags||[],variables:payload.variables||[],
  }).cards[0];
  const slot=targetSlot(node,placement),kind=canonicalCardKind(sourceDefinition(project,payload).kind);
- if(slot!=='choices'||kind!=='action'){delete copied.contextItemId;delete copied.contextOverrideImage;}
+ if(!supportsInventoryTrigger(node.type,slot)||kind!=='action'){delete copied.contextItemId;delete copied.contextOverrideImage;}
  const placementId=placement.id;
  project.library.push(...temporaryProject.library.slice(project.library.length));
  project.itemTags=temporaryProject.itemTags;

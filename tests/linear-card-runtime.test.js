@@ -31,6 +31,72 @@ function key(deck,name){deck.key({key:name,preventDefault(){}});settle();}
 function real(nodes,extra={},options={}){const deck=new CardDeck(new Element(),{content:{id:'waiting',actions:[{id:'wait',label:'Wait'}]}});const controller=new ProjectController(deck,{startNode:nodes[0].id,nodes,variables:[],library:[],...extra},options);settle();return {deck,controller};}
 function dispose(deck,controller){controller.destroy();deck.destroy();settle();}
 
+for(const policy of ['hidden','disabled','triggers-only','disabled-triggers'])test(`Linear missing Inventory trigger follows visibility policy ${policy}`,()=>{
+ const errors=[],triggered=action('use',{contextItemId:'tool',explicitConditions:[],conditions:[{source:'inventory',key:'tool',op:'has'}],effects:[{op:'add',key:'energy',value:1}]});
+ const {deck,controller}=real(linear([{...narrative('caption'),kind:'caption'},narrative('vignette'),triggered,narrative('after')]),{variables:energy,unavailableActions:policy},{onError:e=>errors.push(e)});
+ key(deck,'ArrowUp');assert.equal(controller.state.cardId,'vignette');
+ key(deck,'ArrowUp');
+ const visible=['triggers-only','disabled-triggers'].includes(policy);
+ assert.equal(controller.state.cardId,visible?'use':'after');
+ if(visible){assert.equal(deck.content.actions[0].disabled,true);assert.match(deck.content.actions[0].disabledReason,/Requires: tool/);key(deck,'ArrowUp');assert.equal(controller.state.cardId,'use');}
+ assert.equal(controller.variables.energy,4,'skipped or blocked effects never apply');
+ assert.equal(controller.inventory.length,0);
+ dispose(deck,controller);
+});
+
+test('Linear direct trigger consumes its last use once and skips the next action requiring it',()=>{
+ const use=action('use',{contextItemId:'tool',effects:[{op:'add',key:'energy',value:1}]});
+ const {deck,controller}=real(linear([narrative('before'),use,action('use-again',{contextItemId:'tool'}),narrative('after')]),{variables:energy,unavailableActions:'hidden'},{initialState:{inventory:[item('tool',{permability:1})]}});
+ key(deck,'ArrowUp');assert.equal(controller.state.cardId,'use');assert.equal(controller.inventory[0].remainingTriggers,1);
+ key(deck,'ArrowUp');assert.equal(controller.state.cardId,'after');assert.equal(controller.inventory.length,0);assert.equal(controller.variables.energy,5);
+ controller.restart();settle();assert.equal(controller.inventory[0].remainingTriggers,1);assert.equal(controller.variables.energy,4);
+ dispose(deck,controller);
+});
+
+for(const permability of [0,2])test(`canceling a Linear trigger swipe preserves item, allowance=${permability}`,()=>{
+ const {deck,controller}=real(linear([action('use',{contextItemId:'tool'}),narrative('after')]),{}, {initialState:{inventory:[item('tool',{permability})]}});
+ const before=structuredClone(controller.inventory);
+ assert.equal(deck.start(),true);deck.move({axis:'y',x:0,y:-60,vx:0,vy:0});deck.cancel();settle();
+ assert.deepEqual(controller.inventory,before);assert.equal(controller.state.cardId,'use');
+ key(deck,'ArrowUp');assert.equal(controller.state.cardId,'after');assert.equal(controller.inventory.length,1);
+ if(permability)assert.equal(controller.inventory[0].remainingTriggers,1);
+ dispose(deck,controller);
+});
+
+test('a missing final Linear trigger follows Next, while the node show-trigger override blocks it',()=>{
+ const nodes=[{id:'linear',type:'linear',cards:[narrative('before'),action('use',{contextItemId:'tool'})],connections:{next:'next'}},
+  {id:'next',type:'linear',cards:[narrative('after')],connections:{next:null}}];
+ for(const override of [undefined,'disabled-triggers']){
+  nodes[0].unavailableActions=override;
+  const {deck,controller}=real(nodes,{unavailableActions:'hidden'});
+  key(deck,'ArrowUp');assert.equal(controller.state.cardId,override?'use':'after');
+  assert.equal(controller.state.activeNodeId,override?'linear':'next');
+  dispose(deck,controller);
+ }
+});
+
+for(const total of [1,6])test(`Linear check trigger uses concrete tagged item once after outcome ${total}`,async()=>{
+ let roll,feedback;
+ const use=action('use',{contextItemId:'tag:tool',resolution:'check',check:{pool:[{sides:6,count:1}],target:4},successEffects:[{op:'add',key:'energy',value:2}],failureEffects:[{op:'add',key:'energy',value:1}]});
+ const {deck,controller}=real(linear([narrative('before'),use,narrative('after')]),{variables:energy},{initialState:{inventory:[item('wedge',{tagId:'tool',permability:2,remainingTriggers:1})]},rollCheck:()=>new Promise(r=>roll=r),onCheckResult:()=>new Promise(r=>feedback=r)});
+ key(deck,'ArrowUp');key(deck,'ArrowUp');assert.equal(controller.state.checking,true);assert.equal(controller.inventory[0].remainingTriggers,1);
+ roll(total);await flush();assert.equal(controller.inventory[0].remainingTriggers,1,'result display does not spend a trigger');
+ feedback();await flush();settle();assert.equal(controller.state.cardId,'after');assert.equal(controller.inventory.length,0);assert.equal(controller.variables.energy,total>=4?6:5);
+ dispose(deck,controller);
+});
+
+test('blocked final Linear trigger and interrupted check preserve the owned item',async()=>{
+ const nodes=linear([action('use',{contextItemId:'tool'})]);nodes[0].connections.next=false;
+ const owned=item('tool',{permability:1});
+ const blocked=real(nodes,{}, {initialState:{inventory:[owned]}});
+ assert.equal(blocked.deck.content.actions[0].disabled,true);key(blocked.deck,'ArrowUp');assert.equal(blocked.controller.inventory[0].remainingTriggers,1);dispose(blocked.deck,blocked.controller);
+ let roll;
+ const interrupted=real(linear([action('roll',{contextItemId:'tool',resolution:'check',check:{pool:[{sides:6,count:1}],target:4}}),narrative('after')]),{}, {initialState:{inventory:[owned]},rollCheck:()=>new Promise(r=>roll=r)});
+ key(interrupted.deck,'ArrowUp');assert.equal(interrupted.controller.state.checking,true);
+ interrupted.controller.restart();settle();roll(6);await flush();settle();assert.equal(interrupted.controller.inventory[0].remainingTriggers,1);assert.equal(interrupted.controller.state.cardId,'roll');
+ dispose(interrupted.deck,interrupted.controller);
+});
+
 test('Linear cards keep their individual Z roll from preview through adoption', () => {
  const {deck,controller}=real(linear([narrative('story'),action('act')]));
  try {
@@ -717,4 +783,122 @@ test('exception after synchronous completion still reports an accepted exchange'
  assert.equal(controller.exchangeCollection(deck.content.actions[0],{slot:1,replacementId:'b',returnToStack:true}),true);
  assert.deepEqual(controller.inventory.map(i=>i.definitionId),['a','c','d','incoming']);assert.equal(controller.pendingExchange,null);assert.equal(deck.content.actions[0].definitionId,'b');
  assert(errors.some(e=>e.message==='late failure'));dispose(deck,controller);
+});
+
+
+for (const successor of [narrative('after'), action('after'), item('after')]) {
+ for (const drawer of [false, true]) test(`exposed reverse keeps its roll through collection handoff: ${successor.kind}, drawer=${drawer}`, async () => {
+  const {InventoryPickup} = await import('../engine/InventoryPickup.js');
+  const {deck, controller} = real(linear([item('first'), successor]));
+  try {
+   if (drawer) {
+    document.body = new Element();
+    const target = {slot:0, snapped:true, rect:{left:0, top:560, width:75, height:100}};
+    deck.pickup = new InventoryPickup(deck, {getTarget:()=>target, slotTarget:()=>target, preview(){}, setContext(){}, cancelPending(){}, stageDeposit(){}, clearDeposit(){}, authorize:action=>controller.authorizeCollection(action,{slot:0})?{slot:0}:false});
+   }
+   const gesture = {axis:'y', x:0, y:180, vx:0, vy:600, clientX:30, clientY:600};
+   assert.equal(deck.start(), true); deck.move(gesture); deck.render();
+   const roll = face => Number(face.style.transform.match(/rotateZ\(([^)]+)deg\)/)[1]);
+   const exposedRoll = roll(deck.underlayBack);
+   let adopted = false;
+   const install = deck.install.bind(deck);
+   deck.install = (content, options) => {
+    if (options?.backTransition) {
+     const stagedBack = deck.forwardDeck?.cardBacks[0] || deck.underlayBack;
+     assert.equal(roll(stagedBack), exposedRoll, 'staging leaves the visible reverse at its original angle');
+     install(content, options);
+     const incoming = deck.content.decisionOnly ? cardPose(deck, 0) : scenePose(deck);
+     assert.equal(incoming.rz, exposedRoll, 'adoption starts at the same angle');
+     assert.equal(incoming.turn, 180);
+     adopted = true;
+    } else install(content, options);
+   };
+   deck.end(gesture); await flush(); settle();
+   assert.equal(adopted, true);
+   assert.equal(controller.state.cardId, 'after');
+   const final = deck.content.decisionOnly ? cardPose(deck, 0) : scenePose(deck);
+   assert.equal(final.turn, 0);
+   assert.notEqual(final.rz, exposedRoll, 'the completed flip reaches the successor individual roll');
+   assert(Number.isFinite(final.rz));
+  } finally {dispose(deck, controller);}
+ });
+}
+
+function exposedSuccessor(deck) {
+ return deck.forwardDeck?.cards.find(card => card.style.visibility === 'visible')
+  || (deck.underlay?.style.visibility === 'visible' ? deck.underlay : deck.underlayBack);
+}
+function renderedRoll(face) {
+ return Number(face.style.transform.match(/rotateZ\(([^)]+)deg\)/)[1]);
+}
+function nearRoll(actual, expected, message) {
+ assert(Math.abs(actual - expected) < 1e-8, `${message}: ${actual} != ${expected}`);
+}
+const upwardSwipe = {axis:'y', x:35, y:-180, vx:0, vy:-600, clientX:170, clientY:50};
+
+for (const kind of ['event', 'caption', 'discovery']) test(`four consecutive Linear ${kind} cards preserve the exposed roll at each swipe handoff`, () => {
+ const {deck,controller} = real(linear(['one','two','three','four'].map(id => ({...narrative(id), kind}))));
+ try {
+  const rolls = [scenePose(deck).rz];
+  for (const id of ['two','three','four']) {
+   assert.equal(deck.start(), true); deck.move(upwardSwipe); deck.render();
+   const peekRoll = renderedRoll(exposedSuccessor(deck));
+   let handedOff = false;
+   const complete = deck.completeCommit.bind(deck);
+   deck.completeCommit = () => {
+    const before = renderedRoll(exposedSuccessor(deck));
+    complete();
+    nearRoll(scenePose(deck).rz, before, 'swipe completion preserves the visible angle');
+    handedOff = true;
+   };
+   deck.end(upwardSwipe);
+   nearRoll(renderedRoll(exposedSuccessor(deck)), peekRoll, 'release preserves the preview angle');
+   settle(); deck.completeCommit = complete;
+   assert.equal(handedOff, true);
+   assert.equal(controller.state.cardId, id);
+   nearRoll(scenePose(deck).rz, peekRoll, 'settled card keeps the angle exposed during drag');
+   rolls.push(scenePose(deck).rz);
+  }
+  assert.equal(new Set(rolls).size, 4, 'each Linear card retains its individual roll');
+ } finally {dispose(deck,controller);}
+});
+
+for (const kind of ['action','health']) test(`early flip from Linear ${kind} into story preserves roll at outgoing swipe completion`, () => {
+ const source = kind === 'action' ? action('one') : {...narrative('one'), kind, value:1};
+ const {deck,controller} = real(linear([source,narrative('two'),narrative('three')]));
+ try {
+  let handedOff = false;
+  const complete = deck.completeCommit.bind(deck);
+  deck.completeCommit = () => {
+   assert(deck.nextFlip.x > 0 && deck.nextFlip.x < 1, 'successor is already turning before adoption');
+   const before = renderedRoll(exposedSuccessor(deck));
+   complete();
+   nearRoll(scenePose(deck).rz, before, 'incoming story continues the exposed rotation');
+   handedOff = true;
+  };
+  assert.equal(deck.start(), true); deck.move(upwardSwipe); deck.render(); deck.end(upwardSwipe); settle();
+  assert.equal(handedOff, true); assert.equal(controller.state.cardId,'two');
+ } finally {dispose(deck,controller);}
+});
+
+for (const kind of ['action','item','health']) test(`releasing a swipe that reveals a newly unlocked Linear ${kind} keeps the exposed angle`, () => {
+ const successor = {...(kind === 'action' ? action('two') : kind === 'item' ? item('two') : {...narrative('two'),kind,value:1}),
+  conditions:[{source:'variable',key:'ready',op:'eq',value:true}]};
+ const {deck,controller} = real(linear([
+  narrative('one'),
+  {...narrative('unlock'),effects:[{op:'set',key:'ready',value:true}]},
+  successor,narrative('after')
+ ]), {variables:[{id:'ready',type:'flag',initial:false}],unavailableActions:'hidden'});
+ try {
+  key(deck,'ArrowUp');
+  assert.equal(controller.state.cardId,'unlock');
+  assert.equal(deck.content.nextTransition,'flip');
+  assert.equal(deck.start(), true); deck.move(upwardSwipe); deck.render();
+  assert.equal(deck.forwardDeck.cards[0].style.visibility,'visible');
+  const before = renderedRoll(exposedSuccessor(deck));
+  deck.end(upwardSwipe);
+  nearRoll(renderedRoll(exposedSuccessor(deck)),before,'release locks the visible forward card, not the hidden underlay');
+  settle(); assert.equal(controller.state.cardId,'two');
+  nearRoll(cardPose(deck,0).rz,before,'the completed turn retains this card individual roll');
+ } finally {dispose(deck,controller);}
 });

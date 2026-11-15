@@ -1,0 +1,51 @@
+<!doctype html>
+<meta charset="utf-8">
+<base href="../../">
+<title>Grouped connector creation verification</title>
+<link rel="stylesheet" href="studio/editor-base.css">
+<link rel="stylesheet" href="studio/editor.css">
+<link rel="stylesheet" href="studio/graph-connectors.css">
+<style>
+body{padding:16px}h1{font-size:18px}#canvas{position:relative;width:1100px;height:540px;margin-top:12px}output{display:block;white-space:pre;font:12px monospace;margin-top:10px}
+</style>
+<h1>Grouped connector creation verification</h1>
+<p>Drag an unlinked Fork output into the group or onto outside canvas. Choose a beat. Undo/Redo must restore the beat, membership and connection together. This fixture never saves.</p>
+<button id="undo">Undo</button> <button id="redo">Redo</button>
+<div id="canvas" tabindex="0" aria-label="Verification graph"></div>
+<output id="report" aria-live="polite"></output>
+<script type="module">
+import {createProject} from './project/model.js';
+import {GraphView} from './studio/GraphView.js';
+import {mountNodeCreateMenu} from './studio/node-create-menu.js';
+import {DocumentHistory} from './studio/DocumentHistory.js';
+import {LocalCardDrafts} from './studio/local-card-drafts.js';
+import {applyDocumentCommand} from './studio/document-commands.js';
+import {transactDocument} from './studio/document-session.js';
+const project=createProject(),chapter=project.chapters[0];
+const fork=chapter.nodes.find(node=>node.type==='fork');
+Object.assign(fork,{x:100,y:90,name:'Grouped Fork',connections:Object.fromEntries(fork.choices.map(choice=>[choice.id,false]))});
+const anchor={id:'anchor',type:'linear',name:'Group anchor',cards:[],x:620,y:330,connections:{next:false}};
+chapter.nodes=[fork,anchor];chapter.startNode=fork.id;
+chapter.beatGroups=[{id:'scene',name:'Discovery scene',collapsed:false,memberIds:[fork.id,anchor.id],entryId:fork.id,incoming:[],outgoing:[],destination:false}];
+const history=new DocumentHistory(project),drafts=new LocalCardDrafts();
+const root=document.querySelector('#canvas'),report=document.querySelector('#report');
+let selected=fork.id;
+const selection=()=>({chapterId:chapter.id,selected});
+function draw(){
+ graph.render(history.document,history.document.chapters[0],selected);
+ const current=history.document.chapters[0];
+ report.textContent=JSON.stringify({beats:current.nodes.map(({id,name})=>({id,name})),groupMembers:current.beatGroups[0].memberIds,connections:current.nodes[0].connections},null,2);
+ document.querySelector('#undo').disabled=!history.canUndo;
+ document.querySelector('#redo').disabled=!history.canRedo;
+}
+function edit(type,data){
+ const outcome=transactDocument(history,drafts,draft=>applyDocumentCommand(draft,selection(),type,data,drafts));
+ if(outcome.failure){report.textContent=outcome.failure;return;}
+ selected=outcome.result?.selection?.selected??selected;graph.cancelCreation();draw();
+}
+const menu=mountNodeCreateMenu({onChoose:(type,request)=>edit('create-connected-node',{...request,type}),onDismiss:()=>graph.cancelCreation(),returnFocus:root});
+const graph=new GraphView(root,{onSelect:id=>{selected=id;},onConnect:(id,exit,target)=>edit('connect',{id,exit,target}),onMove:(id,x,y)=>edit('move-node',{id,x,y}),onCreateConnected:request=>menu.open(request),onCancelCreate:()=>menu.close(),onBoundaryConnect:data=>edit('connect-beat-boundary',data)});
+graph.view={x:20,y:20,z:1};draw();
+document.querySelector('#undo').onclick=()=>{graph.cancel();history.undo();draw();};
+document.querySelector('#redo').onclick=()=>{graph.cancel();history.redo();draw();};
+</script>

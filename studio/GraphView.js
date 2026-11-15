@@ -595,10 +595,10 @@ export class GraphView {
     if(d.moved&&this.blankDrop(e))this.onBoundaryConnect({source:d.source,target:false});
    }else if(d.moved&&this.blankDrop(e)){
     if(this.unlinked(this.nodesById.get(d.nodeId),d.exit)){
-     if(this.groupsByMember?.has(d.nodeId))return;
      const position=this.point(e);
+     const groupId=this.creationGroup(position);
      this.creation={...d,px:position.x,py:position.y};this.edges();
-     this.onCreateConnected({id:d.nodeId,exit:d.exit,position,clientX:e.clientX,clientY:e.clientY});
+     this.onCreateConnected({id:d.nodeId,exit:d.exit,position,clientX:e.clientX,clientY:e.clientY,...(groupId?{groupId}:{})});
     }else this.onConnect(d.nodeId,d.exit,false);
    }
    else if(!d.moved&&d.fromPort)this.activatePort(d.nodeId,d.exit,e.timeStamp??performance.now(),e.clientX,e.clientY);
@@ -691,11 +691,22 @@ export class GraphView {
   const shift=top<viewport.top+12?viewport.top+12-top:bottom>viewport.bottom-12?viewport.bottom-12-bottom:0;
   if(shift){this.view.y+=shift/uiScale(this.root);this.transform();}
  }
+ creationGroup(position){
+  // Expanded group backgrounds do not receive pointer events. Use graph-space
+  // bounds and prefer the last painted group where expanded frames overlap.
+  for(const [id,rect] of [...(this.groupRects||[])].reverse()){
+   if(!this.groupsById.get(id)?.collapsed&&position.x>=rect.x&&position.x<rect.x+rect.width
+    &&position.y>=rect.y+48&&position.y<rect.y+rect.height)return id;
+  }
+ }
  blankDrop(e){
   const r=this.root.getBoundingClientRect();
   if(e.clientX<r.left||e.clientX>=r.right||e.clientY<r.top||e.clientY>=r.bottom)return false;
   const hit=this.root.ownerDocument.elementFromPoint(e.clientX,e.clientY);
-  return (!hit||this.root.contains(hit))&&!hit?.closest('.node')&&!hit?.closest('.beat-group');
+  const group=hit?.closest('.beat-group');
+  return (!hit||this.root.contains(hit))&&!hit?.closest('.node')
+   &&!hit?.closest('.beat-group-header')&&!hit?.closest('.beat-group-port')
+   &&(!group||this.groupsById.get(group.dataset.groupId)?.collapsed===false);
  }
  fit(){
   const rects=[...(this.groupRects?.values()||[]),...this.chapter.nodes.filter(node=>

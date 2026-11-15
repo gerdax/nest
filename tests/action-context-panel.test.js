@@ -103,6 +103,53 @@ function animationsFor(panel) {
   return animations;
 }
 
+test('last use captions follow remaining triggers on the same owned item in both layouts', () => {
+  for (const check of [null, info]) {
+    const panel = setup(), animations = animationsFor(panel);
+    const owned = {...item, inventoryKey: 'owned-wedge', permability: 3, remainingTriggers: 2};
+    const update = () => panel.update({info: check, item: owned, selectionKey: 'same-action'});
+    const caption = check ? panel.itemCaption : panel.caption;
+    update();
+    assert.equal(caption.textContent, 'USING');
+    const initialKey = panel.presentationKey;
+    owned.remainingTriggers = 1;
+    update();
+    assert.equal(caption.textContent, 'LAST USE');
+    assert.notEqual(panel.presentationKey, initialKey);
+    assert.equal(animations.length, 2, 'remaining use changes crossfade without changing selection');
+    assert.equal(panel.mini.item, owned);
+    assert.equal(owned.remainingTriggers, 1, 'presentation does not spend a use');
+    if (check) {
+      assert.equal(panel.caption.textContent, 'LUCK');
+      assert.equal(panel.itemCaption.hidden, false);
+    } else assert.equal(panel.itemCaption.hidden, true);
+    owned.permability = 0;
+    update();
+    assert.equal(caption.textContent, 'USING', 'permanent items ignore stale remaining triggers');
+    assert.equal(animations.length, 5, 'permanent status also updates the crossfade');
+    panel.destroy();
+  }
+});
+
+test('initial finite last use and permanent captions preserve result and unavailable priority', () => {
+  const panel = setup();
+  const lastUse = {...item, permability: 1};
+  panel.update({item: lastUse});
+  assert.equal(panel.caption.textContent, 'LAST USE', 'new items use their initial trigger allowance');
+  panel.update({info, item: lastUse, disabledReason: 'Requires: Key'});
+  assert.equal(panel.root.attrs['data-mode'], 'reason');
+  assert.equal(panel.caption.textContent, 'Requires: Key');
+  assert.equal(panel.itemColumn.hidden, true);
+  assert.equal(panel.checkDetails.hidden, true);
+  panel.update({info, item: lastUse, disabledReason: 'Requires: Key', result: {total: 14, target: 10, success: true}});
+  assert.equal(panel.caption.textContent, 'ROLL: 14  TARGET: 10');
+  assert.equal(panel.itemColumn.hidden, true);
+  assert.equal(panel.mini.item, null);
+  panel.update({item: {...item, permability: 0, remainingTriggers: 1}});
+  assert.equal(panel.caption.textContent, 'USING');
+  panel.destroy();
+});
+
 test('odds switch immediately while outgoing content crossfades without interaction',()=>{
   const panel=setup(),animations=animationsFor(panel);
   panel.update({item,selectionKey:'tool'});

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Linear swipe rotation verification</title>
+<link rel="stylesheet" href="../../engine/card-deck.css">
+<style>
+body{background:#141714;color:#eee;font:16px system-ui;margin:24px}main{max-width:700px;margin:auto}button{padding:12px}#deck{width:280px;height:373px;margin:32px auto}pre{white-space:pre-wrap}output{display:block;margin:16px 0}
+</style>
+<main>
+<h1>Linear swipe rotation verification</h1>
+<p>Checks the visible card angle at release and adoption through three consecutive upward swipes using real browser animation frames. Native touch and device rendering require separate checks.</p>
+<button id="run">Run three swipe handoffs</button>
+<output id="result" aria-live="polite">Ready</output>
+<div id="deck" tabindex="0"></div>
+<pre id="log"></pre>
+</main>
+<script type="module">
+import {CardDeck} from '../../engine/CardDeck.js';
+import {ProjectController} from '../../project/ProjectController.js';
+import {scenePose} from '../../engine/renderer.js';
+const button=document.querySelector('#run'),result=document.querySelector('#result'),log=document.querySelector('#log');
+let deck,controller;
+// CSSOM serializes transform angles with limited decimal precision.
+const roll=face=>Number(face.style.transform.match(/rotateZ\(([^)]+)deg\)/)[1]);
+const exposed=()=>deck.forwardDeck?.cards.find(card=>card.style.visibility==='visible')
+ || (deck.underlay?.style.visibility==='visible'?deck.underlay:deck.underlayBack);
+function equal(a,b,label){if(Math.abs(a-b)>1e-5)throw new Error(`${label}: ${a} != ${b}`);}
+function waitFor(predicate){return new Promise((resolve,reject)=>{
+ const started=performance.now();
+ function check(){if(predicate())resolve();else if(performance.now()-started>10000)reject(new Error('Animation timeout'));else requestAnimationFrame(check);}
+ check();
+});}
+button.onclick=async()=>{
+ button.disabled=true;log.textContent='';result.textContent='Running';
+ controller?.destroy();deck?.destroy();
+ try{
+  deck=new CardDeck(document.querySelector('#deck'),{content:{id:'loading',actions:[{id:'wait',label:'Wait'}]}});
+  controller=new ProjectController(deck,{startNode:'linear',nodes:[{id:'linear',type:'linear',cards:['one','two','three','four'].map(id=>({id,kind:'event',text:`Story ${id}`,effects:[]})),connections:{next:null}}],variables:[],library:[]},{onError:error=>{log.textContent+=`Engine error: ${error.stack}\n`;}});
+  await waitFor(()=>!deck.frame&&!deck.busy);
+  const rolls=[scenePose(deck).rz];
+  for(const id of ['two','three','four']){
+   const gesture={axis:'y',x:35,y:-180,vx:0,vy:-600,clientX:170,clientY:50};
+   if(!deck.start())throw new Error('Swipe could not start');
+   deck.move(gesture);deck.render();
+   const peek=roll(exposed());
+   let adopted=false,handoffError=null;
+   const complete=deck.completeCommit.bind(deck);
+   deck.completeCommit=()=>{
+    const before=roll(exposed());complete();const after=scenePose(deck).rz;
+    try{equal(after,before,'Adoption changed rotation');adopted=true;}catch(error){handoffError=error;}
+    log.textContent+=`${id}: before ${before.toFixed(9)}° → after ${after.toFixed(9)}°\n`;
+   };
+   deck.end(gesture);equal(roll(exposed()),peek,'Release changed rotation');
+   await waitFor(()=>!deck.frame&&!deck.busy);
+   deck.completeCommit=complete;
+   if(handoffError)throw handoffError;
+   if(!adopted||controller.state.cardId!==id)throw new Error(`Successor was not adopted: expected=${id}, actual=${controller.state.cardId}, hook=${adopted}, phase=${deck.phase}, reduced=${deck.reduced}`);
+   equal(scenePose(deck).rz,peek,'Settled card differs from exposed preview');rolls.push(scenePose(deck).rz);
+  }
+  if(new Set(rolls).size!==4)throw new Error('Individual card variation was lost');
+  result.textContent='PASS — all three handoffs preserve rotation; all four cards have distinct angles';
+ }catch(error){result.textContent=`FAIL — ${error.message}`;}
+ finally{button.disabled=false;}
+};
+</script>
+</html>

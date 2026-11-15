@@ -867,18 +867,31 @@ export class ProjectController {
     const {id:target,run}=this.nextStep(this.location,'victory');
     const sceneReturn=this.location.randomizerRun?.scene&&!run?.scene;
     if(!(sceneReturn&&target===null)&&(typeof target!=='string'||!target||!this.nodes.has(target)))return 'Route unavailable';
-    try {this.next(this.location,'victory',this.variables,this.inventory,new Set(),null,true);return '';}
+    try {
+      const state=this.combatVictoryState();
+      this.next(this.location,'victory',state.variables,state.inventory,new Set(),null,true);return '';
+    }
     catch(error){return this.routingReason(error)||'Route unavailable';}
+  }
+  combatVictoryState() {
+    return transact(this.variables,this.inventory,{effects:this.location?.node.victoryEffects},this.compiled.variables,this.compiled.library);
   }
   completeCombatVictory() {
     if(!this.combat||this.combatVictoryReason())return false;
     const generation=this.generation,nodeId=this.location.node.id;
     try {
-      const destination=this.next(this.location,'victory');
+      // Rewards and destination entry effects remain speculative until routing
+      // succeeds. Preflight and real selection both see the rewarded state.
+      const state=this.combatVictoryState();
+      const destination=this.next(this.location,'victory',state.variables,state.inventory);
       this.combat.dispose();this.combat=null;
+      this.variables=state.variables;this.inventory=state.inventory;
       if(!this.succeeded(this.location.node.autoOwnerId ?? nodeId)||this.generation!==generation)return false;
       this.adopt(destination,false);this.show();return true;
-    }catch(error){this.error(error);return false;}
+    }catch(error){
+      if(this.combat){this.combat.resume={kind:'victory'};this.combat.fail(error);}else this.error(error);
+      return false;
+    }
   }
   destroy() {if(this.destroyed)return;this.combat?.dispose();this.combat=null;this.destroyed=true;++this.generation;this.deathHandoff?.abort();this.deathHandoff=null;this.checking?.abort();this.checking=null;this.checkPayment=null;for(const [name,listener]of Object.entries(this.listeners))this.deck.removeEventListener(name,listener);}
 }

@@ -1,12 +1,13 @@
 import { createError } from '../errors.js';
 /** Node authoring metadata; callbacks keep this module independent of cards and model. */
-const storyKinds = Object.freeze(['event', 'caption']);
-const linearKinds = Object.freeze(['event', 'caption', 'action', 'item', 'consumable']);
-const branchKinds = Object.freeze(['event', 'caption', 'action']);
+const storyKinds = Object.freeze(['event', 'discovery', 'caption']);
+const linearKinds = Object.freeze(['event', 'discovery', 'caption', 'action', 'item', 'consumable']);
+const branchKinds = Object.freeze(['event', 'discovery', 'caption', 'action']);
 const itemKinds = Object.freeze(['item']);
 const objects = value => Array.isArray(value) ? value.filter(v => v !== null && typeof v === 'object' && !Array.isArray(v)) : [];
 const nextOutput = () => ['next'];
 export const routeFallbackEnabled = node => node.type !== 'random' || node.fallbackEnabled !== false;
+export const supportsInventoryTrigger = (type, slot) => type === 'fork' && slot === 'choices' || type === 'linear' && slot === 'cards';
 const legacyOutputs = node => Object.keys(node.connections || {});
 const introduction = makePlacement => ({introEnabled:false, introOnce:false, intro:makePlacement('event')});
 

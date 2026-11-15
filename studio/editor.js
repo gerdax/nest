@@ -27,6 +27,7 @@ import { previewActiveNode, updatePreviewHighlight } from './preview-highlight.j
 import { ProjectPreview } from './ProjectPreview.js';
 import { beatGroupInspector,definitionInspector,nodeInspector,projectSettingsInspector,chapterSettingsInspector } from './inspectors.js';
 import { esc, field, select } from './forms.js';
+import { mountProgressionFlags } from './progression-flags.js';
 import { mountPreviewWindow } from './preview-window.js';
 import { mountAutoplay } from './autoplay.js';
 import { mountStopwatch } from './stopwatch.js';
@@ -394,6 +395,7 @@ function changeField(event){const el=event.target,path=el.dataset.path,scope=el.
  }
 }
 for(const root of [$('#inspector'),$('#settings'),$('#project-settings-content')])root.addEventListener('change',changeField);
+mountProgressionFlags($('#inspector'),{create:data=>edit('inspector',{...data,command:'set-progression-flag'})});
 $('#project-settings-content').addEventListener('input',event=>{
  const el=event.target;
  if(!el.matches('[data-card-style-slider],[data-card-style-color]'))return;

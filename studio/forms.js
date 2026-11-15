@@ -2,6 +2,7 @@ import { isStatVariable, editorCheckSummary } from '../project/checks.js';
 import { eligibleInventoryItems, inventoryItemOptions } from './item-options.js';
 import { itemReferenceLinks } from './item-reference.js';
 import { esc, options } from './fields.js';
+import { CREATE_FLAG, progressionFlagEditor } from './progression-flags.js';
 
 export { esc };
 export const variableLabel = variable => `${variable.variableScope === 'chapter' ? 'Chapter' : 'Global'}: ${variable.name || (variable.id === 'energy' ? 'Energy' : variable.id)}`;
@@ -29,7 +30,7 @@ export function imageField(label,value,path,scope='definition',{clearable=false}
    +button('Clear','clear-image',`${target} aria-label="Clear card image" ${value?'':'disabled'}`):'')+'</div>';
 }
 const extras=(scope,path,kind)=>`data-scope="${esc(scope)}" data-path="${esc(path)}" data-rule-kind="${kind}"`;
-export function rules(project,list=[],path,scope,kind,{label,help,chapter,footer='',countSuffix=''}={}) {
+export function rules(project,list=[],path,scope,kind,{label,help,chapter,footer='',countSuffix='',createFlag=false}={}) {
  const vars=project.variables.map(v=>[v.id,variableLabel(v)]);
  let html=`<details class="state-panel"><summary>${esc(label || kind[0].toUpperCase()+kind.slice(1))} · ${list.length}${esc(countSuffix)}</summary>`;
  if(!help&&kind==='costs')help='Spend Energy or Health when the action is committed. Dice checks pay before rolling, regardless of the outcome.';
@@ -63,7 +64,9 @@ export function rules(project,list=[],path,scope,kind,{label,help,chapter,footer
    fields=select('Resource',current,resources,`${p}.key`,scope)+field('Amount',rule.amount,`${p}.amount`,scope,'number');
   } else {
    const inventory=['addItem','removeItem'].includes(rule.op);
-   fields=select('Operation',rule.op,[['addItem','Add item'],['add','Add to variable'],['removeItem','Remove item'],['set','Set variable']],`${p}.op`,scope)+select('Target',rule.key,inventory?items:vars,`${p}.key`,scope);
+   const targetControl=select('Target',rule.key,inventory?items:createFlag?[...vars,[CREATE_FLAG,'+ Create flag…']]:vars,`${p}.key`,scope);
+   fields=select('Operation',rule.op,[['addItem','Add item'],['add','Add to variable'],['removeItem','Remove item'],['set','Set variable']],`${p}.op`,scope)
+    +(createFlag&&!inventory?progressionFlagEditor({variables:project.variables,chapter,path,scope,index:i,currentKey:rule.key,target:targetControl}):targetControl);
    const target=inventory&&eligibleInventoryItems(project,chapter).find(item=>item.id===rule.key);
    if(inventory&&rule.key&&!target)fields+=`<p class="small">Choose ${chapter?'an item from this chapter or the shared Library':'a shared Library item'}. This saved target is unavailable for item effects.</p>`;
    const flag=project.variables.find(v=>v.id===rule.key)?.type==='flag';
@@ -72,11 +75,12 @@ export function rules(project,list=[],path,scope,kind,{label,help,chapter,footer
   const controls=kind==='costs'?checkbox('Hide badge',rule.hideBadge===true,`${p}.hideBadge`,scope):itemEffect?'':referenceLinks;
   return `<div class="entry">${fields}${itemEffect?`<div class="item-effect-reference">${referenceLinks}</div>`:''}${kind==='costs'&&referenceLinks?`<div class="item-effect-reference">${referenceLinks}</div>`:''}<div class="rule-entry-actions${kind==='costs'?' cost-entry-actions':''}">${controls}${button('Remove','remove-rule',extras(scope,path,kind)+` data-index="${i}"`)}</div></div>`;
  }).join('');
- return html+button(`Add ${kind==='conditions'?'condition':kind==='costs'?'cost':'effect'}`,'add-rule',extras(scope,path,kind))+footer+'</details>';
+ const addButton=button(`Add ${kind==='conditions'?'condition':kind==='costs'?'cost':'effect'}`,'add-rule',extras(scope,path,kind));
+ return html+(createFlag?progressionFlagEditor({variables:project.variables,chapter,path,scope,addButton,context:label}):addButton)+footer+'</details>';
 }
 export function actionFields(project,action,prefix='',scope='definition',chapter) {
  const p=key=>prefix+key;
- let html=rules(project,action.conditions,p('conditions'),scope,'conditions',{chapter,label:'Requirements',help:'All requirements must pass before this action can be selected. Requirements do not spend resources.'})+rules(project,action.costs,p('costs'),scope,'costs',{chapter})+(action.kind==='combatAction'?'':rules(project,action.effects,p('effects'),scope,'effects',{chapter,label:'Progression effects',help:'Apply when the action completes. For a dice check, these apply on either outcome.'}));
+ let html=rules(project,action.conditions,p('conditions'),scope,'conditions',{chapter,createFlag:true,label:'Requirements',help:'All requirements must pass before this action can be selected. Requirements do not spend resources.'})+rules(project,action.costs,p('costs'),scope,'costs',{chapter})+(action.kind==='combatAction'?'':rules(project,action.effects,p('effects'),scope,'effects',{chapter,label:'Progression effects',help:'Apply when the action completes. For a dice check, these apply on either outcome.'}));
  return html+actionResolutionFields(project,action,prefix,scope,chapter);
 }
 export function actionResolutionFields(project,action,prefix='',scope='definition',chapter,{showEffects=true}={}) {

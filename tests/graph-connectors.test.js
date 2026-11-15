@@ -866,6 +866,47 @@ function groupedCanvas(collapsed=false){
   groupPort:port=>graph.groupElements.get('g').children.find(element=>element.dataset.port===port)};
 }
 
+test('unlinked grouped Fork output opens creation inside its frame and on outside canvas',()=>{
+ for(const inside of [true,false]){
+  const s=groupedCanvas(),source=s.chapter.nodes.find(node=>node.id==='b');
+  s.graph.project.library=[{id:'choice',kind:'action',name:'Continue',resolution:'direct'}];
+  Object.assign(source,{type:'fork',choices:[{id:'choose',definitionId:'choice'}],connections:{choose:false}});
+  s.graph.render(s.graph.project,s.chapter,'b');
+  s.graph.view={x:30,y:40,z:.5};
+  const position=inside?{x:700,y:230}:{x:1400,y:600};
+  const clientX=10+30+position.x*.5,clientY=20+40+position.y*.5;
+  s.root.event('pointerdown',s.root.node('b').children[0],250,100);
+  // Real expanded frames are pointer-transparent; exercise both hit paths.
+  s.root.hit=inside?s.tile():null;
+  s.root.event('pointerup',s.root,clientX,clientY);
+  assert.equal(s.creations.length,1);
+  assert.deepEqual(s.creations[0],{id:'b',exit:'choose',position,clientX,clientY,...(inside?{groupId:'g'}:{})});
+  assert.deepEqual(s.calls,[]);
+  assert.equal(source.connections.choose,false);
+  s.graph.cancel();assert.equal(s.graph.creation,null);
+ }
+});
+
+test('outside source assigns the drop group even when its expanded frame is pointer-transparent',()=>{
+ const s=groupedCanvas();s.group.incoming=[];
+ s.graph.render(s.graph.project,s.chapter,'a');
+ s.root.event('pointerdown',s.port(),200,100);s.root.hit=null;
+ s.root.event('pointerup',s.root,760,300);
+ assert.equal(s.creations.length,1);
+ assert.equal(s.creations[0].groupId,'g');
+});
+
+test('group headers, collapsed frames and invalid group ports do not open creation',()=>{
+ for(const kind of ['header','collapsed','port']){
+  const s=groupedCanvas(kind==='collapsed');s.group.incoming=[];
+  s.graph.render(s.graph.project,s.chapter,'a');
+  s.root.event('pointerdown',s.port(),200,100);
+  s.root.hit=kind==='header'?s.tile().header:kind==='port'?s.groupPort('output'):s.tile();
+  s.root.event('pointerup',s.root,760,300);
+  assert.deepEqual(s.creations,[]);
+ }
+});
+
 test('expanded groups project both halves of each wire and collapse keeps outside wires and beat state',()=>{
  const s=groupedCanvas(),{root,graph}=s;
  const edgeMarkup=()=>root.parts['#edges'].innerHTML;

@@ -77,7 +77,6 @@
 .nest-playfield .action-context-view[data-mode="result"] {translate:0 calc(-10px * var(--playfield-scale));}
 .nest-playfield .action-check-details[data-presentation="result"] {padding-top:calc(16px * var(--playfield-scale));}
 .nest-playfield .nest-trigger-item>button {border-width:calc(2px * var(--playfield-scale));border-radius:calc(10.5px * var(--playfield-scale));}
-.nest-playfield .nest-card {border-radius:calc(var(--card-radius,20px) * var(--playfield-scale));border-width:calc(1px * var(--playfield-scale));}
 .nest-playfield .check-surface .check-tray {inset:calc(16px * var(--playfield-scale)) calc(12px * var(--playfield-scale)) calc(130px * var(--playfield-scale));}
 .nest-playfield .nest-card-backdrop-fill {background:linear-gradient(to bottom,transparent 0,#000 calc(30px * var(--playfield-scale)),#000 100%);}
 .nest-playfield .preview-status-row {

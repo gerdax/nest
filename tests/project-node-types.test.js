@@ -66,15 +66,15 @@ test('descriptor outputs retain fork checks, malformed draft tolerance, random a
 });
 
 test('slot policies preserve story, branch and item behavior and return independent lists',()=>{
- assert.deepEqual(allowedCardKinds('linear','cards'),['event','caption','action','item','consumable']);
- assert.deepEqual(allowedCardKinds('fork','intro'),['event','caption']);
- assert.deepEqual(allowedCardKinds('fork','choices'),['event','caption','action']);
- assert.deepEqual(allowedCardKinds('fork','future-slot'),['event','caption','action']);
+ assert.deepEqual(allowedCardKinds('linear','cards'),['event','discovery','caption','action','item','consumable']);
+ assert.deepEqual(allowedCardKinds('fork','intro'),['event','discovery','caption']);
+ assert.deepEqual(allowedCardKinds('fork','choices'),['event','discovery','caption','action']);
+ assert.deepEqual(allowedCardKinds('fork','future-slot'),['event','discovery','caption','action']);
  assert.deepEqual(allowedCardKinds('container','items'),['item']);
- assert.deepEqual(allowedCardKinds('container','intro'),['event','caption']);
- assert.deepEqual(allowedCardKinds('random','toString'),['event','caption']);
+ assert.deepEqual(allowedCardKinds('container','intro'),['event','discovery','caption']);
+ assert.deepEqual(allowedCardKinds('random','toString'),['event','discovery','caption']);
  const kinds=allowedCardKinds('linear','cards');kinds.push('item');
- assert.deepEqual(allowedCardKinds('linear','cards'),['event','caption','action','item','consumable']);
+ assert.deepEqual(allowedCardKinds('linear','cards'),['event','discovery','caption','action','item','consumable']);
  assert.equal(Object.isFrozen(nodeTypes.linear.slots.cards),true);
 });
 

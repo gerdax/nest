@@ -342,3 +342,22 @@ Player Defend or Prepare does not consume an Enemy block. Another Enemy Prepare
 replaces the previous hidden benefit; benefits do not stack and reset each encounter.
 Existing Attack, Defend and Wait cards retain their behavior. To use this for a
 Rat, change its preparation Action to Prepare in the Enemy’s Library definition.
+
+## Combat victory rewards
+
+A Combat beat's **On victory effects** apply when the player accepts the final
+Enemy death card and continues through a valid Victory connection. They run once
+per completed encounter, before the destination's conditions and entry effects.
+They do not run on entering the fight, on defeat, or on a canceled or blocked
+departure. Revisiting and winning the encounter applies them again.
+
+Use **+ Create flag…** here to create `Boss defeated` and add a Set True effect
+in one undoable edit. New flags start as False. Choose Global if the result must
+persist into later chapters, or Chapter for a result used only in this chapter.
+The flag can then control card appearance or Action Requirements. Ordinary
+variable and inventory effects can also grant victory rewards.
+
+Action **Requirements** also offer **+ Create flag…**. Creating a flag there
+immediately adds an equality requirement with the selected True/False value;
+it does not change the flag during play. Shared Library Actions offer Global
+flags; local Actions and customized placements can also create Chapter flags.

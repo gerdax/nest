@@ -1,0 +1,66 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<base href="../../">
+<title>Linear Inventory trigger verification</title>
+<link rel="stylesheet" href="engine/card-deck.css">
+<link rel="stylesheet" href="studio/inventory.css">
+<link rel="stylesheet" href="studio/preview.css">
+<link rel="stylesheet" href="studio/playfield.css">
+<style>
+*{box-sizing:border-box}body{margin:0;padding:18px;background:#172020;color:#dce5ce;font:14px system-ui}
+main{display:flex;gap:24px}#frame{width:359px;height:745px;flex:none}aside{max-width:340px}
+button,select{padding:8px;margin:5px;background:#263838;color:#e3edda;border:1px solid #687c58;border-radius:5px}pre{white-space:pre-wrap}
+</style>
+<main><section id="frame" class="nest-playfield"><div id="preview"></div></section><aside>
+<h1>Linear Inventory trigger</h1>
+<p>Caption → Vignette → Action using an item → Next beat. Test controls below are outside the game.</p>
+<label>Scenario<select id="scenario"><option value="last">Last use</option><option value="multi">Two uses</option><option value="permanent">Permanent</option><option value="missing">Missing · skip</option><option value="blocked">Missing · show unavailable</option></select></label>
+<label><input type="checkbox" id="check">Stat check</label>
+<button id="restart">Restart</button><button id="next">Swipe up</button>
+<button id="cancel">Start and cancel swipe</button>
+<pre id="state" aria-live="polite"></pre>
+</aside></main>
+<script type="module">
+import {ProjectPreview} from '../../studio/ProjectPreview.js';
+import {createProject} from '../../project/model.js';
+import {createDefinition} from '../../project/cards.js';
+const project=createProject(),chapter=project.chapters[0],death=chapter.nodes.find(n=>n.type==='death');
+const tool=project.library.find(d=>d.id==='flashlight');
+Object.assign(tool,{name:'Wedge',text:'Lever the jammed door open.',permability:2,tagId:'tool'});
+project.itemTags=[{id:'tool',name:'Tool'}];
+const caption={...createDefinition('caption','caption'),text:'A narrow service passage.'};
+const vignette={...createDefinition('event','door'),text:'The door is jammed. A thin gap runs along its edge.'};
+const action={...createDefinition('action','pry'),name:'Pry the door open',text:'Drive the wedge into the gap.',effects:[{op:'add',key:'energy',value:1}]};
+const after={...createDefinition('event','after'),text:'The door opens. You slip through.'};
+project.library.push(caption,vignette,action,after);
+chapter.nodes=[{id:'linear',type:'linear',name:'Jammed door',x:0,y:0,cards:[{id:'caption-slot',definitionId:'caption'},{id:'door-slot',definitionId:'door'},{id:'pry-slot',definitionId:'pry',contextItemId:'tag:tool'}],connections:{next:'next'}},
+ {id:'next',type:'linear',name:'Beyond the door',x:300,y:0,cards:[{id:'after-slot',definitionId:'after'}],connections:{next:null}},death];
+chapter.startNode='linear';
+const preview=new ProjectPreview(document.querySelector('#preview'),{inventoryHost:document.querySelector('#frame')});
+const scenario=document.querySelector('#scenario'),check=document.querySelector('#check'),state=document.querySelector('#state');
+let generation=0;
+function observe(){
+ const id=++generation,start=performance.now();
+ const frame=()=>{
+  if(id!==generation)return;
+  const run=preview.controller?.state;
+  state.textContent=JSON.stringify({card:run?.cardId,node:run?.activeNodeId,energy:run?.variables.energy,
+   items:run?.collectedItems.map(i=>({name:i.name,remaining:i.remainingTriggers,limit:i.permability})),
+   context:preview.actionContext.caption.textContent,itemCaption:preview.actionContext.itemCaption.textContent,
+   disabled:preview.deck?.content.actions[0]?.disabled},null,2);
+  if(performance.now()-start<3500)requestAnimationFrame(frame);
+ };requestAnimationFrame(frame);
+}
+function play(){
+ tool.permability=scenario.value==='permanent'?0:2;
+ project.unavailableActions=scenario.value==='blocked'?'disabled-triggers':'hidden';
+ action.resolution=check.checked?'check':'direct';action.check={mode:'stat',modifierVariable:'agility',difficulty:5};
+ const inventory=['missing','blocked'].includes(scenario.value)?[]:[{...tool,definitionId:tool.id,...(tool.permability?{remainingTriggers:scenario.value==='multi'?2:1}:{})}];
+ preview.play(project,chapter.id,undefined,{initialState:{inventory}});observe();
+}
+document.querySelector('#next').onclick=()=>{preview.deck.key({key:'ArrowUp',preventDefault(){}});observe();};
+document.querySelector('#cancel').onclick=()=>{if(preview.deck.start()){preview.deck.move({axis:'y',x:0,y:-60,vx:0,vy:0});preview.deck.cancel();}observe();};
+scenario.onchange=check.onchange=document.querySelector('#restart').onclick=play;
+play();
+</script>

@@ -5,7 +5,7 @@ import { isTagKey, tagKey, tagIdFromKey, validItemTagName } from './item-tags.js
 import { isStatVariable, validStatValue, compatibleStatVariable } from './checks.js';
 import { validateCardBack } from '../engine/cardBacks.js';
 import { cardKinds, resolvePlacement, canonicalCardKind, allowedCardKinds, placementOverrideKeys, isConsumableKind, consumableResource } from './cards.js';
-import { chapterHasCombat, nodeTypeDescriptor, isUnassignedCombat, isRouteBeat, routeFallbackEnabled } from './nodeTypes.js';
+import { chapterHasCombat, nodeTypeDescriptor, isUnassignedCombat, isRouteBeat, routeFallbackEnabled, supportsInventoryTrigger } from './nodeTypes.js';
 import { isCardColor } from './card-styles.js';
 import { object, named, list, placements, legacyArtwork, chapterVariables } from './model-data.js';
 import { hasDirectedCycle, outputsForNode } from './graph.js';
@@ -211,7 +211,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
     if(d.kind==='combatAction'){
       if(!enemyAction&&d.type==='defend'){
         const card=d.blockReveal,cardLabel=`${label} / Block reveal`;
-        if(Object.hasOwn(d,'blockReveal'))embedded(card,['effect','event','caption'],cardLabel);
+        if(Object.hasOwn(d,'blockReveal'))embedded(card,['effect','event','discovery','caption'],cardLabel);
         if(Object.hasOwn(d,'reveal')){if(!object(d.reveal)||typeof d.reveal.definitionId!=='string')add(`${label}: invalid Reveal reference`);else if(d.reveal.definitionId){typedRef(d.reveal,'effect',`${label} / Reveal`);if(d.reveal.definitionId===project.combat?.playerHit?.definitionId)add(`${label}: Reveal cannot use Damage received`);}}
         if(object(card)){
           if(definitions.has(card.id)||(ownerIdCounts.get(source??d)?.get(card.id)||0)>1)add(`${cardLabel}: duplicate embedded identity ${card.id}`);
@@ -223,7 +223,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
       if(d.type==='prepare'&&!enemyAction&&!['direct','check'].includes(d.resolution))add(`${label}: Player Prepare requires direct or check resolution`);
       if(d.type==='prepare'&&!(enemyAction&&Object.hasOwn(d,'preparedActions'))&&(!Number.isSafeInteger(d.preparationBonus)||d.preparationBonus<1))add(`${label}: Prepare requires a positive safe integer preparation bonus`);
       if(enemyAction&&d.type==='prepare'&&!Object.hasOwn(d,'preparedActions')&&(!Number.isSafeInteger(d.damageReduction)||d.damageReduction<1))add(`${label}: Enemy Prepare requires positive safe integer damage reduction`);
-      if(enemyAction&&d.presentationKind!==undefined&&!['caption','event'].includes(d.presentationKind))add(`${label}: invalid prepared Action presentation kind`);
+      if(enemyAction&&d.presentationKind!==undefined&&!['caption','event','discovery'].includes(d.presentationKind))add(`${label}: invalid prepared Action presentation kind`);
       if(enemyAction&&d.protection!==undefined&&(d.type!=='defend'||d.protection!=='all'||d.damageReduction!==1))add(`${label}: all protection requires Defend with damageReduction 1`);
       if(enemyAction&&d.type==='defend'&&d.protection==='all'&&!['direct','check'].includes(d.resolution))add(`${label}: all-protection Defend requires direct or check resolution`);
       if(d.type==='defend'&&(!Number.isSafeInteger(d.damageReduction)||d.damageReduction<1))add(`${label}: Defend requires positive integer damage reduction`);
@@ -266,15 +266,15 @@ export function validateProject(project, {allowDraft = false} = {}) {
       if(d.mechanics==='opposed-preparation'&&(Object.hasOwn(d,'preparationCards')||!list(d.actions).some(a=>a?.type==='prepare'&&Object.hasOwn(a,'preparedActions')))){
         if(!object(d.preparationCards))add(`${label}: preparation cards must be an object`);
         else for(const key of ['block','charge','hold',...(Object.hasOwn(d.preparationCards,'blocked')?['blocked']:[])]){
-          const card=d.preparationCards[key];identity(card);embedded(card,['event','caption'],`${label} / ${key}`);
+          const card=d.preparationCards[key];identity(card);embedded(card,['event','discovery','caption'],`${label} / ${key}`);
           if(['block','charge'].includes(key)&&!['direct','check'].includes(card?.resolution))add(`${label} / ${key==='block'?'Dodge':'Rush'}: invalid resolution`);
         }
       }
       if(list(d.death).length>1)add(`${label}: Enemy death supports only one card`);
       if(list(d.intro).length>1)add(`${label}: Enemy introduction supports only one card`);
-      for(const card of list(d.intro)){identity(card);embedded(card,['event','caption'],label);}
+      for(const card of list(d.intro)){identity(card);embedded(card,['event','discovery','caption'],label);}
       identity(d.hit);embedded(d.hit,['effect'],label);
-      for(const card of list(d.death)){identity(card);embedded(card,['event','caption'],label);}
+      for(const card of list(d.death)){identity(card);embedded(card,['event','discovery','caption'],label);}
       for(const action of list(d.actions)){
         identity(action);
         if(!object(action)||!named(action.id)||typeof action.name!=='string'||typeof action.text!=='string'||typeof action.image!=='string'){add(`${label}: invalid embedded Enemy Action`);continue;}
@@ -320,7 +320,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
       for(const r of list(d.reactions)){
         identity(r);const t=r?.threshold;
         if(!object(r)||!named(r.id)||!object(t)||!Number.isSafeInteger(t.numerator)||!Number.isSafeInteger(t.denominator)||t.denominator<=0||t.numerator<=0||t.numerator>=t.denominator)add(`${label}: invalid health threshold`);
-        identity(r?.card);embedded(r?.card,['caption','event'],label);
+        identity(r?.card);embedded(r?.card,['caption','event','discovery'],label);
       }
     }
   }
@@ -368,7 +368,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
   for (const d of library) {
     if (!object(d)) continue;
     if (d.contextItemId !== undefined || d.contextOverrideImage !== undefined) add(errorMessage('VALIDATION_DEFINITION_INVENTORY_CONTEXT_BELONGS_TO_A_FORK_CHOICE_PLACEMENT', {definitionId: d.id}));
-    if (d.visibility !== undefined && !['local', 'shared'].includes(d.visibility) || !['event', 'caption',
+    if (d.visibility !== undefined && !['local', 'shared'].includes(d.visibility) || !['event', 'discovery', 'caption',
       'narrative', 'action', 'item', 'consumable', 'combatAction', 'effect', 'enemy'].includes(d.kind) || typeof d.name !== 'string' || typeof d.text !== 'string'
       || typeof d.image !== 'string' || d.heading !== undefined && typeof d.heading !== 'string' || d.showName !== undefined
       && typeof d.showName !== 'boolean' || d.flipImage !== undefined && typeof d.flipImage !== 'boolean'
@@ -441,6 +441,10 @@ export function validateProject(project, {allowDraft = false} = {}) {
       inspectEffects(node.entryEffects,`${label} / Overrides`);
       for(const issue of errors.slice(entryIssueStart))Object.assign(issue,{chapterId:cid,nodeId:nid});
       if(node.type==='death'&&Array.isArray(node.entryEffects)&&node.entryEffects.length)add(`${label}: Death does not support entry overrides`,cid,nid);
+      const victoryIssueStart=errors.length;
+      inspectEffects(node.victoryEffects,`${label} / Victory`);
+      for(const issue of errors.slice(victoryIssueStart))Object.assign(issue,{chapterId:cid,nodeId:nid});
+      if(node.victoryEffects!==undefined&&node.type!=='combat')add(`${label}: Victory effects require a Combat beat`,cid,nid);
       if (node.type === 'linear' && !Array.isArray(node.cards) || node.type === 'fork' && !Array.isArray(node.choices)
         || node.type === 'container' && (!Array.isArray(node.items) || !object(node.intro))) add(errorMessage('VALIDATION_MISSING_PLACEMENTS', {label}),
         cid, nid);
@@ -513,11 +517,12 @@ export function validateProject(project, {allowDraft = false} = {}) {
           if (Object.keys(p.overrides).some(k => !placementOverrideKeys(d?.kind,d).includes(k))) add(errorMessage('VALIDATION_UNSUPPORTED_OVERRIDE', {label}), cid, nid);
           inspectCard(p.overrides, label);
         }
-        if (p.contextOverrideImage !== undefined && !(node.type === 'fork' && list(node.choices).includes(p)
+        const triggerPlacement=supportsInventoryTrigger(node.type,list(node.choices).includes(p)?'choices':list(node.cards).includes(p)?'cards':'intro');
+        if (p.contextOverrideImage !== undefined && !(triggerPlacement
           && canonicalCardKind(d?.kind) === 'action')) add(errorMessage('VALIDATION_OVERRIDE_IMG_BELONGS_TO_A_NATIVE_FORK_ACTION_CHOICE', {label}),
           cid, nid);
         const linked = p.contextItemId !== undefined && p.contextItemId !== '';
-        const contextValid = !linked || named(p.contextItemId) && node.type === 'fork' && list(node.choices).includes(p)
+        const contextValid = !linked || named(p.contextItemId) && triggerPlacement
           && canonicalCardKind(d?.kind) === 'action' && (definitions.get(p.contextItemId)?.kind === 'item' || isTagKey(p.contextItemId) && tagIds.has(tagIdFromKey(p.contextItemId)));
         if (isTagKey(p.contextItemId) && !itemsById.has(p.contextItemId) && p.contextOverrideImage === true) add(errorMessage('VALIDATION_TAG_CONTEXT_CANNOT_OVERRIDE_ARTWORK', {label}), cid, nid);
         if (!contextValid) add(errorMessage('VALIDATION_INVENTORY_CONTEXT_NEEDS_A_NATIVE_FORK_ACTION_CHOICE_AND_AN_ITEM_DEFINITION_OR_TAG', {label}), cid, nid);

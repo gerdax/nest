@@ -1,11 +1,11 @@
 import {layoutBounds} from './cssScale.js';
 
-/** Scale card copy as one composition, without changing the gesture plane. */
-export function syncCardContentScale(mount) {
+/** Scale card copy as one composition; optional width is in untransformed layout pixels. */
+export function syncCardContentScale(mount, width) {
   const view=mount.ownerDocument?.defaultView;
   const reference=Number(view?.getComputedStyle?.(mount)?.getPropertyValue?.('--card-reference-width'));
   if(!Number.isFinite(reference)||reference<=0)return;
-  const width=layoutBounds(mount).width;
+  if(width===undefined)width=layoutBounds(mount).width;
   if(!Number.isFinite(width)||width<=0)return;
   mount.style.setProperty('--card-content-scale',String(width/reference));
 }

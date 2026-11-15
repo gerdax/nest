@@ -7,6 +7,7 @@ import { eligibleInventoryItems } from './item-options.js';
 import { placedLocalDefinitions, removeUnplacedLocalDefinitions } from './local-definition-removal.js';
 import { applyTagCommand } from './item-tags.js';
 import { allocateVariableId, renameVariable } from './variable-ids.js';
+import { setProgressionFlag } from './progression-flags.js';
 import { pasteCardClipboard } from './card-clipboard.js';
 import { isRouteBeat } from '../project/nodeTypes.js';
 import { isStatVariable } from '../project/checks.js';
@@ -298,6 +299,30 @@ function inspectorCommand(project, selection, data, localDrafts) {
   const node = nodeFor(project, selection), placement = findPlacement(node || {}, data.placement);
   const descriptor = {scope:data.scope, placementId:data.placement};
   switch (data.command) {
+    case 'set-progression-flag': {
+      const root=documentScope(project,selection,descriptor);
+      const definition=data.scope==='placement'?project.library.find(card=>card.id===root?.definitionId):root;
+      if(data.scope==='node'&&data.path==='victoryEffects'){
+        if(root?.type!=='combat')throw new Error('Choose a Combat beat.');
+        return {value:setProgressionFlag(project,root,ruleChapterFor(project,selection,data.scope),data)};
+      }
+      if(/^(?:(?:overrides|combat\.actions\.\d+|actions\.\d+|preparedActions\.\d+)\.)?conditions$/.test(data.path)){
+        const parent=data.path.split('.').slice(0,-1).reduce((owner,key)=>owner?.[key],root);
+        const action=data.scope==='placement'?definition:parent;
+        if(['action','combatAction'].includes(action?.kind)){
+          if(data.scope==='placement'&&data.path!=='overrides.conditions')throw new Error('Choose editable Requirements.');
+          return {value:setProgressionFlag(project,root,ruleChapterFor(project,selection,data.scope),data)};
+        }
+      }
+      const appearance=data.scope==='placement'&&data.path==='conditions';
+      if(appearance){
+        if(!definition||definition.kind==='action')throw new Error('Choose editable Appearance conditions.');
+        return {value:setProgressionFlag(project,root,ruleChapterFor(project,selection,data.scope),data)};
+      }
+      if(!definition||!isStoryKind(definition.kind)||data.scope==='placement'&&(!root.overrides||data.path!=='overrides.effects')||data.scope!=='placement'&&data.path!=='effects')throw new Error('Choose editable On progression effects.');
+      const chapter=definition.visibility==='local'||data.scope==='placement'?ruleChapterFor(project,selection,data.scope):undefined;
+      return {value:setProgressionFlag(project,root,chapter,data)};
+    }
     case 'combat-add':case 'combat-remove':case 'combat-move':{
       const root=documentScope(project,selection,descriptor);
       if(root.kind==='enemy'&&data.command==='combat-add'&&['prepared-action','prepared-dodge','prepared-attack','prepared-wait'].includes(data.factory)){
@@ -582,9 +607,10 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
       const source = chapter?.nodes.find(candidate => candidate.id === data.id);
       if (!source) throw createError('STUDIO_THE_SOURCE_BEAT_NO_LONGER_EXISTS');
       if (!outputsForNode(project, source).includes(data.exit)) throw createError('STUDIO_THE_SOURCE_OUTPUT_NO_LONGER_EXISTS');
+      const group=data.groupId==null?null:beatGroups(chapter).find(group=>group.id===data.groupId);
+      if(data.groupId!=null&&(!group||group.collapsed))throw createError('STUDIO_TARGET_GROUP_IS_NO_LONGER_AVAILABLE');
       const added = createNode(project, data.type, data.position, chapter.id);
       chapter.nodes.push(added);
-      const group=beatGroupFor(chapter,source.id);
       if(group)group.memberIds.push(added.id);
       connectBeat(project,chapter,source,data.exit,{nodeId:added.id});
       return {selection:{selected:added.id}};

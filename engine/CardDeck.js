@@ -2,7 +2,7 @@ import { createError } from '../errors.js';
 import { cssScale, layoutBounds } from './cssScale.js';
 import { syncCardContentScale, cardLayoutSettings } from './cardSizing.js';
 import { projectedBounds, turningBounds } from './geometry.js?v=no-ending-card-1';
-import { buildDeck, decorateCard, announceDeck, renderDeck, stageNextContent, stageNextBack, stageActionDeck, stageContentDeck, scenePose, cardPose, restoreBacks } from './renderer.js?v=no-ending-card-1';
+import { buildDeck, decorateCard, announceDeck, renderDeck, stageNextContent, stageNextBack, stageActionDeck, stageContentDeck, scenePose, cardPose, restoreBacks, exposedSuccessorRoll } from './renderer.js?v=no-ending-card-1';
 import { DeckInteractionMotion } from './DeckInteractionMotion.js';
 import { DeckEntranceSequence } from './DeckEntranceSequence.js';
 import { DEFAULT_SETTINGS, settingsWith, spring, springStep, qualifies, resistance, modulo, clamp, carouselPose, flipLift, departureDistance } from './motion.js?v=no-ending-card-1';
@@ -865,6 +865,7 @@ export class CardDeck extends EventTarget {
   lockBackAppearance(takingLast = false) {
     this.backTransition = {
       appearance: resolveBackAppearance(this.content),
+      roll: exposedSuccessorRoll(this),
       takingLast,
       exposedBack: this.underlayBack?.style.visibility === 'visible',
     };
