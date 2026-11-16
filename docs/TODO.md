@@ -2,7 +2,15 @@
 
 ## Travel
 
-- [ ] Dodać sekwencje Travel: Lazarus przemieszcza się karta po karcie, a kolejne karty pokazują postęp podróży. Po drodze mogą pojawiać się losowe wydarzenia i spotkania zależne od aktualnego kontekstu. Zachować prosty rytm swipe’owania.
+- [ ] Zaprojektować Travel pomiędzy fabularnymi discoveries i wątkami pchającymi historię do przodu: Lazarus przemieszcza się karta po karcie, a kolejne karty pokazują kroki podróży. Oprzeć rozwiązanie w dużej mierze na Auto i rozważyć jego rozszerzenie. Osobny typ beatu Travel pozostaje do decyzji.
+- [ ] Wplatać w Travel kontekstowe, losowe wydarzenia: znaleziska, drzwi, okazje, zagrożenia, spotkania i rozstaje lewo/prawo. Uwzględnić stan gry, inventory i zdobytą wiedzę. Zachować prosty rytm swipe’owania i możliwość spokojnych odcinków bez wydarzenia.
+- [ ] Przygotować mały przykład rozstajów z konsekwencją natychmiastową lub pojawiającą się kilka kart później. Ścieżki mogą spotkać się przy wspólnym punkcie fabuły, zachowując istotne skutki wcześniejszych wyborów.
+
+## Sprawczość i rozwój
+
+- [ ] Na małym grywalnym fragmencie zaplanować relacje statystyki → przedmioty → dostępne reakcje na sytuacje, tak aby gracz mógł dobierać inventory do swojego rozwoju. Zweryfikować alternatywne sposoby działania bez projektowania od razu całego systemu progresji i balansu.
+
+Założenia projektowe: [Storytelling principles — Contextual agency and uncertainty](storytelling-principles.md#contextual-agency-and-uncertainty) oraz [Travel between discoveries](storytelling-principles.md#travel-between-discoveries--agreed-direction-not-yet-implemented).
 
 ## Prezentacja kart
 

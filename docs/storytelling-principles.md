@@ -12,6 +12,53 @@ Treat story cards as comic panels. Let a salient detail in one card motivate the
 
 Use Linear for the narrative spine. Offer choices when the current scene puts a concrete decision in front of the player, such as taking the pistol or choosing how to move the forklift. Let encounters interrupt that flow at a believable moment. In First Descent, the booth and the Security door each have an independent 65% chance of a Rat encounter. The narrative continues smoothly when a draw is empty.
 
+## Contextual agency and uncertainty
+
+Keep interaction simple while giving the player's intent a meaningful place in
+the story. Present opportunities through the current situation, Lazarus's
+knowledge, carried items and capabilities. Choosing an Action should express
+what Lazarus wants to do; the game supplies the relevant item context without
+requiring the player to navigate inventory menus first.
+
+Choices include directions at a crossroads, such as left or right, as well as
+examining an opportunity, entering a room or continuing. The player may choose
+with incomplete information about what lies ahead. Variation and uncertainty
+are part of the experience: the player adapts to the situations encountered.
+
+A choice can change the immediate scene, the events that may occur later,
+resources, knowledge or available Actions. Consequences may appear several
+cards later. Routes may converge at authored story milestones while retaining
+relevant consequences. A brief choice of reaction can also express Lazarus's
+attitude without requiring a separate story branch. Avoid repetitive choices
+whose only purpose is to add another interaction.
+
+Character development and inventory should support each other. Players can
+shape their carried equipment around the capabilities they develop, and find
+different ways to respond to situations. Combat can also reward recognizing
+enemy patterns. Plan relationships between stats, items and situations in small
+playable examples; the complete progression and balance remain design work.
+These principles do not establish fixed classes or a skill-tree system.
+
+## Travel between discoveries — agreed direction, not yet implemented
+
+Story discoveries and threads provide the main forward progression. Travel
+connects those moments through a sequence of steps: each successive card gives
+the feeling of Lazarus moving through the complex. This is an authored journey
+that may branch locally and rejoin the story, consistent with the card-led
+progression below.
+
+Travel should build largely on Auto, potentially as an extension of it, to
+interleave movement cards with context-dependent random events. The precise
+editor and runtime representation remains to be designed; a separate Travel
+node type is not yet a decision.
+
+Along the way Lazarus may encounter finds, doors, side opportunities, hazards,
+other inhabitants or crossroads. Left/right choices can vary the journey and
+the events encountered without revealing their full outcomes in advance.
+Events and their available responses should account for relevant state, items
+and earlier discoveries. Continue the simple swipe rhythm between meaningful
+opportunities; not every step needs a choice or an encounter.
+
 ## Chapter progression and saving
 
 A chapter moves forward from each committed choice. Use cards to advance the story. Avoid making the card flow a system for navigating the physical layout. Lazarus can occasionally return to a place he has already visited as the story unfolds.
