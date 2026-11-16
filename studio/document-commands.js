@@ -141,6 +141,12 @@ function changeField(project, selection, field, localDrafts) {
       else if(node.travel)node.travel.enabled=false;
       return;
     }
+    if(path==='travel.firstStepCaption'){
+      if(!node.travel)throw new Error('Enable Travel before editing its settings');
+      if(typeof raw!=='string')throw new Error('First step caption must be text');
+      node.travel.firstStepCaption=raw;
+      return;
+    }
     if(/^travel\.(minSteps|maxSteps|eventCount)$/.test(path)){
       const key=path.split('.')[1],value=Number(raw);
       if(!Number.isSafeInteger(value)||value<(key==='eventCount'?0:1)||value>100)throw new Error(`${key==='eventCount'?'Event count':'Step count'} must be a whole number from ${key==='eventCount'?0:1} to 100`);

@@ -34,9 +34,13 @@ test('Travel is opt-in and retains its configuration and ordinary Auto settings 
  field('drawCount','3');field('noneWeight','7');enable(true);
  assert.deepEqual(node.travel,{enabled:true,minSteps:2,maxSteps:4,eventCount:2,steps:[]});
  add('event');field('travel.minSteps','3');field('travel.maxSteps','5');field('travel.eventCount','0');
+ f.edit('field',{scope:'node',path:'travel.firstStepCaption',value:'You move on',inputType:'text'});
  const config=structuredClone(node.travel);
  const html=nodeInspector(project,chapter,node);
  assert.match(html,/Min Steps per segment/);assert.match(html,/Max Steps per segment/);assert.match(html,/Event count/);
+ assert.match(html,/First step caption/);assert.match(html,/data-path="travel.firstStepCaption"[^>]+value="You move on"/);
+ assert(html.indexOf('travel.firstStepCaption')>html.indexOf('travel.enabled'));
+ assert(html.indexOf('travel.firstStepCaption')<html.indexOf('travel.minSteps'));
  assert.match(html,/Step cards/);assert.match(html,/data-slot="travel.steps" data-kind="event"/);
  assert.match(html,/data-slot="travel.steps" data-kind="caption"/);
  assert.doesNotMatch(html,/data-path="drawCount"|data-path="noneWeight"/);

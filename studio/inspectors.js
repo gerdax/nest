@@ -190,7 +190,9 @@ function randomizerFields(project,chapter,node) {
  }).join('');
  const travel=node.travel?.enabled===true;
  const travelFields=travel
-  ?field('Min Steps per segment',node.travel.minSteps,'travel.minSteps','node','number')
+  ?field('First step caption',node.travel.firstStepCaption??'','travel.firstStepCaption','node')
+   +'<p class="small">Replaces the caption on the first step of each segment, including after an event. Leave empty to use the step card’s caption.</p>'
+   +field('Min Steps per segment',node.travel.minSteps,'travel.minSteps','node','number')
    +field('Max Steps per segment',node.travel.maxSteps,'travel.maxSteps','node','number')
    +field('Event count',node.travel.eventCount,'travel.eventCount','node','number')
    +'<h3>Step cards</h3><p class="small">Choose Vignette or Caption cards for the travel steps. Each card keeps its normal appearance conditions and progression effects.</p>'

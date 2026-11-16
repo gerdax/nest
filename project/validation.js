@@ -471,6 +471,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
         if (!object(travel)) add(`${label}: Auto Travel must be an object`,cid,nid);
         else {
           if (typeof travel.enabled !== 'boolean') add(`${label}: Auto Travel enabled must be a boolean`,cid,nid);
+          if (travel.firstStepCaption !== undefined && typeof travel.firstStepCaption !== 'string') add(`${label}: Auto Travel firstStepCaption must be text`,cid,nid);
           if (travel.enabled === true && node.type !== 'randomizer') add(`${label}: Auto Travel requires an Auto beat`,cid,nid);
           for (const key of ['minSteps', 'maxSteps']) {
             if (!Number.isSafeInteger(travel[key]) || travel[key] < 1 || travel[key] > 100) {

@@ -118,7 +118,7 @@ function dispose(deck,controller){controller.destroy();deck.destroy();settle();}
 test('Container introduction has its own label while its revealed item keeps ITEM',()=>{
  const {deck,controller}=real([{id:'box',type:'container',intro:narrative('intro'),introEnabled:true,
   items:[{id:'item',kind:'item',definitionId:'item',name:'Item'}],connections:{next:null}}]);
- assert.equal(deck.content.typeLabel,'CONTAINER');
+ assert.equal(deck.content.typeLabel,'FINDING');
  key(deck,'ArrowUp');
  assert.equal(deck.content.typeLabel,undefined);
  assert.equal(deck.content.actions[0].kind,'item');

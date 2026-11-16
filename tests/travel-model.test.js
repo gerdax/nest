@@ -15,7 +15,7 @@ function fixture() {
     headline:'A milestone', effects:[{op:'add',key:'distance',value:1}]});
   const node = {id:'travel', name:'Travel', type:'randomizer', x:10, y:20, drawCount:3, noneWeight:2,
     candidates:[{beatId:'quiet-passage',weight:1}], connections:{next:'quiet-passage'},
-    travel:{enabled:true,minSteps:2,maxSteps:4,eventCount:2,steps:[
+    travel:{enabled:true,firstStepCaption:'You move on',minSteps:2,maxSteps:4,eventCount:2,steps:[
       {id:'road',definitionId:'arrival',conditions:[{source:'variable',key:'distance',op:'gte',value:0}],
         overrides:{effects:[{op:'add',key:'distance',value:2}]}},
       {id:'milestone',definitionId:'travel-caption'}
@@ -86,6 +86,7 @@ test('Travel validation rejects malformed configuration and unsupported step kin
   const cases = [
     [null,/must be an object/],
     [{enabled:'yes'},/enabled must be a boolean/],
+    [{firstStepCaption:42},/firstStepCaption must be text/],
     [{minSteps:0},/minSteps must be a whole number/],
     [{minSteps:1.5},/minSteps must be a whole number/],
     [{maxSteps:101},/maxSteps must be a whole number/],

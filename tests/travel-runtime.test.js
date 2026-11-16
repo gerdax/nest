@@ -61,6 +61,30 @@ test('Travel reveals between movement steps and retains flips at event and route
  game.controller.destroy();
 });
 
+test('First step caption overrides each segment opening without changing sources or progression',()=>{
+ for(const firstKind of ['event','caption']){
+  const f=fixture({min:2,max:2,events:1});
+  f.project.library.find(card=>card.id==='step-a').kind=firstKind;
+  f.auto.travel.firstStepCaption='You move on';
+  const original=structuredClone(f.project.library),game=run(f);
+  assert.equal(game.deck.content.heading,'You move on');
+  assert.equal(game.deck.content.nextCardPreview.heading,'step-b');
+  const draws=game.draws;game.controller.content();game.controller.show({restore:true});
+  assert.equal(game.draws,draws);assert.equal(game.controller.variables.walked,0);
+  game.deck.advance();assert.equal(game.deck.content.heading,'step-b');
+  game.deck.advance();assert.equal(game.deck.content.heading,'encounter');
+  game.deck.advance();assert.equal(game.deck.content.heading,'You move on');
+  game.deck.advance();assert.equal(game.deck.content.heading,'step-b');
+  game.deck.advance();assert.equal(game.controller.state.activeNodeId,'end');
+  assert.equal(game.controller.variables.walked,4);assert.equal(game.controller.variables.events,1);
+  assert.deepEqual(f.project.library,original);game.controller.destroy();
+ }
+ for(const caption of ['', '  \n ']){
+  const f=fixture({events:0});f.auto.travel.firstStepCaption=caption;
+  const game=run(f);assert.equal(game.deck.content.heading,'step-a');game.controller.destroy();
+ }
+});
+
 test('zero events produces one segment; unavailable or exhausted events end after the present segment',()=>{
  for(const options of [{events:0},{eligible:false},{repeats:false}]){
   const game=run(fixture({min:2,max:2,...options}));

@@ -4,6 +4,8 @@ Travel is an optional mode on an existing Auto beat. In Studio, enable **Travel*
 
 Step cards are ordinary Vignettes and Captions. Add a local chapter card or select a shared source in **Card source**. Their appearance conditions, presentation and On progression effects work normally; effects apply after a committed swipe. There is no separate Travel card kind or Library section.
 
+**First step caption**, directly below Travel, optionally replaces the text on the first movement card of every segment, both at the start and after returning from an event. An empty or whitespace-only value keeps the source caption. Other steps, artwork and gameplay effects remain those of the selected card; the Library source is unchanged.
+
 Each visit plays a movement segment, an event, another segment, and so on, ending with a movement segment before Next. Segment lengths are independently sampled with inclusive bounds. Zero events plays one segment. An exhausted or unavailable event pool follows Next immediately without another segment.
 
 Steps are sampled uniformly without replacement across the whole visit. The bag refills when exhausted, avoiding an adjacent repeat when another card is available. Events use the current game state after the preceding steps, existing weights, Allow repeats and group limits. Draw count and None weight are hidden and preserved while Travel is enabled; None does not participate in Travel draws.

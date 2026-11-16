@@ -226,7 +226,9 @@ export class ProjectController {
         });
       }catch { /* A blocked transaction must not reserve a successor. */ }
     }
-    return {location:{node,index:0,queue:[],sequence:{id:`travel:${selected.visit.stepNumber}`,type:'linear',cards:[selected.card]},
+    const caption=node.travel.firstStepCaption;
+    const card=visit.segmentRemaining===null&&typeof caption==='string'&&caption.trim()?{...selected.card,headline:caption}:selected.card;
+    return {location:{node,index:0,queue:[],sequence:{id:`travel:${selected.visit.stepNumber}`,type:'linear',cards:[card]},
       travelVisit:selected.visit,randomizerRun:run},run};
   }
   routeStep(node,output,id,run) {
@@ -559,7 +561,7 @@ export class ProjectController {
     if(!actions.length)actions=[{id:'unavailable',label:'No available choices',disabled:true,disabledReason:'No available choices'}];
     const payload={autoBrowse:fork||container,id:`${this.generation}:${++this.serial}`,cardBack:this.compiled.cardBack,title:'',...cardFace(card,this.compiled.variables,this.compiled.library,values),cardKind:card?.kind==='consumable'?card.subtype:card?.kind ?? 'event',...(card?.kind==='item'&&card.subtype==='weapon'?{typeLabel:'WEAPON'}:{}),value:card?.value,summary:card&&!isStoryKind(card.kind??card.cardKind)&&fork?playerCardSummary(card,this.compiled.variables,this.compiled.library,values):'',image:card?.image ?? '',imageScale:card?.imageScale??100,imageOffsetX:card?.imageOffsetX??0,imageOffsetY:card?.imageOffsetY??0,flipImage:!!card?.flipImage,actions,directAdvance:!fork&&!container&&!linearFace,decisionOnly:linearFace||fork&&(location.sequence?!!location.sequence.decisionOnly:this.presentation(location,values,inventory)==='open'),interaction:container||linearItem?'container':'choice',discardAll:container,allowClose:false};
     payload.title=payload.heading || '';
-    if(container&&this.presentation(location,values,inventory)==='closed')payload.typeLabel='CONTAINER';
+    if(container&&this.presentation(location,values,inventory)==='closed')payload.typeLabel='FINDING';
     if(type==='linear'&&card?.kind==='action'&&(card.contextInventoryKey??card.contextItemId))payload.entranceBackdrop=true;
     if((location.node.type==='linear'||location.travelVisit)&&card)payload.linearRollKey=JSON.stringify([this.key(location),card.id]);
     if(fork)payload.choiceFollowerRatio=.82;
