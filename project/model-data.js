@@ -16,7 +16,8 @@ export const unique = (base, used) => {
 
 export const list = value => Array.isArray(value) ? value : [];
 export function placements(node) {
-  return [...list(node.cards), ...list(node.choices), ...list(node.items), ...(object(node.intro) ? [node.intro] : [])];
+  return [...list(node.cards), ...list(node.choices), ...list(node.items), ...(object(node.intro) ? [node.intro] : []),
+    ...list(node.travel?.steps)];
 }
 export function legacyArtwork(node) {
   return (object(node.sequence) ? [node.sequence] : list(node.sequences)).filter(object).flatMap(s => [...list(s.cards),

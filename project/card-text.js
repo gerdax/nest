@@ -52,7 +52,7 @@ export function normalizeProjectCardText(project) {
     if (!object(value)) return;
     for (const node of list(value.nodes)) {
       if (!object(node)) continue;
-      for (const child of [...list(node.cards), ...list(node.choices), ...list(node.items), node.intro]) {
+      for (const child of [...list(node.cards), ...list(node.choices), ...list(node.items), node.intro, ...list(node.travel?.steps)]) {
         // Resolved compiled cards carry authored name/image; ordinary reference
         // placements can contain unrelated legacy metadata and stay untouched.
         if (!object(child) || own(child,'definitionId') && !(typeof child.name === 'string' && typeof child.image === 'string')) continue;

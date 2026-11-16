@@ -115,6 +115,25 @@ function settle(){for(let i=0;frames.size&&i<2000;i++){now+=16;const callbacks=[
 function key(deck,name){deck.key({key:name,preventDefault(){}});settle();}
 function real(nodes,extra={},options={}){const deck=new CardDeck(new Element(),{content:{id:'waiting',actions:[{id:'wait',label:'Wait'}]}});const controller=new ProjectController(deck,{startNode:nodes[0].id,nodes,variables:[],library:[],...extra},options);settle();return {deck,controller};}
 function dispose(deck,controller){controller.destroy();deck.destroy();settle();}
+test('Travel stages the next movement face during a swipe and retains it after cancellation',()=>{
+ let draws=0;
+ const steps=['first','second','third'].map((id,index)=>({...narrative(id),kind:'event',
+  conditions:index?[{source:'variable',key:'walked',op:'gte',value:1}]:[],effects:[{op:'add',key:'walked',value:1}]}));
+ const {deck,controller}=real([{id:'travel',type:'randomizer',travel:{enabled:true,minSteps:3,maxSteps:3,eventCount:0,steps},connections:{next:null}}],
+  {variables:[{id:'walked',type:'number',initial:0}]},{rng:()=>{draws++;return 0;}});
+ const next=deck.content.nextCardPreview;
+ assert.equal(next.heading,'second');assert.equal(deck.content.nextDeckPreview.content.heading,'second');
+ assert.equal(deck.nextFlip.x,0);assert.equal(controller.variables.walked,0);
+ const reservedDraws=draws;
+ deck.start();deck.move({axis:'y',x:0,y:-160});deck.render();
+ assert.equal(deck.nextFlip.x,0);assert.equal(deck.content.nextCardPreview.heading,'second');
+ deck.cancel();settle();controller.content();controller.notify();
+ assert.equal(draws,reservedDraws);assert.equal(controller.variables.walked,0);assert.equal(controller.state.cardId,'first');
+ key(deck,'ArrowUp');
+ assert.equal(controller.state.cardId,'second');assert.equal(controller.variables.walked,1);
+ assert.equal(deck.content.nextCardPreview.heading,'first');assert.equal(deck.nextFlip.x,0);
+ dispose(deck,controller);
+});
 for(const reduced of [false,true])test(`actual deck defers inventory to departure and retains staged destination, reduced=${reduced}`,()=>{
  const {deck,controller}=real([{id:'c',type:'container',intro:narrative('box'),items:[{id:'one',definitionId:'apple',kind:'item',name:'Apple'},{id:'two',definitionId:'apple',kind:'item',name:'Apple'}],connections:{next:'a'}},{id:'a',type:'linear',cards:[narrative('after')]}]);deck.reduced=reduced;
  key(deck,'ArrowUp');key(deck,'ArrowDown');assert.equal(controller.state.collectedItems.length,1);assert.equal(deck.phase,'choices');

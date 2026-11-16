@@ -4,13 +4,14 @@ import { walk } from '../project/model-data.js';
 import { outputsForNode, connectionForOutput } from '../project/graph.js';
 import { nodeTypeDescriptor } from '../project/nodeTypes.js';
 import { captureClipboardVariables, pasteNodeClipboard } from './node-clipboard.js';
-import { makePlacement } from './commands.js';
+import { makePlacement, placementList } from './commands.js';
 
 /** The main authoring collection used for insertion drops. */
 export function cardTransferSlot(node) {
   if (['linear','death'].includes(node?.type)) return 'cards';
   if (node?.type === 'fork') return 'choices';
   if (node?.type === 'container') return 'items';
+  if (node?.type === 'randomizer' && node.travel?.enabled===true) return 'travel.steps';
   return null;
 }
 
@@ -34,13 +35,14 @@ function copyPlacement(project, chapter, sourceChapter, source, placement, copy 
 }
 
 function placementLocation(node, id) {
-  const slot = cardTransferSlot(node);
+  const slot = node?.travel?.steps?.some(p=>p.id===id)?'travel.steps':cardTransferSlot(node);
   if (!slot) return null;
   if (['fork', 'container'].includes(node.type) && node.intro?.id === id) {
     return {slot:'intro', placement:node.intro};
   }
-  const index = Array.isArray(node[slot]) ? node[slot].findIndex(placement => placement.id === id) : -1;
-  return index < 0 ? null : {slot, index, placement:node[slot][index]};
+  const list=placementList(node,slot);
+  const index = Array.isArray(list) ? list.findIndex(placement => placement.id === id) : -1;
+  return index < 0 ? null : {slot, index, placement:list[index]};
 }
 
 function clearPlacementConnections(node, id) {
@@ -53,7 +55,7 @@ function clearPlacementConnections(node, id) {
 /** Index is a gap before removing the source; targetSlot:'intro' also creates a missing intro. */
 export function transferCard(project, chapter, {sourceNodeId, sourceChapterId, placementId, targetNodeId, targetPlacementId, targetSlot:requestedSlot, index, copy = false} = {}) {
   if (!project.chapters.includes(chapter)) return null;
-  if (requestedSlot !== undefined && requestedSlot !== 'intro') return null;
+  if (requestedSlot !== undefined && !['intro','travel.steps'].includes(requestedSlot)) return null;
   const sourceChapter = sourceChapterId ? project.chapters.find(candidate => candidate.id === sourceChapterId)
     : chapter.nodes.some(node => node.id === sourceNodeId) ? chapter
     : project.chapters.find(candidate => candidate.nodes.some(node => node.id === sourceNodeId));
@@ -68,12 +70,13 @@ export function transferCard(project, chapter, {sourceNodeId, sourceChapterId, p
   const replacing = targetPlacementId !== undefined || (introDestination && !!target.intro);
   const destination = introDestination && target.intro ? {slot:'intro', placement:target.intro}
     : replacing ? placementLocation(target, targetPlacementId) : null;
-  const targetSlot = introDestination ? 'intro' : replacing ? destination?.slot : cardTransferSlot(target);
+  const targetSlot = introDestination ? 'intro' : replacing ? destination?.slot : requestedSlot??cardTransferSlot(target);
+  if(targetSlot==='travel.steps'&&(target?.type!=='randomizer'||target.travel?.enabled!==true))return null;
   if (!origin || !targetSlot || (replacing && !destination)) return null;
   if (source === target && placementId === targetPlacementId) return null;
   if (source === target && origin.slot === 'intro' && targetSlot === 'intro') return null;
-  if (targetSlot !== 'intro' && !Array.isArray(target[targetSlot])) return null;
-  if (!replacing && targetSlot !== 'intro' && (!Number.isInteger(index) || index < 0 || index > target[targetSlot].length)) return null;
+  if (targetSlot !== 'intro' && !Array.isArray(placementList(target,targetSlot))) return null;
+  if (!replacing && targetSlot !== 'intro' && (!Number.isInteger(index) || index < 0 || index > placementList(target,targetSlot).length)) return null;
   const {placement, slot:sourceSlot, index:sourceIndex} = origin;
   const definition = project.library.find(definition => definition.id === placement.definitionId);
   const kind = canonicalCardKind(definition?.kind);
@@ -99,16 +102,16 @@ export function transferCard(project, chapter, {sourceNodeId, sourceChapterId, p
       if (source.type === 'container') source.intro = makePlacement(project, 'event', undefined, sourceChapter.id);
       else delete source.intro;
       source.introEnabled = false;
-    } else source[sourceSlot].splice(sourceIndex, 1);
+    } else placementList(source,sourceSlot).splice(sourceIndex, 1);
   }
   if (replacing) clearPlacementConnections(target, destination.placement.id);
   if (targetSlot === 'intro') {
     target.intro = moved;
     target.introEnabled = true;
   } else if (replacing) {
-    const replacementIndex = target[targetSlot].indexOf(destination.placement);
-    target[targetSlot].splice(replacementIndex, 1, moved);
-  } else target[targetSlot].splice(insertionIndex, 0, moved);
+    const replacementIndex = placementList(target,targetSlot).indexOf(destination.placement);
+    placementList(target,targetSlot).splice(replacementIndex, 1, moved);
+  } else placementList(target,targetSlot).splice(insertionIndex, 0, moved);
   if (!sameSlot || copy || replacing) {
     if (!copy) clearPlacementConnections(source, placement.id);
     if (targetSlot === 'choices') {

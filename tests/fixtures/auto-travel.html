@@ -1,0 +1,53 @@
+<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base href="../../">
+<title>Auto Travel demonstration</title>
+<link rel="stylesheet" href="engine/card-deck.css"><link rel="stylesheet" href="studio/inventory.css"><link rel="stylesheet" href="studio/preview.css"><link rel="stylesheet" href="studio/playfield.css">
+<style>*{box-sizing:border-box}body{margin:16px;background:#172020;color:#dce5ce;font:14px system-ui}main{display:flex;gap:24px}#frame{width:359px;height:745px;flex:none}aside{max-width:500px}button{padding:8px;margin:4px}pre{white-space:pre-wrap}</style>
+<main><section id="frame" class="nest-playfield"><div id="preview"></div></section><aside>
+<h1>Auto Travel</h1><p>Two to four steps per segment, three different events, and a final segment to Security. This example never saves an authored project.</p>
+<button id="restart">Restart</button><button id="next">Swipe up</button><button id="take">Take item</button><button id="hold">Hold swipe halfway</button><button id="cancel">Start and cancel swipe</button><button id="tour">Verify complete journey</button>
+<output id="result" role="status"></output><pre id="state"></pre><pre id="trace"></pre>
+</aside></main>
+<script type="module">
+import {ProjectPreview} from '../../studio/ProjectPreview.js';
+import {createTravelProject} from './tests/fixtures/travel-project.js';
+const state=document.querySelector('#state'),trace=document.querySelector('#trace'),result=document.querySelector('#result');
+let lastKey='',history=[];
+const preview=new ProjectPreview(document.querySelector('#preview'),{inventoryHost:document.querySelector('#frame'),onChange:update});
+function update(){
+ const run=preview.controller?.state;if(!run)return;
+ state.textContent=JSON.stringify({node:run.activeNodeId,card:run.cardId,health:run.variables.health,steps:run.variables['travel-distance'],heard:run.variables['heard-pipes'],inventory:run.collectedItems.map(i=>i.name),completed:run.completed},null,2);
+ const key=`${run.activeNodeId}:${run.cardId}:${run.variables['travel-distance']}`;
+ if(key!==lastKey){history.push({node:run.activeNodeId,card:run.cardId,steps:run.variables['travel-distance']});lastKey=key;trace.textContent=history.map(s=>`${s.node} · ${s.card} · steps ${s.steps}`).join('\n');}
+}
+function play(){history=[];lastKey='';result.textContent='';preview.play(createTravelProject());update();}
+const waitFor=predicate=>new Promise((resolve,reject)=>{const start=performance.now();const frame=()=>{if(predicate())resolve();else if(performance.now()-start>16000)reject(new Error('Animation timeout'));else requestAnimationFrame(frame);};frame();});
+document.querySelector('#restart').onclick=play;
+document.querySelector('#next').onclick=()=>{preview.deck.key({key:'ArrowUp',preventDefault(){}});};
+document.querySelector('#take').onclick=()=>preview.deck.collect();
+document.querySelector('#hold').onclick=()=>{if(preview.deck.start())preview.deck.move({axis:'y',x:0,y:-200,vx:0,vy:0});};
+document.querySelector('#cancel').onclick=()=>{if(preview.deck.drag)preview.deck.cancel();else if(preview.deck.start()){preview.deck.move({axis:'y',x:0,y:-60,vx:0,vy:0});preview.deck.cancel();}};
+document.querySelector('#tour').onclick=async event=>{
+ const button=event.currentTarget;button.disabled=true;
+ try{
+  play();const visited=new Set();
+  for(let i=0;i<80&&!preview.controller.state.completed;i++){
+   await waitFor(()=>preview.controller.state.idle||preview.controller.state.completed);
+   if(preview.controller.state.completed)break;
+   visited.add(preview.controller.state.activeNodeId);
+   if(preview.controller.state.activeNodeId==='travel-end')break;
+   const id=preview.deck.content.id,phase=preview.deck.phase;
+   if(preview.deck.content.interaction==='container'&&phase==='choices')preview.deck.collect();
+   else preview.deck.key({key:'ArrowUp',preventDefault(){}});
+   await waitFor(()=>preview.controller.state.completed||preview.deck.content.id!==id||preview.deck.phase!==phase);
+  }
+  await waitFor(()=>preview.controller.state.idle);
+  const run=preview.controller.state;
+  if(run.activeNodeId!=='travel-end')throw new Error('Journey did not reach Security');
+  for(const id of ['travel-fork','travel-find','travel-heal'])if(!visited.has(id))throw new Error(`Missing event ${id}`);
+  if(run.variables.health!==8||run.collectedItems.length!==1)throw new Error('Consumable or find did not resolve correctly');
+  result.textContent=`PASS — ${run.variables['travel-distance']} movement cards, Fork, find, Health Consumable and final segment. Consumable stayed outside inventory.`;
+ }catch(error){result.textContent=`FAIL — ${error.message}`;}
+ finally{button.disabled=false;update();}
+};
+play();
+</script>

@@ -115,7 +115,7 @@ export function placementInspector(project,p,kind,index,slot,count=Infinity,chap
  const source=definition?(local?'local':'library'):'missing';
  const customMarker=definition&&!local&&p.overrides?' <span class="card-custom-marker" role="img" aria-label="Custom rules enabled" title="Custom rules enabled">*</span>':'';
  const death=chapter?.nodes.some(n=>n.type==='death'&&n.cards?.includes(p));
- const nodeType=death?'death':slot==='choices'?'fork':slot==='items'?'container':'linear';
+ const nodeType=slot==='travel.steps'?'randomizer':death?'death':slot==='choices'?'fork':slot==='items'?'container':'linear';
  const kinds=allowedCardKinds(nodeType,slot);
  kind=definition?.kind || kind;
  const compareLabels=(a,b)=>a.localeCompare(b,undefined,{sensitivity:'base',numeric:true});
@@ -188,13 +188,22 @@ function randomizerFields(project,chapter,node) {
    +checkbox('Allow repeats',candidate.allowRepeats===true,`${path}.allowRepeats`,'node')
    +button('Remove scene','remove-randomizer-candidate',`data-index="${index}"`)+'</div></div>';
  }).join('');
- return '<h3>Scene selection</h3>'
-  +field('Draw count',node.drawCount??1,'drawCount','node','number')
-  +'<p class="small">Draw up to this many scenes per visit. Each scene plays before the next draw. Scenes repeat only if allowed, and chapter-wide group limits still apply. If no option is eligible, follow Next.</p>'
+ const travel=node.travel?.enabled===true;
+ const travelFields=travel
+  ?field('Min Steps per segment',node.travel.minSteps,'travel.minSteps','node','number')
+   +field('Max Steps per segment',node.travel.maxSteps,'travel.maxSteps','node','number')
+   +field('Event count',node.travel.eventCount,'travel.eventCount','node','number')
+   +'<h3>Step cards</h3><p class="small">Choose Vignette or Caption cards for the travel steps. Each card keeps its normal appearance conditions and progression effects.</p>'
+   +(node.travel.steps||[]).map((p,i)=>placementInspector(project,p,'event',i,'travel.steps',node.travel.steps.length,chapter)).join('')
+   +'<div class="add-card-buttons">'+['event','caption'].map(kind=>button(`+ ${cardKinds[kind].label}`,'add-placement',`data-slot="travel.steps" data-kind="${kind}" style="--card-editor-tint:${esc(cardEditorTint(kind))}"`)).join('')+'</div>'
+  :'';
+ return checkbox('Travel',travel,'travel.enabled','node')+travelFields+'<h3>Scene selection</h3>'
+  +(travel?'':field('Draw count',node.drawCount??1,'drawCount','node','number')
+   +'<p class="small">Draw up to this many scenes per visit. Each scene plays before the next draw. Scenes repeat only if allowed, and chapter-wide group limits still apply. If no option is eligible, follow Next.</p>')
   +rows+'<div class="auto-add-options">'+['group','beat','enemy'].map(type=>button(`Add ${type==='enemy'?'Enemy':type}`,'add-randomizer-candidate',
    `data-scene-type="${type}"`+(scenes.some(({target})=>randomizerSceneType(target)===type&&!used.has(randomizerSceneKey(target)))?'':' disabled'))).join('')+'</div>'
-  +field('None weight',node.noneWeight??0,'noneWeight','node','number')
-  +'<p class="small">None follows Next immediately. Set its weight to zero to disable it.</p>';
+  +(travel?'':field('None weight',node.noneWeight??0,'noneWeight','node','number')
+   +'<p class="small">None follows Next immediately. Set its weight to zero to disable it.</p>');
 }
 
 export function nodeInspector(project,chapter,node,previewEffects=node?.entryEffects??[]) {

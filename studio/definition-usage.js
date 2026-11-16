@@ -17,6 +17,7 @@ export function definitionUsage(project, id) {
   };
   for (const slot of ['cards', 'choices', 'items']) (node[slot] || []).forEach((placement, index) => add(placement, [slot, index]));
   if (node.intro) add(node.intro, ['intro']);
+  (node.travel?.steps || []).forEach((placement,index)=>add(placement,['travel','steps',index],{slot:'travel.steps'}));
   const sequences = node.sequence ? [[node.sequence, ['sequence']]] : (node.sequences || []).map((sequence, index) => [sequence, ['sequences', index]]);
   for (const [sequence, path] of sequences) {
    for (const slot of ['cards', 'items']) (sequence[slot] || []).forEach((placement, index) => {

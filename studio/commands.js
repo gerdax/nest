@@ -111,12 +111,12 @@ export function promoteCard(project,placement) {
  return definition;
 }
 export function duplicatePlacement(project,node,placement) {
- const slot=['cards','choices','items'].find(key=>node[key]?.includes(placement));
+ const slot=['cards','choices','items','travel.steps'].find(key=>placementList(node,key)?.includes(placement));
  if(!slot)throw createError('STUDIO_THIS_CARD_SLOT_CANNOT_BE_DUPLICATED');
  const copy={...structuredClone(placement),id:uid('placement')};
  const copies=cloneLocalDefinitions(project,copy,owningChapterId(project,node));
  const definition=copies.get(placement.definitionId);if(definition)definition.name+=' copy';
- node[slot].splice(node[slot].indexOf(placement)+1,0,copy);
+ const list=placementList(node,slot);list.splice(list.indexOf(placement)+1,0,copy);
  if(slot==='choices')for(const output of outputsForNode(project,node).filter(exit=>exit===copy.id||exit.startsWith(`${copy.id}:`))){
   const original=placement.id+output.slice(copy.id.length);node.connections[output]=Object.hasOwn(node.connections,original)?node.connections[original]:false;
  }
@@ -150,7 +150,8 @@ export function createNode(project,type,position={x:100,y:100},chapterId) {
  if(isRouteBeat(type))delete node.connections;
  return node;
 }
-export function placements(node){return [...(node.cards||[]),...(node.choices||[]),...(node.items||[]),...(node.intro?[node.intro]:[])];}
+export function placementList(node,slot){return slot==='travel.steps'?node?.travel?.steps:node?.[slot];}
+export function placements(node){return [...(node.cards||[]),...(node.choices||[]),...(node.items||[]),...(node.intro?[node.intro]:[]),...(node.travel?.steps||[])];}
 export function findPlacement(node,id){return placements(node).find(p=>p.id===id);}
 export function pathTarget(root,path) {
  const keys=path.split('.');const key=keys.pop();let parent=root;

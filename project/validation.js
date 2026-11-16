@@ -466,6 +466,27 @@ export function validateProject(project, {allowDraft = false} = {}) {
       if (Object.hasOwn(node,'ignoreDeath') && (node.type!=='combat' || typeof node.ignoreDeath!=='boolean')) {
         add('Ignore death requires a boolean setting on a Combat beat',cid,nid);
       }
+      if (Object.hasOwn(node, 'travel')) {
+        const travel = node.travel;
+        if (!object(travel)) add(`${label}: Auto Travel must be an object`,cid,nid);
+        else {
+          if (typeof travel.enabled !== 'boolean') add(`${label}: Auto Travel enabled must be a boolean`,cid,nid);
+          if (travel.enabled === true && node.type !== 'randomizer') add(`${label}: Auto Travel requires an Auto beat`,cid,nid);
+          for (const key of ['minSteps', 'maxSteps']) {
+            if (!Number.isSafeInteger(travel[key]) || travel[key] < 1 || travel[key] > 100) {
+              add(`${label}: Auto Travel ${key} must be a whole number from 1 to 100`,cid,nid);
+            }
+          }
+          if (Number.isSafeInteger(travel.minSteps) && Number.isSafeInteger(travel.maxSteps) && travel.minSteps > travel.maxSteps) {
+            add(`${label}: Auto Travel minSteps must not exceed maxSteps`,cid,nid);
+          }
+          if (!Number.isSafeInteger(travel.eventCount) || travel.eventCount < 0 || travel.eventCount > 100) {
+            add(`${label}: Auto Travel eventCount must be a whole number from 0 to 100`,cid,nid);
+          }
+          if (!Array.isArray(travel.steps)) add(`${label}: Auto Travel steps must be a list`,cid,nid);
+          else if (!allowDraft && travel.enabled === true && !travel.steps.length) add(`${label}: Auto Travel requires at least one step`,cid,nid);
+        }
+      }
       if (node.type === 'randomizer') {
         if (object(node.connections) && Object.keys(node.connections).some(key => key !== 'next')) {
           add(`${label}: Auto has only a Next output`,cid,nid);
@@ -514,6 +535,9 @@ export function validateProject(project, {allowDraft = false} = {}) {
           && !object(p.overrides)) add(errorMessage('VALIDATION_INVALID_PLACEMENT_OPTIONS', {label}), cid, nid);
         inspectCard(p, label);
         const d = definitions.get(p.definitionId);
+        if (list(node.travel?.steps).includes(p) && d && !allowedCardKinds('randomizer', 'travel.steps').includes(canonicalCardKind(d.kind))) {
+          add(`${label}: Auto Travel steps require Vignette or Caption cards`,cid,nid);
+        }
         if (object(p.overrides)) {
           if (Object.keys(p.overrides).some(k => !placementOverrideKeys(d?.kind,d).includes(k))) add(errorMessage('VALIDATION_UNSUPPORTED_OVERRIDE', {label}), cid, nid);
           inspectCard(p.overrides, label);

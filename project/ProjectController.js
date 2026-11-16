@@ -11,6 +11,7 @@ import { isInventoryContext } from '../engine/inventoryContext.js';
 import { resolveCheck } from './checks.js';
 import { randomizerSceneKey, validAutoDrawCount } from './randomizer.js';
 import { actionAvailability } from './action-availability.js';
+import { createTravelVisit, drawTravelStep } from './travel.js';
 
 /** Playback only. CardDeck remains responsible for gestures and departure choreography. */
 export class ProjectController {
@@ -42,6 +43,7 @@ export class ProjectController {
     this.combat?.dispose();this.combat=null;this.combatOperations=new Set();
     const generation=++this.generation; this.checking?.abort(); this.checking=null;this.checkPayment=null;
     this.arrivalStates = new WeakMap();
+    this.travelSteps = new WeakMap();
     this.deathHandoff?.abort();this.deathHandoff=null;
     this.deck.reset();
     this.variables=transact(initialValues(this.compiled.variables),[],{effects:Object.entries(this.initialState?.variables || {}).map(([key,value])=>({op:'set',key,value}))},this.compiled.variables).variables;
@@ -179,7 +181,7 @@ export class ProjectController {
       }
       choices.push({group,groupId:candidate.groupId,key,allowRepeats:candidate.allowRepeats===true,weight:candidate.weight});
     }
-    if(node.noneWeight>0)choices.push({weight:node.noneWeight});
+    if(node.noneWeight>0&&!node.travel?.enabled)choices.push({weight:node.noneWeight});
     return choices;
   }
   randomizerDestination(choice,node,run,visit,preview) {
@@ -191,6 +193,41 @@ export class ProjectController {
     const played=allowRepeats?visit.played:new Set([...visit.played,key]);
     const autoVisit=remaining>0?{remaining,played,defer:preview}:null;
     return {id:group.entryId,run:{seen,scene:{group,next,callerId:node.id,remaining,autoVisit}}};
+  }
+  travelDestination(node,run,visit,values,inventory,excluded,preview,startPlacementId) {
+    if(visit.segmentRemaining===0){
+      if(visit.remainingEvents===0)return this.routeStep(node,'next',node.connections?.next,run);
+      const choices=this.randomizerChoices(node,values,inventory,run,visit,excluded);
+      if(!choices.length)return this.routeStep(node,'next',node.connections?.next,run);
+      if(preview)return null;
+      const choice=this.weighted(choices),{group,groupId,key,allowRepeats}=choice;
+      const seen=group.oncePerRun?new Set([...run.seen,groupId]):run.seen;
+      const nextVisit={...visit,remainingEvents:visit.remainingEvents-1,segmentRemaining:null,
+        played:allowRepeats?visit.played:new Set([...visit.played,key])};
+      return {id:group.entryId,run:{seen,scene:{group,next:node.connections?.next,callerId:node.id,
+        remaining:nextVisit.remainingEvents,autoVisit:{travel:nextVisit,defer:preview}}}};
+    }
+    const available=(node.travel.steps??[]).filter(card=>conditionsMet(card.conditions,values,inventory));
+    if(!available.length)throw createError('RUNTIME_TRAVEL_NO_AVAILABLE_STEPS');
+    const prepared=this.travelSteps.get(visit);
+    const signature=JSON.stringify(available.map(card=>card.id));
+    const cached=prepared?.signature===signature?prepared.selected:null;
+    if(preview&&!cached)return null;
+    const selected=cached??drawTravelStep(node.travel,visit,available,this.rng,startPlacementId);
+    // Reserve the next movement card on an accepted arrival. Rendering and
+    // cancelled gestures only read this reservation, and never apply effects.
+    if(!preview&&selected.visit.segmentRemaining>0&&!this.travelSteps.has(selected.visit)){
+      try {
+        const predicted=this.transaction(selected.card,undefined,values,inventory);
+        const nextAvailable=node.travel.steps.filter(card=>conditionsMet(card.conditions,predicted.variables,predicted.inventory));
+        if(nextAvailable.length&&!this.deathDestination(predicted.variables))this.travelSteps.set(selected.visit,{
+          signature:JSON.stringify(nextAvailable.map(card=>card.id)),
+          selected:drawTravelStep(node.travel,selected.visit,nextAvailable,this.rng)
+        });
+      }catch { /* A blocked transaction must not reserve a successor. */ }
+    }
+    return {location:{node,index:0,queue:[],sequence:{id:`travel:${selected.visit.stepNumber}`,type:'linear',cards:[selected.card]},
+      travelVisit:selected.visit,randomizerRun:run},run};
   }
   routeStep(node,output,id,run) {
     const scene=run?.scene;
@@ -245,13 +282,15 @@ export class ProjectController {
         if(id===null){result=arrive({completed:true},step,run);continue;}
         if(id===false||id===undefined)throw createError('RUNTIME_UNLINKED_OUTPUT');
         // Two callers can traverse the same automatically skipped scene in one transition.
-        const visitKey=run?JSON.stringify([run.scene?.callerId??null,id,run.scene?.remaining??null,step.autoVisit?.remaining??null]):id;
+        const travelProgress=step.autoVisit?.travel;
+        const visitKey=run?JSON.stringify([run.scene?.callerId??null,id,run.scene?.remaining??null,step.autoVisit?.remaining??null,
+          travelProgress?[travelProgress.remainingEvents,travelProgress.segmentRemaining,travelProgress.stepNumber]:null]):id;
         if(visited.has(visitKey))throw createError('RUNTIME_AUTOMATIC_ROUTING_CYCLE');
         const cached=preview&&preflight.completed.get(visitKey);
         if(cached&&cached.values===values&&cached.inventory===inventory&&cached.run===run){result=cached.result;continue;}
         visited.add(visitKey);entered.add(visitKey);
         const node=this.nodes.get(id);if(!node)throw createError('RUNTIME_UNKNOWN_NODE', { id });
-        pending.push({finish:true,id:visitKey,random:preview&&['random','randomizer'].includes(node.type),values,inventory,run});
+        pending.push({finish:true,id:visitKey,random:preview&&(node.type==='random'||node.type==='randomizer'&&!node.travel?.enabled),values,inventory,run});
         const death=this.deathDestination(values,{node});
         if(death&&step.startPlacementId)throw createError('STUDIO_PREVIEW_CARD_UNAVAILABLE',{reason:'The entry state routes to the Death beat.'});
         if(death){pending.push({id:death.node.id,values,inventory,changed,run});continue;}
@@ -269,6 +308,13 @@ export class ProjectController {
         if(node.type==='randomizer') {
           if(run?.scene)throw createError('RUNTIME_AUTOMATIC_ROUTING_CYCLE');
           run??={seen:new Set(),scene:null};
+          if(node.travel?.enabled){
+            const visit=step.autoVisit?.travel??createTravelVisit(node.travel);
+            const destination=this.travelDestination(node,run,visit,values,inventory,excluded,preview,step.startPlacementId);
+            if(destination)pending.push({...destination,values,inventory,changed});
+            else result=null;
+            continue;
+          }
           const visit=step.autoVisit??{remaining:validAutoDrawCount(node.drawCount)?node.drawCount:1,played:new Set()};
           const choices=this.randomizerChoices(node,values,inventory,run,visit,excluded);
           const results=preview?(choices.length?choices:[null]):[this.weighted(choices)];
@@ -363,6 +409,7 @@ export class ProjectController {
   }
   nextStep(location,output='next') {
     const run=location.randomizerRun??this.randomizerRun;
+    if(location.travelVisit)return {id:location.node.id,run,autoVisit:{travel:location.travelVisit}};
     if(location.node.type==='death')return {halted:true,terminalReason:'death',run};
     if(location.queue?.length) {
       const queue=[...location.queue],id=queue.shift();
@@ -397,6 +444,7 @@ export class ProjectController {
     return !!this.departureReason(source,location,values,inventory,transition,excludedItem);
   }
   routingReason(error) {
+    if(errorCode(error)==='RUNTIME_TRAVEL_NO_AVAILABLE_STEPS')return error.message;
     if(errorCode(error)==='RUNTIME_UNLINKED_OUTPUT')return errorMessage('RUNTIME_ROUTE_UNAVAILABLE');
     if(errorCode(error)==='RUNTIME_AUTOMATIC_ROUTING_CYCLE')return errorMessage('RUNTIME_AUTOMATIC_ROUTING_CYCLE');
     if(errorCode(error)==='RUNTIME_UNKNOWN_NODE')return errorMessage('RUNTIME_CONNECTED_DESTINATION_MISSING');
@@ -446,6 +494,8 @@ export class ProjectController {
     return {...content,label:face.heading || face.text || 'Continue',...face};
   }
   linearTransition(location, destination, source=this.card(location), values=this.variables, inventory=this.inventory) {
+    // Consecutive movement cards expose their prepared front without a turn.
+    if(location.travelVisit?.segmentRemaining>0&&destination?.travelVisit&&destination.node===location.node)return 'reveal';
     const revealing=this.type(location)==='linear'&&!['action','item','consumable','health','energy'].includes(source?.kind)&&destination&&!destination.completed&&!destination.halted&&this.key(location)===this.key(destination)&&destination.index>location.index;
     if(!revealing)return 'flip';
     if(destination.index===location.index+1) {
@@ -510,7 +560,7 @@ export class ProjectController {
     const payload={autoBrowse:fork||container,id:`${this.generation}:${++this.serial}`,cardBack:this.compiled.cardBack,title:'',...cardFace(card,this.compiled.variables,this.compiled.library,values),cardKind:card?.kind==='consumable'?card.subtype:card?.kind ?? 'event',...(card?.kind==='item'&&card.subtype==='weapon'?{typeLabel:'WEAPON'}:{}),value:card?.value,summary:card&&!isStoryKind(card.kind??card.cardKind)&&fork?playerCardSummary(card,this.compiled.variables,this.compiled.library,values):'',image:card?.image ?? '',imageScale:card?.imageScale??100,imageOffsetX:card?.imageOffsetX??0,imageOffsetY:card?.imageOffsetY??0,flipImage:!!card?.flipImage,actions,directAdvance:!fork&&!container&&!linearFace,decisionOnly:linearFace||fork&&(location.sequence?!!location.sequence.decisionOnly:this.presentation(location,values,inventory)==='open'),interaction:container||linearItem?'container':'choice',discardAll:container,allowClose:false};
     payload.title=payload.heading || '';
     if(type==='linear'&&card?.kind==='action'&&(card.contextInventoryKey??card.contextItemId))payload.entranceBackdrop=true;
-    if(location.node.type==='linear'&&card)payload.linearRollKey=JSON.stringify([this.key(location),card.id]);
+    if((location.node.type==='linear'||location.travelVisit)&&card)payload.linearRollKey=JSON.stringify([this.key(location),card.id]);
     if(fork)payload.choiceFollowerRatio=.82;
     payload.flipItemsOnReveal=container&&this.presentation(location,values,inventory)==='closed'||fork&&this.introductionUnlocksNext(location,values,inventory);
     if(payload.directAdvance){

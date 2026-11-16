@@ -83,6 +83,7 @@ export function compileChapter(project, chapterId = project.activeChapterId, {ad
     if (['container','linear'].includes(node.type)) node.retainInventoryItems = retainsInventoryItems(node);
     for (const key of ['cards', 'choices', 'items']) if (node[key]) node[key] = node[key].map(p => resolvePlacement(project, p, index));
     if (node.intro) node.intro = resolvePlacement(project, node.intro, index);
+    if (Array.isArray(node.travel?.steps)) node.travel.steps = node.travel.steps.map(p => resolvePlacement(project, p, index));
     for (const raw of legacyArtwork(node)) if (raw.definitionId) {
       const resolved = resolvePlacement(project, raw, index);
       const originalId = raw.id;

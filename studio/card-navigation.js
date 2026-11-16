@@ -28,7 +28,7 @@ export function sourceCard(project,target) {
   if(target.slot==='choices')placements=sequence.cards?.find(c=>c.id===target.parentCardId)?.choices||[];
   else if(['cards','items'].includes(target.slot))placements=sequence[target.slot]||[];
   else return null;
- }else placements=[...(node.cards||[]),...(node.choices||[]),...(node.items||[]),...(node.intro?[node.intro]:[])];
+ }else placements=[...(node.cards||[]),...(node.choices||[]),...(node.items||[]),...(node.intro?[node.intro]:[]),...(node.travel?.steps||[])];
  const placement=placements.find(p=>p.id===target.placementId);
  return placement?{chapter,node,placement}:null;
 }

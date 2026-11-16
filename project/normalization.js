@@ -65,14 +65,14 @@ export function discardPlacementContext(project, index = createLibraryIndex(list
   const definitionIds = new Set(list(project?.library).map(d => d?.id));
   const placementUsers = new Map();
   for (const chapter of list(project?.chapters)) for (const node of list(chapter?.nodes).filter(object)) {
-    for (const p of new Set([...placements(node), ...legacyArtwork(node)])) {
+    for (const p of new Set([...placements(node), ...legacyArtwork(node)].filter(object))) {
       if (!placementUsers.has(p.definitionId)) placementUsers.set(p.definitionId, new Set());
       placementUsers.get(p.definitionId).add(p);
     }
   }
   for (const chapter of list(project?.chapters)) for (const node of list(chapter?.nodes).filter(object)) {
     let resetResolution = false;
-    for (const p of [...placements(node), ...legacyArtwork(node)]) {
+    for (const p of [...placements(node), ...legacyArtwork(node)].filter(object)) {
       delete p.context;
       if (p.contextItemId === '') delete p.contextItemId;
       if (localIds.has(p.definitionId) && p.overrides !== undefined) {

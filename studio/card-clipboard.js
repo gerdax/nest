@@ -7,6 +7,7 @@ import { supportsInventoryTrigger } from '../project/nodeTypes.js';
 
 function targetSlot(node, placement) {
  if(node?.intro===placement)return 'intro';
+ if(node?.travel?.steps?.includes(placement))return 'travel.steps';
  return ['cards','choices','items'].find(slot=>node?.[slot]?.includes(placement));
 }
 function sourceDefinition(project,payload) {

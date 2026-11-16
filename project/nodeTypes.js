@@ -61,6 +61,7 @@ export function createNodeDefaults(type,callbacks) {
  return descriptor.create(callbacks);
 }
 export function nodeSlotCardKinds(type,slot) {
+ if(type==='randomizer' && slot==='travel.steps')return ['event','caption'];
  const descriptor=nodeTypeDescriptor(type);
  // Existing callers use any non-intro fork slot as the branch policy.
  return [...((descriptor && Object.hasOwn(descriptor.slots,slot) ? descriptor.slots[slot] : undefined) || (type==='fork' && slot!=='intro' ? branchKinds : storyKinds))];

@@ -25,7 +25,7 @@ import { appendLibraryCard } from './library-cards.js';
 import { sortedChapters } from '../project/chapter-navigation.js';
 import {
   uid, createNode, makePlacement, promoteCard, duplicateNode, duplicatePlacement,
-  findPlacement, pathTarget, customizeAction, customizeItem, customizeConsumable, customizeStory, newRule, normalizeRule, addHealthVariable,
+  findPlacement, placementList, pathTarget, customizeAction, customizeItem, customizeConsumable, customizeStory, newRule, normalizeRule, addHealthVariable,
 } from './commands.js';
 
 function reconcilePreparedReferences(enemy,action){
@@ -135,6 +135,20 @@ function changeField(project, selection, field, localDrafts) {
       }
       return;
     }
+    if(path==='travel.enabled'){
+      if(typeof checked!=='boolean')throw new Error('Travel requires a checkbox value');
+      if(checked)node.travel={minSteps:2,maxSteps:4,eventCount:2,steps:[],...node.travel,enabled:true};
+      else if(node.travel)node.travel.enabled=false;
+      return;
+    }
+    if(/^travel\.(minSteps|maxSteps|eventCount)$/.test(path)){
+      const key=path.split('.')[1],value=Number(raw);
+      if(!Number.isSafeInteger(value)||value<(key==='eventCount'?0:1)||value>100)throw new Error(`${key==='eventCount'?'Event count':'Step count'} must be a whole number from ${key==='eventCount'?0:1} to 100`);
+      if(!node.travel)throw new Error('Enable Travel before editing its settings');
+      if(key==='minSteps'&&value>node.travel.maxSteps||key==='maxSteps'&&value<node.travel.minSteps)throw new Error('Minimum steps cannot exceed maximum steps');
+      node.travel[key]=value;
+      return;
+    }
     if(path==='drawCount'){
       const count=Number(raw);
       if(!validAutoDrawCount(count))throw new Error(`Draw count must be a whole number from 1 to ${MAX_AUTO_DRAWS}`);
@@ -174,7 +188,7 @@ function changeField(project, selection, field, localDrafts) {
   }
   if (scope === 'node' && path === 'introEnabled' && checked && root.type === 'fork' && !root.intro) root.intro = makePlacement(project, 'event', undefined, chapterFor(project, selection).id);
   if (scope === 'placement' && path === 'definitionId') {
-    localDrafts.switchSource(project, root, raw, {allowedKinds:allowedCardKinds(node.type, node.intro === root ? 'intro' : node.type === 'container' ? 'items' : 'cards')});
+    localDrafts.switchSource(project, root, raw, {allowedKinds:allowedCardKinds(node.type, node.travel?.steps?.includes(root) ? 'travel.steps' : node.intro === root ? 'intro' : node.type === 'container' ? 'items' : 'cards')});
     return;
   }
   if(['definition','local-definition'].includes(scope)&&root.kind==='consumable'&&path==='subtype'&&!['health','energy'].includes(raw))throw new Error('Consumable subtype must be health or energy');
@@ -358,7 +372,12 @@ function inspectorCommand(project, selection, data, localDrafts) {
     case 'local-copy': localDrafts.convert(project, placement); break;
     case 'clear-card': localDrafts.clear(project, placement); break;
     case 'promote-card': promoteCard(project, placement); localDrafts.drafts.delete(placement.id); break;
-    case 'add-placement': node[data.slot].push(makePlacement(project, data.kind, undefined, chapterFor(project, selection).id)); break;
+    case 'add-placement': {
+      const list=placementList(node,data.slot);
+      if(!Array.isArray(list)||!allowedCardKinds(node.type,data.slot).includes(data.kind))throw new Error('Choose a card type allowed in this beat');
+      list.push(makePlacement(project,data.kind,undefined,chapterFor(project,selection).id));
+      break;
+    }
     case 'duplicate-placement': duplicatePlacement(project, node, placement); break;
     case 'remove-placement': {
       if(!placement)return;
@@ -370,14 +389,19 @@ function inspectorCommand(project, selection, data, localDrafts) {
         node.introEnabled=false;
       }
       localDrafts.removePlacement(project, placement);
-      for (const slot of ['cards','choices','items']) if (node[slot]) node[slot] = node[slot].filter(card => card.id !== placement.id);
+      for (const slot of ['cards','choices','items','travel.steps']) {
+        const list=placementList(node,slot),index=list?.indexOf(placement)??-1;
+        if(index>=0)list.splice(index,1);
+      }
       removeUnplacedLocalDefinitions(project,definitions,localDrafts);
       break;
     }
     case 'move-placement':
-      for (const slot of ['cards','choices','items']) if (node[slot]) {
-        const index = node[slot].findIndex(card => card.id === placement.id), target = index + Number(data.direction);
-        if (index >= 0 && target >= 0 && target < node[slot].length) [node[slot][index],node[slot][target]] = [node[slot][target],node[slot][index]];
+      for (const slot of ['cards','choices','items','travel.steps']) {
+        const list=placementList(node,slot);
+        if(!list)continue;
+        const index=list.findIndex(card=>card.id===placement.id),target=index+Number(data.direction);
+        if(index>=0&&target>=0&&target<list.length)[list[index],list[target]]=[list[target],list[index]];
       }
       break;
     case 'add-route': node.routes.push({id:uid('route'),name:`Route ${node.routes.length+1}`,target:false,...(node.type==='random'?{weight:1}:{}),conditions:[]}); break;

@@ -89,3 +89,23 @@ test('inventory aliases resolve every matching definition; input and graph seman
 test('empty or missing projects and missing definitions return empty usage', () => {
  for(const project of [undefined,{}, {library:[],chapters:[]},fixture()])assert.deepEqual(definitionUsage(project,'missing'),{placements:[],references:[]});
 });
+
+
+for(const enabled of [true,false])test(`Travel step usage resolves authored placements and their local definition effects (enabled=${enabled})`,()=>{
+ const project=fixture(),node=project.chapters[0].nodes[0],caption=project.library[1];
+ node.type='randomizer';node.travel={enabled,minSteps:2,maxSteps:4,eventCount:2,steps:[{id:'travel-caption',definitionId:caption.id}]};
+ caption.kind='caption';caption.name='On the road';caption.effects=[effect('item')];
+ const snapshot=structuredClone(project),target={chapterId:'chapter',nodeId:'node',placementId:'travel-caption',slot:'travel.steps'};
+ const references=definitionUsage(project,'item').references;
+ assert.equal(references.length,1);assert.equal(references[0].name,'On the road');
+ assert.equal(letters(references[0]),'E');assert.equal(references[0].unavailableReason,undefined);
+ assert.deepEqual(references[0].target,target);
+ assert.equal(sourceCard(project,references[0].target).placement,node.travel.steps[0]);
+ const usedIn=definitionUsage(project,caption.id).placements;
+ assert.equal(usedIn.length,1);assert.deepEqual(usedIn[0].target,target);
+ assert.equal(sourceCard(project,usedIn[0].target).placement,node.travel.steps[0]);
+ node.travel.steps[0].conditions=[requirement('item')];
+ assert.equal(letters(definitionUsage(project,'item').references[0]),'RE');
+ delete node.travel.steps[0].conditions;
+ assert.deepEqual(project,snapshot);
+});

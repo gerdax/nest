@@ -17,6 +17,7 @@ export const errorDefinitions = Object.freeze({
   CHECK_STAT_CHECK_NEEDS_A_STAT_VALUE_FROM_1_TO_10: Object.freeze({ message: "Stat check needs a stat value from 1 to 10.", type: RangeError }),
   RUNTIME_RANDOM_SOURCE_MUST_RETURN_0_N_1: Object.freeze({ message: "Random source must return 0 ≤ n < 1", type: TypeError }),
   RUNTIME_UNLINKED_OUTPUT: Object.freeze({ message: "Unlinked output", type: Error }),
+  RUNTIME_TRAVEL_NO_AVAILABLE_STEPS: Object.freeze({ message: "Auto Travel has no available step cards.", type: Error }),
   RUNTIME_AUTOMATIC_ROUTING_CYCLE: Object.freeze({ message: "Automatic routing cycle", type: Error }),
   RUNTIME_NO_DICE_ROLLER_SUPPLIED: Object.freeze({ message: "No dice roller supplied", type: Error }),
   RUNTIME_INVALID_DICE_RESULT: Object.freeze({ message: "Invalid dice result", type: TypeError }),

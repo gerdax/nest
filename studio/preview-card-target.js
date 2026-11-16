@@ -40,6 +40,12 @@ export function previewCardTarget({ project, chapterId, controller, deck } = {})
   const node = chapter?.nodes?.find(node => node.id === location?.node?.id);
   if (!node || state.activeNodeId !== node.id) return null;
   if(node.type==='combat')return combatTarget(project,chapterId,node,controller,deck);
+  if(node.type==='randomizer'&&node.travel?.enabled===true){
+    const currentId=location.sequence?.cards?.[location.index]?.id;
+    const placement=node.travel.steps?.find(p=>p.id===currentId);
+    if(!placement||!project.library?.some(d=>d.id===placement.definitionId))return null;
+    return {chapterId,nodeId:node.id,placementId:placement.id,definitionId:placement.definitionId,slot:'travel.steps'};
+  }
   let sequence;
   if (['legacySequence', 'legacyPool'].includes(node.type)) {
     sequence = node.type === 'legacySequence' ? node.sequence
