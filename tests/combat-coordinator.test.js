@@ -66,7 +66,7 @@ test('Energy-modified check freezes displayed pre-payment values while charging 
 test('enabled introduction uses the main Enemy presentation and ignores legacy intro cards',async()=>{
  const h=harness();h.c.node.introEnabled=true;Object.assign(h.c.enemy,{introEnabled:false,headline:'Main Enemy text',image:'main.png',imageScale:125,imageOffsetX:8,flipImage:true,intro:[{kind:'event',text:'Old intro',image:'old.png'}]});
  await h.c.start();assert.equal(h.c.phase,'intro');
- for(const [key,value] of Object.entries({heading:'Main Enemy text',image:'main.png',imageScale:125,imageOffsetX:8,flipImage:true,cardKind:'event'}))assert.equal(h.deck.content[key],value);
+ for(const [key,value] of Object.entries({heading:'Main Enemy text',image:'main.png',imageScale:125,imageOffsetX:8,flipImage:true,cardKind:'event',typeLabel:'ENCOUNTER'}))assert.equal(h.deck.content[key],value);
  assert.equal(h.deck.content.nextTransition,'flip');
  const firstAction=h.deck.content.nextDeckPreview.content;
  const replace=h.deck.replaceContent;

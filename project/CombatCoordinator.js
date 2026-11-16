@@ -303,6 +303,7 @@ export class CombatCoordinator {
   const reason=last&&sequence.kind==='enemy-death'?this.host.combatVictoryReason():'';
   step.contentId??=this.token();
   const content={...combatCard(step.card,step.contentId,{...this.descriptionContext(),value:step.value,disabledReason:reason,enemy:step.enemy===true}),cardBack:this.host.compiled.cardBack};
+  if(sequence.kind==='intro')content.typeLabel='ENCOUNTER';
   if(!last){content.nextTransition='reveal';content.nextDeckPreview={content:this.sequenceContent(index+1),presentation:'closed'};}
   else if(sequence.kind==='intro'){this.introSuccessor??=this.actionCard();content.nextTransition='flip';content.nextDeckPreview={content:this.introSuccessor,presentation:'closed'};}
   else content.nextTransition='flip';

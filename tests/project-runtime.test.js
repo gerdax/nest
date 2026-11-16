@@ -115,6 +115,15 @@ function settle(){for(let i=0;frames.size&&i<2000;i++){now+=16;const callbacks=[
 function key(deck,name){deck.key({key:name,preventDefault(){}});settle();}
 function real(nodes,extra={},options={}){const deck=new CardDeck(new Element(),{content:{id:'waiting',actions:[{id:'wait',label:'Wait'}]}});const controller=new ProjectController(deck,{startNode:nodes[0].id,nodes,variables:[],library:[],...extra},options);settle();return {deck,controller};}
 function dispose(deck,controller){controller.destroy();deck.destroy();settle();}
+test('Container introduction has its own label while its revealed item keeps ITEM',()=>{
+ const {deck,controller}=real([{id:'box',type:'container',intro:narrative('intro'),introEnabled:true,
+  items:[{id:'item',kind:'item',definitionId:'item',name:'Item'}],connections:{next:null}}]);
+ assert.equal(deck.content.typeLabel,'CONTAINER');
+ key(deck,'ArrowUp');
+ assert.equal(deck.content.typeLabel,undefined);
+ assert.equal(deck.content.actions[0].kind,'item');
+ dispose(deck,controller);
+});
 test('Travel stages the next movement face during a swipe and retains it after cancellation',()=>{
  let draws=0;
  const steps=['first','second','third'].map((id,index)=>({...narrative(id),kind:'event',

@@ -1,0 +1,17 @@
+<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base href="../../">
+<title>Introduction labels</title>
+<link rel="stylesheet" href="engine/card-deck.css"><link rel="stylesheet" href="studio/inventory.css"><link rel="stylesheet" href="studio/preview.css"><link rel="stylesheet" href="studio/playfield.css">
+<style>*{box-sizing:border-box}body{margin:16px;background:#172020;color:#dce5ce;font:14px system-ui}main{display:flex;gap:24px}.nest-playfield{width:359px;height:745px;flex:none}</style>
+<main><section class="nest-playfield" id="frame"><div id="preview"></div></section><aside><h1>Container and Combat introductions</h1><button id="container">Container</button> <button id="enemy">Combat</button></aside></main>
+<script type="module">
+import {ProjectPreview} from '../../studio/ProjectPreview.js';
+import {createTravelProject} from './tests/fixtures/travel-project.js';
+import {createRatCombatProject} from '../../project/combat-fixture.js';
+const container=createTravelProject(),chapter=container.chapters[0];
+chapter.startNode='travel-find';chapter.nodes.find(node=>node.id==='travel-find').introEnabled=true;
+const enemy=createRatCombatProject(),combat=enemy.chapters[0].nodes.find(node=>node.type==='combat');
+combat.introEnabled=true;enemy.chapters[0].startNode=combat.id;
+const preview=new ProjectPreview(document.querySelector('#preview'),{inventoryHost:document.querySelector('#frame')});
+for(const [id,project] of [['container',container],['enemy',enemy]])document.querySelector(`#${id}`).onclick=()=>preview.play(project);
+preview.play(container);
+</script>

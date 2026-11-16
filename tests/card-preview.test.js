@@ -147,6 +147,14 @@ test('typed fronts separate type labels and authored captions and expose appropr
  }
 });
 
+test('introduction fronts render contextual CONTAINER and ENCOUNTER labels on story cards',()=>{
+ for(const typeLabel of ['CONTAINER','ENCOUNTER'])for(const cardKind of ['event','caption']){
+  const front=new Element();
+  decorateCard(null,front,'','Introduction','',false,{cardKind,typeLabel});
+  assert.equal(front.children.find(e=>e.className==='nest-card-type')?.textContent,typeLabel);
+ }
+});
+
 test('action fronts omit automatic requirements and inventory source',()=>{
  const front=new Element();decorateCard(null,front,'','','Pick the lock',false,{cardKind:'action',summary:'Requires: Own Lockpick',inventoryLabel:'Inventory · Lockpick'});
  assert.equal(front.attrs['data-inventory-action'],'true');

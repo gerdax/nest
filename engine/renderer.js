@@ -236,7 +236,7 @@ export function decorateCard(deck, element, image, title, text, flipImage = fals
   }
   if (!actionCard) copy.append(body);
   element.append(copy, artwork, cardTexture());
-  if (presentation.cardKind === 'discovery' || ['action','item','health','energy'].includes(presentation.cardKind) && presentation.typeLabel !== '') {
+  if (presentation.typeLabel || presentation.cardKind === 'discovery' || ['action','item','health','energy'].includes(presentation.cardKind) && presentation.typeLabel !== '') {
     const typeLabel = document.createElement('span');
     typeLabel.className = 'nest-card-type';
     typeLabel.textContent = presentation.cardKind === 'discovery' ? 'DISCOVERY' : presentation.typeLabel ?? presentation.cardKind.toUpperCase();
