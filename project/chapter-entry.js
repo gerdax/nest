@@ -14,5 +14,5 @@ export function chapterEntryState(project, chapterId, previous) {
   const sharedItems = new Set(project.library.filter(card => card.kind === 'item' && card.visibility !== 'local').map(card => card.id));
   const inventory = (previous?.collectedItems || []).filter(item => sharedItems.has(item.definitionId ?? item.id))
     .reduce((items, item) => addInventory(items, structuredClone(item)), []);
-  return {variables, inventory};
+  return {variables, inventory, ...(previous?.usedForkChoices?.length?{usedForkChoices:[...previous.usedForkChoices]}:{})};
 }

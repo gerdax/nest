@@ -88,6 +88,7 @@ export function transferCard(project, chapter, {sourceNodeId, sourceChapterId, p
 
   const prepared = copy || crossChapter ? copyPlacement(project, chapter, sourceChapter, source, placement, copy) : {placement, definitions:[], variables:[]};
   const moved = prepared.placement;
+  if(target.type!=='fork'||targetSlot!=='choices')delete moved.hideAfterUse;
   const outgoing = sourceSlot === 'choices' && !copy ? Object.fromEntries(
     outputsForNode(project, {...source, choices:[placement]}).map(output => [output, connectionForOutput(source.connections || {}, output)])) : {};
 

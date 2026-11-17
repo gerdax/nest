@@ -42,6 +42,7 @@ export function pasteCardClipboard(project,chapter,node,placement,payload) {
  }).cards[0];
  const slot=targetSlot(node,placement),kind=canonicalCardKind(sourceDefinition(project,payload).kind);
  if(!supportsInventoryTrigger(node.type,slot)||kind!=='action'){delete copied.contextItemId;delete copied.contextOverrideImage;}
+ if(node.type!=='fork'||slot!=='choices')delete copied.hideAfterUse;
  const placementId=placement.id;
  project.library.push(...temporaryProject.library.slice(project.library.length));
  project.itemTags=temporaryProject.itemTags;

@@ -19,5 +19,6 @@ export function cardRuleIndicators(project, placement, index) {
     hasRules(card.costs) && ['C', 'Costs'],
     hasRules(effects) && ['E', 'Effects'],
     ['action','combatAction'].includes(canonicalCardKind(card.kind)) && card.resolution === 'check' && ['DICE', 'Dice resolution'],
+    placement.hideAfterUse === true && ['H', 'Hide after use'],
   ].filter(Boolean);
 }

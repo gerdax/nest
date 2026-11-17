@@ -69,6 +69,9 @@ export function resolvePlacement(project, placement, index) {
   );
   const base = normalizeConsumableCard({...definition, ...overrides});base.kind=canonicalCardKind(base.kind);
   const resolved = {...base, conditions:[...(base.conditions || []),...(placement.conditions || [])], effects:[...(base.effects || []),...(placement.effects || [])], id:placement.id, definitionId:definition.id, unavailable:placement.unavailable ?? 'disabled', inventoryKey:definition.inventoryKey ?? definition.id};
+  // This behavior belongs to the chapter placement, never its Library source.
+  delete resolved.hideAfterUse;
+  if (Object.hasOwn(placement, 'hideAfterUse')) resolved.hideAfterUse = placement.hideAfterUse;
   if (isConsumableKind(base.kind)) {
     resolved.onCollect = [...resourceCollectionEffects(base), ...(placement.effects || [])];
     resolved.effects = resolved.onCollect;

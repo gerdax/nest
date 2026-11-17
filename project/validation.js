@@ -368,6 +368,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
   }
   for (const d of library) {
     if (!object(d)) continue;
+    if (Object.hasOwn(d,'hideAfterUse')) add(`Definition ${d.id}: Hide after use belongs to a Fork choice placement`);
     if (d.contextItemId !== undefined || d.contextOverrideImage !== undefined) add(errorMessage('VALIDATION_DEFINITION_INVENTORY_CONTEXT_BELONGS_TO_A_FORK_CHOICE_PLACEMENT', {definitionId: d.id}));
     if (d.visibility !== undefined && !['local', 'shared'].includes(d.visibility) || !['event', 'discovery', 'caption',
       'narrative', 'action', 'item', 'consumable', 'combatAction', 'effect', 'enemy'].includes(d.kind) || typeof d.name !== 'string' || !validCardText(d)
@@ -471,6 +472,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
         if (!object(travel)) add(`${label}: Auto Travel must be an object`,cid,nid);
         else {
           if (typeof travel.enabled !== 'boolean') add(`${label}: Auto Travel enabled must be a boolean`,cid,nid);
+          if (travel.randomizeStepCards !== undefined && typeof travel.randomizeStepCards !== 'boolean') add(`${label}: Auto Travel randomizeStepCards must be a boolean`,cid,nid);
           if (travel.firstStepCaption !== undefined && typeof travel.firstStepCaption !== 'string') add(`${label}: Auto Travel firstStepCaption must be text`,cid,nid);
           if (travel.enabled === true && node.type !== 'randomizer') add(`${label}: Auto Travel requires an Auto beat`,cid,nid);
           for (const key of ['minSteps', 'maxSteps']) {
@@ -485,7 +487,6 @@ export function validateProject(project, {allowDraft = false} = {}) {
             add(`${label}: Auto Travel eventCount must be a whole number from 0 to 100`,cid,nid);
           }
           if (!Array.isArray(travel.steps)) add(`${label}: Auto Travel steps must be a list`,cid,nid);
-          else if (!allowDraft && travel.enabled === true && !travel.steps.length) add(`${label}: Auto Travel requires at least one step`,cid,nid);
         }
       }
       if (node.type === 'randomizer') {
@@ -534,6 +535,9 @@ export function validateProject(project, {allowDraft = false} = {}) {
         if (!validRef(p.definitionId, definitions)) add(errorMessage('VALIDATION_UNKNOWN_DEFINITION', {label, definitionId: p.definitionId}), cid, nid);
         if (p.unavailable !== undefined && !['hidden', 'disabled'].includes(p.unavailable) || p.overrides !== undefined
           && !object(p.overrides)) add(errorMessage('VALIDATION_INVALID_PLACEMENT_OPTIONS', {label}), cid, nid);
+        if (Object.hasOwn(p,'hideAfterUse') && (typeof p.hideAfterUse !== 'boolean' || node.type !== 'fork' || !list(node.choices).includes(p))) {
+          add(`${label}: Hide after use requires a Fork choice and a boolean value`,cid,nid);
+        }
         inspectCard(p, label);
         const d = definitions.get(p.definitionId);
         if (list(node.travel?.steps).includes(p) && d && !allowedCardKinds('randomizer', 'travel.steps').includes(canonicalCardKind(d.kind))) {
@@ -594,6 +598,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
         }
       }
       for (const raw of legacyArtwork(node)) {
+        if (Object.hasOwn(raw,'hideAfterUse')) add(`${label}: Hide after use belongs to a native Fork choice placement`,cid,nid);
         if (raw.contextOverrideImage !== undefined || raw.contextItemId !== undefined && raw.contextItemId !== '') add(errorMessage('VALIDATION_INVENTORY_CONTEXT_IS_UNSUPPORTED_ON_LEGACY_CARDS', {label}),
           cid, nid);
         if (!named(raw.id) || typeof raw.definitionId !== 'string' || typeof raw.image !== 'string'

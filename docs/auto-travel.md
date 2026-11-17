@@ -10,7 +10,9 @@ Each visit plays a movement segment, an event, another segment, and so on, endin
 
 Steps are sampled uniformly without replacement across the whole visit. The bag refills when exhausted, avoiding an adjacent repeat when another card is available. Events use the current game state after the preceding steps, existing weights, Allow repeats and group limits. Draw count and None weight are hidden and preserved while Travel is enabled; None does not participate in Travel draws.
 
-Ordinary event completion returns to Travel. Existing explicit group exits can leave the journey. Death and restart retain their usual behavior. Nested Auto is unsupported. Empty or invalid step lists block playback; a situation with no eligible movement card reports an availability error.
+**Randomize step cards** is off by default. Cards follow the authored list in order, looping after the last card and continuing from the previous position after events. Enable the checkbox for random selection without replacement. Unavailable steps are skipped. This changes card order only; segment lengths and event selection retain their normal random draws.
+
+Ordinary event completion returns to Travel. Existing explicit group exits can leave the journey. Death and restart retain their usual behavior. Nested Auto is unsupported. An empty step list omits movement segments and plays only events; with zero events or no available event it follows Next immediately. Invalid step lists still block playback; a nonempty list with no eligible movement card reports an availability error.
 
 Travel placements participate in source usage, local ownership, Undo/Redo, copying, duplication, and project/chapter serialization. Older Auto beats require no migration.
 

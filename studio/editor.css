@@ -20,7 +20,8 @@ main {grid-template-columns:minmax(0,1fr) 500px;flex:1;min-height:0;height:auto;
 .card-remove-button:hover,.card-remove-button:focus-visible {color:#efae9b;background:#3a2d2b;}
 .card-order-arrow:disabled {opacity:.25;}
 select:disabled {opacity:.5;cursor:not-allowed;}
-.card-panel-actions {justify-content:flex-end;flex-wrap:wrap;}
+.card-panel-actions {justify-content:flex-end;align-items:center;flex-wrap:wrap;}
+.card-panel-actions > .check-field {flex:0 1 auto;margin:0 auto 0 0;}
 @media(max-width:608px) {main{grid-template-columns:1fr;overflow:auto;} .workspace{min-height:400px;} aside{min-height:400px;}}
 .chapter-picker { display:flex;align-items:center;gap:8px; }
 .chapter-picker select { margin:0;width:180px; }

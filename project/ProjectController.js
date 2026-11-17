@@ -29,7 +29,7 @@ export class ProjectController {
     for(const [name,listener] of Object.entries(this.listeners)) deck.addEventListener(name,listener);
     this.restart();
   }
-  get state() { return {activeNodeId:this.location?.node.autoOwnerId ?? this.location?.node.id ?? null,cardId:this.card()?.id ?? null,variables:{...this.variables},collectedItems:structuredClone(this.inventory),completed:this.completed,terminalReason:this.terminalReason,combat:this.combat?.state??null,checking:!!this.checking||!!this.combat?.checking,idle:(!this.combat||this.combat.idle)&&!this.halted&&!this.deathHandoff&&!this.completed&&!this.checking&&!this.pendingItem&&!this.pendingIntro&&!this.pendingExchange&&!this.deck.busy&&!this.deck.pickup?.pending&&!this.deck.drag&&!['revealing','closing','committing','collecting'].includes(this.deck.phase)}; }
+  get state() { return {activeNodeId:this.location?.node.autoOwnerId ?? this.location?.node.id ?? null,cardId:this.card()?.id ?? null,variables:{...this.variables},collectedItems:structuredClone(this.inventory),...(this.usedForkChoices?.size?{usedForkChoices:[...this.usedForkChoices]}:{}),completed:this.completed,terminalReason:this.terminalReason,combat:this.combat?.state??null,checking:!!this.checking||!!this.combat?.checking,idle:(!this.combat||this.combat.idle)&&!this.halted&&!this.deathHandoff&&!this.completed&&!this.checking&&!this.pendingItem&&!this.pendingIntro&&!this.pendingExchange&&!this.deck.busy&&!this.deck.pickup?.pending&&!this.deck.drag&&!['revealing','closing','committing','collecting'].includes(this.deck.phase)}; }
   notify() {if(!this.destroyed)this.onChange(this.state);}
   error(error) {if(!this.destroyed)this.onError(error,this.state);}
   succeeded(nodeId) {
@@ -48,6 +48,7 @@ export class ProjectController {
     this.deck.reset();
     this.variables=transact(initialValues(this.compiled.variables),[],{effects:Object.entries(this.initialState?.variables || {}).map(([key,value])=>({op:'set',key,value}))},this.compiled.variables).variables;
     this.inventory=(this.initialState?.inventory || []).reduce((items,item)=>addInventory(items,structuredClone(item)),[]);
+    this.usedForkChoices=new Set(this.initialState?.usedForkChoices??[]);
     this.remaining=new Map(); this.itemReplacements=new Map(); this.accepted=new Set();this.revealedIntros=new Set();this.pendingIntro=null; this.pendingItem=null;this.pendingExchange=null;this.stagedDestination=null;this.completed=false;this.halted=false;this.terminalReason=null;this.deathHandoff=null;
     this.randomizerRun=this.compiled.randomizerGroups?{seen:new Set(),scene:null}:undefined;
     this.location=null;
@@ -124,7 +125,14 @@ export class ProjectController {
     if(type==='fork')return location.node.intro ?? null;
     return this.runtimeItem((location.sequence?.cards ?? location.node.cards ?? [])[location.index],location);
   }
-  choices(location=this.location) {return location.sequence?.cards?.[location.index]?.choices ?? location.node.choices ?? [];}
+  choiceUseKey(source,location=this.location) {return JSON.stringify([this.compiled.id??null,location.node.id,source.id]);}
+  useChoice(source,location=this.location) {
+    if(location.node.type==='fork'&&source.hideAfterUse===true)this.usedForkChoices.add(this.choiceUseKey(source,location));
+  }
+  choices(location=this.location) {
+    const choices=location.sequence?.cards?.[location.index]?.choices ?? location.node.choices ?? [];
+    return location.node.type==='fork'?choices.filter(choice=>!this.usedForkChoices.has(this.choiceUseKey(choice,location))):choices;
+  }
   key(location=this.location) {return `${location.node.id}:${location.sequence?.id ?? ''}`;}
   introEnabled(location=this.location) {return location.node.type==='fork'?!!location.node.intro&&location.node.introEnabled!==false:location.node.type!=='container'||location.node.introEnabled!==false;}
   introShown(location=this.location) {return location.introRevealed===true || location.node.introOnce===true&&this.revealedIntros.has(this.key(location));}
@@ -195,6 +203,7 @@ export class ProjectController {
     return {id:group.entryId,run:{seen,scene:{group,next,callerId:node.id,remaining,autoVisit}}};
   }
   travelDestination(node,run,visit,values,inventory,excluded,preview,startPlacementId) {
+    if(node.travel.steps.length===0)visit={...visit,segmentRemaining:0};
     if(visit.segmentRemaining===0){
       if(visit.remainingEvents===0)return this.routeStep(node,'next',node.connections?.next,run);
       const choices=this.randomizerChoices(node,values,inventory,run,visit,excluded);
@@ -660,6 +669,7 @@ export class ProjectController {
       const result=this.transaction(source);const destination=this.destination(source,undefined,result.variables,result.inventory);
       const sourceNodeId=this.location.node.id;
       const transition=this.linearTransition(this.location,destination,source);
+      this.useChoice(source);
       this.variables=result.variables;this.inventory=result.inventory;
       if(this.location.emptyFork&&this.location.node.introOnce===true)this.revealedIntros.add(this.key());
       this.adopt(destination,false);if(!this.succeeded(sourceNodeId))return;this.show({transition});
@@ -698,6 +708,7 @@ export class ProjectController {
       // Resolve atomically from the original state: costs are already visible,
       // while trigger uses and effects retain their established ordering.
       const next=this.transaction(source,success,before.variables,before.inventory);const destination=this.destination(source,success,next.variables,next.inventory);
+      this.useChoice(source);
       this.variables=next.variables;this.inventory=next.inventory;this.checkPayment=null;this.checking=null;this.adopt(destination,false);if(!this.succeeded(sourceNodeId))return;this.show();
     }catch(error){
       if(generation!==this.generation||this.destroyed)return;

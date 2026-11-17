@@ -19,7 +19,7 @@ function fixture({min=2,max=4,events=2,repeats=true,eligible=true}={}){
  for(const [id,kind] of [['step-a','event'],['step-b','caption'],['encounter','event']])project.library.push({
   ...createDefinition(kind,id),headline:id,effects:[{op:'add',key:id==='encounter'?'events':'walked',value:1}]});
  const auto={id:'travel',type:'randomizer',name:'Travel',x:0,y:0,drawCount:9,noneWeight:999,
-  travel:{enabled:true,minSteps:min,maxSteps:max,eventCount:events,steps:[{id:'a',definitionId:'step-a'},{id:'b',definitionId:'step-b'}]},
+  travel:{enabled:true,randomizeStepCards:true,minSteps:min,maxSteps:max,eventCount:events,steps:[{id:'a',definitionId:'step-a'},{id:'b',definitionId:'step-b'}]},
   candidates:[{beatId:'event',weight:1,allowRepeats:repeats,conditions:eligible?[]:[{source:'variable',key:'events',op:'gte',value:99}]}],connections:{next:'end'}};
  chapter.nodes=[death,auto,{id:'event',type:'linear',name:'Event',x:0,y:0,cards:[{id:'event-card',definitionId:'encounter'}],connections:{next:null}},
   {id:'end',type:'linear',name:'End',x:0,y:0,cards:[{id:'end-card',definitionId:'arrival'}],connections:{next:null}}];
@@ -93,6 +93,20 @@ test('zero events produces one segment; unavailable or exhausted events end afte
  }
 });
 
+test('Travel without step cards plays only events or follows Next when none remain',()=>{
+ for(const options of [{events:2},{events:0},{events:2,eligible:false},{events:2,repeats:false}]){
+  const f=fixture(options);f.auto.travel.steps=[];
+  assert.deepEqual(validateProject(f.project),[]);
+  const game=run(f);
+  const expected=options.events===0||options.eligible===false?[]:options.repeats===false?['event-card']:['event-card','event-card'];
+  assert.deepEqual(play(game),expected);
+  assert.equal(game.controller.variables.walked,0);
+  assert.deepEqual(game.errors,[]);game.controller.destroy();
+ }
+ const f=fixture({events:2});f.auto.travel.steps=[];f.chapter.nodes.find(n=>n.id==='event').cards=[];
+ const game=run(f);assert.equal(game.controller.state.activeNodeId,'end');assert.deepEqual(game.errors,[]);game.controller.destroy();
+});
+
 test('preflight, content rendering and notifications never redraw Travel or mutate its visit',()=>{
  const game=run(fixture()),before=structuredClone(game.controller.location.travelVisit),draws=game.draws;
  for(let i=0;i<8;i++){
@@ -135,12 +149,30 @@ test('selected Travel card preview starts on the authored card and death interru
 
 test('step bag exhausts before refilling, avoids identical neighbors and supports one card',()=>{
  for(const count of [1,2,4]){
-  const cards=Array.from({length:count},(_,i)=>({id:`card-${i}`})),config={minSteps:20,maxSteps:20,eventCount:0};
+  const cards=Array.from({length:count},(_,i)=>({id:`card-${i}`})),config={minSteps:20,maxSteps:20,eventCount:0,randomizeStepCards:true};
   let visit=createTravelVisit(config);const seen=[];
   for(let i=0;i<20;i++){const result=drawTravelStep(config,visit,cards,()=>.99);visit=result.visit;seen.push(result.card.id);}
   assert.equal(new Set(seen.slice(0,count)).size,count);
   if(count>1)assert(seen.every((id,i)=>!i||id!==seen[i-1]));
  }
+});
+
+test('ordered Travel cycles through the authored list across events without drawing card randomness',()=>{
+ const f=fixture({min:2,max:2,events:1});
+ delete f.auto.travel.randomizeStepCards;
+ f.auto.travel.steps.push({id:'c',definitionId:'step-a'});
+ const game=run(f);
+ assert.deepEqual(play(game),['a','b','event-card','c','a']);
+ assert.equal(game.draws,1,'only the event selection draws randomness');
+ game.controller.restart();assert.equal(game.controller.state.cardId,'a');game.controller.destroy();
+ const config={minSteps:5,maxSteps:5,eventCount:0,randomizeStepCards:false,steps:[{id:'a'},{id:'b'},{id:'c'}]};
+ let visit=createTravelVisit(config);
+ const draw=available=>{const result=drawTravelStep(config,visit,available,()=>assert.fail('Ordered steps must not draw'));visit=result.visit;return result.card.id;};
+ assert.equal(draw([config.steps[0],config.steps[2]]),'a');
+ assert.equal(draw([config.steps[0],config.steps[2]]),'c');
+ assert.equal(draw(config.steps),'a');
+ assert.equal(draw(config.steps),'b');
+ assert.equal(draw([config.steps[1]]),'b');
 });
 
 test('invalid randomness and unavailable step pools fail without charging movement effects',()=>{

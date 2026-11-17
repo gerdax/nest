@@ -33,12 +33,18 @@ test('Travel is opt-in and retains its configuration and ordinary Auto settings 
  assert.doesNotMatch(nodeInspector(project,chapter,node),/data-path="travel.enabled" checked/);
  field('drawCount','3');field('noneWeight','7');enable(true);
  assert.deepEqual(node.travel,{enabled:true,minSteps:2,maxSteps:4,eventCount:2,steps:[]});
+ assert.doesNotMatch(nodeInspector(project,chapter,node),/data-path="travel.randomizeStepCards"[^>]*checked/);
+ assert.doesNotMatch(nodeInspector(project,chapter,node),/When off, follow the list order/);
+ f.edit('field',{scope:'node',path:'travel.randomizeStepCards',checked:true,inputType:'checkbox'});
+ assert.match(nodeInspector(project,chapter,node),/data-path="travel.randomizeStepCards"[^>]*checked/);
+ f.edit('field',{scope:'node',path:'travel.randomizeStepCards',checked:false,inputType:'checkbox'});
  add('event');field('travel.minSteps','3');field('travel.maxSteps','5');field('travel.eventCount','0');
  f.edit('field',{scope:'node',path:'travel.firstStepCaption',value:'You move on',inputType:'text'});
  const config=structuredClone(node.travel);
  const html=nodeInspector(project,chapter,node);
  assert.match(html,/Min Steps per segment/);assert.match(html,/Max Steps per segment/);assert.match(html,/Event count/);
  assert.match(html,/First step caption/);assert.match(html,/data-path="travel.firstStepCaption"[^>]+value="You move on"/);
+ assert.match(html,/Randomize step cards/);assert.doesNotMatch(html,/data-path="travel.randomizeStepCards"[^>]*checked/);
  assert(html.indexOf('travel.firstStepCaption')>html.indexOf('travel.enabled'));
  assert(html.indexOf('travel.firstStepCaption')<html.indexOf('travel.minSteps'));
  assert.match(html,/Step cards/);assert.match(html,/data-slot="travel.steps" data-kind="event"/);

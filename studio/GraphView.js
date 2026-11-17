@@ -27,12 +27,13 @@ export class GraphView {
   root.addEventListener('pointermove',e=>this.move(e));
   root.addEventListener('pointerup',e=>this.up(e));
   root.addEventListener('pointerleave',e=>{
-   if(this.drag?.kind==='beat-group'&&this.drag.pointer===e.pointerId&&!this.drag.moved)this.drag=null;
+   if((this.drag?.kind==='beat-group'||this.drag?.header)&&this.drag.pointer===e.pointerId&&!this.drag.moved){this.drag=null;this.setDraggingCursor(false);}
   });
   for(const event of ['pointercancel','lostpointercapture'])root.addEventListener(event,e=>{if(this.drag?.pointer===e.pointerId)this.cancel();});
   root.addEventListener('keydown',e=>{
    if(['Enter',' '].includes(e.key)){this.cardDrag.suppressClick=false;this.suppressSelectionClick=false;}
    if(e.key==='Escape')this.cancel();
+   if(['Enter',' '].includes(e.key)&&e.target.closest('.node-heading')&&!e.target.closest('input,textarea,select,[contenteditable],button,a')){e.preventDefault();if(!e.repeat)this.toggleBeat(e.target.closest('.node-heading'));return;}
    if(!['Delete','Backspace'].includes(e.key)||e.defaultPrevented||e.repeat||e.isComposing||e.ctrlKey||(e.metaKey&&e.key!=='Backspace')||e.altKey||e.shiftKey||this.drag)return;
    if(e.target?.closest('input,textarea,select,[contenteditable]:not([contenteditable="false"]),[role="textbox"]'))return;
    if(this.groupsById?.has(this.selectedGroupId)){
@@ -77,6 +78,8 @@ export class GraphView {
   root.addEventListener('dblclick',e=>{
    const groupHeader=e.target.closest('.beat-group-header');
    if(groupHeader&&!this.drag){e.preventDefault();this.toggleGroup(groupHeader);return;}
+   const heading=e.target.closest('.node-heading');
+   if(heading&&!this.drag&&!e.target.closest('input,textarea,select,[contenteditable],button,a')){e.preventDefault();this.toggleBeat(heading);return;}
    const edge=e.target.closest('.edge-hit');
    if(!edge||this.drag)return;
    e.preventDefault();this.lastPortClick=null;
@@ -92,6 +95,13 @@ export class GraphView {
   this.selectionChapter=chapterKey;
   this.selectedIds=new Set([...this.selectedIds].filter(id=>chapter.nodes.some(node=>node.id===id)));
   if(this.chapter?.id!==chapter.id||!active)this.activeAuto=null;
+  // Selection callbacks redraw the inspector and graph. Preserve a stationary
+  // header so both native clicks reach the same element before double-click.
+  if(this.selectingHeader&&project===this.project&&chapter===this.chapter){
+   this.selected=selected;
+   for(const [id,element] of this.nodeElements)element.classList.toggle('selected',!this.selectedGroupId&&this.selectedIds.has(id));
+   this.setActive(active);this.syncGroupStates();return;
+  }
   this.project=project;this.chapter=chapter;this.selected=selected;this.active=active;
   const playableNodes=chapter.nodes.filter(node=>node.type!=='death'||project.showDeathBeat!==false);
   this.nodesById=new Map(playableNodes.map(node=>[node.id,node]));
@@ -109,7 +119,7 @@ export class GraphView {
   this.libraryIndex=createLibraryIndex(project.library);
   this.definitionsById=new Map(project.library.map(definition=>[definition.id,definition]));
   if(this.pending&&!chapter.nodes.some(n=>n.id===this.pending.nodeId&&outputsForNode(project,n,this.libraryIndex).includes(this.pending.exit)))this.pending=null;
-  this.root.querySelector('#nodes').innerHTML=visibleNodes.map(n=>`<article class="node ${n.type} ${!this.selectedGroupId&&this.selectedIds.has(n.id)?'selected':''} ${(n.id===active||n.id===this.activeAuto)?'active':''}" data-id="${esc(n.id)}" style="left:${this.position(n).x}px;top:${this.position(n).y}px"><div class="node-heading">${nodeIcon(n.type)}<span class="badge">${n.id===chapter.startNode?'<span class="graph-start-label">START</span> · ':''}${esc(n.name?.trim()||nodeTypeLabel(n.type))}</span>${this.overrideMarker(n.id)}</div>${isRouteBeat(n.type)?`<div class="node-body">${n.routes.length} ${n.routes.length===1?'route':'routes'}</div>`:n.type.startsWith('legacy')?'<div class="node-body">Preserved legacy behaviour</div>':''}${this.cardRows(n)}</article>`).join('');
+  this.root.querySelector('#nodes').innerHTML=visibleNodes.map(n=>`<article class="node ${n.type} ${!this.selectedGroupId&&this.selectedIds.has(n.id)?'selected':''} ${(n.id===active||n.id===this.activeAuto)?'active':''} ${n.collapsed?'collapsed':''}" data-id="${esc(n.id)}" style="left:${this.position(n).x}px;top:${this.position(n).y}px"><div class="node-heading" role="button" tabindex="0" aria-expanded="${!n.collapsed}" title="Drag to move. Alt-drag to duplicate. Double-click to ${n.collapsed?'expand':'collapse'}">${nodeIcon(n.type)}<span class="badge">${n.id===chapter.startNode?'<span class="graph-start-label">START</span> · ':''}${esc(n.name?.trim()||nodeTypeLabel(n.type))}</span>${this.overrideMarker(n.id)}</div>${n.collapsed?'':isRouteBeat(n.type)?`<div class="node-body">${n.routes.length} ${n.routes.length===1?'route':'routes'}</div>`:n.type.startsWith('legacy')?'<div class="node-body">Preserved legacy behaviour</div>':''}${n.collapsed?'':this.cardRows(n)}</article>`).join('');
   this.nodeElements=new Map([...this.root.querySelectorAll('.node')].map(el=>[el.dataset.id,el]));
   this.renderGroups();
   this.setNodeErrors(this.nodeErrors);
@@ -228,7 +238,13 @@ export class GraphView {
  position(n) {if(this.drag?.positions?.has(n.id))return this.drag.positions.get(n.id);return this.drag?.kind==='node'&&!this.drag.copy&&this.drag.id===n.id?{x:this.drag.px,y:this.drag.py}:n;}
  point(e) {const r=this.root.getBoundingClientRect(),scale=uiScale(this.root);return {x:((e.clientX-r.left)/scale-this.view.x)/this.view.z,y:((e.clientY-r.top)/scale-this.view.y)/this.view.z};}
  wire(x,y,tx,ty) {return `M${x},${y} C${x+90},${y} ${tx-90},${ty} ${tx},${ty}`;}
+ collapsedBeatPoint(node,source) {
+  const rect=this.nodeElements.get(node.id)?.getBoundingClientRect();
+  if(rect?.width&&rect.height)return this.point({clientX:source?rect.right:rect.left,clientY:rect.top+rect.height/2});
+  const position=this.position(node);return {x:position.x+(source?220:0),y:position.y+30};
+ }
  outputPoint(n,exit) {
+  if(n.collapsed)return this.collapsedBeatPoint(n,true);
   const port=this.portElements.get(n.id)?.get(exit);
   if(port){const r=port.getBoundingClientRect();if(r.width&&r.height)return this.point({clientX:r.right,clientY:r.top+r.height/2});}
   const pos=this.position(n);return {x:pos.x+220,y:pos.y+104+outputsForNode(this.project,n,this.libraryIndex).indexOf(exit)*29};
@@ -284,6 +300,13 @@ export class GraphView {
    }else for(const name of ['aria-invalid','aria-description','title'])element.removeAttribute(name);
   }
  }
+ toggleBeat(header) {
+  const node=this.nodesById.get(header.closest('.node')?.dataset.id);
+  if(!node)return;
+  this.lastPortClick=null;
+  this.onGroupCommand('collapse-beat',{id:node.id,collapsed:!node.collapsed});
+  this.root.focus({preventScroll:true});
+ }
  toggleGroup(header) {
   const group=this.groupsById.get(header.closest('.beat-group').dataset.groupId);
   if(!group)return;
@@ -311,6 +334,7 @@ export class GraphView {
   if(!node)return null;
   const group=this.groupsByMember?.get(node.id);
   if(group?.collapsed)return this.boundaryPoint({groupId:group.id,port:source?'output':'input'});
+  if(node.collapsed)return this.collapsedBeatPoint(node,source);
   if(source)return this.outputPoint(node,endpoint.output);
   const to=this.position(node);return {x:to.x,y:to.y+40};
  }
@@ -423,6 +447,7 @@ export class GraphView {
  }
  down(e) {
   if(e.button!==0||this.drag)return;
+  if(e.target.closest('input,textarea,select,[contenteditable]:not([contenteditable="false"]),[role="textbox"]'))return;
   this.cancelCreation();
   this.suppressSelectionClick=false;
   if(e.target.closest('.graph-definition-link')){this.cardDrag.suppressClick=false;return;}
@@ -465,14 +490,15 @@ export class GraphView {
    const copy=e.altKey&&!!e.target.closest('.node-heading');
    if(copy&&[...this.selectedIds,el.dataset.id].some(id=>this.nodesById.get(id)?.type==='death'||!this.nodeElements.has(id)))return;
    const id=el.dataset.id,group=!this.selectedGroupId&&this.selectedIds.size>1&&this.selectedIds.has(id);
-   if(!group)this.onSelect(id);
+   const header=!!e.target.closest('.node-heading');
+   if(!group){this.selectingHeader=header;try{this.onSelect(id);}finally{this.selectingHeader=false;}}
    const n=this.nodesById.get(id);
-   this.drag={kind:'node',id,copy,x:e.clientX,y:e.clientY,ox:n.x,oy:n.y,px:n.x,py:n.y,pointer:e.pointerId};
+   this.drag={kind:'node',id,copy,header,x:e.clientX,y:e.clientY,ox:n.x,oy:n.y,px:n.x,py:n.y,pointer:e.pointerId};
    if(group){this.drag.origins=new Map((copy?[id,...[...this.selectedIds].filter(other=>other!==id)]:[...this.selectedIds]).map(id=>{const n=this.nodesById.get(id);return [id,{x:n.x,y:n.y}];}));if(!copy)this.drag.positions=new Map(this.drag.origins);}
   }
   else{this.pending=null;this.drag={kind:'pan',x:e.clientX,y:e.clientY,ox:this.view.x,oy:this.view.y,pointer:e.pointerId,moved:false,pointerType,doubleEligible:!e.altKey&&!e.shiftKey&&pointerType!=='touch'};}
   this.setDraggingCursor(true);
-  this.root.setPointerCapture(e.pointerId);
+  if(!this.drag.header)this.root.setPointerCapture(e.pointerId);
   this.root.focus({preventScroll:true});
  }
  beginConnection(e,source) {
@@ -510,6 +536,10 @@ export class GraphView {
   }else if(d.kind==='pan'){d.moved ||= Math.hypot(e.clientX-d.x,e.clientY-d.y)>4;const scale=uiScale(this.root);this.view.x=d.ox+(e.clientX-d.x)/scale;this.view.y=d.oy+(e.clientY-d.y)/scale;this.transform();}
   else{
    const scale=this.view.z*uiScale(this.root),dx=(e.clientX-d.x)/scale,dy=(e.clientY-d.y)/scale;
+   if(d.header&&!d.moved){
+    if(Math.hypot(e.clientX-d.x,e.clientY-d.y)<=4)return;
+    d.moved=true;if(capture)this.root.setPointerCapture(e.pointerId);this.setDraggingCursor(true);
+   }
    if(d.kind==='beat-group'){
     if(!d.moved){
      if(Math.hypot(e.clientX-d.x,e.clientY-d.y)<=4)return;
@@ -566,7 +596,7 @@ export class GraphView {
  }
  up(e){
   const d=this.drag;if(!d||d.pointer!==e.pointerId)return;
-  if(d.kind==='pan'||d.kind==='beat-group')this.move(e,false);
+  if(d.kind==='pan'||d.kind==='beat-group'||d.header)this.move(e,false);
   if(d.copy&&d.kind==='node')this.move(e);
   if(d.kind==='select')this.updateBoxSelection(e);
   if(d.kind==='connect')d.moved ||= Math.hypot(e.clientX-d.x,e.clientY-d.y)>4;
@@ -615,6 +645,7 @@ export class GraphView {
    }else if(d.moved)this.onGroupCommand('move-beat-group',{id:d.groupId,dx:d.dx,dy:d.dy});
    this.root.focus({preventScroll:true});
   }else if(d.kind==='node'){
+   if(d.header&&!d.moved)return;
    if(d.copy){
     for(const ghost of d.ghosts?.values()||[])ghost.remove();
     if(d.moved){

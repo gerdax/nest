@@ -19,7 +19,15 @@ export function drawTravelStep(config,visit,available,rng,forcedId) {
  const forced=forcedId===undefined?null:available.find(card=>card.id===forcedId);
  if(forcedId!==undefined&&!forced)throw new Error('The selected Travel step is unavailable.');
  const candidates=bag.length>1?bag.filter(id=>id!==visit.lastStepId):bag;
- const id=forced?.id??candidates[index(candidates.length,rng)];
+ let id=forced?.id;
+ if(id===undefined&&config.randomizeStepCards!==true){
+  const order=config.steps.map(card=>card.id),last=order.indexOf(visit.lastStepId);
+  for(let offset=1;offset<=order.length;offset++){
+   const next=order[(last+offset)%order.length];
+   if(available.some(card=>card.id===next)){id=next;break;}
+  }
+ }
+ id??=candidates[index(candidates.length,rng)];
  return {card:available.find(card=>card.id===id),visit:{...visit,bag:bag.filter(key=>key!==id),lastStepId:id,
   segmentRemaining:segmentRemaining-1,stepNumber:visit.stepNumber+1}};
 }

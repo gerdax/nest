@@ -15,7 +15,7 @@ function fixture() {
     headline:'A milestone', effects:[{op:'add',key:'distance',value:1}]});
   const node = {id:'travel', name:'Travel', type:'randomizer', x:10, y:20, drawCount:3, noneWeight:2,
     candidates:[{beatId:'quiet-passage',weight:1}], connections:{next:'quiet-passage'},
-    travel:{enabled:true,firstStepCaption:'You move on',minSteps:2,maxSteps:4,eventCount:2,steps:[
+    travel:{enabled:true,randomizeStepCards:false,firstStepCaption:'You move on',minSteps:2,maxSteps:4,eventCount:2,steps:[
       {id:'road',definitionId:'arrival',conditions:[{source:'variable',key:'distance',op:'gte',value:0}],
         overrides:{effects:[{op:'add',key:'distance',value:2}]}},
       {id:'milestone',definitionId:'travel-caption'}
@@ -87,6 +87,7 @@ test('Travel validation rejects malformed configuration and unsupported step kin
     [null,/must be an object/],
     [{enabled:'yes'},/enabled must be a boolean/],
     [{firstStepCaption:42},/firstStepCaption must be text/],
+    [{randomizeStepCards:'false'},/randomizeStepCards must be a boolean/],
     [{minSteps:0},/minSteps must be a whole number/],
     [{minSteps:1.5},/minSteps must be a whole number/],
     [{maxSteps:101},/maxSteps must be a whole number/],
@@ -95,7 +96,6 @@ test('Travel validation rejects malformed configuration and unsupported step kin
     [{eventCount:101},/eventCount must be a whole number/],
     [{steps:{}},/steps must be a list/],
     [{steps:[null]},/invalid placement/i],
-    [{steps:[]},/at least one step/],
     [{steps:[{id:'wrong',definitionId:'flashlight'}]},/Vignette or Caption/],
     [{steps:[{id:'same',definitionId:'arrival'},{id:'same',definitionId:'arrival'}]},/duplicate placement/i],
   ];
@@ -121,7 +121,8 @@ test('Travel disabled configuration and incomplete drafts survive parsing while 
   node.travel.steps = [];
   assert.deepEqual(validateProject(project), []);
   node.travel.enabled = true;
-  assert(validateProject(project).some(issue => /at least one step/.test(issue.message)));
+  assert.deepEqual(validateProject(project), []);
+  assert.doesNotThrow(() => parseProject(JSON.stringify(project)));
   assert.deepEqual(validateProject(project, {allowDraft:true}), []);
   assert.doesNotThrow(() => parseProject(JSON.stringify(project), {allowDraft:true}));
   node.travel.steps = [{id:'draft',definitionId:''}];

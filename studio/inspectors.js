@@ -153,7 +153,7 @@ export function placementInspector(project,p,kind,index,slot,count=Infinity,chap
  html+='</div>';
  html+=`<div class="inspector-card-preview" data-card-preview data-preview-placement="${esc(p.id)}"></div>`;
  if(local)html+=artworkControls(definition,'local-definition');
- if(slot!=='intro')html+=`<div class="row card-panel-actions">${button('Duplicate','duplicate-placement',attr)}</div>`;
+ if(slot!=='intro')html+=`<div class="row card-panel-actions" ${attr}>${nodeType==='fork'&&slot==='choices'?checkbox('Hide after use',p.hideAfterUse===true,'hideAfterUse','placement'):''}${button('Duplicate','duplicate-placement',attr)}</div>`;
  html+='</details>';
  if(slot==='intro')return html;
  const arrow=(direction,label,disabled)=>`<button type="button" class="card-order-arrow" data-command="move-placement" ${attr} data-direction="${direction}" aria-label="${label}" title="${label}" ${disabled?'disabled':''}><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="${direction<0?'M3 10 8 5l5 5':'M3 6l5 5 5-5'}"/></svg></button>`;
@@ -196,6 +196,7 @@ function randomizerFields(project,chapter,node) {
    +field('Max Steps per segment',node.travel.maxSteps,'travel.maxSteps','node','number')
    +field('Event count',node.travel.eventCount,'travel.eventCount','node','number')
    +'<h3>Step cards</h3><p class="small">Choose Vignette or Caption cards for the travel steps. Each card keeps its normal appearance conditions and progression effects.</p>'
+   +checkbox('Randomize step cards',node.travel.randomizeStepCards===true,'travel.randomizeStepCards','node')
    +(node.travel.steps||[]).map((p,i)=>placementInspector(project,p,'event',i,'travel.steps',node.travel.steps.length,chapter)).join('')
    +'<div class="add-card-buttons">'+['event','caption'].map(kind=>button(`+ ${cardKinds[kind].label}`,'add-placement',`data-slot="travel.steps" data-kind="${kind}" style="--card-editor-tint:${esc(cardEditorTint(kind))}"`)).join('')+'</div>'
   :'';

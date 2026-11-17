@@ -147,6 +147,12 @@ function changeField(project, selection, field, localDrafts) {
       node.travel.firstStepCaption=raw;
       return;
     }
+    if(path==='travel.randomizeStepCards'){
+      if(!node.travel)throw new Error('Enable Travel before editing its settings');
+      if(typeof checked!=='boolean')throw new Error('Randomize step cards requires a checkbox value');
+      node.travel.randomizeStepCards=checked;
+      return;
+    }
     if(/^travel\.(minSteps|maxSteps|eventCount)$/.test(path)){
       const key=path.split('.')[1],value=Number(raw);
       if(!Number.isSafeInteger(value)||value<(key==='eventCount'?0:1)||value>100)throw new Error(`${key==='eventCount'?'Event count':'Step count'} must be a whole number from ${key==='eventCount'?0:1} to 100`);
@@ -179,6 +185,11 @@ function changeField(project, selection, field, localDrafts) {
   }
   if (scope === 'chapter' && path === 'nextChapterId' && raw === '') {
     delete root.nextChapterId;
+    return;
+  }
+  if (scope === 'placement' && path === 'hideAfterUse') {
+    if (node?.type !== 'fork' || !node.choices?.includes(root) || typeof checked !== 'boolean') throw new Error('Hide after use requires a Fork choice and a checkbox value');
+    root.hideAfterUse = checked;
     return;
   }
   if (scope === 'placement' && path === 'useCustomRules') {
@@ -494,6 +505,12 @@ export function applyDocumentCommand(project, selection, type, data = {}, localD
         const ids=new Set(group.memberIds);
         for(const member of chapter.nodes)if(ids.has(member.id)){member.x+=data.dx;member.y+=data.dy;}
       }
+      break;
+    }
+    case 'collapse-beat': {
+      const target=chapter.nodes.find(node=>node.id===data.id);
+      if(!target)throw new Error('This beat no longer exists');
+      target.collapsed=data.collapsed===true;
       break;
     }
     case 'move-node': Object.assign(chapter.nodes.find(n => n.id === data.id), {x:data.x, y:data.y}); break;

@@ -128,7 +128,7 @@ test('Travel stages the next movement face during a swipe and retains it after c
  let draws=0;
  const steps=['first','second','third'].map((id,index)=>({...narrative(id),kind:'event',
   conditions:index?[{source:'variable',key:'walked',op:'gte',value:1}]:[],effects:[{op:'add',key:'walked',value:1}]}));
- const {deck,controller}=real([{id:'travel',type:'randomizer',travel:{enabled:true,minSteps:3,maxSteps:3,eventCount:0,steps},connections:{next:null}}],
+ const {deck,controller}=real([{id:'travel',type:'randomizer',travel:{enabled:true,randomizeStepCards:true,minSteps:3,maxSteps:3,eventCount:0,steps},connections:{next:null}}],
   {variables:[{id:'walked',type:'number',initial:0}]},{rng:()=>{draws++;return 0;}});
  const next=deck.content.nextCardPreview;
  assert.equal(next.heading,'second');assert.equal(deck.content.nextDeckPreview.content.heading,'second');

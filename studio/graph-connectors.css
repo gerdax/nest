@@ -129,7 +129,7 @@ html.graph-dragging,html.graph-dragging *,#canvas.graph-dragging,#canvas.graph-d
 }
 #canvas .beat-group-name {overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 #canvas .beat-group.group-drop-target .beat-group-header {background:#35534c;outline:2px solid #a2d3c3;}
-#canvas .beat-group.collapsed .beat-group-header {border:0;border-radius:11px;}
+#canvas .beat-group.collapsed .beat-group-header {border-bottom-color:transparent;border-radius:11px;}
 #canvas .beat-group-count {flex:none;color:#fff;font-size:12px;letter-spacing:normal;text-transform:none;}
 #canvas .beat-group.collapsed .beat-group-port {top:50%;}
 #canvas .beat-group-port {
@@ -143,3 +143,7 @@ html.graph-dragging,html.graph-dragging *,#canvas.graph-dragging,#canvas.graph-d
 #canvas .beat-group-port[data-port="output"] {left:100%;}
 #canvas .beat-group-port.connection-target {outline:3px solid #b7e4d3;}
 #canvas .beat-group.active.has-error {box-shadow:inset 0 0 0 2px #c67979,0 0 16px #f0cc5b55;}
+
+/* Collapsed beats are a single name bar; existing wires meet its sides. */
+#canvas .node-heading:focus-visible {outline:2px solid #b7e4d3;outline-offset:-3px;}
+#canvas .node.collapsed .node-heading {border-bottom-color:transparent;}
