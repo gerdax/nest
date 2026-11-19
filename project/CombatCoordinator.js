@@ -392,9 +392,13 @@ export class CombatCoordinator {
    const {action:reaction,success}=result.reaction;
    effects.push(...(reaction.effects??[]),...(reaction.resolution==='check'?(success?reaction.successEffects??[]:reaction.failureEffects??[]):[]));
   }
+  const source=result.actor==='player'?result.source:null;
+  const sourceRemains=source&&(!this.payment||this.payment.paid.inventory.some(item=>source.instanceId
+    ?item.instanceId===source.instanceId:(item.definitionId??item.id)===(source.definitionId??source.id)));
+  const triggerItem=sourceRemains?(source.instanceId??source.inventoryKey??source.definitionId??source.id):undefined;
   const alive=health!==undefined?this.host.commitCombatDamage(operationId,health,effects)
-   :enemyHp!==undefined?this.host.commitCombatEffects(operationId,effects,{onCommit:()=>{this.encounter={...this.encounter,enemyHp};}})
-   :this.host.commitCombatEffects(operationId,effects);
+   :enemyHp!==undefined?this.host.commitCombatEffects(operationId,effects,{triggerItem,onCommit:()=>{this.encounter={...this.encounter,enemyHp};}})
+   :this.host.commitCombatEffects(operationId,effects,{triggerItem});
   this.progressionCommitted.add(result.id);
   return alive&&this.active();
  }

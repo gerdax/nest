@@ -13,6 +13,8 @@ import { randomizerSceneKey, validAutoDrawCount } from './randomizer.js';
 import { actionAvailability } from './action-availability.js';
 import { createTravelVisit, drawTravelStep } from './travel.js';
 
+const inventoryOptions = compiled => ({allowMultiple:['multiple','disabled'].includes(compiled.ownedItemsVisibility)});
+
 /** Playback only. CardDeck remains responsible for gestures and departure choreography. */
 export class ProjectController {
   constructor(deck, compiled, {onChange=()=>{},rng=Math.random,rollCheck,onCheckResult=()=>{},onError=()=>{},onStart=()=>{},onSuccess=()=>{},initialState,nodeEntryEffects={},startPlacementId} = {}) {
@@ -47,7 +49,7 @@ export class ProjectController {
     this.deathHandoff?.abort();this.deathHandoff=null;
     this.deck.reset();
     this.variables=transact(initialValues(this.compiled.variables),[],{effects:Object.entries(this.initialState?.variables || {}).map(([key,value])=>({op:'set',key,value}))},this.compiled.variables).variables;
-    this.inventory=(this.initialState?.inventory || []).reduce((items,item)=>addInventory(items,structuredClone(item)),[]);
+    this.inventory=(this.initialState?.inventory || []).reduce((items,item)=>addInventory(items,structuredClone(item),{allowMultiple:item.instanceId!=null}),[]);
     this.usedForkChoices=new Set(this.initialState?.usedForkChoices??[]);
     this.remaining=new Map(); this.itemReplacements=new Map(); this.accepted=new Set();this.revealedIntros=new Set();this.pendingIntro=null; this.pendingItem=null;this.pendingExchange=null;this.stagedDestination=null;this.completed=false;this.halted=false;this.terminalReason=null;this.deathHandoff=null;
     this.randomizerRun=this.compiled.randomizerGroups?{seen:new Set(),scene:null}:undefined;
@@ -111,12 +113,20 @@ export class ProjectController {
     return inventory.some(owned => (owned.definitionId ?? owned.id) === (item.definitionId ?? item.id)
       || item.inventoryKey != null && owned.inventoryKey === item.inventoryKey);
   }
+  allowMultipleItems() {return ['multiple','disabled'].includes(this.compiled.ownedItemsVisibility);}
+  addInventory(inventory,item) {return addInventory(inventory,item,inventoryOptions(this.compiled));}
+  inventoryIdentity(item) {return item.instanceId??item.definitionId??item.id;}
   hidesOwnedItem(item, inventory=this.inventory, location=null) {
     return this.compiled.ownedItemsVisibility === 'hidden' && this.ownsItem(item, inventory)
       && (this.type(location)!=='container' || this.ownsItem(item,location.ownedItemsAtEntry ?? inventory));
   }
   runtimeItem(card, location=this.location) {
-    return this.itemReplacements.get(this.key(location))?.get(card?.id) ?? card;
+    const item=this.itemReplacements.get(this.key(location))?.get(card?.id) ?? card;
+    if(item?.kind!=='item'||!this.allowMultipleItems()||item.instanceId)return item;
+    const base=JSON.stringify(['pickup',this.generation,this.compiled.id??null,this.key(location),item.id]);
+    let instanceId=base,index=2;
+    while(this.inventory.some(owned=>owned.instanceId===instanceId))instanceId=`${base}:${index++}`;
+    return {...item,instanceId};
   }
   card(location=this.location) {
     if(!location)return null;
@@ -310,7 +320,7 @@ export class ProjectController {
         // inherit their parent's state rather than a preceding sibling's effects.
         for(const effect of !step.autoVisit&&Object.hasOwn(this.nodeEntryEffects,id)?this.nodeEntryEffects[id]:[]) {
           if(effect.op==='removeItem'&&!inventoryQuantity(inventory,effect.key))continue;
-          const state=transact(values,inventory,{effects:[effect]},this.compiled.variables,this.compiled.library);
+          const state=transact(values,inventory,{effects:[effect]},this.compiled.variables,this.compiled.library,inventoryOptions(this.compiled));
           values=state.variables;inventory=state.inventory;changed=true;
         }
         const enteredDeath=this.deathDestination(values,{node});
@@ -462,17 +472,17 @@ export class ProjectController {
     return '';
   }
   departureReason(source,location=this.location,values=this.variables,inventory=this.inventory,transition=null,excludedItem=null) {
-    if(transition==='collect'&&this.ownsItem(source,inventory))return 'Already owned';
+    if(transition==='collect'&&!this.allowMultipleItems()&&this.ownsItem(source,inventory))return 'Already owned';
     try {
       const outcomes=source.resolution==='check'?[true,false]:[undefined];
       for(const outcome of outcomes) {
-        const collected=transition==='collect'?addInventory(inventory,{...source}):inventory;
-        const result=transact(values,collected,{triggerItem:transition?undefined:source.contextInventoryKey??source.contextItemId,costs:transition?[]:source.costs,effects:transition?(transition==='collect'?collectionEffects(source):[]):[...(source.effects??[]),...(outcome===undefined?[]:outcome?source.successEffects??[]:source.failureEffects??[])]},this.compiled.variables,this.compiled.library);
+        const collected=transition==='collect'?this.addInventory(inventory,{...source}):inventory;
+        const result=transact(values,collected,{triggerItem:transition?undefined:source.contextInventoryKey??source.contextItemId,costs:transition?[]:source.costs,effects:transition?(transition==='collect'?collectionEffects(source):[]):[...(source.effects??[]),...(outcome===undefined?[]:outcome?source.successEffects??[]:source.failureEffects??[])]},this.compiled.variables,this.compiled.library,inventoryOptions(this.compiled));
         // A lethal accepted result always has its implicit Death route, even
         // when this action's ordinary output is unlinked.
         if(this.deathDestination(result.variables,location))continue;
         // A full drawer can exchange this item without leaving its stack slot.
-        if(transition==='collect'&&this.deck.pickup&&inventory.length>=4&&!inventory.some(owned=>(owned.definitionId??owned.id)===(source.definitionId??source.id)||source.inventoryKey&&owned.inventoryKey===source.inventoryKey))continue;
+        if(transition==='collect'&&this.deck.pickup&&inventory.length>=4&&(this.allowMultipleItems()||!inventory.some(owned=>(owned.definitionId??owned.id)===(source.definitionId??source.id)||source.inventoryKey&&owned.inventoryKey===source.inventoryKey)))continue;
         if(this.type(location)==='container') {
           if(transition==='collect'&&this.items(location,result.variables,result.inventory,excludedItem).some(i=>i.id!==source.id))continue;
           const excluded=transition==='discard'?{key:this.key(location),itemIds:this.discardedReturns(location,source)}:{key:this.key(location),itemId:source.id};
@@ -523,7 +533,7 @@ export class ProjectController {
   introductionUnlocksNext(location,values,inventory) {
     if(location.node.type!=='fork'||this.presentation(location,values,inventory)!=='closed')return false;
     try {
-      const predicted=transact(values,inventory,{effects:this.card(location)?.effects},this.compiled.variables,this.compiled.library);
+      const predicted=transact(values,inventory,{effects:this.card(location)?.effects},this.compiled.variables,this.compiled.library,inventoryOptions(this.compiled));
       // Hidden or unmet earlier choices do not become the next playable card.
       const following=this.choices(location).find(choice=>this.available(choice,predicted.variables,predicted.inventory));
       return !!following&&!this.available(following,values,inventory);
@@ -552,7 +562,7 @@ export class ProjectController {
     });
     else if(container)actions=this.items(location,values,inventory,excludedItem).map(c=>{
       const availability=this.cardAvailability(c,values,inventory,location);
-      return {...this.action(c,values),disabled:availability.disabled,...(availability.disabledReason?{disabledReason:availability.disabledReason,disabledReasonParts:availability.disabledReasonParts}:{}),alreadyOwned:this.ownsItem(c,inventory),discardDisabled:availability.disabled||this.departureBlocked(c,location,values,inventory,'discard',excludedItem),collectDisabled:availability.disabled||this.departureBlocked(c,location,values,inventory,'collect',excludedItem)};
+      return {...this.action(c,values),disabled:availability.disabled,...(availability.disabledReason?{disabledReason:availability.disabledReason,disabledReasonParts:availability.disabledReasonParts}:{}),alreadyOwned:!this.allowMultipleItems()&&this.ownsItem(c,inventory),discardDisabled:availability.disabled||this.departureBlocked(c,location,values,inventory,'discard',excludedItem),collectDisabled:availability.disabled||this.departureBlocked(c,location,values,inventory,'collect',excludedItem)};
     });
     else if(linearFace) {
       const availability=this.cardAvailability(card,values,inventory,location);
@@ -560,7 +570,7 @@ export class ProjectController {
     }
     else actions=[{id:'continue',label:'Continue',image:card?.image,flipImage:!!card?.flipImage}];
     if(linearFace) {
-      if(linearItem)Object.assign(actions[0],{alreadyOwned:this.ownsItem(card,inventory),discardDisabled:actions[0].disabled||this.departureBlocked(card,location,values,inventory,'discard'),collectDisabled:actions[0].disabled||this.departureBlocked(card,location,values,inventory,'collect')});
+      if(linearItem)Object.assign(actions[0],{alreadyOwned:!this.allowMultipleItems()&&this.ownsItem(card,inventory),discardDisabled:actions[0].disabled||this.departureBlocked(card,location,values,inventory,'discard'),collectDisabled:actions[0].disabled||this.departureBlocked(card,location,values,inventory,'collect')});
       else if(!actions[0].disabled) {
         const reason=this.departureReason(card,location,values,inventory);
         if(reason) {Object.assign(actions[0],{disabled:true,disabledReason:reason});delete actions[0].disabledReasonParts;}
@@ -588,7 +598,7 @@ export class ProjectController {
     }
     if(type==='linear'&&preview&&card&&!actions[0].disabled&&card.kind!=='item'&&card.resolution!=='check') {
       try {
-        const predicted=transact(values,inventory,{triggerItem:card.contextInventoryKey??card.contextItemId,costs:card.costs,effects:card.effects},this.compiled.variables,this.compiled.library);
+        const predicted=transact(values,inventory,{triggerItem:card.contextInventoryKey??card.contextItemId,costs:card.costs,effects:card.effects},this.compiled.variables,this.compiled.library,inventoryOptions(this.compiled));
         const next=this.destination(card,undefined,predicted.variables,predicted.inventory,location,true);
         payload.nextTransition=this.linearTransition(location,next,card,values,inventory);
         if(next&&!next.completed&&!next.halted) {
@@ -637,7 +647,7 @@ export class ProjectController {
     const intro=this.card();
     if(!conditionsMet(intro?.conditions,this.variables,this.inventory))return;
     try {
-      const result=transact(this.variables,this.inventory,{effects:intro?.effects},this.compiled.variables,this.compiled.library);
+      const result=transact(this.variables,this.inventory,{effects:intro?.effects},this.compiled.variables,this.compiled.library,inventoryOptions(this.compiled));
       this.location.introRevealed=true;this.revealedIntros.add(this.key());this.pendingIntro={contentId:detail.contentId};
       this.variables=result.variables;this.inventory=result.inventory;
       if(this.deathDestination()&&this.deck.commitMotion?.introduction) {
@@ -653,7 +663,7 @@ export class ProjectController {
       this.notify();
     }catch(error){this.error(error);this.show({restore:true});}
   }
-  transaction(source,outcome,values=this.variables,inventory=this.inventory) {return transact(values,inventory,{triggerItem:source.contextInventoryKey??source.contextItemId,costs:source.costs,effects:[...(source.effects??[]),...(outcome===undefined?[]:outcome?source.successEffects??[]:source.failureEffects??[])]},this.compiled.variables,this.compiled.library);}
+  transaction(source,outcome,values=this.variables,inventory=this.inventory) {return transact(values,inventory,{triggerItem:source.contextInventoryKey??source.contextItemId,costs:source.costs,effects:[...(source.effects??[]),...(outcome===undefined?[]:outcome?source.successEffects??[]:source.failureEffects??[])]},this.compiled.variables,this.compiled.library,inventoryOptions(this.compiled));}
   available(source,values=this.variables,inventory=this.inventory) {return (!(source.contextInventoryKey??source.contextItemId)||canTriggerItem(inventory,source.contextInventoryKey??source.contextItemId))&&conditionsMet(source.conditions,values,inventory)&&affordCosts(values,inventory,source.costs,this.compiled.variables);}
   commit(detail) {
     if(this.combat){void this.combat.accept(detail);return;}
@@ -683,7 +693,7 @@ export class ProjectController {
       if(!this.rollCheck)throw createError('RUNTIME_NO_DICE_ROLLER_SUPPLIED');
       const before={variables:this.variables,inventory:this.inventory};
       const check=resolveCheck(source.check,before.variables);
-      const paid=transact(before.variables,before.inventory,{costs:source.costs},this.compiled.variables,this.compiled.library);
+      const paid=transact(before.variables,before.inventory,{costs:source.costs},this.compiled.variables,this.compiled.library,inventoryOptions(this.compiled));
       this.checkPayment={abort,...before,paid:structuredClone(paid),expected:JSON.stringify(paid)};
       this.variables=paid.variables;this.inventory=paid.inventory;this.notify();
       // Observers can synchronously cancel, restart or destroy playback.
@@ -723,18 +733,18 @@ export class ProjectController {
     }
     const effects=Object.keys(payment.variables).filter(key=>typeof payment.variables[key]==='number'&&typeof this.variables[key]==='number'&&payment.variables[key]!==payment.paid.variables[key])
       .map(key=>({op:'add',key,value:payment.variables[key]-payment.paid.variables[key]}));
-    this.variables=transact(this.variables,this.inventory,{effects},this.compiled.variables,this.compiled.library).variables;
+    this.variables=transact(this.variables,this.inventory,{effects},this.compiled.variables,this.compiled.library,inventoryOptions(this.compiled)).variables;
     // Refund only spent inventory costs; preserve unrelated live ownership edits.
-    const paidIds=new Set(payment.paid.inventory.map(item=>item.definitionId??item.id));
-    for(const item of payment.inventory)if(!paidIds.has(item.definitionId??item.id))this.inventory=addInventory(this.inventory,item);
+    const paidIds=new Set(payment.paid.inventory.map(item=>this.inventoryIdentity(item)));
+    for(const item of payment.inventory)if(!paidIds.has(this.inventoryIdentity(item)))this.inventory=addInventory(this.inventory,item,{allowMultiple:item.instanceId!=null});
   }
   cancelCheck() {if(!this.checking)return false;const abort=this.checking;abort.abort();this.restoreCheckPayment(abort);this.checking=null;++this.generation;this.show({restore:true});return true;}
   collectionInventory(item, replacementId) {
-    if (this.ownsItem(item)) throw createError('RUNTIME_ITEM_IS_ALREADY_OWNED');
+    if (!this.allowMultipleItems()&&this.ownsItem(item)) throw createError('RUNTIME_ITEM_IS_ALREADY_OWNED');
     let inventory = this.inventory;
     if (replacementId) {
-      if (inventory.length < 4 || !inventory.some(owned => (owned.definitionId ?? owned.id) === replacementId)) throw createError('RUNTIME_INVENTORY_REPLACEMENT_IS_NO_LONGER_AVAILABLE');
-      inventory = inventory.filter(owned => (owned.definitionId ?? owned.id) !== replacementId);
+      if (inventory.length < 4 || !inventory.some(owned => this.inventoryIdentity(owned) === replacementId)) throw createError('RUNTIME_INVENTORY_REPLACEMENT_IS_NO_LONGER_AVAILABLE');
+      inventory = inventory.filter(owned => this.inventoryIdentity(owned) !== replacementId);
     }
     if (!replacementId && inventory.length >= 4 && this.deck.pickup) throw createError('RUNTIME_CHOOSE_AN_INVENTORY_ITEM_TO_REPLACE');
     return inventory;
@@ -747,15 +757,15 @@ export class ProjectController {
     try {
       const inventory = this.collectionInventory(item, decision.replacementId);
       if (!decision.returnToStack && this.departureBlocked(item, this.location, this.variables, inventory, 'collect')) return false;
-      const collected = addInventory(inventory, {...item});
-      transact(this.variables, collected, {effects:collectionEffects(item)}, this.compiled.variables, this.compiled.library);
+      const collected = this.addInventory(inventory, {...item});
+      transact(this.variables, collected, {effects:collectionEffects(item)}, this.compiled.variables, this.compiled.library, inventoryOptions(this.compiled));
       return true;
     } catch (error) { this.error(error); return false; }
   }
   exchangeCollection(action, decision) {
     if (!decision.returnToStack || !decision.replacementId || !this.authorizeCollection(action, decision)) return false;
     const item = this.type()==='linear' ? this.card() : this.items().find(item=>item.id===action.id);
-    const displaced = this.inventory.find(owned=>(owned.definitionId??owned.id)===decision.replacementId);
+    const displaced = this.inventory.find(owned=>this.inventoryIdentity(owned)===decision.replacementId);
     if (!displaced || !item || !this.deck.pickup || this.deck.busy || this.deck.drag || this.deck.phase!=='choices') return false;
     const generation=this.generation;
     let exchange,deckAccepted=false;
@@ -777,8 +787,8 @@ export class ProjectController {
     };
     try {
       const {context,...itemContent}=item;
-      const inventory=addInventory(this.collectionInventory(item,decision.replacementId),{...itemContent});
-      const result=transact(this.variables,inventory,{effects:collectionEffects(item)},this.compiled.variables,this.compiled.library);
+      const inventory=this.addInventory(this.collectionInventory(item,decision.replacementId),{...itemContent});
+      const result=transact(this.variables,inventory,{effects:collectionEffects(item)},this.compiled.variables,this.compiled.library,inventoryOptions(this.compiled));
       // Reuse this runtime placement, preserving the displaced definition. Spawn
       // conditions have served their purpose; the returned owned item stays visible.
       const returned={...displaced,id:item.id,definitionId:displaced.definitionId??displaced.id,conditions:[]};
@@ -820,8 +830,8 @@ export class ProjectController {
     if(this.departureBlocked(item,this.location,this.variables,baseInventory,transition)){this.show({restore:true});return;}
     try {
       const {context,...itemContent}=item;
-      const inventory=transition==='collect'?addInventory(baseInventory,{...itemContent}):this.inventory;
-      const result=transact(this.variables,inventory,{effects:transition==='collect'?collectionEffects(item):[]},this.compiled.variables,this.compiled.library);
+      const inventory=transition==='collect'?this.addInventory(baseInventory,{...itemContent}):this.inventory;
+      const result=transact(this.variables,inventory,{effects:transition==='collect'?collectionEffects(item):[]},this.compiled.variables,this.compiled.library,inventoryOptions(this.compiled));
       this.pendingItem={item,key:this.key(),linearItem,all,transition,contentId:detail.contentId,result,removedIds:transition==='discard'?this.discardedReturns(this.location,item):[]};
       if(detail.final||linearItem||all) {
         const death=this.deathDestination(result.variables);
@@ -904,17 +914,17 @@ export class ProjectController {
   commitCombatDamage(operationId, health, effects=[]) {
     return this.commitCombatEffects(operationId,[{op:'set',key:'health',value:health},...effects]);
   }
-  commitCombatEffects(operationId,effects,{onCommit}={}) {
+  commitCombatEffects(operationId,effects,{onCommit,triggerItem}={}) {
     if(this.destroyed||!this.combat)return false;
     this.combatOperations??=new Set();
     if(this.combatOperations.has(operationId))return this.variables.health>0;
-    const result=transact(this.variables,this.inventory,{effects},this.compiled.variables,this.compiled.library);
+    const result=transact(this.variables,this.inventory,{effects,triggerItem},this.compiled.variables,this.compiled.library,inventoryOptions(this.compiled));
     if(!Number.isSafeInteger(result.variables.health))throw new Error('Combat progression effects require integer Health values');
     const location=this.location;
     const defeated=result.variables.health<=0&&location?.node.ignoreDeath===true;
     // Restore positive Health before routing so the destination can play normally.
     // Resolve the route before committing damage, so an unlinked route can be retried.
-    const recovered=defeated?transact(result.variables,result.inventory,{effects:[{op:'set',key:'health',value:1}]},this.compiled.variables,this.compiled.library):result;
+    const recovered=defeated?transact(result.variables,result.inventory,{effects:[{op:'set',key:'health',value:1}]},this.compiled.variables,this.compiled.library,inventoryOptions(this.compiled)):result;
     const destination=defeated?this.next(location,'failure',recovered.variables,recovered.inventory):null;
     this.variables=recovered.variables;this.inventory=recovered.inventory;
     // The encounter owner publishes intrinsic Enemy HP in this same commit,
@@ -940,7 +950,7 @@ export class ProjectController {
     catch(error){return this.routingReason(error)||'Route unavailable';}
   }
   combatVictoryState() {
-    return transact(this.variables,this.inventory,{effects:this.location?.node.victoryEffects},this.compiled.variables,this.compiled.library);
+    return transact(this.variables,this.inventory,{effects:this.location?.node.victoryEffects},this.compiled.variables,this.compiled.library,inventoryOptions(this.compiled));
   }
   completeCombatVictory() {
     if(!this.combat||this.combatVictoryReason())return false;

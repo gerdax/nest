@@ -1,7 +1,7 @@
 import { createError } from '../errors.js';
 import { isTagKey, tagIdFromKey } from './item-tags.js';
 import { isStatVariable } from './checks.js';
-/** Pure, atomic run-state operations. Inventory entries represent unique ownership. */
+/** Pure, atomic run-state operations. Inventory entries preserve legacy ownership and optional physical instance identities. */
 export function initialValues(definitions = []) {
   return Object.fromEntries(definitions.map(d => [d.id, clamp(d.initial, d)]));
 }
@@ -16,8 +16,15 @@ function clamp(value, definition) {
   }
   return value;
 }
-const concreteMatch = (item, key) => item.definitionId === key || item.inventoryKey === key || item.id === key;
+const concreteMatch = (item, key) => item.instanceId === key || item.definitionId === key || item.inventoryKey === key || item.id === key;
+const equivalentItems = (left, right) => (left.definitionId ?? left.id) === (right.definitionId ?? right.id) ||
+  (left.inventoryKey != null && left.inventoryKey === right.inventoryKey);
+const sameInstance = (left, right) => left.instanceId != null || right.instanceId != null
+  ? left.instanceId != null && left.instanceId === right.instanceId
+  : equivalentItems(left,right);
 const matchingItems = (inventory, key) => {
+  const exact = inventory.filter(item => item.instanceId != null && item.instanceId === key);
+  if (exact.length) return exact;
   const concrete = inventory.filter(item => concreteMatch(item,key));
   return concrete.length ? concrete : isTagKey(key) ? inventory.filter(item => item.tagId === tagIdFromKey(key)) : [];
 };
@@ -27,13 +34,21 @@ export function itemTriggersRemaining(item) {
 export function canTriggerItem(inventory = [], key) {
   return !!selectTriggerItem(inventory, key);
 }
+function leastUsedItem(items) {
+  return items.reduce((selected,item) => !selected || itemTriggersRemaining(item) < itemTriggersRemaining(selected) ? item : selected, undefined);
+}
 /** Select the same concrete trigger for presentation and for spending a use. */
 export function selectTriggerItem(inventory = [], key) {
-  return key ? matchingItems(inventory,key).find(item => itemTriggersRemaining(item) > 0) : undefined;
+  if (!key) return undefined;
+  const available = matchingItems(inventory,key).filter(item => itemTriggersRemaining(item) > 0);
+  // Tag selection retains the first matching item kind, then exhausts its oldest uses.
+  const first = available[0];
+  return first && leastUsedItem(available.filter(item => equivalentItems(item,first)));
 }
 function trigger(inventory, selected) {
-  return inventory.flatMap(item => {
-    if (item !== selected) return [item];
+  const index = inventory.findIndex(item => sameInstance(item,selected));
+  return inventory.flatMap((item,itemIndex) => {
+    if (itemIndex !== index) return [item];
     const remaining = itemTriggersRemaining(item);
     return remaining === Infinity ? [item] : remaining > 1 ? [{...item,remainingTriggers:remaining-1}] : [];
   });
@@ -58,10 +73,16 @@ export function conditionsMet(conditions = [], values = {}, inventory = []) {
     }
   });
 }
-function remove(inventory,key) {
+function removalItem(inventory,key) {
   if (isTagKey(key) && !inventory.some(item => concreteMatch(item,key))) throw createError('STATE_INVENTORY_COSTS_AND_EFFECTS_REQUIRE_A_CONCRETE_ITEM');
-  if (!inventoryQuantity(inventory,key)) throw createError('STATE_INSUFFICIENT_ITEM', { key });
-  return inventory.filter(item => !concreteMatch(item,key));
+  const selected = leastUsedItem(matchingItems(inventory,key));
+  if (!selected) throw createError('STATE_INSUFFICIENT_ITEM', { key });
+  return selected;
+}
+function remove(inventory,key) {
+  const selected = removalItem(inventory,key);
+  const index = inventory.indexOf(selected);
+  return inventory.filter((item,itemIndex) => itemIndex !== index);
 }
 function spend(values,inventory,costs,definitions = []) {
   const defs = new Map(definitions.map(d=>[d.id,d]));
@@ -83,42 +104,49 @@ export function affordCosts(values = {}, inventory = [], costs = [], definitions
 function ownedInventory(inventory) {
   return inventory.reduce((items, item) => {
     const {quantity, ...entry} = item;
-    const id = entry.definitionId ?? entry.id;
-    if (!items.some(owned => (owned.definitionId ?? owned.id) === id ||
-      (entry.inventoryKey != null && owned.inventoryKey === entry.inventoryKey))) items.push(entry);
+    if (!items.some(owned => sameInstance(owned,entry))) items.push(entry);
     return items;
   }, []);
 }
-export function addInventory(inventory, definition) {
+function nextInstanceId(inventory,id) {
+  const occupied = new Set(inventory.flatMap(item => [item.instanceId,item.id,item.definitionId,item.inventoryKey]));
+  let suffix = 1;
+  while (occupied.has(`item-instance:${id}:${suffix}`)) suffix++;
+  return `item-instance:${id}:${suffix}`;
+}
+export function addInventory(inventory, definition, {allowMultiple = false} = {}) {
   if (!definition) throw createError('STATE_INVALID_ITEM_DEFINITION');
   const id = definition.definitionId ?? definition.id;
   const permability = definition.permability ?? 0;
   if (!Number.isSafeInteger(permability) || permability < 0) throw createError('STATE_INVALID_ITEM_PERMABILITY');
   const {remainingTriggers = permability, ...content} = definition;
   if (permability > 0 && (!Number.isSafeInteger(remainingTriggers) || remainingTriggers < 1 || remainingTriggers > permability)) throw createError('STATE_INVALID_REMAINING_ITEM_TRIGGERS');
-  return ownedInventory([...inventory,{...content,id,definitionId:id,inventoryKey:definition.inventoryKey ?? id,
-    ...(permability > 0 ? {remainingTriggers} : {})}]);
+  const items = ownedInventory(inventory);
+  const entry = {...content,id,definitionId:id,inventoryKey:definition.inventoryKey ?? id,
+    ...(permability > 0 ? {remainingTriggers} : {})};
+  if (!allowMultiple && items.some(item => equivalentItems(item,entry))) return items;
+  if (allowMultiple && entry.instanceId == null) entry.instanceId = nextInstanceId(items,id);
+  return ownedInventory([...items,entry]);
 }
-export function transact(values, inventory = [], { costs = [], effects = [], triggerItem } = {}, definitions = [], library = []) {
+export function transact(values, inventory = [], { costs = [], effects = [], triggerItem } = {}, definitions = [], library = [], {allowMultiple = false} = {}) {
   const variables = {...values};
   let items = ownedInventory(inventory);
   const triggeringItem = selectTriggerItem(items,triggerItem);
   if (triggerItem && !triggeringItem) throw createError('STATE_UNAVAILABLE_INVENTORY_TRIGGER', { triggerItem });
   items = spend(variables,items,costs,definitions);
-  let originalTriggerOwned = triggeringItem && items.includes(triggeringItem);
+  let originalTriggerOwned = triggeringItem && items.some(item => sameInstance(item,triggeringItem));
   const defs = new Map(definitions.map(d=>[d.id,d]));
   const entries = library instanceof Map ? [...library.values()] : Array.isArray(library) ? library : Object.values(library);
   for (const effect of effects) {
     if (effect.op === 'removeItem') {
+      const removed = removalItem(items,effect.key);
       items = remove(items,effect.key);
-      if (triggeringItem && concreteMatch(triggeringItem,effect.key)) originalTriggerOwned = false;
+      if (triggeringItem && sameInstance(triggeringItem,removed)) originalTriggerOwned = false;
       continue;
     }
     if (effect.op === 'addItem') {
       const definition = entries.find(d=>(d.definitionId ?? d.id) === effect.key && d.kind === 'item');
-      const selectedIndex = originalTriggerOwned ? items.indexOf(triggeringItem) : -1;
-      items = addInventory(items,definition);
-      if (selectedIndex >= 0) items[selectedIndex] = triggeringItem;
+      items = addInventory(items,definition,{allowMultiple});
       continue;
     }
     if (!Object.hasOwn(variables,effect.key) || !['set','add'].includes(effect.op)) throw createError('STATE_UNKNOWN_VARIABLE_OR_EFFECT', { key: effect.key });

@@ -591,17 +591,28 @@ for(const visibility of ['disabled','hidden'])test(`external ownership removal r
  key(deck,'ArrowDown');assert.equal(controller.inventory[0].definitionId,'owned');dispose(deck,controller);
 });
 
-for(const visibility of ['disabled','hidden'])test(`collecting one placement leaves its duplicate unavailable in the current carousel, visibility=${visibility}`,()=>{
+for(const visibility of ['disabled','multiple','hidden'])test(`collecting duplicate placements follows ownership policy, visibility=${visibility}`,()=>{
  const nodes=[{id:'items',type:'container',introEnabled:false,items:[item('one',{definitionId:'owned'}),item('two',{definitionId:'owned'})],connections:{next:'after'}},
   {id:'after',type:'linear',cards:[narrative('after')],connections:{next:null}}];
  const {deck,controller}=real(nodes,{ownedItemsVisibility:visibility});
  key(deck,'ArrowDown');assert.equal(controller.inventory.length,1);
- assert.equal(controller.location.node.id,'items');assert.equal(deck.content.actions[0].id,'two');assert.equal(deck.content.actions[0].collectDisabled,true);
+ assert.equal(controller.location.node.id,'items');assert.equal(deck.content.actions[0].id,'two');
+ assert.equal(deck.content.actions[0].alreadyOwned,visibility==='hidden');
+ assert.equal(deck.content.actions[0].collectDisabled,visibility==='hidden');
+ const firstInstance=controller.inventory[0].instanceId;
  const gesture={axis:'y',x:0,y:260,vx:0,vy:700};
  assert.equal(deck.start(),true);deck.move(gesture);deck.end(gesture);settle();
- assert.equal(controller.inventory.length,1);assert.equal(controller.pendingItem,null);
- assert.equal(deck.content.actions[0].id,'two');assert.equal(deck.phase,'choices');
- assert.equal(controller.remaining.get('items:').some(i=>i.id==='two'),true);
+ assert.equal(controller.pendingItem,null);
+ if(visibility==='hidden'){
+  assert.equal(controller.inventory.length,1);assert.equal(deck.content.actions[0].id,'two');assert.equal(deck.phase,'choices');
+  assert.equal(controller.remaining.get('items:').some(i=>i.id==='two'),true);
+ }else{
+  assert.deepEqual(controller.inventory.map(i=>i.definitionId),['owned','owned']);
+  assert.equal(controller.inventory[0].instanceId,firstInstance);
+  assert.ok(controller.inventory[1].instanceId);assert.notEqual(controller.inventory[1].instanceId,firstInstance);
+  assert.equal(controller.location.node.id,'after');
+  assert.equal(controller.remaining.get('items:').some(i=>i.id==='two'),false);
+ }
  dispose(deck,controller);
 });
 
@@ -692,17 +703,25 @@ test('owned-item hiding detects an automatic cycle without consuming sources or 
 });
 
 
-for(const visibility of ['disabled','hidden'])test(`collection effects refresh ownership of other item definitions, visibility=${visibility}`,()=>{
+for(const visibility of ['disabled','multiple','hidden'])test(`collection effects refresh ownership of other item definitions, visibility=${visibility}`,()=>{
  const nodes=[{id:'items',type:'container',introEnabled:false,items:[item('prize',{onCollect:[{op:'addItem',key:'owned'}]}),item('duplicate',{definitionId:'owned',onCollect:[{op:'add',key:'energy',value:9}]})],connections:{next:'after'}},
   {id:'after',type:'linear',cards:[narrative('after')],connections:{next:null}}];
  const {deck,controller}=real(nodes,{ownedItemsVisibility:visibility,variables:energy,library:[item('owned')]});
  key(deck,'ArrowDown');assert.deepEqual(controller.inventory.map(i=>i.definitionId),['prize','owned']);assert.equal(controller.variables.energy,4);
  assert.equal(controller.location.node.id,'items');
- assert.equal(deck.content.actions[0].collectDisabled,true);key(deck,'ArrowDown');assert.equal(controller.variables.energy,4);
+ assert.equal(deck.content.actions[0].alreadyOwned,visibility==='hidden');
+ assert.equal(deck.content.actions[0].collectDisabled,visibility==='hidden');key(deck,'ArrowDown');
+ if(visibility==='hidden')assert.equal(controller.variables.energy,4);
+ else{
+  assert.equal(controller.variables.energy,13,'collecting the second physical copy applies its effects once');
+  const copies=controller.inventory.filter(i=>i.definitionId==='owned');
+  assert.equal(copies.length,2);assert.notEqual(copies[0].instanceId,copies[1].instanceId);
+  assert.equal(controller.location.node.id,'after');
+ }
  dispose(deck,controller);
 });
 
-for(const visibility of ['disabled','hidden'])for(const drawer of [false,true])test(`collecting one visor upgrade preserves survivor cards and drawer presentation: visibility=${visibility}, drawer=${drawer}`,async()=>{
+for(const visibility of ['disabled','multiple','hidden'])for(const drawer of [false,true])test(`collecting one visor upgrade preserves survivor cards and drawer presentation: visibility=${visibility}, drawer=${drawer}`,async()=>{
  const {InventoryPickup}=await import('../engine/InventoryPickup.js');
  const items=[item('lockpick'),item('mackerels'),item('visor-one',{definitionId:'visor'}),item('visor-two',{definitionId:'visor'}),item('flashlight'),item('battery')];
  const {deck,controller}=real([{id:'box',type:'container',introEnabled:false,items,connections:{next:null}}],{ownedItemsVisibility:visibility});
@@ -724,9 +743,22 @@ for(const visibility of ['disabled','hidden'])for(const drawer of [false,true])t
   const action=deck.content.actions[index],before=surviving.get(action.id);
   assert.equal(deck.cards[index],before.card,'surviving article is retained');assert.equal(deck.cardLayers[index],before.layer,'surviving layer is retained');assert.equal(deck.cardTitles[index],before.title,'surviving face content is retained');
  }
- assert.equal(deck.content.actions.find(action=>action.id==='visor-two').collectDisabled,true);
+ const secondVisor=deck.content.actions.find(action=>action.id==='visor-two');
+ assert.equal(secondVisor.alreadyOwned,visibility==='hidden');
+ assert.equal(secondVisor.collectDisabled,visibility==='hidden');
  if(drawer)assert.equal(contexts.includes(false),false,'drawer never restarts its entrance');
- assert.equal(deck.phase,'choices');dispose(deck,controller);
+ assert.equal(deck.phase,'choices');
+ if(visibility!=='hidden'){
+  const firstInstance=controller.inventory[0].instanceId;
+  while(deck.content.actions[deck.index].id!=='visor-two')key(deck,'ArrowRight');
+  deck.collect();await flush();settle();
+  assert.deepEqual(controller.inventory.map(i=>i.definitionId),['visor','visor']);
+  assert.equal(controller.inventory[0].instanceId,firstInstance);assert.notEqual(controller.inventory[1].instanceId,firstInstance);
+  assert.equal(replacements,0);assert.equal(deck.presentationRevision,revision);
+  assert.equal(deck.content.actions.some(action=>action.id==='visor-two'),false);
+  if(drawer)assert.equal(contexts.includes(false),false,'collecting another copy keeps the drawer visible');
+ }
+ dispose(deck,controller);
 });
 
 // Resource cards use the real Action gesture path and never the inventory path.

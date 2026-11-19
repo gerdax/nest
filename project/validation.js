@@ -25,7 +25,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
   if (project.ignoreAllOverrides !== undefined && typeof project.ignoreAllOverrides !== 'boolean') add(errorMessage('VALIDATION_INVALID_IGNORE_ALL_OVERRIDES_SETTING'));
   if (project.autosave !== undefined && typeof project.autosave !== 'boolean') add('Autosave must be a boolean');
   if (project.allowCycles !== undefined && typeof project.allowCycles !== 'boolean') add(errorMessage('VALIDATION_INVALID_ALLOW_BEAT_CYCLES_SETTING'));
-  if (project.ownedItemsVisibility !== undefined && !['disabled','hidden'].includes(project.ownedItemsVisibility)) add(errorMessage('VALIDATION_INVALID_OWNEDITEMSVISIBILITY_SETTING'));
+  if (project.ownedItemsVisibility !== undefined && !['disabled','multiple','hidden'].includes(project.ownedItemsVisibility)) add(errorMessage('VALIDATION_INVALID_OWNEDITEMSVISIBILITY_SETTING'));
   if (project.unavailableActions !== undefined && !['disabled','hidden','triggers-only','disabled-triggers'].includes(project.unavailableActions)) add(errorMessage('VALIDATION_INVALID_UNAVAILABLEACTIONS_SETTING'));
   if (project.showWeaponActionsOnCooldown !== undefined && typeof project.showWeaponActionsOnCooldown !== 'boolean') add('Show weapon actions on cooldown must be a boolean');
   for (const message of validateCardBack(project.cardBack)) add(message);

@@ -14,6 +14,7 @@ export function cardFace(card, variables=[], library=[], values,descriptionConte
  const cardKind=authoredKind==='consumable'?consumableResource(card):authoredKind==='enemy'?'event':authoredKind==='effect'?'health':authoredKind==='combatAction'?'action':authoredKind;
  return {
   cardKind,
+  ...(cardKind==='item'&&card?.permability>0?{usesRemaining:card.remainingTriggers??card.permability}:{}),
   prepared:authoredKind==='combatAction'&&descriptionContext.preparationBonus>0&&(card.type??'attack')==='attack',
   ...(cardKind==='action'?{actionEnergyCost:actionEnergyCost(card),actionHealthCost:actionHealthCost(card)}:{}),
   ...(isConsumableKind(cardKind)?{value:authoredKind==='effect'?(card.value??-2):card.value,...(authoredKind==='effect'?{showValue:card.showValue!==false}:{})}:{}),

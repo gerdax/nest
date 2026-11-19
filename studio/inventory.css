@@ -70,3 +70,7 @@
 /* Press and hold match the resting HUD icons. */
 .nest-inventory-drawer .nest-inventory-slot>button:is(:active,[aria-pressed="true"]),
 .nest-inventory-drawer .nest-inventory-overflow button:is(:active,[aria-pressed="true"]) {border-color:var(--resource-icon-color);outline-color:var(--resource-icon-color);}
+
+/* Each physical item carries its own remaining uses. */
+.nest-inventory-drawer .nest-inventory-slot>button>.nest-item-uses,
+.nest-trigger-item>button>.nest-item-uses {position:absolute;left:0;right:0;bottom:0;z-index:2;box-sizing:border-box;width:100%;padding:12px 4px 5px;background:linear-gradient(transparent,#000e);color:#eee;font:10px/1.2 system-ui,sans-serif;text-align:center;letter-spacing:.03em;pointer-events:none;}

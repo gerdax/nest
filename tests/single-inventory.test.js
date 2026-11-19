@@ -66,7 +66,7 @@ test('add and remove effects ignore legacy quantity and normalize preexisting du
   assert.equal(inventory[0].quantity,12);
 });
 
-test('inventory view keeps accessible captions without mini labels or a direct Use action',()=>{
+test('inventory view keeps accessible captions and remaining uses without a direct Use action',()=>{
   class Element {
     constructor() { this.children=[]; this.style={}; this.attributes={}; this.classList={add(){},remove(){}}; }
     append(...children) { this.children.push(...children); }
@@ -91,10 +91,11 @@ test('inventory view keeps accessible captions without mini labels or a direct U
     view.update([{...apple,definitionId:'apple',quantity:100,description:'Fresh.',image:'apple.png',flipImage:true,permability:2}]);
     assert.equal(root.nodes['[data-count]'].textContent,'1');
     const button=root.nodes.ul.children[0].children[0];
-    assert.equal(button.attributes['aria-label'],'Apple');
+    assert.equal(button.attributes['aria-label'],'Apple, USES: 2');
     assert.equal(button.children[0].children[0].style.filter,'url("#nest-artwork-colorize")');
     assert.equal(button.children[0].children[0].style.transform,'scaleX(-1)');
-    assert.equal(button.children.length,1);
+    assert.equal(button.children.length,2);
+    assert.equal(button.children[1].textContent,'USES: 2');
     button.onclick({preventDefault(){}});
     assert.equal(dialog.open,undefined,'click does not open the removed popup');
     assert.doesNotMatch(root.innerHTML,/data-description|data-item-artwork/);

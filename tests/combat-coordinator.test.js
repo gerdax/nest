@@ -4,6 +4,7 @@ import {CombatCoordinator} from '../project/CombatCoordinator.js';
 import {ProjectController} from '../project/ProjectController.js';
 import {createRatCombatProject} from '../project/combat-fixture.js';
 import {compileChapter} from '../project/model.js';
+import {addInventory} from '../project/state.js';
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 function harness({health=10,hit=true,victory=true}={}){
  const project=createRatCombatProject(),compiled=compileChapter(project),enemy=compiled.library.find(d=>d.id==='rat');compiled.nodes.find(n=>n.type==='combat').introEnabled=false;
@@ -549,4 +550,73 @@ for(const policy of ['project','hidden','disabled','triggers-only','disabled-tri
  else assert.equal(shown,undefined);
  assert(h.c.choiceContent().actions.some(c=>!c.disabled));
  h.c.dispose();
+});
+
+
+function finitePistols(h,{uses=1,copies=1,effects=[],costs=[]}={}){
+ const weapon=structuredClone(h.host.compiled.library.find(d=>d.id==='pistol'));
+ weapon.permability=uses;
+ const shoot=weapon.combat.actions.find(d=>d.name==='Shoot');shoot.effects=effects;shoot.costs=costs;
+ h.host.inventory=[];
+ for(let index=0;index<copies;index++)h.host.inventory=addInventory(h.host.inventory,{...weapon,instanceId:`finite-pistol-${index+1}`},{allowMultiple:true});
+ return shoot;
+}
+
+for(const copies of [1,2])test(`finite weapon explicit removal and implicit use consume one physical pistol, copies=${copies}`,async()=>{
+ const h=harness();finitePistols(h,{copies,effects:[{op:'removeItem',key:'pistol'}]});await reachPlayer(h);
+ const before=structuredClone(h.host.inventory);
+ await select(h);assert.equal(h.c.phase,'effects');assert.deepEqual(h.host.inventory,before,'a resolved hit still waits for accepted damage departure');
+ const contentId=h.deck.content.id;await swipe(h);
+ assert.equal(h.c.encounter.enemyHp,3);assert.equal(h.host.inventory.length,copies-1);
+ if(copies===2)assert.equal(h.host.inventory[0].instanceId,'finite-pistol-2');
+ assert.deepEqual(h.errors,[],'explicit removal must not leave an unavailable implicit trigger');
+ await h.c.accept({contentId,action:{id:'continue'}});assert.equal(h.host.inventory.length,copies-1);
+ h.c.dispose();
+});
+
+for(const hit of [true,false])test(`finite weapon spends one of three uses only after accepted result progression, hit=${hit}`,async()=>{
+ const h=harness();finitePistols(h,{uses:3});await reachPlayer(h);
+ let release;h.host.rollCheck=async()=>({dice:hit?[4,4,4]:[1,1,1]});
+ h.host.onCheckResult=()=>new Promise(resolve=>{release=resolve;});
+ const attempt=select(h);await tick();assert.equal(h.c.phase,'player-result');
+ assert.equal(h.host.inventory[0].remainingTriggers,3,'displaying dice feedback does not spend the source');
+ // Later Enemy feedback must not pause this test's player attempt.
+ h.host.onCheckResult=async()=>{};release();await attempt;
+ if(hit){assert.equal(h.c.phase,'effects');assert.equal(h.host.inventory[0].remainingTriggers,3);await swipe(h);}
+ assert.equal(h.host.inventory.length,1);assert.equal(h.host.inventory[0].instanceId,'finite-pistol-1');
+ assert.equal(h.host.inventory[0].remainingTriggers,2);assert.deepEqual(h.errors,[]);h.c.dispose();
+});
+
+for(const outcome of ['roll-error','cancel'])test(`finite weapon ${outcome} refunds payment without spending any use`,async()=>{
+ const h=harness();finitePistols(h,{uses:3,costs:[{source:'variable',key:'energy',amount:1}]});await reachPlayer(h);
+ const before=structuredClone(h.host.inventory);let release;
+ h.host.rollCheck=outcome==='roll-error'?async()=>{throw new Error('Finite weapon dice unavailable');}:()=>new Promise(resolve=>{release=resolve;});
+ const attempt=select(h);await tick();
+ if(outcome==='cancel'){
+  assert.equal(h.host.variables.energy,2);assert.deepEqual(h.host.inventory,before);
+  h.c.dispose();release({dice:[4,4,4]});
+ }
+ await attempt;assert.equal(h.host.variables.energy,3);assert.deepEqual(h.host.inventory,before);
+ if(outcome==='roll-error'){assert.equal(h.c.phase,'error');assert.equal(h.errors.length,1);}
+ h.c.dispose();
+});
+
+test('finite weapon feedback retry preserves both copies until progression and removes only one on completion',async()=>{
+ const h=harness();finitePistols(h,{copies:2,effects:[{op:'removeItem',key:'pistol'}],costs:[{source:'variable',key:'energy',amount:1}]});await reachPlayer(h);
+ let rolls=0;h.host.rollCheck=async()=>{rolls++;return {dice:[4,4,4]};};
+ h.host.onCheckResult=async()=>{throw new Error('Finite weapon result unavailable');};
+ await select(h);assert.equal(h.c.phase,'error');const saved=h.c.pending;
+ assert.equal(h.host.inventory.length,2);assert.equal(h.host.variables.energy,2);
+ h.host.onCheckResult=async()=>{};await h.c.retry();assert.equal(h.c.pending,saved);assert.equal(h.c.phase,'effects');
+ assert.equal(h.host.inventory.length,2);assert.equal(rolls,1);await swipe(h);
+ assert.deepEqual(h.host.inventory.map(item=>item.instanceId),['finite-pistol-2']);assert.equal(h.host.variables.energy,2);
+ assert.equal(h.errors.length,1,'only the injected feedback error is reported');h.c.dispose();
+});
+
+test('a finite weapon paid as an inventory cost does not consume a second source at progression',async()=>{
+ const h=harness();finitePistols(h,{copies:2,costs:[{source:'inventory',key:'pistol',amount:1}]});await reachPlayer(h);
+ await select(h);assert.equal(h.c.phase,'effects');
+ assert.deepEqual(h.host.inventory.map(item=>item.instanceId),['finite-pistol-2']);
+ await swipe(h);assert.deepEqual(h.host.inventory.map(item=>item.instanceId),['finite-pistol-2']);
+ assert.equal(h.c.encounter.enemyHp,3);assert.deepEqual(h.errors,[]);h.c.dispose();
 });

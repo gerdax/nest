@@ -1,5 +1,5 @@
 import {resolveCheck} from './checks.js';
-import {conditionsMet, affordCosts} from './state.js';
+import {conditionsMet, affordCosts, selectTriggerItem} from './state.js';
 
 const entries = library => library instanceof Map ? [...library.values()] : Array.isArray(library) ? library : Object.values(library ?? {});
 export const definition = (library, ref) => entries(library).find(d => d.id === (typeof ref === 'string' ? ref : ref?.definitionId));
@@ -88,7 +88,12 @@ export function playerChoices(compiled, run, encounter) {
     result.push({id:key,action:structuredClone(action),source:source?structuredClone(source):null,profile,cooldownRemaining,cooldownOnly,disabled:!!reason,disabledReason:reason});
   };
   for(const ref of compiled.combat?.defaultActions??[])add(ref);
-  for(const item of run.inventory??[])if(item.subtype==='weapon')for(const action of item.combat?.actions??[])add(action,item);
+  const weapons=new Set();
+  for(const owned of run.inventory??[])if(owned.subtype==='weapon'){
+    const key=sourceKey(owned);if(weapons.has(key))continue;weapons.add(key);
+    const item=selectTriggerItem(run.inventory,key);if(!item||item.subtype!=='weapon')continue;
+    for(const action of item.combat?.actions??[])add(action,item);
+  }
   return result;
 }
 export function checkOdds(check, values={}) {

@@ -5,7 +5,7 @@ import { artworkUrl } from '../engine/artworkReload.js';
 import { DrawerMotion } from './drawer-motion.js';
 import { dialogLayout } from './dialog-layout.js';
 
-const identity = item => item?.definitionId ?? item?.id;
+const identity = item => item?.instanceId ?? item?.definitionId ?? item?.id;
 const name = item => cardText(item).headline || 'Item';
 
 /** Inventory presentation; the controller alone mutates ownership and effects. */
@@ -95,6 +95,13 @@ export class InventoryView {
       const artwork = document.createElement('div'); artwork.className = 'nest-image-vignette';
       artwork.append(image); button.append(artwork);
     }
+    if ((item.permability ?? 0) > 0) {
+      const uses = document.createElement('span');
+      uses.className = 'nest-item-uses';
+      uses.textContent = `USES: ${item.remainingTriggers ?? item.permability}`;
+      button.append(uses);
+      button.setAttribute('aria-label', `${name(item)}, ${uses.textContent}`);
+    }
     button.onpointerdown = event => {
       if (event.button !== 0 || event.isPrimary === false) return;
       if (this.beginHold(item, button, { pointerId: event.pointerId })) button.setPointerCapture?.(event.pointerId);
@@ -165,7 +172,7 @@ export class InventoryView {
     if (this.motion?.exiting) { this.needsSlotRender = true; return; }
     this.needsSlotRender = false;
     const incoming = this.deposited?.item;
-    const alreadyOwned = incoming && this.items.some(item => identity(item) === identity(incoming) || incoming.inventoryKey && item.inventoryKey === incoming.inventoryKey);
+    const alreadyOwned = incoming && this.items.some(item => identity(item) === identity(incoming));
     this.root.querySelector('[data-count]').textContent = String(this.items.length + (incoming && !alreadyOwned && this.items.length < 4 ? 1 : 0));
     if (!this.slotElements) {
       this.list.replaceChildren();
@@ -197,7 +204,7 @@ export class InventoryView {
   }
   ownedSlot(action) {
     if (!action) return -1;
-    return this.slots.findIndex(item => item && (identity(item) === identity(action) || action.inventoryKey && item.inventoryKey === action.inventoryKey));
+    return this.slots.findIndex(item => item && (identity(item) === identity(action)));
   }
   getTarget({ clientX, clientY, active = false, snapped = false, keyboard = false, action } = {}) {
     if (!this.visible || this.root.closest?.('[inert]')) return null;

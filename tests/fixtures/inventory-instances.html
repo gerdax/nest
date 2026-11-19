@@ -1,0 +1,32 @@
+<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base href="../../">
+<title>Independent inventory instances</title>
+<link rel="stylesheet" href="engine/card-deck.css"><link rel="stylesheet" href="studio/inventory.css"><link rel="stylesheet" href="studio/preview.css"><link rel="stylesheet" href="studio/playfield.css">
+<style>*{box-sizing:border-box}body{margin:16px;background:#172020;color:#dce5ce;font:14px system-ui}main{display:flex;gap:24px}#frame{width:359px;height:745px;flex:none}aside{max-width:600px}button{padding:8px;margin:4px}pre{white-space:pre-wrap}</style>
+<main><section id="frame" class="nest-playfield"><div id="preview"></div></section><aside><h1>Independent inventory instances</h1><p>Collect the first tool, use it once, then collect a second copy from the same Library source. The drawer should contain USES: 2 and USES: 3.</p><button id="verify">Collect two copies</button><button id="context">Show action context</button><button id="swipe">Swipe up</button><button id="restart">Restart</button><output id="result" role="status"></output><pre id="state"></pre></aside></main>
+<script type="module">
+import {createProject} from './project/model.js';
+import {createDefinition} from './project/cards.js';
+import {ProjectPreview} from './studio/ProjectPreview.js';
+const project=createProject(),chapter=project.chapters[0],death=chapter.nodes.find(node=>node.type==='death');
+project.ownedItemsVisibility='multiple';
+project.library.push({...createDefinition('item','tool'),headline:'Service tool',image:'./assets/img/card-art/bandages.png',permability:3});
+project.library.push({...createDefinition('action','operate'),headline:'Open the hatch',description:'Use the service tool.',contextItemId:undefined});
+const find=(id,next)=>({id,type:'container',name:id,introEnabled:false,intro:{id:`${id}-intro`,definitionId:'arrival'},items:[{id:`${id}-tool`,definitionId:'tool'}],connections:{next},x:0,y:0});
+chapter.nodes=[death,find('first','spend'),{id:'spend',type:'linear',name:'Use once',cards:[{id:'spend-action',definitionId:'operate',contextItemId:'tool'}],connections:{next:'second'},x:0,y:0},find('second','drawer'),
+ {id:'drawer',type:'container',name:'Another find',introEnabled:false,intro:{id:'drawer-intro',definitionId:'arrival'},items:[{id:'other',definitionId:'flashlight'}],connections:{next:'use'},x:0,y:0},
+ {id:'use',type:'fork',name:'Keep using',introEnabled:false,choices:[{id:'use-action',definitionId:'operate',contextItemId:'tool'}],connections:{'use-action':'use'},x:0,y:0}];chapter.startNode='first';
+const state=document.querySelector('#state'),result=document.querySelector('#result');
+const preview=new ProjectPreview(document.querySelector('#preview'),{inventoryHost:document.querySelector('#frame'),onChange:run=>{state.textContent=JSON.stringify({node:run.activeNodeId,items:run.collectedItems.map(item=>({source:item.definitionId,instance:item.instanceId,uses:item.remainingTriggers}))},null,2);}});
+const wait=predicate=>new Promise((resolve,reject)=>{const start=performance.now();const frame=()=>{if(predicate())resolve();else if(performance.now()-start>16000)reject(new Error('Animation timeout'));else requestAnimationFrame(frame);};frame();});
+const swipe=()=>preview.deck.key({key:'ArrowUp',preventDefault(){}});
+document.querySelector('#verify').onclick=async event=>{const button=event.currentTarget;button.disabled=true;try{
+ preview.play(project);await wait(()=>preview.controller.state.idle);preview.deck.collect();await wait(()=>preview.controller.state.idle&&preview.controller.state.activeNodeId==='spend');
+ swipe();await wait(()=>preview.controller.state.idle&&preview.controller.state.activeNodeId==='second');
+ preview.deck.collect();await wait(()=>preview.controller.state.idle&&preview.controller.state.activeNodeId==='drawer');
+ const items=preview.controller.inventory;if(items.length!==2||items[0].remainingTriggers!==2||items[1].remainingTriggers!==3||items[0].instanceId===items[1].instanceId)throw new Error('Incorrect physical inventory');
+ result.textContent='PASS — two copies of one Library item: USES: 2 and USES: 3, in separate slots.';
+ }catch(error){result.textContent=`FAIL — ${error.message}`;}finally{button.disabled=false;}};
+document.querySelector('#context').onclick=()=>{const controller=preview.controller;controller.adopt(controller.locate('use'),false);controller.show();};
+document.querySelector('#swipe').onclick=swipe;document.querySelector('#restart').onclick=()=>preview.play(project);
+preview.play(project);
+</script>

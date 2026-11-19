@@ -60,10 +60,10 @@ export class ActionContextPanel {
     }
     const mode = result ? 'result' : disabledReason ? 'reason' : info && item ? 'check-item' : info ? 'check' : 'item';
     const remaining = item ? itemTriggersRemaining(item) : null;
-    const itemCaption = remaining === 1 ? 'DISCARD' : 'USING';
+    const itemCaption = Number.isFinite(remaining) ? `USES: ${remaining}` : 'USING';
     const key = JSON.stringify([selectionKey,mode,result,disabledReason,disabledReasonParts,
       info ? [info.stat,info.chance,info.label,info.formula,info.rules] : null,
-      item ? [item.inventoryKey ?? item.id,remaining,itemCaption] : null]);
+      item ? [item.instanceId ?? item.definitionId ?? item.id,remaining,itemCaption] : null]);
     const outgoing = this.visible && key !== this.presentationKey ? this.snapshot() : null;
     this.presentationKey = key;
     this.view.setAttribute('data-mode', mode);

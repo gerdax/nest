@@ -13,6 +13,6 @@ export function chapterEntryState(project, chapterId, previous) {
   const variables = transact(initialValues(compiled.variables), [], {effects}, compiled.variables).variables;
   const sharedItems = new Set(project.library.filter(card => card.kind === 'item' && card.visibility !== 'local').map(card => card.id));
   const inventory = (previous?.collectedItems || []).filter(item => sharedItems.has(item.definitionId ?? item.id))
-    .reduce((items, item) => addInventory(items, structuredClone(item)), []);
+    .reduce((items, item) => addInventory(items, structuredClone(item),{allowMultiple:item.instanceId!=null}), []);
   return {variables, inventory, ...(previous?.usedForkChoices?.length?{usedForkChoices:[...previous.usedForkChoices]}:{})};
 }

@@ -103,18 +103,18 @@ function animationsFor(panel) {
   return animations;
 }
 
-test('discard captions follow remaining triggers on the same owned item in both layouts', () => {
+test('uses captions follow remaining triggers on the same owned item in both layouts', () => {
   for (const check of [null, info]) {
     const panel = setup(), animations = animationsFor(panel);
     const owned = {...item, inventoryKey: 'owned-wedge', permability: 3, remainingTriggers: 2};
     const update = () => panel.update({info: check, item: owned, selectionKey: 'same-action'});
     const caption = check ? panel.itemCaption : panel.caption;
     update();
-    assert.equal(caption.textContent, 'USING');
+    assert.equal(caption.textContent, 'USES: 2');
     const initialKey = panel.presentationKey;
     owned.remainingTriggers = 1;
     update();
-    assert.equal(caption.textContent, 'DISCARD');
+    assert.equal(caption.textContent, 'USES: 1');
     assert.notEqual(panel.presentationKey, initialKey);
     assert.equal(animations.length, 2, 'remaining use changes crossfade without changing selection');
     assert.equal(panel.mini.item, owned);
@@ -131,11 +131,11 @@ test('discard captions follow remaining triggers on the same owned item in both 
   }
 });
 
-test('initial discard and permanent captions preserve result and unavailable priority', () => {
+test('initial uses and permanent captions preserve result and unavailable priority', () => {
   const panel = setup();
   const lastUse = {...item, permability: 1};
   panel.update({item: lastUse});
-  assert.equal(panel.caption.textContent, 'DISCARD', 'new items use their initial trigger allowance');
+  assert.equal(panel.caption.textContent, 'USES: 1', 'new items use their initial trigger allowance');
   panel.update({info, item: lastUse, disabledReason: 'Requires: Key'});
   assert.equal(panel.root.attrs['data-mode'], 'reason');
   assert.equal(panel.caption.textContent, 'Requires: Key');

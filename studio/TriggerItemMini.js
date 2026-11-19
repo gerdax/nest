@@ -21,7 +21,10 @@ export class TriggerItemMini {
     root.ownerDocument?.addEventListener?.('visibilitychange', this.release);
   }
   update(item, { busy = false } = {}) {
-    if (item === this.item && busy === this.busy) return;
+    const signature = item && JSON.stringify([item.instanceId ?? item.definitionId ?? item.id,
+      item.permability, item.remainingTriggers, item.image, item.flipImage, item.name, item.label]);
+    if (item === this.item && signature === this.signature && busy === this.busy) return;
+    this.signature = signature;
     this.endHold(); this.item = item; this.busy = busy;
     this.root.hidden = !item; this.root.replaceChildren();
     if (!item) { this.button = null; return; }
@@ -30,7 +33,7 @@ export class TriggerItemMini {
     button.type = 'button'; button.disabled = busy; button.draggable = false;
     button.setAttribute('aria-label', `Trigger item: ${item.name || item.label || 'Item'}`);
     button.setAttribute('aria-pressed', 'false');
-    // Minis contain artwork only, including when an item has no artwork.
+    // Artwork stays visible beneath the remaining uses for finite items.
     if (item.image) {
       const artwork = doc.createElement('div'); artwork.className = 'nest-image-vignette';
       const image = doc.createElement('img'); image.src = artworkUrl(item.image, doc.baseURI); image.alt = ''; image.draggable = false;
@@ -38,6 +41,13 @@ export class TriggerItemMini {
       applyArtworkColorize(image);
       if (item.flipImage) image.style.transform = 'scaleX(-1)';
       artwork.append(image); button.append(artwork);
+    }
+    if ((item.permability ?? 0) > 0) {
+      const uses = doc.createElement('span');
+      uses.className = 'nest-item-uses';
+      uses.textContent = `USES: ${item.remainingTriggers ?? item.permability}`;
+      button.append(uses);
+      button.setAttribute('aria-label', `Trigger item: ${item.name || item.label || 'Item'}, ${uses.textContent}`);
     }
     button.onpointerdown = event => {
       if (event.button !== 0 || event.isPrimary === false) return;

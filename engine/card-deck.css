@@ -103,7 +103,7 @@
 }
 /* Keep the authored composition fixed while the physical card gets smaller.
    Only its contents zoom; hit targets and engine motion retain their bounds. */
-.nest-copy,.nest-card-type,.nest-action-energy-cost,.nest-card-value {
+.nest-copy,.nest-card-type,.nest-action-energy-cost,.nest-card-value,.nest-card-uses {
   zoom:var(--card-content-scale,1);
 }
 .nest-card-title, .nest-card-type {
@@ -373,3 +373,5 @@
 
 /* Encounter-local readout; player resources retain their shared HUD. */
 .chapter-preview-stage { position:relative; }
+
+.nest-card-uses {position:absolute;top:var(--card-padding,26px);right:var(--card-padding,26px);z-index:4;font:var(--card-small-size,10px)/1.3 var(--card-font,NestLetter,monospace);letter-spacing:.12em;color:var(--card-text,#d2dfb6);text-shadow:0 1px 4px #000;background:#000b;padding:3px 5px;border-radius:3px;}
