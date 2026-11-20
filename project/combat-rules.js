@@ -1,10 +1,10 @@
 import {resolveCheck} from './checks.js';
-import {conditionsMet, affordCosts, selectTriggerItem} from './state.js';
+import {conditionsMet, affordCosts, selectTriggerItem, itemTriggersRemaining} from './state.js';
 
 const entries = library => library instanceof Map ? [...library.values()] : Array.isArray(library) ? library : Object.values(library ?? {});
 export const definition = (library, ref) => entries(library).find(d => d.id === (typeof ref === 'string' ? ref : ref?.definitionId));
 export const sourceKey = item => item ? item.inventoryKey ?? item.definitionId ?? item.id : 'default';
-export const cooldownKey = (action, item) => `${action.definitionId ?? action.id}@${sourceKey(item)}`;
+export const cooldownKey = (action, item, {perInstance=false}={}) => `${action.definitionId ?? action.id}@${perInstance&&(action.cooldown??0)>0&&item?.instanceId?item.instanceId:sourceKey(item)}`;
 /** Preserve legacy selection defaults without rewriting authored enemy data. */
 export function enemyActionSelection(enemy){
  const mode=Object.hasOwn(enemy,'actionSelection')?enemy.actionSelection:(enemy.mechanics==='opposed-preparation'?'random':'order');
@@ -75,11 +75,12 @@ function requirementReason(compiled,run,conditions=[]) {
 }
 export function playerChoices(compiled, run, encounter) {
   const result=[];
+  const perInstance=['multiple','disabled'].includes(compiled.ownedItemsVisibility);
   const add=(value,source=null)=>{
     const action=source?value:definition(compiled.library,value);
     if (!action || action.kind !== 'combatAction') throw new Error('Missing Combat Action');
     if(!source && !['defend','wait','prepare'].includes(action.type)&&action.attack?.source==='weapon') throw new Error('Default Action requires a weapon');
-    const profile=attackProfile(action,source), key=cooldownKey(action,source), cooldownRemaining=encounter.cooldowns[key]??0;
+    const profile=attackProfile(action,source), key=cooldownKey(action,source,{perInstance}), cooldownRemaining=encounter.cooldowns[key]??0;
     const otherReason=requirementReason(compiled,run,action.conditions)
       || (profile&&!Number.isSafeInteger(profile.max+(encounter.preparationBonus??0))?'Prepared damage exceeds supported range':'')
       || (!affordCosts(run.variables,run.inventory,action.costs,compiled.variables)?resourceShortage(compiled,run,action.costs):'');
@@ -92,7 +93,20 @@ export function playerChoices(compiled, run, encounter) {
   for(const owned of run.inventory??[])if(owned.subtype==='weapon'){
     const key=sourceKey(owned);if(weapons.has(key))continue;weapons.add(key);
     const item=selectTriggerItem(run.inventory,key);if(!item||item.subtype!=='weapon')continue;
-    for(const action of item.combat?.actions??[])add(action,item);
+    for(const action of item.combat?.actions??[]){
+      let selected=item;
+      if(perInstance&&(action.cooldown??0)>0){
+        const candidates=(run.inventory??[]).filter(candidate=>candidate.subtype==='weapon'&&sourceKey(candidate)===key
+          &&selectTriggerItem([candidate],key)&&candidate.combat?.actions?.some(other=>(other.definitionId??other.id)===(action.definitionId??action.id)));
+        selected=candidates.reduce((best,candidate)=>{
+          if(!best)return candidate;
+          const cooldown=entry=>Math.max(0,encounter.cooldowns[cooldownKey(action,entry,{perInstance:true})]??0);
+          return cooldown(candidate)<cooldown(best)||cooldown(candidate)===cooldown(best)&&itemTriggersRemaining(candidate)<itemTriggersRemaining(best)?candidate:best;
+        },null)??item;
+      }
+      const selectedAction=selected.combat.actions.find(other=>(other.definitionId??other.id)===(action.definitionId??action.id));
+      add(selectedAction,selected);
+    }
   }
   return result;
 }
@@ -180,11 +194,11 @@ export function applyActionProtection(encounter,actor,action,{success=true}={}){
 
  return next;
 }
-export function completePlayerTurn(encounter, action, source, {success=true}={}) {
+export function completePlayerTurn(encounter, action, source, {success=true,perInstance=false}={}) {
   const next={...applyActionProtection(encounter,'player',action),cooldowns:{...encounter.cooldowns},round:encounter.round+1};
   next.preparationBonus=action.type==='prepare'&&success?action.preparationBonus:0;
   for(const key of Object.keys(next.cooldowns))next.cooldowns[key]=Math.max(0,next.cooldowns[key]-1);
-  if((action.cooldown??0)>0)next.cooldowns[cooldownKey(action,source)]=action.cooldown;
+  if((action.cooldown??0)>0)next.cooldowns[cooldownKey(action,source,{perInstance})]=action.cooldown;
   return next;
 }
 export function completeEnemyTurn(encounter,enemy) {

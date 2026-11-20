@@ -156,7 +156,7 @@ export class CombatCoordinator {
    if(actor==='enemy'&&action.type==='prepare'&&Array.isArray(action.preparedActions))resolved=Object.freeze({...resolved,enemyPreparation:this.declaration.preparation});
    if(attempt){attempt.roll=result;attempt.resolved=resolved;if(this.payment)this.payment.final=true;resolved=await this.resolveOpposedDefense(resolved,attempt);if(!this.active())return;}
    this.pending=resolved;this.resume={kind:'resolution'};if(this.payment)this.payment.final=true;
-   if(actor==='player')this.encounter=completePlayerTurn(this.encounter,action,source,{success:resolved.success});
+   if(actor==='player')this.encounter=completePlayerTurn(this.encounter,action,source,{success:resolved.success,perInstance:['multiple','disabled'].includes(this.host.compiled.ownedItemsVisibility)});
    else this.encounter=applyActionProtection(this.encounter,'enemy',action,{success:resolved.success});
    this.encounter=settleEnemyPreparation(this.encounter,resolved);
    if(this.opposed&&actor==='player'&&action.type==='defend'){

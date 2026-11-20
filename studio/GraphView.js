@@ -210,7 +210,18 @@ export class GraphView {
   const descriptor=nodeTypeDescriptor(node.type),outputs=outputsForNode(this.project,node,this.libraryIndex),used=new Set();
   const enemy=node.type==='combat'&&this.definitionsById.get(node.enemy?.definitionId);
   let html=node.type==='combat'?`<div class="node-body">${enemy?.kind==='enemy'&&enemy.visibility!=='local'?`<button type="button" class="graph-definition-link" title="Open Enemy in Library">${esc(enemy.name||'Untitled Enemy')} ↗</button>`:'None'}</div>`:'';
-  if(node.type==='randomizer'&&node.travel?.enabled===true)html+=`<div class="node-body">Travel · ${esc(node.travel.minSteps)}–${esc(node.travel.maxSteps)} steps per segment · ${esc(node.travel.eventCount)} ${node.travel.eventCount===1?'event':'events'}</div>`;
+  if(node.type==='randomizer'){
+   const chapter=this.chapter??this.project.chapters?.find(chapter=>chapter.nodes?.includes(node));
+   const rows=node.travel?.enabled===true?['Travel']:[];
+   for(const candidate of node.candidates??[]){
+    if(!candidate)continue;
+    const target=candidate.enemy?this.definitionsById.get(candidate.enemy.definitionId)
+     :candidate.beatId!==undefined?chapter?.nodes?.find(beat=>beat.id===candidate.beatId)
+     :chapter?.beatGroups?.find(group=>group.id===candidate.groupId);
+    rows.push(target?.name?.trim()||(target?.type?nodeTypeLabel(target.type):target?'Untitled event':'Missing event'));
+   }
+   if(rows.length)html+=`<div class="node-body">${rows.map(name=>`<div>${esc(name)}</div>`).join('')}</div>`;
+  }
   for(const slot of Object.keys(descriptor?.slots||{})){
    const placements=slot==='intro'?(node.intro&&node.introEnabled!==false?[node.intro]:[]):node[slot]||[];
    for(const placement of placements){

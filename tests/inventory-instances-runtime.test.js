@@ -72,7 +72,7 @@ test('settings expose Allow multiple instead of Show unavailable for owned items
  const project=createProject(),html=projectSettingsInspector(project);
  assert.match(html,/value="multiple" selected[^>]*>Allow multiple/);
  assert.doesNotMatch(html,/Show unavailable/);
- project.ownedItemsVisibility='hidden';assert.match(projectSettingsInspector(project),/value="hidden" selected[^>]*>Skip \/ hide/);
+ project.ownedItemsVisibility='hidden';assert.match(projectSettingsInspector(project),/value="hidden" selected[^>]*>Disable taking/);
  project.ownedItemsVisibility='multiple';const restored=parseProject(JSON.stringify(project));
  assert.equal(compileChapter(restored).ownedItemsVisibility,'multiple');assert.deepEqual(validateProject(restored),[]);
 });
@@ -104,4 +104,21 @@ test('canceling a paid check refunds the exact instance even when duplicate coll
  assert.deepEqual(controller.inventory.map(item=>item.instanceId).sort(),['a','b']);
  assert.equal(controller.inventory.find(item=>item.instanceId==='a').remainingTriggers,1);
  assert.equal(controller.variables.energy,2);controller.destroy();
+});
+
+for(const type of ['container','linear'])for(const directCardPreview of [false,true])test(`Disable taking preserves an owned weapon beat and blocks collection: ${type}, card preview=${directCardPreview}`,()=>{
+ const original=fixture('hidden'),compiled=original.controller.compiled;original.controller.destroy();
+ const node=compiled.nodes[0];node.type=type;
+ const weapon={...node.items[0],subtype:'weapon'};
+ if(type==='linear'){node.cards=[weapon];delete node.items;}else node.items=[weapon];
+ const owned={...weapon,id:'source',definitionId:'source',instanceId:'already-held',remainingTriggers:2};
+ const deck=new Deck(),errors=[],controller=new ProjectController(deck,compiled,{initialState:{inventory:[owned]},onError:error=>errors.push(error),...(directCardPreview?{startPlacementId:'first'}:{})});
+ assert.equal(controller.state.activeNodeId,'find');assert.equal(controller.state.completed,false);
+ assert.equal(deck.content.actions[0].id,'first');assert.equal(deck.content.actions[0].alreadyOwned,true);
+ assert.equal(deck.content.actions[0].collectDisabled,true);assert.equal(deck.content.actions[0].discardDisabled,false);
+ assert.deepEqual(errors,[]);
+ assert.equal(controller.authorizeCollection(deck.content.actions[0],{}),false);
+ assert.equal(errors.length,1);assert.match(errors[0].message,/already owned/i);errors.length=0;
+ assert.deepEqual(controller.inventory.map(item=>[item.instanceId,item.remainingTriggers]),[['already-held',2]]);
+ controller.restart();assert.equal(controller.state.activeNodeId,'find');assert.deepEqual(errors,[]);controller.destroy();
 });

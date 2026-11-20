@@ -620,3 +620,20 @@ test('a finite weapon paid as an inventory cost does not consume a second source
  await swipe(h);assert.deepEqual(h.host.inventory.map(item=>item.instanceId),['finite-pistol-2']);
  assert.equal(h.c.encounter.enemyHp,3);assert.deepEqual(h.errors,[]);h.c.dispose();
 });
+
+test('Combat automatically switches to a ready duplicate while preserving the first cooldown and uses',async()=>{
+ const h=harness(),shoot=finitePistols(h,{uses:3,copies:2});shoot.cooldown=2;
+ h.host.inventory[0].remainingTriggers=2;await reachPlayer(h);h.c.encounter.enemyHp=100;
+ const first=h.c.choices().find(choice=>choice.action.name==='Shoot');
+ assert.equal(first.source.instanceId,'finite-pistol-1');
+ await select(h);assert.equal(h.c.encounter.cooldowns[first.id],2);
+ await swipe(h); // Player damage commits, then the enemy response is shown.
+ if(h.c.phase==='effects')await swipe(h);
+ assert.equal(h.c.phase,'choice');
+ const next=h.c.choices().find(choice=>choice.action.name==='Shoot');
+ assert.equal(next.source.instanceId,'finite-pistol-2');assert.equal(next.disabled,false);
+ assert.deepEqual(h.host.inventory.map(item=>item.remainingTriggers),[1,3]);
+ assert.equal(h.deck.content.actions.filter(action=>action.label==='Shoot').length,1);
+ assert.equal(h.c.encounter.cooldowns[first.id],2);
+ assert.deepEqual(h.errors,[]);h.c.dispose();
+});

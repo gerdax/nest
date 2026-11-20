@@ -116,10 +116,6 @@ export class ProjectController {
   allowMultipleItems() {return ['multiple','disabled'].includes(this.compiled.ownedItemsVisibility);}
   addInventory(inventory,item) {return addInventory(inventory,item,inventoryOptions(this.compiled));}
   inventoryIdentity(item) {return item.instanceId??item.definitionId??item.id;}
-  hidesOwnedItem(item, inventory=this.inventory, location=null) {
-    return this.compiled.ownedItemsVisibility === 'hidden' && this.ownsItem(item, inventory)
-      && (this.type(location)!=='container' || this.ownsItem(item,location.ownedItemsAtEntry ?? inventory));
-  }
   runtimeItem(card, location=this.location) {
     const item=this.itemReplacements.get(this.key(location))?.get(card?.id) ?? card;
     if(item?.kind!=='item'||!this.allowMultipleItems()||item.instanceId)return item;
@@ -168,7 +164,7 @@ export class ProjectController {
   items(location=this.location, values=this.variables, inventory=this.inventory, excluded=null) {
     if(excluded?.all&&excluded.key===this.key(location))return [];
     const raw=this.remaining.get(this.key(location)) ?? location.sequence?.items ?? location.node.items ?? [];
-    return raw.map(i=>this.runtimeItem(i,location)).filter(i=>!this.itemExcluded(i.id,location,excluded) && !this.cardAvailability(i,values,inventory,location).hidden && !this.hidesOwnedItem(i,inventory,location));
+    return raw.map(i=>this.runtimeItem(i,location)).filter(i=>!this.itemExcluded(i.id,location,excluded) && !this.cardAvailability(i,values,inventory,location).hidden);
   }
   weighted(routes) {
     if(!routes.length)return null;
@@ -397,26 +393,20 @@ export class ProjectController {
     if(availability.hidden||intro&&!conditionsMet(card.conditions,values,inventory)) {
       throw unavailable(availability.disabledReason||'The entry state does not meet the card’s requirements.');
     }
-    if(card.kind==='item'&&this.hidesOwnedItem(card,inventory,location))throw unavailable('This item is already owned and hidden.');
     if(type==='linear')location.index=intro?0:index;
     else if(!intro)location.introRevealed=true;
-    if(type==='container')location.ownedItemsAtEntry=[...inventory];
     return location;
   }
   seekStep(location,values,inventory,excluded) {
     const type=this.type(location);
     if(isUnassignedCombat(location.node))return this.nextStep(location,'victory');
     if(location.emptyFork&&location.node.introOnce===true&&(this.introShown(location)||excluded?.introKey===this.key(location)))return this.nextStep(location);
-    // Ownership acquired during this carousel visit only disables collection.
-    // Apply hiding against a fresh inventory snapshot on each container entry.
-    if(type==='container'&&!location.ownedItemsAtEntry)location={...location,ownedItemsAtEntry:[...inventory]};
     if(type==='linear') {
       const cards=location.sequence?.cards ?? location.node.cards ?? [];
       while(location.index<cards.length) {
         const card=this.runtimeItem(cards[location.index],location);
         const hidden=this.cardAvailability(card,values,inventory,location).hidden;
-        const hiddenItem=card.kind==='item'&&this.hidesOwnedItem(card,inventory);
-        if(this.linearItemRemaining(card,location,excluded)&&!hidden&&!hiddenItem)break;
+        if(this.linearItemRemaining(card,location,excluded)&&!hidden)break;
         location={...location,index:location.index+1};
       }
       if(location.index>=cards.length)return this.nextStep(location);
@@ -434,7 +424,7 @@ export class ProjectController {
     if(location.node.type==='death')return {halted:true,terminalReason:'death',run};
     if(location.queue?.length) {
       const queue=[...location.queue],id=queue.shift();
-      return {location:{...location,sequence:location.node.sequences.find(s=>s.id===id),queue,index:0,ownedItemsAtEntry:undefined},run};
+      return {location:{...location,sequence:location.node.sequences.find(s=>s.id===id),queue,index:0},run};
     }
     const key=location.node.type==='legacyPool'?'next':output;
     return this.routeStep(location.node,key,location.node.connections?.[key],run);

@@ -570,13 +570,16 @@ for(const type of ['container','linear'])for(const alias of [false,true])test(`v
  key(deck,'ArrowUp');assert.equal(controller.location.node.id,'after');dispose(deck,controller);
 });
 
-for(const type of ['container','linear'])test(`project hidden owned items skip fully owned nodes: ${type}`,()=>{
+for(const type of ['container','linear'])test(`Disable taking keeps fully owned beats visible and permits discarding: ${type}`,()=>{
  const source=item('placement',{definitionId:'owned'});
  const nodes=[{id:'items',type,introEnabled:false,...(type==='container'?{items:[source]}:{cards:[source]}),connections:{next:'after'}},
   {id:'after',type:'linear',cards:[narrative('after')],connections:{next:null}}];
  const {deck,controller}=real(nodes,{ownedItemsVisibility:'hidden'});
  controller.inventory=[item('owned')];controller.adopt(controller.locate('items'),false);controller.show({restore:true});settle();
- assert.equal(controller.location.node.id,'after');assert.equal(controller.remaining.has('items:'),false,'visibility does not consume the source placement');
+ assert.equal(controller.location.node.id,'items');assert.equal(deck.content.actions[0].id,'placement');
+ assert.equal(deck.content.actions[0].alreadyOwned,true);assert.equal(deck.content.actions[0].collectDisabled,true);
+ key(deck,'ArrowDown');assert.equal(controller.location.node.id,'items');assert.equal(controller.inventory.length,1);
+ key(deck,'ArrowUp');assert.equal(controller.location.node.id,'after','discarding the visible duplicate advances');
  controller.inventory=[];controller.adopt(controller.locate('items'),false);controller.show({restore:true});settle();
  assert.equal(controller.location.node.id,'items');assert.equal(deck.content.actions[0].collectDisabled,false);
  dispose(deck,controller);
@@ -585,7 +588,9 @@ for(const type of ['container','linear'])test(`project hidden owned items skip f
 for(const visibility of ['disabled','hidden'])test(`external ownership removal refreshes sibling collection availability, visibility=${visibility}`,()=>{
  const nodes=[{id:'items',type:'container',introEnabled:false,items:[item('duplicate',{definitionId:'owned'}),item('new')],connections:{next:null}}];
  const {deck,controller}=real(nodes,{ownedItemsVisibility:visibility},{initialState:{inventory:[item('owned')]}});
- assert.deepEqual(deck.content.actions.map(a=>a.id),visibility==='hidden'?['new']:['duplicate','new']);
+ assert.deepEqual(deck.content.actions.map(a=>a.id),['duplicate','new']);
+ assert.equal(deck.content.actions[0].alreadyOwned,visibility==='hidden');
+ assert.equal(deck.content.actions[0].collectDisabled,visibility==='hidden');
  controller.inventory=[];controller.show({restore:true});settle();
  assert.deepEqual(deck.content.actions.map(a=>a.id),['duplicate','new']);assert.equal(deck.content.actions[0].collectDisabled,false);
  key(deck,'ArrowDown');assert.equal(controller.inventory[0].definitionId,'owned');dispose(deck,controller);
@@ -616,7 +621,7 @@ for(const visibility of ['disabled','multiple','hidden'])test(`collecting duplic
  dispose(deck,controller);
 });
 
-for(const alias of [false,true])test(`container ownership hiding applies on next entry and revisit, alias=${alias}`,()=>{
+for(const alias of [false,true])test(`Disable taking keeps duplicate container items on next entry and revisit, alias=${alias}`,()=>{
  const duplicate=item('two',{definitionId:alias?'alternate':'owned',...(alias?{inventoryKey:'shared'}:{})});
  const nodes=[
   {id:'box',type:'container',introEnabled:false,items:[item('one',{definitionId:'owned',inventoryKey:'shared'}),duplicate],connections:{next:'next-box'}},
@@ -628,16 +633,22 @@ for(const alias of [false,true])test(`container ownership hiding applies on next
  assert.equal(controller.location.node.id,'box');assert.equal(deck.content.actions[0].id,'two');
  assert.equal(deck.content.actions[0].collectDisabled,true);assert.equal(deck.content.actions[0].discardDisabled,false);
  key(deck,'ArrowUp');
- assert.equal(controller.location.node.id,'next-box');assert.deepEqual(deck.content.actions.map(a=>a.id),['fresh']);
+ assert.equal(controller.location.node.id,'next-box');assert.deepEqual(deck.content.actions.map(a=>a.id),['next-duplicate','fresh']);
+ assert.equal(deck.content.actions[0].alreadyOwned,true);assert.equal(deck.content.actions[0].collectDisabled,true);
+ assert.equal(deck.content.actions[1].collectDisabled,false);
  key(deck,'ArrowUp');assert.equal(controller.location.node.id,'hub');
  key(deck,'ArrowUp');
- assert.equal(controller.location.node.id,'next-box','revisiting box skips its now-owned duplicate');
- assert.deepEqual(deck.content.actions.map(a=>a.id),['fresh']);
- assert.deepEqual(controller.remaining.get('box:').map(i=>i.id),['two'],'hiding never consumes the duplicate');
+ assert.equal(controller.location.node.id,'box','revisiting the beat displays its duplicate');
+ assert.deepEqual(deck.content.actions.map(a=>a.id),['two']);
+ assert.equal(deck.content.actions[0].alreadyOwned,true);assert.equal(deck.content.actions[0].collectDisabled,true);
+ key(deck,'ArrowDown');assert.equal(controller.inventory.length,1);assert.equal(controller.location.node.id,'box');
+ key(deck,'ArrowUp');assert.equal(controller.location.node.id,'next-box');
+ assert.deepEqual(deck.content.actions.map(a=>a.id),['next-duplicate','fresh']);
+ assert.deepEqual(controller.remaining.get('box:').map(i=>i.id),['two'],'discarding never consumes the duplicate');
  dispose(deck,controller);
 });
 
-test('legacy pool container entries get independent ownership visibility snapshots',()=>{
+test('legacy pool container entries display owned duplicates with taking disabled',()=>{
  const sequences=[
   {id:'first',type:'container',cards:[narrative('intro-one')],items:[item('one',{definitionId:'owned'}),item('two',{definitionId:'owned'})]},
   {id:'second',type:'container',cards:[narrative('intro-two')],items:[item('three',{definitionId:'owned'}),item('fresh')]}
@@ -647,7 +658,9 @@ test('legacy pool container entries get independent ownership visibility snapsho
  assert.equal(controller.location.sequence.id,'first');assert.equal(deck.content.actions[0].id,'two');
  assert.equal(deck.content.actions[0].collectDisabled,true);
  key(deck,'ArrowUp');assert.equal(controller.location.sequence.id,'second');
- assert.deepEqual(deck.content.actions.map(a=>a.id),['fresh']);
+ assert.deepEqual(deck.content.actions.map(a=>a.id),['three','fresh']);
+ assert.equal(deck.content.actions[0].alreadyOwned,true);assert.equal(deck.content.actions[0].collectDisabled,true);
+ assert.equal(deck.content.actions[1].collectDisabled,false);
  dispose(deck,controller);
 });
 
@@ -661,12 +674,15 @@ test('ownership granted by a container introduction leaves its carousel item una
  dispose(deck,controller);
 });
 
-for(const alias of [false,true])test(`Linear skips its next duplicate immediately after collection with hidden ownership, alias=${alias}`,()=>{
+for(const alias of [false,true])test(`Linear displays its next duplicate with taking disabled after collection, alias=${alias}`,()=>{
  const duplicate=item('two',{definitionId:alias?'alternate':'owned',...(alias?{inventoryKey:'shared'}:{})});
  const {deck,controller}=real(linear([item('one',{definitionId:'owned',inventoryKey:'shared'}),duplicate,narrative('after')]),{ownedItemsVisibility:'hidden'});
  key(deck,'ArrowDown');
- assert.equal(controller.inventory.length,1);assert.equal(controller.card().id,'after');
- assert.equal(controller.remaining.get('linear:').some(i=>i.id==='two'),true,'skipping does not consume the duplicate');
+ assert.equal(controller.inventory.length,1);assert.equal(controller.card().id,'two');
+ assert.equal(deck.content.actions[0].alreadyOwned,true);assert.equal(deck.content.actions[0].collectDisabled,true);
+ key(deck,'ArrowDown');assert.equal(controller.card().id,'two');assert.equal(controller.inventory.length,1);
+ key(deck,'ArrowUp');assert.equal(controller.card().id,'after');
+ assert.equal(controller.remaining.get('linear:').some(i=>i.id==='two'),true,'discarding does not consume the duplicate');
  dispose(deck,controller);
 });
 
@@ -686,7 +702,7 @@ for(const type of ['linear','fork'])for(const projectVisibility of ['disabled','
 });
 
 
-test('hidden owned container items can be made available by their introduction',()=>{
+test('taking an owned container item can be enabled by its introduction',()=>{
  const node={id:'items',type:'container',intro:{...narrative('intro'),effects:[{op:'removeItem',key:'owned'}]},items:[item('placement',{definitionId:'owned'})],connections:{next:null}};
  const {deck,controller}=real([node],{ownedItemsVisibility:'hidden'});
  controller.inventory=[item('owned')];controller.adopt(controller.locate('items'),false);controller.show({restore:true});settle();
@@ -695,11 +711,15 @@ test('hidden owned container items can be made available by their introduction',
  assert.equal(deck.content.actions[0].collectDisabled,false);dispose(deck,controller);
 });
 
-test('owned-item hiding detects an automatic cycle without consuming sources or inventory',()=>{
+test('Disable taking keeps a self-loop interactive without automatic routing or consumption',()=>{
  const node={id:'items',type:'container',introEnabled:false,items:[item('placement',{definitionId:'owned'})],connections:{next:'items'}};
  const {deck,controller}=real([node],{ownedItemsVisibility:'hidden'});controller.inventory=[item('owned')];
- assert.throws(()=>controller.locate('items'),/Automatic routing cycle/);
- assert.equal(controller.inventory.length,1);assert.equal(controller.remaining.size,0);dispose(deck,controller);
+ assert.doesNotThrow(()=>controller.adopt(controller.locate('items'),false));controller.show({restore:true});settle();
+ assert.equal(controller.location.node.id,'items');assert.equal(deck.content.actions[0].alreadyOwned,true);
+ assert.equal(deck.content.actions[0].collectDisabled,true);key(deck,'ArrowDown');assert.equal(controller.inventory.length,1);
+ key(deck,'ArrowUp');assert.equal(controller.location.node.id,'items','discarding revisits the interactive beat');
+ assert.equal(deck.content.actions[0].id,'placement');assert.equal(deck.content.actions[0].collectDisabled,true);
+ assert.equal(controller.inventory.length,1);dispose(deck,controller);
 });
 
 

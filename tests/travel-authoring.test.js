@@ -169,7 +169,25 @@ test('graph Auto summary marks enabled Travel without exposing dormant configura
  const graph={project,definitionsById:new Map(project.library.map(d=>[d.id,d])),port:()=>'<button>Next</button>'};
  assert.doesNotMatch(GraphView.prototype.cardRows.call(graph,node),/Travel/);
  enable(true);
- assert.match(GraphView.prototype.cardRows.call(graph,node),/Travel · 2–4 steps per segment · 2 events/);
+ assert.match(GraphView.prototype.cardRows.call(graph,node),/<div class="node-body"><div>Travel<\/div><\/div>/);
+ assert.doesNotMatch(GraphView.prototype.cardRows.call(graph,node),/steps per segment|2 events/);
  enable(false);
  assert.doesNotMatch(GraphView.prototype.cardRows.call(graph,node),/Travel/);
+});
+
+test('graph Auto lists event names on separate small-font rows below the optional Travel label',()=>{
+ const {project,chapter,node,enable}=fixture();
+ const beat=chapter.nodes.find(other=>other.type==='linear');beat.name='Door <opened>';
+ chapter.beatGroups=[{id:'scene',name:'Service corridor',memberIds:[]}];
+ project.library.push({id:'rat',kind:'enemy',name:'Rat & shadow'});
+ node.candidates=[{beatId:beat.id,weight:1},{groupId:'scene',weight:1},{enemy:{definitionId:'rat'},weight:1},{beatId:'missing',weight:1}];
+ const graph={project,chapter,definitionsById:new Map(project.library.map(d=>[d.id,d])),port:()=>'<button>Next</button>'};
+ for(const travel of [false,true]){
+  enable(travel);
+  const html=GraphView.prototype.cardRows.call(graph,node);
+  assert.match(html,/<div>Door &lt;opened&gt;<\/div><div>Service corridor<\/div><div>Rat &amp; shadow<\/div><div>Missing event<\/div>/);
+  assert.equal(html.includes('<div>Travel</div>'),travel);
+  assert.doesNotMatch(html,/steps per segment|[0-9] events/);
+  if(travel)assert(html.indexOf('<div>Travel</div>')<html.indexOf('<div>Door'));
+ }
 });
