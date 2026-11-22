@@ -3,7 +3,7 @@ import { createError } from '../errors.js';
 import {restoreSnapshotTags} from './tag-snapshots.js';
 import {createDefinition} from '../project/cards.js';
 import {definitionGraph,unusedLocalDefinitions} from '../project/dependencies.js';
-import {replaceCard,setCardSource,remapInventory} from './commands.js';
+import {containerLockActionDefaults,replaceCard,setCardSource,remapInventory} from './commands.js';
 
 const commonKeys=['name','headline','description','image','flipImage','imageScale','imageOffsetX','imageOffsetY'];
 const placementKeys=['conditions','effects','unavailable','contextItemId','contextOverrideImage'];
@@ -143,16 +143,17 @@ export class LocalCardDrafts {
   this.drafts.delete(p.id);this.capture(project,p);
   this.prune(project,old);
  }
- clear(project,p){
+ clear(project,p,lockMethod){
   const source=sourceOf(project,p);
   if(source?.visibility!=='local')throw createError('STUDIO_CLEAR_IS_AVAILABLE_FOR_LOCAL_CARDS_ONLY');
   const defaults=createDefinition(source.kind,source.id);
+  if(lockMethod)Object.assign(defaults,containerLockActionDefaults(project,lockMethod,source.chapterId));
   // Inventory aliases are identity, rather than an editable field.
   if(source.inventoryKey!==undefined)defaults.inventoryKey=source.inventoryKey;
   if(source.chapterId!==undefined)defaults.chapterId=source.chapterId;
   for(const key of Object.keys(source))delete source[key];
   Object.assign(source,defaults,{visibility:'local'});
-  for(const key of Object.keys(p))if(!['id','definitionId'].includes(key))delete p[key];
+  for(const key of Object.keys(p))if(!['id','definitionId','lockMethod'].includes(key))delete p[key];
   this.refreshDefinition(project,source);
   this.drafts.delete(p.id);
   this.prune(project,source.id);

@@ -22,12 +22,13 @@ const equivalentItems = (left, right) => (left.definitionId ?? left.id) === (rig
 const sameInstance = (left, right) => left.instanceId != null || right.instanceId != null
   ? left.instanceId != null && left.instanceId === right.instanceId
   : equivalentItems(left,right);
-const matchingItems = (inventory, key) => {
+export const matchingItems = (inventory, key) => {
   const exact = inventory.filter(item => item.instanceId != null && item.instanceId === key);
   if (exact.length) return exact;
   const concrete = inventory.filter(item => concreteMatch(item,key));
   return concrete.length ? concrete : isTagKey(key) ? inventory.filter(item => item.tagId === tagIdFromKey(key)) : [];
 };
+export const ownedItemInstance = (inventory = [], reference) => reference && inventory.find(item => sameInstance(item, reference));
 export function itemTriggersRemaining(item) {
   return (item.permability ?? 0) === 0 ? Infinity : (item.remainingTriggers ?? item.permability);
 }
@@ -128,11 +129,13 @@ export function addInventory(inventory, definition, {allowMultiple = false} = {}
   if (allowMultiple && entry.instanceId == null) entry.instanceId = nextInstanceId(items,id);
   return ownedInventory([...items,entry]);
 }
-export function transact(values, inventory = [], { costs = [], effects = [], triggerItem } = {}, definitions = [], library = [], {allowMultiple = false} = {}) {
+export function transact(values, inventory = [], { costs = [], effects = [], triggerItem, triggerInstance, breakTriggerItem = false } = {}, definitions = [], library = [], {allowMultiple = false} = {}) {
   const variables = {...values};
   let items = ownedInventory(inventory);
-  const triggeringItem = selectTriggerItem(items,triggerItem);
-  if (triggerItem && !triggeringItem) throw createError('STATE_UNAVAILABLE_INVENTORY_TRIGGER', { triggerItem });
+  const triggeringItem = triggerInstance ? ownedItemInstance(items,triggerInstance) : selectTriggerItem(items,triggerItem);
+  if ((triggerInstance || triggerItem) && !(triggeringItem && itemTriggersRemaining(triggeringItem)>0)) {
+    throw createError('STATE_UNAVAILABLE_INVENTORY_TRIGGER', {triggerItem:triggerItem??triggerInstance.name});
+  }
   items = spend(variables,items,costs,definitions);
   let originalTriggerOwned = triggeringItem && items.some(item => sameInstance(item,triggeringItem));
   const defs = new Map(definitions.map(d=>[d.id,d]));
@@ -157,7 +160,9 @@ export function transact(values, inventory = [], { costs = [], effects = [], tri
     variables[effect.key] = clamp(value,def);
   }
   // Explicit removal already spends ownership. A later grant is a fresh item.
-  if (originalTriggerOwned) items = trigger(items,triggeringItem);
+  if (originalTriggerOwned) items = breakTriggerItem
+    ? items.filter(item => !sameInstance(item,triggeringItem))
+    : trigger(items,triggeringItem);
   for (const [key,value] of Object.entries(variables)) variables[key] = clamp(value,defs.get(key));
   return {variables,inventory:items};
 }

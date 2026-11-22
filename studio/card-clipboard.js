@@ -3,7 +3,7 @@ import { canonicalCardKind, allowedCardKinds } from '../project/cards.js';
 import { definitionGraph } from '../project/dependencies.js';
 import { placements } from '../project/model-data.js';
 import { captureClipboardVariables, pasteNodeClipboard } from './node-clipboard.js';
-import { supportsInventoryTrigger } from '../project/nodeTypes.js';
+import { containerLockMethod, supportsInventoryTrigger } from '../project/nodeTypes.js';
 
 function targetSlot(node, placement) {
  if(node?.intro===placement)return 'intro';
@@ -33,15 +33,28 @@ export function canPasteCard(project,node,placement,payload) {
 /** Replace a slot, retaining its identity and the destination beat's wiring. */
 export function pasteCardClipboard(project,chapter,node,placement,payload) {
  if(!project.chapters.includes(chapter)||!chapter.nodes.includes(node)||!canPasteCard(project,node,placement,payload))throw createError('STUDIO_COPY_A_COMPATIBLE_CARD_FROM_THIS_PROJECT_FIRST');
+ const lockMethod=containerLockMethod(node,placement);
+ let sourcePlacement=payload.placement, definitions=payload.definitions, variables=payload.variables||[];
+ // Other placements do not carry a Force open tool or its dependencies.
+ if(lockMethod!=='force'&&Object.hasOwn(sourcePlacement,'assistTool')){
+  sourcePlacement={...sourcePlacement};
+  delete sourcePlacement.assistTool;
+  const dependencies=definitionGraph({library:definitions}).reachableFrom(sourcePlacement);
+  definitions=definitions.filter(definition=>dependencies.has(definition.id));
+  variables=captureClipboardVariables({variables},sourcePlacement,definitions);
+ }
  const temporaryChapter={id:chapter.id,variables:[...(chapter.variables||[])],nodes:[],startNode:''};
  const temporaryProject={...project,library:[...project.library],itemTags:structuredClone(project.itemTags||[]),chapters:[temporaryChapter]};
  const copied=pasteNodeClipboard(temporaryProject,temporaryChapter,{
   kind:'nest-node-clipboard',projectId:project.id,chapterId:payload.chapterId,cut:false,
-  node:{id:'card-clipboard',type:'linear',cards:[payload.placement],connections:{next:false}},
-  definitions:payload.definitions,itemTags:payload.itemTags||[],variables:payload.variables||[],
+  node:{id:'card-clipboard',type:'linear',cards:[sourcePlacement],connections:{next:false}},
+  definitions,itemTags:payload.itemTags||[],variables,
  }).cards[0];
  const slot=targetSlot(node,placement),kind=canonicalCardKind(sourceDefinition(project,payload).kind);
- if(!supportsInventoryTrigger(node.type,slot)||kind!=='action'){delete copied.contextItemId;delete copied.contextOverrideImage;}
+ if(!supportsInventoryTrigger(node.type,slot,placement)||kind!=='action'){delete copied.contextItemId;delete copied.contextOverrideImage;}
+ if(lockMethod!=='force')delete copied.allowBareHanded;
+ if(lockMethod)copied.lockMethod=lockMethod;
+ else delete copied.lockMethod;
  if(node.type!=='fork'||slot!=='choices')delete copied.hideAfterUse;
  const placementId=placement.id;
  project.library.push(...temporaryProject.library.slice(project.library.length));

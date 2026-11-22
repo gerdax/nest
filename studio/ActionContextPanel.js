@@ -43,7 +43,7 @@ export class ActionContextPanel {
     this.clear();
   }
 
-  update({ info = null, item = null, result = null, disabledReason = null, disabledReasonParts = null, busy = false, selectionKey = null } = {}) {
+  update({ info = null, item = null, result = null, disabledReason = null, disabledReasonParts = null, itemUsageLabel, assist = false, busy = false, selectionKey = null } = {}) {
     if (result?.total == null) result = null;
     disabledReason = typeof disabledReason === 'string' ? disabledReason.trim() : '';
     if (result) { info = null; item = null; disabledReason = ''; }
@@ -60,10 +60,10 @@ export class ActionContextPanel {
     }
     const mode = result ? 'result' : disabledReason ? 'reason' : info && item ? 'check-item' : info ? 'check' : 'item';
     const remaining = item ? itemTriggersRemaining(item) : null;
-    const itemCaption = Number.isFinite(remaining) ? `USES: ${remaining}` : 'USING';
+    const itemCaption = itemUsageLabel ?? (Number.isFinite(remaining) ? `USES: ${remaining}` : 'USING');
     const key = JSON.stringify([selectionKey,mode,result,disabledReason,disabledReasonParts,
       info ? [info.stat,info.chance,info.label,info.formula,info.rules] : null,
-      item ? [item.instanceId ?? item.definitionId ?? item.id,remaining,itemCaption] : null]);
+      item ? [item.instanceId ?? item.definitionId ?? item.id,remaining,itemCaption,assist] : null]);
     const outgoing = this.visible && key !== this.presentationKey ? this.snapshot() : null;
     this.presentationKey = key;
     this.view.setAttribute('data-mode', mode);
@@ -87,7 +87,7 @@ export class ActionContextPanel {
     this.itemColumn.hidden = !item;
     this.itemCaption.textContent = itemCaption;
     this.itemCaption.hidden = !info || !item;
-    this.mini.update(item, { busy });
+    this.mini.update(item, { busy, assist });
     // An unchanged item can reappear after an interrupted exit.
     if (this.mini.button) this.mini.button.disabled = busy;
     this.root.setAttribute('data-mode', mode);

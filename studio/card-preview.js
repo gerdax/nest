@@ -33,6 +33,7 @@ export function renderCardPreviews(root,project,node,chapterId) {
   let card;
   try { card=placement?resolvePlacement(project,placement):project.library.find(d=>d.id===mount.dataset.previewDefinition); }
   catch { mount.replaceChildren(); continue; } // Incomplete drafts can reference missing definitions.
+  if(placement?.lockMethod==='leave')card={...card,resolution:'direct',check:undefined,conditions:[],explicitConditions:[],costs:[],effects:[],onCollect:[],successEffects:[],failureEffects:[]};
   const owner=card;
   const enemyAction=card?.kind==='enemy'&&/^(?:actions|preparedActions)\.\d+$/.test(mount.dataset.previewPath??'');
   if(mount.dataset.previewPath)card=mount.dataset.previewPath.split('.').reduce((value,key)=>value?.[key],card);

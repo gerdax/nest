@@ -35,9 +35,10 @@ export function cardFace(card, variables=[], library=[], values,descriptionConte
 /** Action fronts keep stat-check rules in the surrounding check panel. */
 export function actionCardFace(card, variables=[], library=[], values={},descriptionContext={}) {
  const face=cardFace(card,variables,library,values,descriptionContext);
- const checkInfo=card.resolution==='check'?playerCheckPresentation(card.check,values,variables):null;
+ const resolved=card.resolution==='check'?resolveCheck(card.check,values,descriptionContext.checkBonus):null;
+ const checkInfo=resolved?playerCheckPresentation(card.check,values,variables,{resolved,showCustom:card.lockMethod==='force'}):null;
  const triggerSummary=card.contextItemId?cardSummary({kind:'action',contextItemId:card.contextItemId,itemTags:card.itemTags},variables,library):'';
  return {...face,
-  ...(card.resolution==='check'?{checkTarget:diceCheckTarget(resolveCheck(card.check,values))}:{}),
+  ...(resolved?{checkTarget:diceCheckTarget(resolved)}:{}),
   ...(checkInfo?{checkInfo:{...checkInfo,rules:face.summary},summary:triggerSummary}:{})};
 }

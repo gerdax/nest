@@ -2,7 +2,7 @@ import { createError } from '../errors.js';
 import { eligibleInventoryItems } from './item-options.js';
 import { createDefinition, resolvePlacement, isStoryKind, isConsumableKind, placementOverrideKeys } from '../project/cards.js';
 import { chapterVariables,outputsForNode,connectionForOutput } from '../project/model.js';
-import { createNodeDefaults, isRouteBeat, nodeTypeLabel } from '../project/nodeTypes.js';
+import { containerLockMethodLabels, createNodeDefaults, isContainerLockSlot, isRouteBeat, nodeTypeLabel } from '../project/nodeTypes.js';
 import { definitionGraph } from '../project/dependencies.js';
 export const uid = prefix => `${prefix}-${crypto.randomUUID()}`;
 export function addHealthVariable(project) {
@@ -22,6 +22,22 @@ function owningChapterId(project,value,chapterId) {
 export function makePlacement(project,kind,name,chapterId) {
  const definition=makeDefinition(project,kind,name??'');definition.visibility='local';definition.chapterId=owningChapterId(project,null,chapterId);
  return {id:uid('placement'),definitionId:definition.id};
+}
+export function containerLockActionDefaults(project,method,chapterId) {
+ const copy = {name:'', headline:containerLockMethodLabels[method]};
+ if(method==='lockpick')return {...copy,resolution:'check',check:{mode:'stat',modifierVariable:'composure',difficulty:1}};
+ if(method==='force'){
+  const chapter=project.chapters?.find(chapter=>chapter.id===chapterId);
+  const hasEnergy=chapterVariables(project,chapter).some(variable=>variable.id==='energy'&&variable.type==='number');
+  return {...copy,resolution:'check',check:{mode:'stat',modifierVariable:'agility',difficulty:4},
+   costs:hasEnergy?[{source:'variable',key:'energy',amount:2}]:[]};
+ }
+ return copy;
+}
+export function makeContainerLockPlacement(project,method,chapterId) {
+ const placement=makePlacement(project,'action',undefined,chapterId);
+ Object.assign(project.library.at(-1),containerLockActionDefaults(project,method,chapterId));
+ return {...placement,lockMethod:method};
 }
 export function remapInventory(value,ids) {
  if(Array.isArray(value))value.forEach(v=>remapInventory(v,ids));
@@ -112,7 +128,7 @@ export function promoteCard(project,placement) {
 }
 export function duplicatePlacement(project,node,placement) {
  const slot=['cards','choices','items','travel.steps'].find(key=>placementList(node,key)?.includes(placement));
- if(!slot)throw createError('STUDIO_THIS_CARD_SLOT_CANNOT_BE_DUPLICATED');
+ if(!slot||isContainerLockSlot(node.type,slot))throw createError('STUDIO_THIS_CARD_SLOT_CANNOT_BE_DUPLICATED');
  const copy={...structuredClone(placement),id:uid('placement')};
  const copies=cloneLocalDefinitions(project,copy,owningChapterId(project,node));
  const definition=copies.get(placement.definitionId);if(definition)definition.name+=' copy';

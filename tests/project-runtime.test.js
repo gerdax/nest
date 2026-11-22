@@ -124,6 +124,32 @@ test('Container introduction has its own label while its revealed item keeps ITE
  assert.equal(deck.content.actions[0].kind,'item');
  dispose(deck,controller);
 });
+for(const reduced of [false,true])test(`actual deck retries a locked Container then reveals its Item stack, reduced=${reduced}`,async()=>{
+ const force=action('force',{lockMethod:'force',resolution:'check',check:{pool:[{sides:6,count:1}],target:4},
+  costs:[{source:'variable',key:'energy',amount:2}]});
+ const crate={id:'crate',type:'container',locked:true,allowForcing:true,intro:narrative('Locked crate'),introEnabled:true,
+  choices:[force,action('leave',{lockMethod:'leave'})],items:[{id:'contents',kind:'item',definitionId:'contents',name:'Contents'}],connections:{next:null}};
+ const rolls=[[1],[6]],errors=[];
+ const {deck,controller}=real([crate],{variables:[{id:'energy',type:'number',initial:4}]},{rollCheck:async()=>rolls.shift(),onError:error=>errors.push(error)});
+ deck.reduced=reduced;
+ assert.equal(deck.phase,'closed');
+ key(deck,'ArrowUp');
+ assert.equal(deck.phase,'choices');
+ assert.equal(deck.content.interaction,'choice');
+ for(const [energy,interaction] of [[2,'choice'],[0,'container']]){
+  assert.equal(deck.content.actions[deck.index].id,'force');
+  deck.commit();settle();await flush();settle();
+  assert.equal(controller.state.variables.energy,energy);
+  assert.equal(deck.phase,'choices');
+  assert.equal(deck.content.interaction,interaction);
+ }
+ assert.deepEqual(deck.content.actions.map(card=>card.id),['contents']);
+ key(deck,'ArrowDown');
+ assert.equal(controller.state.completed,true);
+ assert.deepEqual(controller.state.collectedItems.map(item=>item.definitionId),['contents']);
+ assert.deepEqual(errors,[]);
+ dispose(deck,controller);
+});
 test('Travel stages the next movement face during a swipe and retains it after cancellation',()=>{
  let draws=0;
  const steps=['first','second','third'].map((id,index)=>({...narrative(id),kind:'event',

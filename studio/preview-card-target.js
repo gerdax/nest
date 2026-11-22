@@ -67,10 +67,11 @@ export function previewCardTarget({ project, chapterId, controller, deck } = {})
       slot = 'cards';
     } else if (deck.phase === 'choices' && deck.open) {
       const action = deck.content?.actions?.[deck.index];
-      const candidates = type === 'container' ? sequence?.items ?? node.items
+      const items = type === 'container' && !controller.containerLocked?.(location);
+      const candidates = items ? sequence?.items ?? node.items
         : sequence ? card?.choices : node.choices;
       placement = candidates?.find(placement => placement.id === action?.id);
-      slot = type === 'container' ? 'items' : 'choices';
+      slot = items ? 'items' : 'choices';
       if (sequence && slot === 'choices') parentCardId = card?.id;
     }
   }

@@ -3,11 +3,20 @@ import { createError } from '../errors.js';
 const storyKinds = Object.freeze(['event', 'discovery', 'caption']);
 const linearKinds = Object.freeze(['event', 'discovery', 'caption', 'action', 'item', 'consumable']);
 const branchKinds = Object.freeze(['event', 'discovery', 'caption', 'action']);
+const actionKinds = Object.freeze(['action']);
 const itemKinds = Object.freeze(['item']);
 const objects = value => Array.isArray(value) ? value.filter(v => v !== null && typeof v === 'object' && !Array.isArray(v)) : [];
 const nextOutput = () => ['next'];
 export const routeFallbackEnabled = node => node.type !== 'random' || node.fallbackEnabled !== false;
-export const supportsInventoryTrigger = (type, slot) => type === 'fork' && slot === 'choices' || type === 'linear' && slot === 'cards';
+export const containerLockMethodLabels = Object.freeze({lockpick:'Lockpick', force:'Force open', leave:'Leave'});
+export const containerLockMethods = Object.freeze(Object.keys(containerLockMethodLabels));
+export const isContainerLockSlot = (type, slot) => type === 'container' && slot === 'choices';
+export function containerLockMethod(node, placement) {
+ return node?.type === 'container' && Array.isArray(node.choices) && node.choices.includes(placement)
+  && containerLockMethods.includes(placement?.lockMethod) ? placement.lockMethod : undefined;
+}
+export const supportsInventoryTrigger = (type, slot, placement) => type === 'fork' && slot === 'choices'
+ || type === 'linear' && slot === 'cards' || isContainerLockSlot(type, slot) && placement?.lockMethod === 'lockpick';
 const legacyOutputs = node => Object.keys(node.connections || {});
 const introduction = makePlacement => ({introEnabled:false, introOnce:false, intro:makePlacement('event')});
 
@@ -28,8 +37,8 @@ export const nodeTypes = Object.freeze({
   create:({makePlacement}) => ({...introduction(makePlacement),choices:[makePlacement('action'),makePlacement('action')]})
  }),
  container: Object.freeze({
-  label:'Container', iconPath:'M3.72 7.408756875V16.591243125H20.28V7.408756875', slots:Object.freeze({intro:storyKinds, items:itemKinds}), outputs:nextOutput,
-  defaultKinds:Object.freeze({intro:'event',items:'item'}),
+  label:'Container', iconPath:'M3.72 7.408756875V16.591243125H20.28V7.408756875', slots:Object.freeze({intro:storyKinds, choices:actionKinds, items:itemKinds}), outputs:nextOutput,
+  defaultKinds:Object.freeze({intro:'event',choices:'action',items:'item'}),
   create:({makePlacement}) => ({...introduction(makePlacement),retainInventoryItems:true,items:[makePlacement('item')]})
  }),
  combat: Object.freeze({label:'Combat',iconPath:'M8 5V19M16 5V19',slots:Object.freeze({}),outputs:node=>node.ignoreDeath===true?['victory','failure']:['victory'],create:()=>({introEnabled:false,enemy:{definitionId:''},connections:{victory:false}})}),

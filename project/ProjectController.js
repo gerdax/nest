@@ -3,7 +3,7 @@ import {combatCard,enemyActionCard} from './combat-presentation.js';
 import {definition as combatDefinition,diceTotal} from './combat-rules.js';
 import { createError, errorMessage, errorCode } from '../errors.js';
 import { retainsInventoryItems, isUnassignedCombat, routeFallbackEnabled } from './nodeTypes.js';
-import { initialValues, conditionsMet, affordCosts, transact, addInventory, canTriggerItem, inventoryQuantity } from './state.js';
+import { initialValues, conditionsMet, affordCosts, transact, addInventory, canTriggerItem, inventoryQuantity, ownedItemInstance } from './state.js';
 import { cardBody, cardFace, actionCardFace } from './presentation.js';
 import { playerCardSummary, isStoryKind, collectionEffects } from './cards.js';
 import { selectPool } from './legacy-pool.js';
@@ -12,6 +12,7 @@ import { resolveCheck } from './checks.js';
 import { randomizerSceneKey, validAutoDrawCount } from './randomizer.js';
 import { actionAvailability } from './action-availability.js';
 import { createTravelVisit, drawTravelStep } from './travel.js';
+import { bestForcingTool } from './forcing.js';
 
 const inventoryOptions = compiled => ({allowMultiple:['multiple','disabled'].includes(compiled.ownedItemsVisibility)});
 
@@ -31,7 +32,7 @@ export class ProjectController {
     for(const [name,listener] of Object.entries(this.listeners)) deck.addEventListener(name,listener);
     this.restart();
   }
-  get state() { return {activeNodeId:this.location?.node.autoOwnerId ?? this.location?.node.id ?? null,cardId:this.card()?.id ?? null,variables:{...this.variables},collectedItems:structuredClone(this.inventory),...(this.usedForkChoices?.size?{usedForkChoices:[...this.usedForkChoices]}:{}),completed:this.completed,terminalReason:this.terminalReason,combat:this.combat?.state??null,checking:!!this.checking||!!this.combat?.checking,idle:(!this.combat||this.combat.idle)&&!this.halted&&!this.deathHandoff&&!this.completed&&!this.checking&&!this.pendingItem&&!this.pendingIntro&&!this.pendingExchange&&!this.deck.busy&&!this.deck.pickup?.pending&&!this.deck.drag&&!['revealing','closing','committing','collecting'].includes(this.deck.phase)}; }
+  get state() { return {activeNodeId:this.location?.node.autoOwnerId ?? this.location?.node.id ?? null,cardId:this.card()?.id ?? null,variables:{...this.variables},collectedItems:structuredClone(this.inventory),...(this.usedForkChoices?.size?{usedForkChoices:[...this.usedForkChoices]}:{}),...(this.unlockedContainers?.size?{unlockedContainers:[...this.unlockedContainers]}:{}),completed:this.completed,terminalReason:this.terminalReason,combat:this.combat?.state??null,checking:!!this.checking||!!this.combat?.checking,idle:(!this.combat||this.combat.idle)&&!this.halted&&!this.deathHandoff&&!this.completed&&!this.checking&&!this.pendingItem&&!this.pendingIntro&&!this.pendingExchange&&!this.deck.busy&&!this.deck.pickup?.pending&&!this.deck.drag&&!['revealing','closing','committing','collecting'].includes(this.deck.phase)}; }
   notify() {if(!this.destroyed)this.onChange(this.state);}
   error(error) {if(!this.destroyed)this.onError(error,this.state);}
   succeeded(nodeId) {
@@ -51,6 +52,7 @@ export class ProjectController {
     this.variables=transact(initialValues(this.compiled.variables),[],{effects:Object.entries(this.initialState?.variables || {}).map(([key,value])=>({op:'set',key,value}))},this.compiled.variables).variables;
     this.inventory=(this.initialState?.inventory || []).reduce((items,item)=>addInventory(items,structuredClone(item),{allowMultiple:item.instanceId!=null}),[]);
     this.usedForkChoices=new Set(this.initialState?.usedForkChoices??[]);
+    this.unlockedContainers=new Set(this.initialState?.unlockedContainers??[]);
     this.remaining=new Map(); this.itemReplacements=new Map(); this.accepted=new Set();this.revealedIntros=new Set();this.pendingIntro=null; this.pendingItem=null;this.pendingExchange=null;this.stagedDestination=null;this.completed=false;this.halted=false;this.terminalReason=null;this.deathHandoff=null;
     this.randomizerRun=this.compiled.randomizerGroups?{seen:new Set(),scene:null}:undefined;
     this.location=null;
@@ -140,7 +142,30 @@ export class ProjectController {
     return location.node.type==='fork'?choices.filter(choice=>!this.usedForkChoices.has(this.choiceUseKey(choice,location))):choices;
   }
   key(location=this.location) {return `${location.node.id}:${location.sequence?.id ?? ''}`;}
-  introEnabled(location=this.location) {return location.node.type==='fork'?!!location.node.intro&&location.node.introEnabled!==false:location.node.type!=='container'||location.node.introEnabled!==false;}
+  containerLockKey(location=this.location) {return JSON.stringify([this.compiled.id??null,location.node.id]);}
+  containerLocked(location=this.location) {
+    return location?.node.type==='container'&&location.node.locked===true&&!location.lockOpened
+      &&!this.unlockedContainers.has(this.containerLockKey(location));
+  }
+  lockChoices(location=this.location,values=this.variables,inventory=this.inventory) {
+    const {node}=location;
+    return (node.choices??[]).flatMap(choice=>{
+      if(choice.lockMethod==='leave')return [{...choice,resolution:'direct',conditions:[],explicitConditions:[],costs:[],effects:[],
+        contextItemId:undefined,contextInventoryKey:undefined,inventoryLabel:undefined,entrance:undefined}];
+      if(choice.lockMethod==='lockpick'&&choice.contextItemId)return [choice];
+      if(choice.lockMethod==='force'&&node.allowForcing===true){
+        const forcingTool=bestForcingTool(choice,values,inventory);
+        if(forcingTool)return [{...choice,forcingTool}];
+        if(choice.allowBareHanded!==false)return [choice];
+      }
+      return [];
+    });
+  }
+  introEnabled(location=this.location) {
+    const {node}=location;
+    if(node.type==='container')return node.introEnabled!==false&&(node.locked!==true||this.containerLocked(location));
+    return node.type!=='fork'||!!node.intro&&node.introEnabled!==false;
+  }
   introShown(location=this.location) {return location.introRevealed===true || location.node.introOnce===true&&this.revealedIntros.has(this.key(location));}
   discardedReturns(location=this.location, source=null) {
     if(retainsInventoryItems(location.sequence ?? location.node))return [];
@@ -162,7 +187,7 @@ export class ProjectController {
     return !remaining||remaining.some(item=>item.id===card.id);
   }
   items(location=this.location, values=this.variables, inventory=this.inventory, excluded=null) {
-    if(excluded?.all&&excluded.key===this.key(location))return [];
+    if(this.containerLocked(location)||excluded?.all&&excluded.key===this.key(location))return [];
     const raw=this.remaining.get(this.key(location)) ?? location.sequence?.items ?? location.node.items ?? [];
     return raw.map(i=>this.runtimeItem(i,location)).filter(i=>!this.itemExcluded(i.id,location,excluded) && !this.cardAvailability(i,values,inventory,location).hidden);
   }
@@ -383,7 +408,14 @@ export class ProjectController {
   startAtPlacement(location,id,values,inventory) {
     const {node}=location,type=this.type(location);
     const intro=node.intro?.id===id;
-    const cards=type==='linear'?(location.sequence?.cards??node.cards??[]):type==='container'?node.items??[]:node.choices??[];
+    const locked=this.containerLocked(location);
+    let cards=type==='linear'?(location.sequence?.cards??node.cards??[]):type==='container'?node.items??[]:node.choices??[];
+    if(locked&&!intro) {
+      // Starting from an explicitly selected Item is an editor preview. A
+      // later ordinary visit still has to open the lock.
+      if(cards.some(card=>card.id===id))location.lockOpened=true;
+      else cards=this.lockChoices(location,values,inventory);
+    }
     const index=cards.findIndex(card=>card.id===id);
     const card=intro?node.intro:cards[index];
     const unavailable=reason=>createError('STUDIO_PREVIEW_CARD_UNAVAILABLE',{reason});
@@ -399,6 +431,7 @@ export class ProjectController {
   }
   seekStep(location,values,inventory,excluded) {
     const type=this.type(location);
+    if(type==='container'&&excluded?.openedContainer===this.containerLockKey(location))location={...location,lockOpened:true};
     if(isUnassignedCombat(location.node))return this.nextStep(location,'victory');
     if(location.emptyFork&&location.node.introOnce===true&&(this.introShown(location)||excluded?.introKey===this.key(location)))return this.nextStep(location);
     if(type==='linear') {
@@ -410,7 +443,7 @@ export class ProjectController {
         location={...location,index:location.index+1};
       }
       if(location.index>=cards.length)return this.nextStep(location);
-    }else if(type==='container'&&!this.items(location,values,inventory,excluded).length) {
+    }else if(type==='container'&&!this.containerLocked(location)&&!this.items(location,values,inventory,excluded).length) {
       const raw=excluded?.all&&excluded.key===this.key(location)?[]:(this.remaining.get(this.key(location))??location.sequence?.items??location.node.items??[]).filter(item=>!this.itemExcluded(item.id,location,excluded));
       // An introduction may unlock hidden items, but never revives an emptied container.
       const canUnlock=raw.length&&location.node.type==='container'&&this.introEnabled(location)&&!this.introShown(location)&&conditionsMet(this.card(location)?.conditions,values,inventory)&&this.card(location)?.effects?.length;
@@ -439,6 +472,11 @@ export class ProjectController {
     const death=this.deathDestination(values,location);
     if(death)return this.locate(death.node.id,values,inventory,new Set(),excluded,preview);
     const type=this.type(location);
+    if(this.containerLocked(location)&&source.lockMethod) {
+      if(source.lockMethod==='leave')return this.next(location,'next',values,inventory,new Set(),excluded,preview);
+      if(!success)return location;
+      return this.seek(location,values,inventory,new Set(),{...excluded,openedContainer:this.containerLockKey(location)},preview);
+    }
     if(type==='linear') {
       if(location.emptyFork&&location.node.introOnce===true)excluded={...excluded,introKey:this.key(location)};
       return this.seek({...location,index:location.index+1},values,inventory,new Set(),excluded,preview);
@@ -467,13 +505,15 @@ export class ProjectController {
       const outcomes=source.resolution==='check'?[true,false]:[undefined];
       for(const outcome of outcomes) {
         const collected=transition==='collect'?this.addInventory(inventory,{...source}):inventory;
-        const result=transact(values,collected,{triggerItem:transition?undefined:source.contextInventoryKey??source.contextItemId,costs:transition?[]:source.costs,effects:transition?(transition==='collect'?collectionEffects(source):[]):[...(source.effects??[]),...(outcome===undefined?[]:outcome?source.successEffects??[]:source.failureEffects??[])]},this.compiled.variables,this.compiled.library,inventoryOptions(this.compiled));
+        const result=transition
+          ? transact(values,collected,{effects:transition==='collect'?collectionEffects(source):[]},this.compiled.variables,this.compiled.library,inventoryOptions(this.compiled))
+          : this.transaction(source,outcome,values,inventory);
         // A lethal accepted result always has its implicit Death route, even
         // when this action's ordinary output is unlinked.
         if(this.deathDestination(result.variables,location))continue;
         // A full drawer can exchange this item without leaving its stack slot.
         if(transition==='collect'&&this.deck.pickup&&inventory.length>=4&&(this.allowMultipleItems()||!inventory.some(owned=>(owned.definitionId??owned.id)===(source.definitionId??source.id)||source.inventoryKey&&owned.inventoryKey===source.inventoryKey)))continue;
-        if(this.type(location)==='container') {
+        if(this.type(location)==='container'&&!this.containerLocked(location)) {
           if(transition==='collect'&&this.items(location,result.variables,result.inventory,excludedItem).some(i=>i.id!==source.id))continue;
           const excluded=transition==='discard'?{key:this.key(location),itemIds:this.discardedReturns(location,source)}:{key:this.key(location),itemId:source.id};
           this.next(location,'next',result.variables,result.inventory,new Set(),excluded,true);
@@ -501,7 +541,7 @@ export class ProjectController {
   action(card,values=this.variables) {
     const {context,...content}=card;
     const typed={...card,kind:card.kind ?? (this.type()==='container'?'item':'action')};
-    const face=actionCardFace(typed,this.compiled.variables,this.compiled.library,values);
+    const face=actionCardFace(typed,this.compiled.variables,this.compiled.library,values,{checkBonus:card.forcingTool?.forcingBonus});
     return {...content,label:face.heading || face.text || 'Continue',...face};
   }
   linearTransition(location, destination, source=this.card(location), values=this.variables, inventory=this.inventory) {
@@ -542,9 +582,11 @@ export class ProjectController {
       return content;
     }
     ({variables:values,inventory}=this.arrivalState(location,values,inventory));
-    const type=this.type(location),card=this.card(location),fork=type==='fork'||type==='forked',container=type==='container',linearFace=type==='linear'&&['action','item','consumable','health','energy'].includes(card?.kind),linearItem=linearFace&&card.kind==='item';
+    const type=this.type(location),card=this.card(location),locked=this.containerLocked(location);
+    const choice=locked||type==='fork'||type==='forked',container=type==='container'&&!locked;
+    const linearFace=type==='linear'&&['action','item','consumable','health','energy'].includes(card?.kind),linearItem=linearFace&&card.kind==='item';
     let actions;
-    if(fork)actions=this.choices(location).flatMap(c=>{
+    if(choice)actions=(locked?this.lockChoices(location,values,inventory):this.choices(location)).flatMap(c=>{
       const availability=actionAvailability(c,values,inventory,this.compiled,this.unavailableActions(location));
       if(availability.hidden)return [];
       const reason=availability.disabledReason||this.departureReason(c,location,values,inventory);
@@ -568,13 +610,13 @@ export class ProjectController {
     }
     if(container||linearItem)for(const action of actions)action.disabled ||= action.collectDisabled&&action.discardDisabled;
     if(!actions.length)actions=[{id:'unavailable',label:'No available choices',disabled:true,disabledReason:'No available choices'}];
-    const payload={autoBrowse:fork||container,id:`${this.generation}:${++this.serial}`,cardBack:this.compiled.cardBack,title:'',...cardFace(card,this.compiled.variables,this.compiled.library,values),cardKind:card?.kind==='consumable'?card.subtype:card?.kind ?? 'event',...(card?.kind==='item'&&card.subtype==='weapon'?{typeLabel:'WEAPON'}:{}),value:card?.value,summary:card&&!isStoryKind(card.kind??card.cardKind)&&fork?playerCardSummary(card,this.compiled.variables,this.compiled.library,values):'',image:card?.image ?? '',imageScale:card?.imageScale??100,imageOffsetX:card?.imageOffsetX??0,imageOffsetY:card?.imageOffsetY??0,flipImage:!!card?.flipImage,actions,directAdvance:!fork&&!container&&!linearFace,decisionOnly:linearFace||fork&&(location.sequence?!!location.sequence.decisionOnly:this.presentation(location,values,inventory)==='open'),interaction:container||linearItem?'container':'choice',discardAll:container,allowClose:false};
+    const payload={autoBrowse:choice||container,id:`${this.generation}:${++this.serial}`,cardBack:this.compiled.cardBack,title:'',...cardFace(card,this.compiled.variables,this.compiled.library,values),cardKind:card?.kind==='consumable'?card.subtype:card?.kind ?? 'event',...(card?.kind==='item'&&card.subtype==='weapon'?{typeLabel:'WEAPON'}:{}),value:card?.value,summary:card&&!isStoryKind(card.kind??card.cardKind)&&choice?playerCardSummary(card,this.compiled.variables,this.compiled.library,values):'',image:card?.image ?? '',imageScale:card?.imageScale??100,imageOffsetX:card?.imageOffsetX??0,imageOffsetY:card?.imageOffsetY??0,flipImage:!!card?.flipImage,actions,directAdvance:!choice&&!container&&!linearFace,decisionOnly:linearFace||choice&&(location.sequence?!!location.sequence.decisionOnly:this.presentation(location,values,inventory)==='open'),interaction:container||linearItem?'container':'choice',discardAll:container,allowClose:false};
     payload.title=payload.heading || '';
-    if(container&&this.presentation(location,values,inventory)==='closed')payload.typeLabel='FINDING';
+    if(type==='container'&&this.presentation(location,values,inventory)==='closed')payload.typeLabel='FINDING';
     if(type==='linear'&&card?.kind==='action'&&(card.contextInventoryKey??card.contextItemId))payload.entranceBackdrop=true;
     if((location.node.type==='linear'||location.travelVisit)&&card)payload.linearRollKey=JSON.stringify([this.key(location),card.id]);
-    if(fork)payload.choiceFollowerRatio=.82;
-    payload.flipItemsOnReveal=container&&this.presentation(location,values,inventory)==='closed'||fork&&this.introductionUnlocksNext(location,values,inventory);
+    if(choice)payload.choiceFollowerRatio=.82;
+    payload.flipItemsOnReveal=type==='container'&&this.presentation(location,values,inventory)==='closed'||choice&&this.introductionUnlocksNext(location,values,inventory);
     if(payload.directAdvance){
       payload.nextTransition='flip';
       const availability=this.cardAvailability(card,values,inventory,location);
@@ -610,7 +652,7 @@ export class ProjectController {
     return 'closed';
   }
   reportBlocked(content=this.deck.content) {
-    if((['fork','forked'].includes(this.type())||this.type()==='linear'&&this.card()?.kind==='action')&&this.presentation()==='open'&&!content.actions.some(a=>!a.disabled))this.error(createError('NO_AVAILABLE_CHOICES', { nodeName: this.location.node.name || this.location.node.id }));
+    if((this.containerLocked()||['fork','forked'].includes(this.type())||this.type()==='linear'&&this.card()?.kind==='action')&&this.presentation()==='open'&&!content.actions.some(a=>!a.disabled))this.error(createError('NO_AVAILABLE_CHOICES', { nodeName: this.location.node.name || this.location.node.id }));
   }
   show({transition='flip',restore=false,presentation,animate=true,autoBrowse=true,preserveInventoryContext=false,selectedId}={}) {
     if(this.location?.node.type==='combat'&&!this.completed&&!this.halted){
@@ -653,14 +695,23 @@ export class ProjectController {
       this.notify();
     }catch(error){this.error(error);this.show({restore:true});}
   }
-  transaction(source,outcome,values=this.variables,inventory=this.inventory) {return transact(values,inventory,{triggerItem:source.contextInventoryKey??source.contextItemId,costs:source.costs,effects:[...(source.effects??[]),...(outcome===undefined?[]:outcome?source.successEffects??[]:source.failureEffects??[])]},this.compiled.variables,this.compiled.library,inventoryOptions(this.compiled));}
+  transaction(source,outcome,values=this.variables,inventory=this.inventory) {
+    const lockpick=source.lockMethod==='lockpick';
+    const triggerItem=lockpick&&outcome!==false?undefined:source.contextInventoryKey??source.contextItemId;
+    const triggerInstance=source.lockMethod==='force'?source.forcingTool:undefined;
+    const effects=[...(source.effects??[]),...(outcome===undefined?[]:outcome?source.successEffects??[]:source.failureEffects??[])];
+    return transact(values,inventory,{triggerItem,triggerInstance,breakTriggerItem:lockpick,costs:source.costs,effects},this.compiled.variables,this.compiled.library,inventoryOptions(this.compiled));
+  }
   available(source,values=this.variables,inventory=this.inventory) {return (!(source.contextInventoryKey??source.contextItemId)||canTriggerItem(inventory,source.contextInventoryKey??source.contextItemId))&&conditionsMet(source.conditions,values,inventory)&&affordCosts(values,inventory,source.costs,this.compiled.variables);}
   commit(detail) {
     if(this.combat){void this.combat.accept(detail);return;}
-    if(this.destroyed||this.completed||this.halted||this.deathHandoff||this.checking||this.pendingItem||this.pendingIntro||this.pendingExchange||(this.type()==='container'||this.type()==='linear'&&this.card()?.kind==='item')||detail.contentId!==this.deck.content.id||this.accepted.has(detail.contentId))return;
+    const locked=this.containerLocked();
+    if(this.destroyed||this.completed||this.halted||this.deathHandoff||this.checking||this.pendingItem||this.pendingIntro||this.pendingExchange||(this.type()==='container'&&(!locked||this.presentation()!=='open')||this.type()==='linear'&&this.card()?.kind==='item')||detail.contentId!==this.deck.content.id||this.accepted.has(detail.contentId))return;
     const action=this.deck.content.actions.find(a=>a.id===detail.action?.id&&!a.disabled);if(!action)return;
-    const source=['fork','forked'].includes(this.type())?this.choices().find(c=>c.id===action.id):this.card();
-    if(!source||!this.available(source)||this.departureBlocked(source)){this.show({restore:true});return;}
+    const source=locked?this.lockChoices().find(c=>c.id===action.id):['fork','forked'].includes(this.type())?this.choices().find(c=>c.id===action.id):this.card();
+    const toolChanged=source?.forcingTool?.forcingBonus!==action.forcingTool?.forcingBonus
+      ||source?.forcingTool&&!ownedItemInstance([source.forcingTool],action.forcingTool);
+    if(!source||toolChanged||!this.available(source)||this.departureBlocked(source)){this.show({restore:true});return;}
     // Only the current/in-flight presentation can be accepted. Older events
     // already fail the content-ID guard, so retaining their IDs grows forever.
     this.accepted.clear();this.accepted.add(detail.contentId);
@@ -682,7 +733,7 @@ export class ProjectController {
     try {
       if(!this.rollCheck)throw createError('RUNTIME_NO_DICE_ROLLER_SUPPLIED');
       const before={variables:this.variables,inventory:this.inventory};
-      const check=resolveCheck(source.check,before.variables);
+      const check=resolveCheck(source.check,before.variables,source.forcingTool?.forcingBonus);
       const paid=transact(before.variables,before.inventory,{costs:source.costs},this.compiled.variables,this.compiled.library,inventoryOptions(this.compiled));
       this.checkPayment={abort,...before,paid:structuredClone(paid),expected:JSON.stringify(paid)};
       this.variables=paid.variables;this.inventory=paid.inventory;this.notify();
@@ -708,6 +759,7 @@ export class ProjectController {
       // Resolve atomically from the original state: costs are already visible,
       // while trigger uses and effects retain their established ordering.
       const next=this.transaction(source,success,before.variables,before.inventory);const destination=this.destination(source,success,next.variables,next.inventory);
+      if(success&&source.lockMethod&&this.containerLocked())this.unlockedContainers.add(this.containerLockKey());
       this.useChoice(source);
       this.variables=next.variables;this.inventory=next.inventory;this.checkPayment=null;this.checking=null;this.adopt(destination,false);if(!this.succeeded(sourceNodeId))return;this.show();
     }catch(error){
@@ -845,7 +897,7 @@ export class ProjectController {
       this.pendingIntro=null;
       try {
         if(this.handoffDeath({animate:true}))return;
-        if(this.type()==='container'&&!this.items().length){
+        if(this.type()==='container'&&!this.containerLocked()&&!this.items().length){
           if(this.departureBlocked(this.card()??{},this.location,this.variables,this.inventory,'discard'))this.show({presentation:'open',animate:false});
           else {this.adopt(this.next(this.location),false);this.show();}
         }

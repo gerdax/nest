@@ -2,6 +2,7 @@ import { resolvePlacement, isStoryKind, normalizeConsumableCard } from './cards.
 import { createLibraryIndex } from './library-index.js';
 import { cloneProject, list, object, placements, legacyArtwork, unique } from './model-data.js';
 import { outputsForNode, connectionForOutput } from './graph.js';
+import { containerLockMethod } from './nodeTypes.js';
 
 export function normalizeSingleItems(project) {
   // Only visit schema-owned card and rule fields. Variable IDs are arbitrary
@@ -103,7 +104,8 @@ export function discardPlacementContext(project, index = createLibraryIndex(list
         }
         delete p.effects;
       }
-      if (definition?.kind === 'action' && ['linear', 'fork'].includes(node.type) && [p.conditions, p.effects].every(v => v === undefined
+      const lockMethod=containerLockMethod(node,p);
+      if (definition?.kind === 'action' && (['linear', 'fork'].includes(node.type)||['lockpick','force'].includes(lockMethod)) && [p.conditions, p.effects].every(v => v === undefined
         || Array.isArray(v))) {
         if (p.conditions?.length || p.effects?.length) {
           const resolved = resolvePlacement(project, {...p, contextItemId: undefined}, index);

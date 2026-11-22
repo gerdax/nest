@@ -4,11 +4,12 @@ import { uiScale } from './ui-scale.js';
 import { esc } from './forms.js';
 import { outputsForNode, labelForOutput } from '../project/model.js';
 import { readBeatTarget } from '../project/beat-groups.js';
-import { isRouteBeat, nodeTypeDescriptor, nodeTypeLabel } from '../project/nodeTypes.js';
+import { containerLockMethodLabels, containerLockMethods, isContainerLockSlot, isRouteBeat, nodeTypeDescriptor, nodeTypeLabel } from '../project/nodeTypes.js';
 import { nodeIcon } from './node-icons.js';
 import { cardEditorTint,canonicalCardKind } from '../project/cards.js';
 import { createLibraryIndex } from '../project/library-index.js';
 import { cardRuleIndicators } from './card-rule-indicators.js';
+import { isTagKey, itemTag } from '../project/item-tags.js';
 
 
 /** Canvas interaction owns selection/pan, and emits completed document edits. */
@@ -223,20 +224,23 @@ export class GraphView {
    if(rows.length)html+=`<div class="node-body">${rows.map(name=>`<div>${esc(name)}</div>`).join('')}</div>`;
   }
   for(const slot of Object.keys(descriptor?.slots||{})){
-   const placements=slot==='intro'?(node.intro&&node.introEnabled!==false?[node.intro]:[]):node[slot]||[];
+   const lockSlot=isContainerLockSlot(node.type,slot);
+   const placements=lockSlot?this.lockCardRows(node):slot==='intro'?(node.intro&&node.introEnabled!==false?[node.intro]:[]):node[slot]||[];
    for(const placement of placements){
     const definition=this.definitionsById.get(placement.definitionId)||placement;
     const kind=canonicalCardKind(definition.kind||definition.cardKind||descriptor.defaultKinds[slot]);
     const name=this.definitionsById.has(placement.definitionId)?cardLabel(definition):'Missing card';
     const source=this.definitionsById.has(placement.definitionId)?definition.visibility==='local'?'local':'library':'missing';
-    const customRules=source==='library'&&!!placement.overrides;
+    const lockMethod=lockSlot?placement.lockMethod:undefined;
+    const customRules=source==='library'&&!!placement.overrides&&lockMethod!=='leave';
     const indicators=cardRuleIndicators(this.project,placement,this.libraryIndex);
     const tag=kind==='item'?(this.project.itemTags||[]).find(tag=>tag.id===definition.tagId):null;
     const indicatorText=indicators.map(([letter])=>letter==='T'?'<span data-rule-marker="T">T</span>':esc(letter)).join(' · ');
     const indicatorLabel=indicators.map(([letter,label])=>`${letter}: ${label}`).join('; ');
-    const exits=slot==='choices'?outputs.filter(exit=>exit===placement.id||exit===`${placement.id}:success`||exit===`${placement.id}:failure`):[];
+    const exits=node.type==='fork'&&slot==='choices'?outputs.filter(exit=>exit===placement.id||exit===`${placement.id}:success`||exit===`${placement.id}:failure`):[];
     for(const exit of exits)used.add(exit);
-    html+=`<hr class="graph-card-divider"><div class="graph-card-row ${exits.length?'has-outputs':''}" data-card-slot="${esc(slot)}" data-card-placement="${esc(placement.id||'')}" data-card-type="${esc(kind)}" data-card-source="${source}" style="--card-editor-tint:${esc(cardEditorTint(kind))}"><div class="graph-card-label"><button type="button" class="graph-card-name">${slot==='intro'?'<small>Introduction</small>':''}${esc(name)}${customRules?' <span class="graph-card-custom-marker" role="img" aria-label="Custom rules enabled" title="Custom rules enabled">*</span>':''}</button>${tag?`<small class="graph-item-tag" title="Tag: ${esc(tag.name)}">[${esc(tag.name)}]</small>`:''}${indicatorText?`<small class="graph-card-rules" role="img" aria-label="${esc(indicatorLabel)}" title="${esc(indicatorLabel)}">${indicatorText}</small>`:''}</div>`;
+    const role=slot==='intro'?(node.type==='container'&&node.locked===true?'Locked introduction':'Introduction'):containerLockMethodLabels[lockMethod];
+    html+=`<hr class="graph-card-divider"><div class="graph-card-row ${exits.length?'has-outputs':''}"${lockMethod?` data-lock-method="${esc(lockMethod)}"`:''} data-card-slot="${esc(slot)}" data-card-placement="${esc(placement.id||'')}" data-card-type="${esc(kind)}" data-card-source="${source}" style="--card-editor-tint:${esc(cardEditorTint(kind))}"><div class="graph-card-label"><button type="button" class="graph-card-name">${role&&role!==name?`<small>${esc(role)}</small>`:''}${esc(name)}${customRules?' <span class="graph-card-custom-marker" role="img" aria-label="Custom rules enabled" title="Custom rules enabled">*</span>':''}</button>${tag?`<small class="graph-item-tag" title="Tag: ${esc(tag.name)}">[${esc(tag.name)}]</small>`:''}${indicatorText?`<small class="graph-card-rules" role="img" aria-label="${esc(indicatorLabel)}" title="${esc(indicatorLabel)}">${indicatorText}</small>`:''}</div>`;
     if(slot==='intro'&&node.introOnce===true)html+='<span class="graph-intro-once" role="img" aria-label="Introduction shown once" title="Show once"><svg viewBox="0 0 12 16" aria-hidden="true" focusable="false"><path d="M1 0h10v2H1zM2 3h8L6 8zm4 5 4 5H2zM1 14h10v2H1z"/></svg></span>';
     if(exits.length)html+=`<div class="graph-card-outputs">${exits.map(exit=>this.port(node,exit,'')).join('')}</div>`;
     html+='</div>';
@@ -245,6 +249,16 @@ export class GraphView {
   const remaining=outputs.filter(exit=>!used.has(exit));
   if(html&&remaining.length)html+='<hr class="graph-card-divider">';
   return html+remaining.map(exit=>this.port(node,exit)).join('');
+ }
+ lockCardRows(node){
+  if(node.locked!==true||!Array.isArray(node.choices))return [];
+  return containerLockMethods.flatMap(method=>{
+   const placement=node.choices.find(p=>p?.lockMethod===method);
+   if(!placement||method==='force'&&(node.allowForcing!==true||placement.allowBareHanded===false&&!placement.assistTool?.key))return [];
+   const key=placement.contextItemId;
+   if(method==='lockpick'&&!(this.definitionsById.get(key)?.kind==='item'||isTagKey(key)&&itemTag(this.project,key)))return [];
+   return [placement];
+  });
  }
  position(n) {if(this.drag?.positions?.has(n.id))return this.drag.positions.get(n.id);return this.drag?.kind==='node'&&!this.drag.copy&&this.drag.id===n.id?{x:this.drag.px,y:this.drag.py}:n;}
  point(e) {const r=this.root.getBoundingClientRect(),scale=uiScale(this.root);return {x:((e.clientX-r.left)/scale-this.view.x)/this.view.z,y:((e.clientY-r.top)/scale-this.view.y)/this.view.z};}

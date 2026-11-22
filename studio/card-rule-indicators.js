@@ -2,6 +2,7 @@ import { canonicalCardKind, collectionEffects, resolvePlacement, isConsumableKin
 
 /** Show effective card rules, excluding check outcomes and implicit trigger ownership. */
 export function cardRuleIndicators(project, placement, index) {
+  if (placement.lockMethod==='leave') return [];
   let card;
   try {
     // Resolve explicit rules separately so an Inventory trigger does not also

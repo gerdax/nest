@@ -1,4 +1,4 @@
-import {resolveCheck} from './checks.js';
+import {checkProbability,resolveCheck} from './checks.js';
 import {conditionsMet, affordCosts, selectTriggerItem, itemTriggersRemaining} from './state.js';
 
 const entries = library => library instanceof Map ? [...library.values()] : Array.isArray(library) ? library : Object.values(library ?? {});
@@ -112,15 +112,7 @@ export function playerChoices(compiled, run, encounter) {
 }
 export function checkOdds(check, values={}) {
   const resolved=resolveCheck(check,values);
-  let distribution=new Map([[0,1]]);
-  for(const pool of resolved.pool??[])for(let i=0;i<pool.count;i++){
-    const next=new Map();
-    for(const [total,count] of distribution)for(let face=1;face<=pool.sides;face++)next.set(total+face,(next.get(total+face)??0)+count);
-    distribution=next;
-  }
-  let hits=0,outcomes=0;
-  for(const [total,count] of distribution){outcomes+=count;if(total+resolved.modifier>=resolved.target)hits+=count;}
-  return {...resolved,probability:outcomes?hits/outcomes:0};
+  return {...resolved,probability:checkProbability(resolved)};
 }
 export function diceTotal(dice,pool,{implicitSides=false}={}) {
   if(!Array.isArray(dice))throw new Error('Missing dice');

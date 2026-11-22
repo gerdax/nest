@@ -27,6 +27,22 @@ function setup(options) {
 const item = { id: 'wedge', name: 'Wedge', image: 'wedge.png' };
 const info = { stat: 'LUCK', chance: '63.7', label: 'Lucky escape', formula: 'D20 + luck', rules: 'At least 12' };
 
+test('an assist tool uses the normal item miniature alongside the adjusted odds', () => {
+  const panel = setup();
+  const tool = {...item, permability:2, remainingTriggers:1};
+  panel.update({info,item:tool,assist:true});
+  assert.equal(panel.root.attrs['data-mode'],'check-item');
+  assert.equal(panel.itemCaption.textContent,'USES: 1');
+  assert.equal(panel.checkChance.textContent,'64%');
+  assert.equal(panel.mini.button.attrs['aria-label'],'Assist tool: Wedge, USES: 1');
+  assert.equal(panel.mini.button.children.some(child=>child.className==='nest-item-uses'),true);
+  assert.equal(panel.mini.button.children[0].className,'nest-image-vignette');
+  panel.update({info,item:tool});
+  assert.equal(panel.itemCaption.textContent,'USES: 1');
+  assert.match(panel.mini.button.attrs['aria-label'],/Trigger item: Wedge/);
+  panel.destroy();
+});
+
 test('odds colors use five steps from the unrounded percentage', () => {
   const panel = setup();
   for (const [chance, level] of [[0,'very-low'],[19.9,'very-low'],[20,'low'],[39.9,'low'],

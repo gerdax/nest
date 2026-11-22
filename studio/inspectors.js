@@ -16,7 +16,8 @@ import { cardKinds, resolvePlacement, cardSummary, cardSummaryParts, cardEditorT
 import { chapterVariables, outputsForNode, labelForOutput } from '../project/model.js';
 import { definitionUsagePanel } from './definition-usage-view.js';
 import { libraryRemovalPlan } from './library-removal.js';
-import { nodeTypeDescriptor, nodeTypeLabel, beatOptionLabel, retainsInventoryItems, isRouteBeat, routeFallbackEnabled, supportsInventoryTrigger } from '../project/nodeTypes.js';
+import { nodeTypeDescriptor, nodeTypeLabel, beatOptionLabel, retainsInventoryItems, isRouteBeat, routeFallbackEnabled, supportsInventoryTrigger,
+ containerLockMethod, containerLockMethodLabels, containerLockMethods, isContainerLockSlot } from '../project/nodeTypes.js';
 import { inventoryItemOptions } from './item-options.js';
 import { itemReferenceLinks } from './item-reference.js';
 import { field, select, checkbox, button, rules, actionFields, imageField, artworkEditor, esc } from './forms.js';
@@ -63,7 +64,9 @@ export function cardFields(project,definition,scope='definition',showPreview=tru
  let html=`<div class="card-name-field"><div class="card-name-heading"><label for="${esc(nameId)}">Name</label></div><input id="${esc(nameId)}" data-scope="${esc(scope)}" data-path="name" type="text" value="${esc(definition.name)}" placeholder="${esc(cardFallbackLabel(definition))}"></div>`;
  if(scope==='definition'&&isStoryKind(definition.kind))html+=select('Card type',definition.kind,[['event','Vignette'],['discovery','Discovery'],['caption','Caption']],'kind',scope);
  if(isConsumableKind(definition.kind))html+=select('Consumable subtype',definition.subtype,[['health','Health'],['energy','Energy']],'subtype',scope);
- if(definition.kind==='item')html+=select('Item subtype',definition.subtype||'',[['','Ordinary Item'],['weapon','Weapon']],'subtype',scope)+select('Tag',definition.tagId||'',[['','None'],...(project.itemTags||[]).map(tag=>[tag.id,tag.name])],'tagId',scope);
+ if(definition.kind==='item')html+=select('Item subtype',definition.subtype||'',[['','Ordinary Item'],['weapon','Weapon']],'subtype',scope)
+  +select('Tag',definition.tagId||'',[['','None'],...(project.itemTags||[]).map(tag=>[tag.id,tag.name])],'tagId',scope)
+  +`<label class="field">Forcing bonus<input data-scope="${esc(scope)}" data-path="forcingBonus" type="number" min="1" step="1" value="${esc(definition.forcingBonus)}"></label>`;
  if(definition.kind==='combatAction')html+=combatActionTypeField(definition,'',scope);
  if(definition.kind==='enemy')html+=field('Starting health',definition.health,'health',scope,'number');
  const copy=cardText(definition);
@@ -109,21 +112,24 @@ export function definitionInspector(project,definition) {
  html+=`<p class="small">${esc(removal.blocked?removal.reason:removal.placements.length?'Removing this definition converts its chapter placements to independent local cards, preserving their content and rules.':'This definition is unused. Removal requires confirmation.')}</p>`;
  return html+'<div class="library-definition-actions">'+button('Duplicate','duplicate-definition')+button('Remove from Library','delete-definition',removal.blocked?'disabled':'')+'</div></section>';
 }
-export function placementInspector(project,p,kind,index,slot,count=Infinity,chapter) {
+export function placementInspector(project,p,kind,index,slot,count=Infinity,chapter,node) {
  let card;try{card=resolvePlacement(project,p);}catch{}
  const definition=project.library.find(d=>d.id===p.definitionId),local=definition?.visibility==='local';
  const source=definition?(local?'local':'library'):'missing';
- const customMarker=definition&&!local&&p.overrides?' <span class="card-custom-marker" role="img" aria-label="Custom rules enabled" title="Custom rules enabled">*</span>':'';
+ const lockMethod=containerLockMethod(node,p),leave=lockMethod==='leave';
+ const customMarker=definition&&!local&&p.overrides&&!leave?' <span class="card-custom-marker" role="img" aria-label="Custom rules enabled" title="Custom rules enabled">*</span>':'';
  const death=chapter?.nodes.some(n=>n.type==='death'&&n.cards?.includes(p));
- const nodeType=slot==='travel.steps'?'randomizer':death?'death':slot==='choices'?'fork':slot==='items'?'container':'linear';
+ const nodeType=node?.type||(slot==='travel.steps'?'randomizer':death?'death':slot==='choices'?'fork':slot==='items'?'container':'linear');
  const kinds=allowedCardKinds(nodeType,slot);
  kind=definition?.kind || kind;
  const compareLabels=(a,b)=>a.localeCompare(b,undefined,{sensitivity:'base',numeric:true});
  const localSources=kinds.map(k=>[`local:${k}`,`local [${cardKinds[k]?.label||k}]`]).sort((a,b)=>compareLabels(a[1],b[1]));
  const defs=project.library.filter(d=>kinds.includes(d.kind)&&d.visibility!=='local').map(d=>[d.id,`${cardKinds[d.kind]?.label||d.kind}: ${cardLabel(d)}`]).sort((a,b)=>compareLabels(a[1],b[1]));
- let html=`<details class="entry card-panel" data-card-type="${esc(kind)}" data-card-source="${source}" style="--card-editor-tint:${esc(cardEditorTint(kind))}" data-placement="${esc(p.id)}"><summary><span class="card-type-label" data-card-type="${esc(kind)}">${kind==='item'&&definition?.tagId?`<span class="card-item-tag">[${esc((project.itemTags||[]).find(tag=>tag.id===definition.tagId)?.name||definition.tagId)}]</span>`:''}${esc(cardKinds[kind]?.label||kind)}</span>${esc(definition?cardLabel(card):'Missing definition')}${customMarker}${cardHeaderIndicators(project,p)}</summary>`;
+ const title=definition?cardLabel(card):'Missing definition',role=containerLockMethodLabels[lockMethod];
+ const typeLabel=role&&role!==title?role:cardKinds[kind]?.label||kind;
+ let html=`<details class="entry card-panel" data-card-type="${esc(kind)}" data-card-source="${source}" style="--card-editor-tint:${esc(cardEditorTint(kind))}" data-placement="${esc(p.id)}"><summary><span class="card-type-label" data-card-type="${esc(kind)}">${kind==='item'&&definition?.tagId?`<span class="card-item-tag">[${esc((project.itemTags||[]).find(tag=>tag.id===definition.tagId)?.name||definition.tagId)}]</span>`:''}${esc(typeLabel)}</span>${esc(title)}${customMarker}${cardHeaderIndicators(project,p)}</summary>`;
  const attr=`data-placement="${esc(p.id)}"`;
- html+=`<p class="small">${cardSummaryParts(card||{},project.variables,project.library,project.itemTags).map(esc).join('<br>')}</p>`;
+ if(!leave)html+=`<p class="small">${cardSummaryParts(card||{},project.variables,project.library,project.itemTags).map(esc).join('<br>')}</p>`;
  html+=select('Card source',local?`local:${kind}`:p.definitionId,[...localSources,...defs],'definitionId','placement');
  html+='<div class="card-source-actions"><div class="card-source-primary">';
  if(local)html+=button('Add to library','promote-card',`${attr} title="Chapter-variable rules stay on the chapter instance as custom rules."`)+button('Clear','clear-card',attr);
@@ -132,15 +138,23 @@ export function placementInspector(project,p,kind,index,slot,count=Infinity,chap
  if(local)html+=cardFields(project,definition,'local-definition',false,false,chapter);
  // Placement fields use a dedicated scope and are selected by their stable ID.
  html+=`<div class="placement-fields" ${attr}>`;
- if(kind==='action') {
-  const enabled=supportsInventoryTrigger(nodeType,slot);
+ if(lockMethod==='force'&&!project.variables.some(variable=>variable.id==='energy'&&variable.type==='number')){
+  html+='<p class="small">Force open requires a numeric Energy variable.</p>';
+ }
+ if(lockMethod==='force') {
+  const key=p.assistTool?.key||'';
+  html+=select('Assist tool',key,inventoryItemOptions(project,chapter,key,{allowNone:true,includeTags:true}),'assistTool.key','placement');
+  if(key)html+=itemReferenceLinks(project,key,chapter);
+  html+=checkbox('Allow bare-handed',p.allowBareHanded!==false,'allowBareHanded','placement');
+ }
+ if(kind==='action'&&(!lockMethod||lockMethod==='lockpick')) {
+  const enabled=supportsInventoryTrigger(nodeType,slot,p);
   html+=select('Inventory trigger',enabled?p.contextItemId||'':'',enabled?inventoryItemOptions(project,chapter,p.contextItemId,{allowNone:true,includeTags:true}):[['','None']],'contextItemId','placement',{disabled:!enabled});
   if(enabled)html+=itemReferenceLinks(project,p.contextItemId,chapter);
  }
- if(local&&kind==='action')html+=cardRuleFields(project,definition,'local-definition',chapter);
- if(kind!=='action')html+=rules(project,p.conditions,'conditions','placement','conditions',{chapter,createFlag:true,label:'Appearance conditions',help:kind==='item'?'All conditions must pass for this item to appear here. They do not limit Action triggers after collection.':'All conditions must pass for this card to appear here.'});
- if(local&&kind!=='action')html+=cardRuleFields(project,definition,'local-definition',chapter);
- if((['action','item'].includes(kind)||isStoryKind(kind)||isConsumableKind(kind))&&!local&&definition) {
+ if(!leave&&kind!=='action')html+=rules(project,p.conditions,'conditions','placement','conditions',{chapter,createFlag:true,label:'Appearance conditions',help:kind==='item'?'All conditions must pass for this item to appear here. They do not limit Action triggers after collection.':'All conditions must pass for this card to appear here.'});
+ if(!leave&&local)html+=cardRuleFields(project,definition,'local-definition',chapter);
+ if(!leave&&!local&&definition&&(['action','item'].includes(kind)||isStoryKind(kind)||isConsumableKind(kind))) {
   if(!p.overrides)html+=`<p class="small">Using source rules · ${esc(cardSummary(definition,project.variables,project.library,project.itemTags)||'No requirements, costs or effects')}${kind==='action'?` · Resolution: ${definition.resolution==='check'?'Dice check':'Direct'}`:''}</p>`;
   html+=checkbox('Use custom rules',!!p.overrides,'useCustomRules','placement');
   if(p.overrides){
@@ -153,9 +167,9 @@ export function placementInspector(project,p,kind,index,slot,count=Infinity,chap
  html+='</div>';
  html+=`<div class="inspector-card-preview" data-card-preview data-preview-placement="${esc(p.id)}"></div>`;
  if(local)html+=artworkControls(definition,'local-definition');
- if(slot!=='intro')html+=`<div class="row card-panel-actions" ${attr}>${nodeType==='fork'&&slot==='choices'?checkbox('Hide after use',p.hideAfterUse===true,'hideAfterUse','placement'):''}${button('Duplicate','duplicate-placement',attr)}</div>`;
+ if(slot!=='intro'&&!lockMethod)html+=`<div class="row card-panel-actions" ${attr}>${nodeType==='fork'&&slot==='choices'?checkbox('Hide after use',p.hideAfterUse===true,'hideAfterUse','placement'):''}${button('Duplicate','duplicate-placement',attr)}</div>`;
  html+='</details>';
- if(slot==='intro')return html;
+ if(slot==='intro'||lockMethod)return html;
  const arrow=(direction,label,disabled)=>`<button type="button" class="card-order-arrow" data-command="move-placement" ${attr} data-direction="${direction}" aria-label="${label}" title="${label}" ${disabled?'disabled':''}><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="${direction<0?'M3 10 8 5l5 5':'M3 6l5 5 5-5'}"/></svg></button>`;
  return `<div class="card-placement-row">${html}<div class="card-order-controls">${arrow(-1,'Move card up',index===0)}${arrow(1,'Move card down',index===count-1)}</div><button type="button" class="card-remove-button" data-command="remove-placement" ${attr} aria-label="Remove card" title="Remove card" ${death&&count<=1?'disabled':''}><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="m3 3 10 10M13 3 3 13"/></svg></button></div>`;
 }
@@ -221,15 +235,23 @@ export function nodeInspector(project,chapter,node,previewEffects=node?.entryEff
  if(node.type==='combat')html+=combatNodeFields(project,node);
  if(node.type==='randomizer')html+=randomizerFields(project,chapter,node);
  if(node.type==='death')html+='<p class="small">Plays when Health reaches zero or a connection leads here, then ends the run. Death has no outputs.</p>';
+ if(node.type==='container')html+=checkbox('Locked',node.locked===true,'locked','node');
  const descriptor=nodeTypeDescriptor(node.type);
  for(const [slot,kinds] of Object.entries(descriptor?.slots||{})) {
   const kind=descriptor.defaultKinds[slot];
   if(slot==='intro') {
-   html+=`<h3>${esc(nodeTypeLabel(node.type))} introduction</h3>`+introductionControls(node);
-   if(node.intro&&node.introEnabled!==false)html+=placementInspector(project,node.intro,kind,0,slot,Infinity,chapter);
+   html+=`<h3>${esc(node.type==='container'&&node.locked===true?'Locked':nodeTypeLabel(node.type))} introduction</h3>`+introductionControls(node);
+   if(node.intro&&node.introEnabled!==false)html+=placementInspector(project,node.intro,kind,0,slot,Infinity,chapter,node);
+  }else if(isContainerLockSlot(node.type,slot)){
+   if(node.locked!==true)continue;
+   html+='<h3>Lock methods</h3>'+checkbox('Allow forcing',node.allowForcing===true,'allowForcing','node');
+   html+=containerLockMethods.filter(method=>method!=='force'||node.allowForcing===true).map(method=>{
+    const placement=node.choices?.find(p=>p?.lockMethod===method);
+    return placement?placementInspector(project,placement,kind,0,slot,Infinity,chapter,node):'';
+   }).join('');
   }else {
    if(slot!=='cards')html+=`<h3>${esc(slot[0].toUpperCase()+slot.slice(1))}</h3>`;
-   html+=(node[slot]||[]).map((p,i)=>placementInspector(project,p,kind,i,slot,node[slot].length,chapter)).join('');
+   html+=(node[slot]||[]).map((p,i)=>placementInspector(project,p,kind,i,slot,node[slot].length,chapter,node)).join('');
    html+='<div class="add-card-buttons">'+[kind,...kinds.filter(k=>k!==kind)].map(k=>button(`+ ${cardKinds[k]?.label||k}`,'add-placement',`data-slot="${esc(slot)}" data-kind="${esc(k)}" style="--card-editor-tint:${esc(cardEditorTint(k))}"`)).join('')+'</div>';
   }
  }

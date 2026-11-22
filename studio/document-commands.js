@@ -6,10 +6,11 @@ import { createError } from '../errors.js';
 import { eligibleInventoryItems } from './item-options.js';
 import { placedLocalDefinitions, removeUnplacedLocalDefinitions } from './local-definition-removal.js';
 import { applyTagCommand } from './item-tags.js';
+import { isTagKey, itemTag } from '../project/item-tags.js';
 import { allocateVariableId, renameVariable } from './variable-ids.js';
 import { setProgressionFlag } from './progression-flags.js';
 import { pasteCardClipboard } from './card-clipboard.js';
-import { isRouteBeat } from '../project/nodeTypes.js';
+import { containerLockMethod, containerLockMethods, isContainerLockSlot, isRouteBeat, supportsInventoryTrigger } from '../project/nodeTypes.js';
 import { isStatVariable } from '../project/checks.js';
 import { createDefinition, allowedCardKinds, isStoryKind, isConsumableKind } from '../project/cards.js';
 import { chapterVariables, createProjectChapter, importChapter, outputsForNode } from '../project/model.js';
@@ -25,7 +26,7 @@ import { appendLibraryCard } from './library-cards.js';
 import { sortedChapters } from '../project/chapter-navigation.js';
 import {
   uid, createNode, makePlacement, promoteCard, duplicateNode, duplicatePlacement,
-  findPlacement, placementList, pathTarget, customizeAction, customizeItem, customizeConsumable, customizeStory, newRule, normalizeRule, addHealthVariable,
+  findPlacement, placementList, pathTarget, customizeAction, customizeItem, customizeConsumable, customizeStory, newRule, normalizeRule, addHealthVariable, makeContainerLockPlacement,
 } from './commands.js';
 
 function reconcilePreparedReferences(enemy,action){
@@ -187,12 +188,55 @@ function changeField(project, selection, field, localDrafts) {
     delete root.nextChapterId;
     return;
   }
+  if (scope === 'node' && ['locked','allowForcing'].includes(path)) {
+    if(node.type!=='container'||typeof checked!=='boolean')throw new Error('Container lock settings require a Container and a checkbox value');
+    if(path==='locked'&&checked){
+      node.choices??=[];
+      for(const method of containerLockMethods)if(!node.choices.some(placement=>placement?.lockMethod===method)){
+        node.choices.push(makeContainerLockPlacement(project,method,chapter.id));
+      }
+      node.allowForcing??=false;
+    }
+    node[path]=checked;
+    return;
+  }
+  if (scope === 'placement' && path === 'lockMethod') throw new Error('Container lock methods are fixed');
+  if(path==='forcingBonus'){
+    if(!['definition','local-definition'].includes(scope)||root.kind!=='item')throw new Error('Forcing bonus belongs to an Item definition');
+    if(raw==='')delete root.forcingBonus;
+    else {
+      const bonus=Number(raw);
+      if(!Number.isSafeInteger(bonus)||bonus<1)throw new Error('Forcing bonus must be a positive whole number');
+      root.forcingBonus=bonus;
+    }
+    return;
+  }
+  if(path==='allowBareHanded'){
+    if(scope!=='placement'||containerLockMethod(node,root)!=='force'||typeof checked!=='boolean'){
+      throw new Error('Allow bare-handed requires a Force open placement and a checkbox value');
+    }
+    root.allowBareHanded=checked;
+    return;
+  }
+  if(path==='assistTool'||path.startsWith('assistTool.')){
+    if(scope!=='placement'||containerLockMethod(node,root)!=='force')throw new Error('Assist tool belongs to a Force open placement');
+    if(path!=='assistTool.key')throw new Error('Choose an Item or tag in Assist tool');
+    if(raw==='')delete root.assistTool;
+    else {
+      if(!eligibleInventoryItems(project,chapter).some(item=>item.id===raw)&&!(isTagKey(raw)&&itemTag(project,raw))) {
+        throw new Error('Choose an Item or tag available in this chapter');
+      }
+      root.assistTool={source:'inventory',key:raw};
+    }
+    return;
+  }
   if (scope === 'placement' && path === 'hideAfterUse') {
     if (node?.type !== 'fork' || !node.choices?.includes(root) || typeof checked !== 'boolean') throw new Error('Hide after use requires a Fork choice and a checkbox value');
     root.hideAfterUse = checked;
     return;
   }
   if (scope === 'placement' && path === 'useCustomRules') {
+    if(containerLockMethod(node,root)==='leave')throw new Error('Leave uses card content only');
     if (checked) {
       const definition=project.library.find(card=>card.id===root.definitionId);
       if(definition?.kind==='item')customizeItem(project,root);
@@ -205,9 +249,13 @@ function changeField(project, selection, field, localDrafts) {
   }
   if (scope === 'node' && path === 'introEnabled' && checked && root.type === 'fork' && !root.intro) root.intro = makePlacement(project, 'event', undefined, chapterFor(project, selection).id);
   if (scope === 'placement' && path === 'definitionId') {
-    localDrafts.switchSource(project, root, raw, {allowedKinds:allowedCardKinds(node.type, node.travel?.steps?.includes(root) ? 'travel.steps' : node.intro === root ? 'intro' : node.type === 'container' ? 'items' : 'cards')});
+    const slot = node.intro===root?'intro':node.travel?.steps?.includes(root)?'travel.steps'
+      :['cards','choices','items'].find(slot=>placementList(node,slot)?.includes(root));
+    localDrafts.switchSource(project, root, raw, {allowedKinds:allowedCardKinds(node.type,slot)});
     return;
   }
+  if(scope==='placement'&&node.type==='container'&&['contextItemId','contextOverrideImage'].includes(path)
+    &&!supportsInventoryTrigger(node.type,node.choices?.includes(root)?'choices':'intro',root)) throw new Error('Only Lockpick has an Inventory trigger in a Container');
   if(['definition','local-definition'].includes(scope)&&root.kind==='consumable'&&path==='subtype'&&!['health','energy'].includes(raw))throw new Error('Consumable subtype must be health or energy');
   if(scope==='definition'&&root.kind==='enemy'&&/^actions\.\d+\.preparedActions\.\d+\.fallback\.when\.(\w+)$/.test(path)){
     const parts=path.split('.'),ref=root.actions[Number(parts[1])].preparedActions[Number(parts[3])],type=parts.at(-1);
@@ -387,17 +435,18 @@ function inspectorCommand(project, selection, data, localDrafts) {
       break;
     }
     case 'local-copy': localDrafts.convert(project, placement); break;
-    case 'clear-card': localDrafts.clear(project, placement); break;
+    case 'clear-card': localDrafts.clear(project, placement, containerLockMethod(node,placement)); break;
     case 'promote-card': promoteCard(project, placement); localDrafts.drafts.delete(placement.id); break;
     case 'add-placement': {
       const list=placementList(node,data.slot);
-      if(!Array.isArray(list)||!allowedCardKinds(node.type,data.slot).includes(data.kind))throw new Error('Choose a card type allowed in this beat');
+      if(!Array.isArray(list)||isContainerLockSlot(node.type,data.slot)||!allowedCardKinds(node.type,data.slot).includes(data.kind))throw new Error('Choose a card type allowed in this beat');
       list.push(makePlacement(project,data.kind,undefined,chapterFor(project,selection).id));
       break;
     }
     case 'duplicate-placement': duplicatePlacement(project, node, placement); break;
     case 'remove-placement': {
       if(!placement)return;
+      if(node.type==='container'&&node.choices?.includes(placement))throw new Error('Container lock methods are fixed');
       if(node.type==='death'&&node.cards.length<=1)throw new Error('Death must keep at least one card');
       const definitions=placedLocalDefinitions(project,placement);
       if(node.intro===placement){
@@ -414,6 +463,7 @@ function inspectorCommand(project, selection, data, localDrafts) {
       break;
     }
     case 'move-placement':
+      if(node.type==='container'&&node.choices?.includes(placement))throw new Error('Container lock methods are fixed');
       for (const slot of ['cards','choices','items','travel.steps']) {
         const list=placementList(node,slot);
         if(!list)continue;

@@ -21,8 +21,9 @@ Założenia projektowe: [Storytelling principles — Contextual agency and uncer
 
 ## Kontenery
 
-- [ ] Zaprojektować otwieranie zamkniętych kontenerów wytrychem (test Zręczności) albo przez wyważenie (test Siły). Gracz ma po jednej próbie każdą metodą na kontener i widzi szansę powodzenia oraz koszt porażki przed zatwierdzeniem. Nieudana próba kosztuje wytrych albo Energię, zależnie od metody. Kontener pozostaje zamknięty, a gracz może jeszcze spróbować drugiej metody lub odejść. Sukces odsłania zawartość.
-- [ ] Dodać opcję pokazania po walce kontenera ze znaleziskami, z którego gracz może zabrać przedmioty.
+- [x] Zamykane kontenery. **Locked** włącza wybór metod przed pokazaniem przedmiotów. Każda rozstrzygnięta próba wyważenia zużywa Energię. Próba z wytrychem wymaga przedmiotu lub tagu wskazanego w **Inventory trigger** i zużywa wybrany egzemplarz wyłącznie przy porażce. Po porażce można ponowić próbę, jeśli wystarcza zasobów. **Leave** prowadzi przez `Next`, a sukces odsłania zawartość i zapamiętuje otwarcie w podejściu. Wszystkie trzy akcje obsługują lokalne karty i karty z Library.
+- [x] **Force open** wybiera jedno zgodne narzędzie według szansy wynikającej z pola **Forcing bonus** na karcie **Item**. Przy remisie wybiera narzędzie bez limitu użyć. Rozstrzygnięty rzut zużywa jedno dostępne użycie zgodnie z **Permability**. **Allow bare-handed** daje bazową próbę, gdy brakuje odpowiedniego narzędzia.
+- [ ] Odłożone. Skrzynię z łupem po walce można dziś podpiąć ręcznie przez `Combat → Victory → Container`.
 
 ## Prezentacja kart
 

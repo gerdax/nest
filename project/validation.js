@@ -6,7 +6,7 @@ import { isTagKey, tagKey, tagIdFromKey, validItemTagName } from './item-tags.js
 import { isStatVariable, validStatValue, compatibleStatVariable } from './checks.js';
 import { validateCardBack } from '../engine/cardBacks.js';
 import { cardKinds, resolvePlacement, canonicalCardKind, allowedCardKinds, placementOverrideKeys, isConsumableKind, consumableResource } from './cards.js';
-import { chapterHasCombat, nodeTypeDescriptor, isUnassignedCombat, isRouteBeat, routeFallbackEnabled, supportsInventoryTrigger } from './nodeTypes.js';
+import { chapterHasCombat, containerLockMethod, containerLockMethods, nodeTypeDescriptor, isUnassignedCombat, isRouteBeat, routeFallbackEnabled, supportsInventoryTrigger } from './nodeTypes.js';
 import { isCardColor } from './card-styles.js';
 import { object, named, list, placements, legacyArtwork, chapterVariables } from './model-data.js';
 import { hasDirectedCycle, outputsForNode } from './graph.js';
@@ -107,6 +107,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
   const itemKeys = new Set(library.filter(d => d?.kind === 'item').flatMap(d => [d.id, d.inventoryKey].filter(Boolean)));
   const itemsById = new Map(library.filter(d => d?.kind === 'item').map(d => [d.id, d]));
   const itemDefinitionIds = new Set(itemsById.keys());
+  const itemOrTag = key => definitions.get(key)?.kind === 'item' || isTagKey(key) && tagIds.has(tagIdFromKey(key));
   for (const tag of tags.filter(object)) if (itemKeys.has(tagKey(tag.id))) add(errorMessage('VALIDATION_ITEM_TAG_REFERENCE_CONFLICTS_WITH_A_CONCRETE_ITEM_ID_OR_INVENTORY_ALIAS', {tagId: tag.id, reference: tagKey(tag.id)}));
   for (const item of itemsById.values()) {
     const owner = itemsById.get(item.inventoryKey);
@@ -369,6 +370,12 @@ export function validateProject(project, {allowDraft = false} = {}) {
   for (const d of library) {
     if (!object(d)) continue;
     if (Object.hasOwn(d,'hideAfterUse')) add(`Definition ${d.id}: Hide after use belongs to a Fork choice placement`);
+    if (Object.hasOwn(d,'lockMethod')) add(`Definition ${d.id}: Lock methods belong to Container placements`);
+    if (Object.hasOwn(d,'assistTool')) add(`Definition ${d.id}: Assist tool belongs to a Force open placement`);
+    if (Object.hasOwn(d,'allowBareHanded')) add(`Definition ${d.id}: Allow bare-handed belongs to a Force open placement`);
+    if (Object.hasOwn(d,'forcingBonus') && (d.kind!=='item'||!Number.isSafeInteger(d.forcingBonus)||d.forcingBonus<1)) {
+      add(`Definition ${d.id}: Forcing bonus requires an Item and a positive whole number`);
+    }
     if (d.contextItemId !== undefined || d.contextOverrideImage !== undefined) add(errorMessage('VALIDATION_DEFINITION_INVENTORY_CONTEXT_BELONGS_TO_A_FORK_CHOICE_PLACEMENT', {definitionId: d.id}));
     if (d.visibility !== undefined && !['local', 'shared'].includes(d.visibility) || !['event', 'discovery', 'caption',
       'narrative', 'action', 'item', 'consumable', 'combatAction', 'effect', 'enemy'].includes(d.kind) || typeof d.name !== 'string' || !validCardText(d)
@@ -452,6 +459,16 @@ export function validateProject(project, {allowDraft = false} = {}) {
         cid, nid);
       if (node.type === 'fork' && (node.intro !== undefined && !object(node.intro) || node.introEnabled === true
         && !object(node.intro))) add(errorMessage('VALIDATION_MISSING_INTRODUCTION', {label}), cid, nid);
+      for(const setting of ['locked','allowForcing'])if(Object.hasOwn(node,setting)&&(node.type!=='container'||typeof node[setting]!=='boolean')){
+        add(`${label}: ${setting==='locked'?'Locked':'Allow forcing'} requires a Container and a boolean value`,cid,nid);
+      }
+      if(node.type==='container'&&(node.locked===true||node.choices!==undefined)){
+        const methods=list(node.choices).map(placement=>placement?.lockMethod);
+        if(!Array.isArray(node.choices)||methods.some(method=>!containerLockMethods.includes(method))
+          ||new Set(methods).size!==methods.length||node.locked===true&&!containerLockMethods.every(method=>methods.includes(method))){
+          add(`${label}: A locked Container requires one Lockpick, one Force open, and one Leave placement`,cid,nid);
+        }
+      }
       if (node.retainInventoryItems !== undefined && typeof node.retainInventoryItems !== 'boolean') add(errorMessage('VALIDATION_INVALID_INVENTORY_ITEM_PERSISTENCE_TOGGLE', {label}), cid, nid);
       if (node.unavailableActions !== undefined && (!['fork','linear','combat'].includes(node.type) || !['project','disabled','hidden','triggers-only','disabled-triggers'].includes(node.unavailableActions))) add(errorMessage('VALIDATION_NODE_UNAVAILABLE_ACTIONS_INVALID', {label}), cid, nid);
       if (node.weaponCooldownVisibility !== undefined && (node.type !== 'combat' || !['project','show','hide'].includes(node.weaponCooldownVisibility))) add(`${label}: Invalid weapon cooldown visibility override`, cid, nid);
@@ -538,6 +555,16 @@ export function validateProject(project, {allowDraft = false} = {}) {
         if (Object.hasOwn(p,'hideAfterUse') && (typeof p.hideAfterUse !== 'boolean' || node.type !== 'fork' || !list(node.choices).includes(p))) {
           add(`${label}: Hide after use requires a Fork choice and a boolean value`,cid,nid);
         }
+        const lockMethod=containerLockMethod(node,p);
+        if(Object.hasOwn(p,'lockMethod')&&!lockMethod)add(`${label}: Invalid Container lock method placement`,cid,nid);
+        if(Object.hasOwn(p,'allowBareHanded')&&(lockMethod!=='force'||typeof p.allowBareHanded!=='boolean')){
+          add(`${label}: Allow bare-handed requires a Force open placement and a boolean value`,cid,nid);
+        }
+        if(Object.hasOwn(p,'forcingBonus'))add(`${label}: Forcing bonus belongs to an Item definition`,cid,nid);
+        const assist=p.assistTool, hasAssist=Object.hasOwn(p,'assistTool');
+        const assistValid=!hasAssist||lockMethod==='force'&&object(assist)&&assist.source==='inventory'
+          &&named(assist.key)&&itemOrTag(assist.key);
+        if(!assistValid)add(`${label}: Assist tool requires a Force open placement and an Item or tag`,cid,nid);
         inspectCard(p, label);
         const d = definitions.get(p.definitionId);
         if (list(node.travel?.steps).includes(p) && d && !allowedCardKinds('randomizer', 'travel.steps').includes(canonicalCardKind(d.kind))) {
@@ -547,15 +574,17 @@ export function validateProject(project, {allowDraft = false} = {}) {
           if (Object.keys(p.overrides).some(k => !placementOverrideKeys(d?.kind,d).includes(k))) add(errorMessage('VALIDATION_UNSUPPORTED_OVERRIDE', {label}), cid, nid);
           inspectCard(p.overrides, label);
         }
-        const triggerPlacement=supportsInventoryTrigger(node.type,list(node.choices).includes(p)?'choices':list(node.cards).includes(p)?'cards':'intro');
+        const triggerPlacement=supportsInventoryTrigger(node.type,list(node.choices).includes(p)?'choices':list(node.cards).includes(p)?'cards':'intro',p);
         if (p.contextOverrideImage !== undefined && !(triggerPlacement
-          && canonicalCardKind(d?.kind) === 'action')) add(errorMessage('VALIDATION_OVERRIDE_IMG_BELONGS_TO_A_NATIVE_FORK_ACTION_CHOICE', {label}),
+          && canonicalCardKind(d?.kind) === 'action')) add(node.type==='container'?`${label}: inventory trigger artwork requires a Lockpick Action`
+          :errorMessage('VALIDATION_OVERRIDE_IMG_BELONGS_TO_A_NATIVE_FORK_ACTION_CHOICE', {label}),
           cid, nid);
         const linked = p.contextItemId !== undefined && p.contextItemId !== '';
         const contextValid = !linked || named(p.contextItemId) && triggerPlacement
-          && canonicalCardKind(d?.kind) === 'action' && (definitions.get(p.contextItemId)?.kind === 'item' || isTagKey(p.contextItemId) && tagIds.has(tagIdFromKey(p.contextItemId)));
+          && canonicalCardKind(d?.kind) === 'action' && itemOrTag(p.contextItemId);
         if (isTagKey(p.contextItemId) && !itemsById.has(p.contextItemId) && p.contextOverrideImage === true) add(errorMessage('VALIDATION_TAG_CONTEXT_CANNOT_OVERRIDE_ARTWORK', {label}), cid, nid);
-        if (!contextValid) add(errorMessage('VALIDATION_INVENTORY_CONTEXT_NEEDS_A_NATIVE_FORK_ACTION_CHOICE_AND_AN_ITEM_DEFINITION_OR_TAG', {label}), cid, nid);
+        if (!contextValid) add(node.type==='container'?`${label}: inventory context requires a Lockpick Action and an Item or tag`
+          :errorMessage('VALIDATION_INVENTORY_CONTEXT_NEEDS_A_NATIVE_FORK_ACTION_CHOICE_AND_AN_ITEM_DEFINITION_OR_TAG', {label}), cid, nid);
         if (d) {
           if (['linear', 'fork', 'container', 'death'].includes(node.type) && !allowedCardKinds(node.type, p === node.intro ? 'intro': list(node.choices).includes(p) ? 'choices': list(node.items).includes(p) ? 'items': 'cards').includes(canonicalCardKind(d.kind))) add(errorMessage('VALIDATION_INCOMPATIBLE_CARD_KIND', {label}),
             cid, nid);
@@ -564,7 +593,19 @@ export function validateProject(project, {allowDraft = false} = {}) {
           const mechanicsValid = [d, p, p.overrides].every(source => !object(source)
             || ['conditions', 'effects', 'onCollect', 'successEffects', 'failureEffects', 'costs']
               .every(key => source[key] === undefined || Array.isArray(source[key])));
-          if (contextValid && mechanicsValid) inspectCard(resolvePlacement(project, p, index), label);
+          if (contextValid && assistValid && mechanicsValid) {
+            const resolved=resolvePlacement(project,p,index);
+            inspectCard(resolved,label);
+            if(!allowDraft&&node.locked===true){
+              if(lockMethod==='lockpick'&&linked&&resolved.resolution!=='check')add(`${label}: Lockpick requires a dice check`,cid,nid);
+              if(lockMethod==='force'&&node.allowForcing===true&&(p.allowBareHanded!==false||hasAssist)){
+                if(resolved.resolution!=='check')add(`${label}: Force open requires a dice check`,cid,nid);
+                if(!list(resolved.costs).some(cost=>cost?.source==='variable'&&cost.key==='energy'&&Number.isFinite(cost.amount)&&cost.amount>0)){
+                  add(`${label}: Force open requires a positive Energy cost`,cid,nid);
+                }
+              }
+            }
+          }
         }
       }
       let targets = [];
@@ -599,6 +640,10 @@ export function validateProject(project, {allowDraft = false} = {}) {
       }
       for (const raw of legacyArtwork(node)) {
         if (Object.hasOwn(raw,'hideAfterUse')) add(`${label}: Hide after use belongs to a native Fork choice placement`,cid,nid);
+        if (Object.hasOwn(raw,'lockMethod')) add(`${label}: Lock methods belong to Container placements`,cid,nid);
+        if (Object.hasOwn(raw,'assistTool')) add(`${label}: Assist tool belongs to a Force open placement`,cid,nid);
+        if (Object.hasOwn(raw,'allowBareHanded')) add(`${label}: Allow bare-handed belongs to a Force open placement`,cid,nid);
+        if (Object.hasOwn(raw,'forcingBonus')) add(`${label}: Forcing bonus belongs to an Item definition`,cid,nid);
         if (raw.contextOverrideImage !== undefined || raw.contextItemId !== undefined && raw.contextItemId !== '') add(errorMessage('VALIDATION_INVENTORY_CONTEXT_IS_UNSUPPORTED_ON_LEGACY_CARDS', {label}),
           cid, nid);
         if (!named(raw.id) || typeof raw.definitionId !== 'string' || typeof raw.image !== 'string'

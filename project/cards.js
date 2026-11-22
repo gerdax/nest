@@ -72,6 +72,19 @@ export function resolvePlacement(project, placement, index) {
   // This behavior belongs to the chapter placement, never its Library source.
   delete resolved.hideAfterUse;
   if (Object.hasOwn(placement, 'hideAfterUse')) resolved.hideAfterUse = placement.hideAfterUse;
+  delete resolved.lockMethod;
+  if (Object.hasOwn(placement, 'lockMethod')) resolved.lockMethod = placement.lockMethod;
+  delete resolved.assistTool;
+  delete resolved.allowBareHanded;
+  delete resolved.forcingTool;
+  if (resolved.lockMethod === 'force' && base.kind === 'action') {
+    if (Object.hasOwn(placement, 'allowBareHanded')) resolved.allowBareHanded = placement.allowBareHanded;
+    if (placement.assistTool?.key) {
+      const {key} = placement.assistTool;
+      const item = index && index.usable !== false ? index.itemsById.get(key) : project.library.find(d => d?.id === key && d.kind === 'item');
+      resolved.assistTool = {source:'inventory', key:item?.inventoryKey ?? key};
+    }
+  }
   if (isConsumableKind(base.kind)) {
     resolved.onCollect = [...resourceCollectionEffects(base), ...(placement.effects || [])];
     resolved.effects = resolved.onCollect;

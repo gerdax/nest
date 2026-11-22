@@ -1,9 +1,9 @@
-import { nodeTypeDescriptor } from '../project/nodeTypes.js';
+import { isContainerLockSlot, nodeTypeDescriptor } from '../project/nodeTypes.js';
 import { uiScale } from './ui-scale.js';
 
 export function cardDropSlot(type,kind) {
  const slots=nodeTypeDescriptor(type)?.slots||{};
- return Object.keys(slots).find(slot=>slot!=='intro'&&slots[slot].includes(kind))||null;
+ return Object.keys(slots).find(slot=>slot!=='intro'&&!isContainerLockSlot(type,slot)&&slots[slot].includes(kind))||null;
 }
 
 /** Pointer-only feedback; the document changes once, on a valid drop. */
@@ -12,7 +12,7 @@ export class CardDrag {
  start(e,name){
   this.suppressClick=false;
   const row=name.closest('.graph-card-row'),node=name.closest('.node');
-  if(!row||!node)return false;
+  if(!row||!node||row.dataset.lockMethod)return false;
   const g=this.graph;
   g.root.focus({preventScroll:true});
   g.drag={kind:'card',sourceNodeId:node.dataset.id,placementId:row.dataset.cardPlacement,cardKind:row.dataset.cardType,name:name.textContent,x:e.clientX,y:e.clientY,clientX:e.clientX,clientY:e.clientY,pointer:e.pointerId,moved:false,copy:!!e.altKey};
@@ -37,7 +37,7 @@ export class CardDrag {
   const row=allRows.find(row=>{const r=row.getBoundingClientRect(),edge=Math.min(8,r.height*.2);return e.clientY>=r.top+edge&&e.clientY<r.bottom-edge;});
   if(row){
    const slot=row.dataset.cardSlot,targetPlacementId=row.dataset.cardPlacement;
-   const compatible=nodeTypeDescriptor(node?.type)?.slots[slot]?.includes(d.cardKind);
+   const compatible=!isContainerLockSlot(node?.type,slot)&&nodeTypeDescriptor(node?.type)?.slots[slot]?.includes(d.cardKind);
    const self=node.id===d.sourceNodeId&&targetPlacementId===d.placementId;
    return {nodeEl,row,slot,targetNodeId:node.id,targetPlacementId,invalid:!compatible||self};
   }

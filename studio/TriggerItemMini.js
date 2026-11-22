@@ -20,9 +20,9 @@ export class TriggerItemMini {
     for (const type of ['pointerup','pointercancel','blur','resize']) this.view.addEventListener?.(type, this.release);
     root.ownerDocument?.addEventListener?.('visibilitychange', this.release);
   }
-  update(item, { busy = false } = {}) {
+  update(item, { busy = false, assist = false } = {}) {
     const signature = item && JSON.stringify([item.instanceId ?? item.definitionId ?? item.id,
-      item.permability, item.remainingTriggers, item.image, item.flipImage, item.name, item.label]);
+      item.permability, item.remainingTriggers, item.image, item.flipImage, item.name, item.label, assist]);
     if (item === this.item && signature === this.signature && busy === this.busy) return;
     this.signature = signature;
     this.endHold(); this.item = item; this.busy = busy;
@@ -31,7 +31,8 @@ export class TriggerItemMini {
     const doc = this.root.ownerDocument ?? document;
     const button = this.button = doc.createElement('button');
     button.type = 'button'; button.disabled = busy; button.draggable = false;
-    button.setAttribute('aria-label', `Trigger item: ${item.name || item.label || 'Item'}`);
+    const title = `${assist ? 'Assist tool' : 'Trigger item'}: ${item.name || item.label || 'Item'}`;
+    button.setAttribute('aria-label', title);
     button.setAttribute('aria-pressed', 'false');
     // Artwork stays visible beneath the remaining uses for finite items.
     if (item.image) {
@@ -47,7 +48,7 @@ export class TriggerItemMini {
       uses.className = 'nest-item-uses';
       uses.textContent = `USES: ${item.remainingTriggers ?? item.permability}`;
       button.append(uses);
-      button.setAttribute('aria-label', `Trigger item: ${item.name || item.label || 'Item'}, ${uses.textContent}`);
+      button.setAttribute('aria-label', `${title}, ${uses.textContent}`);
     }
     button.onpointerdown = event => {
       if (event.button !== 0 || event.isPrimary === false) return;
