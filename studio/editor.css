@@ -154,6 +154,7 @@ aside {overflow-anchor:none;}
 .artwork-positioning > .check-field {margin-top:12px;}
 
 #inspector label.field:has(> input[data-scope="node"][data-path="name"]) {margin-bottom:20px;}
+#inspector > label.field:has(+ label.field > input[data-path="travel.eventCount"]) {margin-bottom:12px;}
 
 #settings .chapter-settings[open] > summary {margin-bottom:22px;}
 #project-settings-content [data-project-card-backs][open] > summary {margin-bottom:18px;}
@@ -175,6 +176,10 @@ body:not(.finder-available) [data-command="reveal-image"] {display:none;}
 .rule-entry-actions > .item-reference-links > .item-reference {margin:0;}
 .rule-entry-actions > [data-command="remove-rule"] {margin-left:auto;}
 [data-command="remove-route"] {display:block;margin-inline-start:auto;}
+#inspector > .check-field:has(> input[data-path="travel.enabled"]) {margin-top:24px;}
+#inspector > .check-field:has(> input[data-path="travel.randomizeStepCards"]) {margin:18px 0 16px;}
+.auto-travel-steps {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-items:end;margin:20px 0 12px;}
+.auto-travel-steps > .field {margin:0;}
 .auto-add-options {display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 22px;}
 .auto-scene-actions {justify-content:space-between;align-items:center;}
 .auto-scene-entry > .field:first-child {margin-top:6px;}

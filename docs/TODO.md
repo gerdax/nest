@@ -13,6 +13,17 @@
 
 Założenia projektowe: [Storytelling principles — Contextual agency and uncertainty](storytelling-principles.md#contextual-agency-and-uncertainty) oraz [Travel between discoveries](storytelling-principles.md#travel-between-discoveries--agreed-direction-not-yet-implemented).
 
+## Ekran po śmierci — YOUR LAST RUN
+
+- [ ] Po śmierci pokazywać statystyki ostatniego podejścia, dokonane odkrycia, nowo odblokowane osiągnięcia i pobite rekordy.
+- [ ] Śledzić **Survival Records**, **Lifetime Stats** i **Achievements**. Zachowywać statystyki łączne, rekordy i osiągnięcia między restartami rozdziałów.
+- [ ] W późniejszym etapie dodać **Death Archive**, czyli kolekcję odkrytych sposobów śmierci.
+
+## Kontenery
+
+- [ ] Zaprojektować otwieranie zamkniętych kontenerów wytrychem (test Zręczności) albo przez wyważenie (test Siły). Gracz ma po jednej próbie każdą metodą na kontener i widzi szansę powodzenia oraz koszt porażki przed zatwierdzeniem. Nieudana próba kosztuje wytrych albo Energię, zależnie od metody. Kontener pozostaje zamknięty, a gracz może jeszcze spróbować drugiej metody lub odejść. Sukces odsłania zawartość.
+- [ ] Dodać opcję pokazania po walce kontenera ze znaleziskami, z którego gracz może zabrać przedmioty.
+
 ## Prezentacja kart
 
 - Próba lekkiego, losowego obrotu kart została wycofana. Karty wróciły do pierwotnego ustawienia.

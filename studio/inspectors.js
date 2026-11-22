@@ -190,17 +190,19 @@ function randomizerFields(project,chapter,node) {
  }).join('');
  const travel=node.travel?.enabled===true;
  const travelFields=travel
-  ?field('First step caption',node.travel.firstStepCaption??'','travel.firstStepCaption','node')
-   +'<p class="small">Replaces the caption on the first step of each segment, including after an event. Leave empty to use the step card’s caption.</p>'
+  ?'<div class="auto-travel-steps">'
    +field('Min Steps per segment',node.travel.minSteps,'travel.minSteps','node','number')
    +field('Max Steps per segment',node.travel.maxSteps,'travel.maxSteps','node','number')
-   +field('Event count',node.travel.eventCount,'travel.eventCount','node','number')
+   +'</div>'
+   +field('First step caption (optional)',node.travel.firstStepCaption??'','travel.firstStepCaption','node')
    +'<h3>Step cards</h3><p class="small">Choose Vignette or Caption cards for the travel steps. Each card keeps its normal appearance conditions and progression effects.</p>'
-   +checkbox('Randomize step cards',node.travel.randomizeStepCards===true,'travel.randomizeStepCards','node')
    +(node.travel.steps||[]).map((p,i)=>placementInspector(project,p,'event',i,'travel.steps',node.travel.steps.length,chapter)).join('')
    +'<div class="add-card-buttons">'+['event','caption'].map(kind=>button(`+ ${cardKinds[kind].label}`,'add-placement',`data-slot="travel.steps" data-kind="${kind}" style="--card-editor-tint:${esc(cardEditorTint(kind))}"`)).join('')+'</div>'
+   +checkbox('Randomize step cards',node.travel.randomizeStepCards===true,'travel.randomizeStepCards','node')
   :'';
- return checkbox('Travel',travel,'travel.enabled','node')+travelFields+'<h3>Scene selection</h3>'
+ return (travel?field('Event count',node.travel.eventCount,'travel.eventCount','node','number'):'')
+  +checkbox('Travel',travel,'travel.enabled','node')+travelFields
+  +'<hr class="connections-divider"><h3>Scene selection</h3>'
   +(travel?'':field('Draw count',node.drawCount??1,'drawCount','node','number')
    +'<p class="small">Draw up to this many scenes per visit. Each scene plays before the next draw. Scenes repeat only if allowed, and chapter-wide group limits still apply. If no option is eligible, follow Next.</p>')
   +rows+'<div class="auto-add-options">'+['group','beat','enemy'].map(type=>button(`Add ${type==='enemy'?'Enemy':type}`,'add-randomizer-candidate',

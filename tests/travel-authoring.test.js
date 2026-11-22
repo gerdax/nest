@@ -42,18 +42,27 @@ test('Travel is opt-in and retains its configuration and ordinary Auto settings 
  f.edit('field',{scope:'node',path:'travel.firstStepCaption',value:'You move on',inputType:'text'});
  const config=structuredClone(node.travel);
  const html=nodeInspector(project,chapter,node);
+ const sceneDivider=/<hr class="connections-divider"><h3>Scene selection<\/h3>/;
+ assert.match(html,sceneDivider);
  assert.match(html,/Min Steps per segment/);assert.match(html,/Max Steps per segment/);assert.match(html,/Event count/);
- assert.match(html,/First step caption/);assert.match(html,/data-path="travel.firstStepCaption"[^>]+value="You move on"/);
+ assert.match(html,/First step caption \(optional\)/);assert.match(html,/data-path="travel.firstStepCaption"[^>]+value="You move on"/);
  assert.match(html,/Randomize step cards/);assert.doesNotMatch(html,/data-path="travel.randomizeStepCards"[^>]*checked/);
- assert(html.indexOf('travel.firstStepCaption')>html.indexOf('travel.enabled'));
- assert(html.indexOf('travel.firstStepCaption')<html.indexOf('travel.minSteps'));
- assert.match(html,/Step cards/);assert.match(html,/data-slot="travel.steps" data-kind="event"/);
- assert.match(html,/data-slot="travel.steps" data-kind="caption"/);
+ assert.deepEqual([...html.matchAll(/data-path="travel\.([^"]+)"/g)].map(([,key])=>key),
+  ['eventCount','enabled','minSteps','maxSteps','firstStepCaption','randomizeStepCards']);
+ assert.match(html,/<h3>Step cards<\/h3><p class="small">Choose Vignette or Caption cards[^<]+<\/p>/);
+ const randomize=html.indexOf('data-path="travel.randomizeStepCards"');
+ for(const kind of ['event','caption']){
+  const addButton=html.indexOf(`data-slot="travel.steps" data-kind="${kind}"`);
+  assert(addButton>=0&&addButton<randomize,`Add ${kind} button should precede Randomize step cards`);
+ }
  assert.doesNotMatch(html,/data-path="drawCount"|data-path="noneWeight"/);
  enable(false);
  assert.deepEqual(node.travel,{...config,enabled:false});
- assert.match(nodeInspector(project,chapter,node),/data-path="drawCount"[^>]+value="3"/);
- assert.match(nodeInspector(project,chapter,node),/data-path="noneWeight"[^>]+value="7"/);
+ const disabledHtml=nodeInspector(project,chapter,node);
+ assert.match(disabledHtml,sceneDivider);
+ assert.doesNotMatch(disabledHtml,/data-path="travel\.eventCount"/);
+ assert.match(disabledHtml,/data-path="drawCount"[^>]+value="3"/);
+ assert.match(disabledHtml,/data-path="noneWeight"[^>]+value="7"/);
  enable(true);assert.deepEqual(node.travel,config);
  assert.equal(node.cards,undefined);
 });

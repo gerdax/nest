@@ -352,7 +352,7 @@ export class CardDeck extends EventTarget {
   }
 
   inputTailReady() {
-    // Only a new/held press may finish imperceptible residual motion. Keep
+    // Only a new/held press may finish the small remaining motion. Keep
     // ordinary playback, departures, entrance pauses and gameplay clocks intact.
     if (this.destroyed || this.drag || this.finishingInputTail || this.finishingMotion
       || this.commitMotion || this.collectMotion || this.pending || this.returning
@@ -369,14 +369,14 @@ export class CardDeck extends EventTarget {
       let scale = state === this.p || state === this.returnLift ? this.departureTravel()
         : state === this.l ? Math.max(1, height) : state === this.n ? 40
           : state === this.fan ? 40 * (this.settings.layoutScale ?? 1) : state === this.b ? Math.max(1, width) * 2 * Math.PI : 1;
-      let limit = 2; // layout pixels; also cap speed at 20 pixels/second
+      let limit = 5; // layout pixels; also cap speed at 50 pixels/second
       if (rotations.includes(state) || turns.includes(state)) {
         scale = turns.includes(state) ? 180 : 1;
-        limit = turns.includes(state) ? 3 : .5; // degrees, also bounded in speed
+        limit = turns.includes(state) ? 5 : 1; // degrees, also bounded in speed
       }
       // Reflow rotations use degrees too.
       for (const offset of this.reflowOffsets.values()) {
-        if (['rx', 'ry', 'rz'].some(key => offset[key] === state)) limit = .5;
+        if (['rx', 'ry', 'rz'].some(key => offset[key] === state)) limit = 1;
       }
       return Math.abs(state.x - state.target) * scale <= limit
         && Math.abs(state.v) * scale <= limit * 10;

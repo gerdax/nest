@@ -2,6 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CardDeck } from '../engine/CardDeck.js';
 import { PointerInput } from '../engine/PointerInput.js';
+import { createRatCombatProject } from '../project/combat-fixture.js';
+import { compileChapter } from '../project/model.js';
+import { ProjectController } from '../project/ProjectController.js';
 
 // Browser-shaped tree: collection must physically detach its layer, while the
 // remaining articles retain their identity and their original parent layers.
@@ -225,7 +228,7 @@ test('tail admission checks speed, pending entrances and synchronous replacement
   const deck = make(); deck.setOpen(true); deck.schedule();
   until(() => deck.inputTailReady());
   const speed = deck.fan.v;
-  deck.fan.v = 1; assert.equal(deck.inputTailReady(), false);
+  deck.fan.v = 2; assert.equal(deck.inputTailReady(), false);
   deck.fan.v = speed;
   deck.prepareEntrances(['source-1']); assert.equal(deck.inputTailReady(), false);
   deck.entranceSequence.clear();
@@ -239,4 +242,84 @@ test('tail admission checks speed, pending entrances and synchronous replacement
   assert.equal(deck.phase, 'revealing', 'replacement keeps its own visible reveal');
   assert.equal(replacementReveals, 0, 'replacement reveal is not completed by the old press');
   dispose(deck);
+});
+
+test('a new swipe can take over the small visible tail while larger or fast motion stays blocked',()=>{
+ const deck=make();deck.setOpen(true);deck.schedule();
+ until(()=>deck.inputTailReady());
+ for(const state of deck.motionStates()){state.x=state.target;state.v=0;}
+ deck.fan.x=deck.fan.target-.1;deck.fan.v=.5; // 4px and 20px/s: previously blocked.
+ deck.flip.x=deck.flip.target+.025;deck.flip.v=.2; // 4.5 degrees and 36 degrees/s.
+ assert.equal(deck.inputTailReady(),true);
+ deck.flip.x=deck.flip.target+.04;assert.equal(deck.inputTailReady(),false);
+ deck.flip.x=deck.flip.target+.025;deck.fan.v=2;assert.equal(deck.inputTailReady(),false);
+ deck.fan.v=.5;
+ let reveals=0;deck.addEventListener('transitioncomplete',event=>{if(event.detail.transition==='reveal')reveals++;});
+ assert.equal(deck.start(),true);assert.equal(deck.phase,'choices');assert.equal(reveals,1);
+ deck.cancel();settle();assert.equal(reveals,1);dispose(deck);
+});
+
+test('combat admits swipes during card entrances and keeps rolls and results inert', async () => {
+  const deck = make();
+  const project = createRatCombatProject();
+  const chapter = project.chapters[0];
+  chapter.startNode = 'rat-fight';
+  chapter.nodes.find(node => node.id === 'rat-fight').introEnabled = false;
+  let finishRoll, finishResult;
+  const errors = [];
+  const run = new ProjectController(deck, compileChapter(project), {
+    rng: () => 0,
+    rollCheck: () => new Promise(resolve => { finishRoll = resolve; }),
+    onCheckResult: () => new Promise(resolve => { finishResult = resolve; }),
+    onError: error => errors.push(error),
+  });
+  const phase = () => run.state.combat?.phase;
+  const flush = () => new Promise(resolve => setImmediate(resolve));
+  const advanceTo = async expected => {
+    for (let i = 0; phase() !== expected && i < 2000; i++) {
+      step();
+      await flush();
+    }
+    assert.equal(phase(), expected);
+  };
+
+  try {
+    const health = run.variables.health;
+    await advanceTo('enemy-roll');
+    assert.equal(deck.mount.inert, true);
+    finishRoll({ dice: Array.from({ length: 3 }, () => ({ sides: 6, value: 4 })) });
+    await advanceTo('enemy-result');
+    assert.equal(deck.mount.inert, true);
+    assert.equal(run.variables.health, health);
+
+    finishResult();
+    await advanceTo('effect-enter');
+    until(() => deck.inputTailReady());
+    assert.equal(deck.busy, true, 'the incoming damage card is still settling');
+    assert.equal(deck.mount.inert, false, 'the browser can deliver a fresh press during the tail');
+    deck.input.pointerdown(pointer());
+    assert.equal(deck.input.active?.waiting, false);
+    assert.ok(deck.drag);
+    await flush();
+    assert.equal(phase(), 'effects');
+
+    step();
+    deck.input.pointermove(pointer(20));
+    deck.input.pointerup(pointer(20));
+    assert.equal(phase(), 'departing');
+    await advanceTo('player-enter');
+    assert.equal(run.variables.health, health - 1);
+    assert.equal(deck.busy, true);
+    assert.equal(deck.mount.inert, false, 'a held press can wait for the choice entrance');
+    hold(deck);
+    admitted(deck);
+    await flush();
+    assert.equal(phase(), 'choice');
+    assert.equal(deck.drag.ready, true);
+    deck.input.pointerup(pointer(80));
+    assert.deepEqual(errors, []);
+  } finally {
+    run.destroy();
+    dispose(deck);
+  }
 });

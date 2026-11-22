@@ -20,7 +20,16 @@ export class CombatCoordinator {
  active(){return !this.disposed&&!this.abort.signal.aborted&&!this.host.destroyed&&this.host.generation===this.generation&&this.host.combat===this;}
  token(){return `${this.encounter.id}:${++this.serial}`;}
  snapshot(){return {variables:{...this.host.variables},inventory:this.host.inventory.map(i=>structuredClone(i))};}
- setPhase(phase){this.phase=phase;if(this.deck.mount){const mount=this.deck.mount,wasInert=mount.inert;mount.inert=!this.idle;const doc=mount.ownerDocument;if(wasInert&&this.idle&&doc&&doc.activeElement===doc.body)mount.focus?.({preventScroll:true});}this.host.notify();return this.active();}
+ setPhase(phase){
+  this.phase=phase;
+  const mount=this.deck.mount;
+  if(mount){
+   mount.inert=!this.idle;
+   const doc=mount.ownerDocument;
+   if(this.idle&&doc&&doc.activeElement===doc.body)mount.focus?.({preventScroll:true});
+  }
+  this.host.notify();return this.active();
+ }
  async replace(content,options={}){
   if(!this.active())return false;
   return new Promise((resolve,reject)=>{
@@ -32,11 +41,21 @@ export class CombatCoordinator {
    try{this.deck.replaceContent(content,options);ready();}catch(e){cleanup();reject(e);}
   });
  }
+ presentCard(content,{transition='flip',presentation='closed',surface='front',swipeable=false}={}){
+  const phase=this.phase;
+  const entered=transition==='flip'||transition==='reveal'
+   ?this.replace(content,{transition,presentation})
+   :this.deck.transitionContent(content,{transition,presentation,surface,signal:this.abort.signal});
+  // Once the successor is staged, the shared deck owns gesture timing.
+  // Keep the combat phase pending until the deck completes the entrance.
+  if(swipeable&&this.active()&&this.phase===phase&&this.deck.mount)this.deck.mount.inert=false;
+  return entered;
+ }
  async start(){
   try{
    if(this.node.introEnabled===true){
     this.resume={kind:'sequence'};this.sequence={kind:'intro',steps:[{card:{...this.enemy,kind:'event'}}],index:0};
-    if(!this.setPhase('entering'))return;await this.replace(this.sequenceContent(),{transition:'flip'});
+    if(!this.setPhase('entering'))return;await this.presentCard(this.sequenceContent(),{swipeable:true});
     if(this.active())this.setPhase('intro');
    }else await this.enterEnemy();
   }catch(error){this.fail(error);}
@@ -91,12 +110,12 @@ export class CombatCoordinator {
   if(!this.active())return;
   this.resume={kind:'enemy',frontTurn};this.sequence=null;if(!this.setPhase('enemy-enter'))return;
   const content=this.introSuccessor??this.actionCard();this.introSuccessor=null;
-  if(frontTurn){
-   const entered=await this.deck.transitionContent(content,{transition:'front-turn',surface:'front',signal:this.abort.signal});
-   if(!entered&&this.active())throw new Error('Enemy card transition unavailable');
-   if(!entered)return;
-  }else if(!await this.replace(content,{transition:'flip'}))return;
-  if(this.active()){const action=this.declaration?.action??this.enemy.actions[this.encounter.actionIndex];if(action.resolution==='direct')this.setPhase('enemy-action');else await this.performEnemyAction(action);}
+  const action=this.declaration?.action??this.enemy.actions[this.encounter.actionIndex];
+  const swipeable=action.resolution==='direct';
+  const entered=await this.presentCard(content,{transition:frontTurn?'front-turn':'flip',swipeable});
+  if(!entered&&frontTurn&&this.active())throw new Error('Enemy card transition unavailable');
+  if(!entered||!this.active())return;
+  if(swipeable)this.setPhase('enemy-action');else await this.performEnemyAction(action);
  }
  async performEnemyAction(action){
   switch(action?.type){
@@ -115,12 +134,10 @@ export class CombatCoordinator {
   if(this.opposed&&!this.declaration)this.nextDeclaration??=this.sampleEnemyDeclaration();
   if(!this.setPhase('player-enter'))return;const content=this.choiceContent();
   if(!content.actions.some(a=>!a.disabled))throw new Error('No available combat Actions. Configure a usable default Action.');
-  if(this.deck.phase==='committing')await this.replace(content,{presentation:'open',transition:'flip'});
-  else {
-   const entered=await this.deck.transitionContent(content,{transition:'front-turn',surface:'front',presentation:'open',signal:this.abort.signal});
-   if(!entered&&this.active())throw new Error('Combat choice transition unavailable');
-  }
-  if(this.active()){this.choicesPresented=true;this.setPhase('choice');}
+  const transition=this.deck.phase==='committing'?'flip':'front-turn';
+  const entered=await this.presentCard(content,{transition,presentation:'open',swipeable:true});
+  if(!entered&&transition==='front-turn'&&this.active())throw new Error('Combat choice transition unavailable');
+  if(entered&&this.active()){this.choicesPresented=true;this.setPhase('choice');}
  }
  async attack(actor,action,source=null,{contentId,attempt}={}){
   if(!this.active())return;
@@ -272,16 +289,10 @@ export class CombatCoordinator {
   const step=sequence.steps[sequence.index],content=this.sequenceContent();
   this.accepted.delete(step.contentId);
   if(!this.setPhase('effect-enter'))return;
-  if(replace||this.deck.phase==='committing'){
-   if(!replace&&surface==='check'){
-    const entered=await this.deck.transitionContent(content,{transition:'slide',surface,signal:this.abort.signal});
-    if(!entered&&this.active())throw new Error('Effect entrance canceled; retry presentation');
-   }else if(!await this.replace(content,{transition:'flip'}))return;
-  }else {
-   const entered=await this.deck.transitionContent(content,{transition:'slide',surface,signal:this.abort.signal});
-   if(!entered&&this.active())throw new Error('Effect entrance canceled; retry presentation');
-  }
-  if(this.active())this.setPhase(sequence.kind);
+  const transition=!replace&&(this.deck.phase!=='committing'||surface==='check')?'slide':'flip';
+  const entered=await this.presentCard(content,{transition,surface,swipeable:true});
+  if(!entered&&transition==='slide'&&this.active())throw new Error('Effect entrance canceled; retry presentation');
+  if(entered&&this.active())this.setPhase(sequence.kind);
  }
  async completeSequence(){
   const kind=this.sequence?.kind;
@@ -337,8 +348,8 @@ export class CombatCoordinator {
    }
    sequence.index++;
    if(sequence.index<sequence.steps.length){
-    await this.replace(this.sequenceContent(),{transition:'reveal'});
-    this.advancing=false;if(this.active())this.setPhase(sequence.kind);return;
+    const entered=await this.presentCard(this.sequenceContent(),{transition:'reveal',swipeable:true});
+    this.advancing=false;if(entered&&this.active())this.setPhase(sequence.kind);return;
    }
    this.advancing=false;
    await this.completeSequence();
@@ -377,8 +388,9 @@ export class CombatCoordinator {
  }
  async enterCharge(action){
   if(!this.setPhase('enemy-enter'))return;
-  if(!await this.replace(this.enemyCard(action),{transition:'flip'}))return;
-  if(action.type==='wait'){this.setPhase('enemy-action');return;}
+  const swipeable=action.type==='wait';
+  if(!await this.presentCard(this.enemyCard(action),{swipeable})||!this.active())return;
+  if(swipeable){this.setPhase('enemy-action');return;}
   await this.attack('enemy',action);
  }
  completeProgression({health,enemyHp}={}){
