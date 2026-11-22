@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { GraphView } from '../studio/GraphView.js';
 import { outputsForNode } from '../project/model.js';
 import { nodeIcon } from '../studio/node-icons.js';
+import { installGraphEdgeDom } from './fixtures/graph-edge-dom.js';
 
 // This fixture exercises event routing and generated SVG, not browser layout.
 class Element {
@@ -17,11 +18,8 @@ class Element {
  getBoundingClientRect(){return {width:0,height:0};}
 }
 class Root extends Element {
- constructor(){super();this.handlers={};this.capture=null;this.parts={'#world':new Element(),'#edges':new Element(),'#nodes':new Element(),'#beat-groups':new Element()};this.ownerDocument={documentElement:new Element(),defaultView:{requestAnimationFrame:()=>1},elementFromPoint:()=>this.hit};
-  Object.defineProperty(this.parts['#edges'],'innerHTML',{configurable:true,get:()=>this.edgeMarkup,set:html=>{
-   this.edgeMarkup=html;
-   this.parts['#edges'].children=[...html.matchAll(/<path class="(edge-line[^"]*)" data-source="([^"]*)" data-exit="([^"]*)"/g)].map(([,cls,source,exit])=>new Element(cls,{source,exit}));
-  }});
+ constructor(){super();this.handlers={};this.capture=null;this.parts={'#world':new Element(),'#edges':new Element(),'#nodes':new Element(),'#beat-groups':new Element()};this.ownerDocument={documentElement:new Element(),defaultView:{},elementFromPoint:()=>this.hit};
+  installGraphEdgeDom(this.parts['#edges'],Element);
   Object.defineProperty(this.parts['#nodes'],'innerHTML',{set:html=>{
    this.parts['#nodes'].rendered=html;
    this.nodes=[...html.matchAll(/<article class="([^"]*)" data-id="([^"]*)"[^>]*>(.*?)<\/article>/g)].map(([,classes,id,body])=>{
@@ -107,7 +105,7 @@ test('collapsed beat wires share side anchors and expanding preserves connection
  s.graph.render(s.project,s.chapter,'a');
  for(const exit of ['first','second']){
   assert.deepEqual(s.graph.outputPoint(s.node,exit),{x:220,y:30});
-  assert.ok(s.root.edgeMarkup.includes(`data-exit="${exit}" d="M220,30 C310,30 310,30 400,30"`));
+  assert.ok(s.root.parts['#edges'].innerHTML.includes(`data-exit="${exit}" d="M220,30 C310,30 310,30 400,30"`));
  }
  assert.deepEqual(s.graph.connectionPoint({nodeId:'b'},false),{x:400,y:30});
  s.root.node('a').getBoundingClientRect=()=>({left:60,right:280,top:70,width:220,height:50});

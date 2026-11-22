@@ -54,12 +54,11 @@ export function createProjectFileBackend({fetch = globalThis.fetch, endpoint = '
     },
     probe:() => get({probe:true}),
     async read() { return (await get()).text; },
-    async save(project, {expectedPrimary = null, migrationSourceText} = {}) {
+    async save(project, {expectedPrimary = null, migrationSourceText, autosave = false} = {}) {
       try {
         const text = JSON.stringify(parseCurrentProject(JSON.stringify(project), {allowDraft:true}), null, 2) + '\n';
         const body = {text, expectedRevision:await revision(expectedPrimary)};
-        // The server always preserves an existing competing file. This option
-        // keeps the shared persistence interface explicit without weakening it.
+        if (autosave && migrationSourceText === undefined) body.autosave = true;
         if (migrationSourceText !== undefined) {
           if (typeof migrationSourceText !== 'string') throw Error('Invalid migration source.');
           body.migrationSourceText = migrationSourceText;

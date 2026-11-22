@@ -7,10 +7,14 @@ import re
 import stat
 from pathlib import Path
 import tempfile
+import time
 import uuid
 
 MAX_PROJECT_BYTES = 50 * 1024 * 1024
 DEFAULT_FILENAME = 'nest-project.json'
+AUTOSAVE_INTERVAL_SECONDS = 5 * 60
+AUTOSAVE_MAX_COUNT = 10
+AUTOSAVE_MAX_BYTES = 100 * 1024 * 1024
 
 
 class InvalidProject(ValueError):
@@ -67,6 +71,10 @@ class ProjectFileStore:
     def _backup(self, raw, label):
         name = f'{self.path.stem}.{label}.{uuid.uuid4().hex}.json'
         path = self.directory / name
+        self._write_backup(path, raw)
+        return f'saved-projects/{name}'
+
+    def _write_backup(self, path, raw):
         created = False
         try:
             with path.open('xb') as backup:
@@ -74,15 +82,46 @@ class ProjectFileStore:
                 backup.write(raw)
                 backup.flush()
                 os.fsync(backup.fileno())
-            self._sync_directory()
+            self._sync_directory(path.parent)
         except BaseException:
             if created:
                 path.unlink(missing_ok=True)
             raise
-        return f'saved-projects/{name}'
 
-    def _sync_directory(self):
-        descriptor = os.open(self.directory, os.O_RDONLY)
+    def _autosave_checkpoint(self, raw):
+        if len(raw) > AUTOSAVE_MAX_BYTES:
+            return None
+        directory = self.directory / '.autosave-checkpoints' / self.filename
+        if directory.resolve() != directory:
+            raise InvalidProject('Autosave checkpoint directory must not be a symlink')
+        if not directory.exists():
+            directory.mkdir(parents=True)
+            self._sync_directory(directory.parent)
+        bucket = int(time.time()) // AUTOSAVE_INTERVAL_SECONDS
+        path = directory / f'{bucket:016d}.json'
+        if path.exists() or path.is_symlink():
+            return None
+        self._write_backup(path, raw)
+
+        # Only rotate regular files created in the dedicated checkpoint folder.
+        retained = sorted((entry for entry in directory.iterdir()
+                           if re.fullmatch(r'[0-9]{16}\.json', entry.name)), reverse=True)
+        used = count = 0
+        for entry in retained:
+            metadata = entry.lstat()
+            if not stat.S_ISREG(metadata.st_mode):
+                continue
+            used += metadata.st_size
+            count += 1
+            if used > AUTOSAVE_MAX_BYTES or count > AUTOSAVE_MAX_COUNT:
+                entry.unlink()
+        self._sync_directory(directory)
+        if path.exists():
+            return f'saved-projects/{path.relative_to(self.directory).as_posix()}'
+        return None
+
+    def _sync_directory(self, directory=None):
+        descriptor = os.open(self.directory if directory is None else directory, os.O_RDONLY)
         try:
             os.fsync(descriptor)
         finally:
@@ -96,6 +135,9 @@ class ProjectFileStore:
             raise InvalidProject('expectedRevision must be a string or null')
         text = request.get('text')
         migration = request.get('migrationSourceText')
+        autosave = request.get('autosave', False)
+        if type(autosave) is not bool or (autosave and migration is not None):
+            raise InvalidProject('Invalid autosave checkpoint request')
         if not isinstance(text, str) or ('migrationSourceText' in request and not isinstance(migration, str)):
             raise InvalidProject('text and migrationSourceText must be strings')
         try:
@@ -120,7 +162,8 @@ class ProjectFileStore:
                 return 200, dict(state, ok=True)
             backup_path = None
             if state['text'] is not None:
-                backup_path = self._backup(state['text'].encode('utf-8'), 'backup')
+                previous = state['text'].encode('utf-8')
+                backup_path = self._autosave_checkpoint(previous) if autosave else self._backup(previous, 'backup')
             elif migration is not None:
                 backup_path = self._backup(migration.encode('utf-8'), 'migration')
             temporary = None

@@ -98,17 +98,17 @@ function consumableRuleFields(project,card,prefix,scope,chapter) {
  return field('Value',card.value??1,`${prefix}value`,scope,'number')
   +rules(project,card.onCollect,`${prefix}onCollect`,scope,'effects',{chapter,label:'On collect effects',help:`Swipe up to consume this card. It adds its Value to ${card.subtype==='health'?'Health':'Energy'} and applies these additional effects.`});
 }
-export function definitionInspector(project,definition) {
+export function definitionInspector(project,definition,dependencies) {
  if(!definition)return '<p>Select a definition in the Library.</p>';
  const local=definition.visibility==='local';
  const chapter=local?project.chapters.find(chapter=>chapter.id===definition.chapterId):undefined;
  if(local) {
   project={...project,variables:chapterVariables(project,chapter).map(v=>({...v,variableScope:(chapter?.variables||[]).includes(v)?'chapter':'global'}))};
-  return `<section class="card-panel card-definition-panel" data-card-type="${esc(definition.kind)}" style="--card-editor-tint:${esc(cardEditorTint(definition.kind))}"><h2>${esc(isConsumableKind(definition.kind)?'Consumable':cardKinds[definition.kind].label)}${cardHeaderIndicators(project,{definitionId:definition.id})}</h2><p class="small">Chapter-local definition · ${esc(chapter?.name||'Unknown chapter')}. Changes apply wherever this card is referenced.</p>${button('Back to beat','back-to-beat')}${cardFields(project,definition,'definition',true,true,chapter)}${definitionUsagePanel(project,definition.id)}</section>`;
+  return `<section class="card-panel card-definition-panel" data-card-type="${esc(definition.kind)}" style="--card-editor-tint:${esc(cardEditorTint(definition.kind))}"><h2>${esc(isConsumableKind(definition.kind)?'Consumable':cardKinds[definition.kind].label)}${cardHeaderIndicators(project,{definitionId:definition.id})}</h2><p class="small">Chapter-local definition · ${esc(chapter?.name||'Unknown chapter')}. Changes apply wherever this card is referenced.</p>${button('Back to beat','back-to-beat')}${cardFields(project,definition,'definition',true,true,chapter)}${definitionUsagePanel(project,definition.id,dependencies)}</section>`;
  }
  let html=`<section class="card-panel card-definition-panel" data-card-type="${esc(definition.kind)}" style="--card-editor-tint:${esc(cardEditorTint(definition.kind))}"><div class="card-definition-heading"><h2>${esc(isConsumableKind(definition.kind)?'Consumable':cardKinds[definition.kind].label)}${cardHeaderIndicators(project,{definitionId:definition.id})}</h2>${definition.kind==='item'&&definition.tagId?`<span class="card-definition-tag">[${esc((project.itemTags||[]).find(tag=>tag.id===definition.tagId)?.name||definition.tagId)}]</span>`:''}</div><p class="small">Shared definition · Changes apply everywhere this definition is referenced.</p>`+cardFields(project,definition);
- html+=definitionUsagePanel(project,definition.id);
- const removal=libraryRemovalPlan(project,definition.id);
+ html+=definitionUsagePanel(project,definition.id,dependencies);
+ const removal=libraryRemovalPlan(project,definition.id,dependencies);
  html+=`<p class="small">${esc(removal.blocked?removal.reason:removal.placements.length?'Removing this definition converts its chapter placements to independent local cards, preserving their content and rules.':'This definition is unused. Removal requires confirmation.')}</p>`;
  return html+'<div class="library-definition-actions">'+button('Duplicate','duplicate-definition')+button('Remove from Library','delete-definition',removal.blocked?'disabled':'')+'</div></section>';
 }

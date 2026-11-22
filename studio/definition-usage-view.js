@@ -19,8 +19,8 @@ function row(entry, reference) {
 }
 
 /** Render placements and rule references as separate, navigable lists. */
-export function definitionUsagePanel(project, id) {
-  const usage = definitionUsage(project, id);
+export function definitionUsagePanel(project, id, graph) {
+  const usage = definitionUsage(project, id, graph);
   return `<section class="definition-usage"><h3>Used in</h3>${usage.placements.length
     ? `<ul class="definition-usage-list">${usage.placements.map(entry => row(entry, false)).join('')}</ul>`
     : '<p class="small">Not placed in a chapter.</p>'}<h3>Referenced in</h3>${usage.references.length

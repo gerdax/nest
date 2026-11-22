@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { GraphView } from '../studio/GraphView.js';
 import { createDefinition,cardEditorTint } from '../project/cards.js';
+import { installGraphEdgeDom } from './fixtures/graph-edge-dom.js';
+import { createEditorRenderState } from '../studio/editor-render-state.js';
 
 // This fixture exercises event routing and generated SVG, not browser layout.
 class Element {
@@ -16,11 +18,8 @@ class Element {
  getBoundingClientRect(){return {width:0,height:0};}
 }
 class Root extends Element {
- constructor(){super();this.handlers={};this.capture=null;this.parts={'#world':new Element(),'#edges':new Element(),'#nodes':new Element(),'#beat-groups':new Element()};this.ownerDocument={documentElement:new Element(),defaultView:{requestAnimationFrame:()=>1},elementFromPoint:()=>this.hit};
-  Object.defineProperty(this.parts['#edges'],'innerHTML',{configurable:true,get:()=>this.edgeMarkup,set:html=>{
-   this.edgeMarkup=html;
-   this.parts['#edges'].children=[...html.matchAll(/<path class="(edge-line[^"]*)" data-source="([^"]*)" data-exit="([^"]*)"/g)].map(([,cls,source,exit])=>new Element(cls,{source,exit}));
-  }});
+ constructor(){super();this.handlers={};this.capture=null;this.frames=new Map();this.serial=0;this.parts={'#world':new Element(),'#edges':new Element(),'#nodes':new Element(),'#beat-groups':new Element()};this.ownerDocument={documentElement:new Element(),defaultView:{requestAnimationFrame:callback=>{const id=++this.serial;this.frames.set(id,callback);return id;},cancelAnimationFrame:id=>this.frames.delete(id)},elementFromPoint:()=>this.hit};
+  installGraphEdgeDom(this.parts['#edges'],Element);
   Object.defineProperty(this.parts['#nodes'],'innerHTML',{set:html=>{
    this.parts['#nodes'].rendered=html;
    this.nodes=[...html.matchAll(/<article class="([^"]*)" data-id="([^"]*)"[^>]*>(.*?)<\/article>/g)].map(([,classes,id,body])=>{
@@ -47,7 +46,11 @@ class Root extends Element {
  releasePointerCapture(id){this.capture=null;this.handlers.lostpointercapture({pointerId:id});}
  focus(){this.focused=true;}
  node(id){return this.nodes.find(n=>n.dataset.id===id);}
- event(name,target,x=300,y=200,pointerId=1){this.handlers[name]({target,clientX:x,clientY:y,pointerId,button:0,preventDefault(){}});}
+ paintFrame(){const batch=[...this.frames.values()];this.frames.clear();for(const callback of batch)callback();}
+ event(name,target,x=300,y=200,pointerId=1){
+  this.handlers[name]({target,clientX:x,clientY:y,pointerId,button:0,preventDefault(){}});
+  if(name==='pointermove')this.paintFrame();
+ }
 }
 function setup(){
  const nodes=[{id:'a',name:'A',type:'linear',cards:[],x:0,y:0,connections:{next:'b'}},{id:'b',name:'B',type:'linear',cards:[],x:400,y:50,connections:{next:null}},{id:'c',name:'C',type:'linear',cards:[],x:600,y:150,connections:{next:null}}];
@@ -304,10 +307,62 @@ test('ghost coordinates account for root offset, pan, and zoom',()=>{
  const s=setup();s.graph.view={x:30,y:40,z:.5};s.root.event('pointerdown',s.port(),200,100);s.root.event('pointermove',s.root,300,200);
  assert.equal(s.graph.drag.px,520);assert.equal(s.graph.drag.py,280);assert.match(s.root.parts['#edges'].innerHTML,/edge-ghost" d="M220,104 C310,104 430,280 520,280/);
 });
-test('moving source and target updates wires immediately without mutating document coordinates',()=>{
+test('moving source and target updates wires in the frame without mutating document coordinates',()=>{
  const s=setup();s.graph.view.z=.5;s.root.event('pointerdown',s.root.node('b'),300,200);s.root.event('pointermove',s.root,350,225);
  assert.match(s.root.parts['#edges'].innerHTML,/410,140 500,140/);assert.equal(s.chapter.nodes[1].x,400);s.root.event('pointerup',s.root,350,225);assert.deepEqual(s.moves,[['b',500,100]]);
  s.graph.cancel();s.root.event('pointerdown',s.root.node('a'),300,200);s.root.event('pointermove',s.root,350,225);assert.match(s.root.parts['#edges'].innerHTML,/M320,154 C410,154/);s.graph.cancel();assert.match(s.root.parts['#edges'].innerHTML,/M220,104 C310,104/);
+});
+test('node samples coalesce and update only incident wires without replacing SVG elements',()=>{
+ const {root,graph,chapter,moves}=setup();
+ chapter.nodes[2].connections.next='a';
+ graph.render(graph.project,chapter,'b','b');
+ const [moving,stationary]=graph.edgeElements;
+ const layer=root.parts['#edges'],[movingHit,stationaryHit]=layer.querySelectorAll('.edge-hit');
+ const writes=[];
+ for(const element of [moving,stationary,movingHit,stationaryHit]){
+  const set=element.setAttribute.bind(element);
+  element.setAttribute=(...args)=>{writes.push([element,...args]);set(...args);};
+ }
+ root.event('pointerdown',root.node('b'),300,200);
+ for(const [clientX,clientY] of [[320,208],[350,220],[370,235]]){
+  root.handlers.pointermove({pointerId:1,clientX,clientY});
+ }
+ assert.deepEqual(writes,[]);
+ assert.equal(root.frames.size,1);
+ root.paintFrame();
+ assert.equal(root.frames.size,0);
+ assert.equal(root.node('b').style.left,'470px');
+ assert.deepEqual(writes.map(([element])=>element),[moving,movingHit]);
+ assert.equal(graph.edgeElements[0],moving);
+ assert.equal(graph.edgeElements[1],stationary);
+ assert.equal(writes[0][2],writes[1][2]);
+ assert.match(writes[0][2],/470,125$/);
+ assert.deepEqual(moves,[]);
+ root.handlers.pointermove({pointerId:1,clientX:390,clientY:245});
+ root.event('pointerup',root,400,260);
+ assert.deepEqual(moves,[['b',500,110]]);
+ assert.equal(root.frames.size,0);
+ assert.equal(chapter.nodes[1].x,400);
+});
+test('connector preview replaces only the gesture layer and drops at the release point',()=>{
+ const {root,graph,port,calls}=setup(),layer=root.parts['#edges'];
+ const [line]=graph.edgeElements,[hit]=layer.querySelectorAll('.edge-hit');
+ root.event('pointerdown',port(),300,200);
+ root.hit=root.node('b');
+ root.handlers.pointermove({pointerId:1,clientX:500,clientY:210});
+ root.handlers.pointermove({pointerId:1,clientX:550,clientY:250});
+ assert.equal(root.frames.size,1);
+ assert.doesNotMatch(layer.innerHTML,/edge-ghost/);
+ root.paintFrame();
+ assert.match(layer.innerHTML,/edge-ghost[^>]*490,180/);
+ assert.equal(root.node('b').classes.has('connection-target'),true);
+ root.hit=root.node('c');
+ root.event('pointerup',root,760,280);
+ assert.deepEqual(calls,[['a','next','c']]);
+ assert.equal(root.node('b').classes.has('connection-target'),false);
+ assert.doesNotMatch(layer.innerHTML,/edge-ghost/);
+ assert.equal(graph.edgeElements[0],line);
+ assert.equal(layer.querySelectorAll('.edge-hit')[0],hit);
 });
 test('output geometry uses measured port center when layout is available',()=>{
  const s=setup();s.graph.view={x:30,y:40,z:.5};s.port().getBoundingClientRect=()=>({right:200,top:100,width:110,height:20});s.graph.edges();assert.match(s.root.parts['#edges'].innerHTML,/M320,100 C410,100/);
@@ -649,6 +704,7 @@ test('shared next edges belong to the last Linear card and Container items',()=>
 
 function blankPointer(s,name,x=50,y=60,timeStamp=100,extra={}) {
  s.root.handlers[name]({target:s.root,button:0,pointerId:1,pointerType:'mouse',clientX:x,clientY:y,timeStamp,preventDefault(){},...extra});
+ if(name==='pointermove')s.root.paintFrame();
 }
 function blankClick(s,x=50,y=60,time=100,extra={}) {
  blankPointer(s,'pointerdown',x,y,time,extra);
@@ -766,11 +822,11 @@ test('editor full rendering preserves explicit empty selection but repairs delet
  const source=readFileSync(new URL('../studio/editor.js',import.meta.url),'utf8');
  const start=source.indexOf('function render({');
  const body=source.slice(start,source.indexOf('function scopeRoot',start));
- const render=new Function('selected','project','chapter','graph','$','chapterId','sortedChapters','history','mode','validateProject','renderErrors','renderGraph','renderLibrary','renderInspector','const projectSession={fileMode:false};'+body+';render();return selected;');
+ const render=new Function('selected','project','chapter','graph','$','chapterId','sortedChapters','history','mode','renderState','renderValidation','renderGraph','renderLibrary','renderInspector','applyCardStyles','const projectSession={fileMode:false},preview={};let localFilename;'+body+';render();return selected;');
  const chapter={id:'chapter',startNode:'a',nodes:[{id:'a'},{id:'b'}]},project={chapters:[chapter],activeChapterId:chapter.id};
  for(const [selection,expected] of [[undefined,undefined],['missing','a'],['b','b']]) {
-  const element={classList:{toggle(){}}};
-  assert.equal(render(selection,project,()=>chapter,{cancelCreation(){}},()=>element,chapter.id,()=>[],{},'chapter',()=>[],()=>{},()=>{},()=>{},()=>{}),expected);
+  const element={hidden:true,classList:{toggle(){}}};
+  assert.equal(render(selection,project,()=>chapter,{cancelCreation(){}},()=>element,chapter.id,()=>[],{},'chapter',createEditorRenderState(),()=>{},()=>{},()=>{},()=>{},()=>{}),expected);
  }
 });
 
@@ -973,6 +1029,27 @@ test('collapsed group shows direct crossings with the exact member names',()=>{
  assert.doesNotMatch(markup,/data-source="b"/);
 });
 
+test('moving a collapsed group repositions its boundary wires and label lanes in place',()=>{
+ const s=groupedCanvas(true),{root,graph}=s;
+ s.group.incoming=[];s.group.outgoing=[];s.group.destination=false;
+ s.chapter.nodes[0].connections.next='c';
+ s.chapter.nodes[2].connections.next='d';
+ graph.render(graph.project,s.chapter,'a');
+ const layer=root.parts['#edges'],labels=layer.querySelectorAll('.edge-beat-label');
+ const before=[...layer.innerHTML.matchAll(/edge-beat-label" x="([^"]*)" y="([^"]*)"/g)];
+ root.event('pointerdown',s.tile().header,300,200);
+ root.event('pointermove',root,350,225);
+ assert.deepEqual(layer.querySelectorAll('.edge-beat-label'),labels);
+ assert.equal(labels.length,2);
+ for(const [i,label] of labels.entries()){
+  assert.equal(label.x,Number(before[i][1])+50);
+  assert.equal(label.y,Number(before[i][2])+25);
+ }
+ assert.equal(s.chapter.nodes[1].x,400);
+ root.event('pointerup',root,350,225);
+ assert.deepEqual(s.commands,[['move-beat-group',{id:'g',dx:50,dy:25}]]);
+});
+
 test('dropping an ungrouped beat on either form of the group header adds it in one edit',()=>{
  for(const collapsed of [false,true]){
   const s=groupedCanvas(collapsed),{root}=s;
@@ -1089,7 +1166,6 @@ test('a held connector pans at the graph edge and refreshes its endpoint and tar
  frames.shift()();
  assert.equal(graph.view.x,start-12);
  root.event('pointerup',root,600,200);
- frames.shift()();
  assert.equal(frames.length,0);
  assert.equal(calls.length,1);
 });

@@ -64,6 +64,21 @@ test('file conflict preserves exact competing payload and readback detects inter
   assert.equal(changed.conflict,true);assert.equal(changed.primary,'other writer');
 });
 
+test('file autosaves request checkpoint rotation and explicit saves keep full backups',async()=>{
+  const h=fixture();
+  h.project.name='Automatic edit';
+  assert.equal((await h.persistence.saveAutomatic(h.project)).ok,true);
+  assert.equal(h.api.posts[0].autosave,true);
+  h.project.name='Manual edit';
+  const manual=h.persistence.saveQueued(h.project);
+  h.project.name='Coalesced automatic edit';
+  const automatic=h.persistence.saveAutomatic(h.project);
+  assert.equal((await manual).ok,true);
+  assert.equal((await automatic).ok,true);
+  assert.equal(h.api.posts.length,2);
+  assert.equal(Object.hasOwn(h.api.posts[1],'autosave'),false);
+});
+
 test('unknown commit or failed verification returns failure and retry retains original revision',async()=>{
   const h=fixture();h.project.name='Draft';h.api.failAfterCommit=true;
   assert.equal((await h.persistence.save(h.project)).ok,false);assert.equal(h.persistence.hasUnsaved,true);

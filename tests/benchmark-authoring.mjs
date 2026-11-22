@@ -107,14 +107,17 @@ if (process.argv[2] === '--heap') {
   for(const [version,root] of Object.entries(roots)) {
     const temp=mkdtempSync(join(tmpdir(),'nest-authoring-profile-'));
     try {
-      for(const folder of ['project','studio','chapter','engine','editor','demo','dice'])
-        cpSync(join(root,folder),join(temp,folder),{recursive:true,filter:path=>!path.includes('/vendor')&&!path.includes('/themes')});
+      for(const folder of ['project','studio','chapter','engine','player','assets/dice','editor','demo','dice']) {
+        const source=join(root,folder);
+        if(existsSync(source))cpSync(source,join(temp,folder),{recursive:true,filter:path=>!path.includes('/vendor')&&!path.includes('/themes')});
+      }
       cpSync(join(root,'tests/fixtures'),join(temp,'tests/fixtures'),{recursive:true});
       if(existsSync(join(root,'errors.js')))cpSync(join(root,'errors.js'),join(temp,'errors.js'));
       writeFileSync(join(temp,'package.json'),'{"type":"module"}');
       const modules=['project/dependencies.js','project/local-ownership.js','project/normalization.js',
         'project/validation.js','project/packages.js','studio/commands.js','chapter/model.js'];
       for(const path of modules) {
+        if(!existsSync(join(temp,path)))continue;
         const names=[];
         let source=readFileSync(join(temp,path),'utf8').replace(/export function (\w+)\(/g,(_,name)=>{
           names.push(name);return `function __profile_${name}(`;

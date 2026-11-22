@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {webcrypto} from 'node:crypto';
 import {createProject} from '../project/model.js';
 import {openProjectSession} from '../studio/project-session.js';
+import {projectFileUrl} from '../studio/project-file-actions.js';
 if (!globalThis.crypto) globalThis.crypto=webcrypto;
 function fixture({file=null,browser=true}={}) {
   const project=createProject();project.name='Browser project';
@@ -51,6 +52,50 @@ test('readonly prefers a valid existing file and otherwise browser without write
   const browser=await openProjectSession({...h,readonly:true,choose:noChoice});
   assert.equal(browser.loaded,h.browserLoaded);assert.equal(browser.backend,null);
   assert.equal(h.calls.length,0);assert.equal(h.writes.length,0);
+});
+
+test('an explicitly named Player file stays bound to that file on a local save API',async()=>{
+  for(const browser of [true,false]){
+    const h=fixture({browser});
+    const filename='Missing adventure.json';
+    const location={href:projectFileUrl(filename,'http://localhost/player.html')};
+    const open=()=>openProjectSession({...h,location,readonly:true,choose:noChoice});
+    const missing=await open();
+    assert.equal(missing.fileMode,true);
+    assert.equal(missing.requiredFile,true);
+    assert.equal(missing.loaded.project,null);
+    assert.match(missing.loaded.error,/Missing adventure\.json.*not found in saved-projects/);
+    h.backend.probe=async()=>({available:true,text:'invalid JSON'});
+    assert.equal((await open()).loaded.project,null);
+    h.backend.probe=async()=>{throw Error('HTTP 500');};
+    assert.equal((await open()).loaded.project,null);
+    const named=createProject();named.name='Named adventure';
+    h.backend.probe=async()=>({available:true,text:JSON.stringify(named)});
+    assert.equal((await open()).loaded.project.name,'Named adventure');
+    assert.equal(h.calls.length,0);assert.equal(h.writes.length,0);
+  }
+});
+
+test('static Player builds retain the browser project even when following a named URL',async()=>{
+  const h=fixture();
+  const location={href:projectFileUrl('Adventure.json','https://nest.example/player.html')};
+  h.backend.probe=async()=>({available:false});
+  const session=await openProjectSession({...h,location,readonly:true,choose:noChoice});
+  assert.equal(session.loaded,h.browserLoaded);assert.equal(session.fileMode,false);
+});
+
+test('a remembered Player file is required on a local API and an address overrides it',async()=>{
+  const h=fixture();
+  h.values.set('nest.project.active-file.v1','Previously opened.json');
+  const open=href=>openProjectSession({...h,location:{href},readonly:true,choose:noChoice});
+  const missing=await open('http://localhost/player.html');
+  assert.equal(missing.loaded.project,null);
+  assert.match(missing.loaded.error,/Previously opened\.json.*not found/);
+  const addressed=await open('http://localhost/player.html?project=Other.json');
+  assert.equal(addressed.selectedFilename,'Other.json');
+  assert.match(addressed.loaded.error,/Other\.json.*not found/);
+  h.backend.probe=async()=>({available:false});
+  assert.equal((await open('https://nest.example/player.html')).loaded,h.browserLoaded);
 });
 
 test('normalized identical projects and file-only sessions need no choice',async()=>{

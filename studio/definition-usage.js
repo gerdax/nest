@@ -6,8 +6,8 @@ const key = value => JSON.stringify(value);
 const startsWith = (path, prefix) => prefix.every((part, index) => path[index] === part);
 
 /** A read-only presentation of the dependency graph, with editor navigation identities. */
-export function definitionUsage(project, id) {
- const graph = definitionGraph(project || {}), users = graph.users(id);
+export function definitionUsage(project, id, graph = definitionGraph(project || {})) {
+ const users = graph.users(id);
  const definitions = new Map((project?.library || []).map(definition => [definition.id, definition]));
  const occurrences = [];
  for (const chapter of project?.chapters || []) for (const node of chapter.nodes || []) {

@@ -4,14 +4,13 @@
 2. **Mobile playtesting.** Tune touch controls, layout, and performance on real phones. Establish a repeatable process for installing and updating test builds so the team can try each iteration on devices.
 3. **Mobile release.** Develop NEST into a full game for iOS and Android, release it on the App Store and Google Play, and aim to reach a wide audience.
 
-## Proposed Android workflow
+## Mobile playtesting
 
-Use Capacitor to package the existing Player, the demo chapter, and its runtime assets. Keep two paths for testing:
+[Android Playtest](../android/README.md) uses a native WebView shell. Studio sends the selected chapter and its artwork over USB, and updates Player when its runtime files change. The device checks the candidate before activating it. Restart the app after disconnecting to verify offline startup.
 
-- **Studio iteration.** On a trusted Wi-Fi network, configure a development build to load the Player from the Mac's local NEST server. Open the same named project in Studio and Player. After saving a change in Studio, reload the Player on the phone to load the latest saved version without rebuilding the app.
-- **Installable demo.** Bundle a chosen export and its assets with the Player so the app can run offline. Use a signed Android App Bundle for Google Play internal testing. To ship a newer chapter in this mode, package the updated export in the next build.
+For fast development, a phone on trusted Wi-Fi can also open Player from the Mac's local server and reload after a Studio save. Use the offline Android build for device acceptance, including touch gestures, combat, dice, and the Rat attack-to-choice transition. [Mobile performance](mobile-performance.md) describes the repeatable comparison.
 
-The local-server preview is for development. Verify the packaged build separately on a phone, including startup offline, touch gestures, combat, and dice animation.
+Signed Android release packaging and an iOS distribution workflow are future release work.
 
 ## Card artwork export
 

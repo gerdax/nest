@@ -62,11 +62,12 @@ def legacy_image_aliases(root: Path) -> dict[Path, Path]:
 
 
 def image_manifest(root: Path) -> dict:
-    image_root = root.resolve() / "assets" / "img"
+    root = root.resolve()
+    image_root = root / "assets" / "img"
     return {"version": 1, "images": [
         {"filename": source.name, "path": source.relative_to(image_root).as_posix()}
         for source in image_files(root)
-    ]}
+    ], "aliases": [target.relative_to(image_root).as_posix() for target in legacy_image_aliases(root)]}
 
 
 def image_manifest_bytes(root: Path) -> bytes:

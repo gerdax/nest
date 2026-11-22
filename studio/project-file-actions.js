@@ -7,12 +7,19 @@ export function projectFileName(value) {
   return validateProjectFilename(name.endsWith('.json')?name:`${name}.json`);
 }
 
-export function activeProjectFilename({location=globalThis.location,storage}={}) {
+export function requestedProjectFilename(location=globalThis.location) {
   const names=new URL(location?.href??'http://localhost/editor.html').searchParams.getAll('project');
   if(names.length>1)throw Error('Choose one project file in the address.');
-  if(names.length)return validateProjectFilename(names[0]);
+  return names.length?validateProjectFilename(names[0]):null;
+}
+
+export function rememberedProjectFilename(storage) {
   try {const saved=storage?.getItem('nest.project.active-file.v1');if(saved)return validateProjectFilename(saved);} catch {}
-  return 'nest-project.json';
+  return null;
+}
+
+export function activeProjectFilename({location=globalThis.location,storage}={}) {
+  return requestedProjectFilename(location)??rememberedProjectFilename(storage)??'nest-project.json';
 }
 
 export function rememberProjectFile(filename,storage) {

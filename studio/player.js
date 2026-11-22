@@ -28,14 +28,17 @@ async function androidChapter() {
     throw error;
   }
 }
-let project=android?await androidChapter():exampleFactory?exampleFactory():stored.project??createProject();
+let project=android?await androidChapter():exampleFactory?exampleFactory():stored.project??(session?.requiredFile?null:createProject());
 if(session?.fileMode){
- window.history.replaceState(window.history.state,'',projectFileUrl(session.backend.filename,location.href));
- for(const link of document.querySelectorAll('a[href="./editor.html"]'))link.href=projectFileUrl(session.backend.filename,link.href);
+ const filename=stored.project&&!stored.error?session.backend.filename:session.selectedFilename;
+ if(filename){
+  window.history.replaceState(window.history.state,'',projectFileUrl(filename,location.href));
+  for(const link of document.querySelectorAll('a[href="./editor.html"]'))link.href=projectFileUrl(filename,link.href);
+ }
 }
 const preview=new ProjectPreview(document.querySelector('#preview'),{inventoryDock:true,inventoryHost:document.querySelector('.player-screen'),onChange:()=>{
   selector.value=preview.chapterId;
-  title.textContent=project.chapters.find(chapter=>chapter.id===preview.chapterId)?.name||'Chapter';
+  title.textContent=project?.chapters.find(chapter=>chapter.id===preview.chapterId)?.name||'Chapter';
 }});
 const tools=document.querySelector('#player-tools');
 tools.querySelector('.player-tools-panel').append(preview.stateReadout);
@@ -51,12 +54,18 @@ else {
   stopPerformanceTuning=mountPerformanceTuning(document.querySelector('#performance-mode'),preview);
 }
 function report(text,error=false){message.textContent=text;message.classList.toggle('error',error);if(error)tools.open=true;}
-function listChapters(){selector.innerHTML='';for(const chapter of sortedChapters(project)){const option=document.createElement('option');option.value=chapter.id;option.textContent=chapter.name;option.selected=chapter.id===startChapter(project)?.id;selector.append(option);}}
-function play(){try{preview.play(project,selector.value);tools.open=false;title.textContent=project.chapters.find(c=>c.id===selector.value)?.name||'Chapter';document.querySelector('#stop').disabled=false;report('Chapter ready.');return true;}catch(error){report(error.message,true);return false;}}
+function listChapters(){
+  selector.innerHTML='';selector.disabled=!project;
+  for(const control of ['play','restart','stop'])document.querySelector(`#${control}`).disabled=!project;
+  if(!project)return;
+  const start=startChapter(project)?.id;
+  for(const chapter of sortedChapters(project)){const option=document.createElement('option');option.value=chapter.id;option.textContent=chapter.name;option.selected=chapter.id===start;selector.append(option);}
+}
+function play(){if(!project)return false;try{preview.play(project,selector.value);tools.open=false;title.textContent=project.chapters.find(c=>c.id===selector.value)?.name||'Chapter';document.querySelector('#stop').disabled=false;report('Chapter ready.');return true;}catch(error){report(error.message,true);return false;}}
 selector.addEventListener('change',play);
 document.querySelector('#play').addEventListener('click',play);
-document.querySelector('#restart').addEventListener('click',()=>{preview.restart();tools.open=false;document.querySelector('#stop').disabled=false;report('Chapter restarted.');});
-document.querySelector('#stop').addEventListener('click',()=>{preview.stop();document.querySelector('#stop').disabled=true;report('Stopped. Play or restart to begin again.');});
+document.querySelector('#restart').addEventListener('click',()=>{if(!project)return;preview.restart();tools.open=false;document.querySelector('#stop').disabled=false;report('Chapter restarted.');});
+document.querySelector('#stop').addEventListener('click',()=>{if(!project)return;preview.stop();document.querySelector('#stop').disabled=true;report('Stopped. Play or restart to begin again.');});
 document.querySelector('#import').addEventListener('change',async event=>{const file=event.target.files[0];if(!file)return;try{const imported=parseCurrentProject(await file.text());project=imported;listChapters();if(play())report(`Opened ${file.name}.`);}catch(error){report(errorMessage('STUDIO_COULD_NOT_OPEN_PROJECT_OR_CHAPTER', {message: error.message}),true);}event.target.value='';});
 listChapters();
 const playing = play();

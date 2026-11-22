@@ -4,13 +4,13 @@ import { placementOverrideKeys } from '../project/cards.js';
 import { unique } from '../project/model-data.js';
 
 /** Read-only preflight. References point into the supplied document revision. */
-export function libraryRemovalPlan(project, id) {
+export function libraryRemovalPlan(project, id, graph) {
   const definition = project.library?.find(entry => entry.id === id);
   if (!definition || definition.visibility === 'local') return {
     definition, placements: [], blocked: true, reason: errorMessage('STUDIO_CHOOSE_A_SHARED_LIBRARY_SOURCE_TO_REMOVE'),
   };
   // Use the full graph rather than users(): users deliberately omits self refs.
-  const references = definitionGraph(project).references.filter(ref => ref.definitionId === id);
+  const references = (graph ?? definitionGraph(project)).references.filter(ref => ref.definitionId === id);
   const placements = references.filter(ref => ref.kind === 'placement' && ref.chapter && !ref.sourceDefinition);
   if (definition.kind === 'enemy') {
     const autoUses = references.filter(ref => ref.kind === 'enemy' && ref.node?.type === 'randomizer');

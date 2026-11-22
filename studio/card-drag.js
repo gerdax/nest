@@ -53,43 +53,51 @@ export class CardDrag {
   d.moved ||= Math.hypot(e.clientX-d.x,e.clientY-d.y)>5;
   if(!d.moved)return;
   this.suppressClick=true;
-  if(!this.ghost){
-   const doc=this.graph.root.ownerDocument;
-   this.ghost=doc.createElement('div');this.ghost.className='card-drag-ghost';
-   this.line=doc.createElement('div');this.line.className='card-drop-line';
-   this.graph.root.append(this.ghost,this.line);
-  }
-  this.paint(d);
-  if(!this.frame)this.tick();
+  d.dirty=true;
+  if(this.frame==null)this.tick();
  }
  paint(d){
   const g=this.graph,scale=uiScale(g.root);
-  for(const el of g.root.querySelectorAll('.node')){el.classList.toggle('card-drop-target',false);el.classList.toggle('card-drop-invalid',false);}
-  for(const el of g.root.querySelectorAll('.graph-card-row,.node-heading')){el.classList.toggle('card-drop-replace',false);el.classList.toggle('card-drop-invalid',false);}
-  const target=this.target(d,d);d.target=target;
+  if(!this.ghost){
+   const doc=g.root.ownerDocument;
+   this.ghost=doc.createElement('div');this.ghost.className='card-drag-ghost';
+   this.line=doc.createElement('div');this.line.className='card-drop-line';
+   g.root.append(this.ghost,this.line);
+  }
+  const target=this.target(d,d);
+  const hit=target?.header||target?.row||target?.nodeEl;
+  const marker=target?.invalid?'card-drop-invalid':target?.header||target?.row?'card-drop-replace':'card-drop-target';
+  this.highlight(hit,marker);
   this.ghost.textContent=`${target?.header?'Introduction'+(d.copy?' (copy)':''):target?.targetPlacementId?'Replace'+(d.copy?' with copy':''):d.copy?'+ Copy':!target&&this.graph.blankDrop(d)?'Remove':'Move'} · ${d.name}`;
   this.ghost.style.left=`${(d.clientX+14)/scale}px`;this.ghost.style.top=`${(d.clientY+14)/scale}px`;
   this.line.hidden=true;
-  if(!target)return;
-  if(target.header){target.header.classList.toggle(target.invalid?'card-drop-invalid':'card-drop-replace',true);return;}
-  if(target.row){target.row.classList.toggle(target.invalid?'card-drop-invalid':'card-drop-replace',true);return;}
-  target.nodeEl.classList.toggle(target.invalid?'card-drop-invalid':'card-drop-target',true);
-  if(target.invalid)return;
+  if(!target||target.header||target.row||target.invalid)return;
   const bounds=target.nodeEl.getBoundingClientRect(),row=target.rows[target.index],last=target.rows.at(-1);
   const anchor=target.nodeEl.querySelector('.graph-card-row[data-card-slot="intro"]')||target.nodeEl.querySelector('.node-heading');
   const y=row?row.getBoundingClientRect().top:last?last.getBoundingClientRect().bottom:anchor?.getBoundingClientRect().bottom??bounds.bottom;
   Object.assign(this.line.style,{left:`${(bounds.left+3)/scale}px`,top:`${y/scale}px`,width:`${(bounds.width-6)/scale}px`});this.line.hidden=false;
  }
+ highlight(element,marker){
+  if(element===this.highlighted&&marker===this.marker)return;
+  this.highlighted?.classList.toggle(this.marker,false);
+  element?.classList.toggle(marker,true);
+  this.highlighted=element;this.marker=marker;
+ }
  tick(){
-  const win=this.graph.root.ownerDocument.defaultView;
+  const g=this.graph,d=g.drag,win=g.root.ownerDocument.defaultView;
   this.frame=win.requestAnimationFrame(()=>{
-   this.frame=null;const g=this.graph,d=g.drag;if(d?.kind!=='card'||!d.moved)return;
-   if(g.panAtDragEdge(d))this.paint(d);
-   this.tick();
+   this.frame=null;
+   if(g.drag!==d||d?.kind!=='card'||!d.moved)return;
+   const panned=g.panAtDragEdge(d);
+   if(d.dirty||panned)this.paint(d);
+   d.dirty=false;
+   if(panned)this.tick();
   });
  }
  finish(e,d){
+  d.moved ||= Math.hypot(e.clientX-d.x,e.clientY-d.y)>5;
   if(d.moved){
+   this.suppressClick=true;
    const target=this.target(e,d);
    const remove=!target&&!e.altKey&&this.graph.blankDrop(e);
    this.clear();
@@ -102,10 +110,9 @@ export class CardDrag {
   }
  }
  clear(){
-  if(this.frame)this.graph.root.ownerDocument.defaultView.cancelAnimationFrame(this.frame);
+  if(this.frame!=null)this.graph.root.ownerDocument.defaultView.cancelAnimationFrame?.(this.frame);
   this.frame=null;this.ghost?.remove();this.line?.remove();this.ghost=null;this.line=null;
-  for(const el of this.graph.root.querySelectorAll('.node')){el.classList.toggle('card-drop-target',false);el.classList.toggle('card-drop-invalid',false);}
-  for(const el of this.graph.root.querySelectorAll('.graph-card-row,.node-heading')){el.classList.toggle('card-drop-replace',false);el.classList.toggle('card-drop-invalid',false);}
+  this.highlight();
  }
  consumeClick(){const suppress=this.suppressClick;this.suppressClick=false;return suppress;}
 }

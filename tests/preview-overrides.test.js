@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { createProject, compileChapter } from '../project/model.js';
 import { PreviewOverrides } from '../studio/preview-overrides.js';
 import { nodeInspector } from '../studio/inspectors.js';
+import { createEditorRenderState } from '../studio/editor-render-state.js';
 
 function fixture() {
  const project=createProject(),chapter=project.chapters[0],node=chapter.nodes[0];
@@ -25,12 +26,16 @@ test('editor graph markers cover entry effects and availability overrides, inclu
  const linear=chapter.nodes.find(n=>n.type==='linear'&&n!==node);linear.unavailableActions='disabled';
  chapter.nodes.find(n=>n.type==='container').unavailableActions='hidden';
  const source=readFileSync(new URL('../studio/editor.js',import.meta.url),'utf8');
- const body=/function renderGraph\(issues\)\{([\s\S]*?)\n\}\nfunction renderBeatToolbar/.exec(source)?.[1];
+ const body=/function renderGraph\(\)\{([\s\S]*?)\n\}\nfunction renderBeatToolbar/.exec(source)?.[1];
  assert.ok(body,'editor renderGraph is available');
  let rendered;
  const graph={selectedIds:new Set(),render(){rendered=new Set(this.overrideNodeIds);}};
- const render=new Function('issues','mode','graph','chapter','previewOverrides','project','selected','previewActiveNode','preview','updatePreviewHighlight','$','node','nodeClipboard','refreshNodeErrors','selectedGroup','renderBeatToolbar',body);
- const run=()=>render(undefined,'chapter',graph,()=>chapter,overrides,project,node.id,()=>null,null,()=>{},()=>({}),()=>node,null,()=>{},()=>undefined,()=>{});
+ const render=new Function('mode','graph','chapter','project','selected','previewActiveNode','preview','updatePreviewHighlight','node','currentNodeErrors','selectedGroup','renderBeatToolbar','renderState',body);
+ const renderState=createEditorRenderState();
+ const run=()=>{
+  const snapshot=structuredClone(project),current=snapshot.chapters[0];
+  render('chapter',graph,()=>current,snapshot,node.id,()=>null,null,()=>{},()=>node,()=>new Map(),()=>undefined,()=>{},renderState);
+ };
  run();assert.deepEqual(rendered,new Set([node.id,fork.id,linear.id]));
  project.ignoreAllOverrides=true;run();assert.deepEqual(rendered,new Set([node.id,fork.id,linear.id]));
  overrides.update(project,chapter,node,{command:'clear-overrides'});

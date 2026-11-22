@@ -73,7 +73,7 @@ export function createPersistence({loaded = {}, storage, onStatus = () => {}, on
         let result;
         try {
           const write = () => entry.generation === generation
-            ? perform(JSON.parse(entry.text), entry.options, entry.text, entry.generation)
+            ? perform(JSON.parse(entry.text), entry.automatic ? {...entry.options, autosave:true} : entry.options, entry.text, entry.generation)
             : {ok:false,cancelled:true,error:'Save cancelled before leaving this document.'};
           result = !download && locks?.request ? await locks.request(STORAGE_KEY + '.write', write) : await write();
         } catch (error) {
@@ -107,7 +107,7 @@ export function createPersistence({loaded = {}, storage, onStatus = () => {}, on
   };
   // Both automatic and explicit saves use the existing conflict-aware queue.
   // A completed old snapshot must not mark a newer, unsaved draft as saved.
-  const queueSave = (project, options = {}) => {
+  const queueSave = (project, options = {}, automatic = false) => {
     if (destroyed) return Promise.resolve({ok:false,cancelled:true});
     let text;
     try {text = JSON.stringify(project);}
@@ -124,8 +124,9 @@ export function createPersistence({loaded = {}, storage, onStatus = () => {}, on
       const previous = queue.at(-1);
       if (previous && !Object.keys(options).length && !Object.keys(previous.options).length) {
         previous.text = text;
+        previous.automatic &&= automatic;
         previous.waiters.push(resolve);
-      } else queue.push({text,options,generation,waiters:[resolve]});
+      } else queue.push({text,options,automatic,generation,waiters:[resolve]});
     });
     report();
     queueMicrotask(drain);
@@ -175,7 +176,7 @@ export function createPersistence({loaded = {}, storage, onStatus = () => {}, on
       const enabled = project.autosave !== false;
       // Persist a setting change once, including turning autosave off. Later
       // ordinary edits remain in memory until Save or re-enabling autosave.
-      if (!download && (enabled || enabled !== autosaveEnabled)) return queueSave(project);
+      if (!download && (enabled || enabled !== autosaveEnabled)) return queueSave(project, {}, !!backend);
       try {draftText = JSON.stringify(project);} catch (error) {
         saveFailure = errorMessage('STUDIO_SAVE_FAILED', {message:error.message});report();
         lastSaveResult = {ok:false,error:error.message};

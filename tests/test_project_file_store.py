@@ -96,6 +96,41 @@ class StoreTests(unittest.TestCase):
         self.assertEqual(len(list(self.store.directory.glob('*.migration.*'))), 1)
         self.assertEqual(backup.read_bytes(), source.encode())
 
+    def test_autosave_checkpoints_are_time_bucketed_and_leave_explicit_backups_alone(self):
+        self.save(project('original'), migrationSourceText='original browser data')
+        _, manual = self.save(project('manual'))
+        historical = self.store.directory / Path(manual['backupPath']).name
+        with patch('project_file_store.AUTOSAVE_MAX_COUNT', 2):
+            for time, before, after in [(300, 'manual', 'one'), (301, 'one', 'two'),
+                                        (600, 'two', 'three'), (900, 'three', 'four')]:
+                with patch('project_file_store.time.time', return_value=time):
+                    status, result = self.save(project(after), autosave=True)
+                self.assertEqual(status, 200)
+                if time == 301:
+                    self.assertNotIn('backupPath', result)
+                else:
+                    backup = self.store.directory / Path(result['backupPath']).relative_to('saved-projects')
+                    self.assertEqual(backup.read_text(), project(before))
+        checkpoints = self.store.directory / '.autosave-checkpoints' / self.store.filename
+        self.assertEqual([entry.read_text() for entry in sorted(checkpoints.iterdir())], [project('two'), project('three')])
+        self.assertEqual(historical.read_text(), project('original'))
+        self.assertEqual(len(list(self.store.directory.glob('*.migration.*'))), 1)
+        self.assertEqual(len(list(self.store.directory.glob('*.backup.*'))), 1)
+        self.assertEqual(self.store.list_projects()['files'][0]['name'], self.store.filename)
+
+    def test_autosave_byte_limit_and_conflicts(self):
+        self.save(project('initial'))
+        with patch('project_file_store.AUTOSAVE_MAX_BYTES', len(project('initial').encode()) + 12):
+            for time in [300, 600, 900]:
+                with patch('project_file_store.time.time', return_value=time):
+                    self.save(project(f'edit-{time}'), autosave=True)
+        checkpoints = self.store.directory / '.autosave-checkpoints' / self.store.filename
+        self.assertEqual(len(list(checkpoints.iterdir())), 1)
+        status, result = self.store.save({'text': project('stale'), 'expectedRevision': None, 'autosave': True})
+        self.assertEqual(status, 409)
+        self.assertTrue(result['conflict'])
+        self.assertEqual(len(list(checkpoints.iterdir())), 1)
+
     def test_failed_backup_or_replace_preserves_current_file(self):
         self.save()
         raw = self.store.path.read_bytes()

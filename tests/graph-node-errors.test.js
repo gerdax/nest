@@ -12,6 +12,7 @@ class Element {
  setAttribute(name,value){this.attributes.set(name,value);}
  removeAttribute(name){this.attributes.delete(name);}
  getAttribute(name){return this.attributes.get(name)??null;}
+ querySelector(){return {innerHTML:''};}
  querySelectorAll(){return [];}
 }
 class Root extends Element {

@@ -54,6 +54,55 @@ test('deep reconverging Random preflight is bounded, draws nothing, and still re
  deck.accept();assert.equal(controller.state.cardId,'sentinel');assert.equal(draws,depth);controller.destroy();
 });
 
+for(const distinct of [false,true])test(`equivalent entry effects reuse speculative routes across ${distinct?2:1} states per beat`,()=>{
+ const depth=15, card={id:'visible',kind:'event',text:'Visible',effects:[]};
+ const nodes=[{id:'start',type:'linear',cards:[card],connections:{next:'split0'}}];
+ for(let i=0;i<depth;i++) {
+  nodes.push({id:`split${i}`,type:'random',routes:[0,1].map(j=>({id:`side${j}`,weight:1,target:`branch${i}:${j}`}))});
+  for(let j=0;j<2;j++)nodes.push({id:`branch${i}:${j}`,type:'condition',routes:[],
+   entryEffects:[{op:'add',key:'count',value:1},...(distinct?[{op:'set',key:'side',value:j}]:[])],fallback:i+1<depth?`split${i+1}`:'end'});
+ }
+ nodes.push({id:'end',type:'linear',cards:[{...card,id:'sentinel'}],connections:{next:null}});
+ let draws=0;
+ const variables=['count','side'].map(id=>({id,type:'number',initial:0}));
+ const deck=new Deck(),controller=new ProjectController(deck,{startNode:'start',nodes,variables,library:[]},
+  {rng:()=>{draws++;return 0;}});
+ let visits=0;
+ const get=controller.nodes.get.bind(controller.nodes);
+ controller.nodes.get=id=>{visits++;return get(id);};
+ assert.equal(controller.departureBlocked(controller.card()),false);
+ assert.ok(visits<=(distinct?7:4)*depth,`preflight expanded ${visits} nodes`);
+ assert.equal(controller.state.variables.count,0);
+ assert.equal(draws,0);
+ deck.accept();
+ assert.equal(controller.state.cardId,'sentinel');
+ assert.equal(controller.state.variables.count,depth);
+ assert.equal(draws,depth);
+ controller.destroy();
+});
+
+test('a cached route cannot hide a return into an active ancestor',()=>{
+ const card={id:'visible',kind:'event',text:'Visible',effects:[]};
+ const nodes=[
+  {id:'start',type:'linear',cards:[card],connections:{next:'split'}},
+  {id:'split',type:'random',routes:[{id:'first',weight:1,target:'prepare'},{id:'second',weight:1,target:'second'}]},
+  {id:'prepare',type:'condition',routes:[],entryEffects:[{op:'set',key:'count',value:0}],fallback:'exit'},
+  {id:'second',type:'condition',routes:[],entryEffects:[{op:'set',key:'count',value:-1}],fallback:'join'},
+  {id:'exit',type:'condition',routes:[],fallback:'join'},
+  {id:'join',type:'condition',entryEffects:[{op:'add',key:'count',value:1}],
+   routes:[{id:'cycle',target:'exit',conditions:[{source:'variable',key:'count',op:'eq',value:0}]}],fallback:'end'},
+  {id:'end',type:'linear',cards:[card],connections:{next:null}}
+ ];
+ let draws=0;
+ const deck=new Deck(),controller=new ProjectController(deck,{startNode:'start',nodes,variables:[{id:'count',type:'number',initial:0}],library:[]},
+  {rng:()=>{draws++;return 0;}});
+ assert.equal(controller.departureBlocked(controller.card()),true);
+ assert.equal(deck.content.advanceDisabled,true);
+ assert.equal(controller.state.variables.count,0);
+ assert.equal(draws,0);
+ controller.destroy();
+});
+
 for(const target of ['missing','loop'])test(`startup routing failure ${target} stays blocked and restart can recover`,()=>{
  const node={id:'loop',type:'random',routes:[],fallback:target},deck=new Deck(),errors=[];
  const controller=new ProjectController(deck,{startNode:'loop',nodes:[node],variables:[],library:[]},{onError:(error,state)=>errors.push({message:error.message,state})});

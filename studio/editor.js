@@ -1,9 +1,7 @@
-import {isCommonDefinition,commonLibrary,commonRoleControls} from './common-library.js';
+import {isCommonDefinition,commonRoleControls} from './common-library.js';
 import { errorMessage } from '../errors.js';
 import { PreviewOverrides } from './preview-overrides.js';
-import { cardRuleIndicators } from './card-rule-indicators.js';
 import { definitionDestination } from './item-reference.js';
-import { createLibraryIndex } from '../project/library-index.js';
 import { sortedChapters, startChapter } from '../project/chapter-navigation.js';
 import { remapVariableClipboard, variableRenamesBetween } from './variable-ids.js';
 import { captureCardClipboard, canPasteCard } from './card-clipboard.js';
@@ -15,9 +13,8 @@ import { nodeIcon } from './node-icons.js';
 import { artworkSettings, parseArtworkSettings } from './artwork-settings.js';
 import { DocumentHistory } from './DocumentHistory.js';
 import { LocalCardDrafts } from './local-card-drafts.js';
-import { cardKinds, cardEditorTint } from '../project/cards.js';
-import { createProject,validateProject } from '../project/model.js';
-import { definitionGraph } from '../project/dependencies.js';
+import { cardKinds } from '../project/cards.js';
+import { createProject } from '../project/model.js';
 import { loadProject, readRecoveredSave, readConflictingSave } from '../project/storage.js';
 import { createPersistence, travelHistory, exportProjectDraft, exportStudioChapter, parseStudioImport } from './persistence.js';
 import { mountNodeCreateMenu } from './node-create-menu.js';
@@ -36,16 +33,16 @@ import { sourceCard, revealCardEntry, mountCardAccordion } from './card-navigati
 import { renderCardPreviews } from './card-preview.js';
 import { mountDescriptionEditors, descriptionEditorContext } from './description-tokens.js';
 import { bindImagePicker } from './image-picker.js';
+import { createArtworkValidation } from './artwork-validation.js';
 import { reloadArtwork } from '../engine/artworkReload.js';
 import { findPlacement } from './commands.js';
 import { applyDocumentCommand, documentScope } from './document-commands.js';
 import { transactDocument } from './document-session.js';
 import { mountProjectSettingsWindow } from './project-settings-window.js';
 import { mountHistoryShortcuts } from './history-shortcuts.js';
-import { libraryCardSlot, libraryCardCompatible, mountLibraryCardActions } from './library-cards.js';
+import { libraryCardSlot, mountLibraryCardActions } from './library-cards.js';
 import { mountViewShortcuts } from './view-shortcuts.js';
 import { mountPlayShortcuts } from './play-shortcuts.js';
-import { cardLabel } from './card-label.js';
 import { confirmLibraryRemoval } from './library-removal-confirmation.js';
 import { mountSaveConflictPanel } from './save-conflict-panel.js';
 import { openProjectSession } from './project-session.js';
@@ -53,9 +50,15 @@ import {createProjectFileActions,projectFileUrl} from './project-file-actions.js
 import {showProjectFileDialog,askUnsavedProjectChoice} from './project-file-dialog.js';
 import {showLibraryImportDialog} from './library-import-dialog.js';
 import {beatDetachmentError,beatGroups,beatGroupFor} from '../project/beat-groups.js';
+import { createEditorRenderState } from './editor-render-state.js';
+import { mountEditorLibrary } from './editor-library-view.js';
 
 mountStopwatch(document.querySelector('.studio-stopwatch'));
 const $=s=>document.querySelector(s),projectSession=await openProjectSession(),loaded=projectSession.loaded;
+const renderState=createEditorRenderState();
+const renderLibraryView=mountEditorLibrary($('#library-panel'),renderState);
+const artworkValidation=createArtworkValidation({baseURL:document.baseURI});
+let artworkMessages=[],artworkTimer,artworkRequest=0;
 const previewOverrides = new PreviewOverrides();
 const nodeErrors = new NodeErrors();
 let copiedArtwork = null;
@@ -115,7 +118,9 @@ const graph=new GraphView($('#canvas'),{
  onDelete:()=>{if(mode==='chapter'&&node())edit('delete-node');},
  onDeleteMany:ids=>{if(mode==='chapter'){preview.stop();edit('delete-nodes',{ids});}},
 });
-const projectSettingsWindow=mountProjectSettingsWindow($('#project-settings-overlay'),{trigger:$('#project-settings-toggle'),preview:$('#preview-window'),onOpen:()=>graph.cancel()});
+const projectSettingsWindow=mountProjectSettingsWindow($('#project-settings-overlay'),{trigger:$('#project-settings-toggle'),preview:$('#preview-window'),onOpen:()=>{
+ graph.cancel();renderProjectSettings();
+}});
 let conflictPanel;
 const makePersistence=options=>createPersistence({...options,eventTarget:window,onStatus:text=>{
  $('#save-status').textContent=text;
@@ -192,12 +197,12 @@ function renderErrors(issues){
   const nodeId=group&&!group.memberIds.includes(issue.nodeId)?group.memberIds[0]:issue.nodeId;
   return nodeId&&owner? `<div><button type="button" data-error-chapter="${esc(owner.id)}" data-error-beat="${esc(nodeId)}">${esc(issue.message)}</button></div>`
    :`<div>${esc(issue.message)}</div>`;
- }).join('');
+ }).join('')+artworkMessages.map(message=>`<div>${esc(message)}</div>`).join('');
 }
 function edit(type,data={}, {preserveProjectSettings=false,refresh=true}={}){
  graph.cancel();
  const outcome=transactDocument(history,localDrafts,draft=>applyDocumentCommand(draft,selection(),type,data,localDrafts));
- project=outcome.project;
+ if(outcome.changed)project=outcome.project;
  if(outcome.result?.variableRename){
   remapVariableClipboard(cardClipboard,outcome.result.variableRename);
   remapVariableClipboard(nodeClipboard?.data,outcome.result.variableRename);
@@ -213,29 +218,53 @@ function edit(type,data={}, {preserveProjectSettings=false,refresh=true}={}){
  if(refresh)render({preserveProjectSettings});
  else {
   $('#undo').disabled=!history.canUndo;$('#redo').disabled=!history.canRedo;
-  const issues=validateProject(project);
-  renderErrors(issues);
-  refreshNodeErrors(issues);
+  renderValidation();
+  refreshNodeErrors();
  }
  report(outcome.failure||'');
  return {ok:!outcome.failure,value:outcome.result?.value,saved};
 }
-function refreshNodeErrors(issues=validateProject(project)){
- const current=chapter(),messages=nodeErrors.forChapter(project,current,issues);
+function renderValidation(){
+ const revision=renderState.revision(project);
+ if(renderState.changed('validation',revision.id)){
+  renderErrors(revision.issues);
+  scheduleArtworkValidation();
+ }
+}
+function scheduleArtworkValidation({refresh=false}={}){
+ clearTimeout(artworkTimer);
+ const snapshot=project, request=++artworkRequest;
+ artworkTimer=setTimeout(async()=>{
+  const messages=await artworkValidation.projectIssues(snapshot,{refresh}).catch(error=>[error.message]);
+  if(project!==snapshot||request!==artworkRequest)return;
+  artworkMessages=messages;
+  renderErrors(renderState.revision(project).issues);
+ },150);
+}
+function currentNodeErrors(current,issues){
+ const messages=nodeErrors.forChapter(project,current,issues);
  for(const issue of issues)if(issue.chapterId===current.id&&issue.groupId){
   const groupMessages=messages.get(issue.groupId)??[];
   groupMessages.push(issue.message);messages.set(issue.groupId,groupMessages);
  }
- graph.setNodeErrors(messages);
+ return messages;
 }
-function renderGraph(issues){
+function refreshNodeErrors(){
+ const current=chapter();
+ if(graph.chapter?.id===current.id)graph.setNodeErrors(currentNodeErrors(current,renderState.revision(project).issues));
+}
+function renderGraph(){
  if(mode==='chapter'){
-  if(project.showDeathBeat===false&&node()?.type==='death'){selected=chapter().startNode;graph.selectedIds=new Set([selected]);}
-  graph.overrideNodeIds=new Set(chapter().nodes.filter(n=>previewOverrides.effects(project,chapter(),n).length || (['fork','linear','combat'].includes(n.type)&&n.unavailableActions&&n.unavailableActions!=='project') || (n.type==='combat'&&['show','hide'].includes(n.weaponCooldownVisibility))).map(n=>n.id));
-  refreshNodeErrors(issues);
+  const current=chapter();
+  if(project.showDeathBeat===false&&node()?.type==='death'){selected=current.startNode;graph.selectedIds=new Set([selected]);}
   graph.selectedGroupId=selectedGroup()?.id;
-  graph.render(project,chapter(),selected,previewActiveNode(preview,chapter()));
-  updatePreviewHighlight(graph,preview,chapter());
+  const revision=renderState.revision(project);
+  if(renderState.changed('graph',revision.id,current.id)){
+   graph.overrideNodeIds=new Set(current.nodes.filter(n=>n.entryEffects?.length || (['fork','linear','combat'].includes(n.type)&&n.unavailableActions&&n.unavailableActions!=='project') || (n.type==='combat'&&['show','hide'].includes(n.weaponCooldownVisibility))).map(n=>n.id));
+   graph.nodeErrors=currentNodeErrors(current,revision.issues);
+   graph.render(project,current,selected,previewActiveNode(preview,current),revision.libraryIndex);
+   updatePreviewHighlight(graph,preview,current);
+  }else graph.updateSelection(selected);
  }
  renderBeatToolbar();
 }
@@ -256,6 +285,7 @@ function renderBeatToolbar(){
  $('#paste-node').disabled=mode!=='chapter'||!nodeClipboard||nodeClipboard.projectId!==project.id;
 }
 function renderProjectSettings(){
+ if(!renderState.changed('project-settings',renderState.revision(project).id,localFilename))return;
  const root=$('#project-settings-content'),active=document.activeElement;
  const restore=root.contains(active),path=active?.dataset.path,scope=active?.dataset.scope;
  const start=restore&&['text','search'].includes(active.type)?active.selectionStart:null;
@@ -270,12 +300,13 @@ function renderProjectSettings(){
   next?.focus({preventScroll:true});if(next&&start!==null)next.setSelectionRange(start,end);
  }
 }
-function renderInspector({collapseCards=false,preserveProjectSettings=false}={}){
- const group=selectedGroup(),multiple=mode==='chapter'&&!group&&graph.selectedIds.size>1;
+function renderInspector({collapseCards=false}={}){
+ const group=selectedGroup(),multiple=mode==='chapter'&&!group&&graph.selectedIds.size>1,current=chapter();
  localDrafts.setContext(chapterId,selected);
  const sidebar=document.querySelector('aside'),scroll=sidebar.scrollTop;
  const settings=$('#settings'),active=document.activeElement;
- const focusedSetting=settings.contains(active)?{scope:active.dataset.scope,path:active.dataset.path}:null;
+ const refreshSettings=mode==='chapter'&&renderState.changed('chapter-settings',renderState.revision(project).id,current.id);
+ const focusedSetting=refreshSettings&&settings.contains(active)?{scope:active.dataset.scope,path:active.dataset.path}:null;
  const settingsOpen=$('#settings').querySelector('details')?.open;
  const globalInitialValuesOpen=settings.querySelector('[data-global-initial-values]')?.open;
  const chapterVariablesOpen=settings.querySelector('[data-chapter-variables]')?.open;
@@ -283,9 +314,9 @@ function renderInspector({collapseCards=false,preserveProjectSettings=false}={})
  const sameInspector=$('#inspector').dataset.key===inspectorKey;
  const expanded=sameInspector?[...$('#inspector').querySelectorAll('details')].map((el,i)=>el.open?i:-1):[];
  $('#settings').hidden=mode==='library';
- $('#settings').innerHTML=chapterSettingsInspector(project,chapter());
- if(!preserveProjectSettings)renderProjectSettings();
- $('#inspector').innerHTML=mode==='library'?definitionInspector(project,definition()):group?beatGroupInspector(chapter(),group):multiple?`<p class="small">${graph.selectedIds.size} beats selected.</p>`:nodeInspector(project,chapter(),node(),previewOverrides.effects(project,chapter(),node()));
+ if(refreshSettings)settings.innerHTML=chapterSettingsInspector(project,current);
+ const inspected=mode==='library'?definition():null;
+ $('#inspector').innerHTML=mode==='library'?definitionInspector(project,inspected,inspected&&renderState.revision(project).dependencies):group?beatGroupInspector(current,group):multiple?`<p class="small">${graph.selectedIds.size} beats selected.</p>`:nodeInspector(project,current,node(),previewOverrides.effects(project,current,node()));
  if(mode==='library'&&isCommonDefinition(definition())){const panel=$('#inspector').querySelector('.card-definition-panel');if(panel){panel.insertAdjacentHTML('afterbegin',commonRoleControls(project,definition()));const oldRemoval=panel.querySelector('[data-command="delete-definition"]');if(oldRemoval){const actions=oldRemoval.parentElement;actions.previousElementSibling?.remove();actions.remove();}const deletion=panel.querySelector('.common-delete');if(deletion)panel.append(deletion);}}
  renderCardPreviews($('#inspector'),project,node(),chapterId);
  mountDescriptionEditors($('#inspector'),textarea=>descriptionEditorContext(project,{
@@ -293,10 +324,11 @@ function renderInspector({collapseCards=false,preserveProjectSettings=false}={})
   placement:node()&&findPlacement(node(),textarea.closest('[data-placement]')?.dataset.placement)
  }));
  refreshCardClipboardButtons();
- applyCardStyles(preview.mount,project.cardStyles);
- if(settingsOpen)$('#settings').querySelector('details').open=true;
- if(globalInitialValuesOpen)settings.querySelector('[data-global-initial-values]').open=true;
- if(chapterVariablesOpen)settings.querySelector('[data-chapter-variables]').open=true;
+ if(refreshSettings){
+  if(settingsOpen)settings.querySelector('details').open=true;
+  if(globalInitialValuesOpen)settings.querySelector('[data-global-initial-values]').open=true;
+  if(chapterVariablesOpen)settings.querySelector('[data-chapter-variables]').open=true;
+ }
  if(sameInspector)[...$('#inspector').querySelectorAll('details')].forEach((el,i)=>{el.open=expanded.includes(i);});
  else if(mode==='library')for(const section of $('#inspector').querySelectorAll('details'))section.open=false;
  if(collapseCards)for(const entry of $('#inspector').querySelectorAll('details[data-placement],details[data-sequence]')){entry.open=false;entry.classList.remove('card-navigation-target');}
@@ -313,38 +345,30 @@ function renderInspector({collapseCards=false,preserveProjectSettings=false}={})
  sidebar.scrollTop=sameInspector?scroll:0;
 }
 function renderLibrary(){
- const common=libraryTab==='common';
- $('#library-list').hidden=common;$('#library-common').hidden=!common;
- $('.library-create-buttons').hidden=common;$('.library-search-controls').hidden=common;$('.library-intro > .small').hidden=common;
- for(const tab of ['content','common']){const button=$(`#library-${tab}-tab`);button.setAttribute('aria-selected',String(tab===libraryTab));button.tabIndex=tab===libraryTab?0:-1;button.classList.toggle('active-tab',tab===libraryTab);}
- $('#library-common').innerHTML=commonLibrary(project);for(const entry of $('#library-common').querySelectorAll('[data-definition]')){entry.classList.toggle('selected',entry.dataset.definition===definitionId);entry.setAttribute('aria-pressed',String(entry.dataset.definition===definitionId));}renderCardPreviews($('#library-common'),project,node(),chapterId);
- const libraryIndex=createLibraryIndex(project.library);
- const query=$('#library-search').value.toLowerCase();
- $('#library-search-clear').hidden=!query;
- const dependencies=definitionGraph(project);
- const match=$('#library-match-beat').checked;
- $('#library-list').innerHTML=project.library.filter(d=>d.visibility!=='local'&&!isCommonDefinition(d)&&`${cardLabel(d)} ${cardKinds[d.kind]?.label||d.kind} ${d.kind} ${(project.itemTags||[]).find(tag=>tag.id===d.tagId)?.name||''}`.toLowerCase().includes(query)).map(d=>{
-  const compatible=libraryCardCompatible(node(),d);
-  const indicators=cardRuleIndicators(project,{definitionId:d.id},libraryIndex);
-  const indicatorLabel=indicators.map(([letter,label])=>`${letter}: ${label}`).join('; ');
-  const hint=compatible?(node().type==='combat'?`Click to inspect. Double-click to replace the Enemy for ${node().name}.`:`Double-click to add to ${node().name}`):node()?'Cannot add this card type to the selected beat. Click to inspect.':'Select a beat to add this card. Click to inspect.';
-  return `<button type="button" draggable="true" data-definition="${esc(d.id)}" class="library-entry card-panel ${d.id===definitionId?'selected':''} ${match&&!compatible?'library-entry-incompatible':''}" data-card-type="${esc(d.kind)}" title="${esc(hint)}" style="--card-editor-tint:${esc(cardEditorTint(d.kind))}"><strong>${esc(cardLabel(d))}</strong><span class="library-card-meta"><span>${esc(cardKinds[d.kind]?.label||d.kind)} · ${dependencies.users(d.id).length} uses</span>${indicators.length?`<span class="library-card-rules" role="img" aria-label="${esc(indicatorLabel)}" title="${esc(indicatorLabel)}">${esc(indicators.map(([letter])=>letter).join(' · '))}</span>`:''}</span>${d.kind==='item'&&d.tagId?`<span class="library-item-tag">[${esc((project.itemTags||[]).find(tag=>tag.id===d.tagId)?.name||d.tagId)}]</span>`:''}</button>`;
- }).join('');
+ if(mode==='library')renderLibraryView(project,{tab:libraryTab,chapterId,node:node(),definitionId});
 }
 function render({preserveProjectSettings=false}={}){
  graph.cancelCreation();
  if(!project.chapters.some(c=>c.id===chapterId))chapterId=project.activeChapterId||project.chapters[0]?.id;
  if(selected!==undefined&&!chapter()?.nodes.some(n=>n.id===selected))selected=chapter()?.startNode;
  if(mode==='library'&&definition()?.visibility!=='local'&&isCommonDefinition(definition())!==(libraryTab==='common'))definitionId=project.library.find(d=>d.visibility!=='local'&&isCommonDefinition(d)===(libraryTab==='common'))?.id;
- $('#project-name').textContent=project.name;
- if(projectSession.fileMode)document.title=`${project.name} · ${localFilename??projectSession.backend.filename} · Nest Studio`;
- $('#chapter-selector').innerHTML=sortedChapters(project).map(c=>`<option value="${esc(c.id)}" ${c.id===chapterId?'selected':''}>${esc(c.name)}</option>`).join('');
+ if(renderState.changed('project-header',project.name,localFilename)){
+  $('#project-name').textContent=project.name;
+  if(projectSession.fileMode)document.title=`${project.name} · ${localFilename??projectSession.backend.filename} · Nest Studio`;
+ }
+ const chapterOptions=sortedChapters(project).map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
+ if(renderState.changed('chapter-options',chapterOptions))$('#chapter-selector').innerHTML=chapterOptions;
+ $('#chapter-selector').value=chapterId;
  $('#undo').disabled=!history.canUndo;$('#redo').disabled=!history.canRedo;
 
- $('#canvas').hidden=mode!=='chapter';$('#library-panel').hidden=mode!=='library';$('#node-tools').hidden=mode!=='chapter';$('#library-toolbar').hidden=mode!=='library';
- $('#chapter-view').classList.toggle('active-tab',mode==='chapter');$('#library-view').classList.toggle('active-tab',mode==='library');
- const issues=validateProject(project);renderErrors(issues);
- renderGraph(issues);renderLibrary();renderInspector({preserveProjectSettings});
+ if(renderState.changed('workspace',mode)){
+  $('#canvas').hidden=mode!=='chapter';$('#library-panel').hidden=mode!=='library';$('#node-tools').hidden=mode!=='chapter';$('#library-toolbar').hidden=mode!=='library';
+  $('#chapter-view').classList.toggle('active-tab',mode==='chapter');$('#library-view').classList.toggle('active-tab',mode==='library');
+ }
+ renderValidation();
+ if(!preserveProjectSettings&&!$('#project-settings-overlay').hidden)renderProjectSettings();
+ if(renderState.changed('preview-styles',JSON.stringify(project.cardStyles)))applyCardStyles(preview.mount,project.cardStyles);
+ renderGraph();renderLibrary();renderInspector();
 }
 function scopeRoot(scope,element){
  return documentScope(project,selection(),{scope,placementId:element.closest('[data-placement]')?.dataset.placement});
@@ -379,7 +403,7 @@ function changeField(event){const el=event.target,path=el.dataset.path,scope=el.
  if(description){
   // Blurring into the token menu must not replace its controls or lose the caret.
   renderCardPreviews($('#inspector'),project,node(),chapterId);
-  renderCardPreviews($('#library-common'),project,node(),chapterId);
+  if(mode==='library'&&libraryTab==='common')renderCardPreviews($('#library-common'),project,node(),chapterId);
  }
  if(scope==='initial-toggle'){
   // Keep the clicked checkbox and sidebar mounted; only its value field changes.
@@ -422,6 +446,7 @@ $('#inspector').addEventListener('input',event=>{
 for(const root of [$('#inspector'),$('#settings'),$('#project-settings-content')])bindImagePicker(root,{
  onSelect(scope,placementId,path,value){
   edit('image',{scope,placementId,path,value});
+  scheduleArtworkValidation({refresh:true});
  },onError:report
 });
 function refreshCardClipboardButtons(){
@@ -452,7 +477,10 @@ function command(event){const b=event.target.closest('[data-command]');if(!b||b.
   const image=b.dataset.path.split('.').reduce((value,key)=>value?.[key],scopeRoot(b.dataset.scope,b));
   if(!image)return;
   b.disabled=true;
-  reloadArtwork(image).then(()=>report('Image reloaded.')).catch(error=>report(errorMessage('STUDIO_IMAGE_RELOAD_FAILED', {message: error.message}))).finally(()=>{b.disabled=false;});
+  reloadArtwork(image).then(()=>report('Image reloaded.')).catch(error=>report(errorMessage('STUDIO_IMAGE_RELOAD_FAILED', {message: error.message}))).finally(()=>{
+   b.disabled=false;
+   scheduleArtworkValidation({refresh:true});
+  });
   return;
  }
  if(cmd==='clear-image'){
@@ -549,7 +577,7 @@ mountLibraryCardActions($('#library-list'),{
  onOpen:id=>{
   definitionId=id;
   // Keep the clicked element mounted so the browser can deliver its dblclick.
-  for(const entry of $('#library-list').querySelectorAll('[data-definition]'))entry.classList.toggle('selected',entry.dataset.definition===id);
+  renderLibraryView(project,{tab:libraryTab,chapterId,node:node(),definitionId},{selectionOnly:true});
   renderInspector();
  },
  onAdd:id=>{
@@ -560,7 +588,7 @@ mountLibraryCardActions($('#library-list'),{
 });
 $('#library-common').addEventListener('click',event=>{
  const entry=event.target.closest('[data-definition]');
- if(entry){definitionId=entry.dataset.definition;for(const item of $('#library-common').querySelectorAll('[data-definition]')){item.classList.toggle('selected',item===entry);item.setAttribute('aria-pressed',String(item===entry));}renderInspector();return;}
+ if(entry){definitionId=entry.dataset.definition;renderLibraryView(project,{tab:libraryTab,chapterId,node:node(),definitionId},{selectionOnly:true});renderInspector();return;}
  command(event);
 });
 for(const tab of ['content','common'])$(`#library-${tab}-tab`).onkeydown=event=>{
@@ -795,7 +823,25 @@ if(projectSession.fileMode){
  saveAs.onclick=()=>launch('save-as');open.onclick=()=>launch('open');
  for(const link of playerLinks)link.href=projectFileUrl(projectSession.backend.filename,link.href);
 }
-$('#export-chapter').onclick=()=>{try{download(exportStudioChapter(project,chapterId),`${chapter().name.replace(/[^a-z0-9]+/gi,'-')}.chapter.json`);report('Chapter exported.');}catch(error){report(errorMessage('STUDIO_CHAPTER_EXPORT_FAILED', {message: error.message}));}};
+async function exportCheckedChapter(){
+ const snapshot=exportStudioChapter(project,chapterId);
+ const issues=await artworkValidation.chapterIssues(snapshot);
+ if(issues.length){
+  scheduleArtworkValidation();
+  throw new Error(issues.join(' '));
+ }
+ return snapshot;
+}
+$('#export-chapter').onclick=async event=>{
+ const button=event.currentTarget;
+ button.disabled=true;
+ try{
+  const snapshot=await exportCheckedChapter();
+  download(snapshot,`${snapshot.chapter.name.replace(/[^a-z0-9]+/gi,'-')}.chapter.json`);
+  report('Chapter exported.');
+ }catch(error){report(errorMessage('STUDIO_CHAPTER_EXPORT_FAILED',{message:error.message}));}
+ finally{button.disabled=false;}
+};
 const androidTransfer = $('#transfer-android');
 const androidTransferUrl = './api/android-transfer';
 fetch(androidTransferUrl).then(response => response.ok && response.json()).then(status => {
@@ -807,7 +853,7 @@ fetch(androidTransferUrl).then(response => response.ok && response.json()).then(
 androidTransfer.onclick = async () => {
   androidTransfer.disabled = true;
   try {
-    const snapshot = exportStudioChapter(project, chapterId);
+    const snapshot = await exportCheckedChapter();
     report(`Transfer na Androida · ${snapshot.chapter.name}…`);
     const response = await fetch(androidTransferUrl, {
       method: 'POST',

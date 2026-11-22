@@ -74,6 +74,28 @@ test('an empty container skips its introduction and effects even on the first vi
  assert.deepEqual(errors,[]);controller.destroy();
 });
 
+test('pickup that hides the last remaining item still checks the Container exit',()=>{
+ const apple={...item,onCollect:[effect]};
+ const pear={...item,id:'pear',definitionId:'pear',conditions:[{source:'variable',key:'energy',op:'eq',value:0}]};
+ const {deck,controller}=fixture([box({introEnabled:false,items:[apple,pear],connections:{next:false}})],'hidden');
+ assert.equal(deck.content.actions.find(action=>action.id==='apple').collectDisabled,true);
+ assert.equal(deck.content.actions.find(action=>action.id==='pear').collectDisabled,false);
+ controller.destroy();
+});
+
+test('large Containers render without rescanning each possible pickup',()=>{
+ const items=Array.from({length:250},(_,i)=>({...item,id:`item-${i}`,definitionId:`item-${i}`}));
+ const {controller}=fixture([box({introEnabled:false,items,connections:{next:null}})]);
+ const cardAvailability=controller.cardAvailability.bind(controller);
+ let checks=0;
+ controller.cardAvailability=(...args)=>{checks++;return cardAvailability(...args);};
+ const content=controller.content();
+ assert.equal(content.actions.length,items.length);
+ assert.ok(content.actions.every(action=>!action.collectDisabled&&!action.discardDisabled));
+ assert.ok(checks<=3*items.length,`evaluated ${checks} item availabilities`);
+ controller.destroy();
+});
+
 for(const once of [false,true])test(`return visits show only remaining container items, introOnce=${once}`,()=>{
  const {deck,controller,errors}=fixture([
   box({introOnce:once,items:[item,{...item,id:'pear',definitionId:'pear',conditions:[{source:'variable',key:'energy',op:'gte',value:2}]}],connections:{next:'return'}}),

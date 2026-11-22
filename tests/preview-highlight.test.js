@@ -26,7 +26,8 @@ test('editor preview notification wiring uses highlight updates while document r
  const source=readFileSync(new URL('../studio/editor.js',import.meta.url),'utf8');
  assert.match(source,/onChange:state=>updatePreviewHighlight\(graph,preview,chapter\(\),state\)/);
  assert.match(source,/onStop:\(\)=>graph\.setActive\(null\)/);
- assert.match(source,/function renderGraph\(issues\)\{[\s\S]*?if\(mode==='chapter'\)\{[\s\S]*?graph\.render\(project,chapter\(\),selected,previewActiveNode\(preview,chapter\(\)\)\)/);
+ assert.match(source,/function renderGraph\(\)\{[\s\S]*?if\(mode==='chapter'\)\{[\s\S]*?graph\.render\(project,current,selected,previewActiveNode\(preview,current\),revision\.libraryIndex\)/);
+ assert.match(source,/else graph\.updateSelection\(selected\)/);
 });
 
 test('an Auto scene highlights its caller alongside each beat until the scene ends',()=>{

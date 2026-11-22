@@ -100,8 +100,30 @@ test('only moved, valid drops emit one edit and use Alt state at release',()=>{
  drag.finish({clientX:250,clientY:141}, {...d,moved:false});drag.finish({clientX:900,clientY:141},d);assert.equal(calls.length,1);
 });
 test('drag click suppression is consumed once and cleanup clears drop outlines',()=>{
- const {drag,classes}=fixture();drag.suppressClick=true;classes.add('card-drop-target');drag.clear();
+ const {drag,classes,el}=fixture();drag.suppressClick=true;drag.highlight(el,'card-drop-target');drag.clear();
  assert.equal(classes.size,0);assert.equal(drag.consumeClick(),true);assert.equal(drag.consumeClick(),false);
+});
+test('card drag samples paint the latest position and Alt state once per frame',()=>{
+ const {drag,graph}=fixture(),frames=new Map(),paints=[];
+ let frame=0;
+ Object.assign(graph.root.ownerDocument.defaultView,{
+  requestAnimationFrame:callback=>{frames.set(++frame,callback);return frame;},
+  cancelAnimationFrame:id=>frames.delete(id),
+ });
+ graph.panAtDragEdge=()=>false;
+ graph.drag={kind:'card',x:50,y:70};
+ drag.paint=d=>paints.push([d.clientX,d.clientY,d.copy]);
+ drag.move({clientX:120,clientY:100,altKey:false});
+ drag.move({clientX:150,clientY:170,altKey:true});
+ assert.equal(graph.drag.moved,true);
+ assert.equal(frames.size,1);
+ assert.deepEqual(paints,[]);
+ const callback=frames.get(1);frames.delete(1);callback();
+ assert.deepEqual(paints,[[150,170,true]]);
+ assert.equal(frames.size,0);
+ drag.move({clientX:190,clientY:170});
+ drag.clear();
+ assert.equal(frames.size,0);
 });
 
 test('moving onto empty canvas removes once; copy, click, outside and invalid node drops preserve the card',()=>{

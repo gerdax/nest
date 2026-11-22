@@ -10,8 +10,9 @@ export function transactDocument(history, localDrafts, command) {
   const previous = history.document, previousLibrary = previous.library;
   let result;
   let failure;
+  let changed = false;
   try {
-    history.transact(draft => {
+    changed = history.transact(draft => {
       result = command(draft) ?? {};
       const next = result.project ?? draft;
       // Existing unplaced drafts are authored data, including imported drafts.
@@ -44,5 +45,5 @@ export function transactDocument(history, localDrafts, command) {
   if(!failure&&rename&&(!rename.chapterId||JSON.parse(localDrafts.context||'null')?.[0]===rename.chapterId)){
     for(const draft of localDrafts.drafts.values())for(const saved of draft.types.values())remapVariableReferences(saved,rename.oldId,rename.newId);
   }
-  return {project:history.document, result, failure};
+  return {project:changed?history.document:previous, result, failure, changed};
 }
