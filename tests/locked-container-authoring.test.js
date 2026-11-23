@@ -42,6 +42,7 @@ test('locking a Container creates fixed local choices and preserves its introduc
  assert.deepEqual(definition(force).check,{mode:'stat',modifierVariable:'agility',difficulty:4});
  assert.deepEqual(definition(force).costs,[{source:'variable',key:'energy',amount:2}]);
  assert.equal(definition(leave).resolution,'direct');
+ assert.equal(node.allowLockpicking,true);
  assert.equal(node.allowForcing,false);
  assert.equal(node.intro,intro);assert.equal(node.items,items);assert.equal(node.connections,connections);
  assert.deepEqual(outputsForNode(project,node),['next']);
@@ -51,6 +52,7 @@ test('locking a Container creates fixed local choices and preserves its introduc
  assert.match(nodeInspector(project,chapter,node),/Locked introduction/);
  assert.ok(!nodeInspector(project,chapter,node).includes(`data-placement="${force.id}"`));
  assert.match(panel(lockpick),/Inventory trigger/);
+ assert.match(panel(lockpick),/<option value="" selected>Disabled<\/option>/);
  assert.doesNotMatch(panel(force),/Inventory trigger/);
  assert.match(panel(force),/Check settings/);
  assert.match(panel(leave),/Card source/);assert.match(panel(leave),/Paste/);
@@ -59,7 +61,8 @@ test('locking a Container creates fixed local choices and preserves its introduc
 
  const before=graphRows();
  assert.match(before,/data-lock-method="leave"/);
- assert.doesNotMatch(before,/data-lock-method="(?:lockpick|force)"/);
+ assert.match(before,/data-lock-method="lockpick"/);
+ assert.doesNotMatch(before,/data-lock-method="force"/);
  field('placement','contextItemId','flashlight',lockpick.id);
  field('node','allowForcing',true);
  assert.match(nodeInspector(project,chapter,node),/Cost: 2 Energy/);
@@ -91,6 +94,25 @@ test('locking a Container creates fixed local choices and preserves its introduc
  assert.equal(definition(force).costs[0].amount,2);
  assert.deepEqual(definition(force).check,{mode:'stat',modifierVariable:'agility',difficulty:4});
  assert.deepEqual(validateProject(project),[]);
+});
+
+test('Allow lockpicking is left of Allow forcing and preserves the trigger while hidden',()=>{
+ const {project,chapter,node,field,graphRows}=fixture();
+ field('node','locked',true);
+ const [lockpick]=node.choices;
+ const inspector=()=>nodeInspector(project,chapter,node);
+ assert.match(inspector(),/<div class="row">[^]*?data-path="allowLockpicking" checked[^]*?Allow lockpicking[^]*?data-path="allowForcing"[^]*?Allow forcing<\/label><\/div>/);
+ field('placement','contextItemId','flashlight',lockpick.id);
+ field('node','allowLockpicking',false);
+ assert.equal(lockpick.contextItemId,'flashlight');
+ assert.ok(!inspector().includes(`data-placement="${lockpick.id}"`));
+ assert.doesNotMatch(graphRows(),/data-lock-method="lockpick"/);
+ assert.deepEqual(validateProject(project),[]);
+ field('node','allowLockpicking',true);
+ assert.match(inspector(),/<option value="flashlight" selected>/);
+ assert.match(graphRows(),/data-lock-method="lockpick"/);
+ field('placement','contextItemId','',lockpick.id);
+ assert.match(inspector(),/<option value="" selected>Disabled<\/option>/);
 });
 
 test('shared lock sources keep local drafts and allow editing active rules over multiple saves',()=>{

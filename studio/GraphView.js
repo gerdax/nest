@@ -9,7 +9,6 @@ import { nodeIcon } from './node-icons.js';
 import { cardEditorTint,canonicalCardKind } from '../project/cards.js';
 import { createLibraryIndex } from '../project/library-index.js';
 import { cardRuleIndicators } from './card-rule-indicators.js';
-import { isTagKey, itemTag } from '../project/item-tags.js';
 
 
 /** Canvas interaction owns selection/pan, and emits completed document edits. */
@@ -275,8 +274,7 @@ export class GraphView {
   return containerLockMethods.flatMap(method=>{
    const placement=node.choices.find(p=>p?.lockMethod===method);
    if(!placement||method==='force'&&(node.allowForcing!==true||placement.allowBareHanded===false&&!placement.assistTool?.key))return [];
-   const key=placement.contextItemId;
-   if(method==='lockpick'&&!(this.definitionsById.get(key)?.kind==='item'||isTagKey(key)&&itemTag(this.project,key)))return [];
+   if(method==='lockpick'&&node.allowLockpicking===false)return [];
    return [placement];
   });
  }

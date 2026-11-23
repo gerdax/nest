@@ -188,13 +188,14 @@ function changeField(project, selection, field, localDrafts) {
     delete root.nextChapterId;
     return;
   }
-  if (scope === 'node' && ['locked','allowForcing'].includes(path)) {
+  if (scope === 'node' && ['locked','allowLockpicking','allowForcing'].includes(path)) {
     if(node.type!=='container'||typeof checked!=='boolean')throw new Error('Container lock settings require a Container and a checkbox value');
     if(path==='locked'&&checked){
       node.choices??=[];
       for(const method of containerLockMethods)if(!node.choices.some(placement=>placement?.lockMethod===method)){
         node.choices.push(makeContainerLockPlacement(project,method,chapter.id));
       }
+      node.allowLockpicking??=true;
       node.allowForcing??=false;
     }
     node[path]=checked;

@@ -459,8 +459,8 @@ export function validateProject(project, {allowDraft = false} = {}) {
         cid, nid);
       if (node.type === 'fork' && (node.intro !== undefined && !object(node.intro) || node.introEnabled === true
         && !object(node.intro))) add(errorMessage('VALIDATION_MISSING_INTRODUCTION', {label}), cid, nid);
-      for(const setting of ['locked','allowForcing'])if(Object.hasOwn(node,setting)&&(node.type!=='container'||typeof node[setting]!=='boolean')){
-        add(`${label}: ${setting==='locked'?'Locked':'Allow forcing'} requires a Container and a boolean value`,cid,nid);
+      for(const [setting,settingLabel] of [['locked','Locked'],['allowLockpicking','Allow lockpicking'],['allowForcing','Allow forcing']])if(Object.hasOwn(node,setting)&&(node.type!=='container'||typeof node[setting]!=='boolean')){
+        add(`${label}: ${settingLabel} requires a Container and a boolean value`,cid,nid);
       }
       if(node.type==='container'&&(node.locked===true||node.choices!==undefined)){
         const methods=list(node.choices).map(placement=>placement?.lockMethod);
@@ -597,7 +597,7 @@ export function validateProject(project, {allowDraft = false} = {}) {
             const resolved=resolvePlacement(project,p,index);
             inspectCard(resolved,label);
             if(!allowDraft&&node.locked===true){
-              if(lockMethod==='lockpick'&&linked&&resolved.resolution!=='check')add(`${label}: Lockpick requires a dice check`,cid,nid);
+              if(lockMethod==='lockpick'&&node.allowLockpicking!==false&&linked&&resolved.resolution!=='check')add(`${label}: Lockpick requires a dice check`,cid,nid);
               if(lockMethod==='force'&&node.allowForcing===true&&(p.allowBareHanded!==false||hasAssist)){
                 if(resolved.resolution!=='check')add(`${label}: Force open requires a dice check`,cid,nid);
                 if(!list(resolved.costs).some(cost=>cost?.source==='variable'&&cost.key==='energy'&&Number.isFinite(cost.amount)&&cost.amount>0)){

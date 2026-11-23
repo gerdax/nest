@@ -149,7 +149,9 @@ export function placementInspector(project,p,kind,index,slot,count=Infinity,chap
  }
  if(kind==='action'&&(!lockMethod||lockMethod==='lockpick')) {
   const enabled=supportsInventoryTrigger(nodeType,slot,p);
-  html+=select('Inventory trigger',enabled?p.contextItemId||'':'',enabled?inventoryItemOptions(project,chapter,p.contextItemId,{allowNone:true,includeTags:true}):[['','None']],'contextItemId','placement',{disabled:!enabled});
+  const choices=enabled?inventoryItemOptions(project,chapter,p.contextItemId,{allowNone:true,includeTags:true}):[['','None']];
+  if(lockMethod==='lockpick')choices[0]=['','Disabled'];
+  html+=select('Inventory trigger',enabled?p.contextItemId||'':'',choices,'contextItemId','placement',{disabled:!enabled});
   if(enabled)html+=itemReferenceLinks(project,p.contextItemId,chapter);
  }
  if(!leave&&kind!=='action')html+=rules(project,p.conditions,'conditions','placement','conditions',{chapter,createFlag:true,label:'Appearance conditions',help:kind==='item'?'All conditions must pass for this item to appear here. They do not limit Action triggers after collection.':'All conditions must pass for this card to appear here.'});
@@ -244,8 +246,10 @@ export function nodeInspector(project,chapter,node,previewEffects=node?.entryEff
    if(node.intro&&node.introEnabled!==false)html+=placementInspector(project,node.intro,kind,0,slot,Infinity,chapter,node);
   }else if(isContainerLockSlot(node.type,slot)){
    if(node.locked!==true)continue;
-   html+='<h3>Lock methods</h3>'+checkbox('Allow forcing',node.allowForcing===true,'allowForcing','node');
-   html+=containerLockMethods.filter(method=>method!=='force'||node.allowForcing===true).map(method=>{
+   html+='<h3>Lock methods</h3><div class="row">'+checkbox('Allow lockpicking',node.allowLockpicking!==false,'allowLockpicking','node')
+    +checkbox('Allow forcing',node.allowForcing===true,'allowForcing','node')+'</div>';
+   html+=containerLockMethods.map(method=>{
+    if(method==='lockpick'&&node.allowLockpicking===false||method==='force'&&node.allowForcing!==true)return '';
     const placement=node.choices?.find(p=>p?.lockMethod===method);
     return placement?placementInspector(project,placement,kind,0,slot,Infinity,chapter,node):'';
    }).join('');

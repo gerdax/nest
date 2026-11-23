@@ -19,10 +19,10 @@ class Deck extends EventTarget {
  reveal(){this.open=true;this.phase='choices';this.emit('reveal');this.emit('transitioncomplete',{transition:'reveal'});}
 }
 
-function fixture({intro=false,inventory=[],rolls=[],allowForcing=true,items=true,next='return',travel=false,assistTool,allowBareHanded,forceCheck,...options}={}){
+function fixture({intro=false,inventory=[],rolls=[],allowForcing=true,allowLockpicking,lockpickTrigger='tag:lockpick',unavailableActions='disabled-triggers',items=true,next='return',travel=false,assistTool,allowBareHanded,forceCheck,...options}={}){
  const project=createProject(),chapter=project.chapters[0];
  project.itemTags=[{id:'lockpick',name:'Lockpick'},{id:'prying',name:'Prying'}];
- project.unavailableActions='disabled-triggers';
+ project.unavailableActions=unavailableActions;
  project.variables.find(variable=>variable.id==='energy').initial=5;
  project.variables.push({id:'introduced',type:'number',initial:0});
  const check={pool:[{sides:6,count:1}],modifier:0,target:4};
@@ -38,8 +38,9 @@ function fixture({intro=false,inventory=[],rolls=[],allowForcing=true,items=true
   {...createDefinition('action','leave-action'),headline:'Leave it',image:'./assets/img/leave.png',resolution:'check',check,
    conditions:[{source:'variable',key:'energy',op:'gte',value:100}],costs:[energyCost],effects:[{op:'add',key:'introduced',value:1}]});
  const crate={id:'crate',type:'container',locked:true,allowForcing,introEnabled:intro,
+  ...(allowLockpicking===undefined?{}:{allowLockpicking}),
   intro:{id:'intro',definitionId:'locked-intro'},items:items?[{id:'loot',definitionId:'flashlight'}]:[],
-  choices:[{id:'lockpick',definitionId:'pick-action',lockMethod:'lockpick',contextItemId:'tag:lockpick'},
+  choices:[{id:'lockpick',definitionId:'pick-action',lockMethod:'lockpick',...(lockpickTrigger?{contextItemId:lockpickTrigger}:{})},
    {id:'force',definitionId:'force-action',lockMethod:'force',...(assistTool?{assistTool}:{}),
     ...(allowBareHanded===undefined?{}:{allowBareHanded})},
    {id:'leave',definitionId:'leave-action',lockMethod:'leave'}],connections:{next}};
@@ -60,6 +61,30 @@ function fixture({intro=false,inventory=[],rolls=[],allowForcing=true,items=true
 }
 const settle=()=>new Promise(resolve=>setImmediate(resolve));
 const action=(deck,id)=>deck.content.actions.find(candidate=>candidate.id===id);
+
+test('an enabled Lockpick without a trigger is visible as Route unavailable even with hidden actions',()=>{
+ const {deck,controller,errors}=fixture({allowForcing:false,lockpickTrigger:null,unavailableActions:'hidden',
+  inventory:[{}],rollCheck:()=>assert.fail('Disabled Lockpick must not roll')});
+ assert.deepEqual(deck.content.actions.map(card=>[card.id,card.disabled]),[['lockpick',true],['leave',false]]);
+ assert.equal(action(deck,'lockpick').disabledReason,'Route unavailable');
+ deck.choose('lockpick');
+ assert.equal(controller.containerLocked(),true);
+ assert.equal(controller.state.collectedItems.length,1);
+ deck.choose('leave');
+ assert.equal(controller.state.activeNodeId,'return');
+ assert.deepEqual(errors,[]);
+ controller.destroy();
+});
+
+test('turning off Lockpick hides the card even if the configured trigger is owned',()=>{
+ const {deck,controller,errors}=fixture({allowForcing:false,allowLockpicking:false,inventory:[{}]});
+ assert.deepEqual(deck.content.actions.map(card=>[card.id,card.disabled]),[['leave',false]]);
+ assert.equal(controller.location.node.choices[0].contextItemId,'tag:lockpick');
+ deck.choose('leave');
+ assert.equal(controller.state.activeNodeId,'return');
+ assert.deepEqual(errors,[]);
+ controller.destroy();
+});
 
 test('forcing can be retried until the Energy cost is unaffordable, and a shared Leave card remains free',async()=>{
  const {deck,controller,errors}=fixture({rolls:[1,1]});

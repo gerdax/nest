@@ -152,7 +152,7 @@ export class ProjectController {
     return (node.choices??[]).flatMap(choice=>{
       if(choice.lockMethod==='leave')return [{...choice,resolution:'direct',conditions:[],explicitConditions:[],costs:[],effects:[],
         contextItemId:undefined,contextInventoryKey:undefined,inventoryLabel:undefined,entrance:undefined}];
-      if(choice.lockMethod==='lockpick'&&choice.contextItemId)return [choice];
+      if(choice.lockMethod==='lockpick'&&node.allowLockpicking!==false)return [choice];
       if(choice.lockMethod==='force'&&node.allowForcing===true){
         const forcingTool=bestForcingTool(choice,values,inventory);
         if(forcingTool)return [{...choice,forcingTool}];
@@ -481,6 +481,9 @@ export class ProjectController {
     const linearFace=type==='linear'&&['action','item','consumable','health','energy'].includes(card?.kind),linearItem=linearFace&&card.kind==='item';
     let actions;
     if(choice)actions=(locked?this.lockChoices(location,values,inventory):this.choices(location)).flatMap(c=>{
+      if(c.lockMethod==='lockpick'&&!c.contextItemId) {
+        return [{...this.action(c,values),disabled:true,disabledReason:errorMessage('RUNTIME_ROUTE_UNAVAILABLE')}];
+      }
       const availability=actionAvailability(c,values,inventory,this.compiled,this.unavailableActions(location));
       if(availability.hidden)return [];
       const reason=availability.disabledReason||this.departureReason(c,location,values,inventory);
@@ -608,7 +611,11 @@ export class ProjectController {
     const effects=[...(source.effects??[]),...(outcome===undefined?[]:outcome?source.successEffects??[]:source.failureEffects??[])];
     return transact(values,inventory,{triggerItem,triggerInstance,breakTriggerItem:lockpick,costs:source.costs,effects},this.compiled.variables,this.compiled.library,inventoryOptions(this.compiled));
   }
-  available(source,values=this.variables,inventory=this.inventory) {return (!(source.contextInventoryKey??source.contextItemId)||canTriggerItem(inventory,source.contextInventoryKey??source.contextItemId))&&conditionsMet(source.conditions,values,inventory)&&affordCosts(values,inventory,source.costs,this.compiled.variables);}
+  available(source,values=this.variables,inventory=this.inventory) {
+    if(source.lockMethod==='lockpick'&&!source.contextItemId)return false;
+    const trigger=source.contextInventoryKey??source.contextItemId;
+    return (!trigger||canTriggerItem(inventory,trigger))&&conditionsMet(source.conditions,values,inventory)&&affordCosts(values,inventory,source.costs,this.compiled.variables);
+  }
   commit(detail) {
     if(this.combat){void this.combat.accept(detail);return;}
     const locked=this.containerLocked();
